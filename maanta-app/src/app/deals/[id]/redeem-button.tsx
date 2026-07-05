@@ -11,13 +11,32 @@ type RedeemState =
 export default function RedeemButton({ dealId }: { dealId: string }) {
   const [state, setState] = useState<RedeemState>({ step: "idle" });
 
+  function getLocation(): Promise<{ lat: number; lng: number } | null> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        () => resolve(null),
+        { timeout: 5000 }
+      );
+    });
+  }
+
   async function handleRedeem() {
     setState({ step: "loading" });
     try {
+      const location = await getLocation();
       const res = await fetch("/api/redemptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId }),
+        body: JSON.stringify({ dealId, lat: location?.lat, lng: location?.lng }),
       });
       const body = await res.json();
       if (!res.ok) {

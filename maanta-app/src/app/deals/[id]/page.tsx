@@ -17,6 +17,7 @@ type DealDetail = {
     mall_name: string | null;
     floor: string | null;
     node: string;
+    what3words_address: string;
   } | null;
 };
 
@@ -45,7 +46,7 @@ export default async function DealDetailPage({
   const { data: deal, error } = await supabase
     .from("deals")
     .select(
-      "id, title, description, image_url, discount_type, discount_value, deal_type, expires_at, merchant:merchants(merchant_name, mall_name, floor, node)"
+      "id, title, description, image_url, discount_type, discount_value, deal_type, expires_at, merchant:merchants(merchant_name, mall_name, floor, node, what3words_address)"
     )
     .eq("id", params.id)
     .maybeSingle<DealDetail>();
@@ -87,6 +88,11 @@ export default async function DealDetailPage({
           </span>
         )}
       </div>
+      {deal.merchant?.what3words_address && (
+        <p className="text-xs text-black/40 dark:text-white/40">
+          📍 ///{deal.merchant.what3words_address}
+        </p>
+      )}
 
       <RedeemButton dealId={deal.id} />
     </main>
