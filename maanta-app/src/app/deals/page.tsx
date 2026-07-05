@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 type Deal = {
@@ -27,6 +28,15 @@ function formatDiscount(deal: Deal) {
 
 export default async function DealsPage() {
   const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: deals, error } = await supabase
     .from("deals")
     .select(
