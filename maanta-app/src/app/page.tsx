@@ -14,7 +14,7 @@ export default async function Home() {
       <h1 className="text-2xl font-semibold">MAANTA</h1>
       {user ? (
         <p className="text-sm text-black/60 dark:text-white/60">
-          Signed in as {user.phone}
+          Signed in as {user.phone || user.email}
         </p>
       ) : null}
       <div className="flex gap-3">
