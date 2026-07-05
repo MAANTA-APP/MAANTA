@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SignOutButton from "./sign-out-button";
+import EnableNotificationsButton from "./enable-notifications-button";
 
 export default async function Home() {
   const supabase = createClient();
@@ -42,6 +43,7 @@ export default async function Home() {
           </Link>
         )}
       </div>
+      {user ? <EnableNotificationsButton /> : null}
     </main>
   );
 }
