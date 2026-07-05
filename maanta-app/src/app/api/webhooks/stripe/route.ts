@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getStripeClient } from "@/lib/stripe";
+import { notifyMerchant } from "@/lib/notify-merchant";
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -78,6 +79,12 @@ export async function POST(request: Request) {
       .update({ account_balance: Number(merchant.account_balance) + amount })
       .eq("id", merchantId);
   }
+
+  await notifyMerchant(service, merchantId, {
+    title: "Top-up received",
+    body: `KES ${amount} added to your MAANTA balance via card.`,
+    url: "/merchant/topup",
+  });
 
   return NextResponse.json({ received: true });
 }
