@@ -24,7 +24,15 @@ export default async function Home() {
           Browse Deals
         </Link>
         {user ? (
-          <SignOutButton />
+          <>
+            <Link
+              href="/merchant/onboard"
+              className="rounded border border-black/10 px-4 py-2 text-sm dark:border-white/20"
+            >
+              List Your Shop
+            </Link>
+            <SignOutButton />
+          </>
         ) : (
           <Link
             href="/login"
