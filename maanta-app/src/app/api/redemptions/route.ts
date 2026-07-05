@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { randomInt } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 
 const REDEMPTION_TTL_MS = 10 * 60 * 1000;
+// No spec'd geofence radius exists yet — 150m covers "somewhere in a mall/
+// shopping center" without being so tight normal GPS drift trips it. This
+// only flags for review; it never blocks a redemption.
+const GEOFENCE_FLAG_RADIUS_METERS = 150;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -15,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  const { dealId } = await request.json();
+  const { dealId, lat, lng } = await request.json();
   if (!dealId) {
     return NextResponse.json({ error: "Missing dealId." }, { status: 400 });
   }
@@ -34,9 +39,20 @@ export async function POST(request: Request) {
 
   const { data: deal } = await service
     .from("deals")
-    .select("id, merchant_id, is_active, expires_at, max_claims, claims_count, success_fee")
+    .select(
+      "id, merchant_id, is_active, expires_at, max_claims, claims_count, success_fee, merchant:merchants(what3words_address)"
+    )
     .eq("id", dealId)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      merchant_id: string;
+      is_active: boolean;
+      expires_at: string | null;
+      max_claims: number | null;
+      claims_count: number;
+      success_fee: number;
+      merchant: { what3words_address: string } | null;
+    }>();
 
   if (!deal || !deal.is_active) {
     return NextResponse.json(
@@ -59,6 +75,32 @@ export async function POST(request: Request) {
   const otpCode = randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + REDEMPTION_TTL_MS).toISOString();
 
+  // Best-effort geofencing: only runs if the browser provided coordinates
+  // and the merchant's what3words address resolves. Never blocks a
+  // redemption on its own — just flags it for review when the customer
+  // appears to be far from the shop.
+  let consumerGpsWkt: string | null = null;
+  let distanceFromShop: number | null = null;
+  let fraudFlags: string[] | null = null;
+  let reviewRequired = false;
+
+  if (typeof lat === "number" && typeof lng === "number") {
+    consumerGpsWkt = `SRID=4326;POINT(${lng} ${lat})`;
+
+    if (deal.merchant?.what3words_address) {
+      const merchantCoords = await convertWhat3WordsToCoordinates(
+        deal.merchant.what3words_address
+      );
+      if (merchantCoords) {
+        distanceFromShop = distanceMeters({ lat, lng }, merchantCoords);
+        if (distanceFromShop > GEOFENCE_FLAG_RADIUS_METERS) {
+          fraudFlags = ["geofence"];
+          reviewRequired = true;
+        }
+      }
+    }
+  }
+
   const { data: redemption, error } = await service
     .from("redemptions")
     .insert({
@@ -69,6 +111,10 @@ export async function POST(request: Request) {
       success_fee_charged: deal.success_fee,
       status: "pending",
       expires_at: expiresAt,
+      consumer_gps: consumerGpsWkt,
+      distance_from_shop: distanceFromShop,
+      fraud_flags: fraudFlags,
+      review_required: reviewRequired,
     })
     .select("id")
     .single();
