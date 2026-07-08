@@ -80,7 +80,7 @@ async function handleCheckoutCompleted(
     ? rawCurrency
     : "KES";
   const chargedAmount = (session.amount_total ?? 0) / 100;
-  const kesAmount = toKes(chargedAmount, currency);
+  const kesAmount = await toKes(chargedAmount, currency);
 
   const { applied } = await recordMerchantTransaction(service, {
     merchantId,
@@ -139,7 +139,7 @@ async function handleChargeRefunded(
 
   const currency = (charge.currency ?? "kes").toUpperCase();
   const refundedInCurrency = charge.amount_refunded / 100;
-  const kesAmount = toKes(
+  const kesAmount = await toKes(
     refundedInCurrency,
     isSupportedCurrency(currency) ? currency : "KES"
   );
@@ -186,7 +186,7 @@ async function handleDisputeCreated(
 
   const currency = (dispute.currency ?? "kes").toUpperCase();
   const disputedInCurrency = dispute.amount / 100;
-  const kesAmount = toKes(
+  const kesAmount = await toKes(
     disputedInCurrency,
     isSupportedCurrency(currency) ? currency : "KES"
   );
@@ -237,7 +237,7 @@ async function handleDisputeClosed(
 
   const currency = (dispute.currency ?? "kes").toUpperCase();
   const disputedInCurrency = dispute.amount / 100;
-  const kesAmount = toKes(
+  const kesAmount = await toKes(
     disputedInCurrency,
     isSupportedCurrency(currency) ? currency : "KES"
   );

@@ -19,6 +19,7 @@ officer contact) — fill in once incorporation is final.
 | `privacy-policy.md` | What data Maanta collects and why, under Kenya's Data Protection Act 2019 |
 | `refund-and-wallet-policy.md` | How the merchant wallet balance, top-ups, and refunds work |
 | `kyc-aml-policy.md` | Merchant onboarding verification and anti-money-laundering baseline |
+| `payment-processor-comparison.md` | Research comparing Stripe/IntaSend vs. Paystack/Flutterwave/Pesapal/DPO/Cellulant/Adyen/Checkout.com for the Nov 2026 decision |
 
 ## Known open questions for the lawyer
 
