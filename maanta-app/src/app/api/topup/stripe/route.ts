@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getStripeClient } from "@/lib/stripe";
+import { SUPPORTED_CURRENCIES, isSupportedCurrency } from "@/lib/currency";
 
 const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
 
@@ -15,9 +16,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  const { amount } = await request.json();
+  const { amount, currency = "KES" } = await request.json();
   if (!amount || amount <= 0) {
     return NextResponse.json({ error: "Missing amount." }, { status: 400 });
+  }
+  if (!isSupportedCurrency(currency)) {
+    return NextResponse.json(
+      { error: `Unsupported currency. Use one of: ${SUPPORTED_CURRENCIES.join(", ")}.` },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
       line_items: [
         {
           price_data: {
-            currency: "kes",
+            currency: currency.toLowerCase(),
             unit_amount: Math.round(amount * 100),
             product_data: {
               name: `MAANTA balance top-up — ${merchant.merchant_name}`,

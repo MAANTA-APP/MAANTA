@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { verifyWebhookChallenge } from "@/lib/intasend";
 import { notifyMerchant } from "@/lib/notify-merchant";
+import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
 
 export async function POST(request: Request) {
   const body = await request.json();
+  const service = createServiceClient();
 
   if (!verifyWebhookChallenge(body.challenge)) {
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: "Invalid webhook challenge.",
+      payload: body,
+    });
     return NextResponse.json({ error: "Invalid challenge." }, { status: 401 });
   }
 
@@ -18,7 +25,11 @@ export async function POST(request: Request) {
   const apiRef: string | undefined = body.api_ref;
   const match = apiRef?.match(/^topup:([0-9a-f-]+):/i);
   if (!match) {
-    console.error("Unrecognized api_ref on IntaSend webhook:", apiRef);
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `Unrecognized api_ref on IntaSend webhook: ${apiRef}`,
+      payload: body,
+    });
     return NextResponse.json({ received: true });
   }
 
@@ -26,42 +37,19 @@ export async function POST(request: Request) {
   const amount = Number(body.value ?? body.amount ?? 0);
   const invoiceId: string | null = body.invoice_id ?? body.id ?? null;
 
-  const service = createServiceClient();
-
-  // IntaSend may retry webhook delivery; skip if we've already credited this
-  // invoice rather than double-crediting the merchant's balance.
-  if (invoiceId) {
-    const { data: existing } = await service
-      .from("merchant_transactions")
-      .select("id")
-      .eq("provider_reference", invoiceId)
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json({ received: true });
-    }
-  }
-
-  await service.from("merchant_transactions").insert({
-    merchant_id: merchantId,
+  const { applied } = await recordMerchantTransaction(service, {
+    merchantId,
     amount,
-    transaction_type: "topup",
-    payment_provider: "intasend",
-    provider_reference: invoiceId,
+    transactionType: "topup",
+    paymentProvider: "intasend",
+    providerReference: invoiceId,
     description: "M-Pesa top-up via IntaSend",
+    currency: "KES",
+    chargedAmount: amount,
   });
 
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("account_balance")
-    .eq("id", merchantId)
-    .maybeSingle();
-
-  if (merchant) {
-    await service
-      .from("merchants")
-      .update({ account_balance: Number(merchant.account_balance) + amount })
-      .eq("id", merchantId);
+  if (!applied) {
+    return NextResponse.json({ received: true });
   }
 
   await notifyMerchant(service, merchantId, {

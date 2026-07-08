@@ -2,6 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from "@/lib/currency";
 
 type MpesaState =
   | { step: "idle" }
@@ -94,6 +95,7 @@ function MpesaTopup() {
 
 function StripeTopup() {
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<SupportedCurrency>("KES");
   const [state, setState] = useState<StripeState>({ step: "idle" });
 
   async function handleSubmit(e: FormEvent) {
@@ -103,7 +105,7 @@ function StripeTopup() {
       const res = await fetch("/api/topup/stripe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Number(amount) }),
+        body: JSON.stringify({ amount: Number(amount), currency }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -121,18 +123,34 @@ function StripeTopup() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm">
-        Amount (KES)
-        <input
-          type="number"
-          min="1"
-          required
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="500"
-          className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
-        />
-      </label>
+      <div className="flex gap-2">
+        <label className="flex flex-1 flex-col gap-1 text-sm">
+          Amount
+          <input
+            type="number"
+            min="1"
+            required
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="500"
+            className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Currency
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
+            className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <button
         type="submit"
         disabled={state.step === "loading"}
