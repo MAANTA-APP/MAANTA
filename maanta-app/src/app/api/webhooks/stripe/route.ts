@@ -122,33 +122,24 @@ async function handleCheckoutCompleted(
   });
 }
 
-// Wrapped in try/catch so a transient Stripe API failure (rate limit,
-// network blip, Stripe outage) surfaces to payment_webhook_failures via the
-// caller's try/catch instead of an uncaught rejection bypassing it. Returns
-// null on any failure — callers already treat null as "could not resolve
-// merchant" and log accordingly, but we log the underlying API error here
-// too so the actual cause (not just "not found") is on record.
+// Deliberately does NOT catch here. A thrown error means the Stripe API
+// call itself failed (rate limit, network blip, Stripe outage) — a
+// transient condition worth retrying, unlike "no matching session" (a data
+// condition, which is a normal `null` return, not a throw). Letting it
+// propagate means it's caught once, uniformly, by the top-level try/catch
+// in POST(), which logs it to payment_webhook_failures and returns 500 so
+// Stripe retries the delivery (safe: every ledger write here is idempotent
+// on provider_reference).
 async function findMerchantIdForPaymentIntent(
-  service: ReturnType<typeof createServiceClient>,
-  eventType: string,
   paymentIntentId: string | null
 ): Promise<string | null> {
   if (!paymentIntentId) return null;
-  try {
-    const stripe = getStripeClient();
-    const sessions = await stripe.checkout.sessions.list({
-      payment_intent: paymentIntentId,
-      limit: 1,
-    });
-    return sessions.data[0]?.client_reference_id ?? null;
-  } catch (err) {
-    await logWebhookFailure(service, {
-      paymentProvider: "stripe",
-      eventType,
-      errorMessage: `Stripe API call failed while resolving merchant for payment_intent ${paymentIntentId}: ${String(err instanceof Error ? err.message : err)}`,
-    });
-    return null;
-  }
+  const stripe = getStripeClient();
+  const sessions = await stripe.checkout.sessions.list({
+    payment_intent: paymentIntentId,
+    limit: 1,
+  });
+  return sessions.data[0]?.client_reference_id ?? null;
 }
 
 // Idempotency for refund/dispute money movements is keyed off the
@@ -181,11 +172,7 @@ async function handleChargeRefunded(
       ? charge.payment_intent
       : (charge.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(
-    service,
-    event.type,
-    paymentIntentId
-  );
+  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
   if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
@@ -251,11 +238,7 @@ async function handleDisputeCreated(
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(
-    service,
-    event.type,
-    paymentIntentId
-  );
+  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
   if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
@@ -319,11 +302,7 @@ async function handleDisputeClosed(
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(
-    service,
-    event.type,
-    paymentIntentId
-  );
+  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
   if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
