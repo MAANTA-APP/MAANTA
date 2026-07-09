@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   title: "Maanta — The mall, made live.",
   description:
     "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {
