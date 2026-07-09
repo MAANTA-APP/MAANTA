@@ -178,7 +178,7 @@ export function W3wChip({
   const clean = address.replace(/^\/+/, "");
   const inner = (
     <>
-      <span className="text-flame">///</span>
+      <span className="text-flame">{"///"}</span>
       {clean}
       {linked ? <span aria-hidden> ↗</span> : null}
     </>

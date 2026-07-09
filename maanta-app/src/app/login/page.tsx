@@ -1,27 +1,40 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { PhoneField, OtpCells, SegmentedControl, inputClass } from "@/components/ui/inputs";
+import { maskPhone } from "@/lib/ui";
+import { NODE_COOKIE } from "@/lib/nodes";
+import Link from "next/link";
 
 type Method = "phone" | "email";
 type Step = "contact" | "otp";
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter();
+  const params = useSearchParams();
   const [supabase] = useState(() => createClient());
   const [method, setMethod] = useState<Method>("phone");
   const [step, setStep] = useState<Step>("contact");
-  const [phone, setPhone] = useState("+254");
+  const [countryCode, setCountryCode] = useState("+254");
+  const [phoneLocal, setPhoneLocal] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(45);
 
-  const contact = method === "phone" ? phone : email;
+  const phone = `${countryCode}${phoneLocal.replace(/\D/g, "").replace(/^0+/, "")}`;
 
-  async function handleSendOtp(e: FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (step !== "otp" || resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [step, resendIn]);
+
+  async function sendOtp() {
     setError(null);
     setLoading(true);
     const { error } =
@@ -31,12 +44,21 @@ export default function LoginPage() {
     setLoading(false);
     if (error) {
       setError(error.message);
-      return;
+      return false;
     }
-    setStep("otp");
+    return true;
   }
 
-  async function handleVerifyOtp(e: FormEvent) {
+  async function handleSend(e: FormEvent) {
+    e.preventDefault();
+    if (await sendOtp()) {
+      setStep("otp");
+      setResendIn(45);
+      setOtp("");
+    }
+  }
+
+  async function handleVerify(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -49,119 +71,111 @@ export default function LoginPage() {
       setError(error.message);
       return;
     }
-    router.push("/");
+    const next = params.get("next");
+    const hasNode = document.cookie.includes(`${NODE_COOKIE}=`);
+    router.push(next ?? (hasNode ? "/feed" : "/select-mall"));
     router.refresh();
   }
 
-  function switchMethod(next: Method) {
-    setMethod(next);
-    setStep("contact");
-    setOtp("");
-    setError(null);
-  }
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Sign in to MAANTA</h1>
-
-      {step === "contact" && (
-        <div className="flex w-full max-w-sm flex-col gap-4">
-          <div className="flex rounded border border-black/10 p-1 text-sm dark:border-white/20">
-            <button
-              type="button"
-              onClick={() => switchMethod("phone")}
-              className={`flex-1 rounded px-3 py-1.5 ${
-                method === "phone" ? "bg-foreground text-background" : ""
-              }`}
-            >
-              Phone
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMethod("email")}
-              className={`flex-1 rounded px-3 py-1.5 ${
-                method === "email" ? "bg-foreground text-background" : ""
-              }`}
-            >
-              Email
-            </button>
-          </div>
-
-          <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
-            {method === "phone" ? (
-              <label className="flex flex-col gap-1 text-sm">
-                Phone number
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+254712345678"
-                  className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
-                />
-              </label>
-            ) : (
-              <label className="flex flex-col gap-1 text-sm">
-                Email address
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
-                />
-              </label>
-            )}
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-            >
-              {loading ? "Sending code…" : "Send code"}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {step === "otp" && (
-        <form onSubmit={handleVerifyOtp} className="flex w-full max-w-sm flex-col gap-4">
-          <p className="text-sm text-black/60 dark:text-white/60">
-            Enter the code sent to {contact}
-          </p>
-          <label className="flex flex-col gap-1 text-sm">
-            Verification code
-            <input
-              type="text"
-              inputMode="numeric"
-              required
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="123456"
-              className="rounded border border-black/10 px-3 py-2 dark:border-white/20 dark:bg-transparent"
+    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pb-10 pt-14">
+      {step === "contact" ? (
+        <>
+          <h1 className="text-center text-2xl font-bold text-ink">Sign in</h1>
+          <form onSubmit={handleSend} className="mt-10 flex flex-1 flex-col gap-5">
+            <SegmentedControl<Method>
+              options={[
+                { value: "phone", label: "Phone" },
+                { value: "email", label: "Email" },
+              ]}
+              value={method}
+              onChange={(m) => {
+                setMethod(m);
+                setError(null);
+              }}
             />
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-          >
-            {loading ? "Verifying…" : "Verify"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStep("contact");
-              setError(null);
-            }}
-            className="text-sm underline"
-          >
-            Use a different {method === "phone" ? "number" : "email"}
-          </button>
-        </form>
+            {method === "phone" ? (
+              <PhoneField
+                countryCode={countryCode}
+                onCountryCode={setCountryCode}
+                value={phoneLocal}
+                onChange={setPhoneLocal}
+                autoFocus
+              />
+            ) : (
+              <input
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={inputClass}
+              />
+            )}
+            {error ? <p className="text-sm font-medium text-flame">{error}</p> : null}
+            <Button type="submit" full loading={loading}>
+              Send code
+            </Button>
+            <p className="text-center text-xs text-faint">
+              By continuing you agree to our{" "}
+              <Link href="/terms" className="underline">
+                Terms
+              </Link>{" "}
+              &amp;{" "}
+              <Link href="/privacy" className="underline">
+                Privacy Policy
+              </Link>
+            </p>
+          </form>
+        </>
+      ) : (
+        <>
+          <h1 className="text-center text-2xl font-bold text-ink">Verify</h1>
+          <p className="mt-3 text-center text-sm text-muted">
+            Code sent to {method === "phone" ? maskPhone(phone) : email}{" "}
+            <button
+              type="button"
+              className="font-semibold text-ink underline"
+              onClick={() => setStep("contact")}
+            >
+              Edit
+            </button>
+          </p>
+          <form onSubmit={handleVerify} className="mt-8 flex flex-col gap-6">
+            <OtpCells value={otp} onChange={setOtp} />
+            {error ? (
+              <p className="text-center text-sm font-medium text-flame">{error}</p>
+            ) : null}
+            <Button type="submit" full loading={loading} disabled={otp.length !== 6}>
+              Verify
+            </Button>
+            {resendIn > 0 ? (
+              <p className="text-center text-sm text-faint">
+                Resend in 00:{String(resendIn).padStart(2, "0")}
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="text-center text-sm font-semibold text-ink underline"
+                onClick={async () => {
+                  if (await sendOtp()) setResendIn(45);
+                }}
+              >
+                Resend code
+              </button>
+            )}
+          </form>
+        </>
       )}
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
   );
 }

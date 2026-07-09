@@ -1,0 +1,130 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
+import { CoverImage } from "@/components/ui/cards";
+import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
+import { IconArrowLeft, IconCheck, IconPin } from "@/components/ui/icons";
+import { ButtonLink } from "@/components/ui/button";
+import { ClaimFlow } from "./claim-flow";
+
+export const dynamic = "force-dynamic";
+
+/** 8g Deal detail (+ 8ae fully-claimed state). */
+export default async function DealDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const deal = await getDeal(params.id);
+  if (!deal || !deal.merchants) notFound();
+
+  const [verified, user] = await Promise.all([
+    getVerifiedCounts([deal.merchant_id]),
+    getAppUser(),
+  ]);
+  const verifiedCount = verified.get(deal.merchant_id) ?? 0;
+
+  const expired = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
+  const fullyClaimed =
+    deal.max_claims != null && deal.claims_count >= deal.max_claims;
+  const claimable = deal.is_active && !expired && !fullyClaimed;
+  const m = deal.merchants;
+
+  const progress =
+    deal.max_claims != null && deal.max_claims > 0
+      ? Math.min(deal.claims_count / deal.max_claims, 1)
+      : null;
+
+  return (
+    <main className="pb-28">
+      <div className="relative h-64 bg-cream">
+        <CoverImage src={deal.image_url} alt={deal.title} />
+        <Link
+          href="/feed"
+          aria-label="Back"
+          className="absolute left-4 top-4 rounded-full bg-white/90 p-2 text-ink shadow"
+        >
+          <IconArrowLeft className="h-5 w-5" />
+        </Link>
+        <div className="absolute bottom-4 left-4 flex gap-1.5">
+          {fullyClaimed ? (
+            <span className="rounded-full bg-cream-dark px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+              Fully claimed
+            </span>
+          ) : (
+            <>
+              {deal.deal_type === "flash" ? <FlashTag /> : null}
+              {deal.boost_active ? <BoostedTag /> : null}
+              <CountdownChip expiresAt={deal.expires_at} className="bg-white/95" />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 pt-5">
+        <h1 className="text-2xl font-bold leading-tight text-ink">{deal.title}</h1>
+        {deal.description ? (
+          <p className="mt-2 text-sm text-muted">{deal.description}</p>
+        ) : null}
+
+        <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
+          <span className="flex items-center gap-1">
+            <IconPin className="h-3.5 w-3.5" />
+            <Link href={`/shops/${m.id}`} className="font-semibold text-ink underline-offset-2 hover:underline">
+              {m.merchant_name}
+            </Link>
+          </span>
+          {m.floor ? <span>· {m.floor}</span> : null}
+          <span>·</span>
+          <W3wChip address={m.what3words_address} />
+        </p>
+
+        {progress != null ? (
+          <div className="mt-5">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream">
+              <div
+                className={fullyClaimed ? "h-full bg-ink" : "h-full bg-brand"}
+                style={{ width: `${progress * 100}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-ink">
+          <IconCheck className="h-4 w-4 text-verified" />
+          <span className="font-semibold">{verifiedCount} verified redemptions</span>
+          {deal.max_claims != null ? (
+            <span className="text-muted">
+              ·{" "}
+              {fullyClaimed
+                ? `${deal.claims_count} of ${deal.max_claims} claimed — no codes left`
+                : `${deal.claims_count} of ${deal.max_claims} claimed`}
+            </span>
+          ) : null}
+        </p>
+      </div>
+
+      {claimable ? (
+        <ClaimFlow
+          dealId={deal.id}
+          dealTitle={deal.title}
+          merchantName={m.merchant_name}
+          w3w={m.what3words_address}
+          node={m.mall_name ?? deal.node}
+          signedIn={!!user}
+        />
+      ) : (
+        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-mobile border-t border-line bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 backdrop-blur">
+          <div className="space-y-2.5">
+            <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
+              {fullyClaimed ? "Fully claimed" : "Deal ended"}
+            </div>
+            <ButtonLink href="/feed" variant="ghost" full>
+              See similar deals
+            </ButtonLink>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
