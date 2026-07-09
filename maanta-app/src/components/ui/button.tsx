@@ -104,7 +104,7 @@ export function ButtonLink({
 /** 4d Sticky CTA bar — fixed to the bottom of mobile screens. */
 export function StickyCtaBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto max-w-mobile">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 mx-auto max-w-mobile">
       <div className="pointer-events-auto border-t border-line bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 backdrop-blur">
         {children}
       </div>
