@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
-import { randomInt } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
-
-const REDEMPTION_TTL_MS = 10 * 60 * 1000;
-// No spec'd geofence radius exists yet — 150m covers "somewhere in a mall/
-// shopping center" without being so tight normal GPS drift trips it. This
-// only flags for review; it never blocks a redemption.
-const GEOFENCE_FLAG_RADIUS_METERS = 150;
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -37,95 +29,63 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });
   }
 
-  const { data: deal } = await service
-    .from("deals")
-    .select(
-      "id, merchant_id, is_active, expires_at, max_claims, claims_count, success_fee, merchant:merchants(what3words_address)"
-    )
-    .eq("id", dealId)
-    .maybeSingle<{
-      id: string;
-      merchant_id: string;
-      is_active: boolean;
-      expires_at: string | null;
-      max_claims: number | null;
-      claims_count: number;
-      success_fee: number;
-      merchant: { what3words_address: string } | null;
+  // claim_deal is a self-authorizing, atomic RPC: it locks the deal row
+  // (FOR UPDATE), validates active/expiry/max_claims/merchant visibility,
+  // blocks a duplicate pending claim per shopper, and generates a
+  // collision-safe OTP — all inside the DB. It checks auth.uid() /
+  // current_user_id() internally, so it's safe to call with the regular
+  // RLS-respecting server client rather than the service-role client.
+  const consumerGpsWkt =
+    typeof lat === "number" && typeof lng === "number"
+      ? `SRID=4326;POINT(${lng} ${lat})`
+      : null;
+
+  const { data, error } = await supabase
+    .rpc("claim_deal", {
+      p_user_id: appUser.id,
+      p_deal_id: dealId,
+      p_consumer_device_id: null,
+      p_consumer_gps: consumerGpsWkt,
+    })
+    .single<{
+      redemption_id: string;
+      otp_code: string;
+      redemption_expires_at: string;
     }>();
 
-  if (!deal || !deal.is_active) {
-    return NextResponse.json(
-      { error: "This deal is no longer available." },
-      { status: 404 }
-    );
-  }
+  if (error || !data) {
+    const message = error?.message ?? "";
+    let status = 500;
+    let userMessage = "Could not start redemption. Please try again.";
 
-  if (deal.expires_at && new Date(deal.expires_at) < new Date()) {
-    return NextResponse.json({ error: "This deal has expired." }, { status: 410 });
-  }
-
-  if (deal.max_claims !== null && deal.claims_count >= deal.max_claims) {
-    return NextResponse.json(
-      { error: "This deal is fully claimed." },
-      { status: 410 }
-    );
-  }
-
-  const otpCode = randomInt(100000, 1000000).toString();
-  const expiresAt = new Date(Date.now() + REDEMPTION_TTL_MS).toISOString();
-
-  // Best-effort geofencing: only runs if the browser provided coordinates
-  // and the merchant's what3words address resolves. Never blocks a
-  // redemption on its own — just flags it for review when the customer
-  // appears to be far from the shop.
-  let consumerGpsWkt: string | null = null;
-  let distanceFromShop: number | null = null;
-  let fraudFlags: string[] | null = null;
-  let reviewRequired = false;
-
-  if (typeof lat === "number" && typeof lng === "number") {
-    consumerGpsWkt = `SRID=4326;POINT(${lng} ${lat})`;
-
-    if (deal.merchant?.what3words_address) {
-      const merchantCoords = await convertWhat3WordsToCoordinates(
-        deal.merchant.what3words_address
-      );
-      if (merchantCoords) {
-        distanceFromShop = distanceMeters({ lat, lng }, merchantCoords);
-        if (distanceFromShop > GEOFENCE_FLAG_RADIUS_METERS) {
-          fraudFlags = ["geofence"];
-          reviewRequired = true;
-        }
-      }
+    if (
+      message.includes("deal_not_found") ||
+      message.includes("merchant_not_available")
+    ) {
+      status = 404;
+      userMessage = "This deal is no longer available.";
+    } else if (message.includes("deal_expired")) {
+      status = 410;
+      userMessage = "This deal has expired.";
+    } else if (message.includes("deal_claim_limit_reached")) {
+      status = 410;
+      userMessage = "This deal is fully claimed.";
+    } else if (message.includes("active_claim_already_exists")) {
+      status = 409;
+      userMessage = "You already have an active claim on this deal.";
+    } else if (message.includes("unauthorized")) {
+      status = 403;
+      userMessage = "Not authorized.";
+    } else {
+      console.error("claim_deal RPC failed:", error);
     }
+
+    return NextResponse.json({ error: userMessage }, { status });
   }
 
-  const { data: redemption, error } = await service
-    .from("redemptions")
-    .insert({
-      deal_id: deal.id,
-      merchant_id: deal.merchant_id,
-      user_id: appUser.id,
-      otp_code: otpCode,
-      success_fee_charged: deal.success_fee,
-      status: "pending",
-      expires_at: expiresAt,
-      consumer_gps: consumerGpsWkt,
-      distance_from_shop: distanceFromShop,
-      fraud_flags: fraudFlags,
-      review_required: reviewRequired,
-    })
-    .select("id")
-    .single();
-
-  if (error || !redemption) {
-    console.error("Failed to create redemption:", error);
-    return NextResponse.json(
-      { error: "Could not start redemption. Please try again." },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({ redemptionId: redemption.id, otpCode, expiresAt });
+  return NextResponse.json({
+    redemptionId: data.redemption_id,
+    otpCode: data.otp_code,
+    expiresAt: data.redemption_expires_at,
+  });
 }

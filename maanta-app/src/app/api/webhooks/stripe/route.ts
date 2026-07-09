@@ -39,21 +39,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed":
-      await handleCheckoutCompleted(service, event);
-      break;
-    case "charge.refunded":
-      await handleChargeRefunded(service, event);
-      break;
-    case "charge.dispute.created":
-      await handleDisputeCreated(service, event);
-      break;
-    case "charge.dispute.closed":
-      await handleDisputeClosed(service, event);
-      break;
-    default:
-      break;
+  // Everything past signature verification can throw: Stripe API calls
+  // (findMerchantIdForPaymentIntent) can fail transiently, and a handler bug
+  // shouldn't silently 500 with no record. Catching here guarantees every
+  // failure path reaches payment_webhook_failures instead of only ever
+  // showing up in ephemeral server logs. Returning 500 (rather than 200)
+  // lets Stripe retry the delivery — safe to retry because every handler's
+  // ledger write is idempotent on provider_reference.
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(service, event);
+        break;
+      case "charge.refunded":
+        await handleChargeRefunded(service, event);
+        break;
+      case "charge.dispute.created":
+        await handleDisputeCreated(service, event);
+        break;
+      case "charge.dispute.closed":
+        await handleDisputeClosed(service, event);
+        break;
+      default:
+        break;
+    }
+  } catch (err) {
+    console.error(`Stripe webhook handler failed for ${event.type}:`, err);
+    await logWebhookFailure(service, {
+      paymentProvider: "stripe",
+      eventType: event.type,
+      errorMessage: `Handler threw: ${String(err instanceof Error ? err.message : err)}`,
+    });
+    return NextResponse.json({ error: "Webhook handler failed." }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });
@@ -105,16 +122,53 @@ async function handleCheckoutCompleted(
   });
 }
 
+// Wrapped in try/catch so a transient Stripe API failure (rate limit,
+// network blip, Stripe outage) surfaces to payment_webhook_failures via the
+// caller's try/catch instead of an uncaught rejection bypassing it. Returns
+// null on any failure — callers already treat null as "could not resolve
+// merchant" and log accordingly, but we log the underlying API error here
+// too so the actual cause (not just "not found") is on record.
 async function findMerchantIdForPaymentIntent(
+  service: ReturnType<typeof createServiceClient>,
+  eventType: string,
   paymentIntentId: string | null
 ): Promise<string | null> {
   if (!paymentIntentId) return null;
-  const stripe = getStripeClient();
-  const sessions = await stripe.checkout.sessions.list({
-    payment_intent: paymentIntentId,
-    limit: 1,
-  });
-  return sessions.data[0]?.client_reference_id ?? null;
+  try {
+    const stripe = getStripeClient();
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+    return sessions.data[0]?.client_reference_id ?? null;
+  } catch (err) {
+    await logWebhookFailure(service, {
+      paymentProvider: "stripe",
+      eventType,
+      errorMessage: `Stripe API call failed while resolving merchant for payment_intent ${paymentIntentId}: ${String(err instanceof Error ? err.message : err)}`,
+    });
+    return null;
+  }
+}
+
+// Idempotency for refund/dispute money movements is keyed off the
+// underlying payment_intent (not charge.id / dispute.id, which are
+// unrelated strings for what can be the same money movement — the same
+// payment_intent can go through: dispute opened (hold) -> dispute resolved
+// via refund instead of dispute-closed-won -> without this, both a hold
+// debit AND a refund debit would apply for the same money, double-debiting
+// the merchant's wallet).
+async function hasExistingLedgerEntry(
+  service: ReturnType<typeof createServiceClient>,
+  providerReference: string
+): Promise<boolean> {
+  const { data } = await service
+    .from("merchant_transactions")
+    .select("id")
+    .eq("payment_provider", "stripe")
+    .eq("provider_reference", providerReference)
+    .maybeSingle();
+  return !!data;
 }
 
 async function handleChargeRefunded(
@@ -127,12 +181,35 @@ async function handleChargeRefunded(
       ? charge.payment_intent
       : (charge.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
-  if (!merchantId) {
+  const merchantId = await findMerchantIdForPaymentIntent(
+    service,
+    event.type,
+    paymentIntentId
+  );
+  if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
       eventType: event.type,
       errorMessage: `Could not resolve merchant for refunded charge ${charge.id}.`,
+    });
+    return;
+  }
+
+  // If an unresolved dispute hold already exists for this payment_intent,
+  // that hold already accounts for the money leaving the merchant's
+  // balance — applying a second, unrelated refund debit on top would be a
+  // double-debit for the same underlying charge.
+  const holdReference = `${paymentIntentId}:hold`;
+  const releaseReference = `${paymentIntentId}:release`;
+  const hasUnresolvedHold =
+    (await hasExistingLedgerEntry(service, holdReference)) &&
+    !(await hasExistingLedgerEntry(service, releaseReference));
+
+  if (hasUnresolvedHold) {
+    await logWebhookFailure(service, {
+      paymentProvider: "stripe",
+      eventType: event.type,
+      errorMessage: `Skipped refund debit for payment_intent ${paymentIntentId}: an unresolved dispute hold (${holdReference}) already accounts for this money movement (charge ${charge.id}).`,
     });
     return;
   }
@@ -149,7 +226,7 @@ async function handleChargeRefunded(
     amount: -kesAmount,
     transactionType: "refund",
     paymentProvider: "stripe",
-    providerReference: `${charge.id}:refund`,
+    providerReference: `${paymentIntentId}:refund`,
     description: "Refund via Stripe",
     currency: isSupportedCurrency(currency) ? currency : "KES",
     chargedAmount: refundedInCurrency,
@@ -174,12 +251,29 @@ async function handleDisputeCreated(
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
-  if (!merchantId) {
+  const merchantId = await findMerchantIdForPaymentIntent(
+    service,
+    event.type,
+    paymentIntentId
+  );
+  if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
       eventType: event.type,
       errorMessage: `Could not resolve merchant for dispute ${dispute.id}.`,
+    });
+    return;
+  }
+
+  // Symmetric guard: if this payment_intent was already refunded, the money
+  // has already left the merchant's balance via the refund path — don't
+  // also apply a dispute hold on top of it.
+  const refundReference = `${paymentIntentId}:refund`;
+  if (await hasExistingLedgerEntry(service, refundReference)) {
+    await logWebhookFailure(service, {
+      paymentProvider: "stripe",
+      eventType: event.type,
+      errorMessage: `Skipped dispute hold for payment_intent ${paymentIntentId}: already refunded (${refundReference}), avoiding a double-debit for dispute ${dispute.id}.`,
     });
     return;
   }
@@ -198,7 +292,7 @@ async function handleDisputeCreated(
     amount: -kesAmount,
     transactionType: "dispute",
     paymentProvider: "stripe",
-    providerReference: `${dispute.id}:hold`,
+    providerReference: `${paymentIntentId}:hold`,
     description: "Funds held for card dispute via Stripe",
     currency: isSupportedCurrency(currency) ? currency : "KES",
     chargedAmount: disputedInCurrency,
@@ -225,8 +319,12 @@ async function handleDisputeClosed(
       ? dispute.payment_intent
       : (dispute.payment_intent?.id ?? null);
 
-  const merchantId = await findMerchantIdForPaymentIntent(paymentIntentId);
-  if (!merchantId) {
+  const merchantId = await findMerchantIdForPaymentIntent(
+    service,
+    event.type,
+    paymentIntentId
+  );
+  if (!merchantId || !paymentIntentId) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
       eventType: event.type,
@@ -247,7 +345,7 @@ async function handleDisputeClosed(
     amount: kesAmount,
     transactionType: "dispute",
     paymentProvider: "stripe",
-    providerReference: `${dispute.id}:release`,
+    providerReference: `${paymentIntentId}:release`,
     description: "Dispute won — held funds released via Stripe",
     currency: isSupportedCurrency(currency) ? currency : "KES",
     chargedAmount: disputedInCurrency,

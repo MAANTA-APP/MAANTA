@@ -21,53 +21,44 @@ type LedgerEntry = {
   chargedAmount?: number;
 };
 
-// Records a ledger entry and adjusts the merchant's balance in one place, so
-// every payment webhook (topups, refunds, disputes, across providers) shares
-// the same idempotency check and balance-update logic instead of each
-// reimplementing it slightly differently.
+// Records a ledger entry and adjusts the merchant's balance in one atomic
+// DB call, so every payment webhook (topups, refunds, disputes, across
+// providers) shares the same idempotency check and balance-update logic
+// instead of each reimplementing it slightly differently.
+//
+// Delegates to the record_merchant_ledger_entry RPC (service_role-only,
+// SECURITY DEFINER) rather than doing this as three separate round trips
+// (select-then-insert idempotency check, insert, read-then-update balance)
+// the way this function used to. That prior version had both a TOCTOU race
+// on the idempotency check and a lost-update race on the balance itself
+// under concurrent webhook delivery, and silently swallowed insert/update
+// errors. The RPC does the idempotency check via a real UNIQUE constraint
+// on provider_reference (merchant_transactions_provider_reference_key)
+// inside the same transaction as the balance UPDATE and the ledger INSERT,
+// so a duplicate delivery rolls back cleanly and errors are surfaced.
 export async function recordMerchantTransaction(
   service: ServiceClient,
   entry: LedgerEntry
 ): Promise<{ applied: boolean }> {
-  if (entry.providerReference) {
-    const { data: existing } = await service
-      .from("merchant_transactions")
-      .select("id")
-      .eq("provider_reference", entry.providerReference)
-      .maybeSingle();
+  const { data, error } = await service
+    .rpc("record_merchant_ledger_entry", {
+      p_merchant_id: entry.merchantId,
+      p_amount: entry.amount,
+      p_transaction_type: entry.transactionType,
+      p_payment_provider: entry.paymentProvider,
+      p_provider_reference: entry.providerReference,
+      p_description: entry.description,
+      p_currency: entry.currency ?? "KES",
+      p_charged_amount: entry.chargedAmount ?? null,
+    })
+    .single<{ applied: boolean; new_balance: number | null; new_arrears: number | null }>();
 
-    if (existing) {
-      return { applied: false };
-    }
+  if (error) {
+    console.error("record_merchant_ledger_entry RPC failed:", error, entry);
+    return { applied: false };
   }
 
-  await service.from("merchant_transactions").insert({
-    merchant_id: entry.merchantId,
-    amount: entry.amount,
-    transaction_type: entry.transactionType,
-    payment_provider: entry.paymentProvider,
-    provider_reference: entry.providerReference,
-    description: entry.description,
-    currency: entry.currency ?? "KES",
-    charged_amount: entry.chargedAmount ?? null,
-  });
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("account_balance")
-    .eq("id", entry.merchantId)
-    .maybeSingle();
-
-  if (merchant) {
-    await service
-      .from("merchants")
-      .update({
-        account_balance: Number(merchant.account_balance) + entry.amount,
-      })
-      .eq("id", entry.merchantId);
-  }
-
-  return { applied: true };
+  return { applied: data?.applied ?? false };
 }
 
 // Persists webhook failures that would otherwise only be visible in
