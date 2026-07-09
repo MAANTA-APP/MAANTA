@@ -14,7 +14,6 @@ export async function POST(request: Request) {
 
   const {
     merchantName,
-    mallName,
     floor,
     unitNumber,
     what3wordsAddress,
@@ -42,55 +41,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });
   }
 
-  const { data: existingMerchant } = await service
-    .from("merchants")
-    .select("id")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
+  // onboard_merchant is a self-authorizing, atomic RPC: it checks the
+  // caller is either the merchant being onboarded or an admin, guards
+  // against double-onboarding, inserts the merchants row, and promotes the
+  // user's role to merchant_admin — all inside the DB. Node 0 is BBS Mall
+  // only; mall_name/entrance_notes aren't collected by this form and the
+  // RPC has no mall_name parameter (mall_name stays NULL, matching the
+  // RPC's existing schema).
+  const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
+    p_user_id: appUser.id,
+    p_merchant_name: merchantName,
+    p_phone: phone,
+    p_email: email || null,
+    p_whatsapp: whatsapp || null,
+    p_node: "BBS Mall",
+    p_w3w_address: what3wordsAddress,
+    p_floor: floor || null,
+    p_unit_number: unitNumber || null,
+    p_entrance_notes: null,
+    p_onboarding_agent_id: null,
+  });
 
-  if (existingMerchant) {
-    return NextResponse.json(
-      { error: "You've already onboarded a shop." },
-      { status: 409 }
-    );
+  if (error || !merchantId) {
+    const message = error?.message ?? "";
+    let status = 500;
+    let userMessage = "Could not complete onboarding. Please try again.";
+
+    if (message.includes("already_merchant") || message.includes("merchant_exists")) {
+      status = 409;
+      userMessage = "You've already onboarded a shop.";
+    } else if (message.includes("unauthorized")) {
+      status = 403;
+      userMessage = "Not authorized.";
+    } else if (message.includes("user_not_found")) {
+      status = 404;
+      userMessage = "Account not found.";
+    } else {
+      console.error("onboard_merchant RPC failed:", error);
+    }
+
+    return NextResponse.json({ error: userMessage }, { status });
   }
 
-  const { data: merchant, error } = await service
-    .from("merchants")
-    .insert({
-      user_id: appUser.id,
-      merchant_name: merchantName,
-      mall_name: mallName || null,
-      floor: floor || null,
-      unit_number: unitNumber || null,
-      what3words_address: what3wordsAddress,
-      phone,
-      email: email || null,
-      whatsapp: whatsapp || null,
-      onboarding_mode: "self_serve",
-    })
-    .select("id")
-    .single();
-
-  if (error || !merchant) {
-    console.error("Failed to create merchant:", error);
-    return NextResponse.json(
-      { error: "Could not complete onboarding. Please try again." },
-      { status: 500 }
-    );
-  }
-
-  // Role change is done here (privileged, service-role) rather than letting
-  // the client update its own row — the users_own_row RLS policy has no
-  // WITH CHECK restricting which columns/values a user can set on
-  // themselves, so a client-side role update would work but relies on an
-  // unrelated gap rather than validated server logic.
-  if (appUser.role === "customer") {
-    await service
-      .from("users")
-      .update({ role: "merchant_admin" })
-      .eq("id", appUser.id);
-  }
-
-  return NextResponse.json({ merchantId: merchant.id });
+  return NextResponse.json({ merchantId });
 }

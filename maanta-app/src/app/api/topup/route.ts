@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { initiateMpesaStkPush } from "@/lib/intasend";
+import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
 
 const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
 
@@ -17,9 +18,11 @@ export async function POST(request: Request) {
   }
 
   const { amount, phoneNumber } = await request.json();
-  if (!amount || amount <= 0 || !phoneNumber) {
+  if (!isValidTopupAmount(amount) || typeof phoneNumber !== "string" || !phoneNumber) {
     return NextResponse.json(
-      { error: "Missing amount or phone number." },
+      {
+        error: `Amount must be a number between ${MIN_TOPUP_AMOUNT} and ${MAX_TOPUP_AMOUNT} KES, and a phone number is required.`,
+      },
       { status: 400 }
     );
   }
