@@ -7,5 +7,6 @@ redemption from a prepaid wallet.
 - **App code**: [`maanta-app/`](maanta-app/) — Next.js + Supabase
 - **Operating playbook**: [`docs/maanta-claude-operating-system.md`](docs/maanta-claude-operating-system.md)
 - **Session guide for Claude / contractors**: [`CLAUDE.md`](CLAUDE.md)
+- **Frozen rules**: [`docs/PROJECT_RULES.md`](docs/PROJECT_RULES.md) · **Core-loop walkthrough**: [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md)
 - **Operating docs**: [`docs/`](docs/) · durable handoffs in [`docs/skills/`](docs/skills/)
 - **Legal drafts (unpublished)**: [`maanta-app/legal/`](maanta-app/legal/)

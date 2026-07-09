@@ -53,6 +53,8 @@ Run from `maanta-app/`:
 - `docs/maanta-email-segmentation-plan.md`
 - `docs/maanta-marketing-agency-brief.md`
 - `docs/maanta-launch-ops-runbook.md`
+- `docs/PROJECT_RULES.md` — frozen rules with code anchors (repo-native export)
+- `docs/WALKTHROUGH.md` — core-loop walkthrough, Steps 5–6 canonical (repo-native export)
 - `docs/skills/payments-rails.md`
 - `docs/skills/redemption-disputes.md`
 - `docs/skills/frozen-ui-overall-handoff.md`
@@ -73,6 +75,18 @@ Run from `maanta-app/`:
   acquisition and email audiences from the first signup (`segment_type` required).
 
 See `docs/maanta-decisions-log.md` for the full log and dates.
+
+## Resolving doc citations in migrations and code
+
+Migration comments cite Notion-era filenames. They resolve as follows:
+
+| Cited name | Resolves to |
+|---|---|
+| `DECISIONS_LOG.md` | `docs/maanta-decisions-log.md` (repo mirror) |
+| `PROJECT_RULES.md` | `docs/PROJECT_RULES.md` (repo-native export) |
+| `WALKTHROUGH.md` | `docs/WALKTHROUGH.md` (repo-native export; only Steps 5–6 are canonical) |
+| `ARCHITECTURE.md` | ⚠️ Notion-only, not yet exported |
+| `SESSION_FRAMEWORK.md` | ⚠️ Notion-only, not yet exported (the operating system's role/session model in `docs/maanta-claude-operating-system.md` covers the same ground) |
 
 ## Mandatory session rule
 

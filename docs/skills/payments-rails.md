@@ -3,6 +3,9 @@
 Last updated: 2026-07-09 · How money moves in MAANTA and where the code lives.
 Update this file after any meaningful payments change.
 
+Canonical rules (fee amount, arrears model, ledger idempotency, payments
+stance): `docs/PROJECT_RULES.md`, money rules 1–8.
+
 ## The one rule
 
 **Every merchant money movement goes through `recordMerchantTransaction`**

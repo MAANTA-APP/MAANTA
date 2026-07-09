@@ -3,6 +3,9 @@
 Last updated: 2026-07-09 · The core loop (claim → verify → fee) and what happens
 when it goes wrong. Update after any meaningful change to these flows.
 
+Canonical references: `docs/WALKTHROUGH.md` (Steps 5–6) and
+`docs/PROJECT_RULES.md` (money and core-loop rules).
+
 ## The core loop
 
 1. **Claim** — shopper claims a deal via the `claim_deal` RPC (SECURITY DEFINER,
@@ -20,9 +23,15 @@ when it goes wrong. Update after any meaningful change to these flows.
 3. **Fee outcome** — the RPC returns `fee_charge_status`:
    - `charged` — wallet debited.
    - `owed` — insufficient balance; arrears recorded. Redemption still succeeds.
-   - `unknown` — something unexpected; redemption still succeeds (**verify-anyway**)
-     and a **fraud-review task** is auto-created for admin (migration
-     `20260703235152`).
+   - `unknown` — the fee step **itself errored** (a fee-mechanism failure, not an
+     ordinary insufficient-balance case). It must **never collapse into `owed`**
+     (frozen, DECISIONS_LOG 2026-06-30). Redemption still succeeds
+     (**verify-anyway**) and a high-priority **fraud-review task** is
+     auto-created for admin (**D-003**, DECISIONS_LOG 2026-07-03, migration
+     `20260703235152`); even a failed task write never blocks the shopper.
+
+   Note: `verify_redemption` deliberately does **not** call `guardian_check` —
+   separately scoped, frozen decision (see `docs/maanta-decisions-log.md`).
 
 ## Verify-anyway (frozen ops decision)
 
