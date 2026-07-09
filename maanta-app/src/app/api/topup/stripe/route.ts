@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getStripeClient } from "@/lib/stripe";
-import { SUPPORTED_CURRENCIES, isSupportedCurrency } from "@/lib/currency";
+import {
+  SUPPORTED_CURRENCIES,
+  isSupportedCurrency,
+  isValidTopupAmount,
+  MIN_TOPUP_AMOUNT,
+  MAX_TOPUP_AMOUNT,
+} from "@/lib/currency";
 
 const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
 
@@ -17,8 +23,13 @@ export async function POST(request: Request) {
   }
 
   const { amount, currency = "KES" } = await request.json();
-  if (!amount || amount <= 0) {
-    return NextResponse.json({ error: "Missing amount." }, { status: 400 });
+  if (!isValidTopupAmount(amount)) {
+    return NextResponse.json(
+      {
+        error: `Amount must be a number between ${MIN_TOPUP_AMOUNT} and ${MAX_TOPUP_AMOUNT}.`,
+      },
+      { status: 400 }
+    );
   }
   if (!isSupportedCurrency(currency)) {
     return NextResponse.json(

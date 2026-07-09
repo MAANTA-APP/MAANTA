@@ -8,6 +8,24 @@ export function isSupportedCurrency(value: unknown): value is SupportedCurrency 
   );
 }
 
+// Shared bounds for top-up amounts, in whatever currency's own units (KES,
+// USD, EUR, GBP — this is a sanity ceiling, not an FX-aware business rule).
+// Guards against non-number/NaN/Infinity input and absurd values reaching
+// Math.round(amount * 100) — e.g. a value large enough to overflow Stripe's
+// integer unit_amount, or a non-numeric value slipping through a loose
+// `amount <= 0` check (`"0" <= 0` is true in JS after implicit coercion).
+export const MIN_TOPUP_AMOUNT = 1;
+export const MAX_TOPUP_AMOUNT = 1_000_000;
+
+export function isValidTopupAmount(amount: unknown): amount is number {
+  return (
+    typeof amount === "number" &&
+    Number.isFinite(amount) &&
+    amount >= MIN_TOPUP_AMOUNT &&
+    amount <= MAX_TOPUP_AMOUNT
+  );
+}
+
 // Used only if the live FX provider is unreachable/slow/malformed. Values
 // are deliberately approximate — this path existing at all is a signal
 // something's wrong with FX_PROVIDER_URL and should be looked into, not a
