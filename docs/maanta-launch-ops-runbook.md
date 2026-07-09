@@ -53,7 +53,7 @@ Run the full checklist (1) before merging the frozen UI, and (2) in the
 ### Public / infrastructure
 
 - [ ] Homepage, login, and deals pages load logged-out
-- [ ] Waitlist forms (once built): each of the three forms writes the right segment, UTM captured, duplicate email handled gracefully
+- [ ] Waitlist forms: each of the three (`/waitlist`, `/merchants`, `/mall-operators`) writes the right segment, UTM params captured from the URL, duplicate email shows success, admin CSV export downloads
 - [ ] CI green on the release commit; production env vars verified (`STRIPE_ENV` guard behaves as expected)
 
 ## Merchant onboarding support process

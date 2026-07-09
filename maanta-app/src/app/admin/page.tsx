@@ -36,6 +36,16 @@ export default async function AdminPage() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  const waitlistCounts = await Promise.all(
+    (["shopper", "merchant", "mall_operator"] as const).map(async (segment) => {
+      const { count } = await service
+        .from("waitlist_signups")
+        .select("id", { count: "exact", head: true })
+        .eq("segment_type", segment);
+      return { segment, count: count ?? 0 };
+    })
+  );
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 p-8">
       <h1 className="text-2xl font-semibold">Admin</h1>
@@ -69,6 +79,37 @@ export default async function AdminPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-medium">
+          Waitlist (
+          {waitlistCounts.reduce((total, item) => total + item.count, 0)})
+        </h2>
+        <ul className="flex flex-col gap-2 text-sm">
+          {waitlistCounts.map(({ segment, count }) => (
+            <li
+              key={segment}
+              className="flex items-center justify-between rounded border border-black/10 p-3 dark:border-white/20"
+            >
+              <span>
+                {segment.replace("_", " ")} · {count}
+              </span>
+              <a
+                href={`/api/admin/waitlist/export?segment=${segment}`}
+                className="text-black/60 underline dark:text-white/60"
+              >
+                Export CSV
+              </a>
+            </li>
+          ))}
+        </ul>
+        <a
+          href="/api/admin/waitlist/export"
+          className="text-sm underline"
+        >
+          Export all segments (CSV)
+        </a>
       </section>
 
       <section className="flex flex-col gap-4">

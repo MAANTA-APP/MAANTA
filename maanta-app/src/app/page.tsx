@@ -44,6 +44,20 @@ export default async function Home() {
         )}
       </div>
       {user ? <EnableNotificationsButton /> : null}
+      <p className="text-xs text-black/40 dark:text-white/40">
+        Launching at BBS Mall this November —{" "}
+        <Link href="/waitlist" className="underline">
+          join the shopper waitlist
+        </Link>
+        {" · "}
+        <Link href="/merchants" className="underline">
+          merchants
+        </Link>
+        {" · "}
+        <Link href="/mall-operators" className="underline">
+          mall operators
+        </Link>
+      </p>
     </main>
   );
 }

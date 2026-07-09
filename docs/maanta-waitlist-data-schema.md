@@ -1,64 +1,55 @@
 # MAANTA — Waitlist Data Schema & Backend Spec
 
-Status: **specification — not yet built.** The public waitlist does not
-exist in the codebase today. Note that the existing `public.leads` table is
-the *agent-sourced merchant lead* pipeline (48-hour lock for on-ground
-sales) and must not be reused for the public waitlist — different audience,
-lifecycle, and access rules.
+Status: **implemented.** Migration
+`maanta-app/supabase/migrations/20260709120000_waitlist_signups.sql`,
+validation in `maanta-app/src/lib/waitlist.ts`, API at
+`maanta-app/src/app/api/waitlist/route.ts`, forms at `/waitlist`,
+`/merchants`, and `/mall-operators`.
 
-## Design principles
+The existing `public.leads` table is the *agent-sourced merchant lead*
+pipeline (48-hour lock for on-ground sales) and is deliberately not reused
+— different audience, lifecycle, and access rules.
 
-- **One audience database, segmented at capture.** A single
-  `waitlist_signups` table with a `segment_type` column; the segment is set
-  by which form the visitor used, never asked as a dropdown.
-- **Three top-level segments:** `shopper`, `merchant`, `mall_operator`.
-- **Campaign attribution from the first touch:** UTM parameters are
-  captured into `source_campaign` at signup.
-- **Consent recorded with a timestamp** (Kenya DPA 2019 — align wording
-  with `legal/privacy-policy.md` before the forms go live).
+## Design
 
-## Table
+- **One audience table, segmented at capture.** `waitlist_signups` with a
+  `segment_type` column set by which form the visitor used — never a
+  user-facing dropdown.
+- **Three segments:** `shopper`, `merchant`, `mall_operator` (DB CHECK).
+- **Attribution from first touch:** `utm_campaign` / `utm_medium` /
+  `utm_source` query params are read on the form page and stored as
+  `source_campaign` / `source_medium` / `source_channel`.
+- **Consent evidence:** the server stamps `consent_at` and stores the exact
+  consent wording (`consent_text`, a server-side constant also rendered
+  next to the checkbox). Clients only send a boolean; the wording can't be
+  spoofed. Historical rows keep the wording they were shown.
+- **Access model:** RLS enabled with **no policies**, and all grants
+  revoked from `anon`/`authenticated`. Inserts happen only via the API
+  route using the service-role key; reads only via the admin CSV export.
 
-```sql
-CREATE TABLE public.waitlist_signups (
-  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  segment_type       TEXT NOT NULL
-                     CHECK (segment_type IN ('shopper', 'merchant', 'mall_operator')),
-  email              TEXT NOT NULL,
-  phone              TEXT,
-  full_name          TEXT,
-  city               TEXT,
-  node_interest      TEXT NOT NULL DEFAULT 'BBS Mall',
-  source_campaign    TEXT,          -- utm_campaign
-  source_medium      TEXT,          -- utm_medium
-  source_channel     TEXT,          -- utm_source
-  consent_at         TIMESTAMPTZ NOT NULL,
-  consent_text       TEXT NOT NULL, -- exact wording shown at signup
-  -- merchant-only fields
-  business_name      TEXT,
-  business_category  TEXT,
-  floor_unit         TEXT,
-  -- mall-operator-only fields
-  mall_name          TEXT,
-  mall_role          TEXT,          -- e.g. 'owner', 'manager', 'leasing'
-  -- lifecycle
-  crm_synced_at      TIMESTAMPTZ,
-  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (email, segment_type)
-);
-```
+## Table (as created)
 
-Notes:
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `segment_type` | text | CHECK: `shopper` / `merchant` / `mall_operator` |
+| `email` | text | stored lowercase (DB CHECK enforces) |
+| `phone` | text | normalized: Kenyan numbers to `+2547…`/`+2541…`, others generic E.164 |
+| `full_name` | text nullable | |
+| `city` | text | required |
+| `node_interest` | text | default `BBS Mall` |
+| `source_campaign` / `source_medium` / `source_channel` | text nullable | utm_campaign / utm_medium / utm_source |
+| `consent_at` | timestamptz | server-stamped at insert |
+| `consent_text` | text | exact wording shown at signup |
+| `business_name`, `business_category`, `floor_unit` | text nullable | merchant segment |
+| `mall_name`, `mall_role` | text nullable | mall_operator segment |
+| `crm_synced_at` | timestamptz nullable | reserved for a future CRM sync job (none exists yet) |
+| `created_at` | timestamptz | |
 
-- `UNIQUE (email, segment_type)` allows the same person to join both the
-  shopper and merchant lists (a shop owner is also a shopper) while
-  preventing duplicate rows within a segment. Handle conflict with an
-  upsert that refreshes `source_campaign` only if previously null.
-- RLS: no anon read access at all; inserts only via the API route below
-  (service role), never directly from the browser with the anon key.
-- Follow the repo's migration conventions (timestamped file in
-  `maanta-app/supabase/migrations/`, pinned `search_path` if any function
-  is added, no anon grants).
+Constraints: `UNIQUE (email, segment_type)` — the same person can join
+both the shopper and merchant lists (a shop owner is also a shopper), but
+never the same list twice. Index on `(segment_type, created_at)` for
+segment reporting.
 
 ## Field matrix (what each form collects)
 
@@ -66,45 +57,68 @@ Notes:
 |---|---|---|---|
 | Email | required | required | required |
 | Phone | required | required | required |
+| Name | optional | optional | optional |
 | Segment type | auto: `shopper` | auto: `merchant` | auto: `mall_operator` |
-| City | required | required | required |
-| Mall / node interest | required (default BBS Mall) | required | required |
-| Source campaign (UTM) | auto | auto | auto |
-| Consent timestamp + text | auto | auto | auto |
+| City | required (prefilled Nairobi) | required | required |
+| Mall / node interest | auto: BBS Mall | auto: BBS Mall | auto: BBS Mall |
+| UTM attribution | auto from URL | auto | auto |
+| Consent checkbox + timestamp | required | required | required |
 | Business name | — | required | — |
 | Business category | — | required | — |
 | Floor / unit | — | optional | — |
-| Mall role | — | — | required |
 | Mall name | — | — | required |
+| Mall role | — | — | required |
 
-## API
+## API — `POST /api/waitlist`
 
-`POST /api/waitlist`
+Server-side validation (`src/lib/waitlist.ts`, fully unit-tested):
 
-- Validates: email format, phone format (Kenyan `+254` normalized),
-  segment-specific required fields, honeypot field for bots, basic rate
-  limit per IP.
-- Writes via the service client; returns `201` or `409` (already joined —
-  respond in the UI as success: "You're already on the list").
-- Emits an analytics event (`waitlist_signup`) with segment and campaign
-  source so funnel tracking works from day one.
-- Vitest coverage: validation rejects, segment-field enforcement, upsert
-  behavior, no anon-key write path.
+- Email format check, lowercased; phone normalized (accepts `07…`,
+  `254…`, `+254…` Kenyan forms and generic international E.164).
+- Segment-specific required fields enforced (merchant: business name +
+  category; operator: mall name + role). Segment-irrelevant fields are
+  discarded, not stored.
+- All free-text fields trimmed and capped at 200 chars.
+- `consent: true` required; server stamps `consent_at`.
+- **Honeypot**: a hidden `website` field — bot submissions get a success
+  response and no row.
+- **Rate limit**: best-effort in-memory throttle, 5 requests/minute per IP
+  (per serverless instance — a spam blunter, not a security boundary).
 
-## Landing-page paths
+Responses: `200 {joined: true}` on insert; duplicates
+(unique-constraint hit) also return `200` with `alreadyJoined: true` and
+leave the original row — including its first-touch attribution —
+untouched; `400` with a user-facing message on validation failure;
+`429` when throttled.
 
-Keep the value proposition simple, form adjacent to the CTA, minimal
-fields. Three paths, each hard-setting the segment:
+Note: the route does **not** yet emit an analytics-platform event —
+campaign attribution lives on the row itself. Wiring `waitlist_signup`
+events into the analytics stack is tracked separately (tracker E8).
 
-| Path | CTA | Segment |
+## Landing pages
+
+| Path | Headline CTA | Segment |
 |---|---|---|
-| `/waitlist` (or homepage hero) | "Join the shopper waitlist" | `shopper` |
-| `/merchants` | "Merchants: join the launch list" | `merchant` |
-| `/mall-operators` | "For mall operators" | `mall_operator` |
+| `/waitlist` | "Join the waitlist" (shopper positioning) | `shopper` |
+| `/merchants` | Merchant launch list (pay-on-redemption pitch) | `merchant` |
+| `/mall-operators` | Operator interest (tenant activation pitch) | `mall_operator` |
 
-## CRM sync
+All three share one form component (`src/app/waitlist/waitlist-form.tsx`)
+with the segment hard-set by the page; the homepage footer links to all
+three. Campaign links must carry UTMs — that is the only way attribution
+reaches the row.
 
-Signups flow to the email platform tagged with segment + campaign source;
-`crm_synced_at` marks completion so a retry job can catch failures. The
-full integration map (tags, lists, automation triggers) is in
-`maanta-email-segmentation-plan.md`.
+## Export path for marketing (current CRM flow)
+
+Until an automated CRM sync exists, the flow is manual and admin-gated:
+
+1. Admin signs in and opens `/admin` → **Waitlist** section (live counts
+   per segment).
+2. Download per-segment or full CSV via
+   `GET /api/admin/waitlist/export[?segment=…]` (admin role required;
+   output is formula-injection-safe for Excel/Sheets).
+3. Import into the email platform with the tags described in
+   `maanta-email-segmentation-plan.md`.
+
+`crm_synced_at` exists on the table so a future sync job can mark synced
+rows and retry failures.

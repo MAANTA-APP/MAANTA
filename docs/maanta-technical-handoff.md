@@ -63,7 +63,8 @@ timestamp order. Key tables:
 | `deals` | Deals with `success_fee` default 30.00, boost flag, flash type, claim caps |
 | `redemptions` | OTP code, GPS + device capture, distance-from-shop, status (`pending`/`success`/`failed`/`flagged`), fraud flags |
 | `merchant_transactions` | Wallet ledger: `topup`/`success_fee`/`boost_fee`/`subscription`/`refund`; providers include `intasend`, `daraja`, `manual`, `stripe`; `provider_reference` is unique (idempotent webhooks) |
-| `leads` | **Agent-sourced merchant leads** with 48-hour lock — this is the on-ground sales pipeline, *not* the public waitlist (which doesn't exist yet; see `maanta-waitlist-data-schema.md`) |
+| `leads` | **Agent-sourced merchant leads** with 48-hour lock — the on-ground sales pipeline, *not* the public waitlist |
+| `waitlist_signups` | Public pre-launch waitlist: segment (`shopper`/`merchant`/`mall_operator`), UTM attribution, consent timestamp + wording; RLS with no policies (service-role access only); see `maanta-waitlist-data-schema.md` |
 | `fraud_events`, `audit_logs`, `payment_webhook_failures` | Fraud review, audit trail, webhook failure log |
 | `agents`, `agent_tasks`, `kpi_counters`, `boost_flags`, `tier_flags`, `app_config`, `reporting_aggregates`, `archive_history`, `merchant_favourites` | Supporting tables |
 
@@ -125,32 +126,37 @@ reimplement this logic in TypeScript:
 
 | Route | What it is |
 |---|---|
-| `/` | Minimal homepage (browse deals / sign in / list your shop) — **no waitlist capture yet** |
+| `/` | Minimal homepage (browse deals / sign in / list your shop) with footer links to the three waitlist paths |
+| `/waitlist`, `/merchants`, `/mall-operators` | Public waitlist landing pages — one shared form, segment hard-set per page, UTM capture from query params |
 | `/login` | Phone-OTP auth, with email sign-in also supported |
 | `/deals`, `/deals/[id]` | Shopper browse + claim |
 | `/merchant/onboard`, `/merchant/topup`, `/merchant/redeem` | Merchant journeys |
 | `/admin` | Admin panel (merchant approval etc.) |
 | `/api/redemptions`, `/api/redemptions/verify` | Claim + verify endpoints (RPC wrappers) |
 | `/api/topup`, `/api/topup/stripe`, `/api/webhooks/*` | Payments |
+| `/api/waitlist` | Public waitlist signup (validation, honeypot, rate limit, idempotent duplicates) |
 | `/api/merchants/onboard`, `/api/admin/merchants/[id]/approve` | Merchant lifecycle |
+| `/api/admin/waitlist/export` | Admin-only CSV export of the waitlist (optional `?segment=` filter) |
 | `/api/push/subscribe` | Web Push subscription storage |
 
 ## Known deferred / open items
 
-1. **Public waitlist does not exist** — no table, form, or API. Spec is in
-   `maanta-waitlist-data-schema.md`; this is launch-gating for marketing.
-2. **IntaSend credentials pending** — M-Pesa STK untestable until granted.
-3. **FX provider** is a free keyless API — replace before live non-KES charges.
-4. **Legal docs are drafts** (`maanta-app/legal/`) — not lawyer-reviewed,
+1. **IntaSend credentials pending** — M-Pesa STK untestable until granted.
+2. **FX provider** is a free keyless API — replace before live non-KES charges.
+3. **Legal docs are drafts** (`maanta-app/legal/`) — not lawyer-reviewed,
    entity placeholders unfilled, must not be linked from the live app yet.
-5. **Cross-border data**: Supabase in `eu-west-1` vs. Kenya DPA 2019 —
+4. **Cross-border data**: Supabase in `eu-west-1` vs. Kenya DPA 2019 —
    needs a lawful transfer basis or region decision.
-6. **Frozen UI**: the current UI is intentionally minimal/frozen pending
+5. **Frozen UI**: the current UI is intentionally minimal/frozen pending
    preview review; merge the reviewed UI work before launch polish.
+6. **CRM sync + analytics events for the waitlist** — signups are stored
+   with attribution, but there is no automated push to the email platform
+   (manual CSV export from `/admin` for now) and no analytics-platform
+   event is emitted on signup.
 
 ## Test suite
 
-Vitest covers the merchant ledger, currency validation/FX handling, and the
-Stripe webhook route (`src/lib/__tests__/`,
-`src/app/api/webhooks/stripe/__tests__/`). Extend it for the waitlist API
-when built.
+Vitest covers the merchant ledger, currency validation/FX handling, the
+Stripe webhook route, waitlist validation/normalization
+(`src/lib/__tests__/waitlist.test.ts`), and the waitlist API route
+(`src/app/api/waitlist/__tests__/route.test.ts`).

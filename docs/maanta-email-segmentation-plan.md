@@ -57,12 +57,19 @@ Score ≥ 50 → hot: founder/agent follows up personally within 48h.
 
 ## CRM / email integration map
 
+Current state: the capture side (form → API → `waitlist_signups`) is
+implemented; the CRM leg is **manual for now** — admin CSV export from
+`/admin` (per segment or all), imported into the email platform. The
+automated sync job and the `waitlist_signup` analytics event are still to
+be built (`crm_synced_at` is already on the table for the job to use).
+
 ```
-Landing form (segment hard-coded)
+Landing form (segment hard-coded)               [implemented]
         │  POST /api/waitlist
         ▼
-Supabase waitlist_signups  ──► analytics event `waitlist_signup`
-        │  sync job (marks crm_synced_at; retries failures)
+Supabase waitlist_signups                       [implemented]
+        │  today: admin CSV export → manual import
+        │  later: sync job (marks crm_synced_at; retries failures)
         ▼
 Email platform contact
    tags: segment_type, source_campaign, node_interest,

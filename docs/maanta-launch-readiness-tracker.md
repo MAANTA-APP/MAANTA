@@ -15,8 +15,8 @@ its Notion counterpart) whenever an item changes state; anything marked
 | E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | not started | GATE | `unknown` fee status must open a fraud-review task |
 | E5 | Stripe sandbox top-ups stable | Engineer | done | — | Multi-currency + webhook idempotency + failure log in place |
 | E6 | M-Pesa STK end-to-end | Engineer | **blocked** | GATE | Blocked on IntaSend API access; code path exists. Escalate credential request weekly |
-| E7 | Waitlist backend + forms live | Engineer | not started | GATE (marketing) | Spec: `maanta-waitlist-data-schema.md`. Gates the campaign start, not app launch |
-| E8 | Analytics events + campaign-source capture | Engineer + AI lead | not started | GATE (marketing) | UTM → `source_campaign` on every signup |
+| E7 | Waitlist backend + forms live | Engineer | done | GATE (marketing) | `waitlist_signups` table, `POST /api/waitlist`, `/waitlist` + `/merchants` + `/mall-operators` pages, admin CSV export. Needs deploy + migration apply to production |
+| E8 | Analytics events + campaign-source capture | Engineer + AI lead | in progress | GATE (marketing) | UTM → `source_campaign` stored per signup (done); analytics-platform events not yet emitted |
 | E9 | FX provider replaced with SLA-backed source | Engineer | not started | GATE if non-KES live charges | Fine to defer if launch is KES-only |
 | E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | not started | GATE | Verify `STRIPE_ENV` guard behavior on deploy |
 
@@ -24,7 +24,7 @@ its Notion counterpart) whenever an item changes state; anything marked
 
 | # | Item | Owner | Status | Gate | Notes |
 |---|---|---|---|---|---|
-| M1 | Shopper + merchant landing pages live | Agency + engineer | not started | GATE (campaign) | Separate CTAs; segment set at the form, see waitlist spec |
+| M1 | Shopper + merchant landing pages live | Agency + engineer | in progress | GATE (campaign) | Minimal pages built at `/waitlist`, `/merchants`, `/mall-operators` (segment set at the form); agency creative/copy pass still to come |
 | M2 | Email platform configured with segments + automations | Agency + AI lead | not started | GATE (campaign) | `shopper` / `merchant` / `mall_operator` from signup |
 | M3 | Welcome sequences written and activated | Agency | not started | GATE (campaign) | Drafts in the three sequence docs |
 | M4 | 4-week social content calendar | Agency | not started | GATE (campaign) | One-month pre-launch push |
