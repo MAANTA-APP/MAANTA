@@ -100,5 +100,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     dealTitle: deal?.title ?? "Deal",
     feeChargeStatus: data.fee_charge_status,
+    feeAmount: data.fee_amount,
+    newBalance: data.new_balance,
   });
 }

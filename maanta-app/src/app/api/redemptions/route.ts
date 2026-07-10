@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -51,6 +52,8 @@ export async function POST(request: Request) {
       redemption_id: string;
       otp_code: string;
       redemption_expires_at: string;
+      merchant_id: string;
+      what3words_address: string;
     }>();
 
   if (error || !data) {
@@ -81,6 +84,44 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  // Post-claim fraud pass (wireframe 9t / 11d): when the shopper shared GPS,
+  // compute the distance to the shop's what3words location and run the DB's
+  // guardian_check RPC (service-role-only) which records fraud_events for
+  // velocity/geofence/collusion. The returned flags are stamped onto the
+  // redemption row so merchant preflight + admin fraud audit can read them.
+  // Best-effort: a failure here never blocks the claim.
+  if (typeof lat === "number" && typeof lng === "number") {
+    try {
+      const shopCoords = await convertWhat3WordsToCoordinates(
+        data.what3words_address
+      );
+      const distance = shopCoords
+        ? Math.round(distanceMeters({ lat, lng }, shopCoords))
+        : null;
+
+      const { data: flags } = await service.rpc("guardian_check", {
+        p_merchant_id: data.merchant_id,
+        p_user_id: appUser.id,
+        p_consumer_device: null,
+        p_consumer_gps: consumerGpsWkt,
+        p_merchant_device: null,
+        p_distance_m: distance,
+      });
+
+      const fraudFlags = (flags as string[] | null) ?? [];
+      await service
+        .from("redemptions")
+        .update({
+          distance_from_shop: distance,
+          fraud_flags: fraudFlags.length > 0 ? fraudFlags : null,
+          review_required: fraudFlags.length > 0,
+        })
+        .eq("id", data.redemption_id);
+    } catch (err) {
+      console.error("post-claim fraud pass failed:", err);
+    }
   }
 
   return NextResponse.json({

@@ -27,10 +27,15 @@ export async function POST(
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const grantEliteTrial = body?.grantEliteTrial === true;
+
+  // activate_merchant grants a 30-day Elite trial when requested (DB behavior;
+  // wireframe 11j says 14 days — flagged as an open spec/DB conflict).
   const { error } = await service.rpc("activate_merchant", {
     p_merchant_id: params.id,
     p_admin_user_id: appUser.id,
-    p_grant_elite_trial: false,
+    p_grant_elite_trial: grantEliteTrial,
   });
 
   if (error) {

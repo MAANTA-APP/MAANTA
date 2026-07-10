@@ -1,100 +1,67 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import ApproveButton from "./approve-button";
+import { ButtonLink } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/inputs";
+import { relativeAge } from "@/lib/ui";
 
-export default async function AdminPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export const dynamic = "force-dynamic";
 
-  if (!user) redirect("/login");
-
+/** 11a Merchant approval queue. */
+export default async function AdminApprovalsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string };
+}) {
+  const q = (searchParams.q ?? "").trim();
   const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("role")
-    .eq("auth_uid", user.id)
-    .maybeSingle();
-
-  if (appUser?.role !== "admin") redirect("/");
-
-  const { data: pendingMerchants } = await service
+  let query = service
     .from("merchants")
-    .select(
-      "id, merchant_name, mall_name, floor, phone, what3words_address, created_at"
-    )
+    .select("id, merchant_name, floor, unit_number, phone, what3words_address, created_at")
     .eq("status", "pending")
-    .order("created_at", { ascending: true });
-
-  const { data: activeMerchants } = await service
-    .from("merchants")
-    .select("id, merchant_name, mall_name, account_balance, created_at")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .order("created_at", { ascending: false });
+  if (q) query = query.ilike("merchant_name", `%${q}%`);
+  const { data: pending } = await query;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 p-8">
-      <h1 className="text-2xl font-semibold">Admin</h1>
+    <main className="max-w-4xl">
+      <h1 className="text-2xl font-bold text-ink">
+        Pending approvals ({(pending ?? []).length})
+      </h1>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-medium">
-          Pending Shops ({pendingMerchants?.length ?? 0})
-        </h2>
-        {!pendingMerchants?.length && (
-          <p className="text-sm text-black/60 dark:text-white/60">
-            Nothing pending.
+      <form className="mt-5 max-w-md" action="/admin">
+        <SearchField name="q" defaultValue={q} placeholder="Search shops…" />
+      </form>
+
+      <div className="mt-5 space-y-3">
+        {(pending ?? []).length === 0 ? (
+          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
+            No shops waiting for approval
           </p>
-        )}
-        <ul className="flex flex-col gap-3">
-          {pendingMerchants?.map((m) => (
-            <li
+        ) : (
+          (pending ?? []).map((m) => (
+            <div
               key={m.id}
-              className="flex items-center justify-between gap-4 rounded border border-black/10 p-4 dark:border-white/20"
+              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5"
             >
-              <div>
-                <p className="font-medium">{m.merchant_name}</p>
-                <p className="text-sm text-black/60 dark:text-white/60">
-                  {m.mall_name ? `${m.mall_name} · ` : ""}Floor {m.floor ?? "—"}{" "}
-                  · {m.phone}
-                </p>
-                <p className="text-xs text-black/40 dark:text-white/40">
-                  {`///${m.what3words_address}`}
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/admin/merchants/${m.id}`}
+                  className="text-sm font-bold text-ink hover:underline"
+                >
+                  {m.merchant_name}
+                  {m.floor ? ` — ${m.floor}` : ""}
+                </Link>
+                <p className="mt-0.5 text-xs text-muted">
+                  Submitted {relativeAge(m.created_at)} ago · {m.phone}
                 </p>
               </div>
-              <ApproveButton merchantId={m.id} />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-medium">Active Shops</h2>
-        {!activeMerchants?.length && (
-          <p className="text-sm text-black/60 dark:text-white/60">
-            No active shops yet.
-          </p>
+              <ButtonLink href={`/admin/merchants/${m.id}`} size="sm">
+                Review
+              </ButtonLink>
+            </div>
+          ))
         )}
-        <ul className="flex flex-col gap-2 text-sm">
-          {activeMerchants?.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between rounded border border-black/10 p-3 dark:border-white/20"
-            >
-              <span>
-                {m.merchant_name}
-                {m.mall_name ? ` · ${m.mall_name}` : ""}
-              </span>
-              <span className="text-black/60 dark:text-white/60">
-                KES {m.account_balance}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      </div>
     </main>
   );
 }

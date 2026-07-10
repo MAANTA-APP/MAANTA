@@ -1,0 +1,61 @@
+import { notFound } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/service";
+import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
+import { IconCheck } from "@/components/ui/icons";
+import { formatKes } from "@/lib/ui";
+import { MerchantAdminActions } from "./merchant-admin-actions";
+
+export const dynamic = "force-dynamic";
+
+/** 11b Merchant detail / verify (+ 11j approve confirmation modal). */
+export default async function AdminMerchantDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const service = createServiceClient();
+  const { data: m } = await service
+    .from("merchants")
+    .select(
+      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
+    )
+    .eq("id", params.id)
+    .maybeSingle();
+  if (!m) notFound();
+
+  return (
+    <main className="max-w-3xl">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold text-ink">{m.merchant_name}</h1>
+        <StatusChip status={m.status} />
+        <PlanChip plan={m.tier as "standard" | "elite"} />
+      </div>
+      <p className="mt-2 text-sm text-muted">
+        Contact: {m.phone}
+        {m.email ? ` · ${m.email}` : ""}
+      </p>
+      <p className="mt-1 text-sm text-muted">
+        {[m.floor, m.unit_number].filter(Boolean).join(", ") || "No floor/unit"}
+        {" · "}Wallet {formatKes(m.account_balance)} · Trust{" "}
+        {Number(m.trust_metric).toFixed(2)}
+      </p>
+
+      <div className="mt-4 inline-flex items-center gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">
+        <IconCheck className="h-4 w-4 text-verified" />
+        w3w resolved: <W3wChip address={m.what3words_address} />
+        {m.entrance_notes ? <span className="text-muted">— {m.entrance_notes}</span> : null}
+      </div>
+
+      <MerchantAdminActions
+        merchantId={m.id}
+        merchantName={m.merchant_name}
+        status={m.status}
+        node={m.mall_name ?? m.node}
+        w3w={m.what3words_address}
+        floorUnit={[m.floor, m.unit_number].filter(Boolean).join(", ")}
+        isFeatured={m.is_featured}
+        isShadowBanned={m.is_shadow_banned}
+      />
+    </main>
+  );
+}
