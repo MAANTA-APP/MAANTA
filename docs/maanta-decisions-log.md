@@ -20,11 +20,18 @@ Format: date · decision · consequence in product/code.
 | 2026-07-09 | **All merchant money movements** go through one atomic, idempotent RPC (`record_merchant_ledger_entry`), keyed on unique provider reference. Refund/dispute idempotency keyed on Stripe `payment_intent`, not charge/dispute IDs. | migrations `20260709000151`, `20260709000211`; `src/lib/merchant-ledger.ts` |
 | 2026-07-09 (this doc) | **BBS Mall is Node 0** and the sole proving ground until PMF. Shoppers, merchants, and mall operators are **separate audiences** from first signup (`segment_type` required). Notion = ops source of truth; repo = code source of truth; Drive/Obsidian = mirrors. | `docs/maanta-claude-operating-system.md` |
 
+## Recent decisions
+
+| Date | Decision | Where it bites |
+|---|---|---|
+| 2026-07-10 | **Waitlist signups live in the email platform**, not in this repo's Supabase (no `waitlist_signups` table, no `/api/waitlist` route). Platform choice confirmed later. | `docs/maanta-waitlist-data-schema.md` (Option A archived); tracker items E7/E8 become form/platform configuration, not repo backend work |
+
 ## Pending decisions
 
 | Decision | Needed by | Notes |
 |---|---|---|
 | Kenya incorporation + entity details | Nov 2026 Nairobi trip | Blocks publishing legal docs; governing-law refs assume Kenya |
+| Which email platform hosts the waitlist | Before campaign build (Sept/Oct 2026) | Waitlist location itself is decided (see frozen entry above); platform must meet `maanta-email-segmentation-plan.md` requirements |
 | Payment processor final choice for launch | Nov 2026 | See `maanta-app/legal/payment-processor-comparison.md` |
 | Elite subscription price (KES 3,500/mo) review | Oct 2026 | Success fee (KES 30) is explicitly NOT under review |
 | Paid FX provider (replace keyless open.er-api.com) | Before live non-KES charges | Flagged in `src/lib/currency.ts` |

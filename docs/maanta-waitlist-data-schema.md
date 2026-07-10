@@ -4,14 +4,15 @@ Last updated: 2026-07-09 · Status: **specification — not yet built.**
 One audience database, three role-based segments. Companion to
 `maanta-email-segmentation-plan.md`.
 
-> **OPEN DECISION (founder):** where does waitlist *capture* live?
-> **Option A — in-repo**: a `waitlist_signups` table in the app's Supabase
-> plus a `POST /api/waitlist` route (full spec below). Best analytics and
-> launch-conversion joins against `users`. **Option B — external**: forms
-> post directly to the email platform; nothing in this repo. Fastest to
-> ship, weaker attribution/joins. The field schema below is canonical
-> either way — keep field names identical across forms, email platform,
-> and any export so segments survive tool migrations.
+> **DECIDED (founder, 2026-07-10): waitlist signups live in the email
+> platform** — no `waitlist_signups` table or `/api/waitlist` route in this
+> repo. Which email platform is confirmed later; it must meet the platform
+> requirements in `maanta-email-segmentation-plan.md` (tag-triggered
+> automations, API access, custom fields, suppression handling). The field
+> schema below is canonical regardless of platform — keep field names
+> identical across forms, the email platform, and any export so segments
+> survive tool migrations. The in-repo Option A spec is kept below as an
+> archived fallback in case the chosen platform can't capture all fields.
 >
 > Note: the existing `public.leads` table is the *agent-sourced merchant
 > lead* pipeline (48-hour lock for on-ground sales) and must **not** be
@@ -47,7 +48,7 @@ One audience database, three role-based segments. Companion to
 | Mall role (e.g. owner, manager, leasing) | — | — | required |
 | Mall name | — | — | required |
 
-## Option A table (if in-repo)
+## Archived: Option A table (in-repo — NOT chosen, kept for reference)
 
 ```sql
 CREATE TABLE public.waitlist_signups (
@@ -90,7 +91,7 @@ Notes:
   `maanta-app/supabase/migrations/`, pinned `search_path` if any function
   is added, no anon grants).
 
-## Option A API
+## Archived: Option A API (in-repo — NOT chosen, kept for reference)
 
 `POST /api/waitlist`
 

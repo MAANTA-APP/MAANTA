@@ -71,9 +71,9 @@ merchant must be two phones in two hands at the shop. Details in
 
 ## What is NOT in this repo
 
-- The public waitlist site's email platform, segments, and automations
-  (whether waitlist *capture* lives in this repo's Supabase or fully
-  external is an open decision — see `maanta-waitlist-data-schema.md`).
+- The public waitlist: signups live in the email platform (decided
+  2026-07-10; platform confirmed later), along with its segments and
+  automations — see `maanta-waitlist-data-schema.md`.
 - Notion operating docs (this `docs/` tree mirrors approved exports).
 
 ## Documentation workflow

@@ -22,7 +22,7 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | Frozen wireframe UI (all surfaces) | ✅ | Merged 2026-07-09 (PR #11); device-level QA pass still owed (E2–E4 below) |
 | Admin panel | ✅ | Merchant approval, fraud audit, plans/trials, reporting; role self-escalation blocked |
 | Web push notifications | ✅ | Top-up received, trial tasks |
-| Public waitlist capture | ⬜ | Spec: `maanta-waitlist-data-schema.md` (open decision: in-repo vs external). Gates the campaign start, not app launch |
+| Public waitlist capture | ⬜ | Spec: `maanta-waitlist-data-schema.md` (decided 2026-07-10: lives in the email platform, platform TBC). Gates the campaign start, not app launch |
 
 ## Product & engineering gates
 
@@ -34,8 +34,8 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | ⬜ not started | GATE | `unknown` fee status must open a fraud-review task |
 | E5 | Stripe sandbox top-ups stable | Engineer | ✅ done | — | Multi-currency + webhook idempotency + failure log in place |
 | E6 | M-Pesa STK end-to-end | Engineer | 🔴 blocked | GATE | Blocked on IntaSend API access; code path exists. Escalate credential request weekly |
-| E7 | Waitlist backend + forms live | Engineer | ⬜ not started | GATE (marketing) | Spec: `maanta-waitlist-data-schema.md`. Gates the campaign start, not app launch |
-| E8 | Analytics events + campaign-source capture | Engineer + AI lead | ⬜ not started | GATE (marketing) | UTM → `source_campaign` on every signup |
+| E7 | Waitlist forms live in the email platform (decided 2026-07-10: external, not in-repo; platform TBC) | Founder + agency + AI lead | ⬜ not started | GATE (marketing) | Spec: `maanta-waitlist-data-schema.md`. Gates the campaign start, not app launch |
+| E8 | Campaign-source capture (UTM → `source_campaign` field on every signup, in the email platform) | Agency + AI lead | ⬜ not started | GATE (marketing) | Per the segmentation plan's platform requirements |
 | E9 | FX provider replaced with SLA-backed source | Engineer | ⬜ not started | GATE if non-KES live charges | Fine to defer if launch is KES-only |
 | E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | ⬜ not started | GATE | Verify `STRIPE_ENV` guard behavior on deploy |
 | E11 | Trial-expiry job scheduling confirmed in production Supabase | Engineer | ⬜ not started | GATE | `handle_trial_expiry` must actually run on schedule |
