@@ -109,3 +109,8 @@ approved "body beats" only, and several contain founder-dependent facts:
 Drafting final broadcast copy from the beats is a marketing/Operator-session
 deliverable, not an engineering one — do it in a session with the founder,
 then stage in Resend UI.
+
+**Parked 2026-07-10 (founder):** the blocking facts (launch date, merchant
+count, incentive, explainer link) will be known closer to launch. Revisit
+broadcast staging then; nothing further to do engineering-side until the
+founder reopens this.
