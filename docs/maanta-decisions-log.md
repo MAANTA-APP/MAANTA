@@ -25,13 +25,14 @@ Format: date · decision · consequence in product/code.
 | Date | Decision | Where it bites |
 |---|---|---|
 | 2026-07-10 | **Waitlist signups live in the email platform**, not in this repo's Supabase (no `waitlist_signups` table, no `/api/waitlist` route). Platform choice confirmed later. | `docs/maanta-waitlist-data-schema.md` (Option A archived); tracker items E7/E8 become form/platform configuration, not repo backend work |
+| 2026-07-10 | **Resend is the email platform** for the waitlist. Contacts (with `segment_type` and consent properties) live in a Resend audience — still no Supabase table. Amends the same-day entry above in one respect: a **stateless** `/api/waitlist` proxy route exists in-repo, because the segmentation plan requires server-side keyed API access (the Resend key can't be exposed to browser forms). The route stores nothing. | `/waitlist` page, `POST /api/waitlist`, `src/lib/resend.ts`, `src/lib/waitlist.ts`, `src/lib/waitlist-emails.ts`; env `RESEND_API_KEY` / `RESEND_AUDIENCE_ID` / `RESEND_FROM_EMAIL` |
 
 ## Pending decisions
 
 | Decision | Needed by | Notes |
 |---|---|---|
 | Kenya incorporation + entity details | Nov 2026 Nairobi trip | Blocks publishing legal docs; governing-law refs assume Kenya |
-| Which email platform hosts the waitlist | Before campaign build (Sept/Oct 2026) | Waitlist location itself is decided (see frozen entry above); platform must meet `maanta-email-segmentation-plan.md` requirements |
+| ~~Which email platform hosts the waitlist~~ | ~~Before campaign build~~ | **Resolved 2026-07-10: Resend** (see Recent decisions) |
 | Payment processor final choice for launch | Nov 2026 | See `maanta-app/legal/payment-processor-comparison.md` |
 | Elite subscription price (KES 3,500/mo) review | Oct 2026 | Success fee (KES 30) is explicitly NOT under review |
 | Paid FX provider (replace keyless open.er-api.com) | Before live non-KES charges | Flagged in `src/lib/currency.ts` |
@@ -43,4 +44,4 @@ Format: date · decision · consequence in product/code.
 2. If it changes a frozen rule, say what it supersedes.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
