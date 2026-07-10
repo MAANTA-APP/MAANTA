@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  const { otpCode } = await request.json();
+  const { otpCode, override, overrideReason } = await request.json();
   if (!otpCode) {
     return NextResponse.json({ error: "Missing code." }, { status: 400 });
   }
@@ -50,11 +50,19 @@ export async function POST(request: Request) {
   // deduct_success_fee_or_record_arrears to actually debit
   // merchants.account_balance (or record arrears if the wallet can't cover
   // it). The previous hand-rolled version never did this debit at all.
+  // p_override marks a conscious merchant "verify anyway" on a flagged code:
+  // the RPC appends 'merchant_override' to fraud_flags and records the reason
+  // in the fraud_events audit row. Verification semantics are unchanged.
   const { data, error } = await supabase
     .rpc("verify_redemption", {
       p_merchant_id: merchant.id,
       p_otp_code: otpCode,
       p_merchant_device_id: null,
+      p_override: override === true,
+      p_override_reason:
+        override === true && typeof overrideReason === "string" && overrideReason
+          ? overrideReason.slice(0, 500)
+          : null,
     })
     .single<{
       redemption_id: string;
@@ -65,6 +73,7 @@ export async function POST(request: Request) {
       new_arrears: number | null;
       deal_id: string;
       deal_claims_count: number | null;
+      disputed: boolean;
     }>();
 
   if (error || !data) {
@@ -102,5 +111,6 @@ export async function POST(request: Request) {
     feeChargeStatus: data.fee_charge_status,
     feeAmount: data.fee_amount,
     newBalance: data.new_balance,
+    disputed: data.disputed === true,
   });
 }

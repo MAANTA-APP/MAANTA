@@ -102,13 +102,24 @@ export function RedeemKeypad({
     }
   }
 
-  async function verify(otpCode: string) {
+  async function verify(otpCode: string, overrideDistance?: number | null) {
     setScreen({ kind: "verifying" });
+    const override = overrideDistance !== undefined;
     try {
       const res = await fetch("/api/redemptions/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otpCode }),
+        body: JSON.stringify(
+          override
+            ? {
+                otpCode,
+                override: true,
+                overrideReason: `location mismatch acknowledged at counter (distance: ${
+                  overrideDistance ?? "unknown"
+                } m)`,
+              }
+            : { otpCode }
+        ),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -216,7 +227,7 @@ export function RedeemKeypad({
             standing at your counter.
           </p>
         </div>
-        <Button full className="mt-6" onClick={() => verify(screen.code)}>
+        <Button full className="mt-6" onClick={() => verify(screen.code, screen.distance)}>
           Verify anyway — {formatKes(fee)} fee
         </Button>
         <Button variant="ghost" full className="mt-3" onClick={() => reject(screen.code)}>
