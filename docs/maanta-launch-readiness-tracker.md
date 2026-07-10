@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-09 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-10 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
@@ -29,9 +29,9 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | # | Item | Owner | Status | Gate | Notes |
 |---|---|---|---|---|---|
 | E1 | Frozen UI reviewed, approved, merged | Engineer + founder | ✅ done | GATE | Merged 2026-07-09 (PR #11) |
-| E2 | Shopper journey smoke-tested on real devices (browse → claim → redeem) | Engineer | 🟡 in progress | GATE | RPCs live and unit-tested; needs end-to-end device pass |
-| E3 | Merchant journey smoke-tested (onboard → approval → post deal → verify → fee debit) | Engineer | 🟡 in progress | GATE | Includes arrears path when wallet is empty |
-| E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | ⬜ not started | GATE | `unknown` fee status must open a fraud-review task |
+| E2 | Shopper journey smoke-tested on real devices (browse → claim → redeem) | Engineer | 🟡 in progress | GATE | Rehearsal data seeded 2026-07-10 (`supabase/seed/node0_rehearsal_seed.sql`); follow `maanta-node0-rehearsal-checklist.md`. Needs end-to-end device pass |
+| E3 | Merchant journey smoke-tested (onboard → approval → post deal → verify → fee debit) | Engineer | 🟡 in progress | GATE | Includes arrears path when wallet is empty; claim→verify-anyway→arrears loop verified against live DB 2026-07-10 (rolled-back RPC test) |
+| E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | 🟡 in progress | GATE | `unknown` fee status must open a fraud-review task; seeded pending merchant + open merchant_override dispute ready for the admin pass |
 | E5 | Stripe sandbox top-ups stable | Engineer | ✅ done | — | Multi-currency + webhook idempotency + failure log in place |
 | E6 | M-Pesa STK end-to-end | Engineer | 🔴 blocked | GATE | Blocked on IntaSend API access; code path exists. Escalate credential request weekly |
 | E7 | Waitlist forms live in the email platform (decided 2026-07-10: external, not in-repo; platform TBC) | Founder + agency + AI lead | ⬜ not started | GATE (marketing) | Spec: `maanta-waitlist-data-schema.md`. Gates the campaign start, not app launch |

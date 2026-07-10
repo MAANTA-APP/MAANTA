@@ -13,7 +13,7 @@ type Screen =
   | { kind: "checking" }
   | { kind: "mismatch"; code: string; distance: number | null }
   | { kind: "verifying" }
-  | { kind: "success"; newBalance: number | null; feeAmount: number }
+  | { kind: "success"; newBalance: number | null; feeAmount: number; disputed: boolean }
   | { kind: "rejected"; reason: string; noFee: boolean };
 
 /** 9k keypad + 9l success (resets in 3s) + 9m rejected + 9t mismatch + 10l/10m wallet gates. */
@@ -102,13 +102,17 @@ export function RedeemKeypad({
     }
   }
 
-  async function verify(otpCode: string) {
+  async function verify(otpCode: string, override?: { reason: string }) {
     setScreen({ kind: "verifying" });
     try {
       const res = await fetch("/api/redemptions/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otpCode }),
+        body: JSON.stringify(
+          override
+            ? { otpCode, override: true, overrideReason: override.reason }
+            : { otpCode }
+        ),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -120,6 +124,7 @@ export function RedeemKeypad({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,
         feeAmount: typeof body.feeAmount === "number" ? body.feeAmount : fee,
+        disputed: body.disputed === true,
       });
     } catch {
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
@@ -179,6 +184,11 @@ export function RedeemKeypad({
             New balance: {formatKes(screen.newBalance)}
           </p>
         ) : null}
+        {screen.disputed ? (
+          <p className="mt-3 rounded-card bg-flame-tint px-4 py-2 text-xs font-medium text-ink">
+            This redemption was flagged and sent to MAANTA for review
+          </p>
+        ) : null}
         <p className="mt-4 text-xs text-faint">Resetting in {countdown}…</p>
       </main>
     );
@@ -216,7 +226,18 @@ export function RedeemKeypad({
             standing at your counter.
           </p>
         </div>
-        <Button full className="mt-6" onClick={() => verify(screen.code)}>
+        <Button
+          full
+          className="mt-6"
+          onClick={() =>
+            verify(screen.code, {
+              reason:
+                screen.distance != null
+                  ? `Location mismatch (${Math.round(screen.distance)}m from shop) — merchant confirmed customer at counter`
+                  : "Location mismatch — merchant confirmed customer at counter",
+            })
+          }
+        >
           Verify anyway — {formatKes(fee)} fee
         </Button>
         <Button variant="ghost" full className="mt-3" onClick={() => reject(screen.code)}>
