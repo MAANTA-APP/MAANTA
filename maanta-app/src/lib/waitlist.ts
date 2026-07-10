@@ -20,7 +20,7 @@ export function isWaitlistSegment(value: unknown): value is WaitlistSegment {
  * email sequence). Align with legal/privacy-policy.md before go-live.
  */
 export const WAITLIST_CONSENT_TEXT =
-  "I agree to receive MAANTA launch updates and early-access emails. I can unsubscribe at any time.";
+  "I agree to receive MAANTA launch updates and relaunch marketing emails — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
 
 /** Node 0. All pre-launch signups default to this node interest. */
 export const WAITLIST_NODE_INTEREST = "BBS Mall";

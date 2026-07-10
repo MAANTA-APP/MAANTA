@@ -13,7 +13,8 @@ import type { WaitlistEmail } from "@/lib/waitlist-emails";
  * Env: RESEND_API_KEY, RESEND_AUDIENCE_ID, RESEND_FROM_EMAIL.
  */
 
-const RESEND_API_URL = "https://api.resend.com";
+// Overridable for local testing against a mock (same pattern as INTASEND_ENV).
+const RESEND_API_URL = process.env.RESEND_BASE_URL || "https://api.resend.com";
 
 function authHeaders(apiKey: string) {
   return {

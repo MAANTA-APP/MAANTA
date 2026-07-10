@@ -37,6 +37,38 @@ One audience database, three role-based segments. Companion to
   API) before they persist; the API route falls back to a core-fields-only
   contact create if properties are rejected, so leads are never lost.
 
+### Resend account state + end-to-end test (2026-07-10)
+
+- Sending domain `mail.maanta.app` **verified** (eu-west-1); a dedicated
+  **"Waitlist" audience/segment** exists (its ID is the `RESEND_AUDIENCE_ID`
+  env value), and all 10 contact properties are created (`segment_type`,
+  `phone`, `node_interest`, `business_name`, `note`, `source_channel`,
+  `source_medium`, `source_campaign`, `consent_at`, `consent_text`).
+- **End-to-end verified 2026-07-10**: local `POST /api/waitlist` exercised
+  against a mock (merchant signup 200, duplicate → friendly success,
+  invalid email/consent/segment → 400, honeypot silently dropped, +254
+  normalization confirmed), and a real merchant signup executed against
+  live Resend — contact stored in the Waitlist audience with all
+  properties, confirmation email status **delivered**.
+- `RESEND_BASE_URL` env override (defaults to the live API) lets local
+  testing point at a mock — same pattern as `INTASEND_ENV`.
+- **Verify on first production signup**: the route uses Resend's
+  `/audiences/{id}/contacts` endpoint with the Waitlist segment ID; Resend
+  has since restructured audiences→segments, so confirm the first live
+  signup lands in the Waitlist segment (the fallback logging in
+  `src/lib/resend.ts` will show any mismatch; no lead is lost either way).
+
+### Consent wording (finalized 2026-07-10, first campaign scope)
+
+> I agree to receive MAANTA launch updates and relaunch marketing emails —
+> including merchant offers at BBS Mall and deal updates across Nairobi.
+> I can unsubscribe at any time.
+
+Set in `maanta-app/src/lib/waitlist.ts` (`WAITLIST_CONSENT_TEXT`), shown at
+the checkbox and stored verbatim on every contact. Scope matches the first
+campaign: BBS Mall merchants (relaunch marketing period) + users across
+Nairobi. Still align with `legal/privacy-policy.md` at lawyer review.
+
 > **DECIDED (founder, 2026-07-10): waitlist signups live in the email
 > platform** — no `waitlist_signups` table or `/api/waitlist` route in this
 > repo. Which email platform is confirmed later; it must meet the platform
