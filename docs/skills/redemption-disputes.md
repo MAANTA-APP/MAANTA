@@ -1,6 +1,6 @@
 # Skills: redemption and disputes
 
-Last updated: 2026-07-09 · The core loop (claim → verify → fee) and what happens
+Last updated: 2026-07-10 · The core loop (claim → verify → fee) and what happens
 when it goes wrong. Update after any meaningful change to these flows.
 
 ## The core loop
@@ -31,6 +31,23 @@ disputes route to admin / on-ground agent handling **after the fact**, and must
 stay auditable: ledger entries + admin tasks + webhook failure log are the audit
 trail. Don't add a pre-verification balance gate to the redeem flow; the gate is
 on **deal creation** (zero-balance merchants can't create new deals).
+
+### Override + dispute escalation (wired 2026-07-10)
+
+- `verify_redemption` takes `p_override` / `p_override_reason` (defaulted —
+  old 3-arg callers keep working) and returns a `disputed` boolean
+  (migration `20260709191750`, applied live 2026-07-09 and back-ported to
+  the repo 2026-07-10).
+- Flagged redemptions (`review_required` or `fraud_flags`) **still verify** —
+  atomically marked `review_required=true`; an override appends
+  `merchant_override` to `fraud_flags`. A `fraud_events` row and a
+  high-priority `dispute_review` `agent_tasks` row are written best-effort
+  (never block the shopper).
+- The merchant "Verify anyway" button on the 9t location-mismatch screen
+  passes `override: true` + a reason (with distance) through
+  `POST /api/redemptions/verify` to the RPC.
+- Admin reviews disputes in **`/admin/support`** (the `agent_tasks` queue);
+  the Override button completes a task with an audit line appended.
 
 ## Error mapping in `/api/redemptions/verify`
 
@@ -65,6 +82,10 @@ unresolved dispute hold already covers the money. Idempotency by
 ## Where things live
 
 - RPCs: `maanta-app/supabase/migrations/20260702092952_core_loop_claim_and_verify_redemption.sql`
-  (+ fixes `20260702093134`, `20260702093258`), fee hardening `20260702094145`.
-- Route: `maanta-app/src/app/api/redemptions/verify/route.ts` (also `POST /api/redemptions` for claims).
+  (+ fixes `20260702093134`, `20260702093258`), fee hardening `20260702094145`,
+  override + dispute escalation `20260709191750`.
+- Route: `maanta-app/src/app/api/redemptions/verify/route.ts` (also `POST /api/redemptions` for claims,
+  `/preflight` for the pre-charge flag check, `/reject` for merchant rejection).
+- Merchant UI: `maanta-app/src/app/merchant/(app)/redeem/redeem-keypad.tsx`.
+- Admin queue: `maanta-app/src/app/admin/support/` over `agent_tasks`.
 - Trust metric: migrations `20260703235350`, `20260704000722`.
