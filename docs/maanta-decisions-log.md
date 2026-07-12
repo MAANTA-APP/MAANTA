@@ -25,6 +25,7 @@ Format: date · decision · consequence in product/code.
 | Date | Decision | Where it bites |
 |---|---|---|
 | 2026-07-10 | **Waitlist signups live in the email platform**, not in this repo's Supabase (no `waitlist_signups` table, no `/api/waitlist` route). Platform choice confirmed later. | `docs/maanta-waitlist-data-schema.md` (Option A archived); tracker items E7/E8 become form/platform configuration, not repo backend work |
+| 2026-07-12 | **RLS/least-privilege for two policy-less tables + deal-images bucket hardening.** `organizations` and `payment_webhook_failures` are admin-read/write only via RLS; all writes to both (and to the `deal-images` bucket) continue through the service role, which bypasses RLS. The broad public **listing** policy on `deal-images` (`deal_images_public_read`) was dropped — public buckets serve object URLs without it, so the shopper feed is unaffected while file enumeration is closed. Scoped merchant-own-folder write policies on the bucket are kept. Bucket stays `public: true` (feed serves public URLs from `deals.image_url`). | migration `20260712120000_rls_policies_and_storage_hardening.sql`; clears advisor lints `rls_enabled_no_policy` (organizations, payment_webhook_failures) and `public_bucket_allows_listing` (deal-images). Out of scope, pre-existing: GraphQL anon/authenticated schema-exposure lints (0026/0027) and SECURITY DEFINER RPC lints (0029) across the schema. |
 
 ## Pending decisions
 
@@ -43,4 +44,4 @@ Format: date · decision · consequence in product/code.
 2. If it changes a frozen rule, say what it supersedes.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
-Last updated: 2026-07-09
+Last updated: 2026-07-12
