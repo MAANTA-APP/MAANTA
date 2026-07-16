@@ -33,6 +33,9 @@ export async function POST(request: Request) {
     } else if (message.includes("boost_already_active")) {
       status = 409;
       userMessage = "This deal already has an active boost.";
+    } else if (message.includes("BOOST_ELITE_ONLY")) {
+      status = 403;
+      userMessage = "Boost is an Elite-only feature. Upgrade to Elite to boost your deals.";
     } else if (message.includes("deal_not_active") || message.includes("deal_not_found")) {
       status = 404;
       userMessage = "This deal isn't live.";
