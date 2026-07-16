@@ -152,3 +152,55 @@ Repointing `maanta-nuia` at the new repo without breaking the live green prod:
 9. Only after prod is confirmed green, consider this migration complete.
 
 Nothing above changes Supabase — env vars point at the same Supabase project.
+
+## Postmortem — first repoint attempt (2026-07-16) and the correct order
+
+The first attempt to repoint `maanta-nuia` at `maantamvp/MAANTA-APP` **failed**,
+harmlessly, and taught the right sequence. Recorded here so the next attempt is
+clean.
+
+### What happened
+
+- The Vercel Git connection was swapped to `maantamvp/MAANTA-APP` **before** the
+  app code was pushed into that repo. At that point `maantamvp/MAANTA-APP` `main`
+  contained only GitHub's auto-generated **"Initial commit"** (`ac28b70`) — a bare
+  README, no `maanta-app/`.
+- Every deploy from it errored at build-container init:
+  `The specified Root Directory "maanta-app" does not exist.`
+  The Root Directory setting was correct — the directory simply wasn't in the
+  (empty) repo.
+- Clicking **Redeploy** re-ran the *same* empty commit and failed identically. A
+  redeploy rebuilds a fixed commit; it cannot pull in code that was never pushed.
+
+### Why live production was never at risk
+
+Vercel does **not** promote a failed build to the production domain. Throughout,
+`maanta.app` / `www.maanta.app` kept serving the last good deployment
+(`d42d67f`, from `MAANTA-APP/MAANTA`). The failed builds only ever held
+throwaway `*.vercel.app` preview aliases. No outage occurred.
+
+### The correct order (do this, not the above)
+
+1. **Push the app into the new repo FIRST.** Run Steps 1–6 of this runbook and
+   **confirm on GitHub** that `maantamvp/MAANTA-APP` `main` shows `maanta-app/`,
+   `docs/`, `CLAUDE.md` and the top commit is **not** "Initial commit". If the
+   repo was created with a README, the local push needs
+   `git push --force-with-lease origin main` (or `--allow-unrelated-histories`).
+2. **Only then repoint Vercel** (the "Next session — Vercel checklist" above).
+3. Trigger a deploy and verify green.
+
+Repointing Vercel at an empty repo can only fail. Code-in-repo is the
+precondition, not a later step.
+
+### Reverting a premature repoint (safe, no work lost)
+
+If Vercel was already repointed at the empty repo, restore the previous working
+wiring while you sort out the code push:
+
+- Vercel → **maanta-nuia** → **Settings → Git** → disconnect
+  `maantamvp/MAANTA-APP` → reconnect **`MAANTA-APP/MAANTA`**, Production Branch
+  `main`, Root Directory `maanta-app`.
+- Live prod is unaffected by this (it was already serving the last good
+  `MAANTA-APP/MAANTA` deployment). This just restores working auto-deploy.
+- The new repo and its Git connection remain available to finish later, in the
+  correct order.
