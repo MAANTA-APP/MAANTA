@@ -25,6 +25,7 @@ Format: date · decision · consequence in product/code.
 | Date | Decision | Where it bites |
 |---|---|---|
 | 2026-07-10 | **Waitlist signups live in the email platform**, not in this repo's Supabase (no `waitlist_signups` table, no `/api/waitlist` route). Platform choice confirmed later. | `docs/maanta-waitlist-data-schema.md` (Option A archived); tracker items E7/E8 become form/platform configuration, not repo backend work |
+| 2026-07-15 | **Boost is Elite-only — enforced server-side.** Closes a live breach where `purchase_boost` / `move_boost` checked owner/admin, deal state, no-duplication and balance but **not** `merchants.tier`, letting a Standard merchant with balance buy/move boosts by calling the RPCs directly. Both RPCs now raise a stable `BOOST_ELITE_ONLY` error for non-Elite merchants. The gate checks the merchant's tier and is **not** bypassed by admin/service_role (it sits outside the caller-auth block). No change to boost price, duration, trial length, or Node-0 credits. | migration `20260715120000_boost_elite_only_gate.sql` (`CREATE OR REPLACE` of both RPCs); `/api/boosts` + `/api/boosts/move` map `BOOST_ELITE_ONLY` → HTTP 403; tests in `src/app/api/boosts/**/__tests__/route.test.ts` |
 
 ## Pending decisions
 
