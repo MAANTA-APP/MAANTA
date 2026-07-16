@@ -26,7 +26,10 @@ export async function POST(request: Request) {
     const message = error?.message ?? "";
     let status = 500;
     let userMessage = "Could not move the boost.";
-    if (message.includes("no_active_boost")) {
+    if (message.includes("BOOST_ELITE_ONLY")) {
+      status = 403;
+      userMessage = "Boost is an Elite-only feature. Upgrade to Elite to move boosts.";
+    } else if (message.includes("no_active_boost")) {
       status = 404;
       userMessage = "No active boost to move.";
     } else if (message.includes("target_deal_not_active")) {
