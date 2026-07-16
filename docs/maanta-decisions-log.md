@@ -25,6 +25,7 @@ Format: date · decision · consequence in product/code.
 | Date | Decision | Where it bites |
 |---|---|---|
 | 2026-07-10 | **Waitlist signups live in the email platform**, not in this repo's Supabase (no `waitlist_signups` table, no `/api/waitlist` route). Platform choice confirmed later. | `docs/maanta-waitlist-data-schema.md` (Option A archived); tracker items E7/E8 become form/platform configuration, not repo backend work |
+| 2026-07-16 | **Node 0 opening credit = KES 300**, granted by admin at activation to the first **100** launch merchants activated during the Node 0 launch window. A launch-period **promotional credit** (same class as the free Elite trial), **not** a collection — does not breach the manual-billing ban. Amount/cap/launch-node are **frozen** but read from `app_config` (`node0_opening_credit_kes=300`, `node0_opening_credit_merchant_cap=100`, `node0_launch_node=BBS Mall`); window reuses `node0_launch_period_ends_at`. | Written **inline** in `activate_merchant` (migration `20260716120000_node0_opening_credit_on_activation.sql`) as `topup`/`manual`/`KES`, tagged `node0_opening_credit`, in the same transaction as the status flip. **Not** routed via `record_merchant_ledger_entry` (service_role-only), mirroring `purchase_boost`. Idempotent per merchant via `provider_reference = 'node0_opening_credit:<merchant_id>'`. Tests: `maanta-app/supabase/tests/node0_opening_credit_test.sql` |
 
 ## Pending decisions
 
@@ -43,4 +44,4 @@ Format: date · decision · consequence in product/code.
 2. If it changes a frozen rule, say what it supersedes.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
-Last updated: 2026-07-09
+Last updated: 2026-07-16
