@@ -46,3 +46,39 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder
           STRIPE_SECRET_KEY: sk_test_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_placeholder
+
+  # Boots a local Supabase (Postgres + postgis + auth schema + roles), applies
+  # every migration in supabase/migrations/, then runs the plain-SQL assertion
+  # suites in supabase/tests/*.sql. Each test file ends in a RAISE NOTICE on
+  # success and ASSERTs (which abort psql under ON_ERROR_STOP) on failure, so a
+  # broken migration or rule regression fails the job.
+  db-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase (applies supabase/migrations/)
+        run: supabase start
+
+      - name: Run supabase/tests/*.sql
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          db_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          ran=0
+          for f in supabase/tests/*.sql; do
+            ran=1
+            echo "::group::$f"
+            psql "$db_url" -v ON_ERROR_STOP=1 -f "$f"
+            echo "::endgroup::"
+          done
+          if [ "$ran" = "0" ]; then echo "No SQL tests found under supabase/tests/"; fi
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
