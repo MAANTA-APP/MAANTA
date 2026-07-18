@@ -2,10 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Maanta frozen design system — light only (wireframes specify a single theme) */
+/* Maanta Frozen UI (Pass 2) — light only (brief specifies a single theme) */
 :root {
   --background: #ffffff;
   --foreground: #111111;
+  --bg-app: #fafaf8; /* paper */
 }
 
 html {
@@ -15,7 +16,7 @@ html {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
 }
 
 @layer utilities {
@@ -28,5 +29,15 @@ body {
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  /* Codes and stacked/ticking figures: slashed zero + tabular figures so
+     a cashier never misreads O/0 and numbers don't jitter (brief §2, §4). */
+  .font-code {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-feature-settings: "zero" 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }

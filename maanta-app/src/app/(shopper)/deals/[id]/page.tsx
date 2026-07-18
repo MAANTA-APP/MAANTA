@@ -30,11 +30,6 @@ export default async function DealDetailPage({
   const claimable = deal.is_active && !expired && !fullyClaimed;
   const m = deal.merchants;
 
-  const progress =
-    deal.max_claims != null && deal.max_claims > 0
-      ? Math.min(deal.claims_count / deal.max_claims, 1)
-      : null;
-
   return (
     <main className="pb-28">
       <div className="relative h-64 bg-cream">
@@ -79,18 +74,7 @@ export default async function DealDetailPage({
           <W3wChip address={m.what3words_address} />
         </p>
 
-        {progress != null ? (
-          <div className="mt-5">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream">
-              <div
-                className={fullyClaimed ? "h-full bg-ink" : "h-full bg-brand"}
-                style={{ width: `${progress * 100}%` }}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <p className="mt-3 flex items-center gap-1.5 text-sm text-ink">
+        <p className="mt-4 flex items-center gap-1.5 text-sm text-ink">
           <IconCheck className="h-4 w-4 text-verified" />
           <span className="font-semibold">{verifiedCount} verified redemptions</span>
           {deal.max_claims != null ? (

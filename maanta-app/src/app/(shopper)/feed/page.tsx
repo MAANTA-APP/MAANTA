@@ -58,7 +58,7 @@ export default async function FeedPage() {
           {flash.length > 0 ? (
             <Rail
               title="Flash Deals"
-              icon={<IconBolt className="h-4 w-4 text-flame" />}
+              icon={<IconBolt className="h-4 w-4 text-ink" />}
               seeAllHref="/search?type=flash"
             >
               {flash.map((d) => (

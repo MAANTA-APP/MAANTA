@@ -48,7 +48,7 @@ export function FavouriteButton({
     >
       <IconHeart
         filled={on}
-        className={cn("h-5 w-5", on ? "text-flame" : "text-faint")}
+        className={cn("h-5 w-5", on ? "text-ink" : "text-faint")}
       />
     </button>
   );

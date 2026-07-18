@@ -3,11 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { formatCode } from "@/lib/ui";
-import { CodeDisplay } from "@/components/ui/overlays";
-import { W3wChip, CountdownChip, StatusChip } from "@/components/ui/chips";
+import { W3wChip, ClaimChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { TicketWatcher } from "./ticket-watcher";
+import { ClaimedCode } from "./claimed-code";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,7 @@ type Row = {
   status: "pending" | "success" | "failed" | "flagged";
   fraud_flags: string[] | null;
   expires_at: string;
+  redeemed_at: string | null;
   deals: { id: string; title: string; expires_at: string | null } | null;
   merchants: {
     id: string;
@@ -26,7 +27,17 @@ type Row = {
   } | null;
 };
 
-/** 8i/8j claimed ticket + full code, 8k expired, 8z verified, 8aa flagged. */
+/** HH:MM in 24h local, e.g. "18:15". */
+function hhmm(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("en-KE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** S5 claimed code (hero) + verified / expired / flagged states. */
 export default async function TicketPage({
   params,
   searchParams,
@@ -41,7 +52,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, user_id, deals(id, title, expires_at), merchants(id, merchant_name, floor, what3words_address)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, user_id, deals(id, title, expires_at), merchants(id, merchant_name, floor, what3words_address)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -57,19 +68,31 @@ export default async function TicketPage({
   const justClaimed = searchParams.claimed === "1";
   const w3wHref = `https://what3words.com/${m.what3words_address.replace(/^\/+/, "")}`;
 
-  // 8z Redemption success
+  // Redemption success — neutral, not celebratory. Money moved; carries a code reference.
   if (ticket.status === "success") {
     return (
       <main className="flex min-h-[80dvh] flex-col items-center justify-center px-6 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-ink bg-white">
           <IconCheck className="h-8 w-8 text-ink" />
         </span>
-        <h1 className="mt-5 text-2xl font-bold text-ink">Code verified</h1>
-        <p className="mt-2 text-sm text-muted">
+        <div className="mt-5">
+          <ClaimChip state="redeemed" />
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-ink">Code verified</h1>
+        <p className="mt-2 text-sm text-secondary">
           {ticket.deals?.title} · {m.merchant_name}
           {m.floor ? `, ${m.floor}` : ""}
         </p>
-        <p className="mt-1 text-sm text-muted">Your discount is applied at the counter.</p>
+        {ticket.redeemed_at ? (
+          <p className="tnum mt-1 text-sm text-secondary">
+            Redeemed today {hhmm(ticket.redeemed_at)}
+          </p>
+        ) : null}
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
+          <span className="font-code text-xs tracking-[0.06em] text-secondary">
+            {formatCode(ticket.otp_code)}
+          </span>
+        </div>
         <ButtonLink href="/feed" full className="mt-8">
           Done
         </ButtonLink>
@@ -77,20 +100,24 @@ export default async function TicketPage({
     );
   }
 
-  // 8aa Redemption — flagged / under review
+  // Redemption — flagged / under review. Rust warning, icon + word (L12).
   if (ticket.status === "flagged") {
     return (
       <main className="px-5 pt-8">
         <h1 className="text-center text-lg font-bold text-ink">Redemption</h1>
         <div className="mt-6 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
-          <span className="font-mono text-lg font-bold">{formatCode(ticket.otp_code)}</span>
-          <StatusChip status="flagged" />
+          <span className="font-code text-lg text-ink">{formatCode(ticket.otp_code)}</span>
+          <ClaimChip state="limit" label="UNDER REVIEW" />
         </div>
-        <div className="mt-4 rounded-card bg-cream p-4 text-sm text-ink">
-          This redemption was flagged by our checks
-          {ticket.fraud_flags?.includes("geofence") ? " (location mismatch)" : ""}.
-          Support will review and resolve it within 24 hours. Nothing is needed from
-          you right now.
+        <div className="mt-4 flex gap-2.5 rounded-card border-[1.5px] border-l-[5px] border-rust bg-white p-4 text-sm text-ink">
+          <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px] border-rust text-[10px] text-rust">
+            !
+          </span>
+          <p className="leading-relaxed">
+            <span className="font-bold">This redemption is under review</span>
+            {ticket.fraud_flags?.includes("geofence") ? " (location mismatch)" : ""}.
+            Support will resolve it within 24 hours. Nothing is needed from you right now.
+          </p>
         </div>
         <ButtonLink href="/help" variant="ghost" full className="mt-6">
           Contact support
@@ -99,20 +126,24 @@ export default async function TicketPage({
     );
   }
 
-  // 8k Redemption expired
+  // Redemption expired.
   if (expired) {
     return (
       <main className="flex min-h-[80dvh] flex-col px-5 pt-6">
-        <div className="rounded-2xl bg-cream px-6 py-8 text-center">
-          <p className="font-mono text-4xl font-bold tracking-[0.12em] text-faint line-through">
+        <div className="flex justify-center">
+          <ClaimChip state="expired" />
+        </div>
+        <div className="mt-5 rounded-2xl border-2 border-line bg-cream px-6 py-8 text-center">
+          <p className="font-code text-3xl text-faint line-through">
             {formatCode(ticket.otp_code)}
           </p>
         </div>
         <h1 className="mt-6 text-center text-lg font-bold text-ink">
           This code has expired
         </h1>
-        <p className="mt-2 text-center text-sm text-muted">
-          The deal ended and the 15-minute grace period has passed.
+        <p className="mt-2 text-center text-sm text-secondary">
+          The deal ended and the 15-minute grace period has passed. Expired codes
+          cannot be redeemed.
         </p>
         <ButtonLink href="/feed" full className="mt-8">
           See live deals
@@ -121,37 +152,45 @@ export default async function TicketPage({
     );
   }
 
-  // 8i / 8j — pending, live code
+  // Pending, live code — the hero (S5). Zero amber actions: the screen IS the credential.
   return (
-    <main className="px-5 pb-10 pt-4">
+    <main className="flex flex-col items-center px-5 pb-10 pt-4">
       <TicketWatcher active />
-      <div className="flex items-center justify-between">
-        <Link href="/my-deals" aria-label="Back" className="p-1 text-ink">
+      <div className="flex w-full items-center">
+        <Link href="/my-deals" aria-label="Back" className="-ml-1 p-1 text-ink">
           <IconArrowLeft className="h-5 w-5" />
         </Link>
       </div>
 
       {justClaimed ? (
-        <div className="mt-3 rounded-full bg-ink py-2.5 text-center text-sm font-bold text-brand">
-          ✓ Deal claimed
+        <div className="mt-2 w-full rounded-xl border border-line bg-white py-2.5 text-center text-sm font-bold text-ink">
+          Deal claimed
         </div>
       ) : null}
 
-      <p className="mt-6 text-center text-sm font-medium text-muted">
-        {m.merchant_name}
-        {m.floor ? ` · ${m.floor}` : ""}
-      </p>
-
-      <CodeDisplay code={ticket.otp_code} size="xl" className="mt-4" />
-
-      <div className="mt-4 flex justify-center">
-        <CountdownChip
-          expiresAt={ticket.deals?.expires_at ?? ticket.expires_at}
-          suffix="(+15 min grace)"
-        />
+      <div className="mt-4">
+        <ClaimChip state="claimed" />
       </div>
 
-      <div className="mt-4 flex justify-center">
+      <div className="mt-4 w-full">
+        <ClaimedCode code={ticket.otp_code} expiresAt={ticket.expires_at} />
+      </div>
+
+      <div className="mt-4 w-full">
+        <h1 className="text-xl font-bold leading-tight text-ink">{m.merchant_name}</h1>
+        {m.floor ? (
+          <p className="text-sm font-semibold text-secondary">{m.floor}</p>
+        ) : null}
+        {ticket.deals?.title ? (
+          <p className="mt-1.5 text-sm text-ink">{ticket.deals.title}</p>
+        ) : null}
+        <p className="tnum mt-0.5 text-sm text-secondary">
+          {ticket.deals?.expires_at ? `Deal ends ${hhmm(ticket.deals.expires_at)} · ` : ""}
+          code valid until {hhmm(ticket.expires_at)} today
+        </p>
+      </div>
+
+      <div className="mt-4 w-full">
         <W3wChip address={m.what3words_address} />
       </div>
 
@@ -159,12 +198,19 @@ export default async function TicketPage({
         href={w3wHref}
         variant="ghost"
         full
-        className="mt-8"
+        className="mt-6"
         target="_blank"
         rel="noopener noreferrer"
       >
         Navigate
       </ButtonLink>
+
+      <p className="mt-6 text-center text-sm font-semibold text-ink">
+        Show this screen at the counter.
+      </p>
+      <p className="mt-1 text-center text-xs text-muted">
+        If the timer isn&apos;t moving, it&apos;s a screenshot.
+      </p>
     </main>
   );
 }

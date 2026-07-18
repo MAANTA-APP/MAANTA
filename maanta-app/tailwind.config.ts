@@ -9,37 +9,41 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Maanta frozen design tokens — sampled from design/Maanta_Wireframe_System.pdf
+        // Maanta Frozen UI (Pass 2) design tokens — from maanta-design-brief §2.
+        // Never write raw hex into components; use these names.
         brand: {
-          DEFAULT: "#FDBF2D", // primary yellow (buttons, accents, code display)
-          light: "#FDD576", // yellow tint (progress, chips)
-          tint: "#FFF7E0", // pale yellow wash
+          DEFAULT: "#FDBF2D", // --action-primary-bg · the one amber action. Fill/border only.
+          light: "#FDD576", // amber tint (merchant/admin legacy chips)
+          tint: "#FFF7E0", // pale amber wash (merchant/admin legacy)
         },
         ink: {
-          DEFAULT: "#000000", // black surfaces / nav / emphasis borders
-          soft: "#111111",
+          DEFAULT: "#111111", // --text-primary / --text-money · 18.88:1 on white
+          soft: "#000000", // pure black — CTA labels (12.67:1 on amber), emphasis borders
         },
+        paper: "#FAFAF8", // --bg-app · shopper page background
         cream: {
-          DEFAULT: "#F5F2EB", // warm off-white card fill
-          dark: "#EDE9DF",
+          DEFAULT: "#FAFAF8", // repointed to paper — legacy washes / image placeholders
+          dark: "#F1F1F1", // --bg-surface-2 · disabled fill
         },
+        rust: "#9A4A0C", // --status-warning · warnings, urgency. NEVER yellow (L6)
         flame: {
-          DEFAULT: "#E8431F", // FLASH / destructive / near-expiry countdown
-          tint: "#FCEBE7", // pale red wash (warning banners)
+          DEFAULT: "#8C1D18", // error red — blocked / failed / arrears text + border
+          tint: "#FBEDEC", // pale error wash
         },
         verified: {
-          DEFAULT: "#1F8A3E", // success green (✓ Verified, LIVE)
-          tint: "#E8F4EC",
+          DEFAULT: "#0A5C34", // --status-success-solid · success. White on it = 8.10:1
+          tint: "#E8F1EC",
         },
-        line: "#EBEBEB", // hairline borders
-        muted: "#666666", // secondary text
-        faint: "#9E9C98", // tertiary text on cream
+        line: "#E5E2DA", // hairline card borders
+        secondary: "#3D3D3D", // --text-secondary · 10.86:1 — struck prices, money context
+        muted: "#5C5C5C", // --text-tertiary · 6.40:1 — labels, non-money
+        faint: "#6B6B6B", // --text-muted · 5.33:1 — placeholders. NEVER money, NEVER code
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "ui-monospace", "monospace"],
       },
       borderRadius: {
         card: "1rem", // standard card
@@ -61,10 +65,16 @@ const config: Config = {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        // R3 — the only amber liveness pulse. Breathes the claimed-code border.
+        r3: {
+          "0%, 100%": { borderColor: "#FDBF2D" },
+          "50%": { borderColor: "#FBE7AE" },
+        },
       },
       animation: {
         "sheet-up": "sheet-up 0.25s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
+        r3: "r3 2s ease-in-out infinite",
       },
     },
   },

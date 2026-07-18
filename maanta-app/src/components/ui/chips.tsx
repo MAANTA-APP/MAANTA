@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { cn, timeLeftLabel, isNearExpiry } from "@/lib/ui";
-import { IconBolt, IconLock } from "@/components/ui/icons";
+import { IconLock } from "@/components/ui/icons";
 
-/** 2a Flash / Boost tags */
+/**
+ * 2a Flash / Boost tags — outline pills only. Amber is rationed to the one
+ * action per screen + R1–R4 (brief L5/L7), so a BOOSTED chip is never an
+ * amber fill; and warnings are never red/yellow, so FLASH carries no colour.
+ */
 export function FlashTag({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-flame px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white",
+        "inline-flex items-center rounded-full border-[1.5px] border-ink bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink",
         className
       )}
     >
-      <IconBolt className="h-3 w-3" />
       Flash
     </span>
   );
@@ -23,7 +26,7 @@ export function BoostedTag({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink",
+        "inline-flex items-center rounded-full border-[1.5px] border-ink bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-ink",
         className
       )}
     >
@@ -71,6 +74,45 @@ export function StatusChip({
   );
 }
 
+/**
+ * Shopper claim-state chip — frozen S4/S5/S6 StatusChip: an outline pill that
+ * carries an icon + WORD so the state survives greyscale (L12). Amber-free.
+ */
+type ClaimState = "claimed" | "active" | "redeemed" | "expired" | "limit";
+const CLAIM_CHIP: Record<ClaimState, { icon: string; label: string; strong: boolean }> = {
+  claimed: { icon: "✓", label: "CLAIMED", strong: true },
+  active: { icon: "●", label: "ACTIVE", strong: true },
+  redeemed: { icon: "✓", label: "REDEEMED", strong: true },
+  expired: { icon: "○", label: "EXPIRED", strong: false },
+  limit: { icon: "●", label: "LIMIT REACHED", strong: false },
+};
+
+export function ClaimChip({
+  state,
+  label,
+  className,
+}: {
+  state: ClaimState;
+  label?: string;
+  className?: string;
+}) {
+  const c = CLAIM_CHIP[state];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border-[1.5px] bg-white px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em]",
+        c.strong ? "border-ink text-ink" : "border-muted text-secondary",
+        className
+      )}
+    >
+      <span aria-hidden className="text-[10px]">
+        {c.icon}
+      </span>
+      {label ?? c.label}
+    </span>
+  );
+}
+
 /** 2f "Locked 36h" chip (agent leads) */
 export function LockedChip({ hoursLeft }: { hoursLeft: number }) {
   return (
@@ -81,11 +123,11 @@ export function LockedChip({ hoursLeft }: { hoursLeft: number }) {
   );
 }
 
-/** ● LIVE chip (node cards) */
+/** ● LIVE chip (node cards) — outline pill + filled dot + word (L12), no amber fill. */
 export function LiveChip({ label = "LIVE" }: { label?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-bold text-ink">
-      <span className="h-1.5 w-1.5 rounded-full bg-verified" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-white px-2.5 py-0.5 text-[11px] font-bold tracking-[0.06em] text-ink">
+      <span className="h-1.5 w-1.5 rounded-full bg-ink" />
       {label}
     </span>
   );
@@ -93,7 +135,7 @@ export function LiveChip({ label = "LIVE" }: { label?: string }) {
 
 export function ComingSoonChip({ label = "Coming soon" }: { label?: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-cream-dark px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+    <span className="inline-flex items-center rounded-full border border-line bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-muted">
       {label}
     </span>
   );
@@ -150,12 +192,13 @@ export function CountdownChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+        "tnum inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+        // Urgency is rust, never yellow or red (L6). Ended is neutral grey.
         ended
-          ? "bg-cream-dark text-muted"
+          ? "bg-cream-dark text-faint"
           : near
-            ? "bg-flame text-white"
-            : "bg-cream text-ink",
+            ? "border border-rust bg-white text-rust"
+            : "bg-cream text-secondary",
         className
       )}
     >
@@ -178,7 +221,7 @@ export function W3wChip({
   const clean = address.replace(/^\/+/, "");
   const inner = (
     <>
-      <span className="text-flame">{"///"}</span>
+      <span className="text-secondary">{"///"}</span>
       {clean}
       {linked ? <span aria-hidden> ↗</span> : null}
     </>

@@ -42,10 +42,10 @@ export function timeLeftLabel(iso: string | null | undefined) {
   return "less than 1m left";
 }
 
-/** Near-expiry threshold used by countdown chips (red under 15 minutes). */
+/** Near-expiry threshold used by countdown chips (rust under 60 minutes, per brief). */
 export function isNearExpiry(iso: string | null | undefined) {
   const ms = msUntil(iso);
-  return isFinite(ms) && ms > 0 && ms <= 15 * 60 * 1000;
+  return isFinite(ms) && ms > 0 && ms <= 60 * 60 * 1000;
 }
 
 /** "Today, 10:42am" / "Yesterday, 9:14am" / "2 Jul, 9:14am" */

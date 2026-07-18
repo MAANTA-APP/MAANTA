@@ -149,7 +149,7 @@ export function TicketCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border-[3px] border-ink bg-cream p-5 text-center",
+        "animate-r3 rounded-2xl border-[2.5px] border-brand bg-white p-5 text-center",
         className
       )}
     >
@@ -157,10 +157,10 @@ export function TicketCard({
         {merchantName}
         {floor ? ` · ${floor}` : ""}
       </p>
-      <p className="mt-2 font-mono text-4xl font-bold tracking-[0.12em] text-ink">
+      <p className="font-code mt-2 text-4xl font-medium tracking-[0.14em] text-ink">
         {formatCode(code)}
       </p>
-      <p className="mt-2 text-xs font-semibold text-flame">{expiryLabel}</p>
+      <p className="mt-2 text-xs font-semibold text-rust">{expiryLabel}</p>
       {w3w ? (
         <div className="mt-3 flex justify-center">
           <W3wChip address={w3w} />
@@ -343,11 +343,12 @@ export function NotificationRow({
       <span
         className={cn(
           "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-          unread ? "bg-flame" : "bg-cream-dark"
+          // Unread = dot + bold, never colour alone (L12). Dot is ink, not red.
+          unread ? "bg-ink" : "bg-cream-dark"
         )}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-ink">{title}</p>
+        <p className={cn("text-sm text-ink", unread ? "font-bold" : "font-semibold")}>{title}</p>
         <p className="mt-0.5 text-xs text-muted">{body}</p>
       </div>
       <span className="text-[11px] text-faint">{relativeAge(at)}</span>

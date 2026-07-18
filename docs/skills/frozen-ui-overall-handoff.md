@@ -1,8 +1,42 @@
 # Skills: frozen UI — overall handoff
 
-Last updated: 2026-07-09 · Status: **repo-side seed — reconcile with the Notion
+Last updated: 2026-07-18 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
+
+## Pass 2 — Frozen UI (Shopper) applied 2026-07-18
+
+The shopper surface was migrated from the Pass-1 palette to the **Frozen UI
+(Pass 2)** tokens in `maanta-design-brief.md`. This was a **visual reskin only**
+— no schema or price-model changes (the brief's `YOU PAY` model has no backing
+table; the wireframes were adapted to the code, not the reverse). Key moves:
+
+- **Fonts:** Geist → **Inter** (sans) + **JetBrains Mono** (codes). Loaded via
+  `next/font/google` in `src/app/layout.tsx`; slashed-zero + tabular figures via
+  the `.font-code` / `.tnum` utilities in `globals.css`.
+- **Tokens** (`tailwind.config.ts`, never raw hex in components):
+  amber `#FDBF2D` (fill/border only, the one action + R1–R4) · paper
+  `--bg-app #FAFAF8` (shopper page) · cards `#FFF` · disabled `cream-dark
+  #F1F1F1`/`faint #6B6B6B` (L9b) · text scale `ink #111` / `secondary #3D3D3D`
+  (money context) / `muted #5C5C5C` / `faint #6B6B6B` · **warning = rust
+  `#9A4A0C`, never red/yellow (L6)** · error `flame #8C1D18` · success
+  `verified #0A5C34` · hairline `line #E5E2DA`.
+- **Rules enforced:** CTA = amber fill + **black** label (L4); disabled is never
+  amber (L9b); ≤1 amber action/screen (selection tabs, boosted/flash/live chips,
+  the notification badge and the deal-detail claims bar were all de-ambered);
+  every state carries icon + word (L12) via `ClaimChip` and rust `InlineAlert`s;
+  no emoji on money/loading surfaces (L9 — button spinner, claim-check spinner).
+- **S5 claimed-code hero** (`tickets/[id]/claimed-code.tsx`): white card, **R3**
+  breathing amber border (`animate-r3` keyframe), ink slashed-zero code, a
+  **live per-second ticking countdown** (anti-screenshot; ships with "If the
+  timer isn't moving, it's a screenshot"), price/context outside the card, zero
+  amber actions. `CodeDisplay` in `overlays.tsx` was likewise moved off the
+  amber fill.
+- **TabBar** now uses the R1 amber top-indicator bar, not an amber pill.
+
+Verified: `npm run build` (all routes), `tsc --noEmit`, `next lint`, and
+`npm test` (21) all pass. A live render needs Supabase env vars (middleware
+builds a client per request), absent in the build sandbox.
 
 ## What "frozen" means
 

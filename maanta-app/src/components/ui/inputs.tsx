@@ -338,7 +338,8 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             "h-9 flex-1 rounded-full text-sm font-semibold transition-colors",
-            value === o.value ? "bg-brand text-ink" : "text-muted hover:text-ink"
+            // Selection is not an action — keep amber rationed (L5/L7), use ink.
+            value === o.value ? "bg-ink text-white" : "text-muted hover:text-ink"
           )}
         >
           {o.label}
@@ -369,7 +370,7 @@ export function ChipTabs<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             "rounded-full px-3.5 py-1.5 text-xs font-semibold",
-            value === o.value ? "bg-brand text-ink" : "bg-cream text-muted hover:bg-cream-dark"
+            value === o.value ? "bg-ink text-white" : "bg-cream text-muted hover:bg-cream-dark"
           )}
         >
           {o.label}
