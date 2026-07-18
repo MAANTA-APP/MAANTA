@@ -28,9 +28,18 @@ COMMENT ON COLUMN public.deals.charges IS
   'Disclosed mandatory extras, folded into YOU PAY: array of {label, type:"fixed"|"percent", value}. Frozen at publish — no counter-side additions (brief §4/§10).';
 
 -- charges must be a JSON array (element shape is validated in the API layer).
-ALTER TABLE public.deals
-  ADD CONSTRAINT deals_charges_is_array
-  CHECK (jsonb_typeof(charges) = 'array');
+-- Guarded so the migration is safely re-runnable (ADD CONSTRAINT has no
+-- IF NOT EXISTS in Postgres).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'deals_charges_is_array'
+  ) THEN
+    ALTER TABLE public.deals
+      ADD CONSTRAINT deals_charges_is_array
+      CHECK (jsonb_typeof(charges) = 'array');
+  END IF;
+END $$;
 
 -- Snapshot of YOU PAY at claim time, so a claimed code is argued from the exact
 -- amount that was disclosed when the shopper claimed it.
