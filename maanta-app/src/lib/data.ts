@@ -108,6 +108,9 @@ export type DealRow = {
   claims_count: number;
   success_fee: number;
   boost_active: boolean;
+  price_kes: number | null;
+  compare_at_kes: number | null;
+  charges: unknown;
   starts_at: string;
   expires_at: string | null;
   merchants: {
@@ -122,7 +125,7 @@ export type DealRow = {
 };
 
 const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
 export async function getLiveDeals(node: string): Promise<{

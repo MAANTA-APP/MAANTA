@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
+import { dealPricing, chargeAmount } from "@/lib/pricing";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck, IconPin } from "@/components/ui/icons";
@@ -29,6 +30,7 @@ export default async function DealDetailPage({
     deal.max_claims != null && deal.claims_count >= deal.max_claims;
   const claimable = deal.is_active && !expired && !fullyClaimed;
   const m = deal.merchants;
+  const { pay, was, extras, charges } = dealPricing(deal);
 
   return (
     <main className="pb-28">
@@ -73,6 +75,53 @@ export default async function DealDetailPage({
           <span>·</span>
           <W3wChip address={m.what3words_address} />
         </p>
+
+        {pay != null ? (
+          <div className="mt-5">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+              You pay
+            </div>
+            <div className="tnum text-2xl font-bold text-ink">
+              KES {pay.toLocaleString("en-KE")}
+            </div>
+            {extras > 0 ? (
+              <div className="tnum mt-0.5 text-sm text-secondary">
+                Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
+              </div>
+            ) : null}
+            {was != null ? (
+              <div className="tnum text-sm text-secondary line-through">
+                Was KES {was.toLocaleString("en-KE")}
+              </div>
+            ) : null}
+
+            {/* Itemised breakdown — the ONE place it appears (brief §4). */}
+            {extras > 0 && deal.price_kes != null ? (
+              <div className="mt-3 flex flex-col gap-2 rounded-card border border-line bg-white p-3.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-secondary">Deal price</span>
+                  <span className="tnum font-medium">
+                    KES {Math.round(deal.price_kes).toLocaleString("en-KE")}
+                  </span>
+                </div>
+                {charges.map((c, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-secondary">{c.label}</span>
+                    <span className="tnum font-medium">
+                      KES {chargeAmount(c, deal.price_kes!).toLocaleString("en-KE")}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between border-t border-line pt-2">
+                  <span className="text-sm font-bold">Total you pay</span>
+                  <span className="tnum text-lg font-bold">
+                    KES {pay.toLocaleString("en-KE")}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <p className="mt-4 flex items-center gap-1.5 text-sm text-ink">
           <IconCheck className="h-4 w-4 text-verified" />

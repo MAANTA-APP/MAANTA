@@ -34,9 +34,25 @@ table; the wireframes were adapted to the code, not the reverse). Key moves:
   amber fill.
 - **TabBar** now uses the R1 amber top-indicator bar, not an amber pill.
 
+### YOU PAY price model (2026-07-18, follow-up)
+
+The visual reskin was followed by wiring the brief's central **YOU PAY** model
+(decisions-log 2026-07-18). Migration
+`20260718120000_shopper_you_pay_price_model.sql` adds `deals.price_kes /
+compare_at_kes / charges` and `redemptions.amount_kes` (claim snapshot).
+`src/lib/pricing.ts` is the **single** place YOU PAY is computed (tile, deal
+detail, claimed code all read `dealPricing`). The create-deal wizard gained the
+mandatory **M9 charge-disclosure** step (price + A/B extras + live preview +
+Publish-carries-number). Itemised breakdown appears **only** in deal detail;
+elsewhere extras collapse to "Includes KES N in taxes and charges". Columns are
+NULLable so legacy deals keep working with no price shown. **Deploy note:** the
+migration must be applied to the Supabase project before deploying, or the deal
+queries selecting the new columns will error.
+
 Verified: `npm run build` (all routes), `tsc --noEmit`, `next lint`, and
-`npm test` (21) all pass. A live render needs Supabase env vars (middleware
-builds a client per request), absent in the build sandbox.
+`npm test` (**33**, incl. 12 pricing tests) all pass. A live render needs
+Supabase env vars (middleware builds a client per request), absent in the build
+sandbox.
 
 ## What "frozen" means
 

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { formatCode } from "@/lib/ui";
+import { dealPricing } from "@/lib/pricing";
 import { W3wChip, ClaimChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
@@ -18,7 +19,15 @@ type Row = {
   fraud_flags: string[] | null;
   expires_at: string;
   redeemed_at: string | null;
-  deals: { id: string; title: string; expires_at: string | null } | null;
+  amount_kes: number | null;
+  deals: {
+    id: string;
+    title: string;
+    expires_at: string | null;
+    price_kes: number | null;
+    compare_at_kes: number | null;
+    charges: unknown;
+  } | null;
   merchants: {
     id: string;
     merchant_name: string;
@@ -52,7 +61,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, user_id, deals(id, title, expires_at), merchants(id, merchant_name, floor, what3words_address)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges), merchants(id, merchant_name, floor, what3words_address)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -67,6 +76,13 @@ export default async function TicketPage({
     (ticket.status === "pending" && new Date(ticket.expires_at) <= new Date());
   const justClaimed = searchParams.claimed === "1";
   const w3wHref = `https://what3words.com/${m.what3words_address.replace(/^\/+/, "")}`;
+
+  // YOU PAY: prefer the amount snapshotted at claim; fall back to the live deal
+  // price. Same computation as the tile and deal detail (lib/pricing).
+  const priced = ticket.deals
+    ? dealPricing(ticket.deals)
+    : { pay: null, was: null, extras: 0, charges: [] };
+  const pay = ticket.amount_kes ?? priced.pay;
 
   // Redemption success — neutral, not celebratory. Money moved; carries a code reference.
   if (ticket.status === "success") {
@@ -189,6 +205,27 @@ export default async function TicketPage({
           code valid until {hhmm(ticket.expires_at)} today
         </p>
       </div>
+
+      {pay != null ? (
+        <div className="mt-4 w-full border-t border-line pt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+            You pay
+          </div>
+          <div className="tnum text-2xl font-bold text-ink">
+            KES {pay.toLocaleString("en-KE")}
+          </div>
+          {priced.extras > 0 ? (
+            <div className="tnum mt-0.5 text-sm text-secondary">
+              Includes KES {priced.extras.toLocaleString("en-KE")} in taxes and charges
+            </div>
+          ) : null}
+          {priced.was != null ? (
+            <div className="tnum text-sm text-secondary line-through">
+              Was KES {priced.was.toLocaleString("en-KE")}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-4 w-full">
         <W3wChip address={m.what3words_address} />

@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/ui/inputs";
-import { IconArrowLeft, IconBolt } from "@/components/ui/icons";
+import { IconArrowLeft, IconBolt, IconPlus, IconX } from "@/components/ui/icons";
 import { PlanChip, StatusChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
+import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 
-type Step = "type" | "details" | "schedule" | "review";
+type Step = "type" | "details" | "price" | "schedule" | "review";
+type ChargeDraft = { id: string; label: string; type: "fixed" | "percent"; value: string };
+type ExtrasChoice = "none" | "extras" | null;
 
 /** 9n type select (plan compare) → 9o details (cover REQUIRED) → 9p/9q schedule → 9s review. */
 export function NewDealWizard({
@@ -30,10 +33,50 @@ export function NewDealWizard({
   const [flashHours, setFlashHours] = useState(6);
   const [cover, setCover] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [price, setPrice] = useState("");
+  const [compareAt, setCompareAt] = useState("");
+  const [extrasChoice, setExtrasChoice] = useState<ExtrasChoice>(null);
+  const [drafts, setDrafts] = useState<ChargeDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isElite = tier === "elite";
+
+  // Price policy (brief §4/§10): YOU PAY = price + disclosed extras, computed in
+  // exactly one place (lib/pricing) so the merchant preview here and the
+  // shopper's screens can never disagree.
+  const priceKes = parseInt(price.replace(/\D/g, ""), 10);
+  const validCharges: DealCharge[] =
+    extrasChoice === "extras"
+      ? drafts
+          .map((d) => ({
+            label: d.label.trim(),
+            type: d.type,
+            value: parseFloat(d.value),
+          }))
+          .filter((c) => c.label && Number.isFinite(c.value) && c.value > 0)
+      : [];
+  const previewPay = youPay(isNaN(priceKes) ? null : priceKes, validCharges);
+  const previewExtras =
+    isNaN(priceKes) ? 0 : extrasTotal(validCharges, priceKes);
+  const priceReady =
+    !isNaN(priceKes) &&
+    priceKes >= 0 &&
+    extrasChoice !== null &&
+    (extrasChoice === "none" || validCharges.length > 0);
+
+  function addCharge(label = "", type: "fixed" | "percent" = "fixed", value = "") {
+    setDrafts((d) => [
+      ...d,
+      { id: Math.random().toString(36).slice(2), label, type, value },
+    ]);
+  }
+  function updateCharge(id: string, patch: Partial<ChargeDraft>) {
+    setDrafts((d) => d.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+  function removeCharge(id: string) {
+    setDrafts((d) => d.filter((c) => c.id !== id));
+  }
 
   if (!canDeals) {
     return (
@@ -57,6 +100,9 @@ export function NewDealWizard({
     form.set("flashHours", String(flashHours));
     form.set("maxClaims", maxClaims);
     form.set("cover", cover);
+    form.set("price", String(isNaN(priceKes) ? "" : priceKes));
+    if (compareAt.replace(/\D/g, "")) form.set("compareAt", compareAt.replace(/\D/g, ""));
+    form.set("charges", JSON.stringify(validCharges));
     try {
       const res = await fetch("/api/deals", { method: "POST", body: form });
       const body = await res.json();
@@ -215,7 +261,7 @@ export function NewDealWizard({
             </label>
           </div>
           <div className="mt-auto pt-8">
-            <Button full disabled={!cover || !title.trim()} onClick={() => setStep("schedule")}>
+            <Button full disabled={!cover || !title.trim()} onClick={() => setStep("price")}>
               Continue
             </Button>
             <p className="mt-2 text-center text-xs text-flame">
@@ -225,9 +271,180 @@ export function NewDealWizard({
         </>
       ) : null}
 
+      {step === "price" ? (
+        <>
+          <Header title="Price" back="details" />
+          <div className="space-y-4">
+            <div>
+              <span className="mb-1.5 block text-xs font-medium text-muted">
+                Deal price (KES)
+              </span>
+              <div className="flex h-12 items-center rounded-xl border border-ink/80 bg-white px-4 focus-within:ring-2 focus-within:ring-brand">
+                <span className="mr-2 text-base font-semibold text-ink">KES</span>
+                <input
+                  inputMode="numeric"
+                  value={price ? Number(price.replace(/\D/g, "")).toLocaleString("en-KE") : ""}
+                  onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))}
+                  placeholder="450"
+                  className="w-full text-base font-semibold text-ink focus:outline-none"
+                  aria-label="Deal price in KES"
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                What the shopper pays before any taxes or charges below.
+              </p>
+            </div>
+            <TextField
+              label="Was price (optional)"
+              inputMode="numeric"
+              value={compareAt ? Number(compareAt.replace(/\D/g, "")).toLocaleString("en-KE") : ""}
+              onChange={(e) => setCompareAt(e.target.value.replace(/\D/g, ""))}
+              placeholder="700"
+            />
+          </div>
+
+          {/* M9 charge disclosure — neither option preselected; the choice is the point. */}
+          <div className="mt-6">
+            <p className="text-sm font-bold text-ink">
+              Will the shopper pay anything on top of{" "}
+              {isNaN(priceKes) ? "the deal price" : formatKes(priceKes)}?
+            </p>
+            <div className="mt-3 space-y-3">
+              <button
+                type="button"
+                onClick={() => setExtrasChoice("none")}
+                className={cn(
+                  "w-full rounded-card border bg-white px-4 py-3.5 text-left",
+                  extrasChoice === "none" ? "border-2 border-ink" : "border-line"
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">
+                  No — {isNaN(priceKes) ? "the price" : formatKes(priceKes)} is everything
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  You will not be able to add charges at the counter.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setExtrasChoice("extras");
+                  if (drafts.length === 0) addCharge();
+                }}
+                className={cn(
+                  "w-full rounded-card border bg-white px-4 py-3.5 text-left",
+                  extrasChoice === "extras" ? "border-2 border-ink" : "border-line"
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">
+                  Yes — there are extra charges
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  Every charge is mandatory and folded into the shopper&apos;s price.
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {extrasChoice === "extras" ? (
+            <div className="mt-4 space-y-3">
+              {drafts.map((c) => (
+                <div key={c.id} className="rounded-card border border-line bg-white p-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={c.label}
+                      onChange={(e) => updateCharge(c.id, { label: e.target.value })}
+                      placeholder="VAT, service charge…"
+                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                      aria-label="Charge name"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCharge(c.id)}
+                      aria-label="Remove charge"
+                      className="flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-line text-muted"
+                    >
+                      <IconX className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex h-11 overflow-hidden rounded-lg border border-line">
+                      {(["fixed", "percent"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => updateCharge(c.id, { type: t })}
+                          className={cn(
+                            "px-3 text-sm font-semibold",
+                            c.type === t ? "bg-ink text-white" : "bg-white text-muted"
+                          )}
+                        >
+                          {t === "fixed" ? "KES" : "%"}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      inputMode="decimal"
+                      value={c.value}
+                      onChange={(e) =>
+                        updateCharge(c.id, { value: e.target.value.replace(/[^\d.]/g, "") })
+                      }
+                      placeholder={c.type === "percent" ? "16" : "30"}
+                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                      aria-label="Charge amount"
+                    />
+                    <span className="tnum w-20 flex-none text-right text-sm text-secondary">
+                      {c.value && !isNaN(priceKes)
+                        ? `KES ${(c.type === "percent"
+                            ? Math.round((priceKes * parseFloat(c.value || "0")) / 100)
+                            : Math.round(parseFloat(c.value || "0"))
+                          ).toLocaleString("en-KE")}`
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addCharge()}
+                className="flex items-center gap-1.5 text-sm font-semibold text-ink"
+              >
+                <IconPlus className="h-4 w-4" /> Add another charge
+              </button>
+            </div>
+          ) : null}
+
+          {/* Live preview — the merchant is writing the shopper's screen. */}
+          {priceReady && previewPay != null ? (
+            <div className="mt-6 rounded-card border border-line bg-cream p-4">
+              <p className="text-xs text-muted">Shoppers will see</p>
+              <p className="tnum mt-1 text-lg font-bold text-ink">
+                You pay KES {previewPay.toLocaleString("en-KE")}
+              </p>
+              {previewExtras > 0 ? (
+                <p className="tnum mt-0.5 text-xs text-secondary">
+                  Includes KES {previewExtras.toLocaleString("en-KE")} in taxes and charges
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="mt-auto pt-8">
+            <Button full disabled={!priceReady} onClick={() => setStep("schedule")}>
+              Continue
+            </Button>
+            <p className="mt-2 text-center text-xs text-muted">
+              {extrasChoice === null
+                ? "Choose whether there are extra charges to continue."
+                : " "}
+            </p>
+          </div>
+        </>
+      ) : null}
+
       {step === "schedule" ? (
         <>
-          <Header title={dealType === "flash" ? "Flash duration" : "Schedule"} back="details" />
+          <Header title={dealType === "flash" ? "Flash duration" : "Schedule"} back="price" />
           {dealType === "standard" ? (
             <>
               <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
@@ -285,6 +502,21 @@ export function NewDealWizard({
             </div>
             <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
           </div>
+          <div className="mt-3 rounded-card border border-line bg-white px-4 py-3.5">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">
+                Shoppers pay
+              </span>
+              <span className="tnum text-lg font-bold text-ink">
+                {previewPay != null ? `KES ${previewPay.toLocaleString("en-KE")}` : "—"}
+              </span>
+            </div>
+            {previewExtras > 0 ? (
+              <p className="tnum mt-1 text-right text-xs text-secondary">
+                Includes KES {previewExtras.toLocaleString("en-KE")} in taxes and charges
+              </p>
+            ) : null}
+          </div>
           <div className="mt-3 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
             <span className="text-xs text-muted">Goes live</span>
             <span className="text-sm font-semibold text-ink">Immediately</span>
@@ -295,7 +527,9 @@ export function NewDealWizard({
           {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
           <div className="mt-auto space-y-3 pt-8">
             <Button full onClick={publish} loading={busy}>
-              {dealType === "flash" ? "Publish flash deal" : "Publish deal"}
+              {previewPay != null
+                ? `Publish — shoppers pay KES ${previewPay.toLocaleString("en-KE")}`
+                : "Publish deal"}
             </Button>
             <Button variant="ghost" full onClick={() => setStep("details")}>
               Back to edit

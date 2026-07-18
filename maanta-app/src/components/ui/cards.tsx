@@ -48,6 +48,8 @@ export function DealCardVertical({
   boosted = false,
   verifiedCount,
   expiresAt,
+  pay,
+  wasKes,
 }: {
   href: string;
   imageUrl: string | null;
@@ -58,6 +60,8 @@ export function DealCardVertical({
   boosted?: boolean;
   verifiedCount: number;
   expiresAt?: string | null;
+  pay?: number | null;
+  wasKes?: number | null;
 }) {
   return (
     <Link
@@ -82,6 +86,21 @@ export function DealCardVertical({
           {floor ? ` · ${floor}` : ""}
         </p>
         <h3 className="text-base font-bold leading-snug text-ink">{title}</h3>
+        {pay != null ? (
+          <div className="flex items-baseline gap-2 pt-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+              You pay
+            </span>
+            <span className="tnum text-lg font-bold text-ink">
+              KES {pay.toLocaleString("en-KE")}
+            </span>
+            {wasKes != null ? (
+              <span className="tnum text-xs text-secondary line-through">
+                KES {wasKes.toLocaleString("en-KE")}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 pt-0.5">
           <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
           <span className="flex items-center gap-1 text-xs font-medium text-ink">
@@ -101,12 +120,14 @@ export function DealCardHorizontal({
   title,
   tag,
   verifiedCount,
+  pay,
 }: {
   href: string;
   imageUrl: string | null;
   title: string;
   tag: "flash" | "boosted" | null;
   verifiedCount: number;
+  pay?: number | null;
 }) {
   return (
     <Link
@@ -119,6 +140,11 @@ export function DealCardHorizontal({
       <div className="min-w-0">
         {tag === "flash" ? <FlashTag /> : tag === "boosted" ? <BoostedTag /> : null}
         <h4 className="mt-1 truncate text-sm font-bold text-ink">{title}</h4>
+        {pay != null ? (
+          <p className="tnum mt-0.5 text-sm font-bold text-ink">
+            You pay KES {pay.toLocaleString("en-KE")}
+          </p>
+        ) : null}
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
           <IconCheck className="h-3 w-3 text-verified" />
           {verifiedCount} verified
