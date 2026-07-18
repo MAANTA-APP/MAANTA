@@ -2,21 +2,35 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { NumericKeypad } from "@/components/ui/inputs";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { FeeDisclosure } from "@/components/ui/fee-disclosure";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
+import Link from "next/link";
 
+/**
+ * Merchant redeem — strict two-step resolve-then-charge (brief §8, L10):
+ *   1. entering the 6-digit code RESOLVES it (preflight) — charges nothing.
+ *   2. FeeDisclosure shows the exact fee before any charge.
+ *   3. an explicit "Confirm redemption" is the only thing that charges.
+ * A one-tap verify would hide the fee, so verify never charges here.
+ */
 type Screen =
   | { kind: "keypad" }
   | { kind: "checking" }
-  | { kind: "mismatch"; code: string; distance: number | null }
+  | {
+      kind: "disclose";
+      code: string;
+      dealTitle: string | null;
+      mismatch: boolean;
+      distance: number | null;
+    }
   | { kind: "verifying" }
   | { kind: "success"; newBalance: number | null; feeAmount: number; disputed: boolean }
   | { kind: "rejected"; reason: string; noFee: boolean };
 
-/** 9k keypad + 9l success (resets in 3s) + 9m rejected + 9t mismatch + 10l/10m wallet gates. */
 export function RedeemKeypad({
   balance: initialBalance,
   fee,
@@ -37,15 +51,15 @@ export function RedeemKeypad({
   const low = !insufficient && balance <= fee * 3;
   const remaining = Math.floor(balance / fee);
 
-  // Auto-submit when 6 digits are in.
+  // Entering 6 digits RESOLVES the code (charges nothing).
   useEffect(() => {
     if (code.length === 6 && screen.kind === "keypad" && !submitting.current) {
-      void preflight(code);
+      void resolveCode(code);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  // 9l: "Resetting in 3…"
+  // Success auto-returns to a fresh keypad.
   useEffect(() => {
     if (screen.kind !== "success") return;
     setCountdown(3);
@@ -70,7 +84,8 @@ export function RedeemKeypad({
     router.refresh();
   }
 
-  async function preflight(otpCode: string) {
+  // Step 1 — resolve only. Never charges. Ends on the FeeDisclosure screen.
+  async function resolveCode(otpCode: string) {
     submitting.current = true;
     setScreen({ kind: "checking" });
     try {
@@ -92,17 +107,20 @@ export function RedeemKeypad({
         setScreen({ kind: "rejected", reason: "Expired past grace period", noFee: true });
         return;
       }
-      if (body.locationMismatch) {
-        setScreen({ kind: "mismatch", code: otpCode, distance: body.distanceMeters });
-        return;
-      }
-      await verify(otpCode);
+      setScreen({
+        kind: "disclose",
+        code: otpCode,
+        dealTitle: body.dealTitle ?? null,
+        mismatch: body.locationMismatch === true,
+        distance: typeof body.distanceMeters === "number" ? body.distanceMeters : null,
+      });
     } catch {
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
     }
   }
 
-  async function verify(otpCode: string, override?: { reason: string }) {
+  // Step 3 — charge. Only ever called from an explicit Confirm on the disclosure.
+  async function confirmRedemption(otpCode: string, override?: { reason: string }) {
     setScreen({ kind: "verifying" });
     try {
       const res = await fetch("/api/redemptions/verify", {
@@ -151,24 +169,21 @@ export function RedeemKeypad({
     );
   }
 
-  // 10m Insufficient-wallet block (<fee)
+  // Wallet empty / below fee — cannot redeem. Amber is the single Top up action.
   if (insufficient && screen.kind === "keypad") {
     return (
-      <main className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-flame-tint text-2xl">
-          🛑
-        </span>
-        <h1 className="mt-5 text-xl font-bold text-ink">Wallet balance too low</h1>
-        <p className="mt-2 text-sm text-muted">
-          You need at least {formatKes(fee)} to verify a redemption
-        </p>
-        <ButtonLink href="/merchant/topup" full className="mt-8">
+      <main className="flex flex-col justify-center px-5 py-16">
+        <InlineAlert variant="error" title="Your wallet is empty.">
+          You cannot redeem until you top up.
+        </InlineAlert>
+        <ButtonLink href="/merchant/topup" full className="mt-6">
           Top up wallet
         </ButtonLink>
       </main>
     );
   }
 
+  // Success — flat, neutral confirmation. No confetti, no shadow, no emoji.
   if (screen.kind === "success") {
     return (
       <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
@@ -176,90 +191,136 @@ export function RedeemKeypad({
           <IconCheck className="h-8 w-8 text-verified" />
         </span>
         <h1 className="mt-5 text-2xl font-bold text-ink">Verified</h1>
-        <p className="mt-2 text-sm text-muted">
-          {formatKes(screen.feeAmount)} success fee applied
+        <p className="tnum mt-2 text-sm text-secondary">
+          {formatKes(screen.feeAmount)} success fee charged
         </p>
         {screen.newBalance != null ? (
-          <p className="mt-1 text-sm font-semibold text-ink">
-            New balance: {formatKes(screen.newBalance)}
+          <p className="tnum mt-1 text-sm font-semibold text-ink">
+            Wallet balance {formatKes(screen.newBalance)}
           </p>
         ) : null}
         {screen.disputed ? (
-          <p className="mt-3 rounded-card bg-flame-tint px-4 py-2 text-xs font-medium text-ink">
-            This redemption was flagged and sent to MAANTA for review
-          </p>
+          <InlineAlert variant="warning" className="mt-4 text-left">
+            This redemption was flagged and sent to MAANTA for review.
+          </InlineAlert>
         ) : null}
-        <p className="mt-4 text-xs text-faint">Resetting in {countdown}…</p>
+        <p className="mt-4 text-xs text-muted">Resetting in {countdown}…</p>
       </main>
     );
   }
 
+  // Failure is DARK, not red (brief §8 / anti-patterns). Icon + word. No emoji.
   if (screen.kind === "rejected") {
     return (
-      <main className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-flame-tint">
-          <IconX className="h-8 w-8 text-flame" />
+      <main className="flex min-h-[70dvh] flex-col items-center justify-center bg-ink-900 px-6 py-20 text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-white/40">
+          <IconX className="h-8 w-8 text-white" />
         </span>
-        <h1 className="mt-5 text-2xl font-bold text-ink">Code not valid</h1>
-        <p className="mt-2 text-sm text-muted">{screen.reason}</p>
+        <h1 className="mt-5 text-2xl font-bold text-white">Code not valid</h1>
+        <p className="mt-2 text-sm text-white/70">{screen.reason}</p>
         {screen.noFee ? (
-          <p className="mt-1 text-sm font-semibold text-ink">No fee was charged</p>
+          <p className="mt-1 text-sm font-semibold text-white">No fee was charged</p>
         ) : null}
-        <Button variant="ghost" full className="mt-8" onClick={reset}>
-          Try another code
-        </Button>
-      </main>
-    );
-  }
-
-  if (screen.kind === "mismatch") {
-    // 9t Verify — location mismatch warning
-    return (
-      <main className="px-5 pt-6">
-        <div className="rounded-2xl bg-cream px-6 py-5 text-center font-mono text-3xl font-bold tracking-[0.12em]">
-          {screen.code.slice(0, 3)} {screen.code.slice(3)}
-        </div>
-        <div className="mt-4 rounded-card border border-flame/40 bg-flame-tint p-4">
-          <p className="text-sm font-bold text-flame">⚠️ Location check failed</p>
-          <p className="mt-1 text-sm text-ink">
-            This code was claimed away from your shop. Verify only if the customer is
-            standing at your counter.
-          </p>
-        </div>
-        <Button
-          full
-          className="mt-6"
-          onClick={() =>
-            verify(screen.code, {
-              reason:
-                screen.distance != null
-                  ? `Location mismatch (${Math.round(screen.distance)}m from shop) — merchant confirmed customer at counter`
-                  : "Location mismatch — merchant confirmed customer at counter",
-            })
-          }
+        <button
+          type="button"
+          onClick={reset}
+          className="mt-8 h-12 w-full max-w-xs rounded-full border border-white/50 text-base font-semibold text-white"
         >
-          Verify anyway — {formatKes(fee)} fee
-        </Button>
-        <Button variant="ghost" full className="mt-3" onClick={() => reject(screen.code)}>
-          Reject code
-        </Button>
+          Try another code
+        </button>
       </main>
     );
   }
 
-  const busy = screen.kind === "checking" || screen.kind === "verifying";
+  // Step 2 — FeeDisclosure. Resolved, not charged. The fee is shown before Confirm.
+  if (screen.kind === "disclose") {
+    return (
+      <main className="flex flex-col px-5 pt-5">
+        <p className="text-xs font-medium text-muted">Code resolved</p>
+        {screen.dealTitle ? (
+          <h1 className="mt-1 text-lg font-bold text-ink">{screen.dealTitle}</h1>
+        ) : null}
 
+        {screen.mismatch ? (
+          <InlineAlert variant="warning" title="Claimed away from your shop." className="mt-3">
+            Confirm only if the customer is standing at your counter
+            {screen.distance != null ? ` (${Math.round(screen.distance)}m away)` : ""}.
+          </InlineAlert>
+        ) : null}
+
+        <FeeDisclosure fee={fee} balance={balance} className="mt-4" />
+
+        <div className="mt-6 space-y-3">
+          {insufficient ? (
+            <>
+              {/* Fee exceeds balance: Confirm is disabled grey; amber moves to Top up. */}
+              <ButtonLink href="/merchant/topup" full>
+                Top up wallet
+              </ButtonLink>
+              <Button full disabled>
+                Confirm redemption
+              </Button>
+            </>
+          ) : (
+            <Button
+              full
+              onClick={() =>
+                confirmRedemption(
+                  screen.code,
+                  screen.mismatch
+                    ? {
+                        reason:
+                          screen.distance != null
+                            ? `Location mismatch (${Math.round(screen.distance)}m from shop) — merchant confirmed customer at counter`
+                            : "Location mismatch — merchant confirmed customer at counter",
+                      }
+                    : undefined
+                )
+              }
+            >
+              Confirm redemption — {formatKes(fee)} fee
+            </Button>
+          )}
+          <Button variant="ghost" full onClick={() => reject(screen.code)}>
+            Reject code
+          </Button>
+          <button
+            type="button"
+            onClick={reset}
+            className="mx-auto block py-1 text-sm font-semibold text-ink underline-offset-2 hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Charging in flight.
+  if (screen.kind === "verifying") {
+    return (
+      <main className="flex min-h-[60dvh] flex-col items-center justify-center px-6 text-center">
+        <span
+          aria-hidden
+          className="h-8 w-8 animate-spin rounded-full border-[3px] border-line border-t-ink"
+        />
+        <p className="mt-5 text-sm font-semibold text-ink">Confirming…</p>
+      </main>
+    );
+  }
+
+  // Keypad (default) — entering a code resolves it. Charges nothing.
+  const checking = screen.kind === "checking";
   return (
     <main className="flex flex-col px-5 pt-4">
       {low ? (
-        <Link
-          href="/merchant/topup"
-          className="mb-3 block rounded-card border border-flame/40 bg-flame-tint px-4 py-3 text-sm text-ink"
-        >
-          Your balance is low — only {remaining} more redemption
-          {remaining === 1 ? "" : "s"} can be verified.{" "}
-          <span className="font-semibold underline">Top up now</span>
-        </Link>
+        <InlineAlert variant="warning" title="Balance is low." className="mb-3">
+          Enough for about {remaining} more redemption{remaining === 1 ? "" : "s"}.{" "}
+          <Link href="/merchant/topup" className="font-semibold text-ink underline">
+            Top up
+          </Link>{" "}
+          to avoid interruption.
+        </InlineAlert>
       ) : null}
 
       <p className="mt-2 text-center text-xs font-medium text-muted">
@@ -271,7 +332,7 @@ export function RedeemKeypad({
           <div
             key={i}
             className={cn(
-              "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-mono text-xl font-semibold",
+              "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold",
               i === code.length ? "border-2 border-ink" : code[i] ? "border-ink/80" : "border-line"
             )}
           >
@@ -280,15 +341,13 @@ export function RedeemKeypad({
         ))}
       </div>
 
-      {busy ? (
-        <p className="mt-4 text-center text-sm font-semibold text-ink">
-          {screen.kind === "checking" ? "Checking…" : "⏳ Verifying…"}
-        </p>
+      {checking ? (
+        <p className="mt-4 text-center text-sm font-semibold text-ink">Checking…</p>
       ) : null}
 
       <div className="mt-8">
         <NumericKeypad
-          disabled={busy}
+          disabled={checking}
           onDigit={(d) => setCode((c) => (c.length < 6 ? c + d : c))}
           onDelete={() => setCode((c) => c.slice(0, -1))}
         />
