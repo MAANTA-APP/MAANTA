@@ -169,11 +169,14 @@ export function RedeemKeypad({
     );
   }
 
-  // Wallet empty / below fee — cannot redeem. Amber is the single Top up action.
+  // Wallet below the fee — cannot redeem. Amber is the single Top up action.
   if (insufficient && screen.kind === "keypad") {
     return (
       <main className="flex flex-col justify-center px-5 py-16">
-        <InlineAlert variant="error" title="Your wallet is empty.">
+        <InlineAlert
+          variant="error"
+          title={balance <= 0 ? "Your wallet is empty." : "Balance too low to redeem."}
+        >
           You cannot redeem until you top up.
         </InlineAlert>
         <ButtonLink href="/merchant/topup" full className="mt-6">
