@@ -6,7 +6,9 @@ import { NumericKeypad } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { FeeDisclosure } from "@/components/ui/fee-disclosure";
 import { InlineAlert } from "@/components/ui/inline-alert";
-import { IconCheck, IconX } from "@/components/ui/icons";
+import { RedemptionResult } from "@/components/ui/redemption-result";
+import { WalletBalance } from "@/components/ui/wallet-balance";
+import { IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
 import Link from "next/link";
 
@@ -33,6 +35,7 @@ type Screen =
       newBalance: number | null;
       feeAmount: number;
       feeChargeStatus: "charged" | "owed" | "unknown";
+      referenceId: string;
       disputed: boolean;
     }
   | { kind: "rejected"; reason: string; noFee: boolean };
@@ -154,6 +157,7 @@ export function RedeemKeypad({
           body.feeChargeStatus === "unknown"
             ? body.feeChargeStatus
             : "charged",
+        referenceId: typeof body.redemptionId === "string" ? body.redemptionId : "",
         disputed: body.disputed === true,
       });
     } catch {
@@ -186,42 +190,18 @@ export function RedeemKeypad({
   // recorded as arrears inside verify_redemption and settled at the next
   // top-up. (Only new-deal creation is gated on balance, server-side.)
 
-  // Success — flat, neutral confirmation. No confetti, no shadow, no emoji.
+  // M4 success — flat solid success fill, white check, copyable ReferenceId,
+  // plain fade, no celebration. (RedemptionResult component.)
   if (screen.kind === "success") {
     return (
-      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-verified-tint">
-          <IconCheck className="h-8 w-8 text-verified" />
-        </span>
-        <h1 className="mt-5 text-2xl font-bold text-ink">Verified</h1>
-        {screen.feeChargeStatus === "owed" ? (
-          <>
-            <p className="tnum mt-2 text-sm text-secondary">
-              {formatKes(screen.feeAmount)} success fee recorded as arrears
-            </p>
-            <p className="mt-1 text-sm text-secondary">
-              Settled from your next top-up.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="tnum mt-2 text-sm text-secondary">
-              {formatKes(screen.feeAmount)} success fee charged
-            </p>
-            {screen.newBalance != null ? (
-              <p className="tnum mt-1 text-sm font-semibold text-ink">
-                Wallet balance {formatKes(screen.newBalance)}
-              </p>
-            ) : null}
-          </>
-        )}
-        {screen.disputed ? (
-          <InlineAlert variant="warning" className="mt-4 text-left">
-            This redemption was flagged and sent to MAANTA for review.
-          </InlineAlert>
-        ) : null}
-        <p className="mt-4 text-xs text-muted">Resetting in {countdown}…</p>
-      </main>
+      <RedemptionResult
+        feeAmount={screen.feeAmount}
+        newBalance={screen.newBalance}
+        feeChargeStatus={screen.feeChargeStatus}
+        referenceId={screen.referenceId}
+        disputed={screen.disputed}
+        countdown={countdown}
+      />
     );
   }
 
@@ -317,57 +297,77 @@ export function RedeemKeypad({
   }
 
   // Keypad (default) — entering a code resolves it. Charges nothing.
+  // Phone: single column. Tablet-at-the-till (lg+): two panes — the keypad
+  // stays LEFT and large (the focus); the right pane is information only and
+  // holds NO primary action (§8.8 / L5).
   const checking = screen.kind === "checking";
   return (
-    <main className="flex flex-col px-5 pt-4">
-      {insufficient ? (
-        <InlineAlert variant="warning" title="Wallet below the fee." className="mb-3">
-          Verifications still work — each {formatKes(fee)} fee is recorded as
-          arrears and settled from your next{" "}
-          <Link href="/merchant/topup" className="font-semibold text-ink underline">
-            top-up
-          </Link>
-          .
-        </InlineAlert>
-      ) : low ? (
-        <InlineAlert variant="warning" title="Balance is low." className="mb-3">
-          Enough for about {remaining} more redemption{remaining === 1 ? "" : "s"}.{" "}
-          <Link href="/merchant/topup" className="font-semibold text-ink underline">
-            Top up
-          </Link>{" "}
-          to avoid interruption.
-        </InlineAlert>
-      ) : null}
+    <main className="px-5 pt-4 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:px-8 lg:pt-8">
+      {/* LEFT — keypad + code entry (the focus). Type does not shrink; boxes grow. */}
+      <div className="mx-auto w-full max-w-[420px] lg:mx-0">
+        {insufficient ? (
+          <InlineAlert variant="warning" title="Wallet below the fee." className="mb-3">
+            Verifications still work — each {formatKes(fee)} fee is recorded as
+            arrears and settled from your next{" "}
+            <Link href="/merchant/topup" className="font-semibold text-ink underline">
+              top-up
+            </Link>
+            .
+          </InlineAlert>
+        ) : low ? (
+          <InlineAlert variant="warning" title="Balance is low." className="mb-3">
+            Enough for about {remaining} more redemption{remaining === 1 ? "" : "s"}.{" "}
+            <Link href="/merchant/topup" className="font-semibold text-ink underline">
+              Top up
+            </Link>{" "}
+            to avoid interruption.
+          </InlineAlert>
+        ) : null}
 
-      <p className="mt-2 text-center text-xs font-medium text-muted">
-        Enter the customer&apos;s 6-digit code
-      </p>
+        <p className="mt-2 text-center text-xs font-medium text-muted">
+          Enter the customer&apos;s 6-digit code
+        </p>
 
-      <div className="mt-4 flex justify-center gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold",
-              i === code.length ? "border-2 border-ink" : code[i] ? "border-ink/80" : "border-line"
-            )}
-          >
-            {code[i] ?? ""}
+        <div className="mt-4 flex justify-center gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold lg:h-16 lg:w-14 lg:text-2xl",
+                i === code.length ? "border-2 border-ink" : code[i] ? "border-ink/80" : "border-line"
+              )}
+            >
+              {code[i] ?? ""}
+            </div>
+          ))}
+        </div>
+
+        {checking ? (
+          <p className="mt-4 text-center text-sm font-semibold text-ink">Checking…</p>
+        ) : null}
+
+        <div className="mt-8">
+          <NumericKeypad
+            disabled={checking}
+            onDigit={(d) => setCode((c) => (c.length < 6 ? c + d : c))}
+            onDelete={() => setCode((c) => c.slice(0, -1))}
+          />
+        </div>
+      </div>
+
+      {/* RIGHT — information only, no primary action (L5). Tablet only. */}
+      <aside className="mt-8 hidden lg:mt-0 lg:block">
+        <div className="rounded-card border border-line bg-white p-5">
+          <WalletBalance balance={balance} />
+          <p className="tnum mt-3 text-sm text-secondary">
+            Each verified redemption charges {formatKes(fee)} from your wallet.
+          </p>
+          <div className="mt-4 space-y-2 border-t border-line pt-4 text-sm text-secondary">
+            <p>1. Enter the customer&apos;s code — this only resolves it, nothing is charged.</p>
+            <p>2. Check the fee, then Confirm redemption to charge.</p>
           </div>
-        ))}
-      </div>
-
-      {checking ? (
-        <p className="mt-4 text-center text-sm font-semibold text-ink">Checking…</p>
-      ) : null}
-
-      <div className="mt-8">
-        <NumericKeypad
-          disabled={checking}
-          onDigit={(d) => setCode((c) => (c.length < 6 ? c + d : c))}
-          onDelete={() => setCode((c) => c.slice(0, -1))}
-        />
-      </div>
+        </div>
+      </aside>
     </main>
   );
 }
