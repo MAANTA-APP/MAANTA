@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { requireMerchant } from "@/lib/merchant-api";
 import { getStripeClient } from "@/lib/stripe";
 import {
   SUPPORTED_CURRENCIES,
@@ -10,16 +9,19 @@ import {
   MAX_TOPUP_AMOUNT,
 } from "@/lib/currency";
 
-const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
-
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  // Owner-only, for the same reason as /api/topup (M-Pesa): wallet top-up is a
+  // billing action, and staff are excluded by an explicit ownership check
+  // rather than by an incidental owner-keyed lookup. can_topup is deliberately
+  // not consulted. See docs/skills/merchant-staff-billing-reconciliation.md.
+  const auth = await requireMerchant();
+  if ("error" in auth) return auth.error;
+  const { merchant, isOwner } = auth.ctx;
+  if (!isOwner) {
+    return NextResponse.json(
+      { error: "Only the shop owner can top up the wallet." },
+      { status: 403 }
+    );
   }
 
   const { amount, currency = "KES" } = await request.json();
@@ -35,31 +37,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: `Unsupported currency. Use one of: ${SUPPORTED_CURRENCIES.join(", ")}.` },
       { status: 400 }
-    );
-  }
-
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || !MERCHANT_ROLES.includes(appUser.role)) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("id, merchant_name")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
-
-  if (!merchant) {
-    return NextResponse.json(
-      { error: "No merchant account found." },
-      { status: 404 }
     );
   }
 

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getMerchantContext } from "@/lib/merchant";
 import { TopupFlow } from "./topup-flow";
 
@@ -11,6 +12,9 @@ export default async function TopupPage({
 }) {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
+  // Top-up is owner-only (billing). Staff never see the wallet/top-up surface —
+  // the POST routes enforce this too; the redirect just keeps the UI honest.
+  if (!res.ctx.isOwner) redirect("/merchant/redeem");
   const { merchant } = res.ctx;
 
   const suggested = parseInt(searchParams.suggested ?? "", 10);

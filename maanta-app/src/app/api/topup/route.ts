@@ -1,20 +1,29 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { requireMerchant } from "@/lib/merchant-api";
 import { initiateMpesaStkPush } from "@/lib/intasend";
 import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
 
-const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
-
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  // Wallet top-up is an owner-only billing action. We resolve the merchant
+  // through getMerchantContext (owner OR staff) and then require ownership
+  // EXPLICITLY, so staff are excluded by intent — not by the incidental fact
+  // that merchants happen to be keyed on the owner's user_id. This is the gate
+  // that keeps the frozen rule ("staff cannot touch billing/top-ups/boosts")
+  // true even if the merchant-resolution path is ever changed to admit staff.
+  //
+  // merchant_staff.can_topup is deliberately NOT consulted here: that toggle is
+  // owner-settable, and the frozen rule only bends when GOVERNANCE (a
+  // decisions-log change) opens staff billing — never on an owner flag alone.
+  // See docs/skills/merchant-staff-billing-reconciliation.md.
+  const auth = await requireMerchant();
+  if ("error" in auth) return auth.error;
+  const { user, merchant, isOwner } = auth.ctx;
+  if (!isOwner) {
+    return NextResponse.json(
+      { error: "Only the shop owner can top up the wallet." },
+      { status: 403 }
+    );
   }
 
   const { amount, phoneNumber } = await request.json();
@@ -27,31 +36,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role, full_name, email")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || !MERCHANT_ROLES.includes(appUser.role)) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("id")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
-
-  if (!merchant) {
-    return NextResponse.json(
-      { error: "No merchant account found." },
-      { status: 404 }
-    );
-  }
-
   // Encodes the merchant id directly in api_ref so the webhook (which has no
   // other way to look up an in-flight request — merchant_transactions has no
   // "pending" status) can attribute the eventual COMPLETE event.
@@ -61,8 +45,8 @@ export async function POST(request: Request) {
     amount,
     phoneNumber,
     apiRef,
-    name: appUser.full_name ?? "MAANTA Merchant",
-    email: appUser.email ?? "merchant@maanta.app",
+    name: user.full_name ?? "MAANTA Merchant",
+    email: user.email ?? "merchant@maanta.app",
   });
 
   if (!result) {

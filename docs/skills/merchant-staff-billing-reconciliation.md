@@ -11,6 +11,18 @@ these toggles*. `can_topup` is a **dead field** (never read for enforcement anyw
 RPC is the real gate and blocks staff regardless). The top-up block is **incidental**
 (owner-only merchant resolution), which is a latent trap for future changes.
 
+> **Update — 2026-07-19 (Fix applied): the latent trap is closed.**
+> `/api/topup` and `/api/topup/stripe` now resolve context via `requireMerchant()`
+> and **hard-require `isOwner`** (staff get an explicit **403**, not the old incidental
+> 404); the `/merchant/topup` page redirects non-owners. Behaviour is unchanged —
+> top-up is still owner-only — but the exclusion is now **intentional** and survives a
+> future refactor of the merchant-resolution path. `can_topup` is **deliberately still
+> not consulted**: it is owner-settable, and the frozen rule only opens staff billing via
+> a governance (decisions-log) change, never an owner flag. So `can_topup` remains a
+> documented-inactive field. `can_purchase` is unchanged (still redundant to the
+> owner/admin-only boost RPCs). See the 2026-07-19 decisions-log entry. The rest of this
+> document records the pre-fix findings.
+
 ---
 
 ## 1. The two server-side enforcement patterns
