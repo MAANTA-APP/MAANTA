@@ -1,0 +1,14 @@
+# Supabase CLI config for local development and CI.
+#
+# `supabase start` boots a local Postgres (with postgis, the auth schema,
+# the anon/authenticated/service_role roles, etc.) and applies everything in
+# supabase/migrations/. CI then runs the plain-SQL assertions in
+# supabase/tests/*.sql against it (see .github/workflows/ci.yml, job db-tests).
+#
+# Only the essentials are pinned here; the CLI fills defaults for the rest.
+# Production runs Postgres 17, so the local/CI database matches it.
+project_id = "maanta"
+
+[db]
+port = 54322
+major_version = 17

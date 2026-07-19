@@ -16,9 +16,15 @@
 -- whole run below; without it the function would raise 'unauthorized: admin only'.
 -- ============================================================
 
--- Reproduce the service-role context the /approve route runs under
--- (transaction-local so it never leaks to another session on a pooled conn).
-SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+-- Reproduce the service-role context the /approve route runs under.
+-- Session-level (is_local = false) on purpose: `psql -f` runs each statement
+-- in its own autocommit transaction, so a transaction-local (true) setting
+-- would be discarded the instant this SELECT commits — before the DO blocks
+-- below run — and activate_merchant would then raise 'unauthorized: admin
+-- only'. Session scope persists across the file's statements. Each test file
+-- gets its own dedicated psql connection that ends when psql exits, so this
+-- never leaks to another session.
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false);
 
 -- Scenario A: Node 0 merchant, within window, under cap  → credited KES 300.
 DO $$
