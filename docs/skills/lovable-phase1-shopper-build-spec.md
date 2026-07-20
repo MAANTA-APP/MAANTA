@@ -1,11 +1,21 @@
 # Skill — Lovable Phase 1 (shopper core) build spec
 
-Status (2026-07-20): **not yet applied.** The Phase-1 build was authored and
-sent to the Lovable agent, but the agent-write path was unstable in that session
-(one `404 user_not_found`, one 60s transport timeout that produced no commit).
-The prototype is unchanged at commit `af2a1074` (the trust-loop slice + the two
-arrears/"Was" fixes). This doc preserves the exact, runnable spec so it can be
-re-sent when the Lovable connection is healthy and credits allow.
+Status (2026-07-20): **APPLIED and verified** at prototype commit `418425ae`.
+The build initially appeared to fail (one `404 user_not_found`, one 60s
+transport timeout) but the timed-out run had in fact completed server-side; a
+follow-up retry confirmed it and ran `tsc --noEmit` clean. Source verified
+against the guardrails (see checklist below). This doc preserves the exact spec
+that produced it and the review outcome.
+
+Verified after the run:
+- New shopper routes: `search.tsx`, `shop.$id.tsx`, `my-deals.tsx`, `profile.tsx`.
+- Shared components: `DealCard`, `TabBar` (amber top-indicator), `ShopperTopBar`,
+  `StateChip`, `chips`, `EmptyState`, `InlineAlert`.
+- `computeYouPay` still the single price helper; `verifyCode` + arrears branch
+  untouched; `extrasSummary()` added and used on the claimed ticket (the full
+  itemised breakdown there was replaced — the canonical correction).
+- Feed renders Flash / Boosted / "Near you (ranked by verified redemptions)"
+  rails; canonical KES 450 + 122 = **572** deal intact.
 
 - **Project:** "MAANTA Live Demo" `f53ff99b-cf8c-4c71-8fc4-9e3d7b14f382`
   (workspace `owQYEhcS1nVLEQf1pv8u`), TanStack Start + Tailwind + shadcn.
@@ -99,17 +109,23 @@ prototype itemises on the claimed ticket too — Phase 1 fixes that via a new
 > Do it all in one pass, then run `tsc --noEmit` to confirm it builds. Do not
 > change the merchant verify logic, the price math, or the two existing fixes.
 
-## After the run — review checklist (against the guardrails)
+## After the run — review checklist (against the guardrails) — all ✅ at 418425ae
 
-1. `computeYouPay` still the only price helper; YOU PAY identical on feed tile,
-   deal detail, claimed ticket, my-deals row.
-2. Itemised breakdown ONLY on deal detail; claimed ticket now shows the one-line
-   `extrasSummary`.
-3. Merchant Verify unchanged (arrears branch + fee-above-button intact).
-4. OTP the only bare numeral; `tnum`/`mono-code` preserved.
-5. Every new state carries icon + word; ≤1 amber action per screen; disabled
+1. [x] `computeYouPay` still the only price helper; YOU PAY identical on feed
+   tile, deal detail, claimed ticket, my-deals row.
+2. [x] Itemised breakdown ONLY on deal detail; claimed ticket now shows the
+   one-line `extrasSummary`.
+3. [x] Merchant Verify unchanged (arrears branch + fee-above-button intact —
+   `verifyCode` in the store is byte-for-byte the same).
+4. [x] OTP the only bare numeral; `tnum`/`mono-code` preserved.
+5. [x] Every new state carries icon + word; ≤1 amber action per screen; disabled
    never amber; TabBar uses the amber top-indicator, not a pill.
-6. `tsc --noEmit` clean.
+6. [x] `tsc --noEmit` clean.
+
+Residual polish (optional, non-blocking): the claimed-ticket card uses an
+`animate-breathe` class on the amber border — confirm the keyframe is defined in
+`styles.css`/tailwind config, otherwise the border is static (still correct, just
+not animated).
 
 ## Later phases (not built yet)
 
