@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 import { initiateMpesaStkPush } from "@/lib/intasend";
 import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
 
 const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const appUser = await ensureAppUser<{
+    id: string;
+    role: string;
+    full_name: string | null;
+    email: string | null;
+  }>("id, role, full_name, email");
 
-  if (!authUser) {
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
@@ -27,17 +29,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role, full_name, email")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || !MERCHANT_ROLES.includes(appUser.role)) {
+  if (!MERCHANT_ROLES.includes(appUser.role)) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
+
+  const service = createServiceClient();
 
   const { data: merchant } = await service
     .from("merchants")

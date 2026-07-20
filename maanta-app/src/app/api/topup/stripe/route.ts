@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 import { getStripeClient } from "@/lib/stripe";
 import {
   SUPPORTED_CURRENCIES,
@@ -13,12 +13,8 @@ import {
 const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
+  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
@@ -38,17 +34,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || !MERCHANT_ROLES.includes(appUser.role)) {
+  if (!MERCHANT_ROLES.includes(appUser.role)) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
+
+  const service = createServiceClient();
 
   const { data: merchant } = await service
     .from("merchants")

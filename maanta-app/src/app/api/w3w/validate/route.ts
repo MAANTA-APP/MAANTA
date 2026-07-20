@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { currentClerkUserId } from "@/lib/auth";
 
 const W3W_REGEX = /^\/{0,3}([a-z]+\.[a-z]+\.[a-z]+)$/i;
 
@@ -10,11 +10,8 @@ const W3W_REGEX = /^\/{0,3}([a-z]+\.[a-z]+\.[a-z]+)$/i;
  * "✓ Resolved: BBS Mall, Eastleigh — …".
  */
 export async function GET(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const userId = await currentClerkUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 

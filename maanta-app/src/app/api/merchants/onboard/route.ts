@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
+  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
@@ -29,17 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser) {
-    return NextResponse.json({ error: "Account not found." }, { status: 404 });
-  }
+  const supabase = createClient();
 
   // onboard_merchant is a self-authorizing, atomic RPC: it checks the
   // caller is either the merchant being onboarded or an admin, guards

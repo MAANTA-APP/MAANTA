@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
+  const appUser = await ensureAppUser<{ id: string }>("id");
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
@@ -19,17 +16,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing dealId." }, { status: 400 });
   }
 
+  const supabase = createClient();
   const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser) {
-    return NextResponse.json({ error: "Account not found." }, { status: 404 });
-  }
 
   const gps = parseGpsCoords(lat, lng);
   const consumerGpsWkt = gps ? `SRID=4326;POINT(${gps.lng} ${gps.lat})` : null;
