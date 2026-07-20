@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { withPublicMerchant, withPublicMerchantRows } from "@/lib/data";
 import { ButtonLink } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -6,18 +7,24 @@ export const dynamic = "force-dynamic";
 /** 12k Featured node — BBS Mall, Eastleigh (live shop/deal counts + floors). */
 export default async function BbsMallPage() {
   const service = createServiceClient();
+  // Public counts must use the canonical public predicate so they never report
+  // shops/deals a shopper can't actually see (pending, suspended, low-trust or
+  // shadow-banned merchants).
   const [{ count: shops }, { data: deals }] = await Promise.all([
-    service
-      .from("merchants")
-      .select("id", { count: "exact", head: true })
-      .eq("node", "BBS Mall")
-      .eq("status", "active"),
-    service
-      .from("deals")
-      .select("id, merchants!inner(floor, node, status)")
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
-      .eq("merchants.node", "BBS Mall"),
+    withPublicMerchantRows(
+      service
+        .from("merchants")
+        .select("id", { count: "exact", head: true })
+        .eq("node", "BBS Mall")
+    ),
+    withPublicMerchant(
+      service
+        .from("deals")
+        .select("id, merchants!inner(floor, node, status)")
+        .eq("is_active", true)
+        .gt("expires_at", new Date().toISOString())
+        .eq("merchants.node", "BBS Mall")
+    ),
   ]);
 
   const byFloor = new Map<string, number>();
