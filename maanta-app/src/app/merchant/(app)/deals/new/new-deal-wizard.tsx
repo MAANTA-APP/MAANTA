@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/ui/inputs";
-import { IconArrowLeft, IconBolt, IconPlus, IconX } from "@/components/ui/icons";
-import { PlanChip, StatusChip } from "@/components/ui/chips";
+import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/components/ui/icons";
+import { PlanChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 
@@ -152,7 +152,12 @@ export function NewDealWizard({
             )}
           >
             <span className="text-base font-bold text-ink">Standard</span>
-            {dealType === "standard" ? <StatusChip status="selected" label="Selected" /> : null}
+            {dealType === "standard" ? (
+              <span className="flex items-center gap-1 text-xs font-semibold text-ink">
+                <IconCheck className="h-3.5 w-3.5" />
+                Selected
+              </span>
+            ) : null}
           </button>
 
           <button
@@ -166,12 +171,15 @@ export function NewDealWizard({
             )}
           >
             <span className="flex items-center gap-1.5 text-base font-bold text-ink">
-              <IconBolt className="h-4 w-4 text-flame" />
+              <IconBolt className="h-4 w-4 text-ink" />
               Flash
             </span>
             {isElite ? (
               dealType === "flash" ? (
-                <StatusChip status="selected" label="Selected" />
+                <span className="flex items-center gap-1 text-xs font-semibold text-ink">
+                  <IconCheck className="h-3.5 w-3.5" />
+                  Selected
+                </span>
               ) : null
             ) : (
               <span className="rounded-full bg-cream-dark px-2.5 py-0.5 text-[11px] font-semibold text-muted">
@@ -187,7 +195,7 @@ export function NewDealWizard({
                 <tr className="bg-cream text-left text-xs text-muted">
                   <th className="px-4 py-2.5 font-semibold">Compare</th>
                   <th className="px-2 py-2.5 text-center font-semibold">Standard</th>
-                  <th className="bg-brand px-2 py-2.5 text-center font-bold text-ink">Elite</th>
+                  <th className="bg-ink px-2 py-2.5 text-center font-bold text-white">Elite</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line bg-white">

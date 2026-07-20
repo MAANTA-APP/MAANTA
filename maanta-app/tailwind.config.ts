@@ -19,6 +19,7 @@ const config: Config = {
         ink: {
           DEFAULT: "#111111", // --text-primary / --text-money · 18.88:1 on white
           soft: "#000000", // pure black — CTA labels (12.67:1 on amber), emphasis borders
+          900: "#141414", // --bg-ink-900 · merchant failure takeover (failure is dark, not red)
         },
         paper: "#FAFAF8", // --bg-app · shopper page background
         cream: {
