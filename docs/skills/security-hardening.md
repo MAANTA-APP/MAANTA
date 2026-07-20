@@ -32,3 +32,17 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 - `check_rate_limit` is **service_role only** — never expose to browser clients.
 - Anon PostgREST clients must query `merchants_public_browse` / `deals_public_browse`, not base tables.
 - Opening credit still requires `merchants.node` to match `app_config.node0_launch_node` at activation; node is now immutable post-onboarding.
+
+## Pre-merge validation (2026-07-20)
+
+**CI `db-tests` (commit `36d4193`, run [29735434819](https://github.com/MAANTA-APP/MAANTA/actions/runs/29735434819)):** `supabase start` applied the full migration chain (including `20260720120000_security_hardening.sql`), then all three SQL suites passed:
+
+| File | Result |
+|---|---|
+| `supabase/tests/node0_opening_credit_test.sql` | A–D passed |
+| `supabase/tests/security_hardening_test.sql` | A–F passed (node lock, `you_pay_kes`, `claim_deal` snapshot, staff verify, rate limit, anon grants) |
+| `supabase/tests/success_fee_reference_link_test.sql` | A–B passed |
+
+**Remote staging:** this repo has no separate staging Supabase project or credentials checked in. The live project is `vcrfqsevompqjazbwzyh` (prod). Before merging to `main`, apply the migration there via Supabase SQL editor or `supabase db push` from a machine with project access, then re-run the three test files against that database if you want prod-parity confirmation beyond CI.
+
+**Test fixes on branch:** `security_hardening_test.sql` was corrected to use the canonical YOU PAY charge set (572 KES) and to seed merchants with positive `account_balance` so the zero-balance gate does not block deal creation in scenario C.
