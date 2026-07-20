@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NumericKeypad } from "@/components/ui/inputs";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { FeeDisclosure } from "@/components/ui/fee-disclosure";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconCheck, IconX } from "@/components/ui/icons";
@@ -28,7 +28,13 @@ type Screen =
       distance: number | null;
     }
   | { kind: "verifying" }
-  | { kind: "success"; newBalance: number | null; feeAmount: number; disputed: boolean }
+  | {
+      kind: "success";
+      newBalance: number | null;
+      feeAmount: number;
+      feeChargeStatus: "charged" | "owed" | "unknown";
+      disputed: boolean;
+    }
   | { kind: "rejected"; reason: string; noFee: boolean };
 
 export function RedeemKeypad({
@@ -142,6 +148,12 @@ export function RedeemKeypad({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,
         feeAmount: typeof body.feeAmount === "number" ? body.feeAmount : fee,
+        feeChargeStatus:
+          body.feeChargeStatus === "charged" ||
+          body.feeChargeStatus === "owed" ||
+          body.feeChargeStatus === "unknown"
+            ? body.feeChargeStatus
+            : "charged",
         disputed: body.disputed === true,
       });
     } catch {
@@ -169,22 +181,10 @@ export function RedeemKeypad({
     );
   }
 
-  // Wallet below the fee — cannot redeem. Amber is the single Top up action.
-  if (insufficient && screen.kind === "keypad") {
-    return (
-      <main className="flex flex-col justify-center px-5 py-16">
-        <InlineAlert
-          variant="error"
-          title={balance <= 0 ? "Your wallet is empty." : "Balance too low to redeem."}
-        >
-          You cannot redeem until you top up.
-        </InlineAlert>
-        <ButtonLink href="/merchant/topup" full className="mt-6">
-          Top up wallet
-        </ButtonLink>
-      </main>
-    );
-  }
+  // Verify-anyway (frozen rule, G1): a low or empty wallet NEVER blocks
+  // verification. The keypad stays live at any balance; an underfunded fee is
+  // recorded as arrears inside verify_redemption and settled at the next
+  // top-up. (Only new-deal creation is gated on balance, server-side.)
 
   // Success — flat, neutral confirmation. No confetti, no shadow, no emoji.
   if (screen.kind === "success") {
@@ -194,14 +194,27 @@ export function RedeemKeypad({
           <IconCheck className="h-8 w-8 text-verified" />
         </span>
         <h1 className="mt-5 text-2xl font-bold text-ink">Verified</h1>
-        <p className="tnum mt-2 text-sm text-secondary">
-          {formatKes(screen.feeAmount)} success fee charged
-        </p>
-        {screen.newBalance != null ? (
-          <p className="tnum mt-1 text-sm font-semibold text-ink">
-            Wallet balance {formatKes(screen.newBalance)}
-          </p>
-        ) : null}
+        {screen.feeChargeStatus === "owed" ? (
+          <>
+            <p className="tnum mt-2 text-sm text-secondary">
+              {formatKes(screen.feeAmount)} success fee recorded as arrears
+            </p>
+            <p className="mt-1 text-sm text-secondary">
+              Settled from your next top-up.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="tnum mt-2 text-sm text-secondary">
+              {formatKes(screen.feeAmount)} success fee charged
+            </p>
+            {screen.newBalance != null ? (
+              <p className="tnum mt-1 text-sm font-semibold text-ink">
+                Wallet balance {formatKes(screen.newBalance)}
+              </p>
+            ) : null}
+          </>
+        )}
         {screen.disputed ? (
           <InlineAlert variant="warning" className="mt-4 text-left">
             This redemption was flagged and sent to MAANTA for review.
@@ -254,36 +267,27 @@ export function RedeemKeypad({
         <FeeDisclosure fee={fee} balance={balance} className="mt-4" />
 
         <div className="mt-6 space-y-3">
-          {insufficient ? (
-            <>
-              {/* Fee exceeds balance: Confirm is disabled grey; amber moves to Top up. */}
-              <ButtonLink href="/merchant/topup" full>
-                Top up wallet
-              </ButtonLink>
-              <Button full disabled>
-                Confirm redemption
-              </Button>
-            </>
-          ) : (
-            <Button
-              full
-              onClick={() =>
-                confirmRedemption(
-                  screen.code,
-                  screen.mismatch
-                    ? {
-                        reason:
-                          screen.distance != null
-                            ? `Location mismatch (${Math.round(screen.distance)}m from shop) — merchant confirmed customer at counter`
-                            : "Location mismatch — merchant confirmed customer at counter",
-                      }
-                    : undefined
-                )
-              }
-            >
-              Confirm redemption — {formatKes(fee)} fee
-            </Button>
-          )}
+          {/* Verify-anyway (G1): Confirm is NEVER disabled by wallet state.
+              An underfunded fee is recorded as arrears (disclosed above), so
+              the single amber action is always Confirm — never a forced Top up. */}
+          <Button
+            full
+            onClick={() =>
+              confirmRedemption(
+                screen.code,
+                screen.mismatch
+                  ? {
+                      reason:
+                        screen.distance != null
+                          ? `Location mismatch (${Math.round(screen.distance)}m from shop) — merchant confirmed customer at counter`
+                          : "Location mismatch — merchant confirmed customer at counter",
+                    }
+                  : undefined
+              )
+            }
+          >
+            Confirm redemption — {formatKes(fee)} fee
+          </Button>
           <Button variant="ghost" full onClick={() => reject(screen.code)}>
             Reject code
           </Button>
@@ -316,7 +320,16 @@ export function RedeemKeypad({
   const checking = screen.kind === "checking";
   return (
     <main className="flex flex-col px-5 pt-4">
-      {low ? (
+      {insufficient ? (
+        <InlineAlert variant="warning" title="Wallet below the fee." className="mb-3">
+          Verifications still work — each {formatKes(fee)} fee is recorded as
+          arrears and settled from your next{" "}
+          <Link href="/merchant/topup" className="font-semibold text-ink underline">
+            top-up
+          </Link>
+          .
+        </InlineAlert>
+      ) : low ? (
         <InlineAlert variant="warning" title="Balance is low." className="mb-3">
           Enough for about {remaining} more redemption{remaining === 1 ? "" : "s"}.{" "}
           <Link href="/merchant/topup" className="font-semibold text-ink underline">
