@@ -28,19 +28,16 @@ function BarLink({
     <Link
       href={href}
       className={cn(
-        "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold",
-        active ? "text-ink" : "text-faint"
+        "relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10.5px]",
+        active ? "font-semibold text-ink" : "text-faint"
       )}
       aria-current={active ? "page" : undefined}
     >
-      <span
-        className={cn(
-          "flex h-8 w-12 items-center justify-center rounded-full",
-          active && "bg-brand"
-        )}
-      >
-        <Icon className="h-5 w-5" />
-      </span>
+      {/* R1 — the TabBar active indicator bar is the only amber here. */}
+      {active ? (
+        <span className="absolute top-0 h-[3px] w-11 rounded-full bg-brand" />
+      ) : null}
+      <Icon className="h-[18px] w-[18px]" />
       {label}
     </Link>
   );

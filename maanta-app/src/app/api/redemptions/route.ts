@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
+import { dealPricing } from "@/lib/pricing";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -84,6 +85,28 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  // Snapshot YOU PAY onto the redemption so the claimed code is argued from the
+  // exact amount disclosed at claim time, even if the deal later changes.
+  // Best-effort: never blocks the claim.
+  try {
+    const { data: dealRow } = await service
+      .from("deals")
+      .select("price_kes, compare_at_kes, charges")
+      .eq("id", dealId)
+      .maybeSingle();
+    const amount = dealRow
+      ? dealPricing(dealRow as { price_kes: number | null; compare_at_kes: number | null; charges: unknown }).pay
+      : null;
+    if (amount != null) {
+      await service
+        .from("redemptions")
+        .update({ amount_kes: amount })
+        .eq("id", data.redemption_id);
+    }
+  } catch (err) {
+    console.error("amount snapshot failed:", err);
   }
 
   // Post-claim fraud pass (wireframe 9t / 11d): when the shopper shared GPS,

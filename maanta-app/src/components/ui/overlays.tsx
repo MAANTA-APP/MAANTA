@@ -90,36 +90,43 @@ export function Modal({
   );
 }
 
-/** 6c Code display — big yellow block, monospace "482 913", "Show this to staff". */
+/**
+ * 6c Code display — the credential. White card with a breathing amber border
+ * (R3), the code in ink (never on an amber fill — the pulsing border is the
+ * boundary between the credential and its context), slashed-zero mono digits.
+ */
 export function CodeDisplay({
   code,
-  sub = "Show this to staff",
+  sub = "For the shop",
   className,
   size = "lg",
+  pulse = false,
 }: {
   code: string;
   sub?: string | null;
   className?: string;
   size?: "lg" | "xl";
+  pulse?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-brand px-6 py-7 text-center",
+        "rounded-2xl border-[2.5px] bg-white px-6 py-7 text-center",
+        pulse ? "animate-r3 border-brand" : "border-line",
         className
       )}
     >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+        {sub}
+      </div>
       <div
         className={cn(
-          "font-mono font-bold tracking-[0.12em] text-ink",
-          size === "xl" ? "text-5xl" : "text-4xl"
+          "font-code mt-2 font-medium tracking-[0.14em] text-ink",
+          size === "xl" ? "text-4xl" : "text-3xl"
         )}
       >
         {formatCode(code)}
       </div>
-      {sub ? (
-        <div className="mt-2 text-xs font-semibold text-ink/80">{sub}</div>
-      ) : null}
     </div>
   );
 }

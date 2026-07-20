@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
+import { parseCharges, type DealCharge } from "@/lib/pricing";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES: Record<string, string> = {
@@ -43,8 +44,32 @@ export async function POST(request: Request) {
     isNaN(maxClaimsRaw) || maxClaimsRaw <= 0 ? null : Math.min(maxClaimsRaw, 10000);
   const cover = form.get("cover");
 
+  // Price policy (brief §4/§10): a deal must carry the base amount the shopper
+  // pays, plus the disclosed extras that fold into YOU PAY. The M9 disclosure
+  // step is mandatory, so a missing price is a client bug, not a valid deal.
+  const priceRaw = form.get("price");
+  const priceKes =
+    priceRaw == null || String(priceRaw).trim() === ""
+      ? NaN
+      : parseInt(String(priceRaw).replace(/\D/g, ""), 10);
+  const compareRaw = parseInt(String(form.get("compareAt") ?? "").replace(/\D/g, ""), 10);
+  const compareAtKes =
+    isNaN(compareRaw) || compareRaw <= 0 ? null : Math.min(compareRaw, 10_000_000);
+  let charges: DealCharge[];
+  try {
+    charges = parseCharges(JSON.parse(String(form.get("charges") ?? "[]")));
+  } catch {
+    charges = [];
+  }
+
   if (!title) {
     return NextResponse.json({ error: "A title is required." }, { status: 400 });
+  }
+  if (isNaN(priceKes) || priceKes < 0 || priceKes > 10_000_000) {
+    return NextResponse.json(
+      { error: "Enter the price the shopper pays." },
+      { status: 400 }
+    );
   }
   if (!(cover instanceof File) || cover.size === 0) {
     return NextResponse.json(
@@ -93,6 +118,10 @@ export async function POST(request: Request) {
       deal_type: dealType,
       flash_duration_hours: flashHours,
       max_claims: maxClaims,
+      price_kes: priceKes,
+      // Only show a struck "Was" when it is genuinely higher than the base price.
+      compare_at_kes: compareAtKes && compareAtKes > priceKes ? compareAtKes : null,
+      charges,
     })
     .select("id, expires_at")
     .single();

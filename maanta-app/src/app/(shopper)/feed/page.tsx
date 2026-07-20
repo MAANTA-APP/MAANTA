@@ -3,6 +3,7 @@ import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { DealCardHorizontal, DealCardVertical } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import { getLiveDeals, getSelectedNode, getAppUser } from "@/lib/data";
+import { dealPricing } from "@/lib/pricing";
 import { IconBolt } from "@/components/ui/icons";
 import { NotificationOptIn } from "./notification-opt-in";
 
@@ -58,7 +59,7 @@ export default async function FeedPage() {
           {flash.length > 0 ? (
             <Rail
               title="Flash Deals"
-              icon={<IconBolt className="h-4 w-4 text-flame" />}
+              icon={<IconBolt className="h-4 w-4 text-ink" />}
               seeAllHref="/search?type=flash"
             >
               {flash.map((d) => (
@@ -69,6 +70,7 @@ export default async function FeedPage() {
                   title={`${d.merchants?.merchant_name} — ${d.title}`}
                   tag="flash"
                   verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
+                  pay={dealPricing(d).pay}
                 />
               ))}
             </Rail>
@@ -84,6 +86,7 @@ export default async function FeedPage() {
                   title={`${d.merchants?.merchant_name} — ${d.title}`}
                   tag="boosted"
                   verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
+                  pay={dealPricing(d).pay}
                 />
               ))}
             </Rail>
@@ -107,6 +110,8 @@ export default async function FeedPage() {
                     dealType={d.deal_type}
                     verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
                     expiresAt={d.expires_at}
+                    pay={dealPricing(d).pay}
+                    wasKes={dealPricing(d).was}
                   />
                 ))}
               </div>

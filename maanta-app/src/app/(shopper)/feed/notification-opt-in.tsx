@@ -61,7 +61,7 @@ export function NotificationOptIn() {
   return (
     <BottomSheet open={open} onClose={dismiss}>
       <div className="flex flex-col items-center px-2 pb-2 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full border-[1.5px] border-ink bg-white">
           <IconBell className="h-6 w-6 text-ink" />
         </span>
         <h2 className="mt-4 text-lg font-bold text-ink">Don&apos;t miss flash deals</h2>

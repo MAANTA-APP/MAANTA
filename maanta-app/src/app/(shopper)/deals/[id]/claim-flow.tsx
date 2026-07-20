@@ -79,10 +79,11 @@ export function ClaimFlow({
   if (checking) {
     // 8y Claim — location check in progress (full-screen takeover)
     return (
-      <div className="fixed inset-0 z-50 mx-auto flex max-w-mobile flex-col items-center justify-center bg-white px-8 text-center">
-        <span className="text-3xl" aria-hidden>
-          ⏳
-        </span>
+      <div className="fixed inset-0 z-50 mx-auto flex max-w-mobile flex-col items-center justify-center bg-paper px-8 text-center">
+        <span
+          aria-hidden
+          className="h-8 w-8 animate-spin rounded-full border-[3px] border-line border-t-ink"
+        />
         <h2 className="mt-5 text-lg font-bold text-ink">
           Checking you&apos;re at {node}…
         </h2>
@@ -109,7 +110,12 @@ export function ClaimFlow({
     <>
       <StickyCtaBar>
         {error ? (
-          <p className="mb-2 text-center text-xs font-semibold text-flame">{error}</p>
+          <div className="mb-2 flex gap-2 rounded-xl border-[1.5px] border-l-[5px] border-rust bg-white px-3 py-2 text-left">
+            <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px] border-rust text-[10px] text-rust">
+              !
+            </span>
+            <p className="text-xs leading-snug text-ink">{error}</p>
+          </div>
         ) : null}
         <Button
           full

@@ -15,7 +15,7 @@ export default function SelectMallPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pt-12">
+    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col bg-paper px-5 pt-12">
       <h1 className="text-2xl font-bold text-ink">Choose a mall</h1>
       <div className="mt-8 space-y-3">
         {NODES.map((n) => (

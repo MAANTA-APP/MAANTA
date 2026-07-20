@@ -78,7 +78,7 @@ function LoginInner() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pb-10 pt-14">
+    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col bg-paper px-5 pb-10 pt-14">
       {step === "contact" ? (
         <>
           <h1 className="text-center text-2xl font-bold text-ink">Sign in</h1>

@@ -13,10 +13,12 @@ export type ButtonVariant =
   | "destructive-outline";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
+  // L4: primary CTA is amber fill + BLACK label (12.67:1). Never white on amber.
   primary:
-    "bg-brand text-ink font-semibold hover:brightness-95 active:brightness-90",
+    "bg-brand text-black font-semibold hover:brightness-95 active:brightness-90",
   secondary:
-    "bg-ink text-brand font-semibold hover:bg-ink-soft active:brightness-125",
+    "bg-ink text-white font-semibold hover:bg-ink-soft active:brightness-125",
+  // Button/tertiary — border only. Not black, not amber.
   ghost:
     "bg-white text-ink font-semibold border border-ink hover:bg-cream active:bg-cream-dark",
   destructive:
@@ -57,16 +59,22 @@ export function Button({
       className={cn(
         "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors",
         loading
-          ? "bg-ink text-white font-semibold" // 4f loading: black w/ hourglass
+          ? "bg-ink text-white font-semibold" // loading: black w/ spinner (no emoji, L9)
           : VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         full && "w-full",
+        // L9b: a disabled control is NEVER amber. Grey fill + grey label.
         isDisabled && !loading && "!bg-cream-dark !text-faint !border-0 cursor-not-allowed",
         className
       )}
       {...rest}
     >
-      {loading ? <span aria-hidden>⏳</span> : null}
+      {loading ? (
+        <span
+          aria-hidden
+          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+        />
+      ) : null}
       {children}
     </button>
   );

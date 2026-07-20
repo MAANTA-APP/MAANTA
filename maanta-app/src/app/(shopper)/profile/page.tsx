@@ -16,14 +16,14 @@ export default async function ProfilePage() {
       <h1 className="text-2xl font-bold text-ink">Profile</h1>
 
       <div className="mt-6 flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-cream-dark bg-cream text-[10px] text-faint">
-          photo
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-ink bg-white text-2xl font-bold text-ink">
+          {(user.full_name || "M").trim().charAt(0).toUpperCase()}
         </div>
         <div>
           <p className="text-base font-bold text-ink">
             {user.full_name || "Maanta shopper"}
           </p>
-          <p className="mt-0.5 text-xs text-muted">
+          <p className="tnum mt-0.5 text-xs text-muted">
             Nairobi{user.phone ? ` · ${maskPhone(user.phone)}` : ""}
           </p>
         </div>

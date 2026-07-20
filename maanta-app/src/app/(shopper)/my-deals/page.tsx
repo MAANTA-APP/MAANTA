@@ -5,7 +5,7 @@ import { getAppUser, getVerifiedCounts } from "@/lib/data";
 import { cn, formatCode } from "@/lib/ui";
 import { EmptyState } from "@/components/ui/states";
 import { ShopCard } from "@/components/ui/cards";
-import { CountdownChip } from "@/components/ui/chips";
+import { CountdownChip, ClaimChip } from "@/components/ui/chips";
 import { FavouriteButton } from "@/components/favourite-button";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ function LinkTabs({
           href={t.href}
           className={cn(
             "flex h-9 flex-1 items-center justify-center rounded-full text-sm font-semibold",
-            active === t.value ? "bg-brand text-ink" : "text-muted"
+            active === t.value ? "bg-ink text-white" : "text-muted"
           )}
         >
           {t.label}
@@ -153,31 +153,38 @@ export default async function MyDealsPage({
         />
       ) : (
         <div className="mt-5 space-y-3">
-          {shown.map((r) => (
-            <Link
-              key={r.id}
-              href={`/tickets/${r.id}`}
-              className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-4 hover:bg-cream/50"
-            >
-              <div>
-                <p className="text-sm font-bold text-ink">
-                  {r.merchants?.merchant_name}
-                </p>
-                <p className="mt-0.5 text-xs text-muted">{r.deals?.title}</p>
-                {when === "active" ? (
-                  <CountdownChip expiresAt={r.expires_at} className="mt-1.5" />
-                ) : null}
-              </div>
-              <span
-                className={cn(
-                  "font-mono text-base font-bold",
-                  when === "past" && "text-faint"
-                )}
+          {shown.map((r) => {
+            const isActiveRow = r.status === "pending" && new Date(r.expires_at) > now;
+            const state = isActiveRow
+              ? "active"
+              : r.status === "success"
+                ? "redeemed"
+                : "expired";
+            return (
+              <Link
+                key={r.id}
+                href={`/tickets/${r.id}`}
+                className="flex items-center gap-3 rounded-card border border-line bg-white px-4 py-4 hover:bg-cream/50"
               >
-                {formatCode(r.otp_code)}
-              </span>
-            </Link>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-ink">
+                    {r.merchants?.merchant_name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted">{r.deals?.title}</p>
+                  <p className="tnum mt-1 text-xs text-secondary">
+                    <span className="font-code tracking-[0.06em]">
+                      {formatCode(r.otp_code)}
+                    </span>
+                    {isActiveRow ? " · valid while the deal runs" : ""}
+                  </p>
+                  {isActiveRow ? (
+                    <CountdownChip expiresAt={r.expires_at} className="mt-1.5" />
+                  ) : null}
+                </div>
+                <ClaimChip state={state} className="flex-none" />
+              </Link>
+            );
+          })}
         </div>
       )}
     </main>

@@ -22,15 +22,17 @@ export function EmptyState({
 }) {
   return (
     <div className={cn("flex flex-col items-center gap-3 py-16 text-center", className)}>
-      <div className="h-16 w-16 rounded-full border-2 border-dashed border-cream-dark" />
-      <p className="text-sm font-semibold text-ink">{title}</p>
-      {sub ? <p className="-mt-2 text-xs text-muted">{sub}</p> : null}
+      <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full border-[1.5px] border-ink bg-white text-base text-ink">
+        ○
+      </span>
+      <p className="text-base font-bold text-ink">{title}</p>
+      {sub ? <p className="-mt-1 max-w-[240px] text-[13px] leading-relaxed text-secondary">{sub}</p> : null}
       {actionLabel && actionHref ? (
-        <ButtonLink href={actionHref} variant="ghost" size="sm">
+        <ButtonLink href={actionHref} variant="primary" size="md" className="mt-1">
           {actionLabel}
         </ButtonLink>
       ) : actionLabel && onAction ? (
-        <Button onClick={onAction} variant="ghost" size="sm">
+        <Button onClick={onAction} variant="primary" size="md" className="mt-1">
           {actionLabel}
         </Button>
       ) : null}
@@ -63,7 +65,8 @@ export function ErrorState({
 
 /** 7c Loading skeleton */
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-xl bg-cream", className)} />;
+  // Sits on the paper background, so the shimmer must be a shade darker than paper.
+  return <div className={cn("animate-pulse rounded-xl bg-cream-dark", className)} />;
 }
 
 export function DealCardSkeleton() {

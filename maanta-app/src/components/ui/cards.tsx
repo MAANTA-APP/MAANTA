@@ -48,6 +48,8 @@ export function DealCardVertical({
   boosted = false,
   verifiedCount,
   expiresAt,
+  pay,
+  wasKes,
 }: {
   href: string;
   imageUrl: string | null;
@@ -58,6 +60,8 @@ export function DealCardVertical({
   boosted?: boolean;
   verifiedCount: number;
   expiresAt?: string | null;
+  pay?: number | null;
+  wasKes?: number | null;
 }) {
   return (
     <Link
@@ -82,6 +86,21 @@ export function DealCardVertical({
           {floor ? ` · ${floor}` : ""}
         </p>
         <h3 className="text-base font-bold leading-snug text-ink">{title}</h3>
+        {pay != null ? (
+          <div className="flex items-baseline gap-2 pt-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
+              You pay
+            </span>
+            <span className="tnum text-lg font-bold text-ink">
+              KES {pay.toLocaleString("en-KE")}
+            </span>
+            {wasKes != null ? (
+              <span className="tnum text-xs text-secondary line-through">
+                KES {wasKes.toLocaleString("en-KE")}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 pt-0.5">
           <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
           <span className="flex items-center gap-1 text-xs font-medium text-ink">
@@ -101,12 +120,14 @@ export function DealCardHorizontal({
   title,
   tag,
   verifiedCount,
+  pay,
 }: {
   href: string;
   imageUrl: string | null;
   title: string;
   tag: "flash" | "boosted" | null;
   verifiedCount: number;
+  pay?: number | null;
 }) {
   return (
     <Link
@@ -119,6 +140,11 @@ export function DealCardHorizontal({
       <div className="min-w-0">
         {tag === "flash" ? <FlashTag /> : tag === "boosted" ? <BoostedTag /> : null}
         <h4 className="mt-1 truncate text-sm font-bold text-ink">{title}</h4>
+        {pay != null ? (
+          <p className="tnum mt-0.5 text-sm font-bold text-ink">
+            You pay KES {pay.toLocaleString("en-KE")}
+          </p>
+        ) : null}
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
           <IconCheck className="h-3 w-3 text-verified" />
           {verifiedCount} verified
@@ -149,7 +175,7 @@ export function TicketCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border-[3px] border-ink bg-cream p-5 text-center",
+        "animate-r3 rounded-2xl border-[2.5px] border-brand bg-white p-5 text-center",
         className
       )}
     >
@@ -157,10 +183,10 @@ export function TicketCard({
         {merchantName}
         {floor ? ` · ${floor}` : ""}
       </p>
-      <p className="mt-2 font-mono text-4xl font-bold tracking-[0.12em] text-ink">
+      <p className="font-code mt-2 text-4xl font-medium tracking-[0.14em] text-ink">
         {formatCode(code)}
       </p>
-      <p className="mt-2 text-xs font-semibold text-flame">{expiryLabel}</p>
+      <p className="mt-2 text-xs font-semibold text-rust">{expiryLabel}</p>
       {w3w ? (
         <div className="mt-3 flex justify-center">
           <W3wChip address={w3w} />
@@ -343,11 +369,12 @@ export function NotificationRow({
       <span
         className={cn(
           "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-          unread ? "bg-flame" : "bg-cream-dark"
+          // Unread = dot + bold, never colour alone (L12). Dot is ink, not red.
+          unread ? "bg-ink" : "bg-cream-dark"
         )}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-ink">{title}</p>
+        <p className={cn("text-sm text-ink", unread ? "font-bold" : "font-semibold")}>{title}</p>
         <p className="mt-0.5 text-xs text-muted">{body}</p>
       </div>
       <span className="text-[11px] text-faint">{relativeAge(at)}</span>

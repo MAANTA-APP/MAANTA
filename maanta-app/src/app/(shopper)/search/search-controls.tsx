@@ -63,7 +63,7 @@ export function SearchControls({
           aria-label="Filter"
           className={cn(
             "flex h-12 w-12 items-center justify-center rounded-xl border",
-            type !== "all" ? "border-ink bg-brand" : "border-line bg-white"
+            type !== "all" ? "border-ink bg-ink text-white" : "border-line bg-white text-ink"
           )}
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
