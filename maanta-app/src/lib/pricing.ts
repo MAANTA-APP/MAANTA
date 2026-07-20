@@ -23,6 +23,11 @@ export type DealCharge = {
   value: number;
 };
 
+export const MAX_CHARGES = 10;
+export const MAX_CHARGE_LABEL_LENGTH = 80;
+export const MAX_FIXED_CHARGE_KES = 1_000_000;
+export const MAX_PERCENT_CHARGE = 100;
+
 /** Resolve a single charge to whole KES against the deal price. */
 export function chargeAmount(charge: DealCharge, priceKes: number): number {
   const raw =
@@ -53,12 +58,16 @@ export function parseCharges(raw: unknown): DealCharge[] {
   if (!Array.isArray(raw)) return [];
   const out: DealCharge[] = [];
   for (const item of raw) {
+    if (out.length >= MAX_CHARGES) break;
     if (!item || typeof item !== "object") continue;
     const c = item as Record<string, unknown>;
-    const label = typeof c.label === "string" ? c.label.trim() : "";
+    const label =
+      typeof c.label === "string" ? c.label.trim().slice(0, MAX_CHARGE_LABEL_LENGTH) : "";
     const type = c.type === "percent" ? "percent" : "fixed";
     const value = typeof c.value === "number" ? c.value : Number(c.value);
     if (!label || !Number.isFinite(value) || value <= 0) continue;
+    if (type === "percent" && value > MAX_PERCENT_CHARGE) continue;
+    if (type === "fixed" && value > MAX_FIXED_CHARGE_KES) continue;
     out.push({ label, type, value });
   }
   return out;

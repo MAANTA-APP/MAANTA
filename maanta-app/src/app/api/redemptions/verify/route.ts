@@ -1,59 +1,38 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireMerchant } from "@/lib/merchant-api";
+import { isValidOtpCode } from "@/lib/otp";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
+const OTP_RATE_LIMIT = 20;
+const OTP_RATE_WINDOW_SECONDS = 60;
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  }
+  const auth = await requireMerchant("can_verify");
+  if ("error" in auth) return auth.error;
+  const { merchant } = auth.ctx;
 
   const { otpCode, override, overrideReason } = await request.json();
-  if (!otpCode) {
-    return NextResponse.json({ error: "Missing code." }, { status: 400 });
+  if (!isValidOtpCode(otpCode)) {
+    return NextResponse.json({ error: "Invalid code format." }, { status: 400 });
   }
 
-  const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || !MERCHANT_ROLES.includes(appUser.role)) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("id")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
-
-  if (!merchant) {
+  const allowed = await checkRateLimit(
+    `otp-verify:${merchant.id}`,
+    OTP_RATE_LIMIT,
+    OTP_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
     return NextResponse.json(
-      { error: "No merchant account found." },
-      { status: 404 }
+      { error: "Too many attempts — wait a moment and try again." },
+      { status: 429 }
     );
   }
 
-  // verify_redemption is a self-authorizing, atomic RPC: it locks the
-  // pending redemption row (FOR UPDATE), flips it to success, increments
-  // the deal's claims_count, and — critically — calls
-  // deduct_success_fee_or_record_arrears to actually debit
-  // merchants.account_balance (or record arrears if the wallet can't cover
-  // it). The previous hand-rolled version never did this debit at all.
-  // p_override marks a "verify anyway" on a flagged code: the redemption
-  // still verifies (frozen rule — the shopper is never blocked), but the
-  // override intent + reason land in the fraud_events / agent_tasks dispute
-  // trail instead of being lost.
+  const supabase = createClient();
+  const service = createServiceClient();
+
   const { data, error } = await supabase
     .rpc("verify_redemption", {
       p_merchant_id: merchant.id,

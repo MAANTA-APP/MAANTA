@@ -69,6 +69,22 @@ describe("pricing — parseCharges", () => {
     expect(parseCharges(null)).toEqual([]);
     expect(parseCharges({})).toEqual([]);
   });
+
+  it("rejects excessive percent, fixed amounts, and charge count", () => {
+    const tooMany = Array.from({ length: 12 }, (_, i) => ({
+      label: `Charge ${i}`,
+      type: "fixed",
+      value: 10,
+    }));
+    expect(parseCharges(tooMany)).toHaveLength(10);
+
+    expect(
+      parseCharges([{ label: "VAT", type: "percent", value: 101 }])
+    ).toEqual([]);
+    expect(
+      parseCharges([{ label: "Fee", type: "fixed", value: 2_000_000 }])
+    ).toEqual([]);
+  });
 });
 
 describe("pricing — dealPricing", () => {
