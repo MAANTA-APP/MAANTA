@@ -34,15 +34,17 @@ BEGIN
   RAISE NOTICE 'Scenario A passed: merchant cannot change node';
 END $$;
 
--- Scenario B: you_pay_kes matches disclosed price + extras.
+-- Scenario B: you_pay_kes matches disclosed price + extras (canonical wireframe: 450 + 72 + 30 + 20 = 572).
 DO $$
 DECLARE
   v_pay NUMERIC;
+  v_charges jsonb := '[
+    {"label":"VAT (16%)","type":"percent","value":16},
+    {"label":"Service charge","type":"fixed","value":30},
+    {"label":"Packaging","type":"fixed","value":20}
+  ]'::jsonb;
 BEGIN
-  v_pay := public.you_pay_kes(
-    450,
-    '[{"label":"VAT","type":"percent","value":16},{"label":"Svc","type":"fixed","value":30}]'::jsonb
-  );
+  v_pay := public.you_pay_kes(450, v_charges);
   ASSERT v_pay = 572, format('B: expected YOU PAY 572, got %s', v_pay);
   RAISE NOTICE 'Scenario B passed: you_pay_kes computes correctly';
 END $$;
@@ -65,7 +67,11 @@ BEGIN
   INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, charges)
     VALUES (
       v_mid, '__test deal', 'x', TRUE, NOW() + INTERVAL '2 hours', 450,
-      '[{"label":"VAT","type":"percent","value":16},{"label":"Svc","type":"fixed","value":30}]'::jsonb
+      '[
+        {"label":"VAT (16%)","type":"percent","value":16},
+        {"label":"Service charge","type":"fixed","value":30},
+        {"label":"Packaging","type":"fixed","value":20}
+      ]'::jsonb
     )
     RETURNING id INTO v_did;
 
