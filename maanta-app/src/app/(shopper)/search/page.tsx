@@ -1,5 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { getSelectedNode, getVerifiedCounts, type DealRow } from "@/lib/data";
+import {
+  getSelectedNode,
+  getVerifiedCounts,
+  withPublicMerchant,
+  type DealRow,
+} from "@/lib/data";
 import { ALL_NODES } from "@/lib/nodes";
 import { SearchControls } from "./search-controls";
 import { DealCardHorizontal } from "@/components/ui/cards";
@@ -21,16 +26,15 @@ export default async function SearchPage({
 
   let results: DealRow[] = [];
   if (q || type !== "all") {
-    let query = service
-      .from("deals")
-      .select(
-        "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
-      )
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
-      .eq("merchants.is_visible", true)
-      .eq("merchants.status", "active")
-      .limit(30);
+    let query = withPublicMerchant(
+      service
+        .from("deals")
+        .select(
+          "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
+        )
+        .eq("is_active", true)
+        .gt("expires_at", new Date().toISOString())
+    ).limit(30);
     if (node !== ALL_NODES) query = query.eq("node", node);
     if (type === "flash") query = query.eq("deal_type", "flash");
     if (type === "standard") query = query.eq("deal_type", "standard");
@@ -41,15 +45,15 @@ export default async function SearchPage({
 
     // Also match shop names when a text query is present.
     if (q) {
-      let shopQuery = service
-        .from("deals")
-        .select(
-          "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
-        )
-        .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
-        .eq("merchants.is_visible", true)
-        .eq("merchants.status", "active")
+      let shopQuery = withPublicMerchant(
+        service
+          .from("deals")
+          .select(
+            "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
+          )
+          .eq("is_active", true)
+          .gt("expires_at", new Date().toISOString())
+      )
         .ilike("merchants.merchant_name", `%${q}%`)
         .limit(30);
       if (node !== ALL_NODES) shopQuery = shopQuery.eq("node", node);

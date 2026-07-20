@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * "Grant trial" in 11f), so the CTA routes to support.
  */
 export default async function UpgradePage() {
-  await getSuccessFee();
+  const fee = await getSuccessFee();
   return (
     <main className="px-5 pt-6">
       <h1 className="text-center text-lg font-bold text-ink">Upgrade to Elite</h1>
@@ -35,7 +35,8 @@ export default async function UpgradePage() {
       <div className="mt-6 rounded-card border-2 border-ink bg-ink p-5 text-center">
         <p className="text-2xl font-bold text-brand">KES 3,500 / month</p>
         <p className="mt-1 text-xs text-white/70">
-          Plus the standard KES 30 success fee per verified redemption
+          Plus the standard KES {fee.toLocaleString("en-KE")} success fee per verified
+          redemption
         </p>
       </div>
 

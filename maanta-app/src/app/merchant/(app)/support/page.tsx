@@ -1,19 +1,25 @@
+import { getSuccessFee } from "@/lib/data";
 import { ButtonLink } from "@/components/ui/button";
 import { IconWhatsApp } from "@/components/ui/icons";
 
-/** 10k Merchant support / help. */
-const FAQS = [
-  {
-    q: "How is the success fee charged?",
-    a: "KES 30 is deducted from your wallet the moment you verify a customer's code at the counter. Expired or rejected codes are never charged.",
-  },
-  {
-    q: "My redemption was rejected — why?",
-    a: "Codes are rejected when they've expired past the 15-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes.",
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function MerchantSupportPage() {
+/** 10k Merchant support / help. */
+function faqs(fee: number) {
+  return [
+    {
+      q: "How is the success fee charged?",
+      a: `KES ${fee.toLocaleString("en-KE")} is deducted from your wallet the moment you verify a customer's code at the counter. Expired or rejected codes are never charged.`,
+    },
+    {
+      q: "My redemption was rejected — why?",
+      a: "Codes are rejected when they've expired past the 15-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes.",
+    },
+  ];
+}
+
+export default async function MerchantSupportPage() {
+  const FAQS = faqs(await getSuccessFee());
   return (
     <main className="px-4 pt-5">
       <h1 className="text-center text-lg font-bold text-ink">Support</h1>
