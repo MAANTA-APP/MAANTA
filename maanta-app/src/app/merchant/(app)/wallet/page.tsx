@@ -22,6 +22,7 @@ type Row = {
   amount: number | string;
   transaction_type: string;
   description: string | null;
+  reference_id: string | null;
   created_at: string;
 };
 
@@ -46,7 +47,7 @@ export default async function WalletPage({
   const service = createServiceClient();
   const { data: allRows } = await service
     .from("merchant_transactions")
-    .select("id, amount, transaction_type, description, created_at")
+    .select("id, amount, transaction_type, description, reference_id, created_at")
     .eq("merchant_id", merchant.id)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -157,11 +158,19 @@ export default async function WalletPage({
                 {rate ? <p className="mt-0.5 text-xs text-secondary">{rate}</p> : null}
                 <p className="mt-0.5 text-xs text-muted">{friendlyTime(t.created_at)}</p>
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <ReferenceId
-                    value={t.id}
-                    display={t.id.slice(0, 8).toUpperCase()}
-                    label="Ref"
-                  />
+                  {/* Prefer reference_id: on fee rows it is the redemption id, so
+                      this matches the ReferenceId on the redeem success takeover.
+                      Legacy rows (reference_id NULL) fall back to the txn id. */}
+                  {(() => {
+                    const ref = t.reference_id ?? t.id;
+                    return (
+                      <ReferenceId
+                        value={ref}
+                        display={ref.slice(0, 8).toUpperCase()}
+                        label="Ref"
+                      />
+                    );
+                  })()}
                   <span className="tnum text-xs text-secondary">
                     Bal {formatKes(t.balanceAfter)}
                   </span>
