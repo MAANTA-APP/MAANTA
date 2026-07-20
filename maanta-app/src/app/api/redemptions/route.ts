@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
-import { dealPricing } from "@/lib/pricing";
+import { parseGpsCoords } from "@/lib/geo";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -31,16 +31,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account not found." }, { status: 404 });
   }
 
-  // claim_deal is a self-authorizing, atomic RPC: it locks the deal row
-  // (FOR UPDATE), validates active/expiry/max_claims/merchant visibility,
-  // blocks a duplicate pending claim per shopper, and generates a
-  // collision-safe OTP — all inside the DB. It checks auth.uid() /
-  // current_user_id() internally, so it's safe to call with the regular
-  // RLS-respecting server client rather than the service-role client.
-  const consumerGpsWkt =
-    typeof lat === "number" && typeof lng === "number"
-      ? `SRID=4326;POINT(${lng} ${lat})`
-      : null;
+  const gps = parseGpsCoords(lat, lng);
+  const consumerGpsWkt = gps ? `SRID=4326;POINT(${gps.lng} ${gps.lat})` : null;
 
   const { data, error } = await supabase
     .rpc("claim_deal", {
@@ -87,41 +79,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: userMessage }, { status });
   }
 
-  // Snapshot YOU PAY onto the redemption so the claimed code is argued from the
-  // exact amount disclosed at claim time, even if the deal later changes.
-  // Best-effort: never blocks the claim.
-  try {
-    const { data: dealRow } = await service
-      .from("deals")
-      .select("price_kes, compare_at_kes, charges")
-      .eq("id", dealId)
-      .maybeSingle();
-    const amount = dealRow
-      ? dealPricing(dealRow as { price_kes: number | null; compare_at_kes: number | null; charges: unknown }).pay
-      : null;
-    if (amount != null) {
-      await service
-        .from("redemptions")
-        .update({ amount_kes: amount })
-        .eq("id", data.redemption_id);
-    }
-  } catch (err) {
-    console.error("amount snapshot failed:", err);
-  }
-
-  // Post-claim fraud pass (wireframe 9t / 11d): when the shopper shared GPS,
-  // compute the distance to the shop's what3words location and run the DB's
-  // guardian_check RPC (service-role-only) which records fraud_events for
-  // velocity/geofence/collusion. The returned flags are stamped onto the
-  // redemption row so merchant preflight + admin fraud audit can read them.
-  // Best-effort: a failure here never blocks the claim.
-  if (typeof lat === "number" && typeof lng === "number") {
+  if (gps) {
     try {
-      const shopCoords = await convertWhat3WordsToCoordinates(
-        data.what3words_address
-      );
+      const shopCoords = await convertWhat3WordsToCoordinates(data.what3words_address);
       const distance = shopCoords
-        ? Math.round(distanceMeters({ lat, lng }, shopCoords))
+        ? Math.round(distanceMeters(gps, shopCoords))
         : null;
 
       const { data: flags } = await service.rpc("guardian_check", {
@@ -149,7 +111,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     redemptionId: data.redemption_id,
-    otpCode: data.otp_code,
     expiresAt: data.redemption_expires_at,
   });
 }

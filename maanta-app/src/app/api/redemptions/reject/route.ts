@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
+import { isValidOtpCode } from "@/lib/otp";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+const OTP_RATE_LIMIT = 30;
+const OTP_RATE_WINDOW_SECONDS = 60;
 
 /**
  * Reject a pending code (wireframe 9t "Reject code"). Marks the pending
@@ -10,11 +15,23 @@ import { requireMerchant } from "@/lib/merchant-api";
 export async function POST(request: Request) {
   const auth = await requireMerchant("can_verify");
   if ("error" in auth) return auth.error;
-  const { merchant } = auth.ctx;
+  const { merchant, user } = auth.ctx;
 
   const { otpCode } = await request.json();
-  if (!otpCode) {
-    return NextResponse.json({ error: "Missing code." }, { status: 400 });
+  if (!isValidOtpCode(otpCode)) {
+    return NextResponse.json({ error: "Invalid code format." }, { status: 400 });
+  }
+
+  const allowed = await checkRateLimit(
+    `otp-reject:${merchant.id}`,
+    OTP_RATE_LIMIT,
+    OTP_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts — wait a moment and try again." },
+      { status: 429 }
+    );
   }
 
   const service = createServiceClient();
@@ -24,7 +41,7 @@ export async function POST(request: Request) {
     .eq("merchant_id", merchant.id)
     .eq("otp_code", otpCode)
     .eq("status", "pending")
-    .select("id");
+    .select("id, user_id, deal_id");
 
   if (error) {
     console.error("reject failed:", error);
@@ -36,6 +53,19 @@ export async function POST(request: Request) {
       { status: 404 }
     );
   }
+
+  const row = rows[0];
+  await service.from("fraud_events").insert({
+    merchant_id: merchant.id,
+    user_id: row.user_id,
+    event_type: "code_rejected",
+    severity: "low",
+    details: {
+      redemption_id: row.id,
+      deal_id: row.deal_id,
+      rejected_by_user: user.id,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
