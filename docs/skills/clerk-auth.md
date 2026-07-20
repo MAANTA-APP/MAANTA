@@ -25,8 +25,21 @@ Postgres  auth.jwt()->>'sub' ─▶ public.users.clerk_user_id ─▶ current_us
 ### Why this was cheap to do
 Every RLS policy and every authz-enforcing RPC calls `public.current_user_id()`
 or `public.current_user_role()`. They were the only two functions that read
-`auth.uid()`. Re-pointing **just those two** at the Clerk `sub` migrates the
-entire security model without touching a single policy or RPC body.
+`auth.uid()`. Re-pointing **just those two** migrates the entire security model
+without touching a single policy or RPC body. They resolve **Clerk-primary with
+a legacy fallback**:
+
+```sql
+WHERE clerk_user_id = (auth.jwt() ->> 'sub')   -- Clerk: sub is opaque text
+   OR auth_uid::text = (auth.jwt() ->> 'sub')  -- legacy Supabase-Auth: sub is a UUID
+```
+
+The fallback compares `auth_uid::text = sub` and **never** casts `sub::uuid`:
+SQL doesn't short-circuit OR/AND, so a cast would be evaluated eagerly and throw
+on a Clerk text id (`user_2ab…`). This was caught by local repro before merge —
+see the migration's helper comment. The fallback is inert in Clerk-only
+production (sub is always text) but keeps the `security_hardening_test.sql`
+regression suite passing, since it authenticates by setting `sub = users.auth_uid`.
 
 ## What changed in code
 
@@ -95,10 +108,10 @@ entry point resolves identity through it, so provisioning is automatic.
   viable, fall back to email/social and revisit phone. (Frozen assumption:
   shopper login is phone-first.)
 - **Legacy user linking**: existing rows are keyed by `auth_uid` (Supabase
-  Auth) with `clerk_user_id` NULL. If any real users predate Clerk, add a
-  one-off backfill that matches by phone/email and sets `clerk_user_id`. The
-  identity helpers are Clerk-only now, so unlinked legacy users can't sign in
-  until linked. (Pre-launch, the simplest path is to have them re-register via
-  Clerk.)
+  Auth) with `clerk_user_id` NULL. The helpers keep a legacy `auth_uid`
+  fallback, but that only helps a *Supabase-Auth* session — a user signing in
+  through Clerk gets a Clerk `sub` and needs a `clerk_user_id`. If any real
+  users predate Clerk, add a one-off backfill that matches by phone/email and
+  sets `clerk_user_id` (or, pre-launch, have them re-register via Clerk).
 - **`auth_uid`/trigger**: left in place but inert. Remove once no Supabase-Auth
   path remains.
