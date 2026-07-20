@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAppUser, getVerifiedCounts } from "@/lib/data";
+import { getAppUser, getVerifiedCounts, withPublicMerchantRows } from "@/lib/data";
 import { W3wChip, CountdownChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck, IconChevronRight } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
@@ -17,15 +17,19 @@ export default async function ShopProfilePage({
   params: { id: string };
 }) {
   const service = createServiceClient();
-  const { data: shop } = await service
-    .from("merchants")
-    .select(
-      "id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status"
-    )
-    .eq("id", params.id)
-    .maybeSingle();
+  // Public storefront: only render for a publicly-visible, active merchant
+  // (status='active' AND is_visible AND NOT is_shadow_banned). Filtering in the
+  // query means the row simply isn't returned for a pending/suspended shop.
+  const { data: shop } = await withPublicMerchantRows(
+    service
+      .from("merchants")
+      .select(
+        "id, merchant_name, floor, unit_number, what3words_address, mall_name, node"
+      )
+      .eq("id", params.id)
+  ).maybeSingle();
 
-  if (!shop || !shop.is_visible || shop.is_shadow_banned) notFound();
+  if (!shop) notFound();
 
   const user = await getAppUser();
   let isFav = false;

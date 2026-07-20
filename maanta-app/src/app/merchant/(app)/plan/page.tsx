@@ -1,5 +1,4 @@
 import { getMerchantContext } from "@/lib/merchant";
-import { getSuccessFee } from "@/lib/data";
 import { ButtonLink } from "@/components/ui/button";
 import { SettingsRow } from "@/components/ui/cards";
 import { timeLeftLabel } from "@/lib/ui";
@@ -11,7 +10,6 @@ export default async function PlanPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
   const { merchant } = res.ctx;
-  await getSuccessFee();
 
   const isElite = merchant.tier === "elite";
   const trialDaysLeft =

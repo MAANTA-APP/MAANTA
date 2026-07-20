@@ -127,6 +127,40 @@ export type DealRow = {
 const DEAL_SELECT =
   "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
+/**
+ * Canonical public-visibility predicate for merchants — the single source of
+ * truth mirrored from the RLS policies, the `*_public_browse` views and
+ * `claim_deal`:
+ *
+ *   status = 'active' AND is_visible = TRUE AND is_shadow_banned = FALSE
+ *
+ * All three clauses are load-bearing: `is_visible` is trust-metric driven and
+ * independent of shadow-ban, so dropping any clause exposes rows the database
+ * treats as non-public. Shopper/public reads on base tables (service client,
+ * RLS bypassed) must funnel through one of these two helpers instead of
+ * hand-rolling the predicate, so the surfaces can never drift apart.
+ */
+// The Supabase filter builder is `.eq`-chainable and returns itself; typing
+// against the full builder recursively trips "excessively deep" instantiation,
+// so we narrow to just the chainable shape we use and pass the type through.
+type EqChain = { eq(column: string, value: unknown): EqChain };
+
+/** Restrict a `deals` query (with a `merchants!inner` join) to public merchants. */
+export function withPublicMerchant<T>(query: T): T {
+  return (query as unknown as EqChain)
+    .eq("merchants.status", "active")
+    .eq("merchants.is_visible", true)
+    .eq("merchants.is_shadow_banned", false) as unknown as T;
+}
+
+/** Restrict a `merchants` base-table query to publicly-visible rows. */
+export function withPublicMerchantRows<T>(query: T): T {
+  return (query as unknown as EqChain)
+    .eq("status", "active")
+    .eq("is_visible", true)
+    .eq("is_shadow_banned", false) as unknown as T;
+}
+
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
 export async function getLiveDeals(node: string): Promise<{
   flash: DealRow[];
@@ -135,14 +169,13 @@ export async function getLiveDeals(node: string): Promise<{
   verifiedByMerchant: Map<string, number>;
 }> {
   const service = createServiceClient();
-  let query = service
-    .from("deals")
-    .select(DEAL_SELECT)
-    .eq("is_active", true)
-    .gt("expires_at", new Date().toISOString())
-    .eq("merchants.is_visible", true)
-    .eq("merchants.is_shadow_banned", false)
-    .eq("merchants.status", "active")
+  let query = withPublicMerchant(
+    service
+      .from("deals")
+      .select(DEAL_SELECT)
+      .eq("is_active", true)
+      .gt("expires_at", new Date().toISOString())
+  )
     .order("created_at", { ascending: false })
     .limit(60);
   if (node !== ALL_NODES) query = query.eq("node", node);
@@ -184,10 +217,12 @@ export async function getVerifiedCounts(
 
 export async function getDeal(dealId: string): Promise<DealRow | null> {
   const service = createServiceClient();
-  const { data } = await service
-    .from("deals")
-    .select(DEAL_SELECT)
-    .eq("id", dealId)
-    .maybeSingle();
+  // Public detail surface: a deal is only reachable when its merchant is
+  // publicly visible. Deal-level state (expired / fully-claimed / paused) is
+  // still surfaced by the page itself — this only gates merchant visibility,
+  // matching claim_deal so a shopper can never see a deal they can't claim.
+  const { data } = await withPublicMerchant(
+    service.from("deals").select(DEAL_SELECT).eq("id", dealId)
+  ).maybeSingle();
   return (data as unknown as DealRow) ?? null;
 }
