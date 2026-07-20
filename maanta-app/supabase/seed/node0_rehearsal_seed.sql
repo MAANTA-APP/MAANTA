@@ -136,41 +136,58 @@ WHERE NOT EXISTS (SELECT 1 FROM public.merchants m WHERE m.id = v.id::uuid);
 -- ----------------------------------------------------------------------------
 INSERT INTO public.deals (id, merchant_id, node, title, description, image_url,
                           discount_type, discount_value, deal_type, flash_duration_hours,
-                          is_active, max_claims, claims_count, starts_at)
+                          is_active, max_claims, claims_count, starts_at,
+                          price_kes, compare_at_kes, charges)
 SELECT 'd0000000-0000-4000-a000-000000000001'::uuid, 'c0000000-0000-4000-a000-000000000001'::uuid,
   'BBS Mall', '20% off all abayas & dirac',
   'Every abaya and dirac in store. Show your MAANTA code at the counter before paying.',
   'data:image/svg+xml;utf8,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%20400%20300"><rect%20width="400"%20height="300"%20fill="%235b21b6"/><text%20x="200"%20y="150"%20font-family="sans-serif"%20font-size="34"%20font-weight="bold"%20fill="white"%20text-anchor="middle">Nuur%20Fashion</text><text%20x="200"%20y="195"%20font-family="sans-serif"%20font-size="24"%20fill="white"%20text-anchor="middle">20%25%20off%20abayas</text></svg>',
-  'percentage', 20, 'standard', 6, true, 20, 2, NOW() - INTERVAL '3 hours'
+  'percentage', 20, 'standard', 6, true, 20, 2, NOW() - INTERVAL '3 hours',
+  2400.00, 3000.00, '[]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM public.deals d WHERE d.id = 'd0000000-0000-4000-a000-000000000001'::uuid);
 
 INSERT INTO public.deals (id, merchant_id, node, title, description, image_url,
                           discount_type, discount_value, deal_type, flash_duration_hours,
-                          is_active, max_claims, claims_count, starts_at)
+                          is_active, max_claims, claims_count, starts_at,
+                          price_kes, compare_at_kes, charges)
 SELECT 'd0000000-0000-4000-a000-000000000002'::uuid, 'c0000000-0000-4000-a000-000000000001'::uuid,
   'BBS Mall', 'Flash: buy 1 get 1 free — scarves & hijabs',
   'Flash deal — any scarf or hijab, second one free. Today only while the timer runs.',
   'data:image/svg+xml;utf8,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%20400%20300"><rect%20width="400"%20height="300"%20fill="%23b45309"/><text%20x="200"%20y="150"%20font-family="sans-serif"%20font-size="34"%20font-weight="bold"%20fill="white"%20text-anchor="middle">Nuur%20Fashion</text><text%20x="200"%20y="195"%20font-family="sans-serif"%20font-size="24"%20fill="white"%20text-anchor="middle">B1G1%20scarves%20—%20flash</text></svg>',
-  'freebie', NULL, 'flash', 6, true, 10, 0, NOW() - INTERVAL '1 hour'
+  'freebie', NULL, 'flash', 6, true, 10, 0, NOW() - INTERVAL '1 hour',
+  800.00, 1600.00, '[]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM public.deals d WHERE d.id = 'd0000000-0000-4000-a000-000000000002'::uuid);
 
 INSERT INTO public.deals (id, merchant_id, node, title, description, image_url,
                           discount_type, discount_value, deal_type, flash_duration_hours,
-                          is_active, max_claims, claims_count, starts_at)
+                          is_active, max_claims, claims_count, starts_at,
+                          price_kes, compare_at_kes, charges)
 SELECT 'd0000000-0000-4000-a000-000000000003'::uuid, 'c0000000-0000-4000-a000-000000000002'::uuid,
   'BBS Mall', 'KES 300 off oud & perfume gift sets',
   'All boxed oud and perfume gift sets. One redemption per customer.',
   'data:image/svg+xml;utf8,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%20400%20300"><rect%20width="400"%20height="300"%20fill="%230f766e"/><text%20x="200"%20y="150"%20font-family="sans-serif"%20font-size="32"%20font-weight="bold"%20fill="white"%20text-anchor="middle">Bilan%20Beauty</text><text%20x="200"%20y="195"%20font-family="sans-serif"%20font-size="24"%20fill="white"%20text-anchor="middle">KES%20300%20off%20gift%20sets</text></svg>',
-  'fixed', 300, 'standard', 6, true, 15, 0, NOW() - INTERVAL '3 hours'
+  'fixed', 300, 'standard', 6, true, 15, 0, NOW() - INTERVAL '3 hours',
+  1950.00, 2250.00, '[]'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM public.deals d WHERE d.id = 'd0000000-0000-4000-a000-000000000003'::uuid);
 
 -- Refresh the rehearsal window on every run: seeded deals are always live for
--- the next ~21h (standard) / ~5h (flash) after the seed runs.
+-- the next ~21h (standard) / ~5h (flash) after the seed runs. Also upgrades
+-- rows seeded before the YOU PAY price model (2026-07-19) with shopper prices.
 UPDATE public.deals
 SET starts_at  = CASE WHEN deal_type = 'flash' THEN NOW() - INTERVAL '1 hour' ELSE NOW() - INTERVAL '3 hours' END,
     expires_at = CASE WHEN deal_type = 'flash' THEN NOW() + INTERVAL '5 hours' ELSE NOW() + INTERVAL '21 hours' END,
     is_active  = true,
-    is_paused  = false
+    is_paused  = false,
+    price_kes  = COALESCE(price_kes, CASE id
+                   WHEN 'd0000000-0000-4000-a000-000000000001'::uuid THEN 2400.00
+                   WHEN 'd0000000-0000-4000-a000-000000000002'::uuid THEN 800.00
+                   WHEN 'd0000000-0000-4000-a000-000000000003'::uuid THEN 1950.00
+                 END),
+    compare_at_kes = COALESCE(compare_at_kes, CASE id
+                   WHEN 'd0000000-0000-4000-a000-000000000001'::uuid THEN 3000.00
+                   WHEN 'd0000000-0000-4000-a000-000000000002'::uuid THEN 1600.00
+                   WHEN 'd0000000-0000-4000-a000-000000000003'::uuid THEN 2250.00
+                 END)
 WHERE id IN ('d0000000-0000-4000-a000-000000000001'::uuid,
              'd0000000-0000-4000-a000-000000000002'::uuid,
              'd0000000-0000-4000-a000-000000000003'::uuid);
@@ -204,9 +221,11 @@ FROM (VALUES
 ) AS v(id, deal_id, merchant_id, otp, status, flags, review, distance, expires_at, redeemed_at)
 WHERE NOT EXISTS (SELECT 1 FROM public.redemptions r WHERE r.id = v.id::uuid);
 
--- Keep the live ticket usable after re-runs (only while it is still pending).
+-- Keep the live ticket usable after re-runs (only while it is still pending),
+-- and stamp the YOU PAY snapshot the claim path would have written.
 UPDATE public.redemptions
-SET expires_at = NOW() + INTERVAL '21 hours 15 minutes'
+SET expires_at = NOW() + INTERVAL '21 hours 15 minutes',
+    amount_kes = COALESCE(amount_kes, 2400.00)
 WHERE id = 'e0000000-0000-4000-a000-000000000004'::uuid AND status = 'pending';
 
 -- ----------------------------------------------------------------------------

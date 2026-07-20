@@ -1,6 +1,6 @@
 # MAANTA Node 0 rehearsal checklist (BBS Mall)
 
-Last updated: 2026-07-10. Engineer-facing. One sitting ≈ 30 minutes.
+Last updated: 2026-07-20. Engineer-facing. One sitting ≈ 30 minutes.
 App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project `vcrfqsevompqjazbwzyh` (eu-west-1).
 
 ## 0. Before you start
@@ -33,15 +33,20 @@ gift sets" (standard).
 ## 2. Rehearsal steps
 
 **A. Shopper browse → claim**
-1. `/login` as shopper (Email tab) → pick BBS Mall → `/feed` shows 3 deals (flash rail on top).
+1. `/login` as shopper (Email tab) → pick BBS Mall → `/feed` shows 3 deals (flash rail
+   on top), each with a **YOU PAY** price (abayas KES 2,400 was 3,000; scarves 800;
+   gift sets 1,950).
 2. Open the abaya deal → Claim → 6-digit code ticket appears (also under `/tickets`).
    Expected: second claim on the same deal is blocked with "already have an active claim".
 
 **B. Merchant redeem (happy path + fee debit)**
 3. Incognito: `/login` as **nuur** → `/merchant/redeem`.
 4. Type the shopper's code from step 2 — or the pre-seeded live ticket **431977**.
-   Expected: "Verified — KES 30 success fee applied", new balance shown (540 → 510),
-   ledger row visible under `/merchant/wallet`.
+   Redeem is now two-step (2026-07-18): entering the code only RESOLVES it and
+   shows the fee disclosure; nothing is charged until you tap **Confirm
+   redemption**. Expected after confirm: success screen with KES 30 fee, a
+   copyable reference ID, new balance (540 → 510), and a ledger row under
+   `/merchant/wallet` linked to that same reference.
 
 **C. Verify-anyway → dispute → admin review**
 5. A disputed redemption is pre-seeded (geofence flag + merchant override at Nuur).
@@ -52,17 +57,23 @@ gift sets" (standard).
 
 **D. Merchant activation (full lifecycle)**
 6. As admin → `/admin/merchants` → Macmacaan Sweets & Café (pending) → Approve
-   (optionally grant Elite trial). Expected: status flips to active.
-7. Incognito: `/login` as **macmacaan** → merchant dashboard loads. Wallet is 0:
-   expect deal creation blocked (zero-balance gate) and redeem keypad blocked
-   ("balance too low"). Top up via `/merchant/topup` — Stripe **sandbox**, test card
-   `4242 4242 4242 4242`, any future expiry/CVC. Expected: balance appears after the
-   webhook lands, then deal creation works (Standard = 1 active deal, no flash).
+   (optionally grant Elite trial). Expected: status flips to active AND the
+   wallet shows **KES 300** — the Node 0 opening credit (2026-07-16) is granted
+   automatically at activation (first 100 BBS merchants; config-driven, ledger
+   row tagged `node0_opening_credit`).
+7. Incognito: `/login` as **macmacaan** → merchant dashboard loads with the
+   KES 300 balance, so deal creation works immediately (Standard = 1 active
+   deal, no flash). Still rehearse the top-up: `/merchant/topup` — Stripe
+   **sandbox**, test card `4242 4242 4242 4242`, any future expiry/CVC —
+   balance rises after the webhook lands.
 
 **E. Low-wallet + arrears behavior**
-8. `/login` as **bilan** (wallet KES 20 < KES 30 fee) → `/merchant/redeem` shows the
-   "Wallet balance too low — top up" gate. (Arrears path — verify with empty wallet —
-   only triggers via admin/service verification; the keypad gate blocks it by design.)
+8. `/login` as **bilan** (wallet KES 20 < KES 30 fee) → `/merchant/redeem`.
+   Since 2026-07-18 (G1 frozen rule) a low or empty wallet NEVER blocks the
+   keypad: verifying still succeeds, the KES 30 fee is recorded as **arrears**
+   (`success_fee_arrears` ledger row, `outstanding_arrears` on the merchant),
+   settled at the next top-up. Have the shopper claim Bilan's gift-set deal,
+   confirm it at Bilan's keypad, and check the arrears row in `/merchant/wallet`.
 
 **F. Waitlist signup**
 9. Waitlist lives in the email platform, not this app (decision 2026-07-10). Nothing
