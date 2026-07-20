@@ -61,8 +61,8 @@ DECLARE
 BEGIN
   INSERT INTO public.users (role, auth_uid)
     VALUES ('customer', v_auth) RETURNING id INTO v_uid;
-  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_visible)
-    VALUES ('__test_sec_claim', 'test.sec.claim', '+254700000202', 'BBS Mall', 'active', TRUE)
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+    VALUES ('__test_sec_claim', 'test.sec.claim', '+254700000202', 'BBS Mall', 'active', TRUE, 100)
     RETURNING id INTO v_mid;
   INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, charges)
     VALUES (
