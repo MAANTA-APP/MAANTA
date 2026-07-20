@@ -169,4 +169,19 @@ BEGIN
   RAISE NOTICE 'Scenario F passed: anon cannot SELECT merchants base table';
 END $$;
 
+-- Scenario G: check_rate_limit is service_role-only. Supabase default
+-- privileges auto-grant EXECUTE on new public functions to anon/authenticated,
+-- so revoking only from PUBLIC/anon is not enough — authenticated must also be
+-- revoked (see migration 20260720123000_lock_down_check_rate_limit_execute.sql).
+DO $$
+BEGIN
+  ASSERT NOT has_function_privilege('anon', 'public.check_rate_limit(text,integer,integer)', 'EXECUTE'),
+    'G: anon must not be able to execute check_rate_limit';
+  ASSERT NOT has_function_privilege('authenticated', 'public.check_rate_limit(text,integer,integer)', 'EXECUTE'),
+    'G: authenticated must not be able to execute check_rate_limit';
+  ASSERT has_function_privilege('service_role', 'public.check_rate_limit(text,integer,integer)', 'EXECUTE'),
+    'G: service_role must be able to execute check_rate_limit';
+  RAISE NOTICE 'Scenario G passed: check_rate_limit is service_role-only';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL security_hardening scenarios passed.'; END $$;

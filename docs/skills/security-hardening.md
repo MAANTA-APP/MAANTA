@@ -19,6 +19,12 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 | Reject griefing unaudited | `code_rejected` fraud event type + reject route audit insert |
 | Silent RLS-enable failures | `rls_auto_enable()` logs `RAISE WARNING` with error text |
 
+### Database follow-up (`20260720123000_lock_down_check_rate_limit_execute.sql`)
+
+| Issue | Fix |
+|---|---|
+| `check_rate_limit` still callable by `authenticated` | Supabase default privileges auto-grant `EXECUTE` on new public functions to `anon`/`authenticated`/`service_role`. `20260720120000` revoked only from `PUBLIC` + `anon`, so the `authenticated` grant survived — a signed-in browser client could tamper with the rate-limit table via `/rest/v1/rpc/check_rate_limit`. Follow-up migration adds `REVOKE ALL ... FROM authenticated`. Found during remote parity validation (see below). |
+
 ### Application
 
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
@@ -43,6 +49,64 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 | `supabase/tests/security_hardening_test.sql` | A–F passed (node lock, `you_pay_kes`, `claim_deal` snapshot, staff verify, rate limit, anon grants) |
 | `supabase/tests/success_fee_reference_link_test.sql` | A–B passed |
 
-**Remote staging:** this repo has no separate staging Supabase project or credentials checked in. The live project is `vcrfqsevompqjazbwzyh` (prod). Before merging to `main`, apply the migration there via Supabase SQL editor or `supabase db push` from a machine with project access, then re-run the three test files against that database if you want prod-parity confirmation beyond CI.
-
 **Test fixes on branch:** `security_hardening_test.sql` was corrected to use the canonical YOU PAY charge set (572 KES) and to seed merchants with positive `account_balance` so the zero-balance gate does not block deal creation in scenario C.
+
+## Remote (prod) parity validation (2026-07-20)
+
+Done as a pre-merge parity check for PR #27 against the **live** database (this
+repo has **no** separate staging project — `vcrfqsevompqjazbwzyh` is the only
+Supabase project in the org).
+
+- **Project ref:** `vcrfqsevompqjazbwzyh` (eu-west-1, Postgres 17).
+- **Apply method:** No Supabase CLI / DB credentials are available in the
+  automation environment, so `supabase db push` was not possible. Applied via
+  the **Supabase MCP `apply_migration`** (writes directly to the project and
+  records migration history). The MCP stamps its own apply-time version, so the
+  recorded `version` was reconciled to match the repo filename exactly
+  (`20260720120000`, and the follow-up `20260720123000`).
+- **Pre-apply remote state:** migration history ended at `20260720014135`
+  (no drift); `node0_opening_credit` ledger count = 0 (cap 100, window open,
+  node `BBS Mall`) so the node0 scenarios can pass on prod; 3 merchants /
+  3 deals / 4 redemptions / 5 users of real data, untouched by the run.
+
+**SQL regression suites — all pass against the migrated remote DB** (each file
+run end-to-end; any failed `ASSERT` aborts the run, matching `ON_ERROR_STOP=1`):
+
+| File | Result |
+|---|---|
+| `supabase/tests/node0_opening_credit_test.sql` | A–D passed |
+| `supabase/tests/security_hardening_test.sql` | A–G passed (node lock, `you_pay_kes`, `claim_deal` snapshot, staff verify, rate limit, anon grants, **check_rate_limit service_role-only**) |
+| `supabase/tests/success_fee_reference_link_test.sql` | A–B passed |
+
+Post-run verification confirmed **zero residue** (no `__test%` merchants, no
+`test-rate-%` buckets), `app_config` restored (`cap=100`,
+`window=2026-12-15`), and all real-data counts identical to the pre-run
+snapshot.
+
+### Drift observed (remote vs CI) and resolution
+
+1. **`check_rate_limit` executable by `authenticated` (real gap, fixed).**
+   `get_advisors` (security) against the remote flagged lint 0029 for
+   `check_rate_limit`. Direct `has_function_privilege` checks confirmed
+   `authenticated` could `EXECUTE` it, contradicting the "service_role only"
+   intent. Root cause: Supabase default privileges grant `EXECUTE` on new
+   public functions to `authenticated`, and `20260720120000` revoked only from
+   `PUBLIC`/`anon`. **CI did not catch this** — a fresh `supabase start` has the
+   same default privileges, and scenario E only asserted the function *works*
+   under `service_role`, never the negative. Resolved with follow-up migration
+   `20260720123000_lock_down_check_rate_limit_execute.sql` (revoke from
+   `authenticated`) plus new **scenario G** asserting anon/authenticated cannot
+   execute it and `service_role` can. Re-verified on remote: `anon=false,
+   authenticated=false, service_role=true`.
+2. **MCP version stamping (metadata only).** `apply_migration` records its own
+   apply-time version rather than the repo filename version. Reconciled both
+   recorded versions to the canonical filenames so a later `supabase db push`
+   from a machine with CLI access sees them as already applied (idempotent).
+
+Everything else the advisor reports (broad `pg_graphql_*` table exposure to
+`authenticated`, other pre-existing SECURITY DEFINER RPCs, leaked-password
+protection) is pre-existing project posture, not introduced by this migration.
+The two new browse views (`merchants_public_browse`, `deals_public_browse`)
+being anon-visible is **intentional** — that is their purpose. `api_rate_limit_buckets`
+having RLS enabled with no policy is also intentional (service_role-only; deny-all
+to everyone else).
