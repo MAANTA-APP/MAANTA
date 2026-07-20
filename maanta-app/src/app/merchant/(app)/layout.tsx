@@ -22,7 +22,10 @@ export default async function MerchantAppLayout({
   const lowThreshold = fee * 3;
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-white">
+    // Phone: single column (max-w-mobile). Tablet-at-the-till (lg+): the frame
+    // widens so redeem can split into two panes (§8.8). Single-pane pages
+    // self-cap at ~560px; redeem uses the full width.
+    <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-white lg:max-w-3xl">
       <OfflineBanner />
       <MerchantTopBar
         merchantName={merchant.merchant_name}
