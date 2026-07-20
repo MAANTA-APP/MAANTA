@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { ButtonLink } from "@/components/ui/button";
 import { Logomark } from "@/components/ui/icons";
 
-/** 5f Public top nav — MAANTA · How it works · Pricing · FAQ · [Get started]. */
+/** 5f Public top nav — MAANTA · How it works · Pricing · FAQ · [auth controls]. */
 export function PublicNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
@@ -22,9 +23,24 @@ export function PublicNav() {
             FAQ
           </Link>
         </nav>
-        <ButtonLink href="/feed" size="sm">
-          Get started
-        </ButtonLink>
+        <div className="flex items-center gap-3">
+          <SignedOut>
+            <SignInButton mode="redirect">
+              <button className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
+                Sign in
+              </button>
+            </SignInButton>
+            <ButtonLink href="/sign-up" size="sm">
+              Get started
+            </ButtonLink>
+          </SignedOut>
+          <SignedIn>
+            <ButtonLink href="/feed" size="sm">
+              My feed
+            </ButtonLink>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+        </div>
       </div>
     </header>
   );

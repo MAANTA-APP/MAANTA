@@ -42,7 +42,19 @@ entire security model without touching a single policy or RPC body.
 | `src/lib/supabase/server.ts`, `client.ts` | attach Clerk token via `accessToken` so RLS/RPCs see the caller |
 | `src/lib/data.ts` (`getAppUser`) + all `/api/*` routes | `supabase.auth.getUser()` → `ensureAppUser` / `currentClerkUserId` |
 | `supabase/migrations/20260720140000_clerk_third_party_auth.sql` | `users.clerk_user_id` + redefined identity helpers |
+| `src/components/nav/public-nav.tsx` | landing-nav auth controls: `<SignedOut>` Sign in + Get started, `<SignedIn>` My feed + `<UserButton>` (v6 uses `SignedIn`/`SignedOut`, not v7's `<Show>`) |
 | `.env.example`, `.github/workflows/ci.yml` | Clerk keys (CI uses a well-formed dummy publishable key) |
+
+### Clerk CLI note
+The `clerk` CLI (`clerk init`, `clerk doctor`) is **not usable from the remote
+Claude Code container**: `clerk auth login` only does browser OAuth with a
+localhost callback, which a remote/headless container can't complete. The
+equivalent scaffolding was done manually (table above). Real keys for
+`app_3GmniLbX1rRbA94uOT1l8BpPtEW` (instance `cheerful-sailfish-3`) live in
+`maanta-app/.env.local` locally (gitignored) and must be set in the deploy
+env (Vercel). Verified functionally: `npm run dev` boots and `/login` loads
+the real Clerk instance. Run `clerk doctor` yourself on a machine with a
+browser if you want the CLI's health check.
 
 ### Provisioning model
 The old `on_auth_user_created` trigger fired on `auth.users` inserts — which
