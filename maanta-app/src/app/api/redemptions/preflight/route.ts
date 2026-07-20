@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
