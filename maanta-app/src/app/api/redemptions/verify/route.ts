@@ -46,14 +46,16 @@ export async function POST(request: Request) {
     })
     .single<{
       redemption_id: string;
-      redemption_status: string;
-      fee_charge_status: "charged" | "owed" | "unknown";
-      fee_amount: number;
+      redemption_status: "success" | "held" | "blocked";
+      fee_charge_status: "charged" | "owed" | "unknown" | null;
+      fee_amount: number | null;
       new_balance: number | null;
       new_arrears: number | null;
       deal_id: string;
       deal_claims_count: number | null;
       disputed: boolean;
+      guardian_recommendation: "clear" | "flag" | "soft_block" | "hard_block" | null;
+      guardian_severity: "info" | "warn" | "block" | null;
     }>();
 
   if (error || !data) {
@@ -78,6 +80,22 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  // Guardian v1 block/held outcomes (docs/maanta-guardian-v1.md §3). No money
+  // moved. Copy stays non-accusatory and in the existing in-ink error style —
+  // it never names fraud to the counter.
+  if (data.redemption_status === "blocked") {
+    return NextResponse.json(
+      { error: "We couldn't complete this redemption right now. Please try again later or reach out to support." },
+      { status: 409 }
+    );
+  }
+  if (data.redemption_status === "held") {
+    return NextResponse.json(
+      { error: "This redemption needs a quick review before it can be completed. Our team will take a look shortly." },
+      { status: 409 }
+    );
   }
 
   const { data: deal } = await service
