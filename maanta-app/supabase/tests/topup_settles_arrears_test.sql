@@ -161,12 +161,15 @@ BEGIN
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance, outstanding_arrears)
     VALUES ('__test_recon', 'test.recon', '+254700000305', 'BBS Mall', 'active', 0, 0)
     RETURNING id INTO v_mid;
-  INSERT INTO public.deals (merchant_id, title, image_url)
-    VALUES (v_mid, '__test recon deal', 'x') RETURNING id INTO v_did;
 
-  -- Opening top-up of 100 (no arrears yet) → balance 100.
+  -- Opening top-up of 100 (no arrears yet) → balance 100. Done BEFORE creating
+  -- the deal so the balance clears the frozen zero-balance gate on new deals
+  -- (enforce_zero_balance_gate blocks deal INSERT at account_balance <= 0).
   PERFORM public.record_merchant_ledger_entry(
     v_mid, 100, 'topup', 'intasend', 'topup:E:INV-1', 'M-Pesa top-up', 'KES', 100);
+
+  INSERT INTO public.deals (merchant_id, title, image_url)
+    VALUES (v_mid, '__test recon deal', 'x') RETURNING id INTO v_did;
 
   -- Four verified redemptions at KES 30: three charged (100→10), fourth arrears.
   FOREACH v_code IN ARRAY v_codes LOOP
