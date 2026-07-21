@@ -63,6 +63,24 @@ describe("frozen UI hard rules (static enforcement)", () => {
     expect(hits, `Forbidden vocabulary (claim/redeem/deal/wallet/top up/success fee only):\n${fmt(hits)}`).toEqual([]);
   });
 
+  // Rule 4 (token discipline): status-error red (#8C1D18 / text-flame) is for
+  // borders and icons only — error MESSAGE text stays #111 (text-ink), so a
+  // state is never signalled by colour alone (greyscale-readable). Allowed
+  // text-flame: on a border (border-flame), on an icon (Icon*), or the two
+  // status-indicator glyph/label cases; anything else is coloured body text.
+  it("never renders error body text in red (text-flame is borders/icons/status only)", () => {
+    const allowed = (l: string) =>
+      l.includes("border-flame") || // border tone: button, chip, inline-alert
+      /\bIcon\w*/.test(l) || // icon component: IconBolt, IconX
+      l.includes("text-2xl font-black text-flame") || // states.tsx error glyph "!"
+      l.includes('? "text-flame"'); // cards.tsx status-label ternary
+    const hits = scan((l) => l.includes("text-flame") && !allowed(l));
+    expect(
+      hits,
+      `Error text in red — move body text to text-ink (#111), keep red on the border/icon:\n${fmt(hits)}`
+    ).toEqual([]);
+  });
+
   // Rule 4: failures are dark (#141414), never red. The merchant verify failure
   // surface must render on bg-ink-900 and never on a red fill.
   it("keeps the merchant failure takeover dark, not red", () => {

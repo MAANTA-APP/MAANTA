@@ -220,7 +220,7 @@ export function ImageUploader({
             <IconPlus className="h-4 w-4" /> Add cover image
           </span>
           {required ? (
-            <span className="text-xs font-medium text-flame">Required to continue</span>
+            <span className="text-xs font-medium text-ink">Required to continue</span>
           ) : null}
         </span>
       )}

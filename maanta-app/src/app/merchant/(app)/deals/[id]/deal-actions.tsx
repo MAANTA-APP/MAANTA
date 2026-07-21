@@ -83,7 +83,7 @@ export function DealActions({
   return (
     <>
       {error && sheet === "none" ? (
-        <p className="mt-4 text-sm font-medium text-flame">{error}</p>
+        <p className="mt-4 text-sm font-medium text-ink">{error}</p>
       ) : null}
 
       <div className="mt-5 space-y-3">
@@ -140,7 +140,7 @@ export function DealActions({
         <span className="mt-3 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
           Pay from wallet ({Math.round(balance).toLocaleString("en-KE")})
         </span>
-        {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
         <Button
           full
           className="mt-5"
@@ -194,7 +194,7 @@ export function DealActions({
             </button>
           ))}
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
         <Button
           full
           className="mt-5"
@@ -231,7 +231,7 @@ export function DealActions({
             />
           </label>
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
         <Button
           full
           className="mt-5"
@@ -250,7 +250,7 @@ export function DealActions({
           The deal comes off the feed and moves to Archived deals (you can repost it later).
           Codes already claimed stay valid until they expire.
         </p>
-        {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
         <Button
           variant="destructive"
           full

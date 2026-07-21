@@ -71,7 +71,7 @@ export function MerchantAdminActions({
 
   return (
     <div className="mt-6">
-      {error ? <p className="mb-3 text-sm font-medium text-flame">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm font-medium text-ink">{error}</p> : null}
 
       {status === "pending" ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -140,7 +140,7 @@ export function MerchantAdminActions({
             onChange={setGrantTrial}
           />
         </div>
-        {error ? <p className="mt-2 text-sm font-medium text-flame">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm font-medium text-ink">{error}</p> : null}
         <Button full className="mt-4" onClick={approve} loading={busy === "approve"}>
           Confirm approval
         </Button>
