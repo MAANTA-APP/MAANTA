@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 
 /** Toggle a saved shop (merchant_favourites — table existed with no route). */
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-  if (!authUser) {
+  const appUser = await ensureAppUser<{ id: string }>("id");
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
@@ -18,14 +15,6 @@ export async function POST(request: Request) {
   }
 
   const service = createServiceClient();
-  const { data: appUser } = await service
-    .from("users")
-    .select("id")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-  if (!appUser) {
-    return NextResponse.json({ error: "Account not found." }, { status: 404 });
-  }
 
   if (on) {
     const { error } = await service

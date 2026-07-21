@@ -1,31 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) {
+  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
+  if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+  if (appUser.role !== "admin") {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   const service = createServiceClient();
-
-  const { data: appUser } = await service
-    .from("users")
-    .select("id, role")
-    .eq("auth_uid", authUser.id)
-    .maybeSingle();
-
-  if (!appUser || appUser.role !== "admin") {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
 
   const body = await request.json().catch(() => ({}));
   const grantEliteTrial = body?.grantEliteTrial === true;

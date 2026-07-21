@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
 
 /** Currently selected node (mall) from the cookie set by the node switcher. */
@@ -14,27 +14,19 @@ export function getSelectedNode(): string {
 
 export type AppUser = {
   id: string;
-  auth_uid: string;
+  clerk_user_id: string | null;
+  auth_uid: string | null;
   phone: string | null;
   email: string | null;
   full_name: string | null;
   role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin";
 };
 
-/** Auth user + matching public.users row (null when signed out). */
+/** The signed-in Clerk user's public.users row (null when signed out). */
 export async function getAppUser(): Promise<AppUser | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const service = createServiceClient();
-  const { data } = await service
-    .from("users")
-    .select("id, auth_uid, phone, email, full_name, role")
-    .eq("auth_uid", user.id)
-    .maybeSingle();
-  return (data as AppUser) ?? null;
+  return ensureAppUser<AppUser>(
+    "id, clerk_user_id, auth_uid, phone, email, full_name, role"
+  );
 }
 
 export type MerchantRow = {

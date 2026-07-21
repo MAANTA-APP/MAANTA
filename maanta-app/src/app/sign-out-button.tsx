@@ -1,21 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useClerk } from "@clerk/nextjs";
 
 export default function SignOutButton() {
-  const router = useRouter();
-  const supabase = createClient();
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
+  const { signOut } = useClerk();
 
   return (
     <button
-      onClick={handleSignOut}
+      onClick={() => signOut({ redirectUrl: "/login" })}
       className="text-sm font-semibold text-ink underline-offset-2 hover:underline"
     >
       Sign out
