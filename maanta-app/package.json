@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.6",
@@ -21,10 +23,13 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@clerk/testing": "^1.14.9",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
+    "dotenv": "^16.6.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
