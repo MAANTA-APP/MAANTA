@@ -51,10 +51,9 @@ The Notion log is current to 2026-07-20 but is missing three entries that exist 
   `migrations/20260721120000_topup_settles_arrears_first.sql`).
 - **2026-07-21 — Error-state text in ink, never colour alone** (frozen-UI CI ratchet).
 
-These three were appended to the Notion Decisions Log during this session (as
-`## date — title` prose entries matching the page's convention, tagged "mirrored
-during the 2026-07-21 audit sync"). **Status: queued pending the workspace approval
-gate on the Notion write** — re-run the append if it was not approved.
+**Status: DONE.** These three (plus four more — Stripe-primary, D3, D7, D8) were
+appended to the Notion Decisions Log during this session as `## date — title` prose
+entries. Verified present exactly once each; no existing content removed.
 
 ---
 
@@ -180,11 +179,12 @@ deployment capability, not user-visible scope; D8 Guardian → relabel proposed,
 done. Plus the standing ratification that Stripe Phase 1 is the primary top-up
 processor and IntaSend is legacy/Phase 2.
 
-**Notion page rewrites — in progress, "current vs superseded" framing:** each of
-Architecture / Revenue & Business Model / Frozen Scope / User Flows / Testing & QA
-gets a top "Current state (as of 2026-07-21)" section linked to the repo artifacts in
-§3, with the old Twilio/IntaSend-MVP text moved into a labelled
-"Historical / superseded" section (prefixed "Superseded by Clerk 2026-07-20" /
-"Superseded by Stripe Phase 1 2026-07-21") — history preserved, never deleted. YOU
-PAY + Node 0 credit (D4, D6) added to Revenue in the same pass. Notion writes run
-through the workspace approval gate.*
+**Notion page rewrites — DONE (2026-07-21), "current vs superseded" framing:** each
+of Frozen Scope / Architecture / Revenue & Business Model / User Flows / Testing & QA
+now carries a top "Current state (as of 2026-07-21)" section linked to the repo
+artifacts in §3, with the old Twilio / IntaSend-MVP / Edge-Function / manual-billing
+text marked in place ("Superseded by Clerk 2026-07-20" / "Superseded by Stripe
+Phase 1 2026-07-21" / "corrected 2026-07-21") — history preserved, never deleted.
+Guardian relabelled proposed on Architecture + User Flows. YOU PAY + Node 0 credit +
+Feb-2027 price review added to Revenue; price-review + billing cells fixed on Frozen
+Scope. Sync complete: repo and Notion now agree, with lineage in the Decisions Log.*

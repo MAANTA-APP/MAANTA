@@ -173,5 +173,8 @@ flow → *"Superseded by Clerk on 2026-07-20."*
 - [x] Code correct (verified in audit; no repo-wrong findings)
 - [x] Tests present + CI green (`ci` + `db-tests`)
 - [x] Repo Decisions Log updated (7 entries + D10 correction)
-- [ ] Notion Decisions Log mirrored (queued — approve the gated write)
-- [ ] Notion spec pages updated (§1–§5 above — after the log append lands)
+- [x] Notion Decisions Log mirrored — **DONE 2026-07-21** (7 entries appended, verified once each)
+- [x] Notion spec pages updated — **DONE 2026-07-21** (§1–§5 applied; Current-state + superseded markers, history preserved)
+
+**This pack is now a record of what was applied, not a to-do.** Reuse its per-page
+blocks as the template for future "current vs superseded" syncs.
