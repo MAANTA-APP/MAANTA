@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-10 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-21 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
@@ -14,8 +14,8 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | Shopper browse → claim → ticket | ✅ | `claim_deal` RPC; ticket expiry = deal expiry + 15 min |
 | Shopper redeem at counter (merchant verify) | ✅ | `verify_redemption` RPC: atomic verify + fee debit/arrears |
 | Merchant onboarding → admin approval | ✅ | `onboard_merchant` / `activate_merchant` RPCs, agent attribution |
-| Merchant wallet top-up (Stripe card) | 🟡 | Works in **sandbox**; live keys + live-mode test pending (Nov cutover decision) |
-| Merchant wallet top-up (M-Pesa STK / IntaSend) | 🟡 | Code + webhook ready (sandbox URL switch in `src/lib/intasend.ts`); do not assume IntaSend availability — needs account + live STK test |
+| Merchant wallet top-up (Stripe card) | 🟡 | Works in **sandbox**; live keys + live-mode test pending (Nov cutover decision). Top-ups now **settle arrears first**, then credit the remainder — both rails, migration `20260721120000` (§3 frozen rule); asserted by E12 tests |
+| Merchant wallet top-up (M-Pesa STK / IntaSend) | 🟡 | Code + webhook ready (sandbox URL switch in `src/lib/intasend.ts`); do not assume IntaSend availability — needs account + live STK test. Inherits the settle-arrears-first top-up path |
 | Refund / dispute money movements | ✅ | Stripe webhook handles refund + dispute open/close, payment_intent-keyed idempotency |
 | Fraud review on unknown fee status | ✅ | Verify-anyway + admin task (migration `20260703235152`) |
 | Elite trial expiry → grace → downgrade | ✅ | `handle_trial_expiry`; confirm the scheduled invocation runs in production |
@@ -29,9 +29,9 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | # | Item | Owner | Status | Gate | Notes |
 |---|---|---|---|---|---|
 | E1 | Frozen UI reviewed, approved, merged | Engineer + founder | ✅ done | GATE | Merged 2026-07-09 (PR #11) |
-| E2 | Shopper journey smoke-tested on real devices (browse → claim → redeem) | Engineer | 🟡 in progress | GATE | Rehearsal data seeded 2026-07-10 (`supabase/seed/node0_rehearsal_seed.sql`); follow `maanta-node0-rehearsal-checklist.md`. Needs end-to-end device pass |
-| E3 | Merchant journey smoke-tested (onboard → approval → post deal → verify → fee debit) | Engineer | 🟡 in progress | GATE | Includes arrears path when wallet is empty; claim→verify-anyway→arrears loop verified against live DB 2026-07-10 (rolled-back RPC test) |
-| E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | 🟡 in progress | GATE | `unknown` fee status must open a fraud-review task; seeded pending merchant + open merchant_override dispute ready for the admin pass |
+| E2 | Shopper journey smoke-tested on real devices (browse → claim → redeem) | Engineer | 🟡 in progress | GATE | Rehearsal data seeded 2026-07-10 (`supabase/seed/node0_rehearsal_seed.sql`); `/demo` page indexes the seeded shopper/merchant/admin logins (§8.2). Automated golden-path RPC test (`golden_path_test.sql`) now covers claim → verify → ledger with one shared reference. Manual device (browser) pass still owed — automatable via E14 |
+| E3 | Merchant journey smoke-tested (onboard → approval → post deal → verify → fee debit) | Engineer | 🟡 in progress | GATE | Includes arrears path when wallet is empty; claim→verify-anyway→arrears loop now covered by the E12 money-path SQL suite (charged / owed@balance-20 / unknown, settle-first, ledger reconciliation) in CI, not just an ad-hoc rolled-back test |
+| E4 | Admin journey smoke-tested (approve, fraud/dispute review) | Engineer | 🟡 in progress | GATE | `unknown` fee status opening a `fraud_review`/high task is now asserted by `verify_redemption_money_path_test.sql`; seeded pending merchant + open merchant_override dispute ready for the admin pass |
 | E5 | Stripe sandbox top-ups stable | Engineer | ✅ done | — | Multi-currency + webhook idempotency + failure log in place |
 | E6 | M-Pesa STK end-to-end | Engineer | 🔴 blocked | GATE | Blocked on IntaSend API access; code path exists. Escalate credential request weekly |
 | E7 | Waitlist forms live in the email platform (decided 2026-07-10: external, not in-repo; platform TBC) | Founder + agency + AI lead | ⬜ not started | GATE (marketing) | Spec: `maanta-waitlist-data-schema.md`. Gates the campaign start, not app launch |
@@ -39,6 +39,9 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | E9 | FX provider replaced with SLA-backed source | Engineer | ⬜ not started | GATE if non-KES live charges | Fine to defer if launch is KES-only |
 | E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | ⬜ not started | GATE | Verify `STRIPE_ENV` guard behavior on deploy |
 | E11 | Trial-expiry job scheduling confirmed in production Supabase | Engineer | ⬜ not started | GATE | `handle_trial_expiry` must actually run on schedule |
+| E12 | Money-path + golden-path automated tests (ENGINEERING_NOTES §8.3/§8.4) | Engineer | ✅ done | — | Merged PR #32 (2026-07-21). `supabase/tests/{golden_path,verify_redemption_money_path,topup_settles_arrears}_test.sql` run in CI `db-tests` against a real Supabase: one-winner double-verify / no double charge, owed@low-balance, unknown → fraud task, settle-first, ledger reconciliation |
+| E13 | Frozen-rule enforcement ratchet + Locked-Rules audit (§8.5) | Engineer | ✅ done | — | Merged PR #32. `src/lib/__tests__/frozen-ui-rules.test.ts` fails CI on money-in-amber, banned vocabulary, red failure surfaces, or red error body text; audit in `docs/skills/frozen-ui-locked-rules-audit.md`. R1 (≤1 amber/screen) stays a manual PASS-2 item |
+| E14 | Browser golden-path E2E (Playwright: `/demo` → claim → verify → wallet) | Engineer | ⬜ not started | — | Own ticket, depends on a live Supabase + Clerk test env. Automates the E2 device pass and would gate CI once built; the E12 RPC golden path already proves the money invariants. Deliberately not scaffolded (an unrunnable suite is false coverage) — see decisions log |
 
 ## Marketing & growth gates
 
