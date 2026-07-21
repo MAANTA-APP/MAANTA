@@ -127,6 +127,55 @@ API: `/api/redemptions` (+ `/verify`, `/preflight`, `/reject`), `/api/deals`
 `/api/push/subscribe`, `/api/webhooks/stripe`, `/api/webhooks/intasend`,
 `/api/admin/*` (deals, fraud, merchants approve/ops, plans, support).
 
+## Live-database golden path (real Supabase, 2026-07-21)
+
+Founder supplied real Clerk **test** keys (`cheerful-sailfish-3` dev instance)
+and asked to run the golden path against a real Supabase. Findings:
+
+- **Project:** the org already has this app's project — `maantamvp's Project`
+  (ref `vcrfqsevompqjazbwzyh`, eu-west-1, PG 17), with 49/50 branch migrations
+  already applied and the Node-0 rehearsal seed already loaded (Nuur / Bilan /
+  Macmacaan, admin `aragagency@gmail.com`, a pre-staged pending ticket OTP
+  `431977`). A fresh empty project `maanta-mvp-goldenpath`
+  (ref `hhpwmtzfpfdtuunetwfh`) was also created but is **redundant** — populating
+  an empty project needs the full 239 KB migration set inlined by hand (no DB
+  password / CLI access in this env), which is unsafe for the money path. Use
+  the existing project; **the empty one can be deleted.**
+- **Brought current:** applied the one missing migration
+  `topup_settles_arrears_first` to `vcrfqsevompqjazbwzyh` via MCP.
+- **Golden path proven at the RPC layer on the live DB** (MCP `execute_sql`,
+  service-role context), using the seeded pending ticket on Nuur's abaya deal:
+  verify → `redemption_status=success`, `fee_charge_status=charged`,
+  `fee_amount=30`, balance **540 → 510**, arrears **0**; ticket → REDEEMED; a new
+  `−30.00 success_fee` ledger row; **ledger sums to 510 (reconciles)**; a second
+  verify of the same code is **rejected (one-winner, no double-charge)**.
+
+### Why the app can't run end-to-end *in this sandbox* (two environment walls)
+
+Neither is a code defect; both are environment/credential gates:
+
+1. **Service-role secret** — the app serves even the *public* feed server-side
+   via `createServiceClient()` (`src/lib/data.ts`), so `SUPABASE_SERVICE_ROLE_KEY`
+   is required for any data to render. The MCP does not expose secrets, so this
+   must come from the founder (Supabase dashboard → Settings → API) or the deploy
+   target's env.
+2. **Network egress allowlist** — this managed env blocks outbound HTTPS to
+   `*.supabase.co` (`@supabase/supabase-js` returns *"Host not in allowlist:
+   …supabase.co"*). The MCP reaches Supabase over a different egress path, which
+   is why RPC verification works but the app's own fetches don't. To run the
+   browser E2E, add `*.supabase.co` and `*.clerk.accounts.dev` to the
+   environment's egress settings, **or** run the app locally / deploy to Vercel
+   (unrestricted egress) with the three Supabase env vars + Clerk keys set.
+
+`.env.local` (git-ignored) is wired with the real Supabase URL + anon key and the
+Clerk test keys; only `SUPABASE_SERVICE_ROLE_KEY` remains a placeholder.
+
+Note: full Clerk↔Supabase third-party auth (authenticated claim through the
+browser) also depends on the Supabase project trusting the `cheerful-sailfish-3`
+Clerk instance as a third-party auth provider — dashboard/Management-API config
+beyond the `clerk_third_party_auth` migration's DB-role mapping. Verify before a
+browser sign-in→claim run.
+
 ## Reproducing the SQL harness (next session)
 
 Postgres binaries live at `/usr/lib/postgresql/16/bin`; run the cluster as the
