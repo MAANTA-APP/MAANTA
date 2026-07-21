@@ -33,7 +33,7 @@ export default async function UpgradePage() {
       </div>
 
       <div className="mt-6 rounded-card border-2 border-ink bg-ink p-5 text-center">
-        <p className="text-2xl font-bold text-brand">KES 3,500 / month</p>
+        <p className="text-2xl font-bold text-white">KES 3,500 / month</p>
         <p className="mt-1 text-xs text-white/70">
           Plus the standard KES {fee.toLocaleString("en-KE")} success fee per verified
           redemption

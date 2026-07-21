@@ -13,7 +13,11 @@ type LedgerEntry = {
     | "boost_fee"
     | "subscription"
     | "refund"
-    | "dispute";
+    | "dispute"
+    // Written only by record_merchant_ledger_entry itself when a top-up settles
+    // arrears first (never passed from app code) — listed so the union stays a
+    // complete mirror of the merchant_transactions transaction_type constraint.
+    | "arrears_settlement";
   paymentProvider: string;
   providerReference: string | null;
   description: string;

@@ -189,7 +189,7 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
         <>
           <Header title="Location" back="business" />
           <label className="mb-1.5 block text-xs font-medium text-muted">
-            what3words address <span className="font-semibold text-flame">*required</span>
+            what3words address <span className="font-semibold text-ink">*required</span>
           </label>
           <input
             value={w3w}
@@ -232,7 +232,7 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
               </span>
             </div>
           )}
-          {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
           <div className="mt-auto pt-8">
             <Button full disabled={!resolved} onClick={() => setStep("floor")}>
               Continue
@@ -321,7 +321,7 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
               </div>
             ))}
           </div>
-          {error ? <p className="mt-4 text-sm font-medium text-flame">{error}</p> : null}
+          {error ? <p className="mt-4 text-sm font-medium text-ink">{error}</p> : null}
           <div className="mt-auto pt-8">
             <Button full onClick={submit} loading={busy}>
               Submit for verification

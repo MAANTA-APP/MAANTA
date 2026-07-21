@@ -272,7 +272,7 @@ export function NewDealWizard({
             <Button full disabled={!cover || !title.trim()} onClick={() => setStep("price")}>
               Continue
             </Button>
-            <p className="mt-2 text-center text-xs text-flame">
+            <p className="mt-2 text-center text-xs text-ink">
               {!cover || !title.trim() ? "Add a cover image and title to continue" : " "}
             </p>
           </div>
@@ -532,7 +532,7 @@ export function NewDealWizard({
           <p className="mt-3 text-xs text-muted">
             You pay a {formatKes(fee)} success fee per verified redemption. Nothing else.
           </p>
-          {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
           <div className="mt-auto space-y-3 pt-8">
             <Button full onClick={publish} loading={busy}>
               {previewPay != null

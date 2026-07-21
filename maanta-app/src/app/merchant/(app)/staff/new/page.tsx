@@ -156,7 +156,7 @@ export default function AddStaffPage() {
             />
           </div>
           <p className="mt-3 text-xs text-faint">The owner always keeps full access.</p>
-          {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
           <div className="mt-auto pt-8">
             <Button full onClick={save} loading={busy}>
               Save &amp; send invite

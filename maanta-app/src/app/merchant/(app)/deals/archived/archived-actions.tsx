@@ -49,7 +49,7 @@ export function ArchivedActions({
 
   return (
     <div className="mt-3">
-      {error ? <p className="mb-2 text-xs font-medium text-flame">{error}</p> : null}
+      {error ? <p className="mb-2 text-xs font-medium text-ink">{error}</p> : null}
       <div className="flex gap-2.5">
         <Button
           size="sm"

@@ -186,7 +186,7 @@ export function TopupFlow({
         />
       </div>
 
-      {error ? <p className="mt-3 text-sm font-medium text-flame">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
 
       <Button
         full
