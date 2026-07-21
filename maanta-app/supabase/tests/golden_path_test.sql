@@ -41,10 +41,13 @@ BEGIN
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance, floor, unit_number)
     VALUES ('__test_golden', 'test.golden.path', '+254700000401', 'BBS Mall', 'active', 100, '1st Floor', 'B-14')
     RETURNING id INTO v_mid;
-  v_deal_end := NOW() + INTERVAL '6 hours';
   INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, max_claims, claims_count, success_fee)
-    VALUES (v_mid, 'Nyama choma platter for two', 'https://img/x', true, v_deal_end, 50, 0, 30)
+    VALUES (v_mid, 'Nyama choma platter for two', 'https://img/x', true, NOW() + INTERVAL '6 hours', 50, 0, 30)
     RETURNING id INTO v_did;
+  -- Read the PERSISTED expiry: a set_deal_expiry trigger may override the
+  -- inserted value (standard deals → starts_at + 24h), so the grace-window
+  -- assertion below must anchor to what the row actually holds, not our input.
+  SELECT expires_at INTO v_deal_end FROM public.deals WHERE id = v_did;
 
   -- 1) Shopper claims → server issues the 6-digit code and the expiry.
   SELECT * INTO v_claim FROM public.claim_deal(v_uid, v_did);
