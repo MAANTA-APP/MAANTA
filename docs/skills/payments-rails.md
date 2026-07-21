@@ -1,6 +1,6 @@
 # Skills: payments rails
 
-Last updated: 2026-07-09 · How money moves in MAANTA and where the code lives.
+Last updated: 2026-07-21 · How money moves in MAANTA and where the code lives.
 Update this file after any meaningful payments change.
 
 ## The one rule
@@ -14,8 +14,26 @@ constraint on provider reference) in one transaction. Never adjust
 route handler.
 
 Ledger `transaction_type` values: `topup`, `success_fee`, `success_fee_arrears`,
-`boost_fee`, `subscription`, `refund`, `dispute`. Amounts are signed KES:
-positive credits, negative debits.
+`boost_fee`, `subscription`, `refund`, `dispute`, `arrears_settlement`. Amounts
+are signed KES: positive credits, negative debits.
+
+**Reconciliation (asserted by `supabase/tests/topup_settles_arrears_test.sql`):**
+- `account_balance` = Σ `amount` over every type **except** `success_fee_arrears`
+  (the arrears marker is not a balance movement).
+- `outstanding_arrears` = Σ `amount` over `success_fee_arrears` (+markers) and
+  `arrears_settlement` (−payoffs).
+
+## Top-ups settle arrears FIRST (frozen: ENGINEERING_NOTES §3)
+
+A top-up does **not** just credit the balance. `record_merchant_ledger_entry`,
+on a `topup` credit, pays down `outstanding_arrears` by `LEAST(arrears, amount)`
+first and credits only the remainder — "arrears settle first, remainder credits
+your balance, never pre-credit" (boards M6 arrears / M7). It writes the **full**
+`+amount` `topup` row (the real M-PESA/card figure, and the idempotency anchor)
+plus a `−settled` `arrears_settlement` row so the ledger reconciles to both the
+balance and the arrears. Migration `20260721120000_topup_settles_arrears_first.sql`.
+Before this, a merchant who owed arrears kept both the full balance and the full
+arrears on top-up — a divergence from the frozen rule; the code now matches it.
 
 ## Rail 1: Stripe card top-ups (sandbox during testing)
 

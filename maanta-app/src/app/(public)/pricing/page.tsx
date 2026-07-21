@@ -17,7 +17,7 @@ export default function PricingPage() {
           <p className="mt-2 text-sm text-white/70">
             KES 3,500/mo + KES 30/redemption · 2 active deals · flash deals · boosts
           </p>
-          <p className="mt-6 text-3xl font-black text-brand">KES 3,500</p>
+          <p className="mt-6 text-3xl font-black text-white">KES 3,500</p>
           <p className="mt-1 text-xs text-white/50">per month</p>
         </div>
       </div>
