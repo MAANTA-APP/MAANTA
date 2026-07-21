@@ -62,8 +62,9 @@ Run from `maanta-app/`:
 - **KES 30 success fee** per verified redemption, all plans, debited at merchant
   verification (or recorded as arrears if the wallet can't cover it).
 - **Elite trial = 30 days**, then a 7-day grace period, then auto-downgrade to
-  Standard if no paid conversion. Paid Elite is KES 3,500/month (price under
-  review Oct 2026).
+  Standard if no paid conversion. Paid Elite is KES 3,500/month (price review
+  deferred to the Feb 2027 Nairobi visit, per founder ruling 2026-07-20 —
+  supersedes the earlier Oct 2026 date).
 - **Verify-anyway**: shopper experience is preserved at the counter; disputes
   route to admin/on-ground agent handling after the fact, auditably.
 - **Zero-balance gate**: merchants with no balance can't create new deals.

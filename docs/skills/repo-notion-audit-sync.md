@@ -38,6 +38,7 @@ correct, open a ticket to fix code (none found this pass).
 | **D7** | **Multi-node scaffolding present but gated** | `src/lib/nodes.ts` lists Two Rivers + Sarit as `live:false`, BBS `live:true`; `/select-mall`; node filtering in `data.ts`. Only BBS is live/selectable | Frozen Scope do-not-build forbids multi-node/multi-city | decide | Acknowledge as *gated* Node-0 scaffolding (not a shipped multi-city product) in Frozen Scope, or leave a decisions-log note. Low urgency |
 | **D8** | **Guardian fraud engine — Notion claims more than code** | `verify_redemption` creates a `fraud_review`/`high` `agent_tasks` row on `unknown` fee status; trust metric recalculated (`recalculate_trust_metric`). The named heuristics (velocity / geofence / collusion) were **not** observed as live checks in the verify path | Architecture + User Flows describe Guardian velocity/geofence/collusion checks and `trust = 0.5·R + 0.3·A − 0.2·F` running at verify | →repo *or* mark proposed | Decide: implement the named checks (open a ticket) **or** relabel them "proposed, not yet implemented" in Architecture so Notion stops over-claiming. Needs founder call |
 | **D9** | **Core loop = Postgres RPCs, not Supabase Edge Functions** | `claim_deal` / `verify_redemption` are SECURITY DEFINER RPCs called from Next.js route handlers (`src/app/api/redemptions/*`). No Supabase Edge Function implements the core loop | Architecture + User Flows describe claim/verify as "Edge Function" | →Notion | Reword Architecture/User Flows: core loop is RPC + route handler (behaviour identical; mechanism differs). Per CLAUDE.md, code wins for how the product behaves |
+| **D10** | **Elite price review = Feb 2027, not Oct 2026** (reverse drift — Notion ahead) | `CLAUDE.md` frozen rules + `docs/maanta-decisions-log.md` still said "price under review Oct 2026" | Notion Decisions Log entry **2026-07-20 — Elite pricing frozen at KES 3,500/month**: review deferred to the Feb 2027 Nairobi market-research visit, explicitly superseding Oct 2026 | →repo (**done this session**) | Repo mirror corrected: `CLAUDE.md` + decisions-log frozen row + pending row now read "Feb 2027 (founder ruling 2026-07-20, supersedes Oct 2026)" |
 
 ### Missing from the Notion Decisions Log (governance gap)
 
@@ -50,8 +51,10 @@ The Notion log is current to 2026-07-20 but is missing three entries that exist 
   `migrations/20260721120000_topup_settles_arrears_first.sql`).
 - **2026-07-21 — Error-state text in ink, never colour alone** (frozen-UI CI ratchet).
 
-These three should be appended to the Notion Decisions Log verbatim from the repo
-mirror.
+These three were appended to the Notion Decisions Log during this session (as
+`## date — title` prose entries matching the page's convention, tagged "mirrored
+during the 2026-07-21 audit sync"). **Status: queued pending the workspace approval
+gate on the Notion write** — re-run the append if it was not approved.
 
 ---
 
@@ -165,5 +168,16 @@ don't silently pick one. This audit is that flag.
 ---
 
 *Audit run 2026-07-21. Repo side verified at file/line; Notion side verified against
-live pages under MAANTA — Build OS. The Notion edits in §1 are proposed, not yet
-applied — see the session summary for the approval gate.*
+live pages under MAANTA — Build OS.*
+
+**Applied this session:** the D10 repo correction (Elite price review → Feb 2027)
+and the three missing Decisions-Log entries appended to Notion (D1/settle-first/
+error-in-ink), the latter pending the Notion workspace approval gate.
+
+**Proposed, not yet applied (need a human call):** the spec-page body rewrites on
+Architecture / Revenue & Business Model / Frozen Scope / User Flows / Testing & QA
+(D1, D2, D5, D9); the do-not-build reconciliations (D3 multi-currency, D7
+multi-node); adding YOU PAY + Node 0 credit to Revenue (D4, D6); and the D8 Guardian
+"implement vs mark-proposed" decision. These touch shared spec-page bodies or are
+scope calls, so they were deliberately left for founder review rather than applied
+unilaterally.*
