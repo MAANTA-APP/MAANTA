@@ -140,10 +140,23 @@ No money-path table or column changes.
 
 `admin_redemption_detail(p_redemption_id)` (admin-gated) returns the redemption
 row plus its `guardian_events` (as a jsonb array, newest first) and the overall
-`guardian_recommendation`. This is the single entry point future Guardian admin
-UI should read; no UI is built in this session. The existing `/admin/redemptions`
-fraud queue already lists `fraud_events` by type (geofence/velocity/collusion)
-and continues to receive Guardian's routed events.
+`guardian_recommendation`. This is the single entry point the Guardian admin UI
+reads. The existing `/admin/redemptions` fraud queue already lists `fraud_events`
+by type (geofence/velocity/collusion) and continues to receive Guardian's routed
+events.
+
+**Admin UI (built 2026-07-22).** `/admin/redemptions` now leads with a **Held for
+review** queue (soft-blocked redemptions awaiting release — no fee has moved on
+them) and links every redemption to a detail page `/admin/redemptions/[id]`. The
+detail page reads `admin_redemption_detail`, shows the overall Guardian
+recommendation chip (`Clear`/`Flagged`/`Held`/`Blocked`), a plain-English
+timeline of the `guardian_events` with per-check severity, and — for a held
+redemption — the override actions: **Release &amp; charge fee** (→
+`admin_release_redemption(id, true)`, applies the KES 30 fee via the frozen money
+path) or **Reject** (→ `admin_release_redemption(id, false)`, fails it with no
+fee). API route: `POST /api/admin/redemptions/[id]/release`. All copy is
+non-accusatory and in-ink; recommendation chips are greyscale-readable and
+amber-free (red confined to the held chip's border and the blocked chip's fill).
 
 ---
 

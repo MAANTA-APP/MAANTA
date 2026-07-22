@@ -77,6 +77,12 @@ then `admin_release_redemption(id, true)` to complete it (applies the fee throug
 the normal money path) or `(id, false)` to fail it (no fee). Hard-blocks have no
 release path in v1.
 
+**Admin UI (2026-07-22):** `/admin/redemptions` leads with a **Held for review**
+queue; each redemption links to `/admin/redemptions/[id]`, which renders the
+Guardian recommendation, the `guardian_events` timeline, and (for held rows) the
+Release / Reject actions via `POST /api/admin/redemptions/[id]/release`. That is
+the surface to use for the SOP above — no raw SQL needed.
+
 ## Card-payment disputes (merchant top-ups)
 
 Handled in the Stripe webhook, not here in spirit but linked for triage:

@@ -245,6 +245,75 @@ export function W3wChip({
   );
 }
 
+/**
+ * Guardian v1 recommendation chip (docs/maanta-guardian-v1.md). Icon + WORD so
+ * the state survives greyscale (L12). Amber-free; red is confined to the held
+ * chip's border and the blocked chip's fill (frozen colour rules). "flag" uses
+ * rust — attention, not alarm (L6).
+ */
+type GuardianRec = "clear" | "flag" | "soft_block" | "hard_block";
+const GUARDIAN_CHIP: Record<GuardianRec, { icon: string; label: string; cls: string }> = {
+  clear: { icon: "✓", label: "Clear", cls: "border border-line bg-white text-secondary" },
+  flag: { icon: "!", label: "Flagged", cls: "border border-rust bg-white text-rust" },
+  soft_block: { icon: "◑", label: "Held", cls: "border border-flame bg-white text-flame" },
+  hard_block: { icon: "✕", label: "Blocked", cls: "bg-flame text-white" },
+};
+
+export function GuardianChip({
+  recommendation,
+  className,
+}: {
+  recommendation: string;
+  className?: string;
+}) {
+  const c = GUARDIAN_CHIP[recommendation as GuardianRec];
+  if (!c) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center rounded-full border border-line bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-muted",
+          className
+        )}
+      >
+        No Guardian read
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-[0.04em]",
+        c.cls,
+        className
+      )}
+    >
+      <span aria-hidden className="text-[10px]">
+        {c.icon}
+      </span>
+      {c.label}
+    </span>
+  );
+}
+
+/** Guardian check severity chip (info / warn / block) — greyscale-readable. */
+export function GuardianSeverityChip({ severity }: { severity: string }) {
+  const styles: Record<string, string> = {
+    info: "border border-line bg-white text-secondary",
+    warn: "border border-rust bg-white text-rust",
+    block: "border border-flame bg-white text-flame",
+  };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
+        styles[severity.toLowerCase()] ?? "border border-line bg-cream text-muted"
+      )}
+    >
+      {severity}
+    </span>
+  );
+}
+
 /** Fraud reason chip (1j / 11d): Geofence / Velocity / Collusion */
 export function FraudChip({ reason, className }: { reason: string; className?: string }) {
   // A9 — fraud reasons are error-severity, so the token intent is text+border
