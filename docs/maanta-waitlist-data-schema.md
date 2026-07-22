@@ -93,7 +93,7 @@ Notes:
 
 ## Archived: Option A API (in-repo — NOT chosen, kept for reference)
 
-`POST /api/waitlist`
+`POST /api/waitlist` *(archived spec — never built; no such route exists in the repo)*
 
 - Validates: email format, phone format (Kenyan `+254` normalized),
   segment-specific required fields, honeypot field for bots, basic rate

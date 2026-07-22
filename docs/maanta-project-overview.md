@@ -42,7 +42,7 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
   availability is not assumed.
 - **Boosts**: KES 500 for 24 hours of boosted deal placement.
 - **Elite tier**: 30-day free trial → 7-day grace period → auto-downgrade to
-  Standard if not converted. Paid Elite: KES 3,500/month (price review Oct 2026).
+  Standard if not converted. Paid Elite: KES 3,500/month (price review Feb 2027).
 
 ## Technical state (as of this update)
 
