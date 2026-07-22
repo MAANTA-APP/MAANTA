@@ -10,6 +10,7 @@ import { IconMenu, IconX } from "@/components/ui/icons";
 const ITEMS = [
   { href: "/admin", label: "Approvals" },
   { href: "/admin/merchants", label: "Merchants" },
+  { href: "/admin/customers", label: "Customers" },
   { href: "/admin/deals", label: "Deals" },
   { href: "/admin/redemptions", label: "Redemptions" },
   { href: "/admin/reports", label: "Reports" },
