@@ -55,6 +55,7 @@ Migrations to apply to `vcrfqsevompqjazbwzyh` before deploy:
 
 1. `20260722180000_lock_down_internal_money_rpcs.sql`
 2. `20260722190000_capture_lead_atomic.sql`
+3. `20260722200000_fix_capture_lead_column_ambiguity.sql` (if `20260722190000` was already applied without the alias fix)
 
 SQL suites to run after apply (CI runs all `supabase/tests/*.sql` automatically):
 
