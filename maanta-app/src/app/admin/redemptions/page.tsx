@@ -13,10 +13,9 @@ const REASONS = ["all", "geofence", "velocity", "collusion"] as const;
 /**
  * 11d Redemption monitoring / fraud audit.
  *
- * TODO(admin-redemption-detail): the "All redemptions" section is read-only and
- * there is no /admin/redemptions/[id] detail — release/reject happen only at the
- * fraud-event grain. Add a per-redemption detail route with actions. Tracked
- * feature ticket — see docs/skills/ui-walkthrough-roles.md (A3).
+ * The "All redemptions" rows link to /admin/redemptions/[id] (A3) for the full
+ * ticket snapshot. Fraud release/reject still happens at the fraud-event grain
+ * above — the detail route is read-only surfacing, not a second action surface.
  */
 export default async function AdminRedemptionsPage({
   searchParams,
@@ -119,12 +118,13 @@ export default async function AdminRedemptionsPage({
           <p className="py-6 text-center text-sm text-muted">No redemptions yet</p>
         ) : (
           (recent ?? []).map((r) => (
-            <RedemptionRow
-              key={r.id}
-              when={r.redeemed_at}
-              status={r.status as "success" | "failed" | "flagged" | "pending"}
-              amount={r.success_fee_charged}
-            />
+            <Link key={r.id} href={`/admin/redemptions/${r.id}`} className="block hover:bg-cream/50">
+              <RedemptionRow
+                when={r.redeemed_at}
+                status={r.status as "success" | "failed" | "flagged" | "pending"}
+                amount={r.success_fee_charged}
+              />
+            </Link>
           ))
         )}
       </div>

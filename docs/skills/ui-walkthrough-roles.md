@@ -203,7 +203,9 @@ invented product vocab; no raw hex; error bodies `text-ink`.
 - S1 (tile extras line), S2/S6 (`/select-mall` + leaf back-nav), S3 (rust→flame token), S5 ("Boosted" naming), M3 (`.font-code` on codes), A4/A5 (mono + ink for admin money), A6 (de-amber filter pills), A7 (gate helper consistency), A9 (reuse `FraudChip`), G2 (gate `/agent/leads/new`), G3 (wire `entranceNotes`).
 
 **Feature gaps (own tickets)**
-- A2 (admin customer list), A3 (admin redemption detail), A8 (deal "Keep" persistence), G4 (lead↔merchant link).
+- ✅ **A2** (admin customer list), **A3** (admin redemption detail), **G4** (lead↔merchant
+  link) — implemented 2026-07-22, see `docs/skills/ui-feature-gaps-closed.md`.
+- A8 (deal "Keep" persistence) — still open.
 
 ## Notes
 - No FAIL-level Locked-Rule violations were found in any role; findings are

@@ -50,9 +50,10 @@ export default async function MyLeadsPage() {
               Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
             );
             return (
-              <div
+              <Link
                 key={l.id}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5"
+                href={`/agent/leads/${l.id}`}
+                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
               >
                 <span className="text-sm font-bold text-ink">{l.shop_name}</span>
                 {l.status === "locked" && hoursLeft > 0 ? (
@@ -60,7 +61,7 @@ export default async function MyLeadsPage() {
                 ) : (
                   <StatusChip status={l.status} />
                 )}
-              </div>
+              </Link>
             );
           })
         )}
