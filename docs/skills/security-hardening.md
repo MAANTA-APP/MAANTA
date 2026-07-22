@@ -44,7 +44,10 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 | M-Pesa phone spam | `isValidKenyanPhone()` before STK push |
 | W3W unverified without API key | Fail closed outside `NODE_ENV=development` |
 | IntaSend webhook amount / challenge leak | Reject non-positive/out-of-range amounts; redact `challenge` in failure logs |
-| Suspended merchants editing deals | `requireMerchant` blocks `suspended` / `rejected` / `churned` (wallet read exempt) |
+| Suspended merchants editing deals | `requireMerchant` blocks `suspended` / `rejected` / `churned` |
+| Deal image MIME spoofing | Magic-byte detection in `image-bytes.ts` before storage upload |
+| Push subscription row bloat | `parsePushSubscription()` caps payload at 8KB with URL/key bounds |
+| Lead capture TOCTOU race | `capture_lead` RPC with per-shop advisory lock (`20260722190000`) |
 
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
 - `src/lib/geo.ts` — `parseGpsCoords()` (finite lat/lng bounds)
