@@ -1,6 +1,6 @@
 # Skills: redemption and disputes
 
-Last updated: 2026-07-09 · The core loop (claim → verify → fee) and what happens
+Last updated: 2026-07-21 · The core loop (claim → verify → fee) and what happens
 when it goes wrong. Update after any meaningful change to these flows.
 
 ## The core loop
@@ -46,6 +46,37 @@ RPC error strings → user-facing responses:
 
 Keep new error cases in this string-match style — the RPC raises, the route maps.
 
+## Guardian v1 — verify-time fraud checks (2026-07-21)
+
+Full design: `docs/maanta-guardian-v1.md`. `verify_redemption` now runs
+`guardian_evaluate(redemption_id, now)` **after** the OTP matches but **before**
+status/money finalise, and maps one recommendation to behaviour:
+
+| Recommendation | Redemption status | Fee | Notes |
+|---|---|---|---|
+| `clear` | `success` | applied as today | nothing tripped |
+| `flag` | `success` | **applied unchanged** | verify-anyway preserved; suspicious event + dispute logged, `disputed=true` |
+| `soft_block` | `flagged` (held) | **none** | held for admin; release with `admin_release_redemption(id, true/false)` |
+| `hard_block` | `failed` (declined) | **none** | non-accusatory in-ink error; terminal in v1 |
+
+Key money invariant: the KES 30 fee and the 3-state `feeChargeStatus` only move
+on the success path (clear/flag) — **byte-for-byte the old logic**. Held/blocked
+move no money, so `fee_charge_status` comes back `NULL` (not one of the 3
+states). Blocks are for the egregious tail; thresholds sit above plausible
+legitimate repeat activity (see the design note's table). Merchant-velocity
+never blocks; a redemption with no GPS is never geofence-penalised.
+
+Audit surfaces: granular per-redemption rows in **`guardian_events`** (keyed by
+`redemption_id`), plus the existing `fraud_events` + `agent_tasks.dispute_review`
+routing for warn+ hits. `admin_redemption_detail(id)` returns the redemption with
+its `guardian_events` and overall recommendation — the entry point for future
+Guardian admin UI.
+
+Admin override SOP for a **held** redemption: read `admin_redemption_detail`,
+then `admin_release_redemption(id, true)` to complete it (applies the fee through
+the normal money path) or `(id, false)` to fail it (no fee). Hard-blocks have no
+release path in v1.
+
 ## Card-payment disputes (merchant top-ups)
 
 Handled in the Stripe webhook, not here in spirit but linked for triage:
@@ -68,3 +99,7 @@ unresolved dispute hold already covers the money. Idempotency by
   (+ fixes `20260702093134`, `20260702093258`), fee hardening `20260702094145`.
 - Route: `maanta-app/src/app/api/redemptions/verify/route.ts` (also `POST /api/redemptions` for claims).
 - Trust metric: migrations `20260703235350`, `20260704000722`.
+- Guardian v1: migration `20260721140000_guardian_v1.sql` (`guardian_events`,
+  `guardian_evaluate`, verify-time wiring, `admin_release_redemption`,
+  `admin_redemption_detail`); tests `supabase/tests/guardian_v1_test.sql`;
+  design note `docs/maanta-guardian-v1.md`.
