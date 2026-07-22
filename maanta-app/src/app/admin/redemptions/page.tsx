@@ -14,9 +14,11 @@ const REASONS = ["all", "geofence", "velocity", "collusion"] as const;
 /**
  * 11d Redemption monitoring / fraud audit.
  *
- * The "All redemptions" rows link to /admin/redemptions/[id] (A3) for the full
- * ticket snapshot. Fraud release/reject still happens at the fraud-event grain
- * above — the detail route is read-only surfacing, not a second action surface.
+ * The "All redemptions" rows link to /admin/redemptions/[id] — the per-redemption
+ * ticket snapshot (A3), Guardian recommendation/held-release, and the fee-reversal
+ * surface (frozen reversal policy, Decisions Log 2026-07-22). The held queue below
+ * is the actionable Guardian list; fraud release/reject stays at the fraud-event
+ * grain above.
  */
 export default async function AdminRedemptionsPage({
   searchParams,
@@ -175,8 +177,11 @@ export default async function AdminRedemptionsPage({
           <p className="py-6 text-center text-sm text-muted">No redemptions yet</p>
         ) : (
           (recent ?? []).map((r) => (
-            <Link key={r.id} href={`/admin/redemptions/${r.id}`} className="block hover:bg-cream/50">
-
+            <Link
+              key={r.id}
+              href={`/admin/redemptions/${r.id}`}
+              className="block -mx-4 px-4 hover:bg-cream"
+            >
               <RedemptionRow
                 when={r.redeemed_at}
                 status={r.status as "success" | "failed" | "flagged" | "pending"}

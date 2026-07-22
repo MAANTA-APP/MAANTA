@@ -10,23 +10,39 @@ import {
 } from "@/components/ui/chips";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconArrowLeft, IconChevronRight } from "@/components/ui/icons";
-import { formatKes, formatCode, friendlyTime, maskPhone } from "@/lib/ui";
+import {
+  formatKes,
+  formatKesSigned,
+  formatCode,
+  friendlyTime,
+  maskPhone,
+} from "@/lib/ui";
 import { ReleaseActions } from "./release-actions";
+import { ReverseFeeAction } from "./reverse-fee-action";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Admin redemption detail (`/admin/redemptions/[id]`).
  *
- * A3 read-only snapshot (the amounts the money path already wrote —
- * amount_kes = YOU PAY, success_fee_charged = KES 30) plus the Guardian v1
- * recommendation, audit timeline, and — for a held (soft-blocked) redemption —
- * the admin release/reject override (docs/maanta-guardian-v1.md §5).
+ * One ticket surface, three concerns:
+ *  - A3 read-only snapshot (the amounts the money path already wrote —
+ *    amount_kes = YOU PAY, success_fee_charged = KES 30) + linked records;
+ *  - the Guardian v1 recommendation, audit timeline, and — for a held
+ *    (soft-blocked) redemption — the admin release/reject override
+ *    (docs/maanta-guardian-v1.md §5);
+ *  - the fee ledger for the redemption and the admin fee-reversal action
+ *    (frozen reversal policy, Decisions Log 2026-07-22).
  *
- * The snapshot comes from the `redemptions` row directly (no ad-hoc money
- * maths); the Guardian recommendation + events come from the
- * `admin_redemption_detail` RPC. No writes happen here — the release/reject
- * override is a separate admin-gated route.
+ * Money discipline: every shilling value is ink + tabular (tnum), never
+ * coloured. At most one amber primary action is ever visible — a held
+ * redemption shows Release (status='flagged'); a verified one shows the
+ * reverse-fee button (status='success'). The two states are mutually
+ * exclusive, so the two amber actions never appear together.
+ *
+ * Snapshot + fee ledger come from the tables directly (no ad-hoc money maths);
+ * the Guardian recommendation + events come from the `admin_redemption_detail`
+ * RPC. No writes happen here — release and reversal are separate admin routes.
  */
 
 const STATUS_LABEL: Record<string, string> = {
@@ -34,6 +50,13 @@ const STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
   failed: "Rejected",
   flagged: "Flagged",
+};
+
+const TX_LABEL: Record<string, string> = {
+  success_fee: "Success fee charged",
+  success_fee_arrears: "Success fee (arrears)",
+  fee_reversal: "Fee reversal credit",
+  arrears_settlement: "Arrears settled",
 };
 
 type GuardianEvent = {
@@ -113,24 +136,41 @@ export default async function AdminRedemptionDetailPage({
 
   const service = createServiceClient();
 
-  // Snapshot (authoritative for the money figures + linkage) and the Guardian
-  // recommendation/events run together — the RPC is best-effort so a redemption
-  // that predates Guardian still renders its full A3 snapshot.
-  const [{ data: r }, { data: guardian }] = await Promise.all([
-    service
-      .from("redemptions")
-      .select(
-        "id, otp_code, status, amount_kes, success_fee_charged, fraud_flags, review_required, distance_from_shop, redeemed_at, expires_at, merchant_id, user_id, merchants(merchant_name, floor), deals(title), users(full_name, email, phone)"
-      )
-      .eq("id", params.id)
-      .maybeSingle(),
-    service
-      .rpc("admin_redemption_detail", { p_redemption_id: params.id })
-      .maybeSingle<RedemptionDetail>(),
-  ]);
+  // Snapshot (authoritative for the money figures + linkage), the Guardian
+  // recommendation/events, the fee ledger for this redemption, and any existing
+  // reversal — all keyed on the redemption id, run together. The Guardian RPC is
+  // best-effort so a redemption that predates Guardian still renders in full.
+  const [{ data: r }, { data: guardian }, { data: ledger }, { data: reversal }] =
+    await Promise.all([
+      service
+        .from("redemptions")
+        .select(
+          "id, otp_code, status, amount_kes, success_fee_charged, fraud_flags, review_required, distance_from_shop, redeemed_at, expires_at, merchant_id, user_id, merchants(merchant_name, floor, account_balance, outstanding_arrears), deals(title), users(full_name, email, phone)"
+        )
+        .eq("id", params.id)
+        .maybeSingle(),
+      service
+        .rpc("admin_redemption_detail", { p_redemption_id: params.id })
+        .maybeSingle<RedemptionDetail>(),
+      service
+        .from("merchant_transactions")
+        .select("id, amount, transaction_type, description, created_at")
+        .eq("reference_id", params.id)
+        .order("created_at", { ascending: true }),
+      service
+        .from("fee_reversals")
+        .select("id, amount, created_at, incident_ref, note, users(full_name)")
+        .eq("redemption_id", params.id)
+        .maybeSingle(),
+    ]);
   if (!r) notFound();
 
-  const merchant = r.merchants as unknown as { merchant_name: string; floor: string | null } | null;
+  const merchant = r.merchants as unknown as {
+    merchant_name: string;
+    floor: string | null;
+    account_balance: number;
+    outstanding_arrears: number;
+  } | null;
   const deal = r.deals as unknown as { title: string } | null;
   const customer = r.users as unknown as {
     full_name: string | null;
@@ -143,6 +183,17 @@ export default async function AdminRedemptionDetailPage({
   const checks = (guardian?.guardian_events ?? []).filter((e) => e.check_type !== "overall");
   // Held = soft-blocked by Guardian: no fee has moved and an admin decides.
   const held = r.status === "flagged";
+
+  const approver = reversal
+    ? ((reversal.users as unknown as { full_name: string | null } | null)?.full_name ?? null)
+    : null;
+  const isSuccess = r.status === "success";
+  const feeRows = (ledger ?? []).filter((t) =>
+    ["success_fee", "success_fee_arrears"].includes(t.transaction_type)
+  );
+  // Reversal is offered only for a verified redemption with a real fee and no
+  // prior reversal — never overlaps the held (Release) action above.
+  const canReverse = isSuccess && feeRows.length > 0 && !reversal;
 
   return (
     <main className="max-w-2xl">
@@ -188,7 +239,7 @@ export default async function AdminRedemptionDetailPage({
         YOU PAY.
       </p>
 
-      {/* Linkage: deal, merchant, customer. */}
+      {/* Linkage: deal, merchant (with wallet), customer. */}
       <h2 className="mt-6 text-base font-bold text-ink">Linked records</h2>
       <div className="mt-2 space-y-2.5">
         <div className="rounded-card border border-line bg-white px-4 py-3">
@@ -206,6 +257,17 @@ export default async function AdminRedemptionDetailPage({
               {merchant?.merchant_name ?? "Unknown shop"}
               {merchant?.floor ? ` — ${merchant.floor}` : ""}
             </p>
+            {merchant ? (
+              <p className="mt-0.5 text-xs text-muted">
+                Wallet <span className="tnum text-ink">{formatKes(merchant.account_balance)}</span>
+                {merchant.outstanding_arrears > 0 ? (
+                  <>
+                    {" · arrears "}
+                    <span className="tnum text-ink">{formatKes(merchant.outstanding_arrears)}</span>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
           </div>
           <IconChevronRight className="h-4 w-4 shrink-0 text-faint" />
         </Link>
@@ -247,6 +309,55 @@ export default async function AdminRedemptionDetailPage({
             <FraudChip key={f} reason={f} />
           ))}
         </div>
+      ) : null}
+
+      {/* Fee ledger for this redemption. */}
+      <h2 className="mt-6 text-base font-bold text-ink">Fee ledger</h2>
+      <div className="mt-2 rounded-card border border-line bg-white">
+        {(ledger ?? []).length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-muted">
+            No fee ledger rows linked to this redemption.
+          </p>
+        ) : (
+          (ledger ?? []).map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center justify-between border-b border-line px-4 py-3 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">
+                  {TX_LABEL[t.transaction_type] ?? t.transaction_type}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted">
+                  {t.description ?? ""} · {friendlyTime(t.created_at)}
+                </p>
+              </div>
+              <span className="tnum ml-3 shrink-0 text-sm font-bold text-ink">
+                {formatKesSigned(t.amount)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Reversal state / action — the one amber action on a verified ticket. */}
+      {reversal ? (
+        <InlineAlert title="Fee already reversed." className="mt-6">
+          {formatKes(reversal.amount)} was credited to the merchant wallet
+          {approver ? ` by ${approver}` : ""} on {friendlyTime(reversal.created_at)}
+          {reversal.incident_ref ? ` · incident #${reversal.incident_ref}` : ""}.
+          {reversal.note ? ` ${reversal.note}` : ""}
+        </InlineAlert>
+      ) : canReverse ? (
+        <ReverseFeeAction
+          redemptionId={r.id}
+          merchantName={merchant?.merchant_name ?? "the merchant"}
+          fee={Number(r.success_fee_charged)}
+        />
+      ) : isSuccess ? (
+        <p className="mt-6 text-sm text-muted">
+          No reversible success fee is linked to this redemption.
+        </p>
       ) : null}
 
       {/* Guardian audit timeline — why Guardian recommended what it did. */}
