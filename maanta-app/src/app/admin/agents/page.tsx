@@ -1,10 +1,13 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 
 export const dynamic = "force-dynamic";
 
 /** Agents overview (11g sidebar item) — field reps, targets, recent leads. */
 export default async function AdminAgentsPage() {
+  await requireAdminPage();
+
   const service = createServiceClient();
   const [{ data: agents }, { data: leads }] = await Promise.all([
     service

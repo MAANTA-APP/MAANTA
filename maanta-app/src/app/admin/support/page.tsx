@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { cn } from "@/lib/ui";
 import { OverrideButton } from "./override-button";
 
@@ -11,6 +12,8 @@ export default async function AdminSupportPage({
 }: {
   searchParams: { view?: string };
 }) {
+  await requireAdminPage();
+
   const view = searchParams.view === "resolved" ? "resolved" : "open";
   const service = createServiceClient();
   const { data: tasks } = await service

@@ -16,6 +16,7 @@ export default async function NewDealPage() {
       tier={merchant.tier}
       fee={fee}
       canDeals={permissions.can_deals}
+      balance={merchant.account_balance}
     />
   );
 }

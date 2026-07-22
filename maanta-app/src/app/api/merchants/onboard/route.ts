@@ -45,6 +45,13 @@ export async function POST(request: Request) {
     p_floor: floor || null,
     p_unit_number: unitNumber || null,
     p_entrance_notes: null,
+    // TODO(agent-tools): agent-assisted onboarding attribution is not wired up.
+    // The RPC + schema already support it (onboard_merchant `agent_assisted`
+    // path; merchants.onboarding_mode / onboarded_by_agent_id, migration
+    // 20260702083812), but it needs an agent-facing onboarding surface where a
+    // signed-in agent onboards a merchant and passes their own agents.id here.
+    // This self-serve route correctly sends null. Tracked as an "agent tools"
+    // feature ticket — see docs/skills/ui-walkthrough-roles.md (G1).
     p_onboarding_agent_id: null,
   });
 

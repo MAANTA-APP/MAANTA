@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
 import { PlanActions } from "./plan-actions";
@@ -14,6 +15,8 @@ export default async function AdminBillingPage({
 }: {
   searchParams: { q?: string; filter?: string };
 }) {
+  await requireAdminPage();
+
   const q = (searchParams.q ?? "").trim();
   const filter = (FILTERS as readonly string[]).includes(searchParams.filter ?? "")
     ? searchParams.filter!
