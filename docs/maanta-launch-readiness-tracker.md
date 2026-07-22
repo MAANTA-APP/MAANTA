@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-21 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-22 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
@@ -77,3 +77,4 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 - Additional malls / nodes beyond BBS Mall
 - Mall-operator reporting dashboard
 - Deal drafts, self-serve Elite payment rail (deferred from PR #11)
+- Browser golden-path E2E (Playwright: `/demo` → claim → verify → wallet) — E14 above; deferred post-launch, depends on a live Supabase + Clerk test env. The E12 RPC golden path already proves the money invariants. Tracked in issue #34
