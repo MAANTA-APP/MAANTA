@@ -49,6 +49,18 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 | Push subscription row bloat | `parsePushSubscription()` caps payload at 8KB with URL/key bounds |
 | Lead capture TOCTOU race | `capture_lead` RPC with per-shop advisory lock (`20260722190000`) |
 
+## PR #48 pre-merge checklist (2026-07-22)
+
+Migrations to apply to `vcrfqsevompqjazbwzyh` before deploy:
+
+1. `20260722180000_lock_down_internal_money_rpcs.sql`
+2. `20260722190000_capture_lead_atomic.sql`
+
+SQL suites to run after apply (CI runs all `supabase/tests/*.sql` automatically):
+
+- `security_hardening_test.sql` — scenarios A–H
+- `capture_lead_test.sql` — scenarios A–C
+
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
 - `src/lib/geo.ts` — `parseGpsCoords()` (finite lat/lng bounds)
 - `src/lib/rate-limit.ts` — wraps `check_rate_limit` RPC
