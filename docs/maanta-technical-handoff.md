@@ -52,7 +52,7 @@ in `maanta-app/legal/README.md`.
 ## Database (Supabase / Postgres)
 
 Schema is fully version-controlled in `maanta-app/supabase/migrations/`
-(33 migrations from the v3 baseline forward). Apply order is the filename
+(52 migrations from the v3 baseline forward). Apply order is the filename
 timestamp order. Key tables:
 
 | Table | Role |
@@ -150,7 +150,22 @@ reimplement this logic in TypeScript:
 
 ## Test suite
 
-Vitest covers the merchant ledger, currency validation/FX handling, and the
-Stripe webhook route (`src/lib/__tests__/`,
+Two layers, both in CI:
+
+**Vitest** (`npm test`) covers the merchant ledger, currency validation/FX
+handling, pricing, the Stripe webhook route, and the static frozen-UI /
+feature-gap ratchets (`src/lib/__tests__/`,
 `src/app/api/webhooks/stripe/__tests__/`). Extend it for the waitlist API
 when built.
+
+**pgTAP SQL suites** (`maanta-app/supabase/tests/*.sql`, run in the CI
+`db-tests` job against a live Postgres) cover the money path and Guardian:
+
+- `golden_path_test.sql`
+- `verify_redemption_money_path_test.sql`
+- `topup_settles_arrears_test.sql`
+- `success_fee_reference_link_test.sql`
+- `node0_opening_credit_test.sql`
+- `security_hardening_test.sql`
+- `guardian_v1_test.sql`
+- `fee_reversal_test.sql`

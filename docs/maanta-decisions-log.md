@@ -11,7 +11,7 @@ Format: date · decision · consequence in product/code.
 | Date | Decision | Where it bites in code |
 |---|---|---|
 | pre-2026-06-30 | **KES 30 success fee** per verified redemption, all plans (Standard and Elite), charged at merchant verification. No price-review caveat. | `deduct_success_fee_or_record_arrears`; hardened in migration `20260702094145_harden_success_fee_amount.sql` with `30.00` fallback |
-| pre-2026-06-30 | **Elite trial = 30 days**, then **7-day grace period**, then auto-downgrade to Standard if no paid conversion. Paid Elite **KES 3,500/month** (price under review Oct 2026). | `handle_trial_expiry` (migrations `20260701110443`, `20260701111223`) |
+| pre-2026-06-30 | **Elite trial = 30 days**, then **7-day grace period**, then auto-downgrade to Standard if no paid conversion. Paid Elite **KES 3,500/month** (price under review Feb 2027). | `handle_trial_expiry` (migrations `20260701110443`, `20260701111223`) |
 | 2026-06-30 | **Redemption ticket expiry** = deal `expires_at` + 15 minutes (supersedes earlier rule). | `claim_deal` RPC comment, migration `20260702093134` |
 | 2026-07-03 | **Zero-balance gate**: merchants with zero/negative balance cannot create new deals. Existing deals keep running; fees on their redemptions go to arrears. | migration `20260703190627_zero_balance_gate_deals.sql` |
 | 2026-07-03 | **Verify-anyway**: if the fee charge status comes back `unknown`, the shopper's redemption still succeeds; a fraud-review task is created for admin/on-ground follow-up. Disputes are handled after the fact, auditably. | migration `20260703235152_unknown_fee_status_fraud_review_task.sql`; `/api/redemptions/verify` |
@@ -44,7 +44,7 @@ Format: date · decision · consequence in product/code.
 | Kenya incorporation + entity details | Nov 2026 Nairobi trip | Blocks publishing legal docs; governing-law refs assume Kenya |
 | Which email platform hosts the waitlist | Before campaign build (Sept/Oct 2026) | Waitlist location itself is decided (see frozen entry above); platform must meet `maanta-email-segmentation-plan.md` requirements |
 | Payment processor final choice for launch | Nov 2026 | See `maanta-app/legal/payment-processor-comparison.md` |
-| Elite subscription price (KES 3,500/mo) review | Oct 2026 | Success fee (KES 30) is explicitly NOT under review |
+| Elite subscription price (KES 3,500/mo) review | Feb 2027 | Success fee (KES 30) is explicitly NOT under review |
 | Paid FX provider (replace keyless open.er-api.com) | Before live non-KES charges | Flagged in `src/lib/currency.ts` |
 | Cross-border data transfer basis (Supabase in eu-west-1) | Lawyer review | Flagged in `maanta-app/legal/privacy-policy.md` |
 
