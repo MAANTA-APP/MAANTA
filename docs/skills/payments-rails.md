@@ -14,8 +14,16 @@ constraint on provider reference) in one transaction. Never adjust
 route handler.
 
 Ledger `transaction_type` values: `topup`, `success_fee`, `success_fee_arrears`,
-`boost_fee`, `subscription`, `refund`, `dispute`, `arrears_settlement`. Amounts
-are signed KES: positive credits, negative debits.
+`boost_fee`, `subscription`, `refund`, `dispute`, `arrears_settlement`,
+`fee_reversal`. Amounts are signed KES: positive credits, negative debits.
+
+**One sanctioned exception to "everything goes through `recordMerchantTransaction`":**
+admin **success-fee reversals** are applied by the dedicated SECURITY DEFINER RPC
+`reverse_success_fee` (it cannot reuse `record_merchant_ledger_entry`, which is
+`service_role`-only via `auth.role()` and so rejects an admin JWT). It still
+obeys the one rule in spirit — it writes a `fee_reversal` ledger row and settles
+arrears first exactly like a top-up, never a bare balance edit. See
+`docs/skills/fee-reversals.md`.
 
 **Reconciliation (asserted by `supabase/tests/topup_settles_arrears_test.sql`):**
 - `account_balance` = Σ `amount` over every type **except** `success_fee_arrears`
