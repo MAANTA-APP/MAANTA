@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { verifyWebhookChallenge } from "@/lib/intasend";
 import { notifyMerchant } from "@/lib/notify-merchant";
 import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
+import { captureTopupCompletedMpesa } from "@/lib/analytics";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -51,6 +52,8 @@ export async function POST(request: Request) {
   if (!applied) {
     return NextResponse.json({ received: true });
   }
+
+  void captureTopupCompletedMpesa({ merchantId, amountKes: amount });
 
   await notifyMerchant(service, merchantId, {
     title: "Top-up received",

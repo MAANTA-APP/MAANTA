@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { parseCharges, type DealCharge } from "@/lib/pricing";
+import { captureDealPublished } from "@/lib/analytics";
+import { currentClerkUserId } from "@/lib/auth";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES: Record<string, string> = {
@@ -145,6 +147,18 @@ export async function POST(request: Request) {
     // best-effort cleanup of the uploaded cover
     await service.storage.from("deal-images").remove([path]);
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  const clerkUserId = await currentClerkUserId();
+  if (clerkUserId) {
+    void captureDealPublished({
+      clerkUserId,
+      dealId: deal.id,
+      merchantId: merchant.id,
+      dealType: dealType,
+      priceKes: priceKes,
+      hasMaxClaims: maxClaims !== null,
+    });
   }
 
   return NextResponse.json({ dealId: deal.id, expiresAt: deal.expires_at });

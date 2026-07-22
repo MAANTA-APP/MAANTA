@@ -6,6 +6,7 @@ import { Button, StickyCtaBar } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/overlays";
 import { W3wChip } from "@/components/ui/chips";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import posthog from "posthog-js";
 
 /**
  * 8h Claim confirm (bottom sheet) → 8y location check in progress → ticket.
@@ -49,6 +50,8 @@ export function ClaimFlow({
     setChecking(true);
     setCancelled(false);
     setError(null);
+
+    posthog.capture("deal_claim_started", { deal_id: dealId, node });
 
     const pos = await getPosition();
     if (cancelled) return;

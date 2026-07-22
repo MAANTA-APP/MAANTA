@@ -6,6 +6,7 @@ import { AmountField, TextField } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
+import posthog from "posthog-js";
 
 type Stage =
   | { kind: "form" }
@@ -76,6 +77,7 @@ export function TopupFlow({
   async function sendStk() {
     setBusy(true);
     setError(null);
+    posthog.capture("topup_stk_initiated", { amount_kes: amount });
     try {
       const res = await fetch("/api/topup", {
         method: "POST",
@@ -99,6 +101,7 @@ export function TopupFlow({
   async function payWithCard() {
     setBusy(true);
     setError(null);
+    posthog.capture("topup_card_initiated", { amount_kes: amount });
     try {
       const res = await fetch("/api/topup/stripe", {
         method: "POST",

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { ensureAppUser } from "@/lib/auth";
+import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
+import { captureDealClaimed } from "@/lib/analytics";
 
 export async function POST(request: Request) {
-  const appUser = await ensureAppUser<{ id: string }>("id");
+  const [appUser, clerkUserId] = await Promise.all([
+    ensureAppUser<{ id: string }>("id"),
+    currentClerkUserId(),
+  ]);
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
@@ -67,6 +71,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: userMessage }, { status });
   }
 
+  let hasFraudFlags = false;
+
   if (gps) {
     try {
       const shopCoords = await convertWhat3WordsToCoordinates(data.what3words_address);
@@ -84,6 +90,7 @@ export async function POST(request: Request) {
       });
 
       const fraudFlags = (flags as string[] | null) ?? [];
+      hasFraudFlags = fraudFlags.length > 0;
       await service
         .from("redemptions")
         .update({
@@ -95,6 +102,17 @@ export async function POST(request: Request) {
     } catch (err) {
       console.error("post-claim fraud pass failed:", err);
     }
+  }
+
+  if (clerkUserId) {
+    void captureDealClaimed({
+      clerkUserId,
+      redemptionId: data.redemption_id,
+      dealId,
+      merchantId: data.merchant_id,
+      hadGps: !!gps,
+      hasFraudFlags,
+    });
   }
 
   return NextResponse.json({

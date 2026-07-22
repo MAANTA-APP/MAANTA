@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ensureAppUser } from "@/lib/auth";
+import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
+import { captureMerchantOnboarded } from "@/lib/analytics";
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
@@ -76,6 +77,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  const clerkUserId = await currentClerkUserId();
+  if (clerkUserId && typeof merchantId === "string") {
+    void captureMerchantOnboarded({ clerkUserId, merchantId });
   }
 
   return NextResponse.json({ merchantId });
