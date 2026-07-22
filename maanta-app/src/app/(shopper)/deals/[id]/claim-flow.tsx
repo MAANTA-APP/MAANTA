@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, StickyCtaBar } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/overlays";
 import { W3wChip } from "@/components/ui/chips";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 /**
  * 8h Claim confirm (bottom sheet) → 8y location check in progress → ticket.
@@ -110,12 +111,11 @@ export function ClaimFlow({
     <>
       <StickyCtaBar>
         {error ? (
-          <div className="mb-2 flex gap-2 rounded-xl border-[1.5px] border-l-[5px] border-rust bg-white px-3 py-2 text-left">
-            <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px] border-rust text-[10px] text-rust">
-              !
-            </span>
-            <p className="text-xs leading-snug text-ink">{error}</p>
-          </div>
+          // S3 — a claim failure is an error (flame), not a warning (rust);
+          // reuse the shared InlineAlert instead of a hand-rolled alert.
+          <InlineAlert variant="error" className="mb-2">
+            {error}
+          </InlineAlert>
         ) : null}
         <Button
           full

@@ -71,7 +71,9 @@ export default async function AdminRedemptionsPage({
             href={`/admin/redemptions${r === "all" ? "" : `?reason=${r}`}`}
             className={cn(
               "rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize",
-              reason === r ? "bg-brand text-ink" : "bg-cream text-muted"
+              // A6 — active filter pill is neutral ink, not amber; amber is
+              // reserved for the one primary action (the row Approve).
+              reason === r ? "bg-ink text-white" : "bg-cream text-muted"
             )}
           >
             {r}
@@ -94,7 +96,7 @@ export default async function AdminRedemptionsPage({
                 className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-sm font-bold text-ink">
+                  <p className="font-code text-sm font-bold text-ink">
                     {code ? `Code ${formatCode(code)} · ` : ""}
                     <span className="font-sans">
                       {(e.merchants as unknown as { merchant_name: string } | null)

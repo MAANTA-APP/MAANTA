@@ -39,8 +39,10 @@ export default async function AdminMerchantDetailPage({
       </p>
       <p className="mt-1 text-sm text-muted">
         {[m.floor, m.unit_number].filter(Boolean).join(", ") || "No floor/unit"}
-        {" · "}Wallet {formatKes(m.account_balance)} · Trust{" "}
-        {Number(m.trust_metric).toFixed(2)}
+        {" · "}Wallet{" "}
+        {/* A5 — money is ink + tabular, never the `muted` non-money token. */}
+        <span className="tnum font-semibold text-ink">{formatKes(m.account_balance)}</span> ·
+        Trust <span className="tnum">{Number(m.trust_metric).toFixed(2)}</span>
       </p>
 
       <div className="mt-4 inline-flex items-center gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">

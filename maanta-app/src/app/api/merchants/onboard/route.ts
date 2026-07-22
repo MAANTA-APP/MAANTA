@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     phone,
     email,
     whatsapp,
+    entranceNotes,
   } = await request.json();
 
   if (!merchantName || !what3wordsAddress || !phone) {
@@ -31,9 +32,8 @@ export async function POST(request: Request) {
   // caller is either the merchant being onboarded or an admin, guards
   // against double-onboarding, inserts the merchants row, and promotes the
   // user's role to merchant_admin — all inside the DB. Node 0 is BBS Mall
-  // only; mall_name/entrance_notes aren't collected by this form and the
-  // RPC has no mall_name parameter (mall_name stays NULL, matching the
-  // RPC's existing schema).
+  // only; mall_name isn't collected by this form and the RPC has no
+  // mall_name parameter (mall_name stays NULL, matching the RPC's schema).
   const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
     p_user_id: appUser.id,
     p_merchant_name: merchantName,
@@ -44,7 +44,9 @@ export async function POST(request: Request) {
     p_w3w_address: what3wordsAddress,
     p_floor: floor || null,
     p_unit_number: unitNumber || null,
-    p_entrance_notes: null,
+    // G3 — the wizard's floor step collects entrance notes; persist them
+    // (the RPC already has this parameter).
+    p_entrance_notes: entranceNotes || null,
     // TODO(agent-tools): agent-assisted onboarding attribution is not wired up.
     // The RPC + schema already support it (onboard_merchant `agent_assisted`
     // path; merchants.onboarding_mode / onboarded_by_agent_id, migration

@@ -11,7 +11,7 @@ export default function LandingPage() {
         </h1>
         <p className="mt-3 text-base text-white/70">Discover, Claim and Redeem.</p>
         <div className="mx-auto mt-10 inline-block rounded-2xl border-[3px] border-brand bg-ink px-10 py-6">
-          <span className="font-mono text-4xl font-bold tracking-[0.18em] text-brand sm:text-5xl">
+          <span className="font-code text-4xl font-bold tracking-[0.18em] text-brand sm:text-5xl">
             482 913
           </span>
         </div>

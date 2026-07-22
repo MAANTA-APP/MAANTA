@@ -50,7 +50,11 @@ export default async function AdminMerchantsPage({
                 {m.floor ? ` — ${m.floor}` : ""}
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                Wallet {formatKes(m.account_balance)}
+                Wallet{" "}
+                {/* A5 — money is ink + tabular, never the `muted` non-money token. */}
+                <span className="tnum font-semibold text-ink">
+                  {formatKes(m.account_balance)}
+                </span>
                 {m.is_featured ? " · Featured" : ""}
                 {m.is_shadow_banned ? " · Shadow-banned" : ""}
               </p>
