@@ -245,28 +245,26 @@ Env: `POSTHOG_PROJECT_KEY` (the `phc_…` project key) and optional `POSTHOG_HOS
 | `fee_charge_status` | `charged` \| `owed` \| `unknown` \| `null` |
 | `disputed`, `deal_id`, `redemption_id`, `merchant_id`, `node` | context |
 
-**Dashboard — "Guardian outcomes".** A trends insight over time, breakdown by
-`recommendation`, is the recommendation-rate chart. Because it depends only on
-the event + one property it is a single `query-trends` insight on a `Guardian`
-dashboard. Provisioning is one PostHog step once the connector is approved for
-this session (the PostHog MCP `exec` tool requires interactive approval):
+**Dashboard — "Guardian"** (live in PostHog, project 211805, EU cloud):
+<https://eu.posthog.com/project/211805/dashboard/842327>. Two trends insights:
 
-```text
-# recommendation rate over time (daily, last 30d), one line per recommendation
-posthog:exec call query-trends {
-  "series": [{ "kind": "EventsNode", "event": "guardian_outcome", "math": "total" }],
-  "breakdownFilter": { "breakdowns": [{ "property": "recommendation", "type": "event" }] },
-  "trendsFilter": { "display": "ActionsLineGraph" },
-  "interval": "day", "dateRange": { "date_from": "-30d" }
-}
-# then insight-create with that query (name "Guardian outcomes over time")
-# and dashboard-create name "Guardian", adding the insight.
-```
+- **Guardian outcomes over time** (`ZpE2xutZ`) — daily `guardian_outcome` count
+  broken down by `recommendation`, one line per outcome
+  (clear / flag / soft_block / hard_block). This is the recommendation-rate
+  chart.
+- **Guardian block rate** (`CmLGaG1J`) — `(soft_block + hard_block) ÷ all
+  outcomes × 100` per day: two `guardian_outcome` series (A filtered to the two
+  block recommendations, B unfiltered) with `trendsFilter.formula = "A / B *
+  100"`. Y-axis is plain numeric (reads e.g. `2.5` = 2.5%) to avoid PostHog
+  percentage-axis re-multiplication ambiguity.
 
-A useful companion insight is **block rate**: the same series filtered to
-`recommendation ∈ {soft_block, hard_block}` as a proportion of all
-`guardian_outcome` events. The event only appears in PostHog's schema after the
-first production verify, so the insight starts empty and populates from launch.
+`guardian_outcome` only enters PostHog's event schema after the first production
+verify, so both insights start empty and populate from launch (once
+`POSTHOG_PROJECT_KEY` is set in the deployed env).
+
+To reproduce from scratch: `dashboard-create {name:"Guardian"}`, then
+`insight-create` with `query = { kind: "InsightVizNode", source: <TrendsQuery
+above> }` and `dashboards: [<id>]`.
 
 ---
 
