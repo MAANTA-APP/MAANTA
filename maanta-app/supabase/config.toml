@@ -12,3 +12,13 @@ project_id = "maanta"
 [db]
 port = 54322
 major_version = 17
+
+# Clerk as a Supabase third-party auth provider (see docs/skills/clerk-auth.md).
+# Mirrors the hosted-project setting so `supabase start` / CI trust the same
+# Clerk-issued JWTs prod does. The Clerk instance ("cheerful-sailfish-3") must
+# still be configured for Supabase compatibility in the Clerk dashboard
+# (https://dashboard.clerk.com/setup/supabase) so its session tokens carry the
+# `role: authenticated` claim.
+[auth.third_party.clerk]
+enabled = true
+domain = "cheerful-sailfish-3.clerk.accounts.dev"
