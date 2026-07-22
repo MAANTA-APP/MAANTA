@@ -32,10 +32,10 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('lead_capture:' || v_shop));
 
   IF EXISTS (
-    SELECT 1 FROM public.leads
-    WHERE lower(trim(shop_name)) = v_shop
-      AND status = 'locked'
-      AND locked_until > NOW()
+    SELECT 1 FROM public.leads l
+    WHERE lower(trim(l.shop_name)) = v_shop
+      AND l.status = 'locked'
+      AND l.locked_until > NOW()
   ) THEN
     RAISE EXCEPTION 'shop_locked';
   END IF;
