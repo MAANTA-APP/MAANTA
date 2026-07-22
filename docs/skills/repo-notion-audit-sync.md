@@ -195,3 +195,36 @@ double-insert from the connector reconnects), and the 7 log entries are present 
 each. One residual inline inconsistency fixed: Architecture redemption-flow step 3
 now marks the Guardian velocity/geofence/collusion checks "proposed", matching the
 page's relabel. Repo↔Notion confirmed consistent.*
+
+---
+
+## Rerun (full second pass, 2026-07-21)
+
+The first pass synced the 5 core spec pages + Decisions Log. The rerun swept the
+**secondary** Notion pages and found the same drift family concentrated there — now
+synced:
+
+| Page | Drift found | Fix applied |
+|---|---|---|
+| **API Actions & Edge Functions** (2026-06-26) | Whole page framed on Edge Functions; `request_otp`/`verify_otp` via Twilio; wallet/payments IntaSend-only; `guardian_check` velocity/geofence/collusion as live; a "Subscription management (manual MVP)" section contradicting the automatic-billing rule | Current-state banner (RPCs not Edge Functions, Clerk, Stripe Phase 1, automatic billing, Guardian proposed, settle-first) |
+| **README — Developer Onboarding** ("Status: Current") | Tech stack: "Auth: Twilio Verify → Africa's Talking"; "Payments: IntaSend" | Both lines corrected to Clerk + Stripe Phase 1; do-not-build webhook line generalised |
+| **Schema Reference** (2026-06-29) | "17 tables"; `on_auth_user_created` trigger (removed by Clerk migration); missing YOU PAY / `clerk_user_id` / arrears / multi-currency columns | Current-state banner (deltas) + trigger row marked REMOVED |
+| **12-Week Build Schedule** (2026-07-01) | Twilio/IntaSend/Edge-Functions throughout; "17 tables/10 migrations"; many now-built items shown "not built" | Historical-snapshot banner at top (page left as history; live status = tracker + log) |
+| **Product Brief** | Doesn't name Twilio but predates Clerk/Stripe/YOU PAY | One-line current-state note |
+| **RLS Permissions** (2026-07-20) | Mostly current; "all privileged ops run in Edge Functions"; "IntaSend webhooks" idempotency | Two surgical corrections (RPCs + Clerk-backed helpers; Stripe+IntaSend idempotency) |
+| **Prompt Library** | Evergreen prompt templates; one "IntaSend webhook" mention | Left as-is (templates, not spec) |
+
+**Repo re-audit (fresh second look) — no new drift, no repo-wrong, no do-not-build
+violations, auth fully Clerk, all 28 `/api` routes guarded, CI fails on SQL error.**
+New minor follow-up **gaps** (not drift — added to §4 tickets):
+- IntaSend webhook **route** has no route-level test (Stripe route does); the credit
+  fn `recordMerchantTransaction` idempotency *is* unit-tested.
+- IntaSend challenge verify is plain (non-constant-time) string equality
+  (`src/lib/intasend.ts`), weaker than the Stripe HMAC path.
+- Shopper `/profile` "Edit profile" + "Theme" rows are dead self-links (stubs).
+- `/api/w3w/validate` degrades to format-only when `W3W_API_KEY` is unset.
+- `/agent/*` field-rep surface newly enumerated — legitimate (on-ground agent
+  handling), not a do-not-build violation.
+
+**Rerun verdict:** repo remains correct; the remaining drift was all stale Notion
+*secondary* pages, now reconciled with the same current-vs-superseded pattern.*
