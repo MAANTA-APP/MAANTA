@@ -1,6 +1,6 @@
 # Skills: redemption and disputes
 
-Last updated: 2026-07-21 · The core loop (claim → verify → fee) and what happens
+Last updated: 2026-07-22 · The core loop (claim → verify → fee) and what happens
 when it goes wrong. Update after any meaningful change to these flows.
 
 ## The core loop
@@ -100,10 +100,36 @@ unresolved dispute hold already covers the money. Idempotency by
 
 1. Open the fraud-review task; pull the redemption row and its ledger entries.
 2. Determine fee state: charged / owed (arrears) / never charged.
-3. Resolve through the ledger (charge, waive, or refund entry) — never a manual
-   balance edit — and close the task with a note.
+3. Resolve through the ledger (charge, waive, refund, or **success-fee reversal**
+   — see the next section) — never a manual balance edit — and close the task
+   with a note.
 4. Merchant-behavior patterns (repeated unknowns, expired-code retries) feed the
    trust metric (`recalculate_trust_metric`) and the weekly ops review.
+
+## Dispute SLA + success-fee reversal (2026-07-22)
+
+**SLA (founder ruling 2026-07-22): admin resolves a disputed / flagged redemption
+within 72 hours.** Uphold (merchant clearly right) → the redemption is reversed and
+the KES 30 success fee is credited back to the merchant wallet; reject → the fee
+stands. Shopper-facing copy on the flagged-ticket screen states **72 hours**
+(`src/app/(shopper)/tickets/[id]`).
+
+**Success-fee reversal** — the mechanism for "uphold". MAANTA may reverse a KES 30
+success fee when the merchant is clearly in the right (MAANTA-caused mispricing /
+wrong fee, duplicate charge on the same code, or a system/UX error), **including
+after the shopper has redeemed**. It is admin-reviewed (only the founder or a named
+admin approves; staff/agents escalate only) and applied **only** by crediting the
+merchant top-up wallet via the admin-gated `reverse_success_fee` RPC — never a
+manual balance edit. The credit writes a `fee_reversal` ledger row (settle-arrears
+-first), **one reversal per redemption**; the original redemption row and original
+fee ledger row are never modified. No ranking / trust-metric impact during the
+pilot. Every case is logged in `MAANTA-Fee-Reversal-Log.xlsx` and the
+`admin_fee_reversal_log` export view.
+
+- Migration `20260722120000_admin_fee_reversal_wallet_credit.sql`; route
+  `POST /api/admin/redemptions/[id]/reverse-fee`; UI action on
+  `/admin/redemptions/[id]`; test `supabase/tests/fee_reversal_test.sql`.
+- Policy of record: Decisions Log 2026-07-22 (fee-reversal policy + 72h dispute SLA).
 
 ## Where things live
 
