@@ -1,5 +1,5 @@
--- Atomic lead capture: advisory lock per normalized shop name prevents the
--- TOCTOU race where two agents pass the live-lock SELECT and both INSERT.
+-- Fix ambiguous locked_until in capture_lead: RETURNS TABLE output columns
+-- shadow table column names in the EXISTS subquery (main CI failure).
 
 CREATE OR REPLACE FUNCTION public.capture_lead(
   p_agent_id uuid,
@@ -57,11 +57,3 @@ BEGIN
   RETURN QUERY SELECT v_lead_id, v_locked_until;
 END;
 $function$;
-
-COMMENT ON FUNCTION public.capture_lead IS
-  'Agent lead capture with per-shop advisory lock (closes TOCTOU on concurrent inserts). service_role only.';
-
-REVOKE ALL ON FUNCTION public.capture_lead(uuid, text, text, text, text, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.capture_lead(uuid, text, text, text, text, text, text) FROM anon;
-REVOKE ALL ON FUNCTION public.capture_lead(uuid, text, text, text, text, text, text) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.capture_lead(uuid, text, text, text, text, text, text) TO service_role, postgres;
