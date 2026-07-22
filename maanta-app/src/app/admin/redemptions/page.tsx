@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { FraudChip } from "@/components/ui/chips";
+import { FraudChip, GuardianChip } from "@/components/ui/chips";
 import { RedemptionRow } from "@/components/ui/cards";
-import { cn, formatCode } from "@/lib/ui";
+import { IconChevronRight } from "@/components/ui/icons";
+import { cn, formatCode, friendlyTime } from "@/lib/ui";
 import { FraudActions } from "./fraud-actions";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +29,21 @@ export default async function AdminRedemptionsPage({
     .limit(50);
   if (reason !== "all") eventsQuery = eventsQuery.eq("event_type", reason);
 
-  const [{ data: events }, { data: recent }] = await Promise.all([
+  const [{ data: events }, { data: recent }, { data: held }] = await Promise.all([
     eventsQuery,
     service
       .from("redemptions")
       .select("id, status, redeemed_at, success_fee_charged, merchants(merchant_name)")
       .order("redeemed_at", { ascending: false })
       .limit(15),
+    // Guardian v1 soft-blocks: held redemptions awaiting an admin release
+    // (docs/maanta-guardian-v1.md §3). No fee has moved on these yet.
+    service
+      .from("redemptions")
+      .select("id, redeemed_at, distance_from_shop, fraud_flags, merchants(merchant_name), deals(title)")
+      .eq("status", "flagged")
+      .order("redeemed_at", { ascending: false })
+      .limit(25),
   ]);
 
   const detailLabel = (type: string, details: Record<string, unknown> | null) => {
@@ -52,9 +61,55 @@ export default async function AdminRedemptionsPage({
 
   return (
     <main className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-ink">Fraud events</h1>
+      <h1 className="text-2xl font-bold text-ink">Redemption monitoring</h1>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      {/* Guardian held queue — the actionable list: soft-blocked redemptions
+          waiting on an admin release. No fee has moved on these. */}
+      <section className="mt-5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-bold text-ink">Held for review</h2>
+          <GuardianChip recommendation="soft_block" />
+        </div>
+        <div className="mt-2 space-y-2">
+          {(held ?? []).length === 0 ? (
+            <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+              Nothing held. Guardian releases the counter unless a check blocks.
+            </p>
+          ) : (
+            (held ?? []).map((h) => {
+              const dist = h.distance_from_shop as number | null;
+              const flags = (h.fraud_flags ?? []) as string[];
+              return (
+                <Link
+                  key={h.id}
+                  href={`/admin/redemptions/${h.id}`}
+                  className="flex items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-ink">
+                      {(h.merchants as unknown as { merchant_name: string } | null)
+                        ?.merchant_name ?? "Unknown shop"}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-muted">
+                      {(h.deals as unknown as { title: string } | null)?.title ?? "Deal"}
+                      {" · "}
+                      {friendlyTime(h.redeemed_at)}
+                      {flags.length > 0 ? ` · ${flags.join(", ")}` : ""}
+                      {dist != null ? ` · ${Math.round(dist)}m` : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-muted">Review</span>
+                  <IconChevronRight className="h-4 w-4 text-faint" />
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <h2 className="mt-8 text-base font-bold text-ink">Fraud events</h2>
+
+      <div className="mt-3 flex flex-wrap gap-2">
         {REASONS.map((r) => (
           <Link
             key={r}
@@ -109,12 +164,13 @@ export default async function AdminRedemptionsPage({
           <p className="py-6 text-center text-sm text-muted">No redemptions yet</p>
         ) : (
           (recent ?? []).map((r) => (
-            <RedemptionRow
-              key={r.id}
-              when={r.redeemed_at}
-              status={r.status as "success" | "failed" | "flagged" | "pending"}
-              amount={r.success_fee_charged}
-            />
+            <Link key={r.id} href={`/admin/redemptions/${r.id}`} className="block hover:bg-cream">
+              <RedemptionRow
+                when={r.redeemed_at}
+                status={r.status as "success" | "failed" | "flagged" | "pending"}
+                amount={r.success_fee_charged}
+              />
+            </Link>
           ))
         )}
       </div>
