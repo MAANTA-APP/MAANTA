@@ -132,7 +132,7 @@ export default async function TicketPage({
           <p className="leading-relaxed">
             <span className="font-bold">This redemption is under review</span>
             {ticket.fraud_flags?.includes("geofence") ? " (location mismatch)" : ""}.
-            Support will resolve it within 24 hours. Nothing is needed from you right now.
+            Support will resolve it within 72 hours. Nothing is needed from you right now.
           </p>
         </div>
         <ButtonLink href="/help" variant="ghost" full className="mt-6">
