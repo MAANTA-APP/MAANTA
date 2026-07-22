@@ -59,7 +59,9 @@ export default async function AdminBillingPage({
               href={`/admin/billing${f === "all" ? "" : `?filter=${f}`}`}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize",
-                filter === f ? "bg-brand text-ink" : "bg-cream text-muted"
+                // A6 — active filter pill is neutral ink, not amber; amber is
+                // reserved for the one primary action (the row CTA).
+                filter === f ? "bg-ink text-white" : "bg-cream text-muted"
               )}
             >
               {f}

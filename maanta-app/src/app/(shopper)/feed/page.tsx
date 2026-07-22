@@ -71,13 +71,14 @@ export default async function FeedPage() {
                   tag="flash"
                   verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
                   pay={dealPricing(d).pay}
+                  extras={dealPricing(d).extras}
                 />
               ))}
             </Rail>
           ) : null}
 
           {boosted.length > 0 ? (
-            <Rail title="Priority Placements" seeAllHref="/search?type=boosted">
+            <Rail title="Boosted Deals" seeAllHref="/search?type=boosted">
               {boosted.map((d) => (
                 <DealCardHorizontal
                   key={d.id}
@@ -87,6 +88,7 @@ export default async function FeedPage() {
                   tag="boosted"
                   verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
                   pay={dealPricing(d).pay}
+                  extras={dealPricing(d).extras}
                 />
               ))}
             </Rail>
@@ -112,6 +114,7 @@ export default async function FeedPage() {
                     expiresAt={d.expires_at}
                     pay={dealPricing(d).pay}
                     wasKes={dealPricing(d).was}
+                    extras={dealPricing(d).extras}
                   />
                 ))}
               </div>

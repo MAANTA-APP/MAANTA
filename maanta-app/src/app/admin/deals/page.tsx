@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
+import { FraudChip } from "@/components/ui/chips";
 import { cn } from "@/lib/ui";
 import { ModerationActions } from "./moderation-actions";
 
@@ -67,7 +68,9 @@ export default async function AdminDealsPage({
               href={`/admin/deals${r === "all" ? "" : `?reason=${r}`}`}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize",
-                reason === r ? "bg-brand text-ink" : "bg-cream text-muted"
+                // A6 — active filter pill is neutral ink, not amber; amber is
+                // reserved for the one primary action (the row CTA).
+                reason === r ? "bg-ink text-white" : "bg-cream text-muted"
               )}
             >
               {r === "all" ? "All reasons" : r}
@@ -92,9 +95,9 @@ export default async function AdminDealsPage({
                   &ldquo;{d.title}&rdquo; — {d.merchants?.merchant_name}
                 </p>
               </div>
-              <span className="rounded-full bg-flame px-2.5 py-0.5 text-[11px] font-bold text-white">
-                Fraud signals
-              </span>
+              {/* A9 — reuse FraudChip (text+border token) instead of a
+                  hand-rolled solid-flame chip duplicated inline. */}
+              <FraudChip reason="Fraud signals" />
               <ModerationActions dealId={d.id} />
             </div>
           ))

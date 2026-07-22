@@ -246,17 +246,15 @@ export function W3wChip({
 }
 
 /** Fraud reason chip (1j / 11d): Geofence / Velocity / Collusion */
-export function FraudChip({ reason }: { reason: string }) {
-  const styles: Record<string, string> = {
-    geofence: "bg-flame text-white",
-    velocity: "bg-brand text-ink",
-    collusion: "bg-ink text-white",
-  };
+export function FraudChip({ reason, className }: { reason: string; className?: string }) {
+  // A9 — fraud reasons are error-severity, so the token intent is text+border
+  // (matching the flagged StatusChip / InlineAlert error tone), never a solid
+  // fill and never amber. The reason word itself carries the distinction.
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize",
-        styles[reason.toLowerCase()] ?? "bg-cream-dark text-muted"
+        "inline-flex items-center rounded-full border-[1.5px] border-flame bg-white px-2.5 py-0.5 text-[11px] font-bold capitalize text-flame",
+        className
       )}
     >
       {reason}

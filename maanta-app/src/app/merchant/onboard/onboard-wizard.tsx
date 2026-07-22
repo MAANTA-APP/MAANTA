@@ -79,6 +79,9 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
           phone: fullPhone,
           email: ownerEmail.trim() || null,
           whatsapp: shopWhatsapp.trim() || null,
+          // G3 — the floor step captures entrance notes; carry them through
+          // instead of silently dropping them before the RPC.
+          entranceNotes: entranceNotes.trim() || null,
         }),
       });
       const body = await res.json();

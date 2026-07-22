@@ -144,7 +144,7 @@ export function OtpCells({
         <div
           key={i}
           className={cn(
-            "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-mono text-xl font-semibold",
+            "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold",
             i === digits.length
               ? "border-2 border-ink"
               : digits[i]

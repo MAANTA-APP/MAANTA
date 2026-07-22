@@ -85,7 +85,8 @@ export default async function AdminReportsPage({
               href={`/admin/reports${r.value === "7d" ? "" : `?range=${r.value}`}`}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold",
-                range.value === r.value ? "bg-brand text-ink" : "bg-cream text-muted"
+                // A6 — active range pill is neutral ink, not amber.
+                range.value === r.value ? "bg-ink text-white" : "bg-cream text-muted"
               )}
             >
               {r.label}

@@ -50,6 +50,7 @@ export function DealCardVertical({
   expiresAt,
   pay,
   wasKes,
+  extras,
 }: {
   href: string;
   imageUrl: string | null;
@@ -62,6 +63,7 @@ export function DealCardVertical({
   expiresAt?: string | null;
   pay?: number | null;
   wasKes?: number | null;
+  extras?: number | null;
 }) {
   return (
     <Link
@@ -101,6 +103,13 @@ export function DealCardVertical({
             ) : null}
           </div>
         ) : null}
+        {/* S1 — one-line extras summary (brief §4: everywhere except deal
+            detail). text-secondary is the money-context token, never `muted`. */}
+        {pay != null && extras != null && extras > 0 ? (
+          <p className="tnum text-[11px] text-secondary">
+            Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
+          </p>
+        ) : null}
         <div className="flex items-center gap-2 pt-0.5">
           <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
           <span className="flex items-center gap-1 text-xs font-medium text-ink">
@@ -121,6 +130,7 @@ export function DealCardHorizontal({
   tag,
   verifiedCount,
   pay,
+  extras,
 }: {
   href: string;
   imageUrl: string | null;
@@ -128,6 +138,7 @@ export function DealCardHorizontal({
   tag: "flash" | "boosted" | null;
   verifiedCount: number;
   pay?: number | null;
+  extras?: number | null;
 }) {
   return (
     <Link
@@ -143,6 +154,12 @@ export function DealCardHorizontal({
         {pay != null ? (
           <p className="tnum mt-0.5 text-sm font-bold text-ink">
             You pay KES {pay.toLocaleString("en-KE")}
+          </p>
+        ) : null}
+        {/* S1 — one-line extras summary (brief §4). */}
+        {pay != null && extras != null && extras > 0 ? (
+          <p className="tnum mt-0.5 text-[11px] leading-snug text-secondary">
+            Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
           </p>
         ) : null}
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
@@ -303,7 +320,7 @@ export function KpiCard({
   return (
     <div className={cn("rounded-card border border-line bg-white p-4", className)}>
       <p className="text-xs text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-ink">{value}</p>
+      <p className="tnum mt-1 text-2xl font-bold text-ink">{value}</p>
     </div>
   );
 }
@@ -340,7 +357,7 @@ export function RedemptionRow({
               ? "Rejected"
               : "Pending"}
       </span>
-      <span className="text-sm font-semibold text-ink">
+      <span className="tnum text-sm font-semibold text-ink">
         {status === "success" && amount != null ? `-KES ${Math.round(amount)}` : "—"}
       </span>
     </div>

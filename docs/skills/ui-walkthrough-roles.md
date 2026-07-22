@@ -192,6 +192,56 @@ invented product vocab; no raw hex; error bodies `text-ink`.
 
 ---
 
+## Update — 2026-07-22: quick low-risk polish pass (branch `claude/maanta-ui-polish-0sricr`)
+
+A dedicated polish session addressed the "quick, low-risk" bucket below. **UI/UX
+only — no money-path logic, pricing, SQL, or migrations were touched.** Verified
+with `npm run typecheck`, `npm run lint`, `npm test` (40/40, incl. `pricing` +
+`frozen-ui-rules`), and `npm run build` (all green). The pgTAP money-path suite
+(`supabase/tests/*.sql`) was **not modified** and remains green in CI.
+
+**Addressed:**
+
+- **S1** — feed tiles now render the one-line "Includes KES N in taxes and
+  charges" summary under YOU PAY (both `DealCardVertical` and
+  `DealCardHorizontal`), using `text-secondary` (money-context token, not
+  `muted`). Display-only; `dealPricing().extras` from the single `lib/pricing.ts`
+  source — YOU PAY math untouched.
+- **S2** — `/select-mall` now has an ink (never amber) back affordance:
+  `router.back()` with a `/feed` fallback so a shopper landing there isn't
+  stranded (the page sits outside `(shopper)/` and has no tab bar).
+- **S3** — claim error now uses the shared `InlineAlert variant="error"` (flame),
+  replacing the hand-rolled `rust` (warning-token) alert.
+- **S5** — the boosted rail heading is renamed "Priority Placements" → **"Boosted
+  Deals"** to match the chip/param/DB vocabulary.
+- **M3** — codes use the dedicated `.font-code` utility (slashed-zero, tabular)
+  instead of `font-mono`: wallet transaction detail (code + provider ref), the
+  OTP entry cells (`OtpCells`, merchant redeem), the admin fraud-event code, and
+  the landing hero's sample code. (w3w `font-mono` on `W3wChip`/address inputs is
+  intentional and left as-is.)
+- **A4/A5** — admin money is tabular (`tnum`) and ink: `KpiCard` value +
+  `RedemptionRow` amount (shared), and merchant wallet balances on
+  `admin/merchants` + `admin/merchants/[id]` moved off the `muted` non-money token.
+- **A6** — active admin filter/range pills de-ambered to neutral ink
+  (`bg-ink text-white`) on `redemptions`, `billing`, `deals`, `reports`, so amber
+  stays reserved for the one primary/row action per screen (R1).
+- **A7** — `merchants/[id]/approve` now uses the shared `requireAdminApi()` gate
+  (identical 401/403), instead of open-coding `ensureAppUser`.
+- **A9** — `FraudChip` restyled to the token-intended text+border error tone
+  (dropping solid fills incl. the amber `velocity` fill); `admin/deals` now reuses
+  `FraudChip` instead of a hand-rolled solid-flame span.
+- **G2** — `/agent/leads/new` gained a page-level role gate mirroring the sibling
+  agent pages (form extracted to `new-lead-form.tsx`, page is now a gated server
+  component). Write was already API-gated; this is defense-in-depth parity.
+- **G3** — the onboarding wizard's captured `entranceNotes` is now carried to
+  `onboard_merchant` (the RPC already had the `p_entrance_notes` param) instead of
+  being dropped as `null`.
+
+**Intentionally deferred to feature-build sessions** (unchanged): G1 (agent
+attribution), A2 (admin customer list), A3 (admin redemption detail), A8 (deal
+"Keep" persistence), G4 (lead↔merchant link), plus optional cosmetics S4/S6/S7,
+M2/M4/M5, G5.
+
 ## Prioritized backlog (what to fix next)
 
 **Should fix before real traffic**

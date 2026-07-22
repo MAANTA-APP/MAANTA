@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { ensureAppUser } from "@/lib/auth";
+import { requireAdminApi } from "@/lib/admin";
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
-  if (!appUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  }
-  if (appUser.role !== "admin") {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
+  // A7 — use the shared admin gate (same 401/403 behaviour the other
+  // /api/admin routes use) instead of open-coding the check here.
+  const auth = await requireAdminApi();
+  if ("error" in auth) return auth.error;
+  const appUser = auth.user;
 
   const service = createServiceClient();
 
