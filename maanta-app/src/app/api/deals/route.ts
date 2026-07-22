@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { parseCharges, type DealCharge } from "@/lib/pricing";
+import {
+  contentTypeForImage,
+  detectImageType,
+  fileExtensionForImage,
+} from "@/lib/image-bytes";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
 
 /**
  * Create a deal (wireframe 9n–9s). Cover image is REQUIRED (9o).
@@ -80,8 +80,10 @@ export async function POST(request: Request) {
   if (cover.size > MAX_IMAGE_BYTES) {
     return NextResponse.json({ error: "Cover image must be under 5MB." }, { status: 400 });
   }
-  const ext = ALLOWED_TYPES[cover.type];
-  if (!ext) {
+
+  const bytes = Buffer.from(await cover.arrayBuffer());
+  const detectedType = detectImageType(bytes);
+  if (!detectedType) {
     return NextResponse.json(
       { error: "Cover must be a JPEG, PNG or WebP image." },
       { status: 400 }
@@ -90,12 +92,13 @@ export async function POST(request: Request) {
 
   const service = createServiceClient();
 
-  // Upload cover to the public deal-images bucket (path: merchantId/uuid.ext).
-  const path = `${merchant.id}/${randomUUID()}.${ext}`;
-  const bytes = Buffer.from(await cover.arrayBuffer());
+  const path = `${merchant.id}/${randomUUID()}.${fileExtensionForImage(detectedType)}`;
   const { error: uploadError } = await service.storage
     .from("deal-images")
-    .upload(path, bytes, { contentType: cover.type, upsert: false });
+    .upload(path, bytes, {
+      contentType: contentTypeForImage(detectedType),
+      upsert: false,
+    });
   if (uploadError) {
     console.error("cover upload failed:", uploadError);
     return NextResponse.json(

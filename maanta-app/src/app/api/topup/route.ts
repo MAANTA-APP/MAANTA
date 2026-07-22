@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { createServiceClient } from "@/lib/supabase/service";
-import { ensureAppUser } from "@/lib/auth";
+import { requireMerchant } from "@/lib/merchant-api";
 import { initiateMpesaStkPush } from "@/lib/intasend";
 import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
-
-const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
+import { isValidKenyanPhone } from "@/lib/phone";
+import {
+  checkRateLimit,
+  TOPUP_MPESA_RATE_LIMIT,
+  TOPUP_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const appUser = await ensureAppUser<{
-    id: string;
-    role: string;
-    full_name: string | null;
-    email: string | null;
-  }>("id, role, full_name, email");
-
-  if (!appUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  }
+  const auth = await requireMerchant("can_topup");
+  if ("error" in auth) return auth.error;
+  const { merchant, user: appUser } = auth.ctx;
 
   const { amount, phoneNumber } = await request.json();
   if (!isValidTopupAmount(amount) || typeof phoneNumber !== "string" || !phoneNumber) {
@@ -28,29 +24,25 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-
-  if (!MERCHANT_ROLES.includes(appUser.role)) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const service = createServiceClient();
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("id")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
-
-  if (!merchant) {
+  if (!isValidKenyanPhone(phoneNumber)) {
     return NextResponse.json(
-      { error: "No merchant account found." },
-      { status: 404 }
+      { error: "Enter a valid Kenyan mobile number (e.g. 07XX XXX XXX)." },
+      { status: 400 }
     );
   }
 
-  // Encodes the merchant id directly in api_ref so the webhook (which has no
-  // other way to look up an in-flight request — merchant_transactions has no
-  // "pending" status) can attribute the eventual COMPLETE event.
+  const allowed = await checkRateLimit(
+    `topup-mpesa:${merchant.id}`,
+    TOPUP_MPESA_RATE_LIMIT,
+    TOPUP_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many top-up attempts — wait a moment and try again." },
+      { status: 429 }
+    );
+  }
+
   const apiRef = `topup:${merchant.id}:${randomUUID()}`;
 
   const result = await initiateMpesaStkPush({

@@ -31,41 +31,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Shop name is required." }, { status: 400 });
   }
 
-  // A live lock on the same shop name blocks a duplicate capture.
-  const { data: existing } = await service
-    .from("leads")
-    .select("id, locked_until")
-    .ilike("shop_name", shopName)
-    .eq("status", "locked")
-    .gt("locked_until", new Date().toISOString())
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json(
-      { error: "This shop is already locked by a lead." },
-      { status: 409 }
-    );
-  }
-
   const { data: lead, error } = await service
-    .from("leads")
-    .insert({
-      agent_id: agent.id,
-      shop_name: String(shopName).trim(),
-      owner_name: ownerName || null,
-      phone: phone || null,
-      unit_number: unitNumber || null,
-      what3words_address: what3words
+    .rpc("capture_lead", {
+      p_agent_id: agent.id,
+      p_shop_name: String(shopName).trim(),
+      p_owner_name: ownerName || null,
+      p_phone: phone || null,
+      p_unit_number: unitNumber || null,
+      p_what3words_address: what3words
         ? String(what3words).replace(/^\/+/, "").toLowerCase()
         : null,
-      notes: notes || null,
+      p_notes: notes || null,
     })
-    .select("id, locked_until")
-    .single();
+    .single<{ lead_id: string; locked_until: string }>();
 
   if (error || !lead) {
-    console.error("lead insert failed:", error);
+    const message = error?.message ?? "";
+    if (message.includes("shop_locked")) {
+      return NextResponse.json(
+        { error: "This shop is already locked by a lead." },
+        { status: 409 }
+      );
+    }
+    console.error("capture_lead RPC failed:", error);
     return NextResponse.json({ error: "Could not save the lead." }, { status: 500 });
   }
 
-  return NextResponse.json({ leadId: lead.id, lockedUntil: lead.locked_until });
+  return NextResponse.json({ leadId: lead.lead_id, lockedUntil: lead.locked_until });
 }

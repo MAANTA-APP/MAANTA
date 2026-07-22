@@ -4,6 +4,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser } from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
+import {
+  checkRateLimit,
+  CLAIM_RATE_LIMIT,
+  CLAIM_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
@@ -14,6 +19,18 @@ export async function POST(request: Request) {
   const { dealId, lat, lng } = await request.json();
   if (!dealId) {
     return NextResponse.json({ error: "Missing dealId." }, { status: 400 });
+  }
+
+  const allowed = await checkRateLimit(
+    `claim:${appUser.id}`,
+    CLAIM_RATE_LIMIT,
+    CLAIM_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many claim attempts — wait a moment and try again." },
+      { status: 429 }
+    );
   }
 
   const supabase = createClient();
