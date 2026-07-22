@@ -1,7 +1,48 @@
 # Skill — Clerk authentication (Clerk + Supabase third-party auth)
 
-**Status:** code wired, **dashboard steps required before it authenticates**.
+**Status:** code merged; **live Supabase project provisioned + Clerk dashboard
+wired**; only the app's env cutover + redeploy remain (see "Live project").
 **Decision:** decisions-log 2026-07-20. **Owner surface:** `maanta-app`.
+
+## Live project — which Supabase DB is real (read this first)
+
+There are **three** Supabase projects across **two accounts/orgs**; only one is
+live. Don't rediscover this the hard way.
+
+| Project ref | Org | Role |
+|---|---|---|
+| **`axrrslqssmbngbataejg`** | **MAANTA-APP's Org** (`qwubyqljgcsuntgjpour`) | ✅ **THE LIVE PROJECT.** Full schema, Clerk third-party auth enabled, Clerk migration applied. App points here. |
+| `vcrfqsevompqjazbwzyh` | maantamvp's Org (`fajbfdrlkxgrihulknbe`) | ⚠️ Old/abandoned. Had the schema + pilot data (wiped 2026-07-21). Not used. |
+| `hhpwmtzfpfdtuunetwfh` | maantamvp's Org | Empty throwaway (`maanta-mvp-goldenpath`). Ignore. |
+
+- **URL:** `https://axrrslqssmbngbataejg.supabase.co`
+- **Keys:** publishable + `service_role` from that project's Supabase → Project
+  Settings → API Keys. (Not committed here — they belong in Vercel + `.env.local`.)
+- **Connector gotcha:** the Supabase MCP is authed per-account. MAANTA-APP's Org
+  lives under a **different Supabase login** than maantamvp's Org, so a connector
+  authed to one org gets `-32600 permission denied` on the other. To operate on
+  the live DB, the connector must be authed to the account that owns
+  MAANTA-APP's Org.
+
+### How the live DB was built (2026-07-21)
+The project was empty. Rather than hand-shuttle 49 migrations through the MCP
+(unreliable at that size) or use the CLI (`clerk`/`supabase` CLIs and direct
+`psql` are all blocked from the remote container — IPv6-only DB host, pooler
+closed, GitHub release download 403s), all 49 repo migrations were concatenated
+in order into one transaction-wrapped script and run once in the **Supabase SQL
+Editor**. Verified via the connector: 22 tables, 29 functions, 34 RLS policies,
+`clerk_user_id` + dual-path helpers (behavioral smoke test passed),
+`app_config` seeded (6 rows), `schema_migrations` holds all 49 versions so a
+future `supabase db push` is a clean no-op.
+
+### Env cutover (the one remaining step)
+Set in Vercel (and local `.env.local`), then redeploy:
+```
+NEXT_PUBLIC_SUPABASE_URL=https://axrrslqssmbngbataejg.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<this project's publishable key, sb_publishable_…>
+SUPABASE_SERVICE_ROLE_KEY=<this project's service_role secret>
+```
+Keep the existing Clerk keys (`cheerful-sailfish-3` instance).
 
 ## The shape of it
 
