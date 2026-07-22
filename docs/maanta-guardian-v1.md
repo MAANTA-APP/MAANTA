@@ -189,6 +189,63 @@ the suite is deterministic.
 
 ---
 
+## 8. Analytics (Guardian outcomes)
+
+Every verify emits one **`guardian_outcome`** PostHog event so we can watch how
+often Guardian fires and whether the thresholds need tuning.
+
+**Emission.** `src/lib/analytics.ts` (`captureGuardianOutcome`) is called from
+`/api/redemptions/verify` for **every** outcome — `clear`, `flag`, `soft_block`,
+`hard_block` — right after the RPC returns, *before* the block/held branches.
+It is:
+
+- **dependency-free** — one `fetch` to PostHog's `/capture/` endpoint, no SDK;
+- **off by default** — a no-op unless `POSTHOG_PROJECT_KEY` is set, so dev / CI /
+  tests emit nothing and `npm run build` stays clean (`POSTHOG_HOST` defaults to
+  the EU cloud);
+- **best-effort and non-blocking** — the call is `void`ed, swallows every error,
+  and bounds itself with a 2 s timeout, so the counter (verify) path is never
+  delayed or broken by a metrics ping (frozen "never block the shopper").
+
+Env: `POSTHOG_PROJECT_KEY` (the `phc_…` project key) and optional `POSTHOG_HOST`
+(see `.env.example`).
+
+**Event shape.** `event = "guardian_outcome"`, `distinct_id = merchant.id`
+(attributes the verify to the counter), with properties:
+
+| property | values |
+|---|---|
+| `recommendation` | `clear` \| `flag` \| `soft_block` \| `hard_block` |
+| `severity` | `info` \| `warn` \| `block` |
+| `redemption_status` | `success` \| `held` \| `blocked` |
+| `fee_charge_status` | `charged` \| `owed` \| `unknown` \| `null` |
+| `disputed`, `deal_id`, `redemption_id`, `merchant_id`, `node` | context |
+
+**Dashboard — "Guardian outcomes".** A trends insight over time, breakdown by
+`recommendation`, is the recommendation-rate chart. Because it depends only on
+the event + one property it is a single `query-trends` insight on a `Guardian`
+dashboard. Provisioning is one PostHog step once the connector is approved for
+this session (the PostHog MCP `exec` tool requires interactive approval):
+
+```text
+# recommendation rate over time (daily, last 30d), one line per recommendation
+posthog:exec call query-trends {
+  "series": [{ "kind": "EventsNode", "event": "guardian_outcome", "math": "total" }],
+  "breakdownFilter": { "breakdowns": [{ "property": "recommendation", "type": "event" }] },
+  "trendsFilter": { "display": "ActionsLineGraph" },
+  "interval": "day", "dateRange": { "date_from": "-30d" }
+}
+# then insight-create with that query (name "Guardian outcomes over time")
+# and dashboard-create name "Guardian", adding the insight.
+```
+
+A useful companion insight is **block rate**: the same series filtered to
+`recommendation ∈ {soft_block, hard_block}` as a proportion of all
+`guardian_outcome` events. The event only appears in PostHog's schema after the
+first production verify, so the insight starts empty and populates from launch.
+
+---
+
 ## 7. Non-goals for v1
 
 - No global/standing risk score; no device-graph or cross-session modelling

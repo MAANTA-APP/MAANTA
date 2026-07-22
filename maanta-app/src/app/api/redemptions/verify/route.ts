@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { captureGuardianOutcome } from "@/lib/analytics";
 
 const OTP_RATE_LIMIT = 20;
 const OTP_RATE_WINDOW_SECONDS = 60;
@@ -81,6 +82,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: userMessage }, { status });
   }
+
+  // Guardian analytics (docs/maanta-guardian-v1.md §Analytics). Fired for
+  // EVERY outcome (clear/flag/soft_block/hard_block) before the block/held
+  // branches below. Best-effort and non-blocking — `void`ed so the counter is
+  // never delayed, and a no-op unless PostHog is configured.
+  void captureGuardianOutcome({
+    merchantId: merchant.id,
+    redemptionId: data.redemption_id,
+    dealId: data.deal_id,
+    recommendation: data.guardian_recommendation,
+    severity: data.guardian_severity,
+    redemptionStatus: data.redemption_status,
+    feeChargeStatus: data.fee_charge_status,
+    disputed: data.disputed === true,
+  });
 
   // Guardian v1 block/held outcomes (docs/maanta-guardian-v1.md §3). No money
   // moved. Copy stays non-accusatory and in the existing in-ink error style —
