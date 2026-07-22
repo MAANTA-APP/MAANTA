@@ -128,8 +128,26 @@ p_redemption_id, p_approve)` (admin-gated) is the override hook:
   would have on a clear verify.
 - `p_approve = false` → `flagged` → `failed`, no fee.
 
-Hard-blocks are terminal in v1 (declined; no release path) — they represent the
-egregious tail.
+### Hard-block appeal path (declined → overturn after the fact)
+
+A hard-block **declines** at the counter (status `failed`, `fraud_flags @>
+{guardian_hard_block}`, no fee). It is not silently terminal: an admin can
+appeal a false positive after the fact via `admin_appeal_hard_block(
+p_redemption_id, p_approve)` (admin-gated):
+
+- `p_approve = true` → `failed` → `success` **and** applies the KES 30 fee
+  through the same `deduct_success_fee_or_record_arrears` path
+  (`charged`/`owed`/`unknown`) — the money model runs exactly as on a clear
+  verify. The redemption is tagged `guardian_appeal_approved`.
+- `p_approve = false` → stays `failed`, no fee, tagged
+  `guardian_appeal_rejected` (upholds the block).
+
+Guards: only a `failed` redemption flagged `guardian_hard_block` and not already
+appeal-rejected is appealable — a redemption that failed for any other reason
+(expired, merchant-rejected) can never be "completed" here, and an appeal is a
+one-time decision. Success is committed before the fee step and never rolled
+back by a fee failure. Surfaced on the admin detail page as the **Declined by
+Guardian — appeal** panel (`POST /api/admin/redemptions/[id]/appeal`).
 
 ---
 
@@ -170,7 +188,13 @@ timeline of the `guardian_events` with per-check severity, and — for a held
 redemption — the override actions: **Release &amp; charge fee** (→
 `admin_release_redemption(id, true)`, applies the KES 30 fee via the frozen money
 path) or **Reject** (→ `admin_release_redemption(id, false)`, fails it with no
-fee). API route: `POST /api/admin/redemptions/[id]/release`. All copy is
+fee). API route: `POST /api/admin/redemptions/[id]/release`. A hard-blocked
+(declined) redemption instead shows the **Declined by Guardian — appeal** panel:
+**Approve &amp; complete** (→ `admin_appeal_hard_block(id, true)`, completes it
+and charges the KES 30 fee) or **Uphold block** (→ `admin_appeal_hard_block(id,
+false)`). API route: `POST /api/admin/redemptions/[id]/appeal`. The held /
+appeal / reverse-fee amber actions are mutually exclusive by status
+(`flagged` / `failed` / `success`), so at most one is ever visible. All copy is
 non-accusatory and in-ink; recommendation chips are greyscale-readable and
 amber-free (red confined to the held chip's border and the blocked chip's fill).
 

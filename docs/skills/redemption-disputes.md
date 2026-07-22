@@ -57,7 +57,7 @@ status/money finalise, and maps one recommendation to behaviour:
 | `clear` | `success` | applied as today | nothing tripped |
 | `flag` | `success` | **applied unchanged** | verify-anyway preserved; suspicious event + dispute logged, `disputed=true` |
 | `soft_block` | `flagged` (held) | **none** | held for admin; release with `admin_release_redemption(id, true/false)` |
-| `hard_block` | `failed` (declined) | **none** | non-accusatory in-ink error; terminal in v1 |
+| `hard_block` | `failed` (declined) | **none** | non-accusatory in-ink error; appealable by admin (`admin_appeal_hard_block`) |
 
 Key money invariant: the KES 30 fee and the 3-state `feeChargeStatus` only move
 on the success path (clear/flag) — **byte-for-byte the old logic**. Held/blocked
@@ -72,10 +72,16 @@ routing for warn+ hits. `admin_redemption_detail(id)` returns the redemption wit
 its `guardian_events` and overall recommendation — the entry point for future
 Guardian admin UI.
 
-Admin override SOP for a **held** redemption: read `admin_redemption_detail`,
-then `admin_release_redemption(id, true)` to complete it (applies the fee through
-the normal money path) or `(id, false)` to fail it (no fee). Hard-blocks have no
-release path in v1.
+Admin override SOP for a **held** (soft-blocked) redemption: read
+`admin_redemption_detail`, then `admin_release_redemption(id, true)` to complete
+it (applies the fee through the normal money path) or `(id, false)` to fail it
+(no fee).
+
+Admin SOP for a **declined** (hard-blocked) redemption — a false positive can be
+overturned after the fact: `admin_appeal_hard_block(id, true)` completes it
+(`failed→success` + the KES 30 fee) or `(id, false)` upholds the block. Only a
+`failed` redemption flagged `guardian_hard_block` and not already appeal-rejected
+is appealable, and it's a one-time decision (see design note §3).
 
 **Admin UI (2026-07-22):** `/admin/redemptions` leads with a **Held for review**
 queue; each redemption links to `/admin/redemptions/[id]`, which renders the
@@ -105,6 +111,9 @@ unresolved dispute hold already covers the money. Idempotency by
   (+ fixes `20260702093134`, `20260702093258`), fee hardening `20260702094145`.
 - Route: `maanta-app/src/app/api/redemptions/verify/route.ts` (also `POST /api/redemptions` for claims).
 - Trust metric: migrations `20260703235350`, `20260704000722`.
+- Guardian hard-block appeals: migration `20260722160000_guardian_hard_block_appeal.sql`
+  (`admin_appeal_hard_block`); route `POST /api/admin/redemptions/[id]/appeal`;
+  UI `appeal-actions.tsx`; test `supabase/tests/guardian_hard_block_appeal_test.sql`.
 - Guardian v1: migration `20260721140000_guardian_v1.sql` (`guardian_events`,
   `guardian_evaluate`, verify-time wiring, `admin_release_redemption`,
   `admin_redemption_detail`); tests `supabase/tests/guardian_v1_test.sql`;

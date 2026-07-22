@@ -19,6 +19,7 @@ import {
 } from "@/lib/ui";
 import { ReleaseActions } from "./release-actions";
 import { ReverseFeeAction } from "./reverse-fee-action";
+import { AppealActions } from "./appeal-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -183,6 +184,13 @@ export default async function AdminRedemptionDetailPage({
   const checks = (guardian?.guardian_events ?? []).filter((e) => e.check_type !== "overall");
   // Held = soft-blocked by Guardian: no fee has moved and an admin decides.
   const held = r.status === "flagged";
+  // Appealable = Guardian hard-blocked (declined, no fee) and not yet upheld.
+  // Mutually exclusive with held/success by status, so it never coincides with
+  // the Release or reverse-fee amber action.
+  const canAppeal =
+    r.status === "failed" &&
+    flags.includes("guardian_hard_block") &&
+    !flags.includes("guardian_appeal_rejected");
 
   const approver = reversal
     ? ((reversal.users as unknown as { full_name: string | null } | null)?.full_name ?? null)
@@ -219,6 +227,21 @@ export default async function AdminRedemptionDetailPage({
           </p>
           <div className="mt-3">
             <ReleaseActions redemptionId={r.id} />
+          </div>
+        </div>
+      ) : canAppeal ? (
+        // Guardian hard-blocked (declined) this redemption with no fee moved.
+        // The appeal path lets an admin overturn a false positive after the fact.
+        <div className="mt-4 rounded-card border border-flame bg-white p-4">
+          <p className="text-sm font-bold text-ink">Declined by Guardian — appeal</p>
+          <p className="mt-1 text-sm text-secondary">
+            Guardian declined this redemption at the counter and no fee moved. If this was a
+            false positive, approve to complete it and charge the KES{" "}
+            {r.success_fee_charged != null ? Math.round(Number(r.success_fee_charged)) : 30}{" "}
+            success fee; otherwise uphold the block to leave it declined.
+          </p>
+          <div className="mt-3">
+            <AppealActions redemptionId={r.id} />
           </div>
         </div>
       ) : r.review_required ? (
