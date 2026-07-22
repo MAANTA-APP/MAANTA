@@ -228,3 +228,28 @@ New minor follow-up **gaps** (not drift — added to §4 tickets):
 
 **Rerun verdict:** repo remains correct; the remaining drift was all stale Notion
 *secondary* pages, now reconciled with the same current-vs-superseded pattern.*
+
+### Extended workspace sweep (2026-07-21, same session)
+
+After the secondary pages, the sweep was taken workspace-wide to catch the same
+auth/payments/pricing/architecture drift anywhere it remained:
+
+| Page | Fix applied |
+|---|---|
+| **Build OS** (landing "Current status") | Stack line `Twilio Verify` → **Clerk**; auth/payments line names Clerk + Stripe-primary + notes core loop = RPCs and Guardian proposed; migration count `47` → **50** (actual repo count) |
+| **CLAUDE.md** (Notion mirror) | Tech stack → Clerk + Stripe Phase 1; Elite price review `Oct 2026` → **Feb 2027** |
+| **Open Questions** | Q5 price review → Feb 2027; resolved "SMS/OTP: Twilio Verify" line marked superseded by Clerk |
+| **WALKTHROUGH.md** | Current-state note: use Node 0 Rehearsal Checklist for live runs; Clerk email-OTP; verify is the `verify_redemption` RPC not an Edge Function |
+| **Node 0 Rehearsal Checklist** | Checked — already fully current (Clerk email-OTP, Stripe sandbox top-up, Node 0 credit, YOU PAY); no change |
+| **12-Week Build Schedule** banner | Migration figure corrected `54` → **50** |
+
+Migration count: `ls maanta-app/supabase/migrations/*.sql` = **50** (any "54" in earlier
+notes was an estimate; corrected in Notion).
+
+**Not swept** (out of this audit's technical scope): commercial/ops/brand docs — Brand
+Guidelines, Legal & Finance Index, 12-Week Operational Plan, Post-Launch Operating
+Plan, Session Framework, Waitlist & Email Platform.
+
+**Workspace sync verdict:** every Notion page carrying auth/payments/pricing/
+architecture drift is now reconciled with the repo, current-vs-superseded framing,
+history preserved, lineage in the Decisions Log.*
