@@ -188,3 +188,10 @@ Phase 1 2026-07-21" / "corrected 2026-07-21") — history preserved, never delet
 Guardian relabelled proposed on Architecture + User Flows. YOU PAY + Node 0 credit +
 Feb-2027 price review added to Revenue; price-review + billing cells fixed on Frozen
 Scope. Sync complete: repo and Notion now agree, with lineage in the Decisions Log.*
+
+**Resync verification (2026-07-21):** re-fetched all 5 pages + the Decisions Log —
+each carries exactly one "Current state" section and all superseded markers (no
+double-insert from the connector reconnects), and the 7 log entries are present once
+each. One residual inline inconsistency fixed: Architecture redemption-flow step 3
+now marks the Guardian velocity/geofence/collusion checks "proposed", matching the
+page's relabel. Repo↔Notion confirmed consistent.*
