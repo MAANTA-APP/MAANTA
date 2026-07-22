@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
 
 const GEOFENCE_WARN_METERS = 150;
-const OTP_RATE_LIMIT = 30;
-const OTP_RATE_WINDOW_SECONDS = 60;
 
 /**
  * Pre-verification check for a code (wireframe 9t): before charging the
@@ -25,9 +23,9 @@ export async function POST(request: Request) {
   }
 
   const allowed = await checkRateLimit(
-    `otp-preflight:${merchant.id}`,
-    OTP_RATE_LIMIT,
-    OTP_RATE_WINDOW_SECONDS
+    `otp-check:${merchant.id}`,
+    OTP_CHECK_RATE_LIMIT,
+    OTP_CHECK_RATE_WINDOW_SECONDS
   );
   if (!allowed) {
     return NextResponse.json(

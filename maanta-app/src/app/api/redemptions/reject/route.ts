@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
-import { checkRateLimit } from "@/lib/rate-limit";
-
-const OTP_RATE_LIMIT = 30;
-const OTP_RATE_WINDOW_SECONDS = 60;
+import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
 
 /**
  * Reject a pending code (wireframe 9t "Reject code"). Marks the pending
@@ -23,9 +20,9 @@ export async function POST(request: Request) {
   }
 
   const allowed = await checkRateLimit(
-    `otp-reject:${merchant.id}`,
-    OTP_RATE_LIMIT,
-    OTP_RATE_WINDOW_SECONDS
+    `otp-check:${merchant.id}`,
+    OTP_CHECK_RATE_LIMIT,
+    OTP_CHECK_RATE_WINDOW_SECONDS
   );
   if (!allowed) {
     return NextResponse.json(

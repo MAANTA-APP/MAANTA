@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import { ensureAppUser } from "@/lib/auth";
+import { requireMerchant } from "@/lib/merchant-api";
 import { getStripeClient } from "@/lib/stripe";
 import {
   SUPPORTED_CURRENCIES,
@@ -9,14 +8,16 @@ import {
   MIN_TOPUP_AMOUNT,
   MAX_TOPUP_AMOUNT,
 } from "@/lib/currency";
-
-const MERCHANT_ROLES = ["merchant_admin", "merchant_staff"];
+import {
+  checkRateLimit,
+  TOPUP_STRIPE_RATE_LIMIT,
+  TOPUP_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
-  if (!appUser) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  }
+  const auth = await requireMerchant("can_topup");
+  if ("error" in auth) return auth.error;
+  const { merchant } = auth.ctx;
 
   const { amount, currency = "KES" } = await request.json();
   if (!isValidTopupAmount(amount)) {
@@ -34,22 +35,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!MERCHANT_ROLES.includes(appUser.role)) {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-
-  const service = createServiceClient();
-
-  const { data: merchant } = await service
-    .from("merchants")
-    .select("id, merchant_name")
-    .eq("user_id", appUser.id)
-    .maybeSingle();
-
-  if (!merchant) {
+  const allowed = await checkRateLimit(
+    `topup-stripe:${merchant.id}`,
+    TOPUP_STRIPE_RATE_LIMIT,
+    TOPUP_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
     return NextResponse.json(
-      { error: "No merchant account found." },
-      { status: 404 }
+      { error: "Too many checkout attempts — wait a moment and try again." },
+      { status: 429 }
     );
   }
 

@@ -25,7 +25,26 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 |---|---|
 | `check_rate_limit` still callable by `authenticated` | Supabase default privileges auto-grant `EXECUTE` on new public functions to `anon`/`authenticated`/`service_role`. `20260720120000` revoked only from `PUBLIC` + `anon`, so the `authenticated` grant survived — a signed-in browser client could tamper with the rate-limit table via `/rest/v1/rpc/check_rate_limit`. Follow-up migration adds `REVOKE ALL ... FROM authenticated`. Found during remote parity validation (see below). |
 
-### Application
+### Database follow-up (`20260722180000_lock_down_internal_money_rpcs.sql`)
+
+| Issue | Fix |
+|---|---|
+| `deduct_success_fee_or_record_arrears` callable by `authenticated` | Revoke EXECUTE from `authenticated`; staff could debit KES 30/call without a redemption |
+| `increment_deal_claims` callable by merchant owner | Revoke EXECUTE from `authenticated`; owner could inflate `claims_count` with no audit trail |
+
+### Application (2026-07-22 re-audit fixes)
+
+| Issue | Fix |
+|---|---|
+| Rate-limit fail-open on RPC error | `checkRateLimit` returns `false` when the RPC fails |
+| No limits on claim / topup / onboard | Rate limits on `/api/redemptions`, `/api/topup`, `/api/topup/stripe`, `/api/merchants/onboard` |
+| Preflight higher limit than verify | Shared `otp-check:{merchantId}` bucket (20/min) for preflight, verify, reject |
+| Repost drops YOU PAY fields | `deals/repost` restores `price_kes`, `compare_at_kes`, `charges` from snapshot |
+| Staff `can_topup` 404 | Topup routes use `requireMerchant("can_topup")` |
+| M-Pesa phone spam | `isValidKenyanPhone()` before STK push |
+| W3W unverified without API key | Fail closed outside `NODE_ENV=development` |
+| IntaSend webhook amount / challenge leak | Reject non-positive/out-of-range amounts; redact `challenge` in failure logs |
+| Suspended merchants editing deals | `requireMerchant` blocks `suspended` / `rejected` / `churned` (wallet read exempt) |
 
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
 - `src/lib/geo.ts` — `parseGpsCoords()` (finite lat/lng bounds)

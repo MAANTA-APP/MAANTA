@@ -25,8 +25,14 @@ export async function GET(request: Request) {
 
   const apiKey = process.env.W3W_API_KEY;
   if (!apiKey) {
-    // No key configured (e.g. local dev): accept the format-valid address.
-    return NextResponse.json({ valid: true, words, nearestPlace: null, unverified: true });
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json({ valid: true, words, nearestPlace: null, unverified: true });
+    }
+    console.error("W3W_API_KEY is not configured");
+    return NextResponse.json(
+      { valid: false, error: "Address validation is temporarily unavailable." },
+      { status: 503 }
+    );
   }
 
   try {

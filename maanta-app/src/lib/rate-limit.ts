@@ -1,5 +1,19 @@
 import { createServiceClient } from "@/lib/supabase/service";
 
+/** Shared bucket for OTP preflight + verify (free oracle + paid action). */
+export const OTP_CHECK_RATE_LIMIT = 20;
+export const OTP_CHECK_RATE_WINDOW_SECONDS = 60;
+
+export const CLAIM_RATE_LIMIT = 10;
+export const CLAIM_RATE_WINDOW_SECONDS = 60;
+
+export const TOPUP_MPESA_RATE_LIMIT = 3;
+export const TOPUP_STRIPE_RATE_LIMIT = 5;
+export const TOPUP_RATE_WINDOW_SECONDS = 60;
+
+export const ONBOARD_RATE_LIMIT = 3;
+export const ONBOARD_RATE_WINDOW_SECONDS = 3600;
+
 /** Sliding-window rate limit via check_rate_limit (service_role RPC). */
 export async function checkRateLimit(
   bucketKey: string,
@@ -14,7 +28,7 @@ export async function checkRateLimit(
   });
   if (error) {
     console.error("check_rate_limit failed:", error);
-    return true;
+    return false;
   }
   return data === true;
 }
