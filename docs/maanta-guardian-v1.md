@@ -51,9 +51,25 @@ All windows are relative to `p_now`. Velocity/collusion counts consider prior
 | `geofence` | `distance_from_shop` (metres) recorded at claim time; `NULL` ⇒ skip | > 250 m | > 2000 m → **hard** |
 | `collusion` | same `deal_id`+`merchant_id` in a 30-min window: `T` = total successful, `D` = distinct users | `T ≥ 5 AND D ≤ 2` | `T ≥ 8 AND D ≤ 2` → **soft** |
 
-Thresholds are deliberately conservative and live as named constants in
-`guardian_evaluate` (mirrored in this table). They can be promoted to
-`app_config` later without changing callers. Two properties are load-bearing:
+Thresholds are deliberately conservative and are **tunable live** via the
+`app_config` row `guardian_thresholds` (a single JSON blob, keyed by check),
+read by `guardian_evaluate` at entry — ops can retune without a redeploy
+(2026-07-22). Every value has a hardcoded fallback in `guardian_evaluate` equal
+to the shipped default in the table above; a missing key, a missing row, or a
+malformed row falls back to those defaults, so a bad config can never fail
+Guardian **open** (it never silently clears everything). The JSON shape:
+
+```json
+{
+  "velocity_shopper":  {"window_minutes": 10, "warn": 5, "hard": 8},
+  "velocity_merchant": {"window_minutes": 5,  "warn": 20},
+  "velocity_deal":     {"window_minutes": 60, "warn": 5, "soft": 6},
+  "geofence":          {"warn_m": 250, "hard_m": 2000},
+  "collusion":         {"window_minutes": 30, "warn_total": 5, "soft_total": 8, "max_distinct": 2}
+}
+```
+
+Two properties are load-bearing:
 the block bands sit above plausible legitimate repeat activity (a shopper who
 redeems a genuinely multi-claim deal a handful of times is warned, not blocked),
 and `velocity_deal`'s soft band (6) stays **below** `velocity_shopper`'s hard
