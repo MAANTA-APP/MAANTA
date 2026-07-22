@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
 import { ModerationActions } from "./moderation-actions";
@@ -18,6 +19,8 @@ export default async function AdminDealsPage({
 }: {
   searchParams: { q?: string; reason?: string };
 }) {
+  await requireAdminPage();
+
   const q = (searchParams.q ?? "").trim();
   const reason = (REASONS as readonly string[]).includes(searchParams.reason ?? "")
     ? searchParams.reason!

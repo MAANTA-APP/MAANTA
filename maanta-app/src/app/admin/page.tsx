@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { ButtonLink } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/inputs";
 import { relativeAge } from "@/lib/ui";
@@ -12,6 +13,8 @@ export default async function AdminApprovalsPage({
 }: {
   searchParams: { q?: string };
 }) {
+  await requireAdminPage();
+
   const q = (searchParams.q ?? "").trim();
   const service = createServiceClient();
   let query = service

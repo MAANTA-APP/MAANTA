@@ -19,10 +19,12 @@ export function NewDealWizard({
   tier,
   fee,
   canDeals,
+  balance,
 }: {
   tier: "standard" | "elite";
   fee: number;
   canDeals: boolean;
+  balance: number;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("type");
@@ -39,8 +41,13 @@ export function NewDealWizard({
   const [drafts, setDrafts] = useState<ChargeDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsTopUp, setNeedsTopUp] = useState(false);
 
   const isElite = tier === "elite";
+  // Zero-balance gate (frozen rule): merchants with no balance can't create
+  // deals. The gate is enforced server-side; here we surface the fix — a
+  // top-up CTA — proactively and on the 402, never an override.
+  const zeroBalance = balance <= 0;
 
   // Price policy (brief §4/§10): YOU PAY = price + disclosed extras, computed in
   // exactly one place (lib/pricing) so the merchant preview here and the
@@ -108,6 +115,7 @@ export function NewDealWizard({
       const body = await res.json();
       if (!res.ok) {
         setError(body.error ?? "Could not publish.");
+        setNeedsTopUp(res.status === 402);
         setBusy(false);
         return;
       }
@@ -532,7 +540,27 @@ export function NewDealWizard({
           <p className="mt-3 text-xs text-muted">
             You pay a {formatKes(fee)} success fee per verified redemption. Nothing else.
           </p>
-          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+          {zeroBalance ? (
+            <div className="mt-3 rounded-card border border-line bg-white p-3.5">
+              <p className="text-sm font-medium text-ink">
+                Your wallet balance is {formatKes(balance)}. Top up before publishing —
+                a deal needs a funded wallet.
+              </p>
+              <ButtonLink href="/merchant/topup" variant="secondary" full className="mt-3">
+                Top up wallet
+              </ButtonLink>
+            </div>
+          ) : null}
+          {error ? (
+            <div className="mt-3 rounded-card border border-line bg-white p-3.5">
+              <p className="text-sm font-medium text-ink">{error}</p>
+              {needsTopUp ? (
+                <ButtonLink href="/merchant/topup" variant="secondary" full className="mt-3">
+                  Top up wallet to publish
+                </ButtonLink>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-auto space-y-3 pt-8">
             <Button full onClick={publish} loading={busy}>
               {previewPay != null

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { KpiCard } from "@/components/ui/cards";
 import { cn, formatKes } from "@/lib/ui";
 
@@ -17,6 +18,8 @@ export default async function AdminReportsPage({
 }: {
   searchParams: { range?: string };
 }) {
+  await requireAdminPage();
+
   const range = RANGES.find((r) => r.value === searchParams.range) ?? RANGES[1];
   const since = new Date(Date.now() - range.days * 24 * 3600_000).toISOString();
 

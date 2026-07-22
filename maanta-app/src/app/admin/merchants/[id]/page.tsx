@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
@@ -13,6 +14,8 @@ export default async function AdminMerchantDetailPage({
 }: {
   params: { id: string };
 }) {
+  await requireAdminPage();
+
   const service = createServiceClient();
   const { data: m } = await service
     .from("merchants")

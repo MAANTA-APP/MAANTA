@@ -1,17 +1,26 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { StatusChip, PlanChip } from "@/components/ui/chips";
 import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
 
-/** Merchants directory (sidebar item). */
+/**
+ * Merchants directory (sidebar item).
+ *
+ * TODO(admin-users): admin has no shopper/customer (public.users) list or
+ * detail — only merchants are listable. Add a users surface + detail. Tracked
+ * feature ticket — see docs/skills/ui-walkthrough-roles.md (A2).
+ */
 export default async function AdminMerchantsPage({
   searchParams,
 }: {
   searchParams: { q?: string };
 }) {
+  await requireAdminPage();
+
   const q = (searchParams.q ?? "").trim();
   const service = createServiceClient();
   let query = service

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminPage } from "@/lib/admin";
 import { FraudChip } from "@/components/ui/chips";
 import { RedemptionRow } from "@/components/ui/cards";
 import { cn, formatCode } from "@/lib/ui";
@@ -9,12 +10,21 @@ export const dynamic = "force-dynamic";
 
 const REASONS = ["all", "geofence", "velocity", "collusion"] as const;
 
-/** 11d Redemption monitoring / fraud audit. */
+/**
+ * 11d Redemption monitoring / fraud audit.
+ *
+ * TODO(admin-redemption-detail): the "All redemptions" section is read-only and
+ * there is no /admin/redemptions/[id] detail — release/reject happen only at the
+ * fraud-event grain. Add a per-redemption detail route with actions. Tracked
+ * feature ticket — see docs/skills/ui-walkthrough-roles.md (A3).
+ */
 export default async function AdminRedemptionsPage({
   searchParams,
 }: {
   searchParams: { reason?: string };
 }) {
+  await requireAdminPage();
+
   const reason = (REASONS as readonly string[]).includes(searchParams.reason ?? "")
     ? (searchParams.reason as (typeof REASONS)[number])
     : "all";
