@@ -7,6 +7,7 @@ import { BottomSheet } from "@/components/ui/overlays";
 import { TextField, inputClass } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
+import posthog from "posthog-js";
 
 /**
  * Deal management actions: Boost (10e sheet) / Move boost (10f) /
@@ -153,7 +154,9 @@ export function DealActions({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ dealId }),
               })
-            )
+            ).then((ok) => {
+              if (ok) posthog.capture("deal_boost_purchased", { deal_id: dealId, boost_fee: boostFee });
+            })
           }
         >
           Confirm boost — {formatKes(boostFee)}
@@ -258,7 +261,10 @@ export function DealActions({
           loading={busy}
           onClick={() =>
             patch({ action: "archive" }).then((ok) => {
-              if (ok) router.push("/merchant/deals/archived");
+              if (ok) {
+                posthog.capture("deal_archived", { deal_id: dealId });
+                router.push("/merchant/deals/archived");
+              }
             })
           }
         >

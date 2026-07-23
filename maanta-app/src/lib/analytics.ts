@@ -82,3 +82,113 @@ export function captureGuardianOutcome(args: {
     node: "BBS Mall",
   });
 }
+
+/** Shopper successfully starts a deal claim (pre-OTP). */
+export function captureDealClaimed(args: {
+  clerkUserId: string;
+  redemptionId: string;
+  dealId: string;
+  merchantId: string;
+  hadGps: boolean;
+  hasFraudFlags: boolean;
+}): Promise<void> {
+  return captureServerEvent("deal_claimed", args.clerkUserId, {
+    redemption_id: args.redemptionId,
+    deal_id: args.dealId,
+    merchant_id: args.merchantId,
+    had_gps: args.hadGps,
+    has_fraud_flags: args.hasFraudFlags,
+    node: "BBS Mall",
+  });
+}
+
+/** Merchant successfully publishes a new deal. */
+export function captureDealPublished(args: {
+  clerkUserId: string;
+  dealId: string;
+  merchantId: string;
+  dealType: string;
+  priceKes: number;
+  hasMaxClaims: boolean;
+}): Promise<void> {
+  return captureServerEvent("deal_published", args.clerkUserId, {
+    deal_id: args.dealId,
+    merchant_id: args.merchantId,
+    deal_type: args.dealType,
+    price_kes: args.priceKes,
+    has_max_claims: args.hasMaxClaims,
+    node: "BBS Mall",
+  });
+}
+
+/** New merchant completes onboarding. */
+export function captureMerchantOnboarded(args: {
+  clerkUserId: string;
+  merchantId: string;
+}): Promise<void> {
+  return captureServerEvent("merchant_onboarded", args.clerkUserId, {
+    merchant_id: args.merchantId,
+    node: "BBS Mall",
+  });
+}
+
+/** Merchant initiates an M-Pesa STK push top-up. */
+export function captureTopupInitiated(args: {
+  clerkUserId: string;
+  merchantId: string;
+  amountKes: number;
+}): Promise<void> {
+  return captureServerEvent("topup_initiated", args.clerkUserId, {
+    merchant_id: args.merchantId,
+    amount_kes: args.amountKes,
+    node: "BBS Mall",
+  });
+}
+
+/** M-Pesa wallet top-up confirmed via IntaSend webhook. */
+export function captureTopupCompletedMpesa(args: {
+  merchantId: string;
+  amountKes: number;
+}): Promise<void> {
+  return captureServerEvent("topup_completed_mpesa", args.merchantId, {
+    merchant_id: args.merchantId,
+    amount_kes: args.amountKes,
+    payment_provider: "intasend",
+    node: "BBS Mall",
+  });
+}
+
+/** Stripe card top-up confirmed via Stripe webhook. */
+export function captureTopupCompletedStripe(args: {
+  merchantId: string;
+  amountKes: number;
+  currency: string;
+  chargedAmount: number;
+}): Promise<void> {
+  return captureServerEvent("topup_completed_stripe", args.merchantId, {
+    merchant_id: args.merchantId,
+    amount_kes: args.amountKes,
+    original_currency: args.currency,
+    original_amount: args.chargedAmount,
+    payment_provider: "stripe",
+    node: "BBS Mall",
+  });
+}
+
+/** Shopper views a deal detail page (top of the claim funnel). */
+export function captureDealViewed(args: {
+  clerkUserId: string | null;
+  dealId: string;
+  merchantId: string;
+  dealType: string;
+  priceKes: number | null;
+}): Promise<void> {
+  const distinctId = args.clerkUserId ?? "anonymous";
+  return captureServerEvent("deal_viewed", distinctId, {
+    deal_id: args.dealId,
+    merchant_id: args.merchantId,
+    deal_type: args.dealType,
+    price_kes: args.priceKes,
+    node: "BBS Mall",
+  });
+}

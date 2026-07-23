@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireMerchant } from "@/lib/merchant-api";
+import { currentClerkUserId } from "@/lib/auth";
 import { initiateMpesaStkPush } from "@/lib/intasend";
 import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
 import { isValidKenyanPhone } from "@/lib/phone";
+import { captureTopupInitiated } from "@/lib/analytics";
 import {
   checkRateLimit,
   TOPUP_MPESA_RATE_LIMIT,
@@ -58,6 +60,15 @@ export async function POST(request: Request) {
       { error: "Could not start M-Pesa payment. Please try again." },
       { status: 502 }
     );
+  }
+
+  const clerkUserId = await currentClerkUserId();
+  if (clerkUserId) {
+    void captureTopupInitiated({
+      clerkUserId,
+      merchantId: merchant.id,
+      amountKes: amount,
+    });
   }
 
   return NextResponse.json({ invoiceId: result.invoiceId, state: result.state });

@@ -4,6 +4,7 @@ import { verifyWebhookChallenge } from "@/lib/intasend";
 import { notifyMerchant } from "@/lib/notify-merchant";
 import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
 import { MAX_TOPUP_AMOUNT } from "@/lib/currency";
+import { captureTopupCompletedMpesa } from "@/lib/analytics";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
   if (!applied) {
     return NextResponse.json({ received: true });
   }
+
+  void captureTopupCompletedMpesa({ merchantId, amountKes: amount });
 
   await notifyMerchant(service, merchantId, {
     title: "Top-up received",
