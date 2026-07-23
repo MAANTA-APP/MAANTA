@@ -20,3 +20,13 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE
   public.deals,
   public.redemptions
 FROM authenticated;
+
+-- Explicit read grant: migration-created tables do not always inherit Supabase's
+-- dashboard default privileges in from-scratch CI (`supabase start`). The app
+-- reads via service_role today, but authenticated SELECT keeps RLS-governed
+-- PostgREST reads possible without reopening write paths.
+GRANT SELECT ON TABLE
+  public.merchants,
+  public.deals,
+  public.redemptions
+TO authenticated;

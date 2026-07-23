@@ -61,6 +61,15 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 mutations go through `service_role` API routes or SECURITY DEFINER RPCs
 (`claim_deal`, `verify_redemption`, `onboard_merchant`, boost RPCs).
 
+## Ops checklist — migrations to apply (2026-07-23)
+
+Apply to `vcrfqsevompqjazbwzyh` before deploy (if not already applied):
+
+1. `20260722180000_lock_down_internal_money_rpcs.sql`
+2. `20260722190000_capture_lead_atomic.sql`
+3. `20260722200000_fix_capture_lead_column_ambiguity.sql`
+4. `20260723120000_revoke_authenticated_writes_core_tables.sql` — C-1/C-2/C-3
+
 ## PR #48 pre-merge checklist (2026-07-22)
 
 Migrations to apply to `vcrfqsevompqjazbwzyh` before deploy:
