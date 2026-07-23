@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /**
  * Guardian v1 hard-block appeal (docs/maanta-guardian-v1.md §3). A hard-blocked
@@ -52,6 +53,17 @@ export async function POST(
     console.error("admin_appeal_hard_block RPC failed:", error);
     return NextResponse.json({ error: "Could not action this appeal." }, { status: 500 });
   }
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: approve ? "redemption.appeal_approve" : "redemption.appeal_reject",
+    targetType: "redemption",
+    targetId: params.id,
+    details: {
+      redemptionStatus: data.redemption_status,
+      feeChargeStatus: data.fee_charge_status,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

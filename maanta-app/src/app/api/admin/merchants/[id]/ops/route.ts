@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /** 11b ops actions: reject / suspend / reinstate / feature / shadow-ban. */
 export async function POST(
@@ -40,5 +41,14 @@ export async function POST(
   if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "Merchant not found." }, { status: 404 });
   }
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: `merchant.${action}`,
+    targetType: "merchant",
+    targetId: params.id,
+    details: update,
+  });
+
   return NextResponse.json({ ok: true });
 }
