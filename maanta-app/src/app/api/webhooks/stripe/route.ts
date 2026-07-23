@@ -5,6 +5,7 @@ import { getStripeClient } from "@/lib/stripe";
 import { notifyMerchant } from "@/lib/notify-merchant";
 import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
 import { isSupportedCurrency, toKes, type SupportedCurrency } from "@/lib/currency";
+import { captureTopupCompletedStripe } from "@/lib/analytics";
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -111,6 +112,8 @@ async function handleCheckoutCompleted(
   });
 
   if (!applied) return;
+
+  void captureTopupCompletedStripe({ merchantId, amountKes: kesAmount, currency, chargedAmount });
 
   await notifyMerchant(service, merchantId, {
     title: "Top-up received",

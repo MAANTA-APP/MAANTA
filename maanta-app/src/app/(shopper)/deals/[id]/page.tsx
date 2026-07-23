@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing, chargeAmount } from "@/lib/pricing";
+import { currentClerkUserId } from "@/lib/auth";
+import { captureDealViewed } from "@/lib/analytics";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck, IconPin } from "@/components/ui/icons";
@@ -19,10 +21,19 @@ export default async function DealDetailPage({
   const deal = await getDeal(params.id);
   if (!deal || !deal.merchants) notFound();
 
-  const [verified, user] = await Promise.all([
+  const [verified, user, clerkUserId] = await Promise.all([
     getVerifiedCounts([deal.merchant_id]),
     getAppUser(),
+    currentClerkUserId(),
   ]);
+
+  void captureDealViewed({
+    clerkUserId,
+    dealId: deal.id,
+    merchantId: deal.merchant_id,
+    dealType: deal.deal_type ?? "standard",
+    priceKes: deal.price_kes ?? null,
+  });
   const verifiedCount = verified.get(deal.merchant_id) ?? 0;
 
   const expired = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;

@@ -1,8 +1,73 @@
 # MAANTA waitlist data schema & backend spec
 
-Last updated: 2026-07-09 · Status: **specification — not yet built.**
+Last updated: 2026-07-10 · Status: **built — Resend is the platform** (see
+"Implemented" below; env config still required before go-live).
 One audience database, three role-based segments. Companion to
 `maanta-email-segmentation-plan.md`.
+
+## Implemented (2026-07-10)
+
+- **Platform: Resend.** Contacts live in one Resend audience
+  (`RESEND_AUDIENCE_ID`); `segment_type`, `phone`, `node_interest`,
+  `business_name`, `note`, `source_channel/medium/campaign`, `consent_at`,
+  and `consent_text` are stored as contact properties using the canonical
+  field names below. No Supabase table (per the 2026-07-10 decision).
+- **Page:** `/waitlist` in `maanta-app/src/app/(public)/waitlist/` — one
+  form with a hard segment selector (`shopper` | `merchant` | `mall_operator`);
+  other pages preset it via `/waitlist?segment=merchant`. UTM params are
+  captured from the URL at submit.
+- **API:** `POST /api/waitlist` — a **stateless proxy** (validation, +254
+  phone normalization, honeypot, then Resend contact create + confirmation
+  email). This amends the letter of the "no `/api/waitlist` route" decision
+  while keeping its substance: the route stores nothing; it exists because
+  the segmentation plan requires server-side keyed API access. Logged in
+  `maanta-decisions-log.md` (2026-07-10, Resend entry).
+- **Emails:** segment-specific confirmation copy in
+  `maanta-app/src/lib/waitlist-emails.ts` (merchant copy states the KES 30
+  success fee, per the segmentation-plan guardrail).
+- **Env (names only):** `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`,
+  `RESEND_FROM_EMAIL`.
+- **Deliberate MVP cuts vs. the field matrix:** `city` is not asked
+  (launch is BBS Mall only; `node_interest` defaults to "BBS Mall"),
+  business/mall name is one optional field, and `business_category` /
+  `floor_unit` / `mall_role` are deferred to the email sequences or a
+  follow-up form. Add them to the form only if campaign targeting needs
+  them before launch.
+- **Contact properties must be created in Resend once** (dashboard or
+  API) before they persist; the API route falls back to a core-fields-only
+  contact create if properties are rejected, so leads are never lost.
+
+### Resend account state + end-to-end test (2026-07-10)
+
+- Sending domain `mail.maanta.app` **verified** (eu-west-1); a dedicated
+  **"Waitlist" audience/segment** exists (its ID is the `RESEND_AUDIENCE_ID`
+  env value), and all 10 contact properties are created (`segment_type`,
+  `phone`, `node_interest`, `business_name`, `note`, `source_channel`,
+  `source_medium`, `source_campaign`, `consent_at`, `consent_text`).
+- **End-to-end verified 2026-07-10**: local `POST /api/waitlist` exercised
+  against a mock (merchant signup 200, duplicate → friendly success,
+  invalid email/consent/segment → 400, honeypot silently dropped, +254
+  normalization confirmed), and a real merchant signup executed against
+  live Resend — contact stored in the Waitlist audience with all
+  properties, confirmation email status **delivered**.
+- `RESEND_BASE_URL` env override (defaults to the live API) lets local
+  testing point at a mock — same pattern as `INTASEND_ENV`.
+- **Verify on first production signup**: the route uses Resend's
+  `/audiences/{id}/contacts` endpoint with the Waitlist segment ID; Resend
+  has since restructured audiences→segments, so confirm the first live
+  signup lands in the Waitlist segment (the fallback logging in
+  `src/lib/resend.ts` will show any mismatch; no lead is lost either way).
+
+### Consent wording (finalized 2026-07-10, first campaign scope)
+
+> I agree to receive MAANTA launch updates and relaunch marketing emails —
+> including merchant offers at BBS Mall and deal updates across Nairobi.
+> I can unsubscribe at any time.
+
+Set in `maanta-app/src/lib/waitlist.ts` (`WAITLIST_CONSENT_TEXT`), shown at
+the checkbox and stored verbatim on every contact. Scope matches the first
+campaign: BBS Mall merchants (relaunch marketing period) + users across
+Nairobi. Still align with `legal/privacy-policy.md` at lawyer review.
 
 > **DECIDED (founder, 2026-07-10): waitlist signups live in the email
 > platform** — no `waitlist_signups` table or `/api/waitlist` route in this
@@ -93,7 +158,8 @@ Notes:
 
 ## Archived: Option A API (in-repo — NOT chosen, kept for reference)
 
-`POST /api/waitlist` *(archived spec — never built; no such route exists in the repo)*
+`POST /api/waitlist` *(archived Supabase-backed spec — superseded by the built
+stateless Resend proxy route of the same path; see "Implemented" above)*
 
 - Validates: email format, phone format (Kenyan `+254` normalized),
   segment-specific required fields, honeypot field for bots, basic rate

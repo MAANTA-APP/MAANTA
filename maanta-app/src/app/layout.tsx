@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 // Frozen UI type system (maanta-design-brief §2): Inter for everything,
@@ -41,7 +42,7 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
         >
-          {children}
+          <PostHogClientProvider>{children}</PostHogClientProvider>
         </body>
       </html>
     </ClerkProvider>
