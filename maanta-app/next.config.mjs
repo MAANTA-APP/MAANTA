@@ -26,7 +26,10 @@ const nextConfig = {
 };
 
 // Sentry is a no-op until SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN are set.
-// Source-map upload needs SENTRY_AUTH_TOKEN and is skipped without it.
+// Source-map upload targets this org/project but is skipped unless
+// SENTRY_AUTH_TOKEN is set (so CI/dev builds stay clean and quiet).
 export default withSentryConfig(nextConfig, {
+  org: "maanta",
+  project: "javascript-nextjs",
   silent: true,
 });
