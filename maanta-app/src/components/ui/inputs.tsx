@@ -266,7 +266,10 @@ export function AmountField({
             onClick={() => onChange(c)}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-semibold",
-              value === c ? "bg-brand text-ink" : "bg-cream text-muted hover:bg-cream-dark"
+              // Selected preset is a state, not the screen's action — L5 reserves
+              // amber for the one action ("Send STK push"). Ink-selected matches
+              // SegmentedControl; amber here would be a second amber action.
+              value === c ? "bg-ink text-white" : "bg-cream text-muted hover:bg-cream-dark"
             )}
           >
             {c.toLocaleString("en-KE")}

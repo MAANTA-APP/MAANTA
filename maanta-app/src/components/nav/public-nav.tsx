@@ -30,12 +30,12 @@ export function PublicNav() {
                 Sign in
               </button>
             </SignInButton>
-            <ButtonLink href="/sign-up" size="sm">
+            <ButtonLink href="/sign-up" variant="ghost" size="sm">
               Get started
             </ButtonLink>
           </SignedOut>
           <SignedIn>
-            <ButtonLink href="/feed" size="sm">
+            <ButtonLink href="/feed" variant="ghost" size="sm">
               My feed
             </ButtonLink>
             <UserButton afterSignOutUrl="/" />
