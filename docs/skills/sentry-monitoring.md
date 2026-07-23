@@ -33,7 +33,7 @@ Copy from Sentry → Project Settings → Client Keys (DSN). Create an auth toke
 1. Set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` in `.env.local`.
 2. `cd maanta-app && npm run dev`
 3. Open `/sentry-example-page` and click **Throw Sample Error**.
-4. Confirm a new issue appears at https://maanta.sentry.io/issues/?project=javascript-nextjs
+4. Confirm a new issue appears at https://maanta.sentry.io/issues/?project=4511785065775184
 
 The example page exercises client error, server API error (`/api/sentry-example-api`), and a performance span.
 

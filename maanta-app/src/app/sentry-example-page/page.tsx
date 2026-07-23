@@ -10,7 +10,8 @@ class SentryExampleFrontendError extends Error {
   }
 }
 
-const ISSUES_URL = "https://maanta.sentry.io/issues/?project=javascript-nextjs";
+const ISSUES_URL =
+  "https://maanta.sentry.io/issues/?project=4511785065775184";
 
 /** Wizard-style verification page — visit /sentry-example-page and click the button. */
 export default function SentryExamplePage() {
