@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { currentClerkUserId } from "@/lib/auth";
+import {
+  checkRateLimit,
+  W3W_VALIDATE_RATE_LIMIT,
+  W3W_VALIDATE_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 const W3W_REGEX = /^\/{0,3}([a-z]+\.[a-z]+\.[a-z]+)$/i;
 
@@ -13,6 +18,18 @@ export async function GET(request: Request) {
   const userId = await currentClerkUserId();
   if (!userId) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(
+    `w3w-validate:${userId}`,
+    W3W_VALIDATE_RATE_LIMIT,
+    W3W_VALIDATE_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { valid: false, error: "Too many validation attempts — wait a moment and try again." },
+      { status: 429 }
+    );
   }
 
   const url = new URL(request.url);

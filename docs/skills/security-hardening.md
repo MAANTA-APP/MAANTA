@@ -61,6 +61,21 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 mutations go through `service_role` API routes or SECURITY DEFINER RPCs
 (`claim_deal`, `verify_redemption`, `onboard_merchant`, boost RPCs).
 
+### Database follow-up (`20260723130000_fix_browse_views_security_invoker.sql`)
+
+| Issue | Fix |
+|---|---|
+| H-1: anon browse views broken (`security_invoker = true`) | Set `security_invoker = false` on `merchants_public_browse` / `deals_public_browse` so anon can read projected columns without base-table grants |
+
+### Application (2026-07-23 re-audit follow-ups)
+
+| Issue | Fix |
+|---|---|
+| H-2: Stripe checkout falls back to localhost when `NEXT_PUBLIC_APP_URL` unset | `getAppOrigin()` fails closed outside development; Stripe top-up returns 503 |
+| H-3: IntaSend webhook unguarded `request.json()` | Try/catch + typed payload access |
+| M-1: waitlist endpoint has no rate limit | 5/hour per client IP via `checkRateLimit` |
+| M-2: W3W validate has no rate limit | 30/min per signed-in user via `checkRateLimit` |
+
 ## Ops checklist — migrations to apply (2026-07-23)
 
 Apply to `vcrfqsevompqjazbwzyh` before deploy (if not already applied):
@@ -69,6 +84,7 @@ Apply to `vcrfqsevompqjazbwzyh` before deploy (if not already applied):
 2. `20260722190000_capture_lead_atomic.sql`
 3. `20260722200000_fix_capture_lead_column_ambiguity.sql`
 4. `20260723120000_revoke_authenticated_writes_core_tables.sql` — C-1/C-2/C-3
+5. `20260723130000_fix_browse_views_security_invoker.sql` — H-1
 
 ## PR #48 pre-merge checklist (2026-07-22)
 
@@ -83,6 +99,7 @@ SQL suites to run after apply (CI runs all `supabase/tests/*.sql` automatically)
 - `security_hardening_test.sql` — scenarios A–H
 - `capture_lead_test.sql` — scenarios A–C
 - `revoke_authenticated_writes_core_tables_test.sql` — scenarios A–E (C-1/C-2/C-3)
+- `browse_views_test.sql` — scenarios A–B (H-1)
 
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
 - `src/lib/geo.ts` — `parseGpsCoords()` (finite lat/lng bounds)

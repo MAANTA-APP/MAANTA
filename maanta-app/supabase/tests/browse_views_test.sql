@@ -1,0 +1,63 @@
+-- ============================================================
+-- Test: anon browse views (20260723130000_fix_browse_views_security_invoker.sql)
+--
+-- Self-contained and self-cleaning. Run after full migration chain:
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/browse_views_test.sql
+-- ============================================================
+
+-- Scenario A: anon can read browse views (security_invoker = false).
+DO $$
+DECLARE
+  v_mid UUID;
+  v_did UUID;
+  v_merchant_count INT;
+  v_deal_count INT;
+  v_balance NUMERIC;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance
+  )
+    VALUES ('__test_browse_view', 'test.browse.view', '+254700000401', 'BBS Mall', 'active', TRUE, 999)
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test browse deal', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_did;
+
+  SET ROLE anon;
+  SELECT COUNT(*) INTO v_merchant_count FROM public.merchants_public_browse WHERE id = v_mid;
+  SELECT COUNT(*) INTO v_deal_count FROM public.deals_public_browse WHERE id = v_did;
+  BEGIN
+    SELECT account_balance INTO v_balance FROM public.merchants_public_browse WHERE id = v_mid;
+    RAISE EXCEPTION 'A: account_balance should not be exposed via browse view';
+  EXCEPTION
+    WHEN undefined_column THEN
+      NULL;
+  END;
+  RESET ROLE;
+
+  ASSERT v_merchant_count = 1, format('A: expected 1 merchant row, got %s', v_merchant_count);
+  ASSERT v_deal_count = 1, format('A: expected 1 deal row, got %s', v_deal_count);
+
+  DELETE FROM public.deals WHERE id = v_did;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario A passed: anon can read browse views without base-table grants';
+END $$;
+
+-- Scenario B: anon still cannot read wallet columns from the base merchants table.
+DO $$
+DECLARE
+  v_balance NUMERIC;
+BEGIN
+  SET ROLE anon;
+  BEGIN
+    SELECT account_balance INTO v_balance FROM public.merchants LIMIT 1;
+    RAISE EXCEPTION 'B: anon should not SELECT from merchants base table';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+  END;
+  RESET ROLE;
+  RAISE NOTICE 'Scenario B passed: anon cannot SELECT merchants base table';
+END $$;
+
+DO $$ BEGIN RAISE NOTICE 'ALL browse_views scenarios passed.'; END $$;

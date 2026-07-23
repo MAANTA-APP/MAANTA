@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { validateWaitlistSubmission } from "@/lib/waitlist";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 import { addWaitlistContact, sendWaitlistEmail } from "@/lib/resend";
+import {
+  checkRateLimit,
+  WAITLIST_RATE_LIMIT,
+  WAITLIST_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
+
+function waitlistClientKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+  return `waitlist:${ip}`;
+}
 
 /**
  * Public waitlist signup. Stateless proxy to Resend: the contact (with
@@ -25,6 +36,18 @@ export async function POST(request: Request) {
   const result = validateWaitlistSubmission(body);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  const allowed = await checkRateLimit(
+    waitlistClientKey(request),
+    WAITLIST_RATE_LIMIT,
+    WAITLIST_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many signup attempts — try again later." },
+      { status: 429 }
+    );
   }
 
   const contact = await addWaitlistContact(result.data);
