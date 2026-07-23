@@ -175,6 +175,20 @@ export function captureTopupCompletedStripe(args: {
   });
 }
 
+/** Person joins the pre-launch waitlist. */
+export function captureWaitlistSignup(args: {
+  segment: string;
+  alreadyJoined: boolean;
+  hasUtmSource: boolean;
+}): Promise<void> {
+  return captureServerEvent("waitlist_signup", "anonymous", {
+    segment: args.segment,
+    already_joined: args.alreadyJoined,
+    has_utm_source: args.hasUtmSource,
+    node: "BBS Mall",
+  });
+}
+
 /** Shopper views a deal detail page (top of the claim funnel). */
 export function captureDealViewed(args: {
   clerkUserId: string | null;

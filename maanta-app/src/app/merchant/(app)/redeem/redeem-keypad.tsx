@@ -11,6 +11,7 @@ import { WalletBalance } from "@/components/ui/wallet-balance";
 import { IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 /**
  * Merchant redeem — strict two-step resolve-then-charge (brief §8, L10):
@@ -147,6 +148,12 @@ export function RedeemKeypad({
         return;
       }
       if (typeof body.newBalance === "number") setBalance(body.newBalance);
+      posthog.capture("redemption_confirmed", {
+        fee_charge_status: body.feeChargeStatus,
+        fee_amount: typeof body.feeAmount === "number" ? body.feeAmount : fee,
+        disputed: body.disputed === true,
+        had_override: override !== undefined,
+      });
       setScreen({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,
