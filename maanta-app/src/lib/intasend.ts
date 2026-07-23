@@ -3,6 +3,28 @@ const INTASEND_BASE_URL =
     ? "https://payment.intasend.com/api/v1"
     : "https://sandbox.intasend.com/api/v1";
 
+// Mirrors the STRIPE_ENV guard in stripe.ts: IntaSend keys embed the
+// environment (ISPubKey_test_/ISPubKey_live_, ISSecretKey_test_/
+// ISSecretKey_live_), so refuse to run when the key and INTASEND_ENV
+// disagree rather than silently pointing a live key at the sandbox URL
+// (or a test key at production).
+function assertKeyMatchesEnv(publicKey: string, secretKey: string): void {
+  const wantLive = process.env.INTASEND_ENV === "live";
+  const hasLiveKey = publicKey.includes("_live_") || secretKey.includes("_live_");
+  const hasTestKey = publicKey.includes("_test_") || secretKey.includes("_test_");
+
+  if (!wantLive && hasLiveKey) {
+    throw new Error(
+      'INTASEND_ENV is not "live" but a live IntaSend key is configured. Refusing to run to avoid accidental real charges.'
+    );
+  }
+  if (wantLive && hasTestKey) {
+    throw new Error(
+      'INTASEND_ENV is "live" but a test IntaSend key is configured.'
+    );
+  }
+}
+
 export async function initiateMpesaStkPush(params: {
   amount: number;
   phoneNumber: string;
@@ -16,6 +38,7 @@ export async function initiateMpesaStkPush(params: {
     console.error("IntaSend keys are not set");
     return null;
   }
+  assertKeyMatchesEnv(publicKey, secretKey);
 
   try {
     const res = await fetch(`${INTASEND_BASE_URL}/payment/collection/`, {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMerchant } from "@/lib/merchant-api";
 import { getStripeClient } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/app-url";
 import {
   SUPPORTED_CURRENCIES,
   isSupportedCurrency,
@@ -47,7 +48,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppOrigin();
+  if (!appUrl) {
+    console.error("NEXT_PUBLIC_APP_URL is not configured");
+    return NextResponse.json(
+      { error: "Could not start Stripe checkout." },
+      { status: 503 }
+    );
+  }
 
   try {
     const stripe = getStripeClient();

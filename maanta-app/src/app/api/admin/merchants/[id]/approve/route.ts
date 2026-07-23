@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 export async function POST(
   request: Request,
@@ -32,6 +33,14 @@ export async function POST(
       { status: 500 }
     );
   }
+
+  await logAdminOp(service, {
+    adminUserId: appUser.id,
+    action: "merchant.approve",
+    targetType: "merchant",
+    targetId: params.id,
+    details: { grantEliteTrial },
+  });
 
   return NextResponse.json({ success: true });
 }

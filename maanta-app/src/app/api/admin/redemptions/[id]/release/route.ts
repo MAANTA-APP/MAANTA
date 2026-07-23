@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /**
  * Guardian v1 admin override path for a HELD (soft-blocked) redemption
@@ -50,6 +51,17 @@ export async function POST(
     console.error("admin_release_redemption RPC failed:", error);
     return NextResponse.json({ error: "Could not action this redemption." }, { status: 500 });
   }
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: approve ? "redemption.release_approve" : "redemption.release_reject",
+    targetType: "redemption",
+    targetId: params.id,
+    details: {
+      redemptionStatus: data.redemption_status,
+      feeChargeStatus: data.fee_charge_status,
+    },
+  });
 
   return NextResponse.json({
     ok: true,

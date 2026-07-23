@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
@@ -18,6 +20,16 @@ const nextConfig = {
   },
   // Required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
-export default nextConfig;
+// Sentry is a no-op until SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN are set.
+// Source-map upload targets this org/project but is skipped unless
+// SENTRY_AUTH_TOKEN is set (so CI/dev builds stay clean and quiet).
+export default withSentryConfig(nextConfig, {
+  org: "maanta",
+  project: "javascript-nextjs",
+  silent: true,
+});

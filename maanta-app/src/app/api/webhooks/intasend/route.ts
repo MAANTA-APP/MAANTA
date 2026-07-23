@@ -7,10 +7,20 @@ import { MAX_TOPUP_AMOUNT } from "@/lib/currency";
 import { captureTopupCompletedMpesa } from "@/lib/analytics";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
   const service = createServiceClient();
 
-  if (!verifyWebhookChallenge(body.challenge)) {
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !verifyWebhookChallenge((body as Record<string, unknown>).challenge)
+  ) {
     await logWebhookFailure(service, {
       paymentProvider: "intasend",
       errorMessage: "Invalid webhook challenge.",
@@ -19,12 +29,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid challenge." }, { status: 401 });
   }
 
-  if (body.state !== "COMPLETE") {
+  const payload = body as Record<string, unknown>;
+
+  if (payload.state !== "COMPLETE") {
     // Ignore PENDING/PROCESSING/FAILED — only credit on confirmed payment.
     return NextResponse.json({ received: true });
   }
 
-  const apiRef: string | undefined = body.api_ref;
+  const apiRef: string | undefined =
+    typeof payload.api_ref === "string" ? payload.api_ref : undefined;
   const match = apiRef?.match(/^topup:([0-9a-f-]+):/i);
   if (!match) {
     await logWebhookFailure(service, {
@@ -36,8 +49,13 @@ export async function POST(request: Request) {
   }
 
   const merchantId = match[1];
-  const amount = Number(body.value ?? body.amount ?? 0);
-  const invoiceId: string | null = body.invoice_id ?? body.id ?? null;
+  const amount = Number(payload.value ?? payload.amount ?? 0);
+  const invoiceId: string | null =
+    typeof payload.invoice_id === "string"
+      ? payload.invoice_id
+      : typeof payload.id === "string"
+        ? payload.id
+        : null;
 
   if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_TOPUP_AMOUNT) {
     await logWebhookFailure(service, {
