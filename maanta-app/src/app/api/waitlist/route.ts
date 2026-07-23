@@ -15,6 +15,35 @@ function waitlistClientKey(request: Request): string {
 }
 
 /**
+ * A submission is treated as a bot only if a honeypot field is filled.
+ * The field is visually hidden and marked to be ignored by password
+ * managers, so a real person's browser autofill must never trip it —
+ * a false positive would silently drop a genuine lead. `website` is the
+ * legacy field name, kept so any cached older page still works.
+ */
+function isHoneypotTripped(body: Record<string, unknown>): boolean {
+  return Boolean(body.hp_url) || Boolean(body.website);
+}
+
+/**
+ * GET /api/waitlist?healthz=1 — config presence check for launch
+ * debugging. Returns booleans only, never secret values, so we can
+ * confirm from outside that the running deployment has its Resend env
+ * vars without exposing them. Any other GET stays 405 (POST-only route).
+ */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("healthz") === "1") {
+    return NextResponse.json({
+      resendApiKey: Boolean(process.env.RESEND_API_KEY),
+      resendAudienceId: Boolean(process.env.RESEND_AUDIENCE_ID),
+      resendFromEmail: Boolean(process.env.RESEND_FROM_EMAIL),
+    });
+  }
+  return new NextResponse(null, { status: 405 });
+}
+
+/**
  * Public waitlist signup. Stateless proxy to Resend: the contact (with
  * segment_type and consent fields) is the record — nothing is stored in
  * Supabase, per the 2026-07-10 decision in docs/maanta-decisions-log.md.
@@ -27,9 +56,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  // Honeypot: the hidden "website" field is empty for humans. Pretend
-  // success for bots and store nothing.
-  if (typeof body === "object" && body !== null && (body as Record<string, unknown>).website) {
+  // Honeypot: pretend success for bots and store nothing.
+  if (typeof body === "object" && body !== null && isHoneypotTripped(body as Record<string, unknown>)) {
     return NextResponse.json({ ok: true });
   }
 
