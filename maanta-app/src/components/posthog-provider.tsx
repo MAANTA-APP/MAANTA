@@ -8,13 +8,22 @@ import { useUser } from "@clerk/nextjs";
 // Initialize posthog-js once on the client side. The typeof window guard
 // ensures this never runs during SSR.
 if (typeof window !== "undefined") {
-  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!, {
-    api_host: "/ingest",
-    ui_host: "https://eu.posthog.com",
-    defaults: "2026-01-30",
-    capture_exceptions: true,
-    debug: process.env.NODE_ENV === "development",
-  });
+  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!token) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error(
+        "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is configured"
+      );
+    }
+  } else {
+    posthog.init(token, {
+      api_host: "/ingest",
+      ui_host: "https://eu.posthog.com",
+      defaults: "2026-01-30",
+      capture_exceptions: true,
+      debug: process.env.NODE_ENV === "development",
+    });
+  }
 }
 
 // Syncs the Clerk-authenticated user into PostHog as a named person so that

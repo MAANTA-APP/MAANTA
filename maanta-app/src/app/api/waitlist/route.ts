@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateWaitlistSubmission } from "@/lib/waitlist";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 import { addWaitlistContact, sendWaitlistEmail } from "@/lib/resend";
+import { captureWaitlistSignup } from "@/lib/analytics";
 
 /**
  * Public waitlist signup. Stateless proxy to Resend: the contact (with
@@ -43,5 +44,12 @@ export async function POST(request: Request) {
     console.error("waitlist: confirmation email failed for", result.data.email);
   }
 
-  return NextResponse.json({ ok: true, alreadyJoined: contact === "already_exists" });
+  const alreadyJoined = contact === "already_exists";
+  void captureWaitlistSignup({
+    segment: result.data.segment,
+    alreadyJoined,
+    hasUtmSource: Boolean(result.data.utmSource),
+  });
+
+  return NextResponse.json({ ok: true, alreadyJoined });
 }
