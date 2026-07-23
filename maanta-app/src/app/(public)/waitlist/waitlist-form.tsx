@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import {
   CheckboxRow,
   PhoneField,
@@ -178,11 +179,7 @@ export function WaitlistForm({ initialSegment }: { initialSegment: WaitlistSegme
         onChange={setConsent}
       />
 
-      {error ? (
-        <p className="rounded-card bg-flame-tint px-4 py-3 text-sm font-medium text-flame">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 
       <Button type="submit" full loading={submitting}>
         Join the waitlist

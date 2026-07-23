@@ -158,7 +158,8 @@ Notes:
 
 ## Archived: Option A API (in-repo — NOT chosen, kept for reference)
 
-`POST /api/waitlist` *(archived spec — never built; no such route exists in the repo)*
+`POST /api/waitlist` *(archived Supabase-backed spec — superseded by the built
+stateless Resend proxy route of the same path; see "Implemented" above)*
 
 - Validates: email format, phone format (Kenyan `+254` normalized),
   segment-specific required fields, honeypot field for bots, basic rate
