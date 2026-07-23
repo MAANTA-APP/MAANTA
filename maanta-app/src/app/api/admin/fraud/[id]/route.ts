@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /**
  * 11d fraud audit resolution.
@@ -53,6 +54,17 @@ export async function POST(
         .eq("review_required", true);
     }
   }
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: `fraud.${action}`,
+    targetType: "fraud_event",
+    targetId: event.id,
+    details: {
+      merchantId: event.merchant_id,
+      userId: event.user_id,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

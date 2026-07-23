@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /** 11c "Remove deal" — deactivates it (archive trigger snapshots it). */
 export async function DELETE(
@@ -24,5 +25,13 @@ export async function DELETE(
   if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "Deal not found." }, { status: 404 });
   }
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: "deal.deactivate",
+    targetType: "deal",
+    targetId: params.id,
+  });
+
   return NextResponse.json({ ok: true });
 }

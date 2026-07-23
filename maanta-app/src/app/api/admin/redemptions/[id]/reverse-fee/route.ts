@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
+import { logAdminOp } from "@/lib/admin-audit";
 
 /**
  * Admin fee-reversal wallet credit (frozen policy, Decisions Log 2026-07-22).
@@ -92,6 +93,19 @@ export async function POST(
     amount: data?.amount,
     incidentRef,
     at: new Date().toISOString(),
+  });
+
+  await logAdminOp(service, {
+    adminUserId: auth.user.id,
+    action: "redemption.reverse_fee",
+    targetType: "redemption",
+    targetId: params.id,
+    details: {
+      reversalId: data?.reversal_id,
+      amount: data?.amount,
+      incidentRef,
+      note,
+    },
   });
 
   return NextResponse.json({
