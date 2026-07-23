@@ -184,4 +184,30 @@ BEGIN
   RAISE NOTICE 'Scenario G passed: check_rate_limit is service_role-only';
 END $$;
 
+-- Scenario H: internal money-path helpers are not callable by authenticated.
+DO $$
+BEGIN
+  ASSERT NOT has_function_privilege(
+    'authenticated',
+    'public.deduct_success_fee_or_record_arrears(uuid,numeric,uuid)',
+    'EXECUTE'
+  ), 'H: authenticated must not execute deduct_success_fee_or_record_arrears';
+  ASSERT NOT has_function_privilege(
+    'authenticated',
+    'public.increment_deal_claims(uuid)',
+    'EXECUTE'
+  ), 'H: authenticated must not execute increment_deal_claims';
+  ASSERT has_function_privilege(
+    'service_role',
+    'public.deduct_success_fee_or_record_arrears(uuid,numeric,uuid)',
+    'EXECUTE'
+  ), 'H: service_role must execute deduct_success_fee_or_record_arrears';
+  ASSERT has_function_privilege(
+    'service_role',
+    'public.increment_deal_claims(uuid)',
+    'EXECUTE'
+  ), 'H: service_role must execute increment_deal_claims';
+  RAISE NOTICE 'Scenario H passed: internal money RPCs are service_role-only';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL security_hardening scenarios passed.'; END $$;

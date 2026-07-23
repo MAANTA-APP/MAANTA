@@ -65,6 +65,15 @@ export async function recordMerchantTransaction(
   return { applied: data?.applied ?? false };
 }
 
+function redactWebhookPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload;
+  }
+  const copy = { ...(payload as Record<string, unknown>) };
+  if ("challenge" in copy) copy.challenge = "[REDACTED]";
+  return copy;
+}
+
 // Persists webhook failures that would otherwise only be visible in
 // ephemeral server logs (console.error), so a missed signature check or an
 // unrecognized event doesn't silently leave a merchant's balance wrong with
@@ -82,6 +91,6 @@ export async function logWebhookFailure(
     payment_provider: params.paymentProvider,
     event_type: params.eventType ?? null,
     error_message: params.errorMessage,
-    payload: params.payload ?? null,
+    payload: params.payload != null ? redactWebhookPayload(params.payload) : null,
   });
 }

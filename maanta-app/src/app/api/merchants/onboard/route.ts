@@ -2,11 +2,28 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
+import {
+  checkRateLimit,
+  ONBOARD_RATE_LIMIT,
+  ONBOARD_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  const allowed = await checkRateLimit(
+    `onboard:${appUser.id}`,
+    ONBOARD_RATE_LIMIT,
+    ONBOARD_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many onboarding attempts — try again later." },
+      { status: 429 }
+    );
   }
 
   const {

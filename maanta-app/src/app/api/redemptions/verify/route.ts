@@ -3,11 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
 import { captureGuardianOutcome } from "@/lib/analytics";
-
-const OTP_RATE_LIMIT = 20;
-const OTP_RATE_WINDOW_SECONDS = 60;
 
 export async function POST(request: Request) {
   const auth = await requireMerchant("can_verify");
@@ -20,9 +17,9 @@ export async function POST(request: Request) {
   }
 
   const allowed = await checkRateLimit(
-    `otp-verify:${merchant.id}`,
-    OTP_RATE_LIMIT,
-    OTP_RATE_WINDOW_SECONDS
+    `otp-check:${merchant.id}`,
+    OTP_CHECK_RATE_LIMIT,
+    OTP_CHECK_RATE_WINDOW_SECONDS
   );
   if (!allowed) {
     return NextResponse.json(

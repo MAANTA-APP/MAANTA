@@ -5,12 +5,14 @@ import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
 import { captureDealClaimed } from "@/lib/analytics";
+import {
+  checkRateLimit,
+  CLAIM_RATE_LIMIT,
+  CLAIM_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const [appUser, clerkUserId] = await Promise.all([
-    ensureAppUser<{ id: string }>("id"),
-    currentClerkUserId(),
-  ]);
+  const appUser = await ensureAppUser<{ id: string }>("id");
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
@@ -18,6 +20,18 @@ export async function POST(request: Request) {
   const { dealId, lat, lng } = await request.json();
   if (!dealId) {
     return NextResponse.json({ error: "Missing dealId." }, { status: 400 });
+  }
+
+  const allowed = await checkRateLimit(
+    `claim:${appUser.id}`,
+    CLAIM_RATE_LIMIT,
+    CLAIM_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many claim attempts — wait a moment and try again." },
+      { status: 429 }
+    );
   }
 
   const supabase = createClient();
@@ -72,7 +86,6 @@ export async function POST(request: Request) {
   }
 
   let hasFraudFlags = false;
-
   if (gps) {
     try {
       const shopCoords = await convertWhat3WordsToCoordinates(data.what3words_address);
@@ -104,6 +117,7 @@ export async function POST(request: Request) {
     }
   }
 
+  const clerkUserId = await currentClerkUserId();
   if (clerkUserId) {
     void captureDealClaimed({
       clerkUserId,

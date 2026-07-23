@@ -52,7 +52,7 @@ in `maanta-app/legal/README.md`.
 ## Database (Supabase / Postgres)
 
 Schema is fully version-controlled in `maanta-app/supabase/migrations/`
-(52 migrations from the v3 baseline forward). Apply order is the filename
+(57 migrations from the v3 baseline forward). Apply order is the filename
 timestamp order. Key tables:
 
 | Table | Role |

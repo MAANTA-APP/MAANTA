@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
+import { parseCharges } from "@/lib/pricing";
 
 /**
  * Repost an archived deal (wireframe 10q/10p): re-insert from the
@@ -11,6 +12,13 @@ export async function POST(request: Request) {
   const auth = await requireMerchant("can_deals");
   if ("error" in auth) return auth.error;
   const { merchant } = auth.ctx;
+
+  if (merchant.status !== "active") {
+    return NextResponse.json(
+      { error: "Your shop is pending approval — you can publish once it's live." },
+      { status: 403 }
+    );
+  }
 
   const { archiveId } = await request.json();
   if (!archiveId) {
@@ -30,6 +38,23 @@ export async function POST(request: Request) {
   }
 
   const snap = entry.deal_snapshot as Record<string, unknown>;
+  const priceKes =
+    snap.price_kes == null ? NaN : parseInt(String(snap.price_kes).replace(/\D/g, ""), 10);
+  const compareRaw =
+    snap.compare_at_kes == null
+      ? NaN
+      : parseInt(String(snap.compare_at_kes).replace(/\D/g, ""), 10);
+  const compareAtKes =
+    isNaN(compareRaw) || compareRaw <= 0 ? null : Math.min(compareRaw, 10_000_000);
+  const charges = parseCharges(snap.charges ?? []);
+
+  if (isNaN(priceKes) || priceKes < 0 || priceKes > 10_000_000) {
+    return NextResponse.json(
+      { error: "This archived deal has no valid price — create a new deal instead." },
+      { status: 422 }
+    );
+  }
+
   const { data: deal, error } = await service
     .from("deals")
     .insert({
@@ -41,6 +66,9 @@ export async function POST(request: Request) {
       deal_type: snap.deal_type ?? "standard",
       flash_duration_hours: snap.flash_duration_hours ?? 6,
       max_claims: snap.max_claims ?? null,
+      price_kes: priceKes,
+      compare_at_kes: compareAtKes && compareAtKes > priceKes ? compareAtKes : null,
+      charges,
     })
     .select("id")
     .single();

@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { verifyWebhookChallenge } from "@/lib/intasend";
 import { notifyMerchant } from "@/lib/notify-merchant";
 import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
+import { MAX_TOPUP_AMOUNT } from "@/lib/currency";
 import { captureTopupCompletedMpesa } from "@/lib/analytics";
 
 export async function POST(request: Request) {
@@ -37,6 +38,15 @@ export async function POST(request: Request) {
   const merchantId = match[1];
   const amount = Number(body.value ?? body.amount ?? 0);
   const invoiceId: string | null = body.invoice_id ?? body.id ?? null;
+
+  if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_TOPUP_AMOUNT) {
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `Invalid top-up amount on IntaSend webhook: ${amount}`,
+      payload: body,
+    });
+    return NextResponse.json({ received: true });
+  }
 
   const { applied } = await recordMerchantTransaction(service, {
     merchantId,

@@ -5,6 +5,8 @@ import { getMerchantContext, type MerchantContext, type StaffPermissions } from 
  * Route-handler guard: resolve merchant context and enforce a staff
  * permission (owners hold all permissions).
  */
+const BLOCKED_MERCHANT_STATUSES = new Set(["suspended", "rejected", "churned"]);
+
 export async function requireMerchant(
   permission?: keyof StaffPermissions
 ): Promise<{ ctx: MerchantContext } | { error: NextResponse }> {
@@ -17,6 +19,14 @@ export async function requireMerchant(
   if (res.status === "no-merchant") {
     return {
       error: NextResponse.json({ error: "No merchant account found." }, { status: 404 }),
+    };
+  }
+  if (BLOCKED_MERCHANT_STATUSES.has(res.ctx.merchant.status)) {
+    return {
+      error: NextResponse.json(
+        { error: "This shop account is not active." },
+        { status: 403 }
+      ),
     };
   }
   if (permission && !res.ctx.permissions[permission]) {
