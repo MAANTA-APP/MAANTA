@@ -49,6 +49,18 @@ Post-review fixes for findings from the merged-PR security audit (PRs #15–#26)
 | Push subscription row bloat | `parsePushSubscription()` caps payload at 8KB with URL/key bounds |
 | Lead capture TOCTOU race | `capture_lead` RPC with per-shop advisory lock (`20260722190000`) |
 
+### Database follow-up (`20260723120000_revoke_authenticated_writes_core_tables.sql`)
+
+| Issue | Fix |
+|---|---|
+| C-1: merchant PATCH tier/balance/status via PostgREST | Revoke `INSERT`/`UPDATE`/`DELETE` on `merchants` from `authenticated` |
+| C-2: merchant PATCH redemption `status=success` (fee bypass) | Revoke writes on `redemptions` from `authenticated` |
+| C-3: merchant PATCH deal boost/claims/caps | Revoke writes on `deals` from `authenticated` |
+
+`SELECT` stays on `authenticated` (RLS still governs rows). All legitimate
+mutations go through `service_role` API routes or SECURITY DEFINER RPCs
+(`claim_deal`, `verify_redemption`, `onboard_merchant`, boost RPCs).
+
 ## PR #48 pre-merge checklist (2026-07-22)
 
 Migrations to apply to `vcrfqsevompqjazbwzyh` before deploy:
@@ -61,6 +73,7 @@ SQL suites to run after apply (CI runs all `supabase/tests/*.sql` automatically)
 
 - `security_hardening_test.sql` — scenarios A–H
 - `capture_lead_test.sql` — scenarios A–C
+- `revoke_authenticated_writes_core_tables_test.sql` — scenarios A–E (C-1/C-2/C-3)
 
 - `src/lib/otp.ts` — `isValidOtpCode()` (`^\d{6}$`)
 - `src/lib/geo.ts` — `parseGpsCoords()` (finite lat/lng bounds)
