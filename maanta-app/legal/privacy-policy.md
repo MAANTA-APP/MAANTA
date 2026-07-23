@@ -20,7 +20,7 @@ scale requires ODPC registration as a data controller/processor].
 | Identity & contact | Phone number, name, email | You, at signup |
 | Authentication | OTP verification records | Twilio Verify |
 | Merchant business data | Business name, mall/unit location (what3words), phone, email, WhatsApp | Merchant onboarding |
-| Location | what3words address of Merchant premises | Merchant onboarding (not continuous customer location tracking) |
+| Location | what3words address of Merchant premises; customer's precise device GPS position captured at the moment a deal redemption is initiated (used for geofence/fraud checks, stored with the redemption record) | Merchant onboarding; customer's device at redemption time. Not continuous background tracking — a single point per redemption. [Retention period for redemption GPS — TBD; currently retained indefinitely, which legal should review] |
 | Transaction records | Top-up amounts, currency, fees, redemption events | App usage |
 | Payment metadata | Provider transaction/session references (not full card numbers — those are handled entirely by Stripe/IntaSend, never touch Maanta's servers) | Stripe, IntaSend |
 | Device/push | Push notification subscription endpoint | Browser, with consent |

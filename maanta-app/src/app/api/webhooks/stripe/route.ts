@@ -162,6 +162,24 @@ async function hasExistingLedgerEntry(
   return !!data;
 }
 
+// Refund entries are keyed `${paymentIntentId}:refund:${refundId}` (one per
+// refund object, since partial refunds each need their own debit), so
+// checking "was this payment intent refunded at all" is a prefix match.
+// Also matches the legacy `${paymentIntentId}:refund` format written before
+// per-refund keying.
+async function hasRefundLedgerEntry(
+  service: ReturnType<typeof createServiceClient>,
+  paymentIntentId: string
+): Promise<boolean> {
+  const { data } = await service
+    .from("merchant_transactions")
+    .select("id")
+    .eq("payment_provider", "stripe")
+    .like("provider_reference", `${paymentIntentId}:refund%`)
+    .limit(1);
+  return !!data?.length;
+}
+
 async function handleChargeRefunded(
   service: ReturnType<typeof createServiceClient>,
   event: Stripe.Event
@@ -201,31 +219,59 @@ async function handleChargeRefunded(
     return;
   }
 
-  const currency = (charge.currency ?? "kes").toUpperCase();
-  const refundedInCurrency = charge.amount_refunded / 100;
-  const kesAmount = await toKes(
-    refundedInCurrency,
-    isSupportedCurrency(currency) ? currency : "KES"
-  );
+  // A legacy single cumulative entry (`${paymentIntentId}:refund`, written
+  // before per-refund keying) already accounts for everything refunded up to
+  // that point; recording per-refund entries on top of it would double-debit.
+  if (await hasExistingLedgerEntry(service, `${paymentIntentId}:refund`)) {
+    await logWebhookFailure(service, {
+      paymentProvider: "stripe",
+      eventType: event.type,
+      errorMessage: `Skipped per-refund debits for payment_intent ${paymentIntentId}: a legacy cumulative refund entry exists — reconcile manually if a later partial refund followed it (charge ${charge.id}).`,
+    });
+    return;
+  }
 
-  const { applied } = await recordMerchantTransaction(service, {
-    merchantId,
-    amount: -kesAmount,
-    transactionType: "refund",
-    paymentProvider: "stripe",
-    providerReference: `${paymentIntentId}:refund`,
-    description: "Refund via Stripe",
-    currency: isSupportedCurrency(currency) ? currency : "KES",
-    chargedAmount: refundedInCurrency,
+  const rawCurrency = (charge.currency ?? "kes").toUpperCase();
+  const currency: SupportedCurrency = isSupportedCurrency(rawCurrency)
+    ? rawCurrency
+    : "KES";
+
+  // charge.amount_refunded is cumulative across partial refunds, so a single
+  // ledger entry keyed per payment intent would silently drop every refund
+  // after the first (the duplicate check would treat the second partial
+  // refund as a retry). Record each refund object individually instead —
+  // refund ids are stable across webhook retries, so idempotency still holds
+  // per refund.
+  const refunds = await getStripeClient().refunds.list({
+    charge: charge.id,
+    limit: 100,
   });
 
-  if (!applied) return;
+  for (const refund of refunds.data) {
+    if (refund.status !== "succeeded") continue;
 
-  await notifyMerchant(service, merchantId, {
-    title: "Refund processed",
-    body: `KES ${kesAmount.toFixed(2)} was deducted from your MAANTA balance due to a refund.`,
-    url: "/merchant/topup",
-  });
+    const refundedInCurrency = refund.amount / 100;
+    const kesAmount = await toKes(refundedInCurrency, currency);
+
+    const { applied } = await recordMerchantTransaction(service, {
+      merchantId,
+      amount: -kesAmount,
+      transactionType: "refund",
+      paymentProvider: "stripe",
+      providerReference: `${paymentIntentId}:refund:${refund.id}`,
+      description: "Refund via Stripe",
+      currency,
+      chargedAmount: refundedInCurrency,
+    });
+
+    if (!applied) continue;
+
+    await notifyMerchant(service, merchantId, {
+      title: "Refund processed",
+      body: `KES ${kesAmount.toFixed(2)} was deducted from your MAANTA balance due to a refund.`,
+      url: "/merchant/topup",
+    });
+  }
 }
 
 async function handleDisputeCreated(
@@ -251,12 +297,11 @@ async function handleDisputeCreated(
   // Symmetric guard: if this payment_intent was already refunded, the money
   // has already left the merchant's balance via the refund path — don't
   // also apply a dispute hold on top of it.
-  const refundReference = `${paymentIntentId}:refund`;
-  if (await hasExistingLedgerEntry(service, refundReference)) {
+  if (await hasRefundLedgerEntry(service, paymentIntentId)) {
     await logWebhookFailure(service, {
       paymentProvider: "stripe",
       eventType: event.type,
-      errorMessage: `Skipped dispute hold for payment_intent ${paymentIntentId}: already refunded (${refundReference}), avoiding a double-debit for dispute ${dispute.id}.`,
+      errorMessage: `Skipped dispute hold for payment_intent ${paymentIntentId}: already refunded, avoiding a double-debit for dispute ${dispute.id}.`,
     });
     return;
   }

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { createServiceClient } from "@/lib/supabase/service";
 import type { SupportedCurrency } from "@/lib/currency";
 
@@ -59,6 +60,10 @@ export async function recordMerchantTransaction(
 
   if (error) {
     console.error("record_merchant_ledger_entry RPC failed:", error, entry);
+    Sentry.captureMessage(
+      `record_merchant_ledger_entry failed for merchant ${entry.merchantId} (${entry.transactionType}, ref ${entry.providerReference}): ${error.message}`,
+      "error"
+    );
     return { applied: false };
   }
 
@@ -87,10 +92,26 @@ export async function logWebhookFailure(
     payload?: unknown;
   }
 ): Promise<void> {
-  await service.from("payment_webhook_failures").insert({
+  // Alert first: a webhook failure usually means a merchant's balance is
+  // about to silently not update, so it needs a human's eyes, not just a
+  // table row. No-op until SENTRY_DSN is configured.
+  Sentry.captureMessage(
+    `Payment webhook failure [${params.paymentProvider}${params.eventType ? `/${params.eventType}` : ""}]: ${params.errorMessage}`,
+    "error"
+  );
+
+  const { error } = await service.from("payment_webhook_failures").insert({
     payment_provider: params.paymentProvider,
     event_type: params.eventType ?? null,
     error_message: params.errorMessage,
     payload: params.payload != null ? redactWebhookPayload(params.payload) : null,
   });
+
+  if (error) {
+    console.error("Failed to persist webhook failure:", error, params);
+    Sentry.captureMessage(
+      `Could not persist payment_webhook_failures row: ${error.message}`,
+      "error"
+    );
+  }
 }
