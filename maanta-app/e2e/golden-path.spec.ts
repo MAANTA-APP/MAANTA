@@ -49,7 +49,7 @@ test.describe("golden path (browser)", () => {
     await ctx.close();
   });
 
-  test("merchant verifies the code: fee disclosed, then COLLECT FROM SHOPPER + Verified", async ({
+  test("merchant verifies the code: fee disclosed, then COLLECT FROM SHOPPER + Redeemed", async ({
     browser,
   }) => {
     // Shopper claims to produce a fresh code.
@@ -71,7 +71,7 @@ test.describe("golden path (browser)", () => {
     await confirm.click();
 
     // Step 3 — success takeover. P12: the cashier is told what to collect.
-    await expect(page.getByText("Verified")).toBeVisible();
+    await expect(page.getByText("Redeemed")).toBeVisible();
     // Scope to the collect block (label + amount are separate nodes) and assert
     // the AMOUNT is shown there — so this fails if P12 renders the label with no
     // number, and doesn't get satisfied by the separate KES 30 fee line.

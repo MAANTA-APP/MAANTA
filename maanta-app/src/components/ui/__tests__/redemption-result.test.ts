@@ -54,4 +54,19 @@ describe("RedemptionResult — Collect from shopper line", () => {
     expect(html).toContain("text-white");
     expect(html).not.toContain("text-brand");
   });
+
+  it("uses the 'Redeemed' takeover header", () => {
+    expect(render({ collectAmount: 2400 })).toContain("Redeemed");
+  });
+
+  it("labels the collect amount as in-person cash, not an in-app charge", () => {
+    const html = render({ collectAmount: 2400 });
+    expect(html).toContain("Cash, collected in person");
+    expect(html).toContain("not an in-app charge");
+  });
+
+  it("omits the cash subtext when there is no collect amount", () => {
+    const html = render({ collectAmount: null });
+    expect(html).not.toContain("Cash, collected in person");
+  });
 });

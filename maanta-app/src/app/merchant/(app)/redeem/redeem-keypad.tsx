@@ -8,7 +8,7 @@ import { FeeDisclosure } from "@/components/ui/fee-disclosure";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { RedemptionResult } from "@/components/ui/redemption-result";
 import { WalletBalance } from "@/components/ui/wallet-balance";
-import { IconX } from "@/components/ui/icons";
+import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
 import Link from "next/link";
 
@@ -37,6 +37,8 @@ type Screen =
       feeAmount: number;
       feeChargeStatus: "charged" | "owed" | "unknown";
       collectAmount: number | null;
+      dealTitle: string | null;
+      verifiedAtLabel: string | null;
       referenceId: string;
       disputed: boolean;
     }
@@ -153,6 +155,10 @@ export function RedeemKeypad({
         return;
       }
       if (typeof body.newBalance === "number") setBalance(body.newBalance);
+      const now = new Date();
+      const verifiedAtLabel = `${String(now.getHours()).padStart(2, "0")}:${String(
+        now.getMinutes()
+      ).padStart(2, "0")}`;
       setScreen({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,
@@ -167,6 +173,8 @@ export function RedeemKeypad({
           typeof body.collectAmount === "number" && Number.isFinite(body.collectAmount)
             ? body.collectAmount
             : null,
+        dealTitle: typeof body.dealTitle === "string" ? body.dealTitle : null,
+        verifiedAtLabel,
         referenceId: typeof body.redemptionId === "string" ? body.redemptionId : "",
         disputed: body.disputed === true,
       });
@@ -209,6 +217,8 @@ export function RedeemKeypad({
         newBalance={screen.newBalance}
         feeChargeStatus={screen.feeChargeStatus}
         collectAmount={screen.collectAmount}
+        dealTitle={screen.dealTitle}
+        timestampLabel={screen.verifiedAtLabel}
         referenceId={screen.referenceId}
         disputed={screen.disputed}
         countdown={countdown}
@@ -243,9 +253,14 @@ export function RedeemKeypad({
   if (screen.kind === "disclose") {
     return (
       <main className="flex flex-col px-5 pt-5">
-        <p className="text-xs font-medium text-muted">Code resolved</p>
+        {/* Resolved, not charged — a calm "code valid" chip (ink, not amber:
+            amber is reserved for the single Confirm action below). */}
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-ink">
+          <IconCheck className="h-3.5 w-3.5 text-verified" />
+          Code valid
+        </span>
         {screen.dealTitle ? (
-          <h1 className="mt-1 text-lg font-bold text-ink">{screen.dealTitle}</h1>
+          <h1 className="mt-2 text-lg font-bold text-ink">{screen.dealTitle}</h1>
         ) : null}
 
         {/* Collect from shopper — the cash the shopper pays the merchant directly
@@ -302,7 +317,7 @@ export function RedeemKeypad({
             onClick={reset}
             className="mx-auto block py-1 text-sm font-semibold text-ink underline-offset-2 hover:underline"
           >
-            Cancel
+            Cancel — charges nothing
           </button>
         </div>
       </main>

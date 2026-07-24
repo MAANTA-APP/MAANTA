@@ -13,6 +13,8 @@ export function RedemptionResult({
   newBalance,
   feeChargeStatus = "charged",
   collectAmount = null,
+  dealTitle = null,
+  timestampLabel = null,
   referenceId,
   disputed,
   countdown,
@@ -32,6 +34,10 @@ export function RedemptionResult({
    * Null (legacy rows without a snapshot) omits the line entirely.
    */
   collectAmount?: number | null;
+  /** The deal that was redeemed, for a plain confirmation line. Omitted if null. */
+  dealTitle?: string | null;
+  /** Pre-formatted verification time (e.g. "14:32"). Omitted if null. */
+  timestampLabel?: string | null;
   referenceId: string;
   disputed: boolean;
   countdown: number;
@@ -44,7 +50,7 @@ export function RedemptionResult({
       <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-white/50">
         <IconCheck className="h-8 w-8 text-white" />
       </span>
-      <h1 className="mt-5 text-3xl font-bold text-white">Verified</h1>
+      <h1 className="mt-5 text-3xl font-bold text-white">Redeemed</h1>
 
       {/* Counter action — how much cash to take from the shopper. The primary
           money line on this surface (the merchant's next step), kept visually
@@ -59,7 +65,19 @@ export function RedemptionResult({
           <p className="tnum mt-0.5 text-2xl font-bold text-white">
             {formatKes(collectAmount)}
           </p>
+          <p className="mt-1 text-[11px] text-white/70">
+            Cash, collected in person — not an in-app charge
+          </p>
         </div>
+      ) : null}
+
+      {/* Plain confirmation context — which deal, and when it was verified. No
+          shopper PII is surfaced at the counter. Omitted when not supplied. */}
+      {dealTitle || timestampLabel ? (
+        <p className="mt-3 text-sm text-white/80">
+          {dealTitle ?? "Deal"}
+          {timestampLabel ? ` · ${timestampLabel}` : ""}
+        </p>
       ) : null}
 
       {owed ? (

@@ -53,7 +53,10 @@ export default async function FeedPage() {
       {user ? <NotificationOptIn /> : null}
 
       {total === 0 ? (
-        <EmptyState title="No live deals right now" sub="Check back soon" />
+        <EmptyState
+          title="No deals live right now"
+          sub="Merchants drop new deals through the day."
+        />
       ) : (
         <>
           {flash.length > 0 ? (
