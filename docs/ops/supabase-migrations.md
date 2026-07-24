@@ -104,6 +104,17 @@ SELECT has_function_privilege('anon',
          'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS authed_exec,
        has_function_privilege('service_role',
          'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS service_exec;
+
+-- 5e. The redundant merchant-financial guard is GONE (dropped by
+--     20260724120000_drop_redundant_merchant_financial_guard.sql). If either is
+--     still present, the money-path (verify_redemption / boosts) stays blocked —
+--     expect BOTH false:
+SELECT EXISTS (
+         SELECT 1 FROM pg_trigger
+         WHERE tgname = 'trg_protect_merchant_financial_columns' AND NOT tgisinternal
+       ) AS trigger_present,
+       to_regprocedure('public.protect_merchant_financial_columns()') IS NOT NULL
+         AS function_present;
 ```
 
 Then run the **audit SQL subset** against prod (self-cleaning, but still a

@@ -22,10 +22,19 @@ are done by a human operator with the right credentials.
 Do not promote the frontend until this is reconciled and the migrations are
 applied. Nothing else in this plan is blocked; this is.
 
+**State as originally discovered** (before this PR): repo had **61** migrations,
+prod had **50** applied. They share **49**, which reconciles both directions:
+
 | Direction | Count | Detail |
 |---|---:|---|
-| **Repo → prod (pending, must apply)** | **13** | The 12 migrations from `20260721120000` onward, in the repo but **not applied** to prod (topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note), **plus** this branch's new `20260724120000` migration that **drops** the redundant merchant-financial guard (money-path fix — see below). |
-| **Prod → repo (drift, not in repo)** | **1** | `20260723001651_lock_down_merchant_financial_columns` is **applied on prod but has no file in the repo.** Confirmed live: the DB has `public.protect_merchant_financial_columns()` (flagged by the security advisor). This violates the "repo is source of truth for schema" rule and must be reconciled. |
+| **Repo → prod (pending)** | **12** | Migrations `20260721120000` onward, in the repo but **not applied** to prod (topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note). `61 = 49 shared + 12`. |
+| **Prod → repo (drift, not in repo)** | **1** | `20260723001651_lock_down_merchant_financial_columns` was **applied on prod but had no file in the repo.** Confirmed live: the DB has `public.protect_merchant_financial_columns()` (flagged by the security advisor). Violates "repo is source of truth for schema." `50 = 49 shared + 1`. |
+
+**What this PR does to reconcile:** back-fills the 1 drift migration into the
+repo (so it's no longer drift, and `db push` skips it on prod) **and** adds 1
+new forward migration `20260724120000` that **drops** the guard (money-path fix —
+see below). Net for **Phase B**: `supabase db push` applies **13** migrations to
+prod — the 12 pending + the new drop; the back-fill stays skipped.
 
 Why it blocks the deploy: `main`'s **server code depends on the pending
 migrations** — the reverse-fee route needs `fee_reversals` + the reversal RPC,
@@ -62,10 +71,15 @@ Facts confirmed this session:
 - **maskedPhone / verifiedAt need NO migration** — both are read-only/derived
   (`maskPhone(users.phone)` and `new Date().toISOString()` in
   `src/app/api/redemptions/verify/route.ts`). Confirmed against the code.
-- **No destructive DDL** in any pending migration — the only `DROP` is a
-  `DROP FUNCTION public.verify_redemption(...)` in `guardian_v1` that immediately
-  re-creates the RPC with Guardian logic (a function swap, not data loss). It is
-  money-path-sensitive and must be applied in a low-traffic window.
+- **No data-destructive DDL** in any pending migration — no table/column drops,
+  no `TRUNCATE`/`DELETE`, nothing that loses rows. There are two deliberate,
+  non-data DROPs: (1) `DROP FUNCTION public.verify_redemption(...)` in
+  `guardian_v1`, immediately re-created with Guardian logic (a function swap);
+  and (2) `20260724120000_drop_redundant_merchant_financial_guard.sql`, which
+  **`DROP TRIGGER` + `DROP FUNCTION`** to remove the redundant merchant-financial
+  guard (the money-path fix — intentional object removal, no data touched; the
+  column protection stays enforced by the table-grant revoke). Both are
+  money-path-sensitive; apply in a low-traffic window.
 
 ---
 
@@ -123,7 +137,18 @@ sign-off (money rails / flags / irreversible).
    the read-only verification SQL (§5 of the ops doc): six+ hardening versions
    present, core-table writes revoked from `authenticated`, `admin_ops_log` /
    `guardian_events` / `fee_reversals` exist, internal money RPC is
-   service-role-only.
+   service-role-only. **Also confirm the redundant guard is actually gone**
+   (otherwise a partially reconciled DB would still block the money-path):
+   ```sql
+   -- Expect both false: the trigger and its function must NOT exist post-push.
+   SELECT EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgname = 'trg_protect_merchant_financial_columns'
+              AND NOT tgisinternal
+          ) AS trigger_present,
+          to_regprocedure('public.protect_merchant_financial_columns()') IS NOT NULL
+            AS function_present;
+   ```
 6. **[DB]** Re-run the Supabase **security advisor** after the push. Several
    pending migrations (revoke-authenticated-writes, lock-down internal money
    RPCs, anon least-privilege) should *reduce* warnings; confirm no new ones.
