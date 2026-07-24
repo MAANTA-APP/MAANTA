@@ -48,16 +48,24 @@ describe("POST /api/merchants/onboard — agent attribution", () => {
     rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
   });
 
+  const AGENT_UUID = "22222222-2222-2222-2222-222222222222";
+
   it("forwards the selected agent id as p_onboarding_agent_id (merchant stays submitter)", async () => {
-    const res = await POST(req({ ...baseBody, onboardingAgentId: "agent-9" }));
+    const res = await POST(req({ ...baseBody, onboardingAgentId: AGENT_UUID }));
     expect(res.status).toBe(200);
     expect(rpcMock).toHaveBeenCalledWith(
       "onboard_merchant",
       expect.objectContaining({
         p_user_id: "merchant-user-1",
-        p_onboarding_agent_id: "agent-9",
+        p_onboarding_agent_id: AGENT_UUID,
       })
     );
+  });
+
+  it("rejects a malformed (non-UUID) agent id with 400 before the RPC", async () => {
+    const res = await POST(req({ ...baseBody, onboardingAgentId: "agent-9" }));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it("sends null when no agent was selected (self-serve 'No')", async () => {
@@ -77,12 +85,13 @@ describe("POST /api/merchants/onboard — agent attribution", () => {
     );
   });
 
-  it("maps the RPC's invalid_attribution to a 400", async () => {
+  it("maps the RPC's invalid_attribution to a 400 (valid-format id, rejected by the RPC)", async () => {
     rpcMock.mockResolvedValue({
       data: null,
       error: { message: "invalid_attribution: p_onboarding_agent_id does not reference an active agent" },
     });
-    const res = await POST(req({ ...baseBody, onboardingAgentId: "agent-x" }));
+    const res = await POST(req({ ...baseBody, onboardingAgentId: AGENT_UUID }));
     expect(res.status).toBe(400);
+    expect(rpcMock).toHaveBeenCalled();
   });
 });

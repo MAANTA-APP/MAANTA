@@ -17,10 +17,23 @@ import { InlineAlert } from "@/components/ui/inline-alert";
  * no server route mints or trusts a phone on their behalf. Once Clerk verifies
  * it, the account carries a verified phone and the claim gate passes.
  */
+/**
+ * Only allow an internal, same-origin path as the post-verify return target.
+ * `next` comes from the query string, so reject absolute/protocol-relative URLs
+ * (`//evil`, `https://…`, `javascript:…`) and fall back to the feed — passing an
+ * untrusted URL to router.push() is an open-redirect / XSS sink.
+ */
+function safeInternalPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
+    return "/feed";
+  }
+  return raw;
+}
+
 function VerifyPhoneInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/feed";
+  const next = safeInternalPath(params.get("next"));
   const { isLoaded, user } = useUser();
 
   const [stage, setStage] = useState<"enter" | "code">("enter");
@@ -55,6 +68,9 @@ function VerifyPhoneInner() {
     setBusy(true);
     setError(null);
     try {
+      // createPhoneNumber() returns the new resource but does NOT sync
+      // user.phoneNumbers — reload before looking the record up, or it's missing.
+      await user.reload();
       const record = user.phoneNumbers.find((p) => p.id === phoneId);
       if (!record) throw new Error("phone record missing");
       const result = await record.attemptVerification({ code: code.trim() });

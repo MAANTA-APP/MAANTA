@@ -357,9 +357,15 @@ export function OnboardWizard({
                 So we can credit the field agent who signed you up. You&apos;re
                 still submitting this yourself.
               </p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div
+                role="radiogroup"
+                aria-label="Were you helped by a Maanta agent?"
+                className="mt-3 grid grid-cols-2 gap-3"
+              >
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={assistedByAgent === false}
                   onClick={() => {
                     setAssistedByAgent(false);
                     setSelectedAgentId("");
@@ -375,6 +381,8 @@ export function OnboardWizard({
                 </button>
                 <button
                   type="button"
+                  role="radio"
+                  aria-checked={assistedByAgent === true}
                   onClick={() => setAssistedByAgent(true)}
                   className={cn(
                     "h-11 rounded-full border text-sm font-semibold",

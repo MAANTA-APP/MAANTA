@@ -65,7 +65,11 @@ BEGIN
   -- A decision note is REQUIRED (Decisions Log 2026-07-23). Every reversal must
   -- record why the merchant was in the right. The incident number stays
   -- optional. This is the DB-level backstop for the route's own 400 check.
-  IF p_note IS NULL OR btrim(p_note) = '' THEN
+  -- Normalize first: strip ALL surrounding whitespace (spaces, tabs, newlines),
+  -- so a tab/newline-only note is rejected too and the audit trail stores the
+  -- trimmed value (btrim alone only strips spaces).
+  p_note := NULLIF(regexp_replace(p_note, '^[[:space:]]+|[[:space:]]+$', '', 'g'), '');
+  IF p_note IS NULL THEN
     RAISE EXCEPTION 'note_required: a decision note is required to reverse a fee';
   END IF;
 

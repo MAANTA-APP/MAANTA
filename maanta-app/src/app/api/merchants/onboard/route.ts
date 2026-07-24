@@ -57,6 +57,21 @@ export async function POST(request: Request) {
       ? onboardingAgentId.trim()
       : null;
 
+  // p_onboarding_agent_id is a uuid column: a malformed value would surface as a
+  // Postgres 22P02 (generic 500) instead of the explicit invalid-attribution
+  // 400, so reject a non-UUID here up front.
+  if (
+    onboardingAgentIdValue &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      onboardingAgentIdValue
+    )
+  ) {
+    return NextResponse.json(
+      { error: "That agent could not be verified — choose again or select “No”." },
+      { status: 400 }
+    );
+  }
+
   const supabase = createClient();
 
   // onboard_merchant is a self-authorizing, atomic RPC: it checks the
