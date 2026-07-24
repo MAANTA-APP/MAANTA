@@ -123,7 +123,10 @@ done
 # both as residue). Expect 0 for every count:
 psql "$DATABASE_URL" -c "
   SELECT
-    (SELECT count(*) FROM merchants WHERE merchant_name LIKE '__test%')      AS test_merchants,
+    -- '\_\_test%' escapes the underscores so LIKE matches the literal '__test'
+    -- fixture prefix, not '_' as a single-char wildcard (which would also match
+    -- names like 'abtest…'). Backslash is LIKE's default escape char.
+    (SELECT count(*) FROM merchants WHERE merchant_name LIKE '\_\_test%')      AS test_merchants,
     (SELECT count(*) FROM api_rate_limit_buckets WHERE bucket_key LIKE 'test-rate-%') AS test_buckets;
 "
 ```

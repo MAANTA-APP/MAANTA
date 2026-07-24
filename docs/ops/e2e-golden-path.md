@@ -54,13 +54,19 @@ wallet. Static storage-state sessions + the rehearsal seed mean this state
    npx playwright codegen --save-storage=shopper.json  <app-url>/login
    npx playwright codegen --save-storage=merchant.json <app-url>/login
    ```
-3. **Wire CI:** repo Settings → Secrets and variables → Actions:
-   - Variable `E2E_BASE_URL = https://<deployed app>`
-   - Secrets `E2E_SHOPPER_STORAGE`, `E2E_MERCHANT_STORAGE` = the JSON contents
-     (or adapt the spec to read file paths).
-4. **Decide CI gating** (founder/eng): the job runs once `E2E_BASE_URL` is set;
-   make it required only if the test env is stable enough not to flake merges.
-   Then flip tracker E14 → done.
+3. **Create a protected Environment:** repo Settings → Environments → new
+   environment `e2e`, with **required reviewers**. The workflow binds the
+   secret-bearing job to this environment, so a run needs approval and the
+   storage secrets aren't exposed to unapproved runs.
+4. **Wire CI:** repo Settings → Secrets and variables → Actions:
+   - Variable `E2E_BASE_URL = https://<deployed NON-PROD app>`
+   - On the **`e2e` environment**, secrets `E2E_SHOPPER_STORAGE`,
+     `E2E_MERCHANT_STORAGE` = the JSON contents (or adapt the spec to read file
+     paths).
+5. **Trigger posture:** the workflow runs **post-merge on `main`** and on-demand
+   via **`workflow_dispatch`** — never on `pull_request`, so PR runs can't reach
+   the secrets. Use a manual dispatch to verify a specific change. Flip tracker
+   E14 → done once the env is stable.
 
 ## Local run
 

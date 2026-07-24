@@ -1,23 +1,30 @@
 name: E2E (golden path)
 
 # Opt-in browser golden-path suite (tracker E14 / PR #35). It runs against a
-# DEPLOYED app and needs a live Supabase + Clerk test env, so it is gated on a
-# repository variable and stays OFF until an operator provisions it — the main
-# CI (lint/typecheck/vitest/build/db-tests) is unaffected.
+# DEPLOYED app and needs a live Supabase + Clerk test env + storage-state
+# secrets, so it is gated on a repository variable and stays OFF until an
+# operator provisions it — the main CI (lint/typecheck/vitest/build/db-tests)
+# is unaffected.
+#
+# Trigger posture (security): this suite runs POST-MERGE on `main` and on-demand
+# via `workflow_dispatch` — deliberately NOT on `pull_request`, so the
+# storage-state secrets are never exposed to a PR-triggered run. Per-PR
+# verification is a manual dispatch.
 #
 # To enable (human/ops task, see docs/ops/e2e-golden-path.md):
-#   1. Repo Settings → Secrets and variables → Actions:
+#   1. Repo Settings → Environments: create an environment named `e2e` and add
+#      required reviewers (so the secret-bearing job needs approval to run).
+#   2. Repo Settings → Secrets and variables → Actions:
 #        - Variable  E2E_BASE_URL            = https://<deployed NON-PROD app>
-#        - Secrets   E2E_SHOPPER_STORAGE,
-#                    E2E_MERCHANT_STORAGE     = Playwright storageState JSON
-#   2. This job then runs on pushes/PRs to main. Without E2E_BASE_URL it is a
-#      no-op (the `if` below is false), so it never blocks merges prematurely.
+#        - Env secrets (on the `e2e` environment) E2E_SHOPPER_STORAGE,
+#          E2E_MERCHANT_STORAGE                = Playwright storageState JSON
+#   3. Without E2E_BASE_URL the job is a no-op (the `if` below is false), so it
+#      never runs prematurely.
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 # Serialize runs against the shared, mutable E2E backend: the suite verifies
 # real redemptions against seeded deals + a merchant wallet, so concurrent runs
@@ -36,11 +43,13 @@ defaults:
 
 jobs:
   e2e:
-    # Gate: runs only once E2E_BASE_URL is set, and never for fork PRs — forks
-    # don't receive the storage secrets, so the suite would self-skip to a green
-    # zero-coverage run.
-    if: ${{ vars.E2E_BASE_URL != '' && github.event.pull_request.head.repo.fork != true }}
+    # Gate: runs only once E2E_BASE_URL is set.
+    if: ${{ vars.E2E_BASE_URL != '' }}
     runs-on: ubuntu-latest
+    # Bind to a protected Environment so the storage-state secrets are gated
+    # behind required-reviewer approval (configured in repo Settings). The
+    # secrets below resolve from this environment.
+    environment: e2e
     env:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
     steps:
@@ -73,7 +82,7 @@ jobs:
           E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
         run: |
           if [ -z "$E2E_SHOPPER_STORAGE" ] || [ -z "$E2E_MERCHANT_STORAGE" ]; then
-            echo "::error::E2E_BASE_URL is set but a storage secret is missing — the suite would self-skip to a green zero-coverage run. Set E2E_SHOPPER_STORAGE and E2E_MERCHANT_STORAGE."
+            echo "::error::E2E_BASE_URL is set but a storage secret is missing — the suite would self-skip to a green zero-coverage run. Set E2E_SHOPPER_STORAGE and E2E_MERCHANT_STORAGE on the e2e environment."
             exit 1
           fi
 
