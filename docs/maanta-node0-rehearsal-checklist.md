@@ -1,7 +1,11 @@
 # MAANTA Node 0 rehearsal checklist (BBS Mall)
 
-Last updated: 2026-07-20. Engineer-facing. One sitting ≈ 30 minutes.
-App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project `vcrfqsevompqjazbwzyh` (eu-west-1).
+Last updated: 2026-07-24. Engineer-facing. One sitting ≈ 30 minutes.
+App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project
+**`axrrslqssmbngbataejg`** (MAANTA-APP org, eu-west-1) — the pinned production
+project. (Superseded the old `vcrfqsevompqjazbwzyh` ref; confirm against Vercel
+`NEXT_PUBLIC_SUPABASE_URL` and apply the seed to this project — see
+`docs/ops/supabase-migrations.md`.)
 
 ## 0. Before you start
 

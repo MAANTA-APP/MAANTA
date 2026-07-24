@@ -28,7 +28,17 @@ applies every migration, and runs all 14 SQL suites.
 
 ## ⚠️ Cross-cutting risk found this session: which Supabase project is prod is itself in drift
 
-The docs disagree on the live database, and this gates almost everything below:
+> **RESOLVED (2026-07-24):** production is pinned to **`axrrslqssmbngbataejg`**
+> (MAANTA-APP org). All forward-looking docs were reconciled to it
+> (`maanta-node0-rehearsal-checklist.md`, `security-hardening.md`,
+> `security-audit-summary-2026-07-23.md`, `money-trust-engineering-guardrails.md`;
+> `clerk-auth.md` and the security handoff already agreed). Historical
+> parity-validation records that ran against the old ref are annotated, not
+> rewritten. A human must still **confirm Vercel `NEXT_PUBLIC_SUPABASE_URL`
+> matches** and apply the migrations there — see
+> `docs/ops/supabase-migrations.md`. The original drift analysis is kept below.
+
+The docs disagreed on the live database, and this gated almost everything below:
 
 | Doc (date) | Names as production |
 |---|---|
@@ -304,4 +314,29 @@ Grouped for a human operator. Fuller step-by-step versions live in
 - **Shopper launch:** blocked on the rehearsal list **plus** env audit, prod monitoring, M-Pesa access, auth backfill, and the legal/DPA gates — mostly human, not code.
 - **One recorded code drift** worth fixing before either horizon for merchant confidence: the success takeover doesn't tell the cashier the **YOU PAY amount to collect from the shopper** (P12).
 
-*Repo-only audit, 2026-07-24. No prod system was inspected or changed; deployment-side status is unknown unless a repo file or doc encodes it.*
+---
+
+## Update — 2026-07-24: repo worklist executed
+
+The repo-level items from the worklist above were implemented this session (all
+CI-green: vitest, typecheck, lint). Deployment/config/legal items remain
+human-owned and unchanged.
+
+| Item | What landed | Tests |
+|---|---|---|
+| **Prod pin + doc reconciliation** | `axrrslqssmbngbataejg` pinned across all forward-looking docs; historical parity records annotated; `docs/ops/supabase-migrations.md` + root `Makefile` (link/list/push/verify, **human-run**) | — |
+| **P12 collect-from-shopper** | verify route returns `amount_kes`; threaded through `redeem-keypad`; `RedemptionResult` shows **"Collect from shopper KES N"** (white/tabular, R3-safe), distinct from the KES 30 fee; null-safe for legacy deals | `redemption-result.test.ts` (6) |
+| **E9 FX abstraction** | `src/lib/fx/` (`FxProvider` + open-er-api + static providers, cached registry); `currency.ts` refactored to consume it, behaviour unchanged; `docs/skills/fx-provider.md` | `fx.test.ts` (9), `currency.test.ts` still green |
+| **healthz self-check** | `src/lib/health.ts` + `GET /api/healthz` (public liveness; admin-gated booleans-only env report) | `health.test.ts` (5) |
+| **M1 zero-balance CTA** | upfront rust top-up prompt on wizard step 1 (non-amber, R1-safe) + `shouldPromptTopUp()` helper | `merchant-wallet.test.ts` (3) |
+| **G1/G4 attribution** | `src/lib/agent-attribution.ts` (validated, attribution-only, fail-safe) + audit hook; onboard route off its hardcoded `null`; `docs/skills/agent-attribution.md` | `agent-attribution.test.ts` (7) |
+| **PR #35 Playwright** | `playwright.config.ts` + `e2e/golden-path.spec.ts` (self-skips w/o live env), opt-in `.github/workflows/e2e.yml` (gated on `E2E_BASE_URL`), no lockfile change; `docs/ops/e2e-golden-path.md` | runs when a human provisions the env |
+
+**Still human-owned (unchanged):** apply migrations to prod + run audit SQL,
+Vercel env + Clerk/Supabase/SMTP wiring, Sentry/PostHog provisioning,
+M-Pesa/FX money-flow validation, the agent-facing onboarding UI + any stronger
+attribution binding, and all legal/DPA/pricing decisions.
+
+---
+
+*Repo-only audit, 2026-07-24. No prod system was inspected or changed; deployment-side status is unknown unless a repo file or doc encodes it. The 2026-07-24 update records repo changes committed this session.*

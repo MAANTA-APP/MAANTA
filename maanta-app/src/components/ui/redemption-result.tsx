@@ -12,6 +12,7 @@ export function RedemptionResult({
   feeAmount,
   newBalance,
   feeChargeStatus = "charged",
+  amountKes,
   referenceId,
   disputed,
   countdown,
@@ -24,17 +25,39 @@ export function RedemptionResult({
    * (rare RPC edge) is treated as charged for display.
    */
   feeChargeStatus?: "charged" | "owed" | "unknown";
+  /**
+   * P12 — the YOU PAY total the cashier must COLLECT FROM THE SHOPPER at the
+   * counter (`redemptions.amount_kes`, snapshotted at claim). This is the
+   * shopper→merchant payment and is entirely separate from the KES 30 MAANTA
+   * success fee shown below. Nullable for legacy deals claimed before the
+   * YOU PAY price model — the collect line is shown only when it is positive.
+   * Money on this dark surface stays white/tabular (never amber), per R3.
+   */
+  amountKes?: number | null;
   referenceId: string;
   disputed: boolean;
   countdown: number;
 }) {
   const owed = feeChargeStatus === "owed";
+  const showCollect = typeof amountKes === "number" && amountKes > 0;
   return (
     <main className="flex min-h-[70dvh] animate-fade-in flex-col items-center justify-center bg-verified px-6 py-20 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-white/50">
         <IconCheck className="h-8 w-8 text-white" />
       </span>
       <h1 className="mt-5 text-3xl font-bold text-white">Verified</h1>
+
+      {showCollect ? (
+        <div className="mt-5 w-full max-w-xs rounded-card border border-white/30 px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+            Collect from shopper
+          </p>
+          <p className="tnum mt-1 text-4xl font-bold text-white">
+            {formatKes(amountKes)}
+          </p>
+        </div>
+      ) : null}
+
       {owed ? (
         <>
           <p className="tnum mt-2 text-sm text-white/80">

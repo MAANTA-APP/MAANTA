@@ -113,8 +113,9 @@ Use `AskUserQuestion` (do not assume) if a change would:
 - alter how `YOU PAY` or any shopper-facing price is computed or displayed;
 - change the success-fee amount, when it is debited, or the arrears rule;
 - relax RLS, a function `EXECUTE` grant, auth, or rate limiting;
-- touch the live production database (`vcrfqsevompqjazbwzyh` is the only project
-  — there is no separate staging).
+- touch the live production database (**`axrrslqssmbngbataejg`**, MAANTA-APP org
+  — there is no separate staging; the old `vcrfqsevompqjazbwzyh` ref is not
+  production. See `docs/ops/supabase-migrations.md`).
 
 These are frozen business rules; changing one needs a `maanta-decisions-log.md`
 entry first, per `CLAUDE.md`.

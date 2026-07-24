@@ -1,0 +1,55 @@
+name: E2E (golden path)
+
+# Opt-in browser golden-path suite (tracker E14 / PR #35). It runs against a
+# DEPLOYED app and needs a live Supabase + Clerk test env, so it is gated on a
+# repository variable and stays OFF until an operator provisions it — the main
+# CI (lint/typecheck/vitest/build/db-tests) is unaffected.
+#
+# To enable (human/ops task, see docs/ops/e2e-golden-path.md):
+#   1. Repo Settings → Secrets and variables → Actions:
+#        - Variable  E2E_BASE_URL            = https://<deployed app>
+#        - Secrets   E2E_SHOPPER_STORAGE,
+#                    E2E_MERCHANT_STORAGE     = Playwright storageState JSON
+#   2. This job then runs on pushes/PRs to main. Without E2E_BASE_URL it is a
+#      no-op (the `if` below is false), so it never blocks merges prematurely.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: maanta-app
+
+jobs:
+  e2e:
+    # Gate: only runs once an operator sets the E2E_BASE_URL repo variable.
+    if: ${{ vars.E2E_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
+      E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: maanta-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      # Playwright is intentionally not in package.json (keeps `npm ci` lockfile
+      # valid for the main build); install it just for this job.
+      - name: Install Playwright + Chromium
+        run: |
+          npm i -D --no-save @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Run golden-path E2E
+        run: npm run test:e2e

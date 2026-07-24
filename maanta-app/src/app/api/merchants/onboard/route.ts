@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
+import {
+  resolveOnboardingAgentId,
+  logOnboardingAttribution,
+  type AgentLookup,
+} from "@/lib/agent-attribution";
 import {
   checkRateLimit,
   ONBOARD_RATE_LIMIT,
@@ -35,6 +41,7 @@ export async function POST(request: Request) {
     email,
     whatsapp,
     entranceNotes,
+    onboardingAgentId,
   } = await request.json();
 
   if (!merchantName || !what3wordsAddress || !phone) {
@@ -45,6 +52,30 @@ export async function POST(request: Request) {
   }
 
   const supabase = createClient();
+  const service = createServiceClient();
+
+  // G1/G4 — agent-assisted onboarding attribution (attribution-only trust
+  // model, see src/lib/agent-attribution.ts + docs/skills/agent-attribution.md).
+  // Validate any supplied agent id against active agents; an absent/invalid id
+  // resolves to null → self_serve, exactly as before. No client sends this yet
+  // (the agent-facing surface is a flagged human/product task), so today this
+  // is inert and behaviour is unchanged — but the route no longer hardcodes
+  // null, and attribution is validated + logged when it does arrive.
+  const agentLookup: AgentLookup = {
+    async isActiveAgent(agentId: string) {
+      const { data } = await service
+        .from("agents")
+        .select("id")
+        .eq("id", agentId)
+        .eq("is_active", true)
+        .maybeSingle();
+      return Boolean(data);
+    },
+  };
+  const attributedAgentId = await resolveOnboardingAgentId(
+    onboardingAgentId,
+    agentLookup
+  );
 
   // onboard_merchant is a self-authorizing, atomic RPC: it checks the
   // caller is either the merchant being onboarded or an admin, guards
@@ -65,14 +96,12 @@ export async function POST(request: Request) {
     // G3 — the wizard's floor step collects entrance notes; persist them
     // (the RPC already has this parameter).
     p_entrance_notes: entranceNotes || null,
-    // TODO(agent-tools): agent-assisted onboarding attribution is not wired up.
-    // The RPC + schema already support it (onboard_merchant `agent_assisted`
-    // path; merchants.onboarding_mode / onboarded_by_agent_id, migration
-    // 20260702083812), but it needs an agent-facing onboarding surface where a
-    // signed-in agent onboards a merchant and passes their own agents.id here.
-    // This self-serve route correctly sends null. Tracked as an "agent tools"
-    // feature ticket — see docs/skills/ui-walkthrough-roles.md (G1).
-    p_onboarding_agent_id: null,
+    // G1/G4 — validated attribution (null when none/invalid supplied → the RPC
+    // records self_serve). The RPC re-validates active status independently;
+    // this is defense-in-depth + a clearer early path. The agent-facing surface
+    // that supplies this id is a flagged human/product task — see
+    // docs/skills/agent-attribution.md.
+    p_onboarding_agent_id: attributedAgentId,
   });
 
   if (error || !merchantId) {
@@ -94,6 +123,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  if (typeof merchantId === "string") {
+    // G1/G4 — audit which agent (if any) assisted this onboarding.
+    logOnboardingAttribution({ merchantId, agentId: attributedAgentId });
   }
 
   const clerkUserId = await currentClerkUserId();

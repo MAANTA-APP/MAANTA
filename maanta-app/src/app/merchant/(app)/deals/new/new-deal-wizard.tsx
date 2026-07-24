@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/ui/inputs";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/components/ui/icons";
 import { PlanChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
+import { shouldPromptTopUp } from "@/lib/merchant-wallet";
 
 type Step = "type" | "details" | "price" | "schedule" | "review";
 type ChargeDraft = { id: string; label: string; type: "fixed" | "percent"; value: string };
@@ -46,8 +48,9 @@ export function NewDealWizard({
   const isElite = tier === "elite";
   // Zero-balance gate (frozen rule): merchants with no balance can't create
   // deals. The gate is enforced server-side; here we surface the fix — a
-  // top-up CTA — proactively and on the 402, never an override.
-  const zeroBalance = balance <= 0;
+  // top-up CTA — proactively (upfront on step 1 AND at review) and on the 402,
+  // never an override.
+  const zeroBalance = shouldPromptTopUp(balance);
 
   // Price policy (brief §4/§10): YOU PAY = price + disclosed extras, computed in
   // exactly one place (lib/pricing) so the merchant preview here and the
@@ -150,6 +153,22 @@ export function NewDealWizard({
       {step === "type" ? (
         <>
           <Header title="New deal" back={null} />
+
+          {/* M1 — surface the zero-balance top-up need UP FRONT (not only at
+              Publish), so a merchant with an empty wallet isn't led through the
+              whole wizard first. Rust warning + underlined link — never a
+              second amber action, so the single amber primary stays "Continue"
+              (R1). */}
+          {zeroBalance ? (
+            <InlineAlert variant="warning" title="Top up to publish a deal." className="mb-4">
+              Your wallet balance is {formatKes(balance)}. A deal needs a funded
+              wallet —{" "}
+              <Link href="/merchant/topup" className="font-semibold text-ink underline">
+                top up
+              </Link>{" "}
+              before you finish.
+            </InlineAlert>
+          ) : null}
 
           <button
             type="button"

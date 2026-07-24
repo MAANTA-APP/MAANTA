@@ -35,6 +35,7 @@ type Screen =
       newBalance: number | null;
       feeAmount: number;
       feeChargeStatus: "charged" | "owed" | "unknown";
+      amountKes: number | null;
       referenceId: string;
       disputed: boolean;
     }
@@ -157,6 +158,7 @@ export function RedeemKeypad({
           body.feeChargeStatus === "unknown"
             ? body.feeChargeStatus
             : "charged",
+        amountKes: typeof body.amountKes === "number" ? body.amountKes : null,
         referenceId: typeof body.redemptionId === "string" ? body.redemptionId : "",
         disputed: body.disputed === true,
       });
@@ -198,6 +200,7 @@ export function RedeemKeypad({
         feeAmount={screen.feeAmount}
         newBalance={screen.newBalance}
         feeChargeStatus={screen.feeChargeStatus}
+        amountKes={screen.amountKes}
         referenceId={screen.referenceId}
         disputed={screen.disputed}
         countdown={countdown}

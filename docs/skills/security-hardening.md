@@ -84,7 +84,8 @@ mutations go through `service_role` API routes or SECURITY DEFINER RPCs
 
 ## Ops checklist — migrations to apply (2026-07-23)
 
-Apply to `vcrfqsevompqjazbwzyh` before deploy (if not already applied):
+Apply to production **`axrrslqssmbngbataejg`** before deploy (if not already
+applied; confirm the ref against Vercel — see `docs/ops/supabase-migrations.md`):
 
 1. `20260722180000_lock_down_internal_money_rpcs.sql`
 2. `20260722190000_capture_lead_atomic.sql`
@@ -95,7 +96,7 @@ Apply to `vcrfqsevompqjazbwzyh` before deploy (if not already applied):
 
 ## PR #48 pre-merge checklist (2026-07-22)
 
-Migrations to apply to `vcrfqsevompqjazbwzyh` before deploy:
+Migrations to apply to production **`axrrslqssmbngbataejg`** before deploy:
 
 1. `20260722180000_lock_down_internal_money_rpcs.sql`
 2. `20260722190000_capture_lead_atomic.sql`
@@ -135,9 +136,15 @@ SQL suites to run after apply (CI runs all `supabase/tests/*.sql` automatically)
 
 ## Remote (prod) parity validation (2026-07-20)
 
-Done as a pre-merge parity check for PR #27 against the **live** database (this
-repo has **no** separate staging project — `vcrfqsevompqjazbwzyh` is the only
-Supabase project in the org).
+> **Correction (2026-07-24):** this 2026-07-20 parity check ran against
+> `vcrfqsevompqjazbwzyh`, believed at the time to be the org's only/live project.
+> Production is now pinned to **`axrrslqssmbngbataejg`** (MAANTA-APP org) — see
+> `docs/skills/clerk-auth.md` and `docs/ops/supabase-migrations.md`. The record
+> below is kept as-is for history; it does **not** describe the production DB.
+
+Done as a pre-merge parity check for PR #27 against what was then believed to be
+the **live** database (`vcrfqsevompqjazbwzyh` — since superseded by
+`axrrslqssmbngbataejg`).
 
 - **Project ref:** `vcrfqsevompqjazbwzyh` (eu-west-1, Postgres 17).
 - **Apply method:** No Supabase CLI / DB credentials are available in the

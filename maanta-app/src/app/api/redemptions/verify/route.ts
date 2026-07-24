@@ -117,12 +117,26 @@ export async function POST(request: Request) {
     .eq("id", data.deal_id)
     .maybeSingle();
 
+  // P12 — surface the YOU PAY amount the cashier must collect from the shopper.
+  // `redemptions.amount_kes` is snapshotted at claim (the shopper-facing YOU PAY
+  // total, migration 20260718120000). It is NOT part of the verify_redemption
+  // return, so read it here from the just-verified row. Nullable for legacy
+  // deals claimed before the price model — the UI only shows the collect line
+  // when it is a positive number.
+  const { data: redemptionRow } = await service
+    .from("redemptions")
+    .select("amount_kes")
+    .eq("id", data.redemption_id)
+    .maybeSingle();
+
   return NextResponse.json({
     dealTitle: deal?.title ?? "Deal",
     redemptionId: data.redemption_id,
     feeChargeStatus: data.fee_charge_status,
     feeAmount: data.fee_amount,
     newBalance: data.new_balance,
+    amountKes:
+      typeof redemptionRow?.amount_kes === "number" ? redemptionRow.amount_kes : null,
     disputed: data.disputed === true,
   });
 }
