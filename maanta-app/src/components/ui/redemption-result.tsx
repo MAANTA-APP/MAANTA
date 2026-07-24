@@ -15,6 +15,7 @@ export function RedemptionResult({
   collectAmount = null,
   dealTitle = null,
   timestampLabel = null,
+  maskedPhone = null,
   referenceId,
   disputed,
   countdown,
@@ -36,8 +37,10 @@ export function RedemptionResult({
   collectAmount?: number | null;
   /** The deal that was redeemed, for a plain confirmation line. Omitted if null. */
   dealTitle?: string | null;
-  /** Pre-formatted verification time (e.g. "14:32"). Omitted if null. */
+  /** Pre-formatted verification time (e.g. "5:32 PM"). Omitted if null. */
   timestampLabel?: string | null;
+  /** Server-masked shopper phone (e.g. "+254 7xx xxx 678"). Omitted if null. */
+  maskedPhone?: string | null;
   referenceId: string;
   disputed: boolean;
   countdown: number;
@@ -71,13 +74,17 @@ export function RedemptionResult({
         </div>
       ) : null}
 
-      {/* Plain confirmation context — which deal, and when it was verified. No
-          shopper PII is surfaced at the counter. Omitted when not supplied. */}
-      {dealTitle || timestampLabel ? (
-        <p className="mt-3 text-sm text-white/80">
-          {dealTitle ?? "Deal"}
-          {timestampLabel ? ` · ${timestampLabel}` : ""}
-        </p>
+      {/* Plain confirmation context — which deal, when it was verified, and a
+          MASKED shopper phone (a counter sanity-check; the full number never
+          reaches the client). Each line omitted when its value isn't supplied. */}
+      {dealTitle ? (
+        <p className="mt-3 text-sm text-white/80">{dealTitle}</p>
+      ) : null}
+      {timestampLabel ? (
+        <p className="mt-1 text-xs text-white/70">Redeemed at {timestampLabel}</p>
+      ) : null}
+      {maskedPhone ? (
+        <p className="mt-1 text-xs text-white/70">Shopper phone {maskedPhone}</p>
       ) : null}
 
       {owed ? (

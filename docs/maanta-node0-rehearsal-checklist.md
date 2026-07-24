@@ -62,6 +62,15 @@ gift sets" (standard).
      from the KES 30 success fee and the wallet balance. It is **display-only**:
      the shopper pays the merchant **directly, in cash**; MAANTA never charges
      the shopper in-app. Omitted for any legacy deal with no snapshotted amount.
+   - **Masked shopper phone** (2026-07-24): the disclosure and success screens
+     show a **masked** shopper number (e.g. `+254 7xx xxx 678`) as a "is this your
+     number?" sanity-check. It is masked server-side — the full number is never
+     shown at the counter — and is absent for a shopper with no stored phone.
+   - **Wallet header** (2026-07-24): the redeem screen carries a persistent
+     "Wallet KES N" affordance (taps through to `/merchant/wallet`); the success
+     line also reads **"Redeemed at HH:MM"** from a server-issued timestamp.
+   - **6-digit code entry**: the shopper's `/verify-phone` step and the till both
+     use segmented 6-box code inputs (paste a code or type digit-by-digit).
 
 **C. Verify-anyway → dispute → admin review**
 5. A disputed redemption is pre-seeded (geofence flag + merchant override at Nuur).

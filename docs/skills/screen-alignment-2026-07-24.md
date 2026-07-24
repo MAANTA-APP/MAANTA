@@ -131,3 +131,48 @@ shopper "You pay" (cash they hand over) vs merchant "Collect from shopper"
 
 Repo→prod boundary unchanged: everything above is repo state on the branch; it
 asserts nothing about prod env being hardened.
+
+---
+
+## Backlog implemented — 2026-07-24 (fourth pass)
+
+All four pre-rehearsal items are now built. UI + two read-only route fields only;
+no fee/Node 0/Guardian/arrears/wallet-logic change.
+
+- **Masked shopper phone (M3 + M4).** New `src/lib/phone-mask.ts` `maskPhone()`
+  derives a masked string **server-side** from `users.phone` (looked up by
+  `redemptions.user_id`); the full number never reaches the client. Format
+  (Kenya default): `+254 7xx xxx 678` (country code + first national digit +
+  last 3). `preflight` and `verify` routes now return `maskedPhone` (null when
+  the shopper has no stored phone). Rendered as a calm muted line: M3 "Shopper
+  phone …" under the deal title, M4 "Shopper phone …" in the metadata. Omitted
+  when null. Tests: `src/lib/__tests__/phone-mask.test.ts` + route tests assert
+  the masked value and that the raw number is never in the payload.
+- **Server verify timestamp (M4).** `verify` returns `verifiedAt` (server UTC
+  ISO — the verify-confirmation instant, distinct from claim-time
+  `redeemed_at`). `redeem-keypad` formats it to the device-local time (EAT at the
+  counter) and `RedemptionResult` shows "Redeemed at 5:32 PM". Falls back to the
+  client clock only if the field is absent. Route test asserts a valid ISO
+  `verifiedAt`.
+- **Wallet header + chevron (M3).** New presentational `src/components/ui/
+  wallet-header.tsx` shows "Wallet KES N" in ink + a chevron linking to the
+  existing `/merchant/wallet` — read-only affordance, **no new top-up/withdraw
+  flow**. Shown at the top of the redeem keypad on phone (`lg:hidden`; the tablet
+  layout already shows the balance in its right pane). Test:
+  `wallet-header.test.ts`.
+- **Segmented 6-box OTP (S2).** New `src/components/ui/otp-input.tsx` — a
+  controlled 6-box input over the same OTP string the verify flow already
+  submits (auto-advance, backspace, paste, arrow keys). Digit maths are exported
+  pure helpers (`sanitizeOtp` / `replaceOtpCharAt` / `removeOtpCharAt`) and
+  unit-tested. `/verify-phone` now renders it instead of the single field; the
+  verify endpoint is unchanged.
+
+**Cash-only guardrail** extended to scan the two new UI files; no payment-UI
+phrasing anywhere. **Checks:** typecheck ✅, lint ✅, `npm test` ✅ **180/31**,
+`npm run build` ✅ (dummy Clerk key, 81/81 pages). Still repo-only — no prod
+assertion.
+
+### Masking-format note (decision recorded, not blocking)
+The Kenya default `+254 7xx xxx 678` reveals only country code + one leading
+digit + last 3. If a different reveal is wanted (e.g. last-4, or masking the
+country code), it's a one-line change in `maskPhone` — flag it.

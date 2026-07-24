@@ -4,7 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { PhoneField, TextField } from "@/components/ui/inputs";
+import { PhoneField } from "@/components/ui/inputs";
+import { OtpInput } from "@/components/ui/otp-input";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconCheck } from "@/components/ui/icons";
 
@@ -146,13 +147,10 @@ function VerifyPhoneInner() {
         </div>
       ) : stage === "code" ? (
         <div className="mt-8 space-y-4">
-          <TextField
-            label="Enter the 6-digit code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            inputMode="numeric"
-            autoFocus
-          />
+          <label className="block text-center text-xs font-medium text-muted">
+            Enter the 6-digit code
+          </label>
+          <OtpInput value={code} onChange={setCode} autoFocus ariaLabel="6-digit code" />
           {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
           <Button full onClick={verify} loading={busy} disabled={code.trim().length < 4}>
             Verify &amp; continue

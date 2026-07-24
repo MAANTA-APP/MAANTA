@@ -21,6 +21,8 @@ const SHOPPER_AND_REDEEM = [
   "src/app/verify-phone/page.tsx",
   "src/app/merchant/(app)/redeem/redeem-keypad.tsx",
   "src/components/ui/redemption-result.tsx",
+  "src/components/ui/otp-input.tsx",
+  "src/components/ui/wallet-header.tsx",
 ];
 
 // Payment-UI phrases — NOT the bare word "pay" ("You pay KES N" is the shopper's

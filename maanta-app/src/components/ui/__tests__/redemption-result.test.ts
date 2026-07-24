@@ -70,3 +70,24 @@ describe("RedemptionResult — Collect from shopper line", () => {
     expect(html).not.toContain("Cash, collected in person");
   });
 });
+
+describe("RedemptionResult — metadata (timestamp + masked phone)", () => {
+  function render(props: Record<string, unknown>) {
+    return renderToStaticMarkup(createElement(RedemptionResult, { ...base, ...props }));
+  }
+
+  it("shows a 'Redeemed at' line when a timestamp label is provided", () => {
+    expect(render({ timestampLabel: "5:32 PM" })).toContain("Redeemed at 5:32 PM");
+  });
+
+  it("shows the masked shopper phone when provided (never a raw number)", () => {
+    const html = render({ maskedPhone: "+254 7xx xxx 678" });
+    expect(html).toContain("Shopper phone +254 7xx xxx 678");
+  });
+
+  it("omits both lines when not provided", () => {
+    const html = render({});
+    expect(html).not.toContain("Redeemed at");
+    expect(html).not.toContain("Shopper phone");
+  });
+});
