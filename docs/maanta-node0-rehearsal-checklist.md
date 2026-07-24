@@ -56,6 +56,12 @@ gift sets" (standard).
    redemption**. Expected after confirm: success screen with KES 30 fee, a
    copyable reference ID, new balance (540 → 510), and a ledger row under
    `/merchant/wallet` linked to that same reference.
+   - **"Collect from shopper KES N"** (2026-07-24): both the resolve/disclosure
+     screen **and** the success screen show the shopper's YOU PAY amount (e.g.
+     abaya **KES 2,400**) as the cash to take at the counter — shown separately
+     from the KES 30 success fee and the wallet balance. It is **display-only**:
+     the shopper pays the merchant **directly, in cash**; MAANTA never charges
+     the shopper in-app. Omitted for any legacy deal with no snapshotted amount.
 
 **C. Verify-anyway → dispute → admin review**
 5. A disputed redemption is pre-seeded (geofence flag + merchant override at Nuur).

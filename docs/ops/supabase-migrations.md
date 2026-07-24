@@ -150,6 +150,15 @@ echo/run the CLI above — **review before running against prod**:
 | `make db-list` | `supabase migration list` | read-only |
 | `make db-push-dry` | `supabase db push --dry-run` | read-only (preview) |
 | `make db-push` | `supabase db push` (prompts) | **MUTATING — applies migrations to prod** |
+| `make db-verify` | boots a **throwaway local** Supabase, applies all migrations, runs `supabase/tests/*.sql`, stops it | **LOCAL/dev ONLY — never touches prod** |
+
+> **`make db-verify` is not a production verification.** It reproduces the CI
+> `db-tests` job on a disposable local stack (fixed db_url
+> `postgresql://postgres:postgres@127.0.0.1:54322/postgres`). Because the
+> assertion suites INSERT test data, they must **only** run against a local
+> stack — never against the linked prod project. Requires the Supabase CLI +
+> Docker. To verify a **production** push, use the manual read-only SQL subset
+> in §5 above (grants, audit tables, spot-checks), not this target.
 
 ## Safety recap
 
@@ -158,3 +167,5 @@ echo/run the CLI above — **review before running against prod**:
 - Prefer `--dry-run` first; apply in a low-traffic window.
 - `db push` is forward-only — there is no auto-rollback. Take a DB backup /
   point-in-time snapshot first if you're uneasy.
+- `make db-verify` is safe to run anytime in dev/CI (local stack only); it has
+  no path to production.

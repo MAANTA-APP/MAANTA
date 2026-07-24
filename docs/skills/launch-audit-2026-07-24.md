@@ -31,8 +31,18 @@
 > (`kesPerUnit` resolver), healthz, and the collect line on **both** the disclosure
 > and success screens; it does **not** adopt `h55jb2`'s competing
 > `src/lib/agent-attribution.ts` (agent attribution already shipped on `main` via
-> merge #68) or its out-of-scope `merchant-wallet.ts` / `new-deal-wizard.tsx`.
+> merge #68 — documented instead in `docs/skills/agent-attribution.md`) or its
+> out-of-scope `merchant-wallet.ts` / `new-deal-wizard.tsx`.
 > Prod gates in §4 are unchanged.
+
+> **Source of truth — 2026-07-24:** this audit work is consolidated in **PR #70**
+> (`maanta-launch-audit-canonical` → `main`), which supersedes both `hn5qne` and
+> PR #69/`h55jb2`. **PR #70 is open and cleanly mergeable but NOT yet merged** —
+> so these behaviours are **ready in repo on the canonical branch** and become
+> `main` only once a human merges #70 and closes #69. Do not read this doc as
+> "already on `main`" until that merge lands. Operator convenience: `make
+> db-verify` reproduces the CI DB assertion suite on a throwaway **local** stack
+> (never prod).
 
 ## How to read this
 
