@@ -413,21 +413,41 @@ BEGIN
   END;
   ASSERT v_raised, '7a: a direct insert with a NULL note was accepted';
 
-  -- 7b: a whitespace-only note (spaces + tab + newline) is rejected by the CHECK.
-  v_raised := false;
+  -- 7b: a whitespace-only note is rejected by the CHECK, for EVERY whitespace
+  -- kind the POSIX [[:space:]] class covers — space, tab, newline, carriage
+  -- return, form-feed, vertical tab (U+000B / E'\x0B'), and a mix. Vertical tab
+  -- is called out explicitly: an escape-string btrim set of E'\v' would trim a
+  -- literal 'v' (\\v is not a Postgres escape) and let a vertical-tab-only note
+  -- slip through, so the constraint must use the POSIX class, and this asserts it.
+  DECLARE
+    v_ws TEXT;
   BEGIN
-    INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
-      VALUES (v_rid, v_mid, v_tx, '400007', 30, E' \t\n ', v_admin);
-  EXCEPTION WHEN check_violation THEN
-    v_raised := true;
+    FOREACH v_ws IN ARRAY ARRAY[' ', E'\t', E'\n', E'\r', E'\f', E'\x0B', E' \t\n\r\f\x0B ']
+    LOOP
+      v_raised := false;
+      BEGIN
+        INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+          VALUES (v_rid, v_mid, v_tx, '400007', 30, v_ws, v_admin);
+      EXCEPTION WHEN check_violation THEN
+        v_raised := true;
+      END;
+      ASSERT v_raised, format('7b: a whitespace-only note (%s) was accepted', encode(v_ws::bytea, 'hex'));
+    END LOOP;
   END;
-  ASSERT v_raised, '7b: a direct insert with a whitespace-only note was accepted';
 
   -- 7c: a valid note inserts fine (constraint is not over-broad).
   INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
     VALUES (v_rid, v_mid, v_tx, '400007', 30, '  merchant honoured the deal  ', v_admin)
     RETURNING id INTO v_ok;
   ASSERT v_ok IS NOT NULL, '7c: a valid note was rejected';
+
+  -- 7d: a lone 'v' is a REAL one-character note, not whitespace — it must be
+  -- accepted. This is the regression guard for the E'\v' escape trap: if the
+  -- constraint ever trims a literal 'v', this insert would wrongly fail.
+  INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+    VALUES (v_rid, v_mid, v_tx, '400007', 30, 'v', v_admin)
+    RETURNING id INTO v_ok;
+  ASSERT v_ok IS NOT NULL, '7d: a lone non-whitespace "v" note was wrongly rejected';
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_mid;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;

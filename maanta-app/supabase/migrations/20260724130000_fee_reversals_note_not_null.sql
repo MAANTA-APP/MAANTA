@@ -28,15 +28,23 @@ UPDATE public.fee_reversals
 ALTER TABLE public.fee_reversals
   ALTER COLUMN note SET NOT NULL;
 
--- 3. Length CHECK: after stripping ALL surrounding whitespace (spaces, tabs,
---    newlines, CR, form-feed, vertical tab — matching the RPC's normalisation)
---    the note must be 1..2000 chars. The lower bound is the whitespace-only
---    backstop at the storage layer; the upper bound keeps the audit column
---    bounded. Guarded with a NOT VALID + VALIDATE-free single statement since
---    the table is small (pilot) and the backfill above guarantees compliance.
+-- 3. Length CHECK: after stripping ALL surrounding whitespace the note must be
+--    1..2000 chars. The lower bound is the whitespace-only backstop at the
+--    storage layer; the upper bound keeps the audit column bounded. We reuse the
+--    RPC's exact normalisation — regexp_replace over the POSIX [[:space:]] class
+--    — so the column and reverse_success_fee agree on "surrounding whitespace"
+--    (spaces, tabs, newlines, CR, form-feed, vertical tab, …). NB: an escape
+--    string like E'\v' is NOT a vertical tab in Postgres (\v is not a recognised
+--    escape → literal 'v'), so a btrim character set would silently trim 'v' and
+--    miss U+000B; the POSIX class avoids that trap entirely.
+--    Applied as a plain (validated) ADD CONSTRAINT: fee_reversals is a BBS-pilot
+--    audit table (one row per rare manual admin reversal), so the ACCESS
+--    EXCLUSIVE lock + scan is negligible and the backfill above guarantees every
+--    existing row already satisfies the constraint. A NOT VALID + later VALIDATE
+--    split would only add an unvalidated window for no benefit at this scale.
 ALTER TABLE public.fee_reversals
   ADD CONSTRAINT fee_reversals_note_not_blank
-  CHECK (char_length(btrim(note, E' \t\n\r\f\v')) BETWEEN 1 AND 2000);
+  CHECK (char_length(regexp_replace(note, '^[[:space:]]+|[[:space:]]+$', '', 'g')) BETWEEN 1 AND 2000);
 
 COMMENT ON COLUMN public.fee_reversals.note IS
   'Required reviewer rationale for the reversal (Decisions Log 2026-07-23). NOT NULL with a 1..2000-char trimmed-length CHECK (fee_reversals_note_not_blank); the RPC also trims and rejects a blank note (note_required) and the admin route rejects it with 400. The incident number (incident_ref) stays optional.';
