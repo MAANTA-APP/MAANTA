@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-23 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-24 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.

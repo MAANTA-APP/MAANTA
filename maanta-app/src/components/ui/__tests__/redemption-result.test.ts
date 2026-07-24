@@ -45,14 +45,17 @@ describe("RedemptionResult — P12 collect-from-shopper", () => {
 
   it("omits the collect line for a non-positive amount", () => {
     expect(render({ ...base, amountKes: 0 })).not.toContain("Collect from shopper");
+    expect(render({ ...base, amountKes: -1 })).not.toContain("Collect from shopper");
     expect(render({ ...base, amountKes: undefined })).not.toContain(
       "Collect from shopper"
     );
   });
 
-  it("renders the collect amount in white, never amber (R3: money never coloured)", () => {
+  it("renders the collect AMOUNT itself in white, never amber (R3: money never coloured)", () => {
     const html = render({ ...base, amountKes: 572 });
-    expect(html).toContain("text-white");
+    // Target the collect-amount node directly (text-white also appears on the
+    // icon/header), and prove it isn't amber.
+    expect(html).toMatch(/<p class="[^"]*\btext-white\b[^"]*">KES 572<\/p>/);
     expect(html).not.toContain("text-brand");
   });
 

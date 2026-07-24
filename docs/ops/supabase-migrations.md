@@ -74,24 +74,36 @@ Only seed a project you intend to demo on.
 ## 5. Verify the push took
 
 ```sql
--- 5a. All six hardening versions recorded:
+-- 5a. Exactly the six hardening versions present (expect 6 rows, all six):
 SELECT version FROM supabase_migrations.schema_migrations
-WHERE version LIKE '20260722%' OR version LIKE '20260723%'
+WHERE version IN (
+  '20260722180000','20260722190000','20260722200000',
+  '20260723120000','20260723130000','20260723140000'
+)
 ORDER BY version;
+-- If this returns fewer than 6, the missing version(s) still need `db push`.
 
--- 5b. Core-table writes revoked from authenticated (expect f / false):
-SELECT has_table_privilege('authenticated','public.merchants','UPDATE')   AS merchants_update,
-       has_table_privilege('authenticated','public.redemptions','UPDATE') AS redemptions_update,
-       has_table_privilege('authenticated','public.deals','UPDATE')       AS deals_update;
+-- 5b. Core-table writes ALL revoked from authenticated — INSERT/UPDATE/DELETE
+--     on merchants/redemptions/deals (expect every column false):
+SELECT c AS tbl,
+       has_table_privilege('authenticated','public.'||c,'INSERT') AS ins,
+       has_table_privilege('authenticated','public.'||c,'UPDATE') AS upd,
+       has_table_privilege('authenticated','public.'||c,'DELETE') AS del
+FROM unnest(ARRAY['merchants','redemptions','deals']) AS c;
 
 -- 5c. Audit / money tables exist (expect all not-null / true):
 SELECT to_regclass('public.admin_ops_log')  IS NOT NULL AS admin_ops_log,
        to_regclass('public.guardian_events') IS NOT NULL AS guardian_events,
        to_regclass('public.fee_reversals')   IS NOT NULL AS fee_reversals;
 
--- 5d. Internal money RPC not executable by authenticated (expect false):
-SELECT has_function_privilege('authenticated',
-  'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE');
+-- 5d. Internal money RPC is service_role-only: denied to anon + authenticated,
+--     allowed for service_role (expect false, false, true):
+SELECT has_function_privilege('anon',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS anon_exec,
+       has_function_privilege('authenticated',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS authed_exec,
+       has_function_privilege('service_role',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS service_exec;
 ```
 
 Then run the **audit SQL subset** against prod (self-cleaning, but still a
@@ -106,24 +118,35 @@ for f in security_hardening_test capture_lead_test \
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$f.sql"
 done
 
-# no residue:
-psql "$DATABASE_URL" -c "SELECT count(*) FROM merchants WHERE merchant_name LIKE '__test%';"
+# no residue — check every known test-data class, not just merchant names
+# (the suites also create rate-limit buckets; security-hardening.md treats
+# both as residue). Expect 0 for every count:
+psql "$DATABASE_URL" -c "
+  SELECT
+    (SELECT count(*) FROM merchants WHERE merchant_name LIKE '__test%')      AS test_merchants,
+    (SELECT count(*) FROM api_rate_limit_buckets WHERE bucket_key LIKE 'test-rate-%') AS test_buckets;
+"
 ```
+
+(If a count is non-zero, a suite failed to self-clean — inspect and remove the
+rows before treating the run as clean. Adjust the `api_rate_limit_buckets`
+key/column name if the suite uses a different one.)
 
 Each suite ends in a success `RAISE NOTICE`; any failed `ASSERT` aborts under
 `ON_ERROR_STOP=1`. The full 14-suite set is what CI `db-tests` runs on every PR.
 
 ## 6. Convenience targets
 
-`make -f Makefile <target>` (repo root) wraps the read-safe commands. They only
+`make -f Makefile <target>` (repo root) wraps the CLI. These are **read/write**
+commands — `db-push` **mutates production** (applies migrations). They only
 echo/run the CLI above — **review before running against prod**:
 
-| Target | Runs |
-|---|---|
-| `make db-link` | `supabase link --project-ref axrrslqssmbngbataejg` |
-| `make db-list` | `supabase migration list` |
-| `make db-push-dry` | `supabase db push --dry-run` |
-| `make db-push` | `supabase db push` (prompts) |
+| Target | Runs | Effect |
+|---|---|---|
+| `make db-link` | `supabase link --project-ref axrrslqssmbngbataejg` | local link only |
+| `make db-list` | `supabase migration list` | read-only |
+| `make db-push-dry` | `supabase db push --dry-run` | read-only (preview) |
+| `make db-push` | `supabase db push` (prompts) | **MUTATING — applies migrations to prod** |
 
 ## Safety recap
 

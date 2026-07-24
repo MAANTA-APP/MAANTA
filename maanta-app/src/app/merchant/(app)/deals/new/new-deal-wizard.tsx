@@ -51,6 +51,10 @@ export function NewDealWizard({
   // top-up CTA — proactively (upfront on step 1 AND at review) and on the 402,
   // never an override.
   const zeroBalance = shouldPromptTopUp(balance);
+  // shouldPromptTopUp also returns true for a NaN/invalid balance (fail-safe),
+  // so never render "KES NaN" — show an unavailable-balance phrasing instead.
+  const balanceKnown = Number.isFinite(balance);
+  const balanceLabel = balanceKnown ? formatKes(balance) : "unavailable";
 
   // Price policy (brief §4/§10): YOU PAY = price + disclosed extras, computed in
   // exactly one place (lib/pricing) so the merchant preview here and the
@@ -161,8 +165,10 @@ export function NewDealWizard({
               (R1). */}
           {zeroBalance ? (
             <InlineAlert variant="warning" title="Top up to publish a deal." className="mb-4">
-              Your wallet balance is {formatKes(balance)}. A deal needs a funded
-              wallet —{" "}
+              {balanceKnown
+                ? `Your wallet balance is ${balanceLabel}. `
+                : "Your wallet balance is unavailable. "}
+              A deal needs a funded wallet —{" "}
               <Link href="/merchant/topup" className="font-semibold text-ink underline">
                 top up
               </Link>{" "}
@@ -562,8 +568,10 @@ export function NewDealWizard({
           {zeroBalance ? (
             <div className="mt-3 rounded-card border border-line bg-white p-3.5">
               <p className="text-sm font-medium text-ink">
-                Your wallet balance is {formatKes(balance)}. Top up before publishing —
-                a deal needs a funded wallet.
+                {balanceKnown
+                  ? `Your wallet balance is ${balanceLabel}. `
+                  : "Your wallet balance is unavailable. "}
+                Top up before publishing — a deal needs a funded wallet.
               </p>
               <ButtonLink href="/merchant/topup" variant="secondary" full className="mt-3">
                 Top up wallet

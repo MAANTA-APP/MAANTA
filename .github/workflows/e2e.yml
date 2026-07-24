@@ -7,7 +7,7 @@ name: E2E (golden path)
 #
 # To enable (human/ops task, see docs/ops/e2e-golden-path.md):
 #   1. Repo Settings → Secrets and variables → Actions:
-#        - Variable  E2E_BASE_URL            = https://<deployed app>
+#        - Variable  E2E_BASE_URL            = https://<deployed NON-PROD app>
 #        - Secrets   E2E_SHOPPER_STORAGE,
 #                    E2E_MERCHANT_STORAGE     = Playwright storageState JSON
 #   2. This job then runs on pushes/PRs to main. Without E2E_BASE_URL it is a
@@ -19,21 +19,34 @@ on:
   push:
     branches: [main]
 
+# Serialize runs against the shared, mutable E2E backend: the suite verifies
+# real redemptions against seeded deals + a merchant wallet, so concurrent runs
+# would race that state. Don't cancel an in-flight (paid) redemption run.
+concurrency:
+  group: e2e-golden-path-${{ vars.E2E_BASE_URL }}
+  cancel-in-progress: false
+
+# Least privilege: the job only needs to read the repo to run tests.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: maanta-app
 
 jobs:
   e2e:
-    # Gate: only runs once an operator sets the E2E_BASE_URL repo variable.
-    if: ${{ vars.E2E_BASE_URL != '' }}
+    # Gate: runs only once E2E_BASE_URL is set, and never for fork PRs — forks
+    # don't receive the storage secrets, so the suite would self-skip to a green
+    # zero-coverage run.
+    if: ${{ vars.E2E_BASE_URL != '' && github.event.pull_request.head.repo.fork != true }}
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
-      E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
-      E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -51,5 +64,21 @@ jobs:
           npm i -D --no-save @playwright/test
           npx playwright install --with-deps chromium
 
+      # The storage-state secrets are exposed ONLY to the two steps that need
+      # them (this preflight + the test run) — not job-wide — so checkout and
+      # the installs above can't read them.
+      - name: Require storage states (fail a zero-coverage run)
+        env:
+          E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
+          E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
+        run: |
+          if [ -z "$E2E_SHOPPER_STORAGE" ] || [ -z "$E2E_MERCHANT_STORAGE" ]; then
+            echo "::error::E2E_BASE_URL is set but a storage secret is missing — the suite would self-skip to a green zero-coverage run. Set E2E_SHOPPER_STORAGE and E2E_MERCHANT_STORAGE."
+            exit 1
+          fi
+
       - name: Run golden-path E2E
+        env:
+          E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
+          E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
         run: npm run test:e2e

@@ -69,3 +69,7 @@ greppable in server logs / Sentry breadcrumbs. The durable record remains
   today (absent id → null → `self_serve`, exactly as before).
 - The resolver never throws — a flaky `agents` read degrades to `self_serve`
   rather than failing a merchant's onboarding.
+- The service client is created **lazily inside** `isActiveAgent()` (only
+  reached for a well-formed agent id), so self-serve onboarding never depends on
+  service-role config: `createServiceClient()` throwing on a missing key is
+  swallowed by the resolver's fail-safe and still resolves to `self_serve`.

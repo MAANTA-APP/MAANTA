@@ -20,7 +20,10 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  // No retries: the golden path drives a live, PAID redemption (KES 30 success
+  // fee per verified redemption). A retry would replay claim + verify and could
+  // charge a second fee, so a failure must surface rather than silently re-run.
+  retries: 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: process.env.E2E_BASE_URL,

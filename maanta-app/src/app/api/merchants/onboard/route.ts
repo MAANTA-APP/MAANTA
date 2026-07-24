@@ -52,7 +52,6 @@ export async function POST(request: Request) {
   }
 
   const supabase = createClient();
-  const service = createServiceClient();
 
   // G1/G4 — agent-assisted onboarding attribution (attribution-only trust
   // model, see src/lib/agent-attribution.ts + docs/skills/agent-attribution.md).
@@ -61,9 +60,14 @@ export async function POST(request: Request) {
   // (the agent-facing surface is a flagged human/product task), so today this
   // is inert and behaviour is unchanged — but the route no longer hardcodes
   // null, and attribution is validated + logged when it does arrive.
+  //
+  // The service client is created lazily INSIDE the lookup (only reached for a
+  // well-formed agent id) so self-serve onboarding never depends on
+  // service-role config — createServiceClient() throws when the key is missing,
+  // and resolveOnboardingAgentId swallows that, keeping the self_serve path.
   const agentLookup: AgentLookup = {
     async isActiveAgent(agentId: string) {
-      const { data } = await service
+      const { data } = await createServiceClient()
         .from("agents")
         .select("id")
         .eq("id", agentId)

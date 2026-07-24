@@ -26,11 +26,26 @@ the human/ops gate.
   main `npm ci` lockfile stays valid).
 - `npm run test:e2e` script.
 
+## ⚠️ This suite charges real money — use a dedicated non-prod env
+
+Every successful run **claims and verifies a real redemption**, which writes
+ledger/audit rows and debits the **KES 30 success fee** from the merchant
+wallet. Static storage-state sessions + the rehearsal seed mean this state
+**accumulates across CI runs**. Therefore:
+
+- **Never point `E2E_BASE_URL` at production** (`axrrslqssmbngbataejg` / the
+  Vercel prod URL). Use a **dedicated non-production Supabase + Clerk project**
+  with **test-only** merchant/deal records.
+- Have an **audited reset** between runs (re-seed / truncate the test
+  redemptions + reset the test merchant wallet & arrears) so fees and audit rows
+  don't pile up. The `if` gate + `retries: 0` reduce, but don't eliminate, this.
+
 ## Human steps to enable
 
-1. **Provision a test env:** a deployed MAANTA build pointed at a test Supabase
-   (or the live project with rehearsal seed) and a Clerk test instance with a
-   shopper + a verifying-merchant test user.
+1. **Provision a dedicated test env:** a deployed MAANTA build pointed at a
+   **non-production** Supabase project (with the rehearsal seed) and a Clerk
+   test instance with a shopper + a verifying-merchant test user. Do **not**
+   reuse production for this.
 2. **Capture storage states** (signed-in sessions) locally:
    ```bash
    cd maanta-app

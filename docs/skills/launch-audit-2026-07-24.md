@@ -122,6 +122,16 @@ Five tracks. IDs are used again in Section 2 for the ✅/⚠️/❌ verdicts.
 
 # Section 2 — Status by item
 
+> **Read with the 2026-07-24 update at the end.** The ✅/⚠️/❌ verdicts below are
+> the audit **as first written** (before this session's implementation work).
+> Several ⚠️/❌ items — **P12** (collect-from-shopper), **M1** (zero-balance CTA),
+> **E9** (FX abstraction), **G1/G4** (attribution plumbing), **PR #35**
+> (Playwright), and the **doc reconciliation** — were subsequently implemented
+> this session; see "Update — 2026-07-24: repo worklist executed" at the end for
+> what landed. The rows here are intentionally left as the point-in-time audit
+> record; the deployment-verification and agent-facing-UI gaps they describe
+> remain open.
+
 Legend: ✅ verified in repo/tests · ⚠️ partially done (in repo, not confirmed in prod, or has a known gap) · ❌ not done / decision pending.
 Task-type tag on every ⚠️/❌: **[eng]** repo code/test, **[deploy]** dashboard/config, **[founder/legal]** human decision.
 
@@ -324,7 +334,7 @@ human-owned and unchanged.
 
 | Item | What landed | Tests |
 |---|---|---|
-| **Prod pin + doc reconciliation** | `axrrslqssmbngbataejg` pinned across all forward-looking docs; historical parity records annotated; `docs/ops/supabase-migrations.md` + root `Makefile` (link/list/push/verify, **human-run**) | — |
+| **Prod pin + doc reconciliation** | `axrrslqssmbngbataejg` pinned across all forward-looking docs; historical parity records annotated; `docs/ops/supabase-migrations.md` (with verification SQL) + root `Makefile` (link/list/push, **human-run**) | — |
 | **P12 collect-from-shopper** | verify route returns `amount_kes`; threaded through `redeem-keypad`; `RedemptionResult` shows **"Collect from shopper KES N"** (white/tabular, R3-safe), distinct from the KES 30 fee; null-safe for legacy deals | `redemption-result.test.ts` (6) |
 | **E9 FX abstraction** | `src/lib/fx/` (`FxProvider` + open-er-api + static providers, cached registry); `currency.ts` refactored to consume it, behaviour unchanged; `docs/skills/fx-provider.md` | `fx.test.ts` (9), `currency.test.ts` still green |
 | **healthz self-check** | `src/lib/health.ts` + `GET /api/healthz` (public liveness; admin-gated booleans-only env report) | `health.test.ts` (5) |
