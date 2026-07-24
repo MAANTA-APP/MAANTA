@@ -19,10 +19,14 @@
 --    since 2026-07-22 / 2026-07-23), but a SET NOT NULL fails hard on even one
 --    offending row, so normalise any legacy/blank value to an explicit sentinel
 --    that satisfies the constraint and is obvious in the audit log.
+--    Use the SAME POSIX normalisation as the CHECK below so the two agree
+--    exactly — otherwise a vertical-tab-only legacy note would slip past this
+--    backfill and then be rejected by the constraint, aborting the migration
+--    (and an `E'\v'` btrim set would also wrongly overwrite a genuine 'v' note).
 UPDATE public.fee_reversals
    SET note = '(migrated — no decision note was recorded before 2026-07-23)'
  WHERE note IS NULL
-    OR btrim(note, E' \t\n\r\f\v') = '';
+    OR regexp_replace(note, '^[[:space:]]+|[[:space:]]+$', '', 'g') = '';
 
 -- 2. The column may never again be null.
 ALTER TABLE public.fee_reversals
