@@ -28,6 +28,7 @@ type Screen =
       dealTitle: string | null;
       mismatch: boolean;
       distance: number | null;
+      collectAmount: number | null;
     }
   | { kind: "verifying" }
   | {
@@ -123,6 +124,10 @@ export function RedeemKeypad({
         dealTitle: body.dealTitle ?? null,
         mismatch: body.locationMismatch === true,
         distance: typeof body.distanceMeters === "number" ? body.distanceMeters : null,
+        collectAmount:
+          typeof body.collectAmount === "number" && Number.isFinite(body.collectAmount)
+            ? body.collectAmount
+            : null,
       });
     } catch {
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
@@ -241,6 +246,21 @@ export function RedeemKeypad({
         <p className="text-xs font-medium text-muted">Code resolved</p>
         {screen.dealTitle ? (
           <h1 className="mt-1 text-lg font-bold text-ink">{screen.dealTitle}</h1>
+        ) : null}
+
+        {/* Collect from shopper — the cash the shopper pays the merchant directly
+            (their YOU PAY amount, snapshotted at claim). Shown before Confirm so
+            the cashier knows the amount to take. Ink on the light surface (money
+            is never coloured, Rule 3), tabular, and kept separate from the
+            KES 30 success fee disclosed below and the wallet balance — the three
+            are distinct amounts. Omitted when there's no snapshot. */}
+        {screen.collectAmount != null && screen.collectAmount > 0 ? (
+          <div className="mt-3 flex items-baseline justify-between rounded-card border border-line bg-white px-4 py-3">
+            <span className="text-sm font-medium text-secondary">Collect from shopper</span>
+            <span className="tnum text-xl font-bold text-ink">
+              {formatKes(screen.collectAmount)}
+            </span>
+          </div>
         ) : null}
 
         {screen.mismatch ? (

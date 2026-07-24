@@ -1,0 +1,102 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "../route";
+
+// The preflight route feeds the pre-confirm disclosure screen. It must surface
+// the shopper's YOU PAY amount ("Collect from shopper") by reading the amount_kes
+// column snapshotted on the redemption at claim — the same read-only value the
+// success takeover uses. No money path is touched. Legacy rows without a
+// snapshot must degrade to collectAmount: null.
+
+vi.mock("@/lib/merchant-api", () => ({
+  requireMerchant: () =>
+    Promise.resolve({ ctx: { merchant: { id: "merchant-1" } } }),
+}));
+
+vi.mock("@/lib/otp", () => ({
+  isValidOtpCode: () => true,
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue(true),
+  OTP_CHECK_RATE_LIMIT: 5,
+  OTP_CHECK_RATE_WINDOW_SECONDS: 60,
+}));
+
+// Fluent service-client chain: from().select().eq().eq().eq().order().limit()
+// .maybeSingle() → the configured redemption row.
+let redemptionRow: Record<string, unknown> | null;
+vi.mock("@/lib/supabase/service", () => ({
+  createServiceClient: () => {
+    const builder: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "order", "limit"]) {
+      builder[m] = () => builder;
+    }
+    builder.maybeSingle = () => Promise.resolve({ data: redemptionRow, error: null });
+    return { from: () => builder };
+  },
+}));
+
+function req(body: unknown) {
+  return new Request("http://localhost/api/redemptions/preflight", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// Far-future expiry so the route's not-expired check always passes.
+const FUTURE = "2999-01-01T00:00:00Z";
+
+function row(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "red-1",
+    status: "pending",
+    expires_at: FUTURE,
+    fraud_flags: [],
+    review_required: false,
+    distance_from_shop: null,
+    amount_kes: 2400,
+    deals: { title: "20% off abayas" },
+    ...overrides,
+  };
+}
+
+describe("POST /api/redemptions/preflight — Collect-from-shopper amount", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redemptionRow = row();
+  });
+
+  it("threads the redemption's amount_kes through as collectAmount", async () => {
+    const res = await POST(req({ otpCode: "123456" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.found).toBe(true);
+    expect(body.collectAmount).toBe(2400);
+    // Deal detail still flows; the collect amount is a separate field (never the
+    // KES 30 fee, which the disclosure's FeeDisclosure renders on its own).
+    expect(body.dealTitle).toBe("20% off abayas");
+  });
+
+  it("coerces a numeric-string amount_kes to a number", async () => {
+    redemptionRow = row({ amount_kes: "1950" });
+    const res = await POST(req({ otpCode: "123456" }));
+    const body = await res.json();
+    expect(body.collectAmount).toBe(1950);
+  });
+
+  it("returns collectAmount: null for a legacy row with no snapshot", async () => {
+    redemptionRow = row({ amount_kes: null });
+    const res = await POST(req({ otpCode: "123456" }));
+    const body = await res.json();
+    expect(body.found).toBe(true);
+    expect(body.collectAmount).toBeNull();
+  });
+
+  it("does not resolve a code with no matching pending redemption", async () => {
+    redemptionRow = null;
+    const res = await POST(req({ otpCode: "123456" }));
+    const body = await res.json();
+    expect(body.found).toBe(false);
+    expect(body.collectAmount).toBeUndefined();
+  });
+});

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const service = createServiceClient();
   const { data: redemption } = await service
     .from("redemptions")
-    .select("id, status, expires_at, fraud_flags, review_required, distance_from_shop, deals(title)")
+    .select("id, status, expires_at, fraud_flags, review_required, distance_from_shop, amount_kes, deals(title)")
     .eq("merchant_id", merchant.id)
     .eq("otp_code", otpCode)
     .eq("status", "pending")
@@ -60,11 +60,21 @@ export async function POST(request: Request) {
     flags.includes("geofence") ||
     (typeof distance === "number" && distance > GEOFENCE_WARN_METERS);
 
+  // "Collect from shopper" — the YOU PAY amount snapshotted onto the redemption
+  // at claim (same read-only value the success takeover uses; see the verify
+  // route). Surfaced pre-confirm so the cashier knows the cash to take before
+  // they verify. NOT a charge and distinct from the KES 30 fee. Legacy rows with
+  // no snapshot come back null → the UI omits the line.
+  const rawAmount = redemption.amount_kes as number | string | null;
+  const collectAmount =
+    rawAmount != null && Number.isFinite(Number(rawAmount)) ? Number(rawAmount) : null;
+
   return NextResponse.json({
     found: true,
     expired: false,
     locationMismatch,
     distanceMeters: distance,
+    collectAmount,
     dealTitle:
       (redemption.deals as unknown as { title: string } | null)?.title ?? null,
   });
