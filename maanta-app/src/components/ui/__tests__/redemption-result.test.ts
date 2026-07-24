@@ -54,4 +54,40 @@ describe("RedemptionResult — Collect from shopper line", () => {
     expect(html).toContain("text-white");
     expect(html).not.toContain("text-brand");
   });
+
+  it("uses the 'Redeemed' takeover header", () => {
+    expect(render({ collectAmount: 2400 })).toContain("Redeemed");
+  });
+
+  it("labels the collect amount as in-person cash, not an in-app charge", () => {
+    const html = render({ collectAmount: 2400 });
+    expect(html).toContain("Cash, collected in person");
+    expect(html).toContain("not an in-app charge");
+  });
+
+  it("omits the cash subtext when there is no collect amount", () => {
+    const html = render({ collectAmount: null });
+    expect(html).not.toContain("Cash, collected in person");
+  });
+});
+
+describe("RedemptionResult — metadata (timestamp + masked phone)", () => {
+  function render(props: Record<string, unknown>) {
+    return renderToStaticMarkup(createElement(RedemptionResult, { ...base, ...props }));
+  }
+
+  it("shows a 'Redeemed at' line when a timestamp label is provided", () => {
+    expect(render({ timestampLabel: "5:32 PM" })).toContain("Redeemed at 5:32 PM");
+  });
+
+  it("shows the masked shopper phone when provided (never a raw number)", () => {
+    const html = render({ maskedPhone: "+254 7xx xxx 678" });
+    expect(html).toContain("Shopper phone +254 7xx xxx 678");
+  });
+
+  it("omits both lines when not provided", () => {
+    const html = render({});
+    expect(html).not.toContain("Redeemed at");
+    expect(html).not.toContain("Shopper phone");
+  });
 });

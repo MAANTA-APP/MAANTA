@@ -13,6 +13,9 @@ export function RedemptionResult({
   newBalance,
   feeChargeStatus = "charged",
   collectAmount = null,
+  dealTitle = null,
+  timestampLabel = null,
+  maskedPhone = null,
   referenceId,
   disputed,
   countdown,
@@ -32,6 +35,12 @@ export function RedemptionResult({
    * Null (legacy rows without a snapshot) omits the line entirely.
    */
   collectAmount?: number | null;
+  /** The deal that was redeemed, for a plain confirmation line. Omitted if null. */
+  dealTitle?: string | null;
+  /** Pre-formatted verification time (e.g. "5:32 PM"). Omitted if null. */
+  timestampLabel?: string | null;
+  /** Server-masked shopper phone (e.g. "+254 7xx xxx 678"). Omitted if null. */
+  maskedPhone?: string | null;
   referenceId: string;
   disputed: boolean;
   countdown: number;
@@ -44,7 +53,7 @@ export function RedemptionResult({
       <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-white/50">
         <IconCheck className="h-8 w-8 text-white" />
       </span>
-      <h1 className="mt-5 text-3xl font-bold text-white">Verified</h1>
+      <h1 className="mt-5 text-3xl font-bold text-white">Redeemed</h1>
 
       {/* Counter action — how much cash to take from the shopper. The primary
           money line on this surface (the merchant's next step), kept visually
@@ -59,7 +68,23 @@ export function RedemptionResult({
           <p className="tnum mt-0.5 text-2xl font-bold text-white">
             {formatKes(collectAmount)}
           </p>
+          <p className="mt-1 text-[11px] text-white/70">
+            Cash, collected in person — not an in-app charge
+          </p>
         </div>
+      ) : null}
+
+      {/* Plain confirmation context — which deal, when it was verified, and a
+          MASKED shopper phone (a counter sanity-check; the full number never
+          reaches the client). Each line omitted when its value isn't supplied. */}
+      {dealTitle ? (
+        <p className="mt-3 text-sm text-white/80">{dealTitle}</p>
+      ) : null}
+      {timestampLabel ? (
+        <p className="mt-1 text-xs text-white/70">Redeemed at {timestampLabel}</p>
+      ) : null}
+      {maskedPhone ? (
+        <p className="mt-1 text-xs text-white/70">Shopper phone {maskedPhone}</p>
       ) : null}
 
       {owed ? (

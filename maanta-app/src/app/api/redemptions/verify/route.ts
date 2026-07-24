@@ -5,6 +5,7 @@ import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
 import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
 import { captureGuardianOutcome } from "@/lib/analytics";
+import { maskPhone } from "@/lib/phone-mask";
 
 export async function POST(request: Request) {
   const auth = await requireMerchant("can_verify");
@@ -126,13 +127,31 @@ export async function POST(request: Request) {
   // Legacy rows with no snapshot come back null → the UI omits the line.
   const { data: redemptionRow } = await service
     .from("redemptions")
-    .select("amount_kes")
+    .select("amount_kes, user_id")
     .eq("id", data.redemption_id)
-    .maybeSingle<{ amount_kes: number | string | null }>();
+    .maybeSingle<{ amount_kes: number | string | null; user_id: string | null }>();
   const collectAmount =
     redemptionRow?.amount_kes != null && Number.isFinite(Number(redemptionRow.amount_kes))
       ? Number(redemptionRow.amount_kes)
       : null;
+
+  // Masked shopper phone for the success takeover (same read-only, server-masked
+  // value the preflight discloses — the full number never reaches the client).
+  let maskedPhone: string | null = null;
+  if (redemptionRow?.user_id) {
+    const { data: shopper } = await service
+      .from("users")
+      .select("phone")
+      .eq("id", redemptionRow.user_id)
+      .maybeSingle<{ phone: string | null }>();
+    maskedPhone = maskPhone(shopper?.phone);
+  }
+
+  // Server-issued verification timestamp. This is the instant the server
+  // confirmed the redemption (UTC, ISO-8601); the client formats it to the
+  // device's local time (East Africa Time at the BBS counter) for display.
+  // Distinct from redemptions.redeemed_at, which is set at CLAIM time.
+  const verifiedAt = new Date().toISOString();
 
   return NextResponse.json({
     dealTitle: deal?.title ?? "Deal",
@@ -141,6 +160,8 @@ export async function POST(request: Request) {
     feeAmount: data.fee_amount,
     newBalance: data.new_balance,
     collectAmount,
+    maskedPhone,
+    verifiedAt,
     disputed: data.disputed === true,
   });
 }
