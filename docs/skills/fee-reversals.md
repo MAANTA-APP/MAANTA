@@ -93,7 +93,7 @@ description), `approver`, `running_total` (cumulative sum). Admin-only
 ## Code map
 
 - migration `maanta-app/supabase/migrations/20260722120000_admin_fee_reversal_wallet_credit.sql`
-- migration `maanta-app/supabase/migrations/20260723130000_reverse_success_fee_note_required.sql` (decision note made mandatory)
+- migration `maanta-app/supabase/migrations/20260723150000_reverse_success_fee_note_required.sql` (decision note made mandatory)
 - RPC `public.reverse_success_fee`, table `public.fee_reversals`, view `public.admin_fee_reversal_log`
 - route `maanta-app/src/app/api/admin/redemptions/[id]/reverse-fee/route.ts`
 - UI `maanta-app/src/app/admin/redemptions/[id]/page.tsx` + `reverse-fee-action.tsx`
