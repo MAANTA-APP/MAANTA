@@ -42,7 +42,7 @@ export function WaitlistForm({ initialSegment }: { initialSegment: WaitlistSegme
   const [businessName, setBusinessName] = useState("");
   const [note, setNote] = useState("");
   const [consent, setConsent] = useState(false);
-  const [website, setWebsite] = useState(""); // honeypot — humans never see it
+  const [honeypot, setHoneypot] = useState(""); // bot trap — humans never see or fill it
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<null | { alreadyJoined: boolean }>(null);
@@ -68,7 +68,7 @@ export function WaitlistForm({ initialSegment }: { initialSegment: WaitlistSegme
           businessName: businessName || null,
           note: note || null,
           consent,
-          website,
+          hp_url: honeypot,
           utmSource: params.get("utm_source"),
           utmMedium: params.get("utm_medium"),
           utmCampaign: params.get("utm_campaign"),
@@ -161,17 +161,24 @@ export function WaitlistForm({ initialSegment }: { initialSegment: WaitlistSegme
         />
       </label>
 
-      {/* Honeypot — hidden from humans, bots tend to fill it. */}
-      <input
-        type="text"
-        name="website"
-        value={website}
-        onChange={(e) => setWebsite(e.target.value)}
-        className="hidden"
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-      />
+      {/*
+        Honeypot — hidden from humans, bots that fill every field trip it.
+        Named and flagged so browser autofill / password managers never
+        touch it (a false positive would silently drop a real signup).
+      */}
+      <div aria-hidden="true" className="hidden">
+        <input
+          type="text"
+          name="hp_url"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-form-type="other"
+        />
+      </div>
 
       <CheckboxRow
         label={WAITLIST_CONSENT_TEXT}
