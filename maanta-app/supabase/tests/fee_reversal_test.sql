@@ -12,6 +12,8 @@
 --   4. No fee to reverse → an unknown-fee redemption (no fee ledger row) is
 --      rejected with no_fee_to_reverse; no credit is written.
 --   5. Approver must be an admin → a non-admin approver id is rejected.
+--   6. Decision note required → a null/blank note is rejected with note_required
+--      and no credit is written (Decisions Log 2026-07-23).
 --
 -- reverse_success_fee is service_role/admin-gated; production calls it with the
 -- service-role key (from the admin route, after requireAdminApi), passing the
@@ -122,10 +124,11 @@ BEGIN
     RETURNING id INTO v_rid;
 
   PERFORM public.verify_redemption(v_mid, '400002');
-  PERFORM public.reverse_success_fee(v_rid, v_admin);   -- first reversal wins
+  -- Note is required (2026-07-23), so every real reversal call carries one.
+  PERFORM public.reverse_success_fee(v_rid, v_admin, NULL, 'merchant honoured deal');  -- first reversal wins
 
   BEGIN
-    PERFORM public.reverse_success_fee(v_rid, v_admin);  -- second must fail
+    PERFORM public.reverse_success_fee(v_rid, v_admin, NULL, 'duplicate attempt');  -- second must fail
   EXCEPTION WHEN OTHERS THEN
     v_raised := true;
     ASSERT SQLERRM LIKE '%already_reversed%', format('2: wrong error: %s', SQLERRM);
@@ -181,7 +184,7 @@ BEGIN
   ASSERT v_balance = 20 AND v_arrears = 30,
     format('3: pre-reversal state balance=%s arrears=%s (expected 20/30)', v_balance, v_arrears);
 
-  SELECT * INTO v_rev FROM public.reverse_success_fee(v_rid, v_admin, 'A2');
+  SELECT * INTO v_rev FROM public.reverse_success_fee(v_rid, v_admin, 'A2', 'arrears case — merchant in the right');
 
   ASSERT v_rev.new_arrears = 0,  format('3: arrears not settled — got %s', v_rev.new_arrears);
   ASSERT v_rev.new_balance = 20, format('3: balance moved — got %s (expected 20, credit clears arrears)', v_rev.new_balance);
@@ -234,7 +237,8 @@ BEGIN
   PERFORM public.verify_redemption(v_mid, '400004');
 
   BEGIN
-    PERFORM public.reverse_success_fee(v_rid, v_admin);
+    -- Note supplied so we reach (and assert on) the no-fee guard, not the note guard.
+    PERFORM public.reverse_success_fee(v_rid, v_admin, NULL, 'unknown fee case');
   EXCEPTION WHEN OTHERS THEN
     v_raised := true;
     ASSERT SQLERRM LIKE '%no_fee_to_reverse%', format('4: wrong error: %s', SQLERRM);
@@ -293,6 +297,75 @@ BEGIN
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id = v_uid;
   RAISE NOTICE 'Scenario 5 passed: non-admin approver rejected';
+END $$;
+
+-- Scenario 6: decision note is required (Decisions Log 2026-07-23).
+-- A null note AND a whitespace-only note are both rejected with note_required,
+-- and no credit is written. Incident number stays optional (unset here).
+DO $$
+DECLARE
+  v_uid   UUID;
+  v_admin UUID;
+  v_mid   UUID;
+  v_did   UUID;
+  v_rid   UUID;
+  v_raised BOOLEAN;
+  v_credit_rows INT;
+  v_balance NUMERIC;
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+  INSERT INTO public.users (role) VALUES ('admin') RETURNING id INTO v_admin;
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+    VALUES ('__test_fr_note', 'test.fr.note', '+254700000306', 'BBS Mall', 'active', 100)
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url)
+    VALUES (v_mid, '__test deal fr note', 'x') RETURNING id INTO v_did;
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, success_fee_charged)
+    VALUES (v_did, v_mid, v_uid, '400006', 'pending', NOW() + INTERVAL '1 hour', 30)
+    RETURNING id INTO v_rid;
+
+  -- Real charged fee so the ONLY thing standing between us and a credit is the note.
+  PERFORM public.verify_redemption(v_mid, '400006');
+  SELECT account_balance INTO v_balance FROM public.merchants WHERE id = v_mid;
+  ASSERT v_balance = 70, format('6: post-verify balance = %s (expected 70)', v_balance);
+
+  -- 6a: null note rejected.
+  v_raised := false;
+  BEGIN
+    PERFORM public.reverse_success_fee(v_rid, v_admin, '9', NULL);
+  EXCEPTION WHEN OTHERS THEN
+    v_raised := true;
+    ASSERT SQLERRM LIKE '%note_required%', format('6a: wrong error: %s', SQLERRM);
+  END;
+  ASSERT v_raised, '6a: a null-note reversal was accepted';
+
+  -- 6b: whitespace-only note rejected.
+  v_raised := false;
+  BEGIN
+    PERFORM public.reverse_success_fee(v_rid, v_admin, '9', '   ');
+  EXCEPTION WHEN OTHERS THEN
+    v_raised := true;
+    ASSERT SQLERRM LIKE '%note_required%', format('6b: wrong error: %s', SQLERRM);
+  END;
+  ASSERT v_raised, '6b: a whitespace-only-note reversal was accepted';
+
+  -- No credit written, balance untouched, and the redemption is still reversible
+  -- (a valid note would still succeed afterwards — not asserted here).
+  SELECT count(*) INTO v_credit_rows FROM public.merchant_transactions
+    WHERE merchant_id = v_mid AND transaction_type = 'fee_reversal';
+  ASSERT v_credit_rows = 0, format('6: a credit was written despite a rejected note (got %s)', v_credit_rows);
+  SELECT account_balance INTO v_balance FROM public.merchants WHERE id = v_mid;
+  ASSERT v_balance = 70, format('6: balance moved despite a rejected note (got %s)', v_balance);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
+  DELETE FROM public.redemptions WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DELETE FROM public.users WHERE id IN (v_uid, v_admin);
+  RAISE NOTICE 'Scenario 6 passed: blank/null decision note rejected, no credit';
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL fee-reversal scenarios passed.'; END $$;
