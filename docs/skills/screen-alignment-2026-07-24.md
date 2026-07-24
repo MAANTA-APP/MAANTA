@@ -102,3 +102,32 @@ auto-reset is unchanged.
 
 **Checks:** typecheck ✅, lint ✅, `npm test` ✅ **158/28**, `npm run build` ✅
 (with a dummy Clerk key).
+
+---
+
+## Merge readiness + pre-rehearsal FE backlog — 2026-07-24 (third pass)
+
+**Branch vs main:** `claude/maanta-wireframes-prompt-nc7h4c` sits directly on top
+of `origin/main` — its merge-base **is** `origin/main` (`2dfdd4f`, which already
+includes #70 and #71), 6 ahead / 0 behind. So it's a clean fast-forward merge:
+**no rebase and no conflicts** to resolve (main has not advanced past the base).
+Re-verified green after the check: typecheck, lint, 158 vitest, build (dummy key,
+81/81 pages).
+
+**Remaining front-end items to weigh before the BBS rehearsal** (NOT implemented —
+some carry product-decision boundaries; listed for a ruling):
+
+| # | Screen/route | Item | Type |
+|---|---|---|---|
+| 1 | M3 `/merchant/redeem` disclosure + M4 takeover | Show a **masked shopper phone** next to the resolved code (spec sketched "code + masked shopper phone"). Needs `preflight`/`verify` to return a masked number, and a masking-format ruling (e.g. `+2547•• ••• 123` vs last-4). | **needs API** + decision |
+| 2 | M3 `/merchant/redeem` | **Persistent wallet balance in the header with a chevron** to `/merchant/wallet`. Today wallet shows in the tablet-only right aside + inline low-balance alerts. | **UI-only** (layout) |
+| 3 | M4 takeover | Use a **server-issued timestamp** instead of the client clock on the "Redeemed" line (audit-accurate). | **needs API** (small `verify` field) |
+| 4 | S2 `/verify-phone` | Optional **6-box segmented OTP input** to match the wireframe sketch (today a single numeric field; fully functional with Clerk). | **UI-only** (cosmetic) |
+
+No shopper-payment UI exists anywhere on S1–S3/M3–M4 (cash-only guardrail test
+green). Shopper↔merchant money language is intentionally distinct and consistent:
+shopper "You pay" (cash they hand over) vs merchant "Collect from shopper"
+(display-only) + the KES 30 success fee + wallet balance as three separate lines.
+
+Repo→prod boundary unchanged: everything above is repo state on the branch; it
+asserts nothing about prod env being hardened.
