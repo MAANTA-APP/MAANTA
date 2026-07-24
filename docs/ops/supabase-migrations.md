@@ -114,7 +114,7 @@ cd maanta-app
 export DATABASE_URL="postgresql://..."   # prod connection string
 for f in security_hardening_test capture_lead_test \
          revoke_authenticated_writes_core_tables_test browse_views_test \
-         admin_ops_log_test; do
+         admin_ops_log_test protect_merchant_financial_columns_test; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$f.sql"
 done
 
