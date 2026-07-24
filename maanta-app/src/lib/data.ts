@@ -171,7 +171,11 @@ export async function getLiveDeals(node: string): Promise<{
     .order("created_at", { ascending: false })
     .limit(60);
   if (node !== ALL_NODES) query = query.eq("node", node);
-  const { data } = await query;
+  const { data, error } = await query;
+  // Surface a hard query failure to the caller (feed error boundary) instead of
+  // swallowing it into an empty result — otherwise a transient DB error is
+  // indistinguishable from "no deals live right now" and shows the empty state.
+  if (error) throw error;
   const deals = ((data ?? []) as unknown as DealRow[]).filter((d) => d.merchants);
 
   const verifiedByMerchant = await getVerifiedCounts(deals.map((d) => d.merchant_id));

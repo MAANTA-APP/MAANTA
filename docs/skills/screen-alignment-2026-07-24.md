@@ -54,3 +54,51 @@ From `maanta-app/`: `npm run dev` (needs Clerk + Supabase env), `npm test`.
 A production build needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` set (CI uses a dummy
 key; without it, static prerender of Clerk pages fails — an env gap, not a code
 defect).
+
+---
+
+## Follow-up UX refinements — 2026-07-24 (second pass)
+
+A focused second pass on loading/empty/error/success states. UI + one read-path
+helper only — no money-path, fee, Guardian, or API-shape change. All on the
+feature branch (repo), not a claim about prod being hardened.
+
+**S1 `/feed`**
+- `getLiveDeals` (`src/lib/data.ts`) now **throws on a hard query error** instead
+  of swallowing it into an empty result — so a transient DB failure is no longer
+  indistinguishable from "no deals".
+- New **error boundary** `src/app/(shopper)/feed/error.tsx` renders the retryable
+  copy **"We couldn't load deals — try again in a moment."** (via the shared
+  `ErrorState`), with a Retry action. No status codes / provider names leak.
+- Loading skeleton (`feed/loading.tsx`) already existed; the empty state now
+  shows **only** on a genuine zero-deal result.
+
+**S2 `/verify-phone`**
+- Added a brief **success state** ("Phone verified — you can now claim deals.
+  Taking you back…") shown for **1.2s** before redirecting back to the deal.
+  *(1.2s is a chosen default — flag if a different dwell is wanted.)*
+- Resend cooldown already disables the control and counts down
+  ("Resend code in Ns"); send-vs-verify error strings remain distinct.
+
+**M3 `/merchant/redeem`** — verified already-correct, locked with tests (no code
+change): preflight `checking` loading state, dark `rejected` error state distinct
+from the "Code valid" chip, and `reset()` restoring a calm keypad on
+"Cancel — charges nothing" (no lingering "Code valid").
+
+**M4 takeover** — rapid successive redemptions are safe: `reset()` clears the
+code + `submitting` ref and `router.refresh()`es before a new resolve; the 3s
+auto-reset is unchanged.
+
+**Tests added**
+- `src/lib/__tests__/get-live-deals.test.ts` — throws on error vs empty-on-zero
+  vs correct flash/boosted/nearMe partition.
+- `src/app/(shopper)/feed/__tests__/feed-error.test.ts` — error copy + Retry, no
+  technical leakage, not the empty copy.
+- `src/__tests__/cash-only-and-copy.test.ts` — **cash-only guardrail** scanning
+  every shopper + merchant-redeem screen for payment-UI phrasing
+  (checkout / add card / pay now / card number …), plus copy locks for the feed
+  empty + error states, verify-phone heading/success/resend, and the M3
+  calm-cancel / code-valid strings.
+
+**Checks:** typecheck ✅, lint ✅, `npm test` ✅ **158/28**, `npm run build` ✅
+(with a dummy Clerk key).

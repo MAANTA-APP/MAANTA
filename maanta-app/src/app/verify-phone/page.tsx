@@ -6,6 +6,7 @@ import { useUser, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { IconCheck } from "@/components/ui/icons";
 
 /**
  * Phone-required-at-claim step (S2 ruling 2026-07-23). Launch auth lets a
@@ -36,7 +37,7 @@ function VerifyPhoneInner() {
   const next = safeInternalPath(params.get("next"));
   const { isLoaded, user } = useUser();
 
-  const [stage, setStage] = useState<"enter" | "code">("enter");
+  const [stage, setStage] = useState<"enter" | "code" | "done">("enter");
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -106,8 +107,14 @@ function VerifyPhoneInner() {
       }
       // Make it the primary phone so it's the account's canonical number.
       await user.update({ primaryPhoneNumberId: record.id }).catch(() => {});
-      router.push(next);
-      router.refresh();
+      // Brief success confirmation before returning to the deal to finish the
+      // claim. Chosen default: 1.2s — long enough to read, short enough not to
+      // feel like a wall. (Flag if a different dwell is wanted.)
+      setStage("done");
+      setTimeout(() => {
+        router.push(next);
+        router.refresh();
+      }, 1200);
     } catch {
       setError("Code didn't match. Check the SMS and try again.");
     } finally {
@@ -137,7 +144,7 @@ function VerifyPhoneInner() {
             Send code
           </Button>
         </div>
-      ) : (
+      ) : stage === "code" ? (
         <div className="mt-8 space-y-4">
           <TextField
             label="Enter the 6-digit code"
@@ -171,6 +178,16 @@ function VerifyPhoneInner() {
           >
             Use a different number
           </Button>
+        </div>
+      ) : (
+        <div className="mt-10 flex flex-col items-center gap-3 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-verified/10">
+            <IconCheck className="h-7 w-7 text-verified" />
+          </span>
+          <p className="text-base font-bold text-ink">Phone verified</p>
+          <p className="-mt-1 max-w-[240px] text-[13px] leading-relaxed text-secondary">
+            You can now claim deals. Taking you back…
+          </p>
         </div>
       )}
     </main>
