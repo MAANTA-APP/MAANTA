@@ -12,6 +12,7 @@ export function RedemptionResult({
   feeAmount,
   newBalance,
   feeChargeStatus = "charged",
+  collectAmount = null,
   referenceId,
   disputed,
   countdown,
@@ -24,17 +25,43 @@ export function RedemptionResult({
    * (rare RPC edge) is treated as charged for display.
    */
   feeChargeStatus?: "charged" | "owed" | "unknown";
+  /**
+   * The shopper's YOU PAY amount, snapshotted at claim, for the merchant to
+   * collect in person. This is NOT an in-app charge and is wholly distinct from
+   * the KES 30 success fee below — the shopper pays the merchant directly.
+   * Null (legacy rows without a snapshot) omits the line entirely.
+   */
+  collectAmount?: number | null;
   referenceId: string;
   disputed: boolean;
   countdown: number;
 }) {
   const owed = feeChargeStatus === "owed";
+  const showCollect =
+    typeof collectAmount === "number" && Number.isFinite(collectAmount) && collectAmount > 0;
   return (
     <main className="flex min-h-[70dvh] animate-fade-in flex-col items-center justify-center bg-verified px-6 py-20 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-white/50">
         <IconCheck className="h-8 w-8 text-white" />
       </span>
       <h1 className="mt-5 text-3xl font-bold text-white">Verified</h1>
+
+      {/* Counter action — how much cash to take from the shopper. The primary
+          money line on this surface (the merchant's next step), kept visually
+          separate from the platform's KES 30 success fee so the two are never
+          conflated. White on the dark success fill (money is never coloured,
+          Rule 3). Omitted when no snapshot exists. */}
+      {showCollect ? (
+        <div className="mt-4 rounded-card border border-white/30 px-5 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-white/70">
+            Collect from shopper
+          </p>
+          <p className="tnum mt-0.5 text-2xl font-bold text-white">
+            {formatKes(collectAmount)}
+          </p>
+        </div>
+      ) : null}
+
       {owed ? (
         <>
           <p className="tnum mt-2 text-sm text-white/80">

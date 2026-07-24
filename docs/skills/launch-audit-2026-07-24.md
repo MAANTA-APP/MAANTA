@@ -3,6 +3,21 @@
 **Author:** Claude (Reviewer mode) · **Branch audited:** `claude/maanta-launch-audit-hn5qne`
 (off `main` @ `2671f54`, merge #68) · **Scope:** repo + docs only.
 
+> **Update — 2026-07-24 (Builder follow-up, same branch):** three repo gaps this
+> audit flagged have since been **closed in repo** (tests + typecheck + lint
+> green, `npm test` now 128 tests / 23 files):
+> - **"Collect from shopper KES N"** now renders on the redeem success takeover
+>   — `amount_kes` threaded read-only through `POST /api/redemptions/verify` →
+>   `RedemptionResult` (distinct from the KES 30 fee; omitted for legacy rows).
+>   No money-path change. So the §2 "Collect from shopper" ❌ is now ✅.
+> - **General `GET /api/healthz`** + `src/lib/health.ts` added: public liveness,
+>   admin-gated boolean-only env presence (never values). The narrow
+>   `?healthz=1` on the waitlist route still exists.
+> - **FX provider abstraction** `src/lib/fx/**` added; `currency.ts` `toKes`
+>   refactored to delegate (behaviour preserved). Docs: `docs/skills/fx-provider.md`.
+>   The **E9** SLA-backed provider swap is still open (free tier today).
+> Everything in §4 (prod apply/verify) remains human-owned and unchanged.
+
 ## How to read this
 
 This audit separates two things that are easy to conflate:
@@ -278,5 +293,3 @@ repo docs to consult.
   `axrrslqssmbngbataejg`, Vercel/Clerk/monitoring config, and every money rail
   are human-owned (§4). Do **not** read this audit as "prod is hardened / launch
   ready" — it certifies the repo, and lists what a human must still verify live.
-</content>
-</invoke>

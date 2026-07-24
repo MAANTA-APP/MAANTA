@@ -6,11 +6,19 @@ marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
 
 > **2026-07-24 repo audit:** full repo-vs-prod readiness audit in
-> `docs/skills/launch-audit-2026-07-24.md`. Repo is green (94 vitest + 15 SQL
+> `docs/skills/launch-audit-2026-07-24.md`. Repo is green (128 vitest + 15 SQL
 > suites; typecheck + lint clean). All prod-apply steps (migrations →
 > `axrrslqssmbngbataejg`, Vercel/Clerk/monitoring config, money rails) remain
-> human-owned — see that audit's §4. One repo gap surfaced: the merchant redeem
-> success screen has no "Collect from shopper KES N" line.
+> human-owned — see that audit's §4.
+>
+> **2026-07-24 Builder follow-up (same branch):** closed the audit's repo gaps —
+> (1) **"Collect from shopper KES N"** now renders on the redeem success takeover
+> (`amount_kes` threaded read-only through `/api/redemptions/verify`; no
+> money-path change); (2) general **`GET /api/healthz`** + `src/lib/health.ts`
+> (public liveness + admin-gated boolean env presence); (3) **FX provider
+> abstraction** `src/lib/fx/**` with `toKes` refactored to delegate — behaviour
+> preserved, docs in `docs/skills/fx-provider.md`. E9 (SLA-backed FX provider)
+> stays open.
 
 Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker · ⬜ not started
 
