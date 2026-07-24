@@ -69,6 +69,14 @@ export function ClaimFlow({
       const body = await res.json();
       if (!res.ok) {
         setChecking(false);
+        // Phone-required-at-claim gate: an email-only session must add a phone
+        // (SMS OTP) first, then land back on this deal to finish claiming.
+        if (body.code === "phone_required") {
+          router.push(
+            `/verify-phone?next=${encodeURIComponent(`/deals/${dealId}`)}`
+          );
+          return;
+        }
         setError(body.error ?? "Could not claim this deal.");
         return;
       }

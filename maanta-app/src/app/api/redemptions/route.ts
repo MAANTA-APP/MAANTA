@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
+import {
+  ensureAppUser,
+  currentClerkUserId,
+  currentUserHasVerifiedPhone,
+} from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
 import { captureDealClaimed } from "@/lib/analytics";
@@ -15,6 +19,22 @@ export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  // Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth lets a
+  // shopper sign up with email OR phone, but a claim requires a verified phone.
+  // An email-only session is bounced here with a typed `phone_required` code so
+  // the client can route through phone OTP and return to the deal — the claim
+  // RPC is never reached without a phone.
+  const hasPhone = await currentUserHasVerifiedPhone();
+  if (!hasPhone) {
+    return NextResponse.json(
+      {
+        error: "Add a phone number to claim this deal.",
+        code: "phone_required",
+      },
+      { status: 403 }
+    );
   }
 
   const { dealId, lat, lng } = await request.json();

@@ -25,6 +25,22 @@ export async function currentClerkUserId(): Promise<string | null> {
 }
 
 /**
+ * True when the signed-in Clerk user has a VERIFIED phone number on their
+ * account. Launch auth offers both email and phone (S2 ruling 2026-07-23), but
+ * claiming a deal requires a phone — this is the server-side gate the claim
+ * route enforces before the claim RPC. Returns false when signed out.
+ *
+ * Clerk only persists a phone after its SMS-OTP verification succeeds, so a
+ * present-and-verified phone is exactly "the shopper completed phone OTP".
+ */
+export async function currentUserHasVerifiedPhone(): Promise<boolean> {
+  const cu = await currentUser();
+  if (!cu) return false;
+  const phones = cu.phoneNumbers ?? [];
+  return phones.some((p) => p.verification?.status === "verified");
+}
+
+/**
  * Resolve the public.users row for the signed-in Clerk user, provisioning it
  * on first sight. Returns null only when the request is unauthenticated.
  *
