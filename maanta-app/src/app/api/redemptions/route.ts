@@ -14,6 +14,7 @@ import {
   CLAIM_RATE_LIMIT,
   CLAIM_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
+import { PHONE_REQUIRED_AT_CLAIM } from "@/lib/launch-auth";
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
@@ -25,9 +26,11 @@ export async function POST(request: Request) {
   // shopper sign up with email OR phone, but a claim requires a verified phone.
   // An email-only session is bounced here with a typed `phone_required` code so
   // the client can route through phone OTP and return to the deal — the claim
-  // RPC is never reached without a phone.
+  // RPC is never reached without a phone. PHONE_REQUIRED_AT_CLAIM is a frozen
+  // TRUE across every launch-auth mix (email+phone or phone-only) — the gate is
+  // never relaxed by the mix flag; only the sign-up methods offered differ.
   const hasPhone = await currentUserHasVerifiedPhone();
-  if (!hasPhone) {
+  if (PHONE_REQUIRED_AT_CLAIM && !hasPhone) {
     return NextResponse.json(
       {
         error: "Add a phone number to claim this deal.",
