@@ -9,6 +9,9 @@ import { cn } from "@/lib/ui";
 
 type Step = "intro" | "business" | "location" | "floor" | "wallet" | "review" | "done";
 
+/** A field agent the merchant can credit for assisting their onboarding (G1). */
+export type OnboardAgent = { id: string; name: string };
+
 const STEPS: { n: number; label: string }[] = [
   { n: 1, label: "Business details" },
   { n: 2, label: "Location & floor" },
@@ -19,11 +22,27 @@ const STEPS: { n: number; label: string }[] = [
 /** 9b–9j Merchant onboarding wizard. `successFee` is the canonical app_config
  * success fee, fetched server-side by the page and passed in so the wallet-step
  * copy reflects the real charge instead of a hardcoded literal. */
-export function OnboardWizard({ successFee }: { successFee: number }) {
+export function OnboardWizard({
+  successFee,
+  agents = [],
+}: {
+  successFee: number;
+  agents?: OnboardAgent[];
+}) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("intro");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // G1 — agent-assisted onboarding attribution. The merchant answers "Were you
+  // helped by a Maanta agent?" and, if yes, picks who. The agent is attribution
+  // only; the merchant is always the authenticated submitter. `assistedByAgent`
+  // is null until answered so we can require an explicit choice before submit.
+  const hasAgents = agents.length > 0;
+  const [assistedByAgent, setAssistedByAgent] = useState<boolean | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const attributionAnswered =
+    !hasAgents || assistedByAgent === false || (assistedByAgent === true && !!selectedAgentId);
 
   // business details (9e)
   const [shopName, setShopName] = useState("");
@@ -82,6 +101,11 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
           // G3 — the floor step captures entrance notes; carry them through
           // instead of silently dropping them before the RPC.
           entranceNotes: entranceNotes.trim() || null,
+          // G1 — agent attribution. Only sent when the merchant answered "Yes"
+          // and picked an agent; "No" (or no agents available) sends null, which
+          // the RPC records as self_serve.
+          onboardingAgentId:
+            assistedByAgent && selectedAgentId ? selectedAgentId : null,
         }),
       });
       const body = await res.json();
@@ -324,11 +348,82 @@ export function OnboardWizard({ successFee }: { successFee: number }) {
               </div>
             ))}
           </div>
+          {hasAgents ? (
+            <div className="mt-6">
+              <p className="text-sm font-bold text-ink">
+                Were you helped by a Maanta agent?
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                So we can credit the field agent who signed you up. You&apos;re
+                still submitting this yourself.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistedByAgent(false);
+                    setSelectedAgentId("");
+                  }}
+                  className={cn(
+                    "h-11 rounded-full border text-sm font-semibold",
+                    assistedByAgent === false
+                      ? "border-ink bg-ink text-white"
+                      : "border-line bg-white text-ink"
+                  )}
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssistedByAgent(true)}
+                  className={cn(
+                    "h-11 rounded-full border text-sm font-semibold",
+                    assistedByAgent === true
+                      ? "border-ink bg-ink text-white"
+                      : "border-line bg-white text-ink"
+                  )}
+                >
+                  Yes
+                </button>
+              </div>
+              {assistedByAgent === true ? (
+                <label className="mt-3 block">
+                  <span className="mb-1.5 block text-xs font-medium text-muted">
+                    Which agent?
+                  </span>
+                  <select
+                    value={selectedAgentId}
+                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                    className={cn(inputClass, "appearance-none")}
+                  >
+                    <option value="">Select an agent…</option>
+                    {agents.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+          ) : null}
           {error ? <p className="mt-4 text-sm font-medium text-ink">{error}</p> : null}
           <div className="mt-auto pt-8">
-            <Button full onClick={submit} loading={busy}>
+            <Button
+              full
+              onClick={submit}
+              loading={busy}
+              disabled={!attributionAnswered}
+            >
               Submit for verification
             </Button>
+            {hasAgents && !attributionAnswered ? (
+              <p className="mt-2 text-center text-xs text-faint">
+                {assistedByAgent === true
+                  ? "Choose the agent who helped you, or select “No”."
+                  : "Let us know if an agent helped you."}
+              </p>
+            ) : null}
           </div>
         </>
       ) : null}

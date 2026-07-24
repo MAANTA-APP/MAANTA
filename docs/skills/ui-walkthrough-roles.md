@@ -184,7 +184,7 @@ invented product vocab; no raw hex; error bodies `text-ink`.
 **Issues:**
 | # | Issue | File | Sev | Low-risk fix? |
 |---|---|---|---|---|
-| G1 | **Agent-assisted onboarding attribution is unreachable** — route hardcodes `p_onboarding_agent_id: null`; wizard captures no agent, so every onboarding records `self_serve` despite full DB support (migration `20260702083812`). No "Act as"/impersonation tool exists anywhere | `api/merchants/onboard/route.ts:48` | **high** | No — needs UI + trust-boundary work; flag for product |
+| G1 | ✅ **CLOSED 2026-07-23.** Agent-assisted onboarding attribution is now wired end-to-end: the onboard wizard asks "Were you helped by a Maanta agent?" + an agent picker, the route forwards the selected `agents.id` as `p_onboarding_agent_id`, and the merchant-authored `onboard_merchant` RPC (migration `20260702085628`) records `agent_assisted` + `assisted_by_agent_id`, validated against an active agent. Trust boundary held: the merchant is always the authenticated submitter; the agent is attribution only. Test: `supabase/tests/onboard_agent_attribution_test.sql` | `api/merchants/onboard/route.ts` | ~~high~~ done | — |
 | G2 | `/agent/leads/new` has no page-level role gate (write blocked server-side only) | `agent/leads/new/page.tsx` | med | Yes (gate the page) |
 | G3 | `entranceNotes` captured in wizard but dropped (`p_entrance_notes: null`) | `onboard-wizard.tsx` / `onboard/route.ts:47` | low | Yes |
 | G4 | Captured lead (`leads.agent_id`) is never FK-linked to the resulting merchant; agent credit relies on later `onboarded_by` at activation | — | low–med | No (data model) |
@@ -237,16 +237,15 @@ with `npm run typecheck`, `npm run lint`, `npm test` (40/40, incl. `pricing` +
   `onboard_merchant` (the RPC already had the `p_entrance_notes` param) instead of
   being dropped as `null`.
 
-**Intentionally deferred to feature-build sessions** (unchanged): G1 (agent
-attribution), A2 (admin customer list), A3 (admin redemption detail), A8 (deal
-"Keep" persistence), G4 (lead↔merchant link), plus optional cosmetics S4/S6/S7,
-M2/M4/M5, G5.
+**Intentionally deferred to feature-build sessions** (unchanged): A8 (deal
+"Keep" persistence), plus optional cosmetics S4/S6/S7, M2/M4/M5, G5. (G1 agent
+attribution closed 2026-07-23; A2/A3/G4 closed 2026-07-22.)
 
 ## Prioritized backlog (what to fix next)
 
 **Should fix before real traffic**
 - **A1** — add `requireAdminPage()` to each admin page (defense-in-depth; one line/page, helper exists).
-- **G1** — decide the agent-assisted onboarding attribution story (currently every onboarding is `self_serve`; agent credit/leads never link to the merchant). Product + UI decision.
+- ✅ **G1** — agent-assisted onboarding attribution shipped 2026-07-23 (wizard question + picker → route → `assisted_by_agent_id`; merchant stays the submitter).
 - **M1** — zero-balance publish needs an actionable top-up CTA (not just prose).
 
 **Quick, low-risk polish (copy/token/class)**

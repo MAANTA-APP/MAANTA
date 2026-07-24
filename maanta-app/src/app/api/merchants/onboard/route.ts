@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     email,
     whatsapp,
     entranceNotes,
+    onboardingAgentId,
   } = await request.json();
 
   if (!merchantName || !what3wordsAddress || !phone) {
@@ -43,6 +44,18 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Agent-assisted onboarding attribution (walkthrough G1; frozen 2026-07-02).
+  // The merchant is always the authenticated submitter — the agent id captured
+  // by the wizard is ATTRIBUTION ONLY, never the caller. "No agent" (or an
+  // absent value) leaves it null, which the RPC records as self_serve. The RPC
+  // validates the id against an active agents row and sets onboarding_mode =
+  // agent_assisted + assisted_by_agent_id itself; we only forward what the
+  // merchant selected.
+  const onboardingAgentIdValue =
+    typeof onboardingAgentId === "string" && onboardingAgentId.trim()
+      ? onboardingAgentId.trim()
+      : null;
 
   const supabase = createClient();
 
@@ -65,14 +78,14 @@ export async function POST(request: Request) {
     // G3 — the wizard's floor step collects entrance notes; persist them
     // (the RPC already has this parameter).
     p_entrance_notes: entranceNotes || null,
-    // TODO(agent-tools): agent-assisted onboarding attribution is not wired up.
-    // The RPC + schema already support it (onboard_merchant `agent_assisted`
-    // path; merchants.onboarding_mode / onboarded_by_agent_id, migration
-    // 20260702083812), but it needs an agent-facing onboarding surface where a
-    // signed-in agent onboards a merchant and passes their own agents.id here.
-    // This self-serve route correctly sends null. Tracked as an "agent tools"
-    // feature ticket — see docs/skills/ui-walkthrough-roles.md (G1).
-    p_onboarding_agent_id: null,
+    // G1 — agent-assisted onboarding attribution. The wizard's "Were you helped
+    // by a Maanta agent?" step captures which agent assisted; we forward the
+    // selected agents.id (or null for a self-serve "No"). The merchant-authored
+    // onboard_merchant RPC (migration 20260702085628) treats this as attribution
+    // only — it validates the id is an active agent and records agent_assisted +
+    // assisted_by_agent_id, without ever letting the agent stand in as the
+    // caller. See docs/skills/ui-walkthrough-roles.md (G1 closed).
+    p_onboarding_agent_id: onboardingAgentIdValue,
   });
 
   if (error || !merchantId) {
@@ -83,6 +96,9 @@ export async function POST(request: Request) {
     if (message.includes("already_merchant") || message.includes("merchant_exists")) {
       status = 409;
       userMessage = "You've already onboarded a shop.";
+    } else if (message.includes("invalid_attribution")) {
+      status = 400;
+      userMessage = "That agent could not be verified — choose again or select “No”.";
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";
