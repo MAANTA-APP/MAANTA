@@ -14,6 +14,9 @@
 --   5. Approver must be an admin → a non-admin approver id is rejected.
 --   6. Decision note required → a null/blank note is rejected with note_required
 --      and no credit is written (Decisions Log 2026-07-23).
+--   7. DB-column backstop → the note column is NOT NULL with a trimmed-length
+--      CHECK, so a DIRECT insert (bypassing the RPC) can persist neither a null
+--      nor a whitespace-only note; a valid note inserts fine (layer 4).
 --
 -- reverse_success_fee is service_role/admin-gated; production calls it with the
 -- service-role key (from the admin route, after requireAdminApi), passing the
@@ -366,6 +369,105 @@ BEGIN
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id IN (v_uid, v_admin);
   RAISE NOTICE 'Scenario 6 passed: blank/null decision note rejected, no credit';
+END $$;
+
+-- Scenario 7: DB-column backstop (Decisions Log 2026-07-23, layer 4).
+-- The note column is NOT NULL with a trimmed-length CHECK, so a DIRECT insert
+-- (bypassing reverse_success_fee entirely — e.g. a future refactor or a raw
+-- write) can neither persist a null note nor a whitespace-only note. A valid
+-- note inserts fine. This proves the guard lives in the schema, not only the RPC.
+DO $$
+DECLARE
+  v_uid   UUID;
+  v_admin UUID;
+  v_mid   UUID;
+  v_did   UUID;
+  v_rid   UUID;
+  v_tx    UUID;
+  v_rid2  UUID;
+  v_tx2   UUID;
+  v_raised BOOLEAN;
+  v_ok    UUID;
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+  INSERT INTO public.users (role) VALUES ('admin') RETURNING id INTO v_admin;
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+    VALUES ('__test_fr_note_col', 'test.fr.note.col', '+254700000307', 'BBS Mall', 'active', 100)
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url)
+    VALUES (v_mid, '__test deal fr note col', 'x') RETURNING id INTO v_did;
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, success_fee_charged)
+    VALUES (v_did, v_mid, v_uid, '400007', 'success', NOW() + INTERVAL '1 hour', 30)
+    RETURNING id INTO v_rid;
+  -- A real wallet-credit row to satisfy the audit row's FK.
+  INSERT INTO public.merchant_transactions (merchant_id, amount, transaction_type, payment_provider, description, reference_id)
+    VALUES (v_mid, 30, 'fee_reversal', 'manual', 'test', v_rid) RETURNING id INTO v_tx;
+
+  -- A SECOND redemption + credit row. fee_reversals is UNIQUE(redemption_id)
+  -- (one reversal per redemption), so the two "valid insert" cases below (7c and
+  -- 7d) each need their own redemption — otherwise 7d would collide on the unique
+  -- key instead of exercising the note CHECK.
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, success_fee_charged)
+    VALUES (v_did, v_mid, v_uid, '400008', 'success', NOW() + INTERVAL '1 hour', 30)
+    RETURNING id INTO v_rid2;
+  INSERT INTO public.merchant_transactions (merchant_id, amount, transaction_type, payment_provider, description, reference_id)
+    VALUES (v_mid, 30, 'fee_reversal', 'manual', 'test', v_rid2) RETURNING id INTO v_tx2;
+
+  -- 7a: a NULL note is rejected by the column constraint (not the RPC).
+  v_raised := false;
+  BEGIN
+    INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+      VALUES (v_rid, v_mid, v_tx, '400007', 30, NULL, v_admin);
+  EXCEPTION WHEN not_null_violation THEN
+    v_raised := true;
+  END;
+  ASSERT v_raised, '7a: a direct insert with a NULL note was accepted';
+
+  -- 7b: a whitespace-only note is rejected by the CHECK, for EVERY whitespace
+  -- kind the POSIX [[:space:]] class covers — space, tab, newline, carriage
+  -- return, form-feed, vertical tab (U+000B / E'\x0B'), and a mix. Vertical tab
+  -- is called out explicitly: an escape-string btrim set of E'\v' would trim a
+  -- literal 'v' (\\v is not a Postgres escape) and let a vertical-tab-only note
+  -- slip through, so the constraint must use the POSIX class, and this asserts it.
+  DECLARE
+    v_ws TEXT;
+  BEGIN
+    FOREACH v_ws IN ARRAY ARRAY[' ', E'\t', E'\n', E'\r', E'\f', E'\x0B', E' \t\n\r\f\x0B ']
+    LOOP
+      v_raised := false;
+      BEGIN
+        INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+          VALUES (v_rid, v_mid, v_tx, '400007', 30, v_ws, v_admin);
+      EXCEPTION WHEN check_violation THEN
+        v_raised := true;
+      END;
+      ASSERT v_raised, format('7b: a whitespace-only note (%s) was accepted', encode(v_ws::bytea, 'hex'));
+    END LOOP;
+  END;
+
+  -- 7c: a valid note inserts fine (constraint is not over-broad).
+  INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+    VALUES (v_rid, v_mid, v_tx, '400007', 30, '  merchant honoured the deal  ', v_admin)
+    RETURNING id INTO v_ok;
+  ASSERT v_ok IS NOT NULL, '7c: a valid note was rejected';
+
+  -- 7d: a lone 'v' is a REAL one-character note, not whitespace — it must be
+  -- accepted. This is the regression guard for the E'\v' escape trap: if the
+  -- constraint ever trims a literal 'v', this insert would wrongly fail.
+  INSERT INTO public.fee_reversals (redemption_id, merchant_id, wallet_transaction_id, redemption_code, amount, note, approver_user_id)
+    VALUES (v_rid2, v_mid, v_tx2, '400008', 30, 'v', v_admin)
+    RETURNING id INTO v_ok;
+  ASSERT v_ok IS NOT NULL, '7d: a lone non-whitespace "v" note was wrongly rejected';
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
+  DELETE FROM public.redemptions WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DELETE FROM public.users WHERE id IN (v_uid, v_admin);
+  RAISE NOTICE 'Scenario 7 passed: NOT NULL + length CHECK backstop the note at the column';
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL fee-reversal scenarios passed.'; END $$;

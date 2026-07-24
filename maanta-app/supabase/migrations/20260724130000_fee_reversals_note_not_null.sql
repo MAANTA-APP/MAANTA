@@ -1,0 +1,54 @@
+-- ============================================================================
+-- Fee-reversal decision note — DB-COLUMN backstop (Decisions Log 2026-07-23).
+--
+-- Founder ruling 2026-07-23 made the reversal decision note mandatory end to
+-- end. Three layers already enforce it: the admin modal disables Confirm until
+-- a note is entered, the admin route rejects an empty/whitespace note with 400,
+-- and public.reverse_success_fee trims all surrounding whitespace and raises
+-- note_required (mapped back to 400). This migration adds the FOURTH, deepest
+-- layer the ruling calls for: the public.fee_reversals.note column itself is now
+-- NOT NULL with a length CHECK, so no path — RPC, direct insert, or a future
+-- refactor — can persist a reversal row without a real rationale.
+--
+-- The incident number (incident_ref) stays optional and is untouched. Nothing
+-- else about a reversal changes.
+-- ============================================================================
+
+-- 1. Backfill defensively. During the BBS pilot there should be no reversal
+--    rows with a null/blank note (the RPC has written a trimmed non-empty note
+--    since 2026-07-22 / 2026-07-23), but a SET NOT NULL fails hard on even one
+--    offending row, so normalise any legacy/blank value to an explicit sentinel
+--    that satisfies the constraint and is obvious in the audit log.
+--    Use the SAME POSIX normalisation as the CHECK below so the two agree
+--    exactly — otherwise a vertical-tab-only legacy note would slip past this
+--    backfill and then be rejected by the constraint, aborting the migration
+--    (and an `E'\v'` btrim set would also wrongly overwrite a genuine 'v' note).
+UPDATE public.fee_reversals
+   SET note = '(migrated — no decision note was recorded before 2026-07-23)'
+ WHERE note IS NULL
+    OR regexp_replace(note, '^[[:space:]]+|[[:space:]]+$', '', 'g') = '';
+
+-- 2. The column may never again be null.
+ALTER TABLE public.fee_reversals
+  ALTER COLUMN note SET NOT NULL;
+
+-- 3. Length CHECK: after stripping ALL surrounding whitespace the note must be
+--    1..2000 chars. The lower bound is the whitespace-only backstop at the
+--    storage layer; the upper bound keeps the audit column bounded. We reuse the
+--    RPC's exact normalisation — regexp_replace over the POSIX [[:space:]] class
+--    — so the column and reverse_success_fee agree on "surrounding whitespace"
+--    (spaces, tabs, newlines, CR, form-feed, vertical tab, …). NB: an escape
+--    string like E'\v' is NOT a vertical tab in Postgres (\v is not a recognised
+--    escape → literal 'v'), so a btrim character set would silently trim 'v' and
+--    miss U+000B; the POSIX class avoids that trap entirely.
+--    Applied as a plain (validated) ADD CONSTRAINT: fee_reversals is a BBS-pilot
+--    audit table (one row per rare manual admin reversal), so the ACCESS
+--    EXCLUSIVE lock + scan is negligible and the backfill above guarantees every
+--    existing row already satisfies the constraint. A NOT VALID + later VALIDATE
+--    split would only add an unvalidated window for no benefit at this scale.
+ALTER TABLE public.fee_reversals
+  ADD CONSTRAINT fee_reversals_note_not_blank
+  CHECK (char_length(regexp_replace(note, '^[[:space:]]+|[[:space:]]+$', '', 'g')) BETWEEN 1 AND 2000);
+
+COMMENT ON COLUMN public.fee_reversals.note IS
+  'Required reviewer rationale for the reversal (Decisions Log 2026-07-23). NOT NULL with a 1..2000-char trimmed-length CHECK (fee_reversals_note_not_blank); the RPC also trims and rejects a blank note (note_required) and the admin route rejects it with 400. The incident number (incident_ref) stays optional.';
