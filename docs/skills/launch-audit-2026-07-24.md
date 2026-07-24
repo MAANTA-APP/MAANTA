@@ -18,6 +18,22 @@
 >   The **E9** SLA-backed provider swap is still open (free tier today).
 > Everything in §4 (prod apply/verify) remains human-owned and unchanged.
 
+> **Update — 2026-07-24 (Canonical reconciliation, branch `maanta-launch-audit-canonical`):**
+> this doc originated on `hn5qne`. The canonical branch merges the union of the two
+> parallel launch-audit branches, so several rows in the "starting context" table
+> below are now **superseded** — the following **are present on canonical**
+> (brought in from PR #69 / `h55jb2`): a **self-skipping Playwright golden path**
+> (`maanta-app/playwright.config.ts` + `maanta-app/e2e/golden-path.spec.ts`,
+> opt-in `.github/workflows/e2e.yml`, skips without `E2E_BASE_URL`), a root
+> **`Makefile`** (`db-link`/`db-list`/`db-push-dry`/`db-push`, human-run, pinned
+> to `axrrslqssmbngbataejg`), and the ops runbooks **`docs/ops/supabase-migrations.md`**
+> + **`docs/ops/e2e-golden-path.md`**. Canonical keeps `hn5qne`'s FX
+> (`kesPerUnit` resolver), healthz, and the collect line on **both** the disclosure
+> and success screens; it does **not** adopt `h55jb2`'s competing
+> `src/lib/agent-attribution.ts` (agent attribution already shipped on `main` via
+> merge #68) or its out-of-scope `merchant-wallet.ts` / `new-deal-wizard.tsx`.
+> Prod gates in §4 are unchanged.
+
 ## How to read this
 
 This audit separates two things that are easy to conflate:
@@ -42,15 +58,15 @@ do not exist at all. This is recorded honestly below rather than assumed:
 | Claimed in brief | Reality in repo |
 |---|---|
 | `docs/skills/launch-audit-2026-07-24.md` | Did not exist — **this file** is it |
-| `docs/ops/supabase-migrations.md` | Does not exist; migration-apply steps live in `docs/skills/prod-handoff-security-audit-2026-07-23.md` and `docs/maanta-node0-rehearsal-checklist.md` |
+| `docs/ops/supabase-migrations.md` | ~~Did not exist on `hn5qne`~~ → **present on canonical** (brought from `h55jb2`); human migration runbook pinned to `axrrslqssmbngbataejg` |
 | `docs/skills/fx-provider.md` | Does not exist; FX logic + provider notes live inline in `src/lib/currency.ts` |
 | `docs/skills/agent-attribution.md` | Does not exist; attribution is documented in `docs/skills/ui-walkthrough-roles.md` (G1) and inline in the onboard route |
-| `docs/ops/e2e-golden-path.md` | Does not exist; E2E status is tracked as E14 + decisions log |
+| `docs/ops/e2e-golden-path.md` | ~~Did not exist on `hn5qne`~~ → **present on canonical** (brought from `h55jb2`) |
 | `src/lib/fx/**` FX abstraction | No `fx/` module; FX lives in `src/lib/currency.ts` (works, tested) |
 | `src/lib/health.ts` + `GET /api/healthz` | No general healthz route; a narrow `GET /api/waitlist?healthz=1` boolean check exists |
 | `src/lib/agent-attribution.ts` | No dedicated lib; attribution is inline in `src/app/api/merchants/onboard/route.ts` + the `onboard_merchant` RPC |
-| Playwright `playwright.config.ts` + `e2e/golden-path.spec.ts` | **Does not exist — deliberately** (E14; decisions log: "an unrunnable suite is false coverage"). PR #35 open |
-| Root `Makefile` with `db-link/db-list/db-push-dry/db-push` | No root Makefile exists |
+| Playwright `playwright.config.ts` + `e2e/golden-path.spec.ts` | ~~Did not exist on `hn5qne`~~ → **present on canonical** (brought from `h55jb2`): self-skips without `E2E_BASE_URL`, so never false coverage; opt-in `e2e.yml`, `@playwright/test` intentionally not installed by default |
+| Root `Makefile` with `db-link/db-list/db-push-dry/db-push` | ~~Did not exist on `hn5qne`~~ → **present on canonical** (brought from `h55jb2`); human-run CLI wrappers pinned to `axrrslqssmbngbataejg` |
 
 None of these gaps are drift *within* the repo — the repo's own docs (tracker,
 decisions log, prod-handoff) describe the true state accurately. The mismatch is
@@ -68,7 +84,7 @@ Run from `maanta-app/` on the audited branch:
 | Lint | `npm run lint` (`next lint`) | ✅ no warnings or errors |
 | Unit / integration | `npm test` (`vitest run`) | ✅ **94 tests / 18 files passed** |
 | DB assertion suite | `supabase/tests/*.sql` (15 files) | ⏭️ **not runnable here** — needs a booted Supabase (Postgres+postgis+auth+roles). No `supabase` CLI / running server in this sandbox. Runs in CI `db-tests` (`.github/workflows/ci.yml`) |
-| Browser E2E | Playwright | ⏭️ **nothing to run** — no Playwright suite exists (E14, intentional). Not a self-skip; the suite is absent by design |
+| Browser E2E | Playwright (`e2e/golden-path.spec.ts`) | ⏭️ **self-skips** — present on canonical but skips without `E2E_BASE_URL` + storage-state secrets (no live Supabase/Clerk test env here). `@playwright/test` is not installed by default; opt-in `e2e.yml` runs it post-merge/on-dispatch only |
 | Prod build | `npm run build` | Not run this session (not required for a repo audit; build runs in CI) |
 
 The 15 SQL suites present: `admin_ops_log`, `browse_views`, `capture_lead`,
