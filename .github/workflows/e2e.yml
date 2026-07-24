@@ -43,8 +43,9 @@ defaults:
 
 jobs:
   e2e:
-    # Gate: runs only once E2E_BASE_URL is set.
-    if: ${{ vars.E2E_BASE_URL != '' }}
+    # Gate: runs only once E2E_BASE_URL is set, AND only on main — so a manual
+    # `workflow_dispatch` can't run arbitrary branch code with the E2E secrets.
+    if: ${{ vars.E2E_BASE_URL != '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     # Bind to a protected Environment so the storage-state secrets are gated
     # behind required-reviewer approval (configured in repo Settings). The
@@ -53,6 +54,28 @@ jobs:
     env:
       E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
     steps:
+      # Fail closed on a production (or unknown) target BEFORE any checkout or
+      # install. This suite performs real redemptions and charges the KES 30
+      # fee, so it must never run against prod even if E2E_BASE_URL is
+      # misconfigured. Blocks the production host and, when the optional
+      # E2E_ALLOWED_HOST repo variable is set, enforces a positive allowlist.
+      - name: Guard the E2E target (non-prod only)
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+          E2E_ALLOWED_HOST: ${{ vars.E2E_ALLOWED_HOST }}
+        run: |
+          set -euo pipefail
+          case "$E2E_BASE_URL" in
+            *maanta.app*)
+              echo "::error::E2E_BASE_URL points at a production host (maanta.app) — refusing; this suite charges real KES 30 fees. Use a dedicated non-prod deployment."
+              exit 1 ;;
+          esac
+          if [ -n "${E2E_ALLOWED_HOST:-}" ] && [ "${E2E_BASE_URL#*"$E2E_ALLOWED_HOST"}" = "$E2E_BASE_URL" ]; then
+            echo "::error::E2E_BASE_URL ($E2E_BASE_URL) is not in the approved non-prod allowlist (E2E_ALLOWED_HOST=$E2E_ALLOWED_HOST)."
+            exit 1
+          fi
+          echo "E2E target OK: $E2E_BASE_URL"
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false

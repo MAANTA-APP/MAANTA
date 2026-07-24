@@ -60,13 +60,18 @@ wallet. Static storage-state sessions + the rehearsal seed mean this state
    storage secrets aren't exposed to unapproved runs.
 4. **Wire CI:** repo Settings → Secrets and variables → Actions:
    - Variable `E2E_BASE_URL = https://<deployed NON-PROD app>`
+   - Optional variable `E2E_ALLOWED_HOST` — a substring the target host must
+     contain (e.g. `staging`); the workflow fails closed if `E2E_BASE_URL`
+     doesn't match it. The job **always** refuses a `maanta.app` (production)
+     target regardless, since the suite charges real KES 30 fees.
    - On the **`e2e` environment**, secrets `E2E_SHOPPER_STORAGE`,
      `E2E_MERCHANT_STORAGE` = the JSON contents (or adapt the spec to read file
      paths).
 5. **Trigger posture:** the workflow runs **post-merge on `main`** and on-demand
-   via **`workflow_dispatch`** — never on `pull_request`, so PR runs can't reach
-   the secrets. Use a manual dispatch to verify a specific change. Flip tracker
-   E14 → done once the env is stable.
+   via **`workflow_dispatch`** — never on `pull_request`, and the job only runs
+   when `github.ref == refs/heads/main`, so a manual dispatch can't run
+   arbitrary branch code with the E2E secrets. Flip tracker E14 → done once the
+   env is stable.
 
 ## Local run
 
