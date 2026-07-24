@@ -55,15 +55,24 @@ sign-off (money rails / flags / irreversible).
 
 ### Phase A — Reconcile the database drift (do this first)
 1. **[DB][HUMAN-APPROVE]** Reconcile the prod-only migration
-   `20260723001651_lock_down_merchant_financial_columns`. A human decides which
-   is true:
-   - **Preferred:** back-fill the missing SQL into the repo as
-     `supabase/migrations/20260723001651_lock_down_merchant_financial_columns.sql`
-     (pull it from prod with `supabase db dump`/SQL editor, matching the applied
-     definition of `protect_merchant_financial_columns()` and its trigger), so
-     `supabase migration list` shows LOCAL == REMOTE for that version. This keeps
-     the repo the source of truth without re-running anything on prod.
-   - Commit it on a short **[CODE]** PR to `main` before promotion.
+   `20260723001651_lock_down_merchant_financial_columns`.
+   - **DONE (this branch):** the missing SQL has been **back-filled** into the
+     repo as
+     `maanta-app/supabase/migrations/20260723001651_lock_down_merchant_financial_columns.sql`,
+     reconstructed verbatim from the live objects (`pg_get_functiondef` /
+     `pg_get_triggerdef`). Prod already records version `20260723001651`, so
+     `supabase db push` **skips it on prod** (no re-run); the file exists so
+     fresh DBs (CI `db-tests`, staging, rebuilds) reproduce prod's exact state in
+     the correct filename order (after `…722200000`, before `…723120000`).
+   - **Human step:** verify LOCAL == REMOTE for that version with
+     `supabase migration list`, and validate the file on a throwaway stack with
+     `make db-verify` (local only). Merge this branch into `main` before promotion.
+   - **Faithfulness note:** the back-fill keeps prod's default `PUBLIC EXECUTE`
+     grant on the trigger function (the source of security-advisor WARN
+     0028/0029). It is a trigger function — harmless to call directly over RPC —
+     so this is cosmetic. If we want to clear the advisor, do it as a **separate
+     forward migration** that revokes EXECUTE from `anon`/`authenticated` on
+     **both** prod and the repo, so the two never diverge again.
 2. **[DB]** Confirm the app really points at `axrrslqssmbngbataejg`: read Vercel
    Production `NEXT_PUBLIC_SUPABASE_URL` and check it contains that ref. If not,
    stop and fix the env first (never push to the old ref `vcrfqsevompqjazbwzyh`).
