@@ -56,6 +56,18 @@ function VerifyPhoneInner() {
     return () => clearInterval(t);
   }, [resendIn]);
 
+  // Chosen default dwell: 1.2s — long enough to read the success state, short
+  // enough not to feel like a wall. Runs in an effect so React clears the timer
+  // if the component unmounts during the delay (no stale navigation).
+  useEffect(() => {
+    if (stage !== "done") return;
+    const t = setTimeout(() => {
+      router.push(next);
+      router.refresh();
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [stage, next, router]);
+
   const fullPhone = `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`;
 
   async function sendCode() {
@@ -108,14 +120,10 @@ function VerifyPhoneInner() {
       }
       // Make it the primary phone so it's the account's canonical number.
       await user.update({ primaryPhoneNumberId: record.id }).catch(() => {});
-      // Brief success confirmation before returning to the deal to finish the
-      // claim. Chosen default: 1.2s — long enough to read, short enough not to
-      // feel like a wall. (Flag if a different dwell is wanted.)
+      // Brief success confirmation before returning to the deal; the delayed
+      // navigation itself runs in an effect keyed on the "done" stage so its
+      // timer is cleaned up if the user leaves first (see below).
       setStage("done");
-      setTimeout(() => {
-        router.push(next);
-        router.refresh();
-      }, 1200);
     } catch {
       setError("Code didn't match. Check the SMS and try again.");
     } finally {
