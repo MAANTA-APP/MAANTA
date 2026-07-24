@@ -31,6 +31,16 @@ export async function POST(
   const note =
     typeof body.note === "string" && body.note.trim() ? body.note.trim() : null;
 
+  // Decision note is REQUIRED on every reversal (Decisions Log 2026-07-23):
+  // every success-fee reversal must carry a reviewer's rationale. Incident #
+  // stays optional. The RPC enforces the same rule as a backstop.
+  if (!note) {
+    return NextResponse.json(
+      { error: "A decision note is required to reverse a fee." },
+      { status: 400 }
+    );
+  }
+
   const service = createServiceClient();
   const { data, error } = await service
     .rpc("reverse_success_fee", {
@@ -54,13 +64,15 @@ export async function POST(
       ? 404
       : msg.startsWith("already_reversed")
         ? 409
-        : msg.startsWith("no_fee_to_reverse") ||
-            msg.startsWith("redemption_not_verified") ||
-            msg.startsWith("invalid_amount")
-          ? 422
-          : msg.startsWith("unauthorized") || msg.startsWith("invalid_approver")
-            ? 403
-            : 500;
+        : msg.startsWith("note_required")
+          ? 400
+          : msg.startsWith("no_fee_to_reverse") ||
+              msg.startsWith("redemption_not_verified") ||
+              msg.startsWith("invalid_amount")
+            ? 422
+            : msg.startsWith("unauthorized") || msg.startsWith("invalid_approver")
+              ? 403
+              : 500;
 
     // Server-side audit log — admin id, redemption ref, timestamp, outcome. The
     // durable trail is the fee_reversals table; this surfaces failures too.
@@ -77,11 +89,13 @@ export async function POST(
         ? "Redemption not found."
         : status === 409
           ? "This redemption's fee has already been reversed."
-          : status === 422
-            ? "This redemption has no reversible success fee."
-            : status === 403
-              ? "Not authorized to reverse this fee."
-              : "Could not reverse the fee. Please try again.";
+          : status === 400
+            ? "A decision note is required to reverse a fee."
+            : status === 422
+              ? "This redemption has no reversible success fee."
+              : status === 403
+                ? "Not authorized to reverse this fee."
+                : "Could not reverse the fee. Please try again.";
     return NextResponse.json({ error: friendly }, { status });
   }
 

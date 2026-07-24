@@ -117,11 +117,41 @@ upserts the `public.users` mirror row on the **first authenticated request**,
 keyed by `clerk_user_id`, pulling phone/email/name from Clerk. Every server
 entry point resolves identity through it, so provisioning is automatic.
 
+## Launch auth = email + phone, phone required at claim (S2 ruling 2026-07-23)
+
+Frozen at launch: sign-up/sign-in offers **both email and phone**, and a shopper
+may complete auth with **either**. But **claiming a deal requires a verified
+phone**. An email-only session that taps **Claim** is routed through phone OTP,
+then returned to the deal to finish — the "phone required at claim" gate on the
+shopper board.
+
+**Dashboard config (Clerk → User & Authentication):**
+- **Email address**: enabled, used for sign-up/sign-in.
+- **Phone number**: enabled (SMS OTP). Kept as an **optional** account field at
+  sign-up (so email-only sign-up stays possible) — the phone requirement is
+  enforced at claim time by the app, not by making phone a required sign-up
+  field. (Phone/SMS is a **paid** Clerk feature — see the Kenya caveat below.)
+
+**App-side enforcement (this is the real gate, not just dashboard config):**
+- `src/lib/auth.ts` → `currentUserHasVerifiedPhone()` reads the Clerk user's
+  verified phone numbers.
+- `src/app/api/redemptions/route.ts` (the claim route) calls it **before the
+  `claim_deal` RPC** and returns `403 { code: "phone_required" }` for a
+  phone-less session — the RPC is never reached without a phone.
+- `src/app/(shopper)/deals/[id]/claim-flow.tsx` catches `phone_required` and
+  routes to `/verify-phone?next=/deals/[id]`.
+- `src/app/verify-phone/page.tsx` adds + verifies the phone on the shopper's own
+  Clerk account (client SDK: `createPhoneNumber` → `prepareVerification` →
+  `attemptVerification`), then returns to the deal. Test:
+  `src/app/api/redemptions/__tests__/route.test.ts`.
+
 ## Required manual steps (nothing authenticates until these are done)
 
 1. **Clerk dashboard**
    - Create the application (or use the existing MAANTA instance).
-   - **User & Authentication → enable Phone number (OTP)** and **Email**.
+   - **User & Authentication → enable Phone number (OTP)** and **Email**
+     (both offered at sign-up/sign-in; phone stays optional at sign-up and is
+     required at claim by the app gate above).
      (Phone/SMS is a **paid** Clerk feature — see the Kenya caveat below.)
    - **Enable the Supabase integration** (Integrations → Supabase). This makes
      Clerk add the `role: "authenticated"` claim Supabase needs; without it
@@ -145,9 +175,10 @@ entry point resolves identity through it, so provisioning is automatic.
 
 ## Open follow-ups
 - **Kenya SMS**: validate Clerk phone-OTP deliverability and per-message cost
-  for Kenyan numbers before relying on it for shopper login. If it's not
-  viable, fall back to email/social and revisit phone. (Frozen assumption:
-  shopper login is phone-first.)
+  for Kenyan numbers before relying on it. Launch auth is **email + phone with
+  phone required at claim** (S2 ruling 2026-07-23), so SMS OTP must work for the
+  claim gate even though email-only sign-in is allowed. If SMS proves unviable
+  in Kenya, the claim gate is where the impact lands — revisit there.
 - **Legacy user linking**: existing rows are keyed by `auth_uid` (Supabase
   Auth) with `clerk_user_id` NULL. The helpers keep a legacy `auth_uid`
   fallback, but that only helps a *Supabase-Auth* session — a user signing in

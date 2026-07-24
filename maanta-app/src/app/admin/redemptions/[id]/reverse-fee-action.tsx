@@ -8,12 +8,14 @@ import { TextField } from "@/components/ui/inputs";
 import { formatKes } from "@/lib/ui";
 
 /**
- * Fee-reversal action (frozen policy, Decisions Log 2026-07-22). The single
- * amber primary action on the redemption detail screen: credit the reviewed
- * fee back to the merchant's top-up wallet. Confirmation modal captures the
- * incident number and a decision note for the audit trail; the primary confirm
- * inside the modal is the only other amber control, and it replaces this one
- * while the modal is open (never two amber actions visible at once).
+ * Fee-reversal action (frozen policy, Decisions Log 2026-07-22; decision note
+ * made mandatory 2026-07-23). The single amber primary action on the redemption
+ * detail screen: credit the reviewed fee back to the merchant's top-up wallet.
+ * The confirmation modal captures an optional incident number and a REQUIRED
+ * decision note for the audit trail — the confirm stays disabled until a
+ * non-empty note is entered (the route and the RPC enforce the same rule). The
+ * primary confirm inside the modal is the only other amber control, and it
+ * replaces this one while the modal is open (never two amber actions at once).
  */
 export function ReverseFeeAction({
   redemptionId,
@@ -79,7 +81,7 @@ export function ReverseFeeAction({
           />
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-muted">
-              Decision note (optional)
+              Decision note <span className="font-semibold text-ink">*required</span>
             </span>
             <textarea
               className="min-h-[80px] w-full rounded-xl border border-ink/80 bg-white px-4 py-3 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
@@ -94,7 +96,13 @@ export function ReverseFeeAction({
           <p className="mt-3 text-sm font-medium text-ink">{error}</p>
         ) : null}
 
-        <Button full className="mt-4" onClick={submit} loading={busy}>
+        <Button
+          full
+          className="mt-4"
+          onClick={submit}
+          loading={busy}
+          disabled={!note.trim()}
+        >
           Credit {formatKes(fee)} to wallet
         </Button>
         <Button

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
 import {
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     email,
     whatsapp,
     entranceNotes,
+    onboardingAgentId,
   } = await request.json();
 
   if (!merchantName || !what3wordsAddress || !phone) {
@@ -44,14 +45,47 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient();
+  // Agent-assisted onboarding attribution (walkthrough G1; frozen 2026-07-02).
+  // The merchant is always the authenticated submitter — the agent id captured
+  // by the wizard is ATTRIBUTION ONLY, never the caller. "No agent" (or an
+  // absent value) leaves it null, which the RPC records as self_serve. The RPC
+  // validates the id against an active agents row and sets onboarding_mode =
+  // agent_assisted + assisted_by_agent_id itself; we only forward what the
+  // merchant selected.
+  const onboardingAgentIdValue =
+    typeof onboardingAgentId === "string" && onboardingAgentId.trim()
+      ? onboardingAgentId.trim()
+      : null;
 
-  // onboard_merchant is a self-authorizing, atomic RPC: it checks the
-  // caller is either the merchant being onboarded or an admin, guards
-  // against double-onboarding, inserts the merchants row, and promotes the
-  // user's role to merchant_admin — all inside the DB. Node 0 is BBS Mall
-  // only; mall_name isn't collected by this form and the RPC has no
-  // mall_name parameter (mall_name stays NULL, matching the RPC's schema).
+  // p_onboarding_agent_id is a uuid column: a malformed value would surface as a
+  // Postgres 22P02 (generic 500) instead of the explicit invalid-attribution
+  // 400, so reject a non-UUID here up front.
+  if (
+    onboardingAgentIdValue &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      onboardingAgentIdValue
+    )
+  ) {
+    return NextResponse.json(
+      { error: "That agent could not be verified — choose again or select “No”." },
+      { status: 400 }
+    );
+  }
+
+  // Run onboard_merchant as the trusted server (service client). This route is
+  // the trust boundary: ensureAppUser has already authenticated the caller, and
+  // we pass p_user_id = appUser.id, so the merchant can only ever onboard
+  // THEMSELVES — never another user. The service client is required because
+  // onboard_merchant promotes the user's role to merchant_admin, and the
+  // prevent_self_role_escalation trigger only permits a role change for
+  // service_role/admin (a user-session call would be rejected). This mirrors the
+  // fee-reversal route's authenticate-then-execute-as-service pattern. Under
+  // service_role the RPC derives attribution purely from the params supplied:
+  // a valid active agent id → agent_assisted + assisted_by_agent_id, else
+  // self_serve; onboarded_by_user_id = p_user_id (the merchant). Node 0 is BBS
+  // Mall only; mall_name isn't collected here and the RPC has no such param.
+  const supabase = createServiceClient();
+
   const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
     p_user_id: appUser.id,
     p_merchant_name: merchantName,
@@ -65,14 +99,14 @@ export async function POST(request: Request) {
     // G3 — the wizard's floor step collects entrance notes; persist them
     // (the RPC already has this parameter).
     p_entrance_notes: entranceNotes || null,
-    // TODO(agent-tools): agent-assisted onboarding attribution is not wired up.
-    // The RPC + schema already support it (onboard_merchant `agent_assisted`
-    // path; merchants.onboarding_mode / onboarded_by_agent_id, migration
-    // 20260702083812), but it needs an agent-facing onboarding surface where a
-    // signed-in agent onboards a merchant and passes their own agents.id here.
-    // This self-serve route correctly sends null. Tracked as an "agent tools"
-    // feature ticket — see docs/skills/ui-walkthrough-roles.md (G1).
-    p_onboarding_agent_id: null,
+    // G1 — agent-assisted onboarding attribution. The wizard's "Were you helped
+    // by a Maanta agent?" step captures which agent assisted; we forward the
+    // selected agents.id (or null for a self-serve "No"). The merchant-authored
+    // onboard_merchant RPC (migration 20260702085628) treats this as attribution
+    // only — it validates the id is an active agent and records agent_assisted +
+    // assisted_by_agent_id, without ever letting the agent stand in as the
+    // caller. See docs/skills/ui-walkthrough-roles.md (G1 closed).
+    p_onboarding_agent_id: onboardingAgentIdValue,
   });
 
   if (error || !merchantId) {
@@ -83,6 +117,9 @@ export async function POST(request: Request) {
     if (message.includes("already_merchant") || message.includes("merchant_exists")) {
       status = 409;
       userMessage = "You've already onboarded a shop.";
+    } else if (message.includes("invalid_attribution")) {
+      status = 400;
+      userMessage = "That agent could not be verified — choose again or select “No”.";
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";

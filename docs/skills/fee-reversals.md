@@ -1,6 +1,6 @@
 # Skills: fee reversals (admin success-fee wallet credit)
 
-Last updated: 2026-07-22 · How an admin reverses a KES 30 success fee.
+Last updated: 2026-07-23 · How an admin reverses a KES 30 success fee.
 Update this file after any change to the reversal path.
 
 ## The frozen policy (Decisions Log 2026-07-22)
@@ -28,7 +28,9 @@ verify-anyway, or the `{charged, owed, unknown}` fee-status model.
 2. If the fee is reversible (redemption is `success`, a fee row is linked, and
    it has not already been reversed), the one **amber** primary action
    **"Credit fee to merchant wallet"** is shown. It opens a confirm modal that
-   captures an optional **incident number** and **decision note**.
+   captures an optional **incident number** and a **required decision note**
+   (Decisions Log 2026-07-23). The modal's confirm stays disabled until a
+   non-empty note is entered; the route and the RPC enforce the same rule.
 3. Confirm → `POST /api/admin/redemptions/[id]/reverse-fee` →
    `requireAdminApi` gate → RPC `reverse_success_fee(redemption, admin_id,
    incident_ref, note)` via the service client.
@@ -74,6 +76,10 @@ description), `approver`, `running_total` (cumulative sum). Admin-only
 
 ## Guard rails / gotchas
 
+- **A decision note is required.** Enforced in all three layers (UI confirm
+  disabled until a note is entered → route 400 on empty/whitespace →
+  `reverse_success_fee` raises `note_required`). The incident number stays
+  optional. Frozen 2026-07-23 (see the note-required migration).
 - **One reversal per redemption.** Enforced in the DB, not just the UI.
 - **The approver must be a real admin.** The service client carries no identity,
   so the route passes the authenticated admin's `users.id` as `p_admin_user_id`;
@@ -87,6 +93,7 @@ description), `approver`, `running_total` (cumulative sum). Admin-only
 ## Code map
 
 - migration `maanta-app/supabase/migrations/20260722120000_admin_fee_reversal_wallet_credit.sql`
+- migration `maanta-app/supabase/migrations/20260723150000_reverse_success_fee_note_required.sql` (decision note made mandatory)
 - RPC `public.reverse_success_fee`, table `public.fee_reversals`, view `public.admin_fee_reversal_log`
 - route `maanta-app/src/app/api/admin/redemptions/[id]/reverse-fee/route.ts`
 - UI `maanta-app/src/app/admin/redemptions/[id]/page.tsx` + `reverse-fee-action.tsx`
