@@ -8,8 +8,11 @@ import { POST } from "../route";
 // are covered by supabase/tests/onboard_agent_attribution_test.sql.
 
 const rpcMock = vi.fn();
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: () => ({ rpc: rpcMock }),
+// The route runs onboard_merchant via the service client (it promotes the
+// user's role, which the prevent_self_role_escalation trigger only allows for
+// service_role/admin); ensureAppUser is the trust boundary. See the route.
+vi.mock("@/lib/supabase/service", () => ({
+  createServiceClient: () => ({ rpc: rpcMock }),
 }));
 
 const ensureAppUserMock = vi.fn();

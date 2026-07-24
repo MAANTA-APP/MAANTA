@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
 import {
@@ -72,14 +72,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient();
+  // Run onboard_merchant as the trusted server (service client). This route is
+  // the trust boundary: ensureAppUser has already authenticated the caller, and
+  // we pass p_user_id = appUser.id, so the merchant can only ever onboard
+  // THEMSELVES — never another user. The service client is required because
+  // onboard_merchant promotes the user's role to merchant_admin, and the
+  // prevent_self_role_escalation trigger only permits a role change for
+  // service_role/admin (a user-session call would be rejected). This mirrors the
+  // fee-reversal route's authenticate-then-execute-as-service pattern. Under
+  // service_role the RPC derives attribution purely from the params supplied:
+  // a valid active agent id → agent_assisted + assisted_by_agent_id, else
+  // self_serve; onboarded_by_user_id = p_user_id (the merchant). Node 0 is BBS
+  // Mall only; mall_name isn't collected here and the RPC has no such param.
+  const supabase = createServiceClient();
 
-  // onboard_merchant is a self-authorizing, atomic RPC: it checks the
-  // caller is either the merchant being onboarded or an admin, guards
-  // against double-onboarding, inserts the merchants row, and promotes the
-  // user's role to merchant_admin — all inside the DB. Node 0 is BBS Mall
-  // only; mall_name isn't collected by this form and the RPC has no
-  // mall_name parameter (mall_name stays NULL, matching the RPC's schema).
   const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
     p_user_id: appUser.id,
     p_merchant_name: merchantName,
