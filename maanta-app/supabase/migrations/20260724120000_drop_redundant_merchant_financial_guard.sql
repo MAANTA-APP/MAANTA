@@ -1,0 +1,37 @@
+-- Drop the redundant merchant financial-column guard that breaks the money-path.
+--
+-- 20260723001651_lock_down_merchant_financial_columns (a migration hand-applied
+-- to prod and back-filled into the repo) added a BEFORE UPDATE trigger on
+-- public.merchants that rejects changes to financial/status columns unless
+-- auth.role() = 'service_role'. It has two fatal problems:
+--
+--  1. It breaks the core money-path. The app calls verify_redemption /
+--     purchase_boost / move_boost with the SIGNED-IN user's client, so inside
+--     those SECURITY DEFINER RPCs auth.role() is 'authenticated'. Their
+--     legitimate internal writes — trust recalculation (recalculate_trust_metric
+--     via update_kpi_counters), the KES 30 fee debit / arrears
+--     (deduct_success_fee_or_record_arrears), and boost balance debits — are all
+--     rejected with 'protected_column'. i.e. every merchant-driven redemption
+--     verification and every boost fails. Latent on prod only because no live
+--     redemption has run since the trigger was applied; the launch would expose
+--     it on day one. (security_hardening_test Scenario D reproduces it.)
+--
+--  2. It is redundant. 20260723120000_revoke_authenticated_writes_core_tables
+--     already revokes UPDATE on public.merchants from `authenticated`, so a
+--     direct client write can never reach these columns
+--     (revoke_authenticated_writes_core_tables_test Scenario B proves it). Every
+--     writer that DOES hold table UPDATE is service_role or a SECURITY DEFINER
+--     money-path function running as the postgres owner — and every legitimate
+--     one runs under a merchant's authenticated JWT, so the auth.role() check
+--     cannot separate sanctioned writes from abuse. The guard adds no protection
+--     the grant revoke doesn't already provide; it only breaks the sanctioned
+--     paths.
+--
+-- So remove the trigger and its function. Financial-column writes stay protected
+-- by the table-level grant revoke (the real control). This also removes the
+-- function the security advisor flagged (0028/0029). Applies to repo + prod in
+-- the rollout's Phase B; the faithful back-fill (20260723001651) is retained so
+-- prod's migration history still reconciles with the repo.
+
+DROP TRIGGER IF EXISTS trg_protect_merchant_financial_columns ON public.merchants;
+DROP FUNCTION IF EXISTS public.protect_merchant_financial_columns();
