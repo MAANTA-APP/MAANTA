@@ -152,7 +152,7 @@ function VerifyPhoneInner() {
           </label>
           <OtpInput value={code} onChange={setCode} autoFocus ariaLabel="6-digit code" />
           {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-          <Button full onClick={verify} loading={busy} disabled={code.trim().length < 4}>
+          <Button full onClick={verify} loading={busy} disabled={code.trim().length !== 6}>
             Verify &amp; continue
           </Button>
           <button

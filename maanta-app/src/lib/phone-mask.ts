@@ -33,9 +33,14 @@ export function maskPhone(full: string | null | undefined): string | null {
     return `+254 ${ke[1]}xx xxx ${ke[2]}`;
   }
 
-  // Generic fallback: first 2 + last 3 visible, middle masked.
+  // Generic fallback (non-Kenya). Only reveal when the number is long enough
+  // that the mask actually conceals it: reveal the first 2 and last 2 digits and
+  // mask the rest. A short number (e.g. 6 digits) would leak most of itself, so
+  // return null instead. E.164 numbers run 8–15 digits, so requiring ≥ 9 keeps
+  // at least 5 digits hidden.
+  if (digits.length < 9) return null;
   const front = digits.slice(0, 2);
-  const last3 = digits.slice(-3);
-  const maskedCount = Math.max(2, digits.length - 5);
-  return `${hadPlus ? "+" : ""}${front}${"x".repeat(maskedCount)} ${last3}`;
+  const last2 = digits.slice(-2);
+  const maskedCount = digits.length - 4;
+  return `${hadPlus ? "+" : ""}${front}${"x".repeat(maskedCount)} ${last2}`;
 }

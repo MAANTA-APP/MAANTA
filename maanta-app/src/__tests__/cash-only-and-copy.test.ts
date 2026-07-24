@@ -19,6 +19,7 @@ const SHOPPER_AND_REDEEM = [
   "src/app/(shopper)/tickets/[id]/page.tsx",
   "src/app/(shopper)/tickets/[id]/claimed-code.tsx",
   "src/app/verify-phone/page.tsx",
+  "src/app/merchant/(app)/redeem/page.tsx",
   "src/app/merchant/(app)/redeem/redeem-keypad.tsx",
   "src/components/ui/redemption-result.tsx",
   "src/components/ui/otp-input.tsx",

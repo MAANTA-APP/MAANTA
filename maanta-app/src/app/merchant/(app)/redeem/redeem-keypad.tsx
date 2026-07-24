@@ -159,16 +159,19 @@ export function RedeemKeypad({
         return;
       }
       if (typeof body.newBalance === "number") setBalance(body.newBalance);
-      // Prefer the SERVER-issued verify timestamp (UTC ISO); format to the
-      // device's local time (East Africa Time at the BBS counter) for display.
-      // Fall back to the client clock only if the field is somehow absent.
-      const verifiedIso =
-        typeof body.verifiedAt === "string" ? body.verifiedAt : new Date().toISOString();
-      const verifiedAtLabel = new Date(verifiedIso).toLocaleTimeString("en-KE", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
+      // Format the SERVER-issued verify timestamp (UTC ISO) in the mall's fixed
+      // timezone (Africa/Nairobi / EAT), NOT the device's — so the counter shows
+      // the same time regardless of a mis-set till clock. The verify API always
+      // returns verifiedAt; guard only against a malformed value.
+      const verifiedAtLabel =
+        typeof body.verifiedAt === "string"
+          ? new Date(body.verifiedAt).toLocaleTimeString("en-KE", {
+              timeZone: "Africa/Nairobi",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : null;
       setScreen({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,

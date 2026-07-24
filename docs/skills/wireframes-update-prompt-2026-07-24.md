@@ -113,7 +113,7 @@ is a separate audience.)
 - Also show the "Checking…" in-between state and a "Confirming…" spinner state.
 
 ### 5. Merchant — redeem SUCCESS takeover
-- A full-bleed dark-green "Verified" takeover (flat fill, white check — no
+- A full-bleed dark-green "Redeemed" takeover (flat fill, white check — no
   confetti, no celebration; money moved, it is not a party).
 - Show, clearly separated:
   - "Collect from shopper  KES N" in its own bordered box — the merchant's next

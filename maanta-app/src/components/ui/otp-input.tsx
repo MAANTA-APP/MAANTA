@@ -34,6 +34,20 @@ export function removeOtpCharAt(value: string, index: number, length = 6): strin
   return sanitizeOtp(value.slice(0, index) + value.slice(index + 1), length);
 }
 
+/** Merge pasted digits into `value` starting at `index`, preserving the prefix. */
+export function mergeOtpPaste(
+  value: string,
+  index: number,
+  pasted: string,
+  length = 6
+): string {
+  const digits = sanitizeOtp(pasted, length);
+  return sanitizeOtp(
+    value.slice(0, index) + digits + value.slice(index + digits.length),
+    length
+  );
+}
+
 export function OtpInput({
   value,
   onChange,
@@ -66,6 +80,9 @@ export function OtpInput({
           aria-label={`Digit ${i + 1}`}
           onChange={(e) => {
             const typed = e.target.value.slice(-1);
+            // Ignore a non-digit keystroke rather than letting it clear the box.
+            // An empty value (box cleared) still flows through to remove the digit.
+            if (typed && !/\d/.test(typed)) return;
             const next = replaceOtpCharAt(value, i, typed, length);
             onChange(next);
             if (/\d/.test(typed) && i < length - 1) focusBox(i + 1);
@@ -88,8 +105,11 @@ export function OtpInput({
             e.preventDefault();
             const pasted = sanitizeOtp(e.clipboardData.getData("text"), length);
             if (!pasted) return;
-            onChange(pasted);
-            focusBox(pasted.length - 1);
+            // Merge into the existing value at this box — don't discard a prefix
+            // the user already typed.
+            const next = mergeOtpPaste(value, i, pasted, length);
+            onChange(next);
+            focusBox(Math.min(length - 1, i + pasted.length - 1));
           }}
           className={cn(
             "h-14 w-11 rounded-xl border bg-white text-center font-code text-xl font-semibold text-ink",

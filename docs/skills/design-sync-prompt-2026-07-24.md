@@ -2,8 +2,8 @@
 
 **Created:** 2026-07-24 · **Mode:** Builder · **Status:** durable handoff.
 Paste the fenced block below into **Claude Design** to bring MAANTA's boards /
-wireframes / specs into line with the backend now on `main` (after PRs
-#68/#70/#71). Grounded in repo + migration state; sources listed at the bottom.
+wireframes / specs into line with the backend now on `main` (after
+PRs #68/#70/#71). Grounded in repo + migration state; sources listed at the bottom.
 
 ---
 

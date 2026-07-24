@@ -6,6 +6,7 @@ import {
   sanitizeOtp,
   replaceOtpCharAt,
   removeOtpCharAt,
+  mergeOtpPaste,
 } from "../otp-input";
 
 // The segmented OTP boxes are pure UI over a single OTP string. The digit maths
@@ -45,6 +46,15 @@ describe("OTP digit helpers", () => {
   it("paste distributes pasted digits (via sanitizeOtp)", () => {
     expect(sanitizeOtp("482 913")).toBe("482913");
     expect(sanitizeOtp("code: 482913 now")).toBe("482913");
+  });
+
+  it("mergeOtpPaste preserves an already-typed prefix instead of discarding it", () => {
+    // Full-code paste into the first box.
+    expect(mergeOtpPaste("", 0, "482913")).toBe("482913");
+    // Typed "48", pasted "2913" from box 2 → keeps the "48" prefix.
+    expect(mergeOtpPaste("48", 2, "2913")).toBe("482913");
+    // Paste is capped at length and stripped of non-digits.
+    expect(mergeOtpPaste("", 0, "48-29-13-99")).toBe("482913");
   });
 
   it("renders six input boxes prefilled from the value", () => {

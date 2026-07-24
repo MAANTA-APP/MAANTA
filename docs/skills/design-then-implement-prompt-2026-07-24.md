@@ -93,7 +93,7 @@ Step 2 — For every screen, capture:
   - M3: 6-digit keypad + code boxes, "Code resolved" + deal title,
     "Collect from shopper KES N" row, "KES 30 success fee" line, "Wallet balance",
     "Confirm redemption — KES 30 fee" (primary), "Reject code", "Cancel".
-  - M4: "Verified" header, "Collect from shopper KES N" box, fee line
+  - M4: "Redeemed" header, "Collect from shopper KES N" box, fee line
     (charged OR "recorded as arrears"), wallet balance, copyable reference id,
     auto-reset.
 - Behaviour and rules to annotate on the relevant screens:

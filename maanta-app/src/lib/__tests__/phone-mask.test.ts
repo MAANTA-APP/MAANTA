@@ -21,11 +21,19 @@ describe("maskPhone", () => {
     expect(masked.replace(/\D/g, "")).not.toContain("712345678");
   });
 
-  it("falls back to first-2 / last-3 for a non-Kenyan number", () => {
-    const masked = maskPhone("+441234567890")!;
+  it("masks a long non-Kenyan number to first-2 / last-2, middle hidden", () => {
+    const masked = maskPhone("+441234567890")!; // 12 digits
     expect(masked.startsWith("+44")).toBe(true);
-    expect(masked.endsWith("890")).toBe(true);
+    expect(masked.endsWith("90")).toBe(true);
     expect(masked).not.toContain("34567"); // middle masked
+    // No more than 4 original digits are ever revealed.
+    expect((masked.match(/\d/g) ?? []).join("")).toBe("4490");
+  });
+
+  it("returns null for a SHORT generic number instead of leaking most of it", () => {
+    // 6–8 digit non-Kenyan numbers would expose too much → omitted entirely.
+    expect(maskPhone("123456")).toBeNull();
+    expect(maskPhone("12345678")).toBeNull();
   });
 
   it("returns null for empty, nullish, or too-short input", () => {
