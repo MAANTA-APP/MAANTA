@@ -24,7 +24,7 @@ applied. Nothing else in this plan is blocked; this is.
 
 | Direction | Count | Detail |
 |---|---:|---|
-| **Repo → prod (pending, must apply)** | **14** | The 12 migrations from `20260721120000` onward, in the repo but **not applied** to prod (topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note), **plus** this branch's two new migrations: `20260724120000` (grant-hardening) and `20260724130000` (money-path fix — see below). |
+| **Repo → prod (pending, must apply)** | **13** | The 12 migrations from `20260721120000` onward, in the repo but **not applied** to prod (topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note), **plus** this branch's new `20260724120000` migration that **drops** the redundant merchant-financial guard (money-path fix — see below). |
 | **Prod → repo (drift, not in repo)** | **1** | `20260723001651_lock_down_merchant_financial_columns` is **applied on prod but has no file in the repo.** Confirmed live: the DB has `public.protect_merchant_financial_columns()` (flagged by the security advisor). This violates the "repo is source of truth for schema" rule and must be reconciled. |
 
 Why it blocks the deploy: `main`'s **server code depends on the pending
@@ -43,13 +43,18 @@ production. **DB goes first, then the frontend.**
 > internal writes (trust recalculation, KES 30 fee debit / arrears, boost
 > balance debit) are rejected with `protected_column`. On prod this is latent
 > only because no live redemption has run since the trigger was applied — the
-> rollout would expose it on day one. Fixed forward in
-> `20260724130000_allow_sanctioned_merchant_financial_writes.sql`: the guard now
-> honours a session-local `app.allow_protected_merchant_write` flag that those
-> three entry-point RPCs carry via `ALTER FUNCTION … SET` (no money-path body
-> changes), while still blocking direct client writes. Regression-covered by
-> `security_hardening_test.sql` Scenario D and
-> `protect_merchant_financial_columns_test.sql`.
+> rollout would expose it on day one. **Fixed by dropping the trigger** in
+> `20260724120000_drop_redundant_merchant_financial_guard.sql`: it adds no
+> protection beyond `20260723120000_revoke_authenticated_writes_core_tables`
+> (which already revokes `UPDATE` on `merchants` from `authenticated`, so a
+> direct client write can't reach these columns — proven by
+> `revoke_authenticated_writes_core_tables_test` Scenario B), and every
+> *legitimate* writer runs under a merchant's authenticated JWT, so the
+> `auth.role()` check can't separate sanctioned writes from abuse anyway.
+> Dropping it also removes the function the security advisor flagged (0028/0029).
+> Regression-covered by `security_hardening_test.sql` Scenario D (merchant-driven
+> verify now succeeds). Applies to repo **and** prod in Phase B; the faithful
+> back-fill (`20260723001651`) is retained so the histories still reconcile.
 
 Facts confirmed this session:
 - Prod project ref **`axrrslqssmbngbataejg`** (MAANTA-APP org, eu-west-1, PG 17,
@@ -84,21 +89,18 @@ sign-off (money rails / flags / irreversible).
    - **Human step:** verify LOCAL == REMOTE for that version with
      `supabase migration list`, and validate the file on a throwaway stack with
      `make db-verify` (local only). Merge this branch into `main` before promotion.
-   - **Faithfulness note:** the back-fill keeps prod's default `PUBLIC EXECUTE`
-     grant on the trigger function (the source of security-advisor WARN
-     0028/0029). It is a trigger function — harmless to call directly over RPC —
-     so this is cosmetic. The advisor is cleared by a **separate forward
-     migration** (below), not by editing the back-fill.
+   - **Faithfulness note:** the back-fill reproduces prod's trigger as-is (do not
+     edit it). The trigger is then **dropped** by the forward migration below —
+     which both fixes the money-path break and removes the function the advisor
+     flagged (0028/0029), so there is nothing left to harden.
    - **DONE (this branch):** forward migration
-     `20260724120000_harden_protect_merchant_financial_columns_grants.sql`
-     revokes EXECUTE from `PUBLIC`/`anon`/`authenticated` and re-grants
-     `service_role`/`postgres`, clearing advisor 0028/0029. Unlike the back-fill,
-     this version is **new**, so `supabase db push` **applies it to prod** in
-     Phase B (safe: a trigger fires independent of the caller's EXECUTE grant,
-     and `authenticated` already has no `UPDATE` on `merchants`). A self-cleaning
-     assertion (`supabase/tests/protect_merchant_financial_columns_test.sql`)
-     proves both the trigger still blocks financial-column writes and the grants
-     are locked down; CI `db-tests` runs it on every PR.
+     `20260724120000_drop_redundant_merchant_financial_guard.sql` drops the
+     trigger + function on repo and prod (see the money-path callout above). It is
+     a **new** version, so `supabase db push` **applies it to prod** in Phase B.
+     Verified indirectly by `security_hardening_test.sql` Scenario D (merchant
+     verify succeeds) and `revoke_authenticated_writes_core_tables_test.sql`
+     (the table-grant control that actually protects the columns); CI `db-tests`
+     runs both on every PR.
 2. **[DB]** Confirm the app really points at `axrrslqssmbngbataejg`: read Vercel
    Production `NEXT_PUBLIC_SUPABASE_URL` and check it contains that ref. If not,
    stop and fix the env first (never push to the old ref `vcrfqsevompqjazbwzyh`).
@@ -106,8 +108,8 @@ sign-off (money rails / flags / irreversible).
 ### Phase B — Apply pending migrations (staging first, then prod)
 3. **[DB]** In a **staging / preview DB** (Supabase branch or a throwaway
    project) apply all pending migrations (the 12 feature/hardening migrations +
-   the two new `20260724120000` grants and `20260724130000` money-path-fix
-   migrations = 14) with `supabase db push --dry-run`
+   the new `20260724120000` migration that drops the redundant guard = 13) with
+   `supabase db push --dry-run`
    then `supabase db push`, and run the SQL test subset from
    `docs/ops/supabase-migrations.md §5`. Because prod has an out-of-order version
    (`20260723001651` sorts *after* several pending local versions), verify the

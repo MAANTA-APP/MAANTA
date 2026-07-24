@@ -20,14 +20,15 @@
 -- must go through the vetted SECURITY DEFINER RPCs. This is defense-in-depth
 -- alongside the later 20260723120000_revoke_authenticated_writes_core_tables.
 --
--- NOTE (security advisor): as applied on prod, this function keeps the default
--- PUBLIC EXECUTE grant, so the Supabase linter flags
--- 0028/0029 (anon/authenticated can execute it via /rest/v1/rpc). It is a
--- trigger function — invoking it directly over PostgREST has no useful effect
--- (NEW/OLD are unset, so it errors) — so the risk is cosmetic. This file
--- reproduces prod faithfully (grant left as-is); if we want to clear the
--- advisor, do it as a SEPARATE forward migration that revokes EXECUTE from
--- anon/authenticated on BOTH prod and the repo, so the two never diverge again.
+-- NOTE: this file reproduces prod faithfully so the migration histories
+-- reconcile, but the trigger it creates is REMOVED two migrations later by
+-- 20260724120000_drop_redundant_merchant_financial_guard.sql — it breaks the
+-- money-path (blocks the internal writes of verify_redemption / purchase_boost /
+-- move_boost, which run under an authenticated JWT) and adds no protection
+-- beyond 20260723120000_revoke_authenticated_writes_core_tables. Dropping it
+-- also removes the function the security advisor flagged (0028/0029). This
+-- back-fill stays in the chain unchanged; do not "fix" it here — the fix is the
+-- forward drop, applied to repo and prod together.
 
 create or replace function public.protect_merchant_financial_columns()
   returns trigger
