@@ -34,13 +34,14 @@ function isHoneypotTripped(body: Record<string, unknown>): boolean {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get("healthz") === "1") {
+    // Trim so a whitespace-only value reads as missing, not present.
     return NextResponse.json({
-      resendApiKey: Boolean(process.env.RESEND_API_KEY),
-      resendAudienceId: Boolean(process.env.RESEND_AUDIENCE_ID),
-      resendFromEmail: Boolean(process.env.RESEND_FROM_EMAIL),
+      resendApiKey: Boolean(process.env.RESEND_API_KEY?.trim()),
+      resendAudienceId: Boolean(process.env.RESEND_AUDIENCE_ID?.trim()),
+      resendFromEmail: Boolean(process.env.RESEND_FROM_EMAIL?.trim()),
     });
   }
-  return new NextResponse(null, { status: 405 });
+  return new NextResponse(null, { status: 405, headers: { Allow: "GET, POST" } });
 }
 
 /**
