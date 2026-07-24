@@ -1,18 +1,27 @@
 # MAANTA Node 0 rehearsal checklist (BBS Mall)
 
-Last updated: 2026-07-20. Engineer-facing. One sitting ≈ 30 minutes.
-App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project `vcrfqsevompqjazbwzyh` (eu-west-1).
+Last updated: 2026-07-24. Engineer-facing. One sitting ≈ 30 minutes.
+App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project
+**`axrrslqssmbngbataejg`** — the live project the app points at (Clerk third-party
+auth enabled; see `docs/skills/clerk-auth.md`). *(Corrected 2026-07-24: this
+checklist previously named `vcrfqsevompqjazbwzyh`, which is the abandoned project —
+do not rehearse against it.)*
 
 ## 0. Before you start
 
 - [ ] **Seed applied** — run `maanta-app/supabase/seed/node0_rehearsal_seed.sql` in the
   Supabase SQL editor. Idempotent; re-running refreshes deal expiry windows (~21h standard,
   ~5h flash) and the live OTP ticket. Run it again whenever deals have expired.
-- [ ] **Email OTP works** — login is OTP-only (phone SMS is NOT configured; always pick
-  the **Email** tab). Supabase's built-in SMTP allows only ~2 auth emails/hour, which will
-  stall a 5-account rehearsal. Before the first serious run, set custom SMTP in
-  Supabase → Auth → SMTP settings (Resend SMTP works: host `smtp.resend.com`, user
-  `resend`, password = Resend API key, sender on the verified maanta.app domain).
+- [ ] **Sign-in works** — auth is now **Clerk** (Clerk owns the session:
+  `ClerkProvider` + `clerkMiddleware`, `src/lib/auth.ts`), *not* Supabase Auth.
+  *(Corrected 2026-07-24 — the old Supabase-Auth email-OTP + Supabase-SMTP steps
+  no longer apply.)* Configuration is a **Clerk-dashboard** task (human): enable
+  email OTP for sign-in, and enable **phone SMS OTP** — phone stays optional at
+  sign-up but is **required to claim a deal** (the `/verify-phone` gate, S2 ruling
+  2026-07-23; `currentUserHasVerifiedPhone()` + `POST /api/redemptions`). Verify
+  a real code lands and the claim gate bounces an email-only session through
+  `/verify-phone` and back. Transactional email deliverability (Clerk + Resend)
+  is a separate prod check — see the tracker.
 - [ ] Use one normal browser window + incognito windows (or separate devices) so
   shopper / merchant / admin sessions don't evict each other.
 
@@ -47,6 +56,12 @@ gift sets" (standard).
    redemption**. Expected after confirm: success screen with KES 30 fee, a
    copyable reference ID, new balance (540 → 510), and a ledger row under
    `/merchant/wallet` linked to that same reference.
+   - **"Collect from shopper KES N"** (2026-07-24): both the resolve/disclosure
+     screen **and** the success screen show the shopper's YOU PAY amount (e.g.
+     abaya **KES 2,400**) as the cash to take at the counter — shown separately
+     from the KES 30 success fee and the wallet balance. It is **display-only**:
+     the shopper pays the merchant **directly, in cash**; MAANTA never charges
+     the shopper in-app. Omitted for any legacy deal with no snapshotted amount.
 
 **C. Verify-anyway → dispute → admin review**
 5. A disputed redemption is pre-seeded (geofence flag + merchant override at Nuur).
@@ -89,8 +104,9 @@ gift sets" (standard).
 
 ## 4. Known gaps (founder / later work)
 
-- Phone-OTP login needs an SMS provider wired into Supabase Auth — email OTP until then.
-- Custom SMTP (above) is a one-time dashboard task; without it OTP emails rate-limit.
+- Auth is Clerk (not Supabase Auth). Enabling email OTP + phone SMS OTP and
+  confirming deliverability are one-time **Clerk-dashboard** tasks (human) —
+  see step 0 above and `docs/skills/clerk-auth.md`.
 - IntaSend / M-Pesa STK still blocked on account access (tracker E6).
 - Seeded what3words addresses are placeholders; replace with each shop's real ///address
   during on-site onboarding, or geofence checks will be meaningless.

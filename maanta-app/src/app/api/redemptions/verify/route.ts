@@ -117,12 +117,30 @@ export async function POST(request: Request) {
     .eq("id", data.deal_id)
     .maybeSingle();
 
+  // "Collect from shopper" — the YOU PAY amount snapshotted onto the redemption
+  // at claim time (migrations 20260719233037 / 20260720120000, via
+  // you_pay_kes(price, charges)). We surface it read-only so the counter knows
+  // how much cash to take from the shopper. This is NOT an in-app charge and is
+  // wholly distinct from the KES 30 success fee — no money-path behaviour
+  // changes here, it is a display value pulled from an already-persisted column.
+  // Legacy rows with no snapshot come back null → the UI omits the line.
+  const { data: redemptionRow } = await service
+    .from("redemptions")
+    .select("amount_kes")
+    .eq("id", data.redemption_id)
+    .maybeSingle<{ amount_kes: number | string | null }>();
+  const collectAmount =
+    redemptionRow?.amount_kes != null && Number.isFinite(Number(redemptionRow.amount_kes))
+      ? Number(redemptionRow.amount_kes)
+      : null;
+
   return NextResponse.json({
     dealTitle: deal?.title ?? "Deal",
     redemptionId: data.redemption_id,
     feeChargeStatus: data.fee_charge_status,
     feeAmount: data.fee_amount,
     newBalance: data.new_balance,
+    collectAmount,
     disputed: data.disputed === true,
   });
 }

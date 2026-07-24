@@ -1,0 +1,171 @@
+# Ops — Supabase migrations & seed (production)
+
+**Audience:** human operator with Supabase CLI + production credentials.
+**Claude Code does NOT run any of this** (repo-only); these are the exact
+commands + verifications to run yourself.
+
+## Pinned production project
+
+| | |
+|---|---|
+| **Production project-ref** | **`axrrslqssmbngbataejg`** (MAANTA-APP org, eu-west-1, Postgres 17, Clerk `cheerful-sailfish-3`) |
+| Do NOT use | `vcrfqsevompqjazbwzyh` — old org, treated as **not production**. A historical *comment* in `migrations/20260703233440_*.sql` still names it; leave applied migration SQL untouched. |
+
+**Before anything:** confirm the app really points here — read Vercel
+`NEXT_PUBLIC_SUPABASE_URL` for the Production environment and check it contains
+`axrrslqssmbngbataejg`. If it doesn't, stop and reconcile first.
+
+## 1. Link
+
+Run from `maanta-app/` (where `supabase/` lives):
+
+```bash
+cd maanta-app
+supabase link --project-ref axrrslqssmbngbataejg
+# prompts for the DB password (Supabase dashboard → Project settings → Database)
+```
+
+## 2. See what's applied vs local
+
+```bash
+supabase migration list
+# LOCAL column = files in supabase/migrations/; REMOTE = applied on prod.
+# Any row present locally but missing remotely still needs pushing.
+```
+
+## 3. Push migrations
+
+```bash
+supabase db push        # applies every not-yet-applied migration, in order
+# add --dry-run first to preview without writing:
+supabase db push --dry-run
+```
+
+Prefer a **low-traffic window** — the hardening migrations are grant/view/table
+changes and can take brief locks.
+
+### The #48–#61 hardening set (must be present after push)
+
+From `docs/skills/prod-handoff-security-audit-2026-07-23.md`, apply in filename
+order (they are all already in `supabase/migrations/`, so `db push` handles them):
+
+1. `20260722180000_lock_down_internal_money_rpcs.sql`
+2. `20260722190000_capture_lead_atomic.sql`
+3. `20260722200000_fix_capture_lead_column_ambiguity.sql`
+4. `20260723120000_revoke_authenticated_writes_core_tables.sql`  (C-1/C-2/C-3)
+5. `20260723130000_fix_browse_views_security_invoker.sql`        (H-1)
+6. `20260723140000_admin_ops_log.sql`                            (M-3)
+
+## 4. Seed (rehearsal data)
+
+There is **no** `supabase/seed.sql`, so `supabase db push --include-seed` has
+nothing to load — do **not** rely on it. The Node 0 rehearsal seed is a separate,
+**idempotent** script applied explicitly:
+
+```bash
+# via psql (get the connection string from dashboard → Database → Connection string)
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed/node0_rehearsal_seed.sql
+```
+
+…or paste that file into the Supabase SQL Editor. Re-running refreshes deal
+windows + the live OTP ticket (see `docs/maanta-node0-rehearsal-checklist.md`).
+Only seed a project you intend to demo on.
+
+## 5. Verify the push took
+
+```sql
+-- 5a. Exactly the six hardening versions present (expect 6 rows, all six):
+SELECT version FROM supabase_migrations.schema_migrations
+WHERE version IN (
+  '20260722180000','20260722190000','20260722200000',
+  '20260723120000','20260723130000','20260723140000'
+)
+ORDER BY version;
+-- If this returns fewer than 6, the missing version(s) still need `db push`.
+
+-- 5b. Core-table writes ALL revoked from authenticated — INSERT/UPDATE/DELETE
+--     on merchants/redemptions/deals (expect every column false):
+SELECT c AS tbl,
+       has_table_privilege('authenticated','public.'||c,'INSERT') AS ins,
+       has_table_privilege('authenticated','public.'||c,'UPDATE') AS upd,
+       has_table_privilege('authenticated','public.'||c,'DELETE') AS del
+FROM unnest(ARRAY['merchants','redemptions','deals']) AS c;
+
+-- 5c. Audit / money tables exist (expect all not-null / true):
+SELECT to_regclass('public.admin_ops_log')  IS NOT NULL AS admin_ops_log,
+       to_regclass('public.guardian_events') IS NOT NULL AS guardian_events,
+       to_regclass('public.fee_reversals')   IS NOT NULL AS fee_reversals;
+
+-- 5d. Internal money RPC is service_role-only: denied to anon + authenticated,
+--     allowed for service_role (expect false, false, true):
+SELECT has_function_privilege('anon',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS anon_exec,
+       has_function_privilege('authenticated',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS authed_exec,
+       has_function_privilege('service_role',
+         'public.deduct_success_fee_or_record_arrears(uuid,uuid,numeric)','EXECUTE') AS service_exec;
+```
+
+Then run the **audit SQL subset** against prod (self-cleaning, but still a
+mutation — low-traffic window):
+
+```bash
+cd maanta-app
+export DATABASE_URL="postgresql://..."   # prod connection string
+for f in security_hardening_test capture_lead_test \
+         revoke_authenticated_writes_core_tables_test browse_views_test \
+         admin_ops_log_test; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$f.sql"
+done
+
+# no residue — check every known test-data class, not just merchant names
+# (the suites also create rate-limit buckets; security-hardening.md treats
+# both as residue). Expect 0 for every count:
+psql "$DATABASE_URL" -c "
+  SELECT
+    -- '\_\_test%' escapes the underscores so LIKE matches the literal '__test'
+    -- fixture prefix, not '_' as a single-char wildcard (which would also match
+    -- names like 'abtest…'). Backslash is LIKE's default escape char.
+    (SELECT count(*) FROM merchants WHERE merchant_name LIKE '\_\_test%')      AS test_merchants,
+    (SELECT count(*) FROM api_rate_limit_buckets WHERE bucket_key LIKE 'test-rate-%') AS test_buckets;
+"
+```
+
+(If a count is non-zero, a suite failed to self-clean — inspect and remove the
+rows before treating the run as clean. Adjust the `api_rate_limit_buckets`
+key/column name if the suite uses a different one.)
+
+Each suite ends in a success `RAISE NOTICE`; any failed `ASSERT` aborts under
+`ON_ERROR_STOP=1`. The full 14-suite set is what CI `db-tests` runs on every PR.
+
+## 6. Convenience targets
+
+`make -f Makefile <target>` (repo root) wraps the CLI. These are **read/write**
+commands — `db-push` **mutates production** (applies migrations). They only
+echo/run the CLI above — **review before running against prod**:
+
+| Target | Runs | Effect |
+|---|---|---|
+| `make db-link` | `supabase link --project-ref axrrslqssmbngbataejg` | local link only |
+| `make db-list` | `supabase migration list` | read-only |
+| `make db-push-dry` | `supabase db push --dry-run` | read-only (preview) |
+| `make db-push` | `supabase db push` (prompts) | **MUTATING — applies migrations to prod** |
+| `make db-verify` | boots a **throwaway local** Supabase, applies all migrations, runs `supabase/tests/*.sql`, stops it | **LOCAL/dev ONLY — never touches prod** |
+
+> **`make db-verify` is not a production verification.** It reproduces the CI
+> `db-tests` job on a disposable local stack (fixed db_url
+> `postgresql://postgres:postgres@127.0.0.1:54322/postgres`). Because the
+> assertion suites INSERT test data, they must **only** run against a local
+> stack — never against the linked prod project. Requires the Supabase CLI +
+> Docker. To verify a **production** push, use the manual read-only SQL subset
+> in §5 above (grants, audit tables, spot-checks), not this target.
+
+## Safety recap
+
+- Confirm the ref matches Vercel before pushing; never push to
+  `vcrfqsevompqjazbwzyh`.
+- Prefer `--dry-run` first; apply in a low-traffic window.
+- `db push` is forward-only — there is no auto-rollback. Take a DB backup /
+  point-in-time snapshot first if you're uneasy.
+- `make db-verify` is safe to run anytime in dev/CI (local stack only); it has
+  no path to production.
