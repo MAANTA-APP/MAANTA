@@ -24,10 +24,10 @@ applied. Nothing else in this plan is blocked; this is.
 
 | Direction | Count | Detail |
 |---|---:|---|
-| **Repo → prod (pending, must apply)** | **12** | Every migration from `20260721120000` onward is in the repo but **not applied** to prod: topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note. |
+| **Repo → prod (pending, must apply)** | **13** | The 12 migrations from `20260721120000` onward, in the repo but **not applied** to prod (topup-settles-arrears, Guardian v1, admin fee-reversal, Guardian thresholds, Guardian hard-block appeal, lock-down internal money RPCs, capture-lead atomic (+ambiguity fix), revoke-authenticated-writes, browse-views security-invoker, admin-ops-log, reverse-success-fee-note), **plus** this branch's new `20260724120000` grant-hardening migration. |
 | **Prod → repo (drift, not in repo)** | **1** | `20260723001651_lock_down_merchant_financial_columns` is **applied on prod but has no file in the repo.** Confirmed live: the DB has `public.protect_merchant_financial_columns()` (flagged by the security advisor). This violates the "repo is source of truth for schema" rule and must be reconciled. |
 
-Why it blocks the deploy: `main`'s **server code depends on the 12 pending
+Why it blocks the deploy: `main`'s **server code depends on the pending
 migrations** — the reverse-fee route needs `fee_reversals` + the reversal RPC,
 admin actions need `admin_ops_log`, the waitlist needs the atomic
 `capture_lead`, and the redeem path expects the Guardian-aware
@@ -40,7 +40,7 @@ Facts confirmed this session:
 - **maskedPhone / verifiedAt need NO migration** — both are read-only/derived
   (`maskPhone(users.phone)` and `new Date().toISOString()` in
   `src/app/api/redemptions/verify/route.ts`). Confirmed against the code.
-- **No destructive DDL** in the 12 pending migrations — the only `DROP` is a
+- **No destructive DDL** in any pending migration — the only `DROP` is a
   `DROP FUNCTION public.verify_redemption(...)` in `guardian_v1` that immediately
   re-creates the RPC with Guardian logic (a function swap, not data loss). It is
   money-path-sensitive and must be applied in a low-traffic window.
@@ -70,23 +70,33 @@ sign-off (money rails / flags / irreversible).
    - **Faithfulness note:** the back-fill keeps prod's default `PUBLIC EXECUTE`
      grant on the trigger function (the source of security-advisor WARN
      0028/0029). It is a trigger function — harmless to call directly over RPC —
-     so this is cosmetic. If we want to clear the advisor, do it as a **separate
-     forward migration** that revokes EXECUTE from `anon`/`authenticated` on
-     **both** prod and the repo, so the two never diverge again.
+     so this is cosmetic. The advisor is cleared by a **separate forward
+     migration** (below), not by editing the back-fill.
+   - **DONE (this branch):** forward migration
+     `20260724120000_harden_protect_merchant_financial_columns_grants.sql`
+     revokes EXECUTE from `PUBLIC`/`anon`/`authenticated` and re-grants
+     `service_role`/`postgres`, clearing advisor 0028/0029. Unlike the back-fill,
+     this version is **new**, so `supabase db push` **applies it to prod** in
+     Phase B (safe: a trigger fires independent of the caller's EXECUTE grant,
+     and `authenticated` already has no `UPDATE` on `merchants`). A self-cleaning
+     assertion (`supabase/tests/protect_merchant_financial_columns_test.sql`)
+     proves both the trigger still blocks financial-column writes and the grants
+     are locked down; CI `db-tests` runs it on every PR.
 2. **[DB]** Confirm the app really points at `axrrslqssmbngbataejg`: read Vercel
    Production `NEXT_PUBLIC_SUPABASE_URL` and check it contains that ref. If not,
    stop and fix the env first (never push to the old ref `vcrfqsevompqjazbwzyh`).
 
 ### Phase B — Apply pending migrations (staging first, then prod)
 3. **[DB]** In a **staging / preview DB** (Supabase branch or a throwaway
-   project) apply all 12 pending migrations with `supabase db push --dry-run`
+   project) apply all pending migrations (the 12 feature/hardening migrations +
+   the new `20260724120000` grants migration = 13) with `supabase db push --dry-run`
    then `supabase db push`, and run the SQL test subset from
    `docs/ops/supabase-migrations.md §5`. Because prod has an out-of-order version
    (`20260723001651` sorts *after* several pending local versions), verify the
    CLI applies the older-numbered pending migrations cleanly here **before**
    touching prod — this is exactly what staging is for.
 4. **[DB]** Compare staging vs prod schema after step 1's reconcile so the only
-   difference is "the 12 not-yet-applied migrations."
+   difference is "the not-yet-applied migrations."
 5. **[DB][HUMAN-APPROVE]** Take a prod **PITR snapshot / backup**, then in a
    low-traffic window run `supabase db push` against prod
    (`make db-push`). `db push` is **forward-only — no auto-rollback.** Then run
@@ -238,7 +248,7 @@ Run the full loop on the **staging deployment of `main`** (staging DB from Phase
    deployment** (instant re-point; or redeploy the prior commit / pin the older
    commit). This reverts the frontend without a rebuild.
 2. Because migrations are **forward-only**, a code rollback leaves the newer
-   schema in place. The 12 pending migrations are **additive + additive-grant**
+   schema in place. The pending migrations are **additive + additive-grant**
    (no data drops), so the previous code runs fine on the newer schema — that's
    why DB-first ordering is safe. Do **not** attempt to "roll back" the DB; if a
    specific migration misbehaves, write a **forward fix** migration.
@@ -310,6 +320,6 @@ window, and reconcile the single KES 30 debit afterwards.
 | Post-deploy money-path spot checks (Phase F) | Eng + ops |
 | Rollback / freeze decision | Release owner (on trigger) |
 
-**Preconditions to press Deploy:** drift reconciled · 12 migrations applied to
+**Preconditions to press Deploy:** drift reconciled · all pending migrations applied to
 prod + verified · all env/secrets confirmed prod values · CI green on `main` ·
 staging sign-off complete.
