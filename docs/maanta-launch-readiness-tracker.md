@@ -1,9 +1,16 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-23 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-24 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
+
+> **2026-07-24 repo audit:** full repo-vs-prod readiness audit in
+> `docs/skills/launch-audit-2026-07-24.md`. Repo is green (94 vitest + 15 SQL
+> suites; typecheck + lint clean). All prod-apply steps (migrations →
+> `axrrslqssmbngbataejg`, Vercel/Clerk/monitoring config, money rails) remain
+> human-owned — see that audit's §4. One repo gap surfaced: the merchant redeem
+> success screen has no "Collect from shopper KES N" line.
 
 Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker · ⬜ not started
 
@@ -11,7 +18,7 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 
 | Flow | Status | Notes |
 |---|---|---|
-| Shopper browse → claim → ticket | ✅ | `claim_deal` RPC; ticket expiry = deal expiry + 15 min |
+| Shopper browse → claim → ticket | ✅ | `claim_deal` RPC; ticket expiry = deal expiry + 15 min. Claim now gated on a **verified phone** (S2 ruling 2026-07-23): email-only sessions get a typed `phone_required` (403) → `/verify-phone` Clerk SMS OTP → back to the deal |
 | Shopper redeem at counter (merchant verify) | ✅ | `verify_redemption` RPC: atomic verify + fee debit/arrears |
 | Merchant onboarding → admin approval | ✅ | `onboard_merchant` / `activate_merchant` RPCs, agent attribution |
 | Merchant wallet top-up (Stripe card) | 🟡 | Works in **sandbox**; live keys + live-mode test pending (Nov cutover decision). Top-ups now **settle arrears first**, then credit the remainder — both rails, migration `20260721120000` (§3 frozen rule); asserted by E12 tests |
@@ -19,7 +26,7 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | Refund / dispute money movements | ✅ | Stripe webhook handles refund + dispute open/close, payment_intent-keyed idempotency |
 | Fraud review on unknown fee status | ✅ | Verify-anyway + admin task (migration `20260703235152`) |
 | Guardian v1 verify-time fraud checks | ✅ | velocity/geofence/collusion → clear / flag / soft-block (held) / hard-block (declined); blocks move no money. Admin held-review queue + release + hard-block appeal; thresholds live-tunable via `app_config`; outcomes to PostHog. Migrations `20260721140000`/`20260722140000`/`20260722160000`; PRs #36/#37/#44/#45/#46 |
-| Admin success-fee reversal (dispute uphold) | ✅ | Admin-gated `reverse_success_fee` credits merchant wallet (settle-arrears-first, one per redemption, original redemption + fee rows never modified); action on `/admin/redemptions/[id]`; `fee_reversals` audit + export view. Migration `20260722120000`, PR #42. Backs the 72h dispute-SLA uphold path |
+| Admin success-fee reversal (dispute uphold) | ✅ | Admin-gated `reverse_success_fee` credits merchant wallet (settle-arrears-first, one per redemption, original redemption + fee rows never modified); action on `/admin/redemptions/[id]`; `fee_reversals` audit + export view. Migration `20260722120000`, PR #42. Backs the 72h dispute-SLA uphold path. **A decision note is now required on every reversal** (2026-07-23): route rejects an empty note (400) and the RPC enforces `note_required` as a backstop — migration `20260723150000` |
 | Elite trial expiry → grace → downgrade | ✅ | `handle_trial_expiry`; confirm the scheduled invocation runs in production |
 | Frozen wireframe UI (all surfaces) | ✅ | Merged 2026-07-09 (PR #11); device-level QA pass still owed (E2–E4 below) |
 | Admin panel | ✅ | Merchant approval, fraud audit, plans/trials, reporting; role self-escalation blocked. Added: customers/users list, redemption detail, Guardian held-review queue + release/appeal (PRs #40, #37) |
