@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MAANTA Mobile Wireframes — Claim &amp; Till</title>
+<style>
+  /* ---- Design tokens (mirror maanta-app tailwind.config.ts / Frozen UI) --- */
+  :root {
+    --brand: #FDBF2D;        /* the one amber action */
+    --brand-tint: #FFF7E0;   /* pale amber wash */
+    --ink: #111111;          /* text-primary */
+    --black: #000000;        /* CTA labels, emphasis */
+    --ink-900: #141414;      /* merchant failure takeover */
+    --paper: #FAFAF8;        /* app background */
+    --surface-2: #F1F1F1;    /* disabled fill / placeholder */
+    --rust: #9A4A0C;         /* warning / urgency (never yellow) */
+    --flame: #8C1D18;        /* error */
+    --flame-tint: #FBEDEC;   /* pale error wash */
+    --verified: #0A5C34;     /* success */
+    --verified-tint: #E8F1EC;
+    --line: #E5E2DA;         /* hairline borders */
+    --secondary: #3D3D3D;    /* money context */
+    --muted: #5C5C5C;        /* labels */
+    --faint: #6B6B6B;        /* placeholders */
+    --sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background: #F4F4F2;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Canvas chrome ----------------------------------------------------- */
+  .canvas { max-width: 1200px; margin: 0 auto; padding: 40px 24px 96px; }
+  .masthead { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .masthead img { height: 40px; width: auto; display: block; }
+  .masthead h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .masthead p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .legend {
+    margin: 20px 0 40px; padding: 14px 16px; background: #fff;
+    border: 1px solid var(--line); border-radius: 12px; font-size: 12.5px; color: var(--muted);
+  }
+  .legend b { color: var(--ink); }
+  .legend code {
+    font-family: var(--mono); background: var(--surface-2); color: var(--ink);
+    padding: 1px 6px; border-radius: 5px; font-size: 11.5px;
+  }
+
+  .section { margin: 48px 0 8px; display: flex; align-items: center; gap: 10px; }
+  .section .num {
+    background: var(--ink); color: #fff; font-weight: 700; font-size: 13px;
+    width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+  }
+  .section h2 { font-size: 18px; font-weight: 800; margin: 0; }
+  .section .lede { color: var(--muted); font-size: 13px; font-weight: 500; }
+
+  .grid {
+    display: grid; gap: 40px 28px; margin-top: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+  .cell { min-width: 0; }
+  .cap { display: flex; align-items: center; gap: 8px; margin: 0 0 10px 2px; }
+  .cap .id {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink);
+    background: var(--surface-2); border-radius: 5px; padding: 2px 6px;
+  }
+  .cap .name { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+
+  /* ---- Phone frame (mobile 390px, scaled to fit column) ------------------ */
+  .phone {
+    width: 300px; border: 1.5px solid var(--ink); border-radius: 26px;
+    background: #fff; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .phone.tall { min-height: 600px; }
+  .screen { display: flex; flex-direction: column; min-height: 560px; }
+  .screen.ink { background: var(--ink-900); color: #fff; }
+  .pad { padding: 16px; }
+  .grow { flex: 1 1 auto; }
+
+  /* ---- Top / bottom bars ------------------------------------------------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14px;
+  }
+  .topbar .bal { font-family: var(--mono); font-weight: 700; font-size: 13px; }
+  .topbar .caret { color: var(--faint); font-weight: 500; font-size: 12px; }
+  .bottombar {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    padding: 10px 8px 14px; border-top: 1px solid var(--line); background: #fff;
+  }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 10.5px; color: var(--faint); }
+  .tab .dot { width: 20px; height: 20px; border: 1.5px solid currentColor; border-radius: 6px; }
+  .tab.active { color: var(--ink); font-weight: 700; }
+  .tab.active .dot { background: var(--ink); border-color: var(--ink); }
+
+  /* ---- Type ----------------------------------------------------------- */
+  h3.title { font-size: 20px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .meta { color: var(--secondary); font-size: 12.5px; margin: 0; }
+  .label { color: var(--muted); font-size: 12px; font-weight: 600; margin: 0 0 6px; }
+  .center { text-align: center; }
+  .w3w {
+    font-family: var(--mono); font-size: 12px; color: #2A5BD7; text-decoration: none;
+    border-bottom: 1px solid rgba(42,91,215,.4);
+  }
+
+  /* ---- Cover / placeholder --------------------------------------------- */
+  .cover {
+    background: var(--paper); border-bottom: 1px dashed var(--line);
+    height: 132px; display: grid; place-items: center; color: var(--faint); font-size: 12px;
+  }
+  .skeleton { background: var(--surface-2); border-radius: 6px; height: 10px; margin: 8px 0; }
+  .skeleton.w70 { width: 70%; } .skeleton.w50 { width: 50%; }
+
+  /* ---- Chips ----------------------------------------------------------- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+    padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
+  }
+  .chip.time { color: var(--rust); border-color: #E7D3BF; background: #FBF3EA; }
+  .chip.claimed { color: var(--muted); background: var(--surface-2); border-color: var(--surface-2); }
+  .chip.verified { color: var(--verified); background: var(--verified-tint); border-color: var(--verified-tint); }
+  .chip.flag { color: var(--flame); border-color: #E7C4C1; background: var(--flame-tint); }
+  .chip.flash { color: #fff; background: var(--flame); border: none; }
+
+  /* ---- Buttons --------------------------------------------------------- */
+  .btn {
+    display: block; width: 100%; text-align: center; font-weight: 700; font-size: 14px;
+    padding: 13px 16px; border-radius: 12px; border: 1.5px solid transparent; cursor: pointer;
+    font-family: var(--sans); margin-top: 10px;
+  }
+  .btn.primary { background: var(--brand); color: var(--black); }
+  .btn.dark { background: var(--ink); color: #fff; }
+  .btn.ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+  .btn.danger { background: #fff; color: var(--flame); border-color: #E7C4C1; }
+  .btn.disabled { background: var(--surface-2); color: var(--faint); cursor: default; }
+  .btn:first-child { margin-top: 0; }
+
+  .hint { color: var(--flame); font-size: 11.5px; text-align: center; margin: 8px 0 0; }
+  .subtle { color: var(--faint); font-size: 11.5px; text-align: center; margin: 6px 0 0; }
+
+  /* ---- The redemption code (money-grade figures) ------------------------ */
+  .code {
+    font-family: var(--mono); font-feature-settings: "zero" 1; font-variant-numeric: tabular-nums;
+    letter-spacing: 0.14em; font-weight: 700; text-align: center;
+  }
+  .code.big { font-size: 40px; }
+  .code.huge { font-size: 46px; letter-spacing: 0.1em; }
+  .code.struck { color: var(--faint); text-decoration: line-through; }
+
+  /* Claimed ticket — the one amber liveness pulse (R3) breathes the border */
+  .ticket {
+    border: 2px solid var(--brand); border-radius: 16px; overflow: hidden;
+    animation: r3 2s ease-in-out infinite;
+  }
+  @keyframes r3 { 0%,100% { border-color: var(--brand); } 50% { border-color: #FBE7AE; } }
+  @media (prefers-reduced-motion: reduce) { .ticket { animation: none; } }
+  .ticket .head { background: var(--ink); color: var(--brand); font-weight: 700; text-align: center; padding: 9px; font-size: 13px; }
+  .ticket .body { background: var(--paper); padding: 16px; }
+
+  /* Counter takeover — max legibility for the cashier */
+  .counter { background: var(--brand); color: var(--black); border-radius: 14px; padding: 22px 16px; text-align: center; }
+  .counter .lede { font-size: 12px; color: rgba(0,0,0,.7); }
+  .counter .say { font-weight: 800; font-size: 13px; margin-top: 6px; }
+
+  /* ---- OTP cells + keypad (Till) ---------------------------------------- */
+  .otp { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
+  .otp > * {
+    width: 34px; height: 44px; border: 1.5px solid var(--line); border-radius: 9px;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 20px; font-weight: 700;
+    font-feature-settings: "zero" 1;
+  }
+  .otp > .is-filled { border-color: var(--ink); }
+  .otp > .is-cursor { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-tint); }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .keypad button {
+    padding: 13px 0; border: 1.5px solid var(--line); border-radius: 11px; background: #fff;
+    font-size: 18px; font-weight: 700; font-family: var(--mono); cursor: pointer; color: var(--ink);
+  }
+  .keypad button:active { background: var(--surface-2); }
+  .keypad button[data-key="back"], .keypad button[data-key="clear"] { font-family: var(--sans); font-size: 13px; color: var(--muted); }
+
+  /* ---- Banners --------------------------------------------------------- */
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 12.5px; }
+  .banner.warn { background: var(--flame-tint); border: 1px solid #E7C4C1; color: var(--flame); }
+  .banner.warn b { color: var(--flame); }
+  .banner.info { background: var(--paper); border: 1px solid var(--line); color: var(--secondary); }
+
+  .icon-badge { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 10px; font-size: 28px; }
+  .icon-badge.ok { background: var(--brand); }
+  .icon-badge.green { background: var(--verified); color: #fff; }
+  .icon-badge.bad { background: #fff; border: 2px solid var(--flame); color: var(--flame); }
+
+  /* ---- Bottom sheet overlay -------------------------------------------- */
+  .sheet-wrap[hidden] { display: none; }
+  .sheet-wrap {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .sheet {
+    width: 320px; background: #fff; border-radius: 20px 20px 0 0; padding: 18px 18px 24px;
+    box-shadow: 0 -8px 30px rgba(0,0,0,.2);
+  }
+  .sheet .grip { width: 36px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 14px; }
+
+  /* ---- Switch (state toggler) ------------------------------------------ */
+  .switch { display: flex; gap: 6px; margin: 0 0 10px 2px; }
+  .switch button {
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
+  }
+  .switch button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  [data-state][hidden] { display: none; }
+
+  .flow-note { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; margin: -8px 0 0; }
+  footer.credit { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; }
+</style>
+</head>
+<body>
+<main class="canvas">
+
+  <header class="masthead">
+    <img src="assets/logo-b.svg" alt="MAANTA" />
+    <div>
+      <h1>Mobile Wireframes — Claim &amp; Till</h1>
+      <p>BBS Mall, Eastleigh · mobile 390px · the two moments that make the KES&nbsp;30 fee real: the shopper <b>claims</b> a code, the merchant redeems it at the <b>till</b>.</p>
+    </div>
+  </header>
+
+  <div class="legend">
+    Built from the MAANTA wireframe system &amp; Frozen UI tokens. One amber action per screen
+    (<code>#FDBF2D</code>), codes in slashed-zero mono, warnings in rust/flame — never yellow.
+    Screens are labelled with their system IDs (e.g. <code>8g</code>, <code>9k</code>).
+    <b>Interactive:</b> tap the Till keypad to enter a code, tap state chips to flip a frame, tap “Claim deal” to open the sheet.
+  </div>
+
+  <!-- ================= CLAIM (shopper) ================= -->
+  <div class="section">
+    <span class="num">1</span>
+    <h2>Claim</h2>
+    <span class="lede">shopper · tap a deal → get a 6-digit code → show it at the counter</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- 8g / 8ae Deal detail (with state switch: live vs fully claimed) -->
+    <div class="cell" data-frame data-switch-group>
+      <div class="cap"><span class="id">8g · 8ae</span><span class="name">Deal detail</span></div>
+      <div class="switch">
+        <button data-switch="live">Live</button>
+        <button data-switch="full">Fully claimed</button>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="cover">cover image</div>
+          <div class="pad grow">
+            <!-- live -->
+            <div data-state="live">
+              <span class="chip time">⧗ 2h 14m left</span>
+              <h3 class="title" style="margin-top:10px">20% off all fabric</h3>
+              <p class="meta">Fabric House · Floor 2 · 📍 <a class="w3w" href="#">///stove.cactus.rally</a></p>
+              <div class="skeleton w70"></div><div class="skeleton w50"></div>
+              <p class="meta" style="margin-top:10px">✓ 128 verified redemptions · 64 of 100 claimed</p>
+            </div>
+            <!-- fully claimed -->
+            <div data-state="full" hidden>
+              <span class="chip claimed">Fully claimed</span>
+              <h3 class="title" style="margin-top:10px">20% off all fabric</h3>
+              <p class="meta">Fabric House · Floor 2 · 📍 <a class="w3w" href="#">///stove.cactus.rally</a></p>
+              <p class="meta" style="margin-top:10px">100 of 100 claimed — no codes left</p>
+            </div>
+          </div>
+          <div class="pad" style="padding-top:0">
+            <div data-state="live">
+              <button class="btn primary" data-sheet-open="claim-sheet">Claim deal</button>
+            </div>
+            <div data-state="full" hidden>
+              <div class="btn disabled">Fully claimed</div>
+              <button class="btn ghost">See similar deals</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8y Claim — location check -->
+    <div class="cell">
+      <div class="cap"><span class="id">8y</span><span class="name">Claim — location check in progress</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="pad grow" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+            <div style="font-size:30px">⏳</div>
+            <h3 class="title" style="margin-top:10px;font-size:16px">Checking you’re at BBS Mall…</h3>
+            <p style="margin:10px 0"><a class="w3w" href="#">///stove.cactus.rally</a></p>
+            <p class="subtle">This keeps codes fair for merchants.</p>
+            <button class="btn ghost" style="max-width:120px;margin:16px auto 0">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8i Claimed ticket -->
+    <div class="cell">
+      <div class="cap"><span class="id">8i</span><span class="name">Claimed ticket (compact)</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="pad grow">
+            <div class="ticket">
+              <div class="head">✓ Deal claimed</div>
+              <div class="body">
+                <div class="code big">482 913</div>
+                <p class="center" style="color:var(--rust);font-weight:700;font-size:12px;margin:8px 0 12px">2h 14m left (+15 min grace)</p>
+                <button class="btn ghost">Navigate</button>
+              </div>
+            </div>
+            <p class="subtle" style="margin-top:14px">Fabric House · Floor 2 · 20% off all fabric</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8j Full code counter screen -->
+    <div class="cell">
+      <div class="cap"><span class="id">8j</span><span class="name">Full code (counter screen)</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar" style="border:none">Fabric House · Floor 2 <span class="caret">✕</span></div>
+          <div class="pad grow" style="display:flex;flex-direction:column;justify-content:center">
+            <div class="counter">
+              <div class="code huge">482 913</div>
+              <div class="say">Show this to staff</div>
+            </div>
+            <p class="center" style="color:var(--rust);font-weight:700;font-size:12px;margin:16px 0 0">2h 14m left (+15 min grace)</p>
+            <p class="center" style="margin:10px 0 0">📍 <a class="w3w" href="#">///stove.cactus.rally</a></p>
+            <button class="btn ghost" style="margin-top:16px">Navigate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8z / 8k / 8aa Redemption outcome (shopper) with state switch -->
+    <div class="cell" data-frame data-switch-group>
+      <div class="cap"><span class="id">8z · 8k · 8aa</span><span class="name">Redemption outcome</span></div>
+      <div class="switch">
+        <button data-switch="ok">Verified</button>
+        <button data-switch="expired">Expired</button>
+        <button data-switch="flagged">Flagged</button>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="pad grow" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+            <!-- 8z verified -->
+            <div data-state="ok">
+              <div class="icon-badge ok">✓</div>
+              <h3 class="title" style="font-size:18px">Code verified</h3>
+              <p class="meta">20% off all fabric · Fabric House, Floor 2</p>
+              <p class="subtle" style="margin-top:6px">Your discount is applied at the counter.</p>
+              <button class="btn primary" style="margin-top:16px">Done</button>
+            </div>
+            <!-- 8k expired -->
+            <div data-state="expired" hidden>
+              <div class="code big struck">482 913</div>
+              <h3 class="title" style="font-size:16px;margin-top:14px">This code has expired</h3>
+              <p class="subtle">The deal ended and the 15-minute grace period has passed.</p>
+              <button class="btn primary" style="margin-top:16px">See live deals</button>
+            </div>
+            <!-- 8aa flagged -->
+            <div data-state="flagged" hidden>
+              <div class="code big" style="font-size:30px">482 913</div>
+              <span class="chip flag" style="margin-top:10px">Flagged</span>
+              <div class="banner info" style="margin-top:14px;text-align:left">
+                This redemption was flagged by our checks (location mismatch). Support will
+                review and resolve it within 24 hours. Nothing is needed from you right now.
+              </div>
+              <button class="btn ghost" style="margin-top:14px">Contact support</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="flow-note">↑ The whole shopper arc: claim a code, keep it live on the ticket, present it at the till, land on an honest outcome — <b>verify-anyway</b> means even a flagged code still worked at the counter; the dispute is handled after the fact.</p>
+  </div>
+
+  <!-- ================= TILL (merchant) ================= -->
+  <div class="section">
+    <span class="num">2</span>
+    <h2>Till</h2>
+    <span class="lede">merchant · type the shopper’s code → verify → KES&nbsp;30 success fee debited from the wallet</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- 9k Redemption keypad -->
+    <div class="cell" data-frame data-keypad>
+      <div class="cap"><span class="id">9k</span><span class="name">Redemption keypad (merchant home)</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">Fabric House <span class="bal">KES 2,450</span></div>
+          <div class="pad grow">
+            <p class="label center" style="margin-top:8px">Enter the shopper’s 6-digit code</p>
+            <div class="otp" data-otp>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p class="subtle" data-otp-status hidden style="color:var(--verified);font-weight:700">Code complete — tap Verify</p>
+            <div class="keypad">
+              <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+              <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+              <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+              <button data-key="clear">clear</button><button data-key="0">0</button><button data-key="back">⌫</button>
+            </div>
+            <button class="btn primary">Verify — KES 30 fee</button>
+          </div>
+          <div class="bottombar">
+            <div class="tab active"><span class="dot"></span>Redeem</div>
+            <div class="tab"><span class="dot"></span>Deals</div>
+            <div class="tab"><span class="dot"></span>Wallet</div>
+            <div class="tab"><span class="dot"></span>More</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9t Verify — location mismatch -->
+    <div class="cell">
+      <div class="cap"><span class="id">9t</span><span class="name">Verify — location mismatch warning</span></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">Fabric House <span class="bal">KES 2,450</span></div>
+          <div class="pad grow">
+            <div class="code big" style="margin:10px 0 14px">482 913</div>
+            <div class="banner warn">
+              <b>⚠ Location check failed</b><br>
+              This code was claimed away from your shop. Verify only if the customer is standing at your counter.
+            </div>
+            <button class="btn primary">Verify anyway — KES 30 fee</button>
+            <button class="btn ghost">Reject code</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9l / 9m Redemption result (verified vs rejected) -->
+    <div class="cell" data-frame data-switch-group>
+      <div class="cap"><span class="id">9l · 9m</span><span class="name">Redemption result</span></div>
+      <div class="switch">
+        <button data-switch="ok">Verified</button>
+        <button data-switch="bad">Rejected</button>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">Fabric House <span class="bal">KES 2,450</span></div>
+          <div class="pad grow" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+            <!-- 9l verified -->
+            <div data-state="ok">
+              <div class="icon-badge green">✓</div>
+              <h3 class="title" style="font-size:18px">Verified</h3>
+              <p class="meta">KES 30 success fee applied</p>
+              <p style="font-weight:800;margin:8px 0 0">New balance: KES 2,420</p>
+              <p class="subtle">Resetting in 3…</p>
+            </div>
+            <!-- 9m rejected -->
+            <div data-state="bad" hidden>
+              <div class="icon-badge bad">✕</div>
+              <h3 class="title" style="font-size:18px">Code not valid</h3>
+              <p class="meta">Expired past grace period</p>
+              <p style="font-weight:800;color:var(--verified);margin:8px 0 0">No fee was charged</p>
+              <button class="btn ghost" style="margin-top:16px">Try another code</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="flow-note">↑ The till never charges for a bad code: only a <b>verified</b> redemption debits the KES&nbsp;30 fee. The mismatch warning preserves the shopper experience (verify-anyway) while routing the risk to admin review.</p>
+  </div>
+
+  <!-- ================= Bottom sheet (8h) ================= -->
+  <div class="sheet-wrap" id="claim-sheet" data-sheet hidden>
+    <div class="sheet">
+      <div class="grip"></div>
+      <h3 class="title center" style="font-size:15px">Claim: 20% off all fabric — Fabric House</h3>
+      <p class="subtle" style="margin:8px 0 14px">Your code will be valid until the deal expires, plus a 15-minute grace period.</p>
+      <button class="btn primary" data-sheet-close>Confirm</button>
+      <button class="btn ghost" data-sheet-close>Cancel</button>
+    </div>
+  </div>
+
+  <footer class="credit">
+    MAANTA · Claim &amp; Till wireframes · design tokens mirror <code style="font-family:var(--mono)">maanta-app/tailwind.config.ts</code>.
+    Screen IDs reference <code style="font-family:var(--mono)">design/Maanta_Wireframe_System.pdf</code>.
+  </footer>
+
+</main>
+<script src="support.js"></script>
+</body>
+</html>
