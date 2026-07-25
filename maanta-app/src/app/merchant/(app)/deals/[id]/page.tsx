@@ -5,7 +5,7 @@ import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
 import { getBoostFee } from "@/lib/data";
 import { CoverImage, KpiCard } from "@/components/ui/cards";
 import { StatusChip } from "@/components/ui/chips";
-import { IconArrowLeft } from "@/components/ui/icons";
+import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
 import { DealActions } from "./deal-actions";
 
@@ -78,8 +78,9 @@ export default async function MerchantDealDetailPage({
 
       {status === "paused" ? (
         <div className="mt-4 rounded-card bg-cream p-4">
-          <p className="text-sm font-bold text-ink">
-            ⏸ Deal paused — hidden from the feed
+          <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
+            <IconPause className="h-4 w-4" />
+            Deal paused — hidden from the feed
           </p>
           <p className="mt-1 text-xs text-muted">
             No new claims while paused. Codes already claimed stay valid until the deal

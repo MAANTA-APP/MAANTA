@@ -49,7 +49,7 @@ export default async function MerchantRedemptionsPage({
             href={`/merchant/redemptions${r === "today" ? "" : `?range=${r}`}`}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-semibold capitalize",
-              range === r ? "bg-brand text-ink" : "bg-cream text-muted"
+              range === r ? "bg-ink text-white" : "bg-cream text-muted"
             )}
           >
             {r}

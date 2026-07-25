@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, getVerifiedCounts, withPublicMerchantRows } from "@/lib/data";
 import { W3wChip, CountdownChip } from "@/components/ui/chips";
-import { IconArrowLeft, IconCheck, IconChevronRight } from "@/components/ui/icons";
+import { IconArrowLeft, IconCheck, IconChevronRight, IconImage } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
 import { CoverImage } from "@/components/ui/cards";
 import { FavouriteButton } from "@/components/favourite-button";
@@ -58,8 +58,8 @@ export default async function ShopProfilePage({
 
   return (
     <main className="pb-10">
-      <div className="relative flex h-44 items-center justify-center bg-cream text-xs text-faint">
-        shop photo
+      <div className="relative flex h-44 items-center justify-center bg-cream-dark text-faint">
+        <IconImage className="h-8 w-8" aria-label="Shop photo" />
         <Link
           href="/feed"
           aria-label="Back"

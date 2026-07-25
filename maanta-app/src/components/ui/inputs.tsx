@@ -111,53 +111,9 @@ export function PhoneField({
   );
 }
 
-/** 3b OTP cells — 6 boxes, single hidden input for reliable mobile entry. */
-export function OtpCells({
-  value,
-  onChange,
-  length = 6,
-  autoFocus = true,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  length?: number;
-  autoFocus?: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const digits = value.replace(/\D/g, "").slice(0, length);
-  return (
-    <div
-      className="relative flex justify-center gap-2"
-      onClick={() => inputRef.current?.focus()}
-    >
-      <input
-        ref={inputRef}
-        autoFocus={autoFocus}
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        value={digits}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, length))}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-        aria-label="One-time code"
-      />
-      {Array.from({ length }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold",
-            i === digits.length
-              ? "border-2 border-ink"
-              : digits[i]
-                ? "border-ink/80"
-                : "border-line"
-          )}
-        >
-          {digits[i] ?? ""}
-        </div>
-      ))}
-    </div>
-  );
-}
+// (Retired) OtpCells lived here — a second, single-hidden-input OTP entry that
+// nothing rendered. The paste-aware, unit-tested `otp-input.tsx` (OtpInput) is
+// the one OTP component; the merchant till uses its own NumericKeypad + cells.
 
 /** 3c Search field */
 export function SearchField({

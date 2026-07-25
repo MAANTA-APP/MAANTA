@@ -33,7 +33,7 @@ function Rail({
           </Link>
         ) : null}
       </div>
-      <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto px-4">{children}</div>
+      <div className="no-scrollbar mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">{children}</div>
     </section>
   );
 }

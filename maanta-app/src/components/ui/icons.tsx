@@ -159,6 +159,18 @@ export const IconBackspace = (p: IconProps) => (
     <path d="m13.5 9.5 4 5M17.5 9.5l-4 5" />
   </Svg>
 );
+export const IconPause = (p: IconProps) => (
+  <Svg {...p} strokeWidth={2}>
+    <path d="M9 5v14M15 5v14" />
+  </Svg>
+);
+export const IconImage = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <circle cx="8.5" cy="9.5" r="1.5" />
+    <path d="m4 18 5-5 3.5 3.5L16 13l4 4" />
+  </Svg>
+);
 
 /** Maanta logomark — rounded-square badge with a check-shield (from wireframe splash). */
 export function Logomark({ className }: { className?: string }) {

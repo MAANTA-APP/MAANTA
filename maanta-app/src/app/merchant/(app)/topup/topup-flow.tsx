@@ -202,8 +202,12 @@ export function TopupFlow({
       </Button>
 
       {stage.kind === "waiting" ? (
-        <div className="mt-3 flex h-12 items-center justify-center rounded-full border border-line text-sm font-semibold text-muted">
-          ⏳ Waiting for M-Pesa confirmation…
+        <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
+          <span
+            aria-hidden
+            className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
+          />
+          Waiting for M-Pesa confirmation…
         </div>
       ) : null}
 

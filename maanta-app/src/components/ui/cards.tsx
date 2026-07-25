@@ -10,7 +10,7 @@ import {
   LiveChip,
   ComingSoonChip,
 } from "@/components/ui/chips";
-import { IconCheck, IconChevronRight, IconPin } from "@/components/ui/icons";
+import { IconCheck, IconChevronRight, IconPin, IconImage } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
 
 export function CoverImage({
@@ -32,13 +32,18 @@ export function CoverImage({
       className={cn("h-full w-full animate-fade-in object-cover", className)}
     />
   ) : (
+    // No cover yet — a quiet picture glyph on the slightly darker surface reads
+    // as an intentional placeholder (cream == paper now, so use cream-dark for
+    // contrast), never the literal word "img" a real shopper used to see.
     <div
       className={cn(
-        "flex h-full w-full items-center justify-center bg-cream text-xs text-faint",
+        "flex h-full w-full items-center justify-center bg-cream-dark text-faint",
         className
       )}
+      role="img"
+      aria-label={alt || "No image"}
     >
-      img
+      <IconImage className="h-7 w-7" />
     </div>
   );
 }
@@ -149,7 +154,7 @@ export function DealCardHorizontal({
   return (
     <Link
       href={href}
-      className="flex w-64 shrink-0 gap-3 rounded-card border border-line bg-white p-3 transition hover:shadow-md motion-safe:active:scale-[0.99]"
+      className="flex w-64 shrink-0 snap-start gap-3 rounded-card border border-line bg-white p-3 transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-cream">
         <CoverImage src={imageUrl} alt="" />

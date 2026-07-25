@@ -213,14 +213,23 @@ export function NewDealWizard({
                   <td className="px-2 py-2.5 text-center font-bold">2</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2.5 text-ink">⚡ Flash deals</td>
+                  <td className="px-4 py-2.5 text-ink">
+                    <span className="inline-flex items-center gap-1.5">
+                      <IconBolt className="h-4 w-4" />
+                      Flash deals
+                    </span>
+                  </td>
                   <td className="px-2 py-2.5 text-center text-faint">—</td>
-                  <td className="px-2 py-2.5 text-center">✓</td>
+                  <td className="px-2 py-2.5 text-center">
+                    <IconCheck className="mx-auto h-4 w-4 text-ink" />
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-ink">Boosts</td>
                   <td className="px-2 py-2.5 text-center text-faint">—</td>
-                  <td className="px-2 py-2.5 text-center">✓</td>
+                  <td className="px-2 py-2.5 text-center">
+                    <IconCheck className="mx-auto h-4 w-4 text-ink" />
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-ink">Monthly</td>
