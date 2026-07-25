@@ -59,7 +59,7 @@ export default async function ShopProfilePage({
   return (
     <main className="pb-10">
       <div className="relative flex h-44 items-center justify-center bg-cream-dark text-faint">
-        <IconImage className="h-8 w-8" aria-label="Shop photo" />
+        <IconImage className="h-8 w-8" />
         <Link
           href="/feed"
           aria-label="Back"

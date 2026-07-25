@@ -40,9 +40,9 @@ export function CoverImage({
         "flex h-full w-full items-center justify-center bg-cream-dark text-faint",
         className
       )}
-      role="img"
-      aria-label={alt || "No image"}
     >
+      {/* Decorative "no cover yet" glyph — the surrounding card already carries
+          the deal/shop name, so the placeholder needs no accessible name. */}
       <IconImage className="h-7 w-7" />
     </div>
   );

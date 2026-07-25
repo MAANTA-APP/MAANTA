@@ -484,12 +484,12 @@
 
   <!-- ================= Bottom sheet (8h) ================= -->
   <div class="sheet-wrap" id="claim-sheet" data-sheet hidden>
-    <div class="sheet">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="claim-sheet-title">
       <div class="grip"></div>
-      <h3 class="title center" style="font-size:15px">Claim: 20% off all fabric — Fabric House</h3>
+      <h3 class="title center" id="claim-sheet-title" style="font-size:15px">Claim: 20% off all fabric — Fabric House</h3>
       <p class="subtle" style="margin:8px 0 14px">Your code will be valid until the deal expires, plus a 15-minute grace period.</p>
-      <button class="btn primary" data-sheet-close>Confirm</button>
-      <button class="btn ghost" data-sheet-close>Cancel</button>
+      <button type="button" class="btn primary" data-sheet-close>Confirm</button>
+      <button type="button" class="btn ghost" data-sheet-close>Cancel</button>
     </div>
   </div>
 

@@ -41,6 +41,15 @@ function useDialog(
   onClose: () => void,
   ref: React.RefObject<HTMLDivElement>
 ) {
+  // onClose is almost always an inline arrow (new identity every parent render).
+  // Keep it out of the effect deps via a ref, so focus-move + scroll-lock run
+  // ONCE per open — not on every unrelated re-render (which would yank focus
+  // back to the first control while the user is mid-interaction).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!mounted) return;
     const node = ref.current;
@@ -59,7 +68,7 @@ function useDialog(
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -85,7 +94,7 @@ function useDialog(
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [mounted, onClose, ref]);
+  }, [mounted, ref]);
 }
 
 /** 6a Bottom sheet — slides up over a scrim, grab-handle on top. */

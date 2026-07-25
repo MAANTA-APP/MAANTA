@@ -58,18 +58,32 @@
   }
 
   /* ---- Bottom sheet demo: open/close the claim confirm sheet ------------- */
+  // Close on the button, on a backdrop click, and on Escape — matching the app's
+  // real overlay lifecycle. Queries are scoped to the passed-in root.
   function wireSheet(root) {
-    document.querySelectorAll("[data-sheet-open]").forEach(function (btn) {
+    function close(sheet) {
+      if (sheet) sheet.hidden = true;
+    }
+    root.querySelectorAll("[data-sheet-open]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var target = document.getElementById(btn.getAttribute("data-sheet-open"));
         if (target) target.hidden = false;
       });
     });
-    document.querySelectorAll("[data-sheet-close]").forEach(function (btn) {
+    root.querySelectorAll("[data-sheet-close]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var sheet = btn.closest("[data-sheet]");
-        if (sheet) sheet.hidden = true;
+        close(btn.closest("[data-sheet]"));
       });
+    });
+    // Backdrop click (the .sheet-wrap itself, not its inner .sheet).
+    root.querySelectorAll("[data-sheet]").forEach(function (sheet) {
+      sheet.addEventListener("click", function (e) {
+        if (e.target === sheet) close(sheet);
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      root.querySelectorAll("[data-sheet]:not([hidden])").forEach(close);
     });
   }
 
