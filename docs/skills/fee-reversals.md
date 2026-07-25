@@ -66,6 +66,18 @@ Reconciliation is preserved (same invariant as top-ups): `account_balance` =
 whole). **Arrears case:** merchant owed the fee as arrears → the credit clears
 the arrears instead (relieved of it). Both are "credit the top-up wallet".
 
+**Reversal reference — no prefixed code (founder ruling 2026-07-25).** A reversal
+has no `DP-…` (or any prefixed) reference. The shared, human-readable reference
+is the **redemption's OTP code**: it is in the ledger row description
+(`Fee reversal - redemption <code>, incident #<n>`) and snapshotted on the
+`fee_reversals` audit row (`redemption_code`), while `reference_id` = the
+redemption id ties the credit to the exact redemption. One reversal per
+redemption is enforced, so the redemption code uniquely identifies the reversal.
+Design boards must **drop the `DP-` prefix** and reference the redemption code.
+If a branded statement reference is ever wanted, it must be a display-only value
+**derived** from the redemption code (e.g. `MAANTA-FR-<code>`), generated in the
+export view / UI — never a stored column and never a new key.
+
 ## Export to MAANTA-Fee-Reversal-Log.xlsx
 
 The view **`public.admin_fee_reversal_log`** projects the xlsx columns directly:
