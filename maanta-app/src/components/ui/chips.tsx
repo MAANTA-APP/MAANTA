@@ -170,7 +170,8 @@ export function PlanChip({
   );
 }
 
-/** 2c Countdown chip — ticks every 30s; goes flame-red near expiry. */
+/** 2c Countdown chip — ticks every 30s; goes rust (urgency, never red/yellow —
+ *  L6) near expiry, neutral grey once ended. */
 export function CountdownChip({
   expiresAt,
   className,
