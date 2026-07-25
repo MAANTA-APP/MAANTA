@@ -116,7 +116,7 @@ export type DealRow = {
   } | null;
 };
 
-const DEAL_SELECT =
+export const DEAL_SELECT =
   "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 /**

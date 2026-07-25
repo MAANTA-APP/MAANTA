@@ -422,29 +422,35 @@ export function SettingsRow({
   value?: string;
   onClick?: () => void;
 }) {
+  // No href and no onClick → a display-only row: no chevron, no hover, not
+  // focusable. Prevents "tap leads nowhere" dead rows.
+  const interactive = Boolean(href || onClick);
   const inner = (
     <>
       <span className="text-sm font-semibold text-ink">{label}</span>
       <span className="flex items-center gap-2">
         {value ? <span className="text-sm text-muted">{value}</span> : null}
-        <IconChevronRight className="h-4 w-4 text-faint" />
+        {interactive ? <IconChevronRight className="h-4 w-4 text-faint" /> : null}
       </span>
     </>
   );
-  const cls =
-    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left hover:bg-cream/50";
+  const base =
+    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left";
   if (href) {
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} className={cn(base, "hover:bg-cream/50")}>
         {inner}
       </Link>
     );
   }
-  return (
-    <button type="button" onClick={onClick} className={cls}>
-      {inner}
-    </button>
-  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cn(base, "hover:bg-cream/50")}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
 }
 
 /** 1l Shop card (favourite) */
