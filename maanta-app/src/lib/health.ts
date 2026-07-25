@@ -24,16 +24,19 @@ function present(name: string): boolean {
  * new keys here as new rails are wired so healthz stays an honest mirror of what
  * the app actually reads.
  */
+/** Clerk auth env presence — booleans only, never values. */
+export type AuthEnvPresence = {
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: boolean;
+  CLERK_SECRET_KEY: boolean;
+};
+
 export type EnvPresence = {
   supabase: {
     NEXT_PUBLIC_SUPABASE_URL: boolean;
     NEXT_PUBLIC_SUPABASE_ANON_KEY: boolean;
     SUPABASE_SERVICE_ROLE_KEY: boolean;
   };
-  auth: {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: boolean;
-    CLERK_SECRET_KEY: boolean;
-  };
+  auth: AuthEnvPresence;
   payments: {
     STRIPE_SECRET_KEY: boolean;
     STRIPE_WEBHOOK_SECRET: boolean;
@@ -61,6 +64,14 @@ export type EnvPresence = {
   };
 };
 
+/** Boolean-only Clerk env check — shared by healthz and any future config probes. */
+export function authEnvPresence(): AuthEnvPresence {
+  return {
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: present("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+    CLERK_SECRET_KEY: present("CLERK_SECRET_KEY"),
+  };
+}
+
 export function envPresence(): EnvPresence {
   return {
     supabase: {
@@ -68,10 +79,7 @@ export function envPresence(): EnvPresence {
       NEXT_PUBLIC_SUPABASE_ANON_KEY: present("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
       SUPABASE_SERVICE_ROLE_KEY: present("SUPABASE_SERVICE_ROLE_KEY"),
     },
-    auth: {
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: present("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
-      CLERK_SECRET_KEY: present("CLERK_SECRET_KEY"),
-    },
+    auth: authEnvPresence(),
     payments: {
       STRIPE_SECRET_KEY: present("STRIPE_SECRET_KEY"),
       STRIPE_WEBHOOK_SECRET: present("STRIPE_WEBHOOK_SECRET"),
