@@ -71,6 +71,27 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed/node0_rehearsal_seed.sq
 windows + the live OTP ticket (see `docs/maanta-node0-rehearsal-checklist.md`).
 Only seed a project you intend to demo on.
 
+### Feed demo deals (100 live deals at BBS Mall)
+
+For a populated shopper `/feed` (20 flash · 30 boosted · 50 standard), run from
+`maanta-app/` with production credentials in your shell (service role — never
+commit):
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL="https://<project-ref>.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="…"
+npm run db:seed:deals
+```
+
+Re-run safely to refresh expiry windows. To wipe and re-insert:
+
+```bash
+npm run db:seed:deals -- --clean
+```
+
+Rows are tagged with `[SEED]` in titles / merchant names and use fixed UUIDs
+(`…be00-…`). See `scripts/seed-deals.ts`.
+
 ## 5. Verify the push took
 
 ```sql
