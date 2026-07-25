@@ -31,7 +31,7 @@ export function PublicNav() {
               </button>
             </SignInButton>
             <ButtonLink href="/sign-up" size="sm">
-              Get started
+              Sign up
             </ButtonLink>
           </SignedOut>
           <SignedIn>

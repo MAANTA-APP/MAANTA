@@ -1,4 +1,4 @@
-import { SignIn } from "@clerk/nextjs";
+import { ClerkAuthShell } from "@/components/clerk-auth-shell";
 
 // Clerk-hosted sign-in mounted on a catch-all so it can own its sub-routes
 // (verification, SSO callback, factor-two). Enabled methods — phone OTP and
@@ -10,14 +10,7 @@ import { SignIn } from "@clerk/nextjs";
 export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-paper px-5 py-14">
-      <SignIn
-        appearance={{
-          elements: {
-            rootBox: "w-full",
-            card: "shadow-none border border-line rounded-2xl",
-          },
-        }}
-      />
+      <ClerkAuthShell mode="sign-in" />
     </main>
   );
 }

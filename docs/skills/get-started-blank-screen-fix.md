@@ -1,0 +1,24 @@
+# Skill — Get started blank screen (2026-07-25)
+
+## Symptom
+Homepage "Get started" appeared to show a blank screen in production.
+
+## Root cause
+Two different CTAs shared the label **Get started**:
+
+| Location | Target | Behavior |
+|---|---|---|
+| Hero CTA (`(public)/page.tsx`) | `/feed` | Server-rendered shopper feed — works without Clerk JS |
+| Nav CTA (`public-nav.tsx`) | `/sign-up` | Clerk `<SignUp />` — **blank until Clerk JS loads**; empty body if script blocked/fails |
+
+Repro: block `**clerk**` network requests → `/sign-up` renders `bodyLen: 0`; `/feed` still shows content.
+
+## Fix (PR branch `cursor/fix-get-started-blank-c0f8`)
+1. `ClerkAuthShell` — wraps sign-in/sign-up with `ClerkLoading`, `ClerkFailed`, `ClerkLoaded` so users always see skeleton or retry UI.
+2. Nav label changed from "Get started" → **Sign up** (hero keeps "Get started" → browse flow).
+3. `posthog-provider.tsx` — skip `posthog.init` when `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` unset (defensive).
+
+## Verify
+- Hero: `Get started` → `/feed` shows mall picker + deals/empty state.
+- Nav: `Sign up` → `/sign-up` shows Clerk form or loading/failure fallback (never blank).
+- Playwright: block clerk → sign-up page must have non-zero body text after deploy.
