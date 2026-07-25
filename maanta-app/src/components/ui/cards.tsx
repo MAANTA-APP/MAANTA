@@ -68,7 +68,7 @@ export function DealCardVertical({
   return (
     <Link
       href={href}
-      className="block overflow-hidden rounded-card border border-line bg-white transition-shadow hover:shadow-md"
+      className="block overflow-hidden rounded-card border border-line bg-white transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="relative h-40 bg-cream">
         <CoverImage src={imageUrl} alt={title} />
@@ -143,7 +143,7 @@ export function DealCardHorizontal({
   return (
     <Link
       href={href}
-      className="flex w-64 shrink-0 gap-3 rounded-card border border-line bg-white p-3 transition-shadow hover:shadow-md"
+      className="flex w-64 shrink-0 gap-3 rounded-card border border-line bg-white p-3 transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-cream">
         <CoverImage src={imageUrl} alt="" />

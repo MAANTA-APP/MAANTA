@@ -7,10 +7,28 @@
   --background: #ffffff;
   --foreground: #111111;
   --bg-app: #fafaf8; /* paper */
+  /* One shared easing for app motion — a calm, decelerating curve. Keep new
+     transitions on this so overlays, presses, and fades feel like one system. */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Respect the OS "reduce motion" setting. The R3 credential pulse, spinners,
+   sheet/modal slides, fades, and every press transition are neutralised here —
+   state is always carried by icon + word + structure, never motion alone, so
+   nothing is lost. (No prior handling existed; the infinite pulse ran always.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {

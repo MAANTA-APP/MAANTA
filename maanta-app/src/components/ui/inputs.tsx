@@ -299,7 +299,7 @@ export function NumericKeypad({
             type="button"
             disabled={disabled}
             onClick={() => (k === "⌫" ? onDelete() : onDigit(k))}
-            className="h-14 rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink active:bg-cream disabled:opacity-40"
+            className="h-14 rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink transition active:bg-cream motion-safe:active:scale-[0.96] disabled:opacity-40"
           >
             {k}
           </button>

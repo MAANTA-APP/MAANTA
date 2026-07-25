@@ -57,7 +57,10 @@ export function Button({
     <button
       disabled={isDisabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors",
+        // `transition` (not just colors) so the press-scale animates too; a
+        // touch-first audience gets a physical press cue. Reduced-motion users
+        // get an instant state change (globals.css neutralises the duration).
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap transition motion-safe:active:scale-[0.98]",
         loading
           ? "bg-ink text-white font-semibold" // loading: black w/ spinner (no emoji, L9)
           : VARIANT_CLASSES[variant],
@@ -96,7 +99,7 @@ export function ButtonLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors",
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap transition motion-safe:active:scale-[0.98]",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         full && "w-full",

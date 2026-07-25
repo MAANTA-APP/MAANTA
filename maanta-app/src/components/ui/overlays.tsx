@@ -1,7 +1,92 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn, formatCode } from "@/lib/ui";
+
+/**
+ * Mount → paint → visible → exit lifecycle so an overlay animates BOTH in and
+ * out. Previously overlays hard-unmounted (`if (!open) return null`) and
+ * vanished instantly on close. `mounted` keeps the node in the tree through the
+ * exit transition; `visible` toggles the enter/exit classes. Under
+ * `prefers-reduced-motion` the transitions are ~0ms (globals.css), so the same
+ * code path is an instant swap — no motion, nothing lost.
+ */
+function useOverlayLifecycle(open: boolean, durationMs = 220) {
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      // Paint once mounted-but-hidden, then flip to visible so the enter
+      // transition actually runs (a same-tick change would be coalesced).
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const t = setTimeout(() => setMounted(false), durationMs);
+    return () => clearTimeout(t);
+  }, [open, durationMs]);
+
+  return { mounted, visible };
+}
+
+/**
+ * Keeps keyboard focus inside the dialog while it is open (Tab/Shift-Tab
+ * cycle), moves focus into it on open, and wires Esc-to-close + body-scroll
+ * lock. One helper for both overlays so behaviour can't drift.
+ */
+function useDialog(
+  mounted: boolean,
+  onClose: () => void,
+  ref: React.RefObject<HTMLDivElement>
+) {
+  useEffect(() => {
+    if (!mounted) return;
+    const node = ref.current;
+    document.body.style.overflow = "hidden";
+
+    const focusables = () =>
+      Array.from(
+        node?.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null);
+
+    // Move focus in without yanking it off a control the user just pressed.
+    const first = focusables()[0];
+    (first ?? node)?.focus?.();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === firstEl || !node?.contains(active))) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && active === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [mounted, onClose, ref]);
+}
 
 /** 6a Bottom sheet — slides up over a scrim, grab-handle on top. */
 export function BottomSheet({
@@ -15,30 +100,30 @@ export function BottomSheet({
   children: React.ReactNode;
   className?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
+  const { mounted, visible } = useOverlayLifecycle(open);
+  const ref = useRef<HTMLDivElement>(null);
+  useDialog(mounted, onClose, ref);
 
-  if (!open) return null;
+  if (!mounted) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <button
         aria-label="Close"
-        className="absolute inset-0 animate-fade-in bg-ink/50"
+        className={cn(
+          "absolute inset-0 bg-ink/50 transition-opacity duration-200",
+          visible ? "opacity-100" : "opacity-0"
+        )}
         onClick={onClose}
       />
       <div
+        ref={ref}
         role="dialog"
         aria-modal
+        tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-mobile animate-sheet-up rounded-t-sheet bg-white px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3 shadow-sheet",
+          "relative z-10 w-full max-w-mobile rounded-t-sheet bg-white px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3 shadow-sheet outline-none",
+          "transition-transform duration-200 ease-[var(--ease-standard)] will-change-transform",
+          visible ? "translate-y-0" : "translate-y-full",
           className
         )}
       >
@@ -61,26 +146,30 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  const { mounted, visible } = useOverlayLifecycle(open);
+  const ref = useRef<HTMLDivElement>(null);
+  useDialog(mounted, onClose, ref);
 
-  if (!open) return null;
+  if (!mounted) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       <button
         aria-label="Close"
-        className="absolute inset-0 animate-fade-in bg-ink/50"
+        className={cn(
+          "absolute inset-0 bg-ink/50 transition-opacity duration-200",
+          visible ? "opacity-100" : "opacity-0"
+        )}
         onClick={onClose}
       />
       <div
+        ref={ref}
         role="dialog"
         aria-modal
+        tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-md animate-fade-in rounded-2xl bg-white p-6 shadow-modal",
+          "relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-modal outline-none",
+          "transition-[opacity,transform] duration-200 ease-[var(--ease-standard)] will-change-transform",
+          visible ? "opacity-100 scale-100" : "opacity-0 scale-95",
           className
         )}
       >
