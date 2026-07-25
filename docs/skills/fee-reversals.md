@@ -1,6 +1,6 @@
 # Skills: fee reversals (admin success-fee wallet credit)
 
-Last updated: 2026-07-23 · How an admin reverses a KES 30 success fee.
+Last updated: 2026-07-25 · How an admin reverses a KES 30 success fee.
 Update this file after any change to the reversal path.
 
 ## The frozen policy (Decisions Log 2026-07-22)
@@ -76,10 +76,12 @@ description), `approver`, `running_total` (cumulative sum). Admin-only
 
 ## Guard rails / gotchas
 
-- **A decision note is required.** Enforced in all three layers (UI confirm
-  disabled until a note is entered → route 400 on empty/whitespace →
-  `reverse_success_fee` raises `note_required`). The incident number stays
-  optional. Frozen 2026-07-23 (see the note-required migration).
+- **A decision note is required.** Enforced in three runtime layers plus a
+  database backstop (UI confirm disabled until a note is entered → route 400 on
+  empty/whitespace → `reverse_success_fee` raises `note_required` → the
+  `fee_reversals.note` column is `NOT NULL` + trimmed-length CHECK). The
+  incident number stays optional. Frozen 2026-07-23 (see the note-required and
+  note-NOT-NULL migrations).
 - **One reversal per redemption.** Enforced in the DB, not just the UI.
 - **The approver must be a real admin.** The service client carries no identity,
   so the route passes the authenticated admin's `users.id` as `p_admin_user_id`;
@@ -94,6 +96,7 @@ description), `approver`, `running_total` (cumulative sum). Admin-only
 
 - migration `maanta-app/supabase/migrations/20260722120000_admin_fee_reversal_wallet_credit.sql`
 - migration `maanta-app/supabase/migrations/20260723150000_reverse_success_fee_note_required.sql` (decision note made mandatory)
+- migration `maanta-app/supabase/migrations/20260724130000_fee_reversals_note_not_null.sql` (note column `NOT NULL` + trimmed-length CHECK — the 4th enforcement layer)
 - RPC `public.reverse_success_fee`, table `public.fee_reversals`, view `public.admin_fee_reversal_log`
 - route `maanta-app/src/app/api/admin/redemptions/[id]/reverse-fee/route.ts`
 - UI `maanta-app/src/app/admin/redemptions/[id]/page.tsx` + `reverse-fee-action.tsx`
