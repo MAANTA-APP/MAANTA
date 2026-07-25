@@ -5,10 +5,12 @@ import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 
-// Initialize posthog-js once on the client side. The typeof window guard
-// ensures this never runs during SSR.
-if (typeof window !== "undefined") {
-  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN!, {
+// Initialize posthog-js once on the client when configured. The typeof window
+// guard ensures this never runs during SSR; skipping init when the token is
+// unset matches the server-side no-op in src/lib/analytics.ts.
+const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
+if (typeof window !== "undefined" && posthogToken) {
+  posthog.init(posthogToken, {
     api_host: "/ingest",
     ui_host: "https://eu.posthog.com",
     defaults: "2026-01-30",
