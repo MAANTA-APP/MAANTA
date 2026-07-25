@@ -24,7 +24,13 @@ export function CoverImage({
 }) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={cn("h-full w-full object-cover", className)} />
+    <img
+      src={src}
+      alt={alt}
+      // Gentle fade so covers settle in instead of popping over the cream fill
+      // (reduced-motion users get an instant paint — globals.css).
+      className={cn("h-full w-full animate-fade-in object-cover", className)}
+    />
   ) : (
     <div
       className={cn(

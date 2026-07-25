@@ -153,6 +153,12 @@ export const IconClock = (p: IconProps) => (
     <path d="M12 7.5V12l3 2" />
   </Svg>
 );
+export const IconBackspace = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 5h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-7-7z" />
+    <path d="m13.5 9.5 4 5M17.5 9.5l-4 5" />
+  </Svg>
+);
 
 /** Maanta logomark — rounded-square badge with a check-shield (from wireframe splash). */
 export function Logomark({ className }: { className?: string }) {

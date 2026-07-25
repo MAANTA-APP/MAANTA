@@ -91,7 +91,7 @@ export function ClaimFlow({
   if (checking) {
     // 8y Claim — location check in progress (full-screen takeover)
     return (
-      <div className="fixed inset-0 z-50 mx-auto flex max-w-mobile flex-col items-center justify-center bg-paper px-8 text-center">
+      <div className="fixed inset-0 z-50 mx-auto flex max-w-mobile animate-fade-in flex-col items-center justify-center bg-paper px-8 text-center">
         <span
           aria-hidden
           className="h-8 w-8 animate-spin rounded-full border-[3px] border-line border-t-ink"

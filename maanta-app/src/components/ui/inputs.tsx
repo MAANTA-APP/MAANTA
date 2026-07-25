@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/ui";
-import { IconCheck, IconChevronDown, IconSearch, IconPlus } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
 
 export const inputClass =
   "h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand";
@@ -277,6 +277,15 @@ export function AmountField({
   );
 }
 
+/** A short tactile tick on keypad press — an affordance at a noisy counter, not
+ *  a celebration (the success/error buzz is deliberately NOT here). No-ops where
+ *  the Vibration API is absent (iOS Safari, desktop). */
+function tick() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(8);
+  }
+}
+
 /** 3f Numeric keypad (merchant redemption home) */
 export function NumericKeypad({
   onDigit,
@@ -287,7 +296,9 @@ export function NumericKeypad({
   onDelete: () => void;
   disabled?: boolean;
 }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+  // "del" is a sentinel rendered as an icon (the counter is icon-driven — the
+  // raw "⌫" glyph was the last text glyph on this money surface).
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
   return (
     <div className="grid grid-cols-3 gap-2.5">
       {keys.map((k, i) =>
@@ -298,10 +309,15 @@ export function NumericKeypad({
             key={i}
             type="button"
             disabled={disabled}
-            onClick={() => (k === "⌫" ? onDelete() : onDigit(k))}
-            className="h-14 rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink transition active:bg-cream motion-safe:active:scale-[0.96] disabled:opacity-40"
+            aria-label={k === "del" ? "Delete" : k}
+            onClick={() => {
+              tick();
+              if (k === "del") onDelete();
+              else onDigit(k);
+            }}
+            className="flex h-14 items-center justify-center rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink transition active:bg-cream motion-safe:active:scale-[0.96] disabled:opacity-40"
           >
-            {k}
+            {k === "del" ? <IconBackspace className="h-6 w-6" /> : k}
           </button>
         )
       )}
