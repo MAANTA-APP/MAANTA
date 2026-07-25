@@ -4,8 +4,10 @@
 **Finding in one line:** all three founder rulings requested for this session
 (fee-reversal note REQUIRED, G1 agent attribution, S2 Clerk email+phone auth mix)
 are **already implemented and merged to `main`** (`d1d45f6`). No new
-behaviour code was needed; this session verified the four enforcement layers of
-each ruling against the current tree and re-ran the full suite. The task framing
+behaviour code was needed; this session verified each ruling's enforcement
+against the current tree — the fee-reversal note across all four layers (ruling
+1), and the separately documented enforcement points/evidence for rulings 2 and
+3 — and re-ran the full suite. The task framing
 (note "is optional today", route "hardcodes a null agent id") **contradicts the
 code** — surfaced below, not acted on, per CLAUDE.md's drift rule.
 
