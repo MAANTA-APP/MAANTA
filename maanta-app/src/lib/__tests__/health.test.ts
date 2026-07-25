@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { liveness, envPresence } from "../health";
+import { liveness, envPresence, authEnvPresence } from "../health";
 
 // health.ts must (a) report liveness without touching any dependency, and
 // (b) report env presence as booleans only — never a value, so it can't leak a
@@ -82,5 +82,21 @@ describe("envPresence()", () => {
     expect(Object.keys(out).sort()).toEqual(
       ["auth", "email", "geo", "monitoring", "payments", "push", "supabase"].sort()
     );
+  });
+});
+
+describe("authEnvPresence()", () => {
+  it("reports Clerk keys as booleans only", () => {
+    process.env.CLERK_SECRET_KEY = "sk_test_example";
+    const out = authEnvPresence();
+    expect(out.CLERK_SECRET_KEY).toBe(true);
+    expect(JSON.stringify(out)).not.toContain("sk_test_example");
+    for (const v of Object.values(out)) {
+      expect(typeof v).toBe("boolean");
+    }
+  });
+
+  it("matches the auth slice of envPresence()", () => {
+    expect(authEnvPresence()).toEqual(envPresence().auth);
   });
 });
