@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   ClerkFailed,
   ClerkLoaded,
@@ -27,6 +28,14 @@ function AuthLoading() {
 }
 
 function AuthFailed({ mode }: { mode: "sign-in" | "sign-up" }) {
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.error(
+        `[ClerkAuthShell] Clerk failed to load (${mode}). Check ad blockers, network, and NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.`
+      );
+    }
+  }, [mode]);
+
   return (
     <div className="w-full max-w-md text-center">
       <p className="text-base font-bold text-ink">

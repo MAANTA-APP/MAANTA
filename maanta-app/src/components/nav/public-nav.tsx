@@ -1,7 +1,24 @@
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+import { ClerkFailed, ClerkLoading, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ButtonLink } from "@/components/ui/button";
 import { Logomark } from "@/components/ui/icons";
+
+/** Guest auth controls — plain links so navigation works before Clerk JS loads. */
+function AuthNavLinks() {
+  return (
+    <>
+      <Link
+        href="/login"
+        className="text-sm font-semibold text-ink underline-offset-2 hover:underline"
+      >
+        Sign in
+      </Link>
+      <ButtonLink href="/sign-up" size="sm">
+        Sign up
+      </ButtonLink>
+    </>
+  );
+}
 
 /** 5f Public top nav — MAANTA · How it works · Pricing · FAQ · [auth controls]. */
 export function PublicNav() {
@@ -24,15 +41,16 @@ export function PublicNav() {
           </Link>
         </nav>
         <div className="flex items-center gap-3">
+          {/* Plain links while Clerk initializes or if its script fails — SignInButton
+              required Clerk JS and silently no-oped when blocked. */}
+          <ClerkLoading>
+            <AuthNavLinks />
+          </ClerkLoading>
+          <ClerkFailed>
+            <AuthNavLinks />
+          </ClerkFailed>
           <SignedOut>
-            <SignInButton mode="redirect">
-              <button className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
-                Sign in
-              </button>
-            </SignInButton>
-            <ButtonLink href="/sign-up" size="sm">
-              Sign up
-            </ButtonLink>
+            <AuthNavLinks />
           </SignedOut>
           <SignedIn>
             <ButtonLink href="/feed" size="sm">

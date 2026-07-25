@@ -22,6 +22,7 @@ Repro: block `**clerk**` network requests → `/sign-up` renders `bodyLen: 0`; `
    - `<SignUp routing="path" path="/sign-up" signInUrl="/login" />` and matching `<SignIn />` props.
    - `ClerkProvider` passes explicit `publishableKey` plus sign-in/up URL fallbacks (`/login`, `/sign-up`) so missing `NEXT_PUBLIC_CLERK_*_URL` at build time does not blank redirect config.
    - Failure-state links stay relative (`/sign-up`, `/login`, `/feed`) — tested in `clerk-auth-shell.test.ts`.
+5. **Nav sign-in fix (2026-07-25):** replaced `<SignInButton mode="redirect">` with plain `<Link href="/login">` inside `AuthNavLinks`, shown during `ClerkLoading`, `ClerkFailed`, and `SignedOut`. `SignInButton` silently no-ops when Clerk JS is blocked; plain links always navigate.
 
 ## ClerkFailed on preview URLs
 Production `pk_live_` keys only allow origins configured in the Clerk dashboard (`maanta.app`, `www.maanta.app`). `*.vercel.app` preview deploys will hit `ClerkFailed` unless the preview origin is allowlisted or preview uses `pk_test_` dev keys.
