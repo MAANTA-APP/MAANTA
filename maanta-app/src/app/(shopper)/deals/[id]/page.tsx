@@ -7,7 +7,7 @@ import { captureDealViewed } from "@/lib/analytics";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck, IconPin } from "@/components/ui/icons";
-import { ButtonLink } from "@/components/ui/button";
+import { ButtonLink, StickyCtaBar } from "@/components/ui/button";
 import { ClaimFlow } from "./claim-flow";
 
 export const dynamic = "force-dynamic";
@@ -158,7 +158,7 @@ export default async function DealDetailPage({
           signedIn={!!user}
         />
       ) : (
-        <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-mobile border-t border-line bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 backdrop-blur">
+        <StickyCtaBar>
           <div className="space-y-2.5">
             <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
               {fullyClaimed ? "Fully claimed" : "Deal ended"}
@@ -167,7 +167,7 @@ export default async function DealDetailPage({
               See similar deals
             </ButtonLink>
           </div>
-        </div>
+        </StickyCtaBar>
       )}
     </main>
   );

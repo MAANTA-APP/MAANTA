@@ -3,8 +3,10 @@ import {
   getSelectedNode,
   getVerifiedCounts,
   withPublicMerchant,
+  DEAL_SELECT,
   type DealRow,
 } from "@/lib/data";
+import { dealPricing } from "@/lib/pricing";
 import { ALL_NODES } from "@/lib/nodes";
 import { SearchControls } from "./search-controls";
 import { DealCardHorizontal } from "@/components/ui/cards";
@@ -30,7 +32,7 @@ export default async function SearchPage({
       service
         .from("deals")
         .select(
-          "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
+          DEAL_SELECT
         )
         .eq("is_active", true)
         .gt("expires_at", new Date().toISOString())
@@ -49,7 +51,7 @@ export default async function SearchPage({
         service
           .from("deals")
           .select(
-            "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)"
+            DEAL_SELECT
           )
           .eq("is_active", true)
           .gt("expires_at", new Date().toISOString())
@@ -85,16 +87,23 @@ export default async function SearchPage({
         </div>
       ) : (
         <div className="mt-5 space-y-3">
-          {results.map((d) => (
-            <DealCardHorizontal
-              key={d.id}
-              href={`/deals/${d.id}`}
-              imageUrl={d.image_url}
-              title={`${d.merchants?.merchant_name} — ${d.title}`}
-              tag={d.deal_type === "flash" ? "flash" : d.boost_active ? "boosted" : null}
-              verifiedCount={verified.get(d.merchant_id) ?? 0}
-            />
-          ))}
+          {results.map((d) => {
+            // Show YOU PAY on results too — same lib/pricing source as the feed,
+            // so a shopper sees a consistent price everywhere it appears.
+            const priced = dealPricing(d);
+            return (
+              <DealCardHorizontal
+                key={d.id}
+                href={`/deals/${d.id}`}
+                imageUrl={d.image_url}
+                title={`${d.merchants?.merchant_name} — ${d.title}`}
+                tag={d.deal_type === "flash" ? "flash" : d.boost_active ? "boosted" : null}
+                verifiedCount={verified.get(d.merchant_id) ?? 0}
+                pay={priced.pay}
+                extras={priced.extras}
+              />
+            );
+          })}
         </div>
       )}
     </main>

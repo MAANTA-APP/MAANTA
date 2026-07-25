@@ -41,7 +41,7 @@ export default async function UpgradePage() {
       </div>
 
       <ButtonLink href="/merchant/support" full className="mt-6">
-        Pay via M-Pesa STK
+        Request Elite upgrade
       </ButtonLink>
       <p className="mt-2 text-center text-xs text-faint">
         Our team confirms your upgrade within a few minutes.

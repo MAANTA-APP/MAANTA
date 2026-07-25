@@ -14,13 +14,8 @@ export default async function MerchantSettingsPage() {
     <main className="px-4 pt-5">
       <h1 className="text-2xl font-bold text-ink">Settings</h1>
       <div className="mt-6 space-y-3">
+        <SettingsRow label="Business details" value={merchant.merchant_name} />
         <SettingsRow
-          href="/merchant/settings"
-          label="Business details"
-          value={merchant.merchant_name}
-        />
-        <SettingsRow
-          href="/merchant/settings"
           label="Location & floor"
           value={[merchant.floor, merchant.unit_number].filter(Boolean).join(", ")}
         />

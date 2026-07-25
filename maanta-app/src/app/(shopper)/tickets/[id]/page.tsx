@@ -6,6 +6,7 @@ import { formatCode } from "@/lib/ui";
 import { dealPricing } from "@/lib/pricing";
 import { W3wChip, ClaimChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
@@ -125,16 +126,12 @@ export default async function TicketPage({
           <span className="font-code text-lg text-ink">{formatCode(ticket.otp_code)}</span>
           <ClaimChip state="limit" label="UNDER REVIEW" />
         </div>
-        <div className="mt-4 flex gap-2.5 rounded-card border-[1.5px] border-l-[5px] border-rust bg-white p-4 text-sm text-ink">
-          <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full border-[1.5px] border-rust text-[10px] text-rust">
-            !
-          </span>
-          <p className="leading-relaxed">
-            <span className="font-bold">This redemption is under review</span>
-            {ticket.fraud_flags?.includes("geofence") ? " (location mismatch)" : ""}.
-            Support will resolve it within 72 hours. Nothing is needed from you right now.
-          </p>
-        </div>
+        <InlineAlert variant="warning" className="mt-4">
+          <span className="font-bold">This redemption is under review</span>
+          {ticket.fraud_flags?.includes("geofence") ? " (location mismatch)" : ""}.
+          Support will resolve it within 72 hours. Nothing is needed from you right
+          now.
+        </InlineAlert>
         <ButtonLink href="/help" variant="ghost" full className="mt-6">
           Contact support
         </ButtonLink>
@@ -179,7 +176,7 @@ export default async function TicketPage({
       </div>
 
       {justClaimed ? (
-        <div className="mt-2 w-full rounded-xl border border-line bg-white py-2.5 text-center text-sm font-bold text-ink">
+        <div className="mt-2 w-full animate-fade-in rounded-xl border border-line bg-white py-2.5 text-center text-sm font-bold text-ink">
           Deal claimed
         </div>
       ) : null}

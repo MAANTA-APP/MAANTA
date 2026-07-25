@@ -37,9 +37,7 @@ export default async function ProfilePage() {
       ) : null}
 
       <div className="mt-3 space-y-3">
-        <SettingsRow href="/profile" label="Edit profile" />
         <SettingsRow href="/notifications/preferences" label="Notification preferences" />
-        <SettingsRow href="/profile" label="Theme" value="Light" />
         <SettingsRow href="/help" label="Help & support" />
       </div>
 

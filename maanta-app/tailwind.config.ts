@@ -71,11 +71,17 @@ const config: Config = {
           "0%, 100%": { borderColor: "#FDBF2D" },
           "50%": { borderColor: "#FBE7AE" },
         },
+        // A code digit landing in an OTP cell — a crisp settle, no colour.
+        "otp-pop": {
+          from: { transform: "scale(0.7)", opacity: "0.4" },
+          to: { transform: "scale(1)", opacity: "1" },
+        },
       },
       animation: {
         "sheet-up": "sheet-up 0.25s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
         r3: "r3 2s ease-in-out infinite",
+        "otp-pop": "otp-pop 0.15s ease-out",
       },
     },
   },

@@ -36,7 +36,7 @@ export default async function AdminSupportPage({
             href={`/admin/support${v === "resolved" ? "?view=resolved" : ""}`}
             className={cn(
               "rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize",
-              view === v ? "bg-brand text-ink" : "bg-cream text-muted"
+              view === v ? "bg-ink text-white" : "bg-cream text-muted"
             )}
           >
             {v}

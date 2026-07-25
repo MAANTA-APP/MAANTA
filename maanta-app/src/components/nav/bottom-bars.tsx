@@ -70,6 +70,9 @@ export function ShopperBottomBar() {
 }
 
 /** 5b Merchant bottom bar — Redeem / Deals / Wallet / More. */
+// Widens to lg:max-w-3xl to stay flush with the merchant frame, which itself
+// widens at lg for the tablet-at-the-till two-pane redeem layout. (Was capped
+// at max-w-mobile, leaving a 430px nav island under a 768px column.)
 export function MerchantBottomBar() {
   const pathname = usePathname();
   const items = [
@@ -93,7 +96,7 @@ export function MerchantBottomBar() {
     },
   ];
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)] lg:max-w-3xl">
       <div className="flex">
         {items.map((i) => (
           <BarLink

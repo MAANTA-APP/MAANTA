@@ -237,6 +237,7 @@ export function RedeemKeypad({
         referenceId={screen.referenceId}
         disputed={screen.disputed}
         countdown={countdown}
+        onSkip={reset}
       />
     );
   }
@@ -404,11 +405,19 @@ export function RedeemKeypad({
             <div
               key={i}
               className={cn(
-                "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold lg:h-16 lg:w-14 lg:text-2xl",
+                "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold transition-colors lg:h-16 lg:w-14 lg:text-2xl",
                 i === code.length ? "border-2 border-ink" : code[i] ? "border-ink/80" : "border-line"
               )}
             >
-              {code[i] ?? ""}
+              {/* Keyed by digit+index so a newly landed digit re-mounts and pops;
+                  already-filled cells stay still. Motion-safe only. */}
+              {code[i] ? (
+                <span key={`${i}-${code[i]}`} className="motion-safe:animate-otp-pop">
+                  {code[i]}
+                </span>
+              ) : (
+                ""
+              )}
             </div>
           ))}
         </div>

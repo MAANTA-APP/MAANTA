@@ -10,7 +10,7 @@ import {
   LiveChip,
   ComingSoonChip,
 } from "@/components/ui/chips";
-import { IconCheck, IconChevronRight, IconPin } from "@/components/ui/icons";
+import { IconCheck, IconChevronRight, IconPin, IconImage } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
 
 export function CoverImage({
@@ -24,15 +24,26 @@ export function CoverImage({
 }) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} className={cn("h-full w-full object-cover", className)} />
+    <img
+      src={src}
+      alt={alt}
+      // Gentle fade so covers settle in instead of popping over the cream fill
+      // (reduced-motion users get an instant paint — globals.css).
+      className={cn("h-full w-full animate-fade-in object-cover", className)}
+    />
   ) : (
+    // No cover yet — a quiet picture glyph on the slightly darker surface reads
+    // as an intentional placeholder (cream == paper now, so use cream-dark for
+    // contrast), never the literal word "img" a real shopper used to see.
     <div
       className={cn(
-        "flex h-full w-full items-center justify-center bg-cream text-xs text-faint",
+        "flex h-full w-full items-center justify-center bg-cream-dark text-faint",
         className
       )}
     >
-      img
+      {/* Decorative "no cover yet" glyph — the surrounding card already carries
+          the deal/shop name, so the placeholder needs no accessible name. */}
+      <IconImage className="h-7 w-7" />
     </div>
   );
 }
@@ -68,7 +79,7 @@ export function DealCardVertical({
   return (
     <Link
       href={href}
-      className="block overflow-hidden rounded-card border border-line bg-white transition-shadow hover:shadow-md"
+      className="block overflow-hidden rounded-card border border-line bg-white transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="relative h-40 bg-cream">
         <CoverImage src={imageUrl} alt={title} />
@@ -143,7 +154,7 @@ export function DealCardHorizontal({
   return (
     <Link
       href={href}
-      className="flex w-64 shrink-0 gap-3 rounded-card border border-line bg-white p-3 transition-shadow hover:shadow-md"
+      className="flex w-64 shrink-0 snap-start gap-3 rounded-card border border-line bg-white p-3 transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-cream">
         <CoverImage src={imageUrl} alt="" />
@@ -411,29 +422,35 @@ export function SettingsRow({
   value?: string;
   onClick?: () => void;
 }) {
+  // No href and no onClick → a display-only row: no chevron, no hover, not
+  // focusable. Prevents "tap leads nowhere" dead rows.
+  const interactive = Boolean(href || onClick);
   const inner = (
     <>
       <span className="text-sm font-semibold text-ink">{label}</span>
       <span className="flex items-center gap-2">
         {value ? <span className="text-sm text-muted">{value}</span> : null}
-        <IconChevronRight className="h-4 w-4 text-faint" />
+        {interactive ? <IconChevronRight className="h-4 w-4 text-faint" /> : null}
       </span>
     </>
   );
-  const cls =
-    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left hover:bg-cream/50";
+  const base =
+    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left";
   if (href) {
     return (
-      <Link href={href} className={cls}>
+      <Link href={href} className={cn(base, "hover:bg-cream/50")}>
         {inner}
       </Link>
     );
   }
-  return (
-    <button type="button" onClick={onClick} className={cls}>
-      {inner}
-    </button>
-  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cn(base, "hover:bg-cream/50")}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
 }
 
 /** 1l Shop card (favourite) */

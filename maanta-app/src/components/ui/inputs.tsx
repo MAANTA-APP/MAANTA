@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/ui";
-import { IconCheck, IconChevronDown, IconSearch, IconPlus } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
 
 export const inputClass =
   "h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand";
@@ -111,53 +111,9 @@ export function PhoneField({
   );
 }
 
-/** 3b OTP cells — 6 boxes, single hidden input for reliable mobile entry. */
-export function OtpCells({
-  value,
-  onChange,
-  length = 6,
-  autoFocus = true,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  length?: number;
-  autoFocus?: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const digits = value.replace(/\D/g, "").slice(0, length);
-  return (
-    <div
-      className="relative flex justify-center gap-2"
-      onClick={() => inputRef.current?.focus()}
-    >
-      <input
-        ref={inputRef}
-        autoFocus={autoFocus}
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        value={digits}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, length))}
-        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-        aria-label="One-time code"
-      />
-      {Array.from({ length }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "flex h-14 w-11 items-center justify-center rounded-xl border bg-white font-code text-xl font-semibold",
-            i === digits.length
-              ? "border-2 border-ink"
-              : digits[i]
-                ? "border-ink/80"
-                : "border-line"
-          )}
-        >
-          {digits[i] ?? ""}
-        </div>
-      ))}
-    </div>
-  );
-}
+// (Retired) OtpCells lived here — a second, single-hidden-input OTP entry that
+// nothing rendered. The paste-aware, unit-tested `otp-input.tsx` (OtpInput) is
+// the one OTP component; the merchant till uses its own NumericKeypad + cells.
 
 /** 3c Search field */
 export function SearchField({
@@ -277,6 +233,15 @@ export function AmountField({
   );
 }
 
+/** A short tactile tick on keypad press — an affordance at a noisy counter, not
+ *  a celebration (the success/error buzz is deliberately NOT here). No-ops where
+ *  the Vibration API is absent (iOS Safari, desktop). */
+function tick() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    navigator.vibrate(8);
+  }
+}
+
 /** 3f Numeric keypad (merchant redemption home) */
 export function NumericKeypad({
   onDigit,
@@ -287,7 +252,9 @@ export function NumericKeypad({
   onDelete: () => void;
   disabled?: boolean;
 }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+  // "del" is a sentinel rendered as an icon (the counter is icon-driven — the
+  // raw "⌫" glyph was the last text glyph on this money surface).
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
   return (
     <div className="grid grid-cols-3 gap-2.5">
       {keys.map((k, i) =>
@@ -298,10 +265,15 @@ export function NumericKeypad({
             key={i}
             type="button"
             disabled={disabled}
-            onClick={() => (k === "⌫" ? onDelete() : onDigit(k))}
-            className="h-14 rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink active:bg-cream disabled:opacity-40"
+            aria-label={k === "del" ? "Delete" : k}
+            onClick={() => {
+              tick();
+              if (k === "del") onDelete();
+              else onDigit(k);
+            }}
+            className="flex h-14 items-center justify-center rounded-xl border border-ink/70 bg-white text-xl font-semibold text-ink transition active:bg-cream motion-safe:active:scale-[0.96] disabled:opacity-40"
           >
-            {k}
+            {k === "del" ? <IconBackspace className="h-6 w-6" /> : k}
           </button>
         )
       )}

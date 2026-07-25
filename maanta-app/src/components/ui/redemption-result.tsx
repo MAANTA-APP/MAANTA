@@ -19,6 +19,7 @@ export function RedemptionResult({
   referenceId,
   disputed,
   countdown,
+  onSkip,
 }: {
   feeAmount: number;
   newBalance: number | null;
@@ -44,6 +45,10 @@ export function RedemptionResult({
   referenceId: string;
   disputed: boolean;
   countdown: number;
+  /** Skip the auto-reset countdown and go straight to a fresh keypad — a busy
+   *  cashier shouldn't have to wait. White-outline on the success fill (not
+   *  amber): the takeover still carries no amber action. */
+  onSkip?: () => void;
 }) {
   const owed = feeChargeStatus === "owed";
   const showCollect =
@@ -117,7 +122,17 @@ export function RedemptionResult({
         </div>
       ) : null}
 
-      <p className="mt-6 text-xs text-white/70">Resetting in {countdown}…</p>
+      {onSkip ? (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="mt-6 h-11 w-full max-w-xs rounded-full border border-white/50 text-sm font-semibold text-white transition motion-safe:active:scale-[0.98]"
+        >
+          Next customer
+        </button>
+      ) : null}
+
+      <p className="mt-4 text-xs text-white/70">Resetting in {countdown}…</p>
     </main>
   );
 }

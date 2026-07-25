@@ -1,6 +1,6 @@
 # Skills: frozen UI — overall handoff
 
-Last updated: 2026-07-18 · Status: **repo-side seed — reconcile with the Notion
+Last updated: 2026-07-25 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
 
@@ -53,6 +53,70 @@ Verified: `npm run build` (all routes), `tsc --noEmit`, `next lint`, and
 `npm test` (**33**, incl. 12 pricing tests) all pass. A live render needs
 Supabase env vars (middleware builds a client per request), absent in the build
 sandbox.
+
+## Update — 2026-07-25: "simplest but impressive" quiet-precision polish pass
+
+Branch `claude/maanta-mobile-wireframes-7am001`. A UI/UX-only quality pass with
+the founder's chosen frame: **polish within the freeze · "impressive" = quiet
+precision (not flash) · money moments first.** No surface moved; no
+money/price/fee/RLS/auth/migration touched; all new motion gated behind
+`motion-safe:`. Verified after every phase with `tsc --noEmit`, `next lint`,
+`npm test` (**188**, incl. the `frozen-ui-rules` ratchet), `npm run build`, plus
+a headless-Chromium render of both money moments in default and reduced-motion.
+
+**Phase 0 — motion foundation.** `globals.css` gains a `prefers-reduced-motion`
+guard (the R3 pulse, spinners, sheet/modal, fades, presses were previously
+unconditional) + a shared `--ease-standard`. `overlays.tsx` `BottomSheet`/`Modal`
+now animate on **exit** as well as enter (mount→paint→visible→exit) and share a
+keyboard **focus trap** + Esc + scroll-lock (they used to hard-unmount and vanish).
+Tactile press (`motion-safe:active:scale`) on `Button`/`NumericKeypad`/deal cards.
+
+**Phase 1 — shopper Claim.** Reuse `InlineAlert` (flagged ticket) and
+`StickyCtaBar` (ended-deal bar) instead of hand-rolled dupes; `fade-in` on the
+location-check takeover, the "Deal claimed" banner, and `CoverImage`. S5 hero
+untouched.
+
+**Phase 2 — merchant Till.** `NumericKeypad`: icon backspace (`IconBackspace`)
+replacing the raw `⌫`, + a short `vibrate()` tick on press. OTP cells pop each
+landed digit (`otp-pop`). `RedemptionResult` gains an optional **"Next customer"**
+skip (white-outline, still no amber). `MerchantBottomBar` widened to `lg:max-w-3xl`
+to align with the till-tablet two-pane frame.
+
+**Phase 3 — loading/error everywhere.** Only the feed had boundaries; added
+segment-level `loading.tsx`+`error.tsx` for `(shopper)`, `merchant/(app)`,
+`admin`, `agent` (reusing `Skeleton`/`ErrorState`, reporting to Sentry) and
+restyled `global-error.tsx` to the tokens.
+
+**Phase 4 — one system.** Emoji purge (L9): `⚡`/`✓`→`IconBolt`/`IconCheck` in the
+plan-compare table, `⏸`→`IconPause`, `⏳`→spinner (topup). Active-filter pills →
+ink (A6) on merchant redemptions + admin support. `CoverImage`/shop-photo →
+`IconImage` glyph (no more literal "img"/"shop photo"). Feed rails scroll-snap.
+Retired the dead duplicate `OtpCells` (`otp-input.tsx` is the one OTP component).
+
+**Phase 5 — honest bugs/copy.** `SettingsRow` gains a non-interactive display
+variant; merchant Settings + shopper Profile no longer have tap-to-self dead rows
+(dropped the light-only "Theme" row). Upgrade CTA "Pay via M-Pesa STK" →
+"Request Elite upgrade". Search results now show YOU PAY via the exported
+canonical `DEAL_SELECT` + `lib/pricing`. Removed dead Geist font files.
+
+**Phase 6 — first touch.** `fade-in` + staggered step cards on the public landing
+(the only motion on `(public)`).
+
+### Deferred to founder sign-off (cross the freeze line — NOT shipped here)
+
+Each is a real improvement but is a feature/flow/marketing decision, so it needs
+a `maanta-decisions-log.md` entry, not a polish diff:
+- **Success/error haptic** on the Till takeover (the keypad-press tick shipped;
+  the outcome buzz sits closest to "Money moved; it is not a party").
+- **Contact form** is a no-op returning a false "we'll get back within 24 hours".
+- **PWA install quality** (raster 192/512 icons; `sw.js` `/favicon.ico` vs
+  `/icon.svg`; OfflineBanner promises "saved deals" but the SW has no caching).
+- **Route first-run users into `/onboarding`** (the 3-pane intro looks orphaned).
+- **Public conversion + imagery**: hero `/feed` vs nav `/sign-up` target, the
+  secondary (non-amber) merchant CTA, marketing "screenshot" placeholders, and a
+  mobile hamburger nav (How-it-works/Pricing/FAQ are unreachable on mobile).
+- **Admin card-rows → a shared table** and **three tab components → one** (either
+  can visibly restructure a screen).
 
 ## What "frozen" means
 
