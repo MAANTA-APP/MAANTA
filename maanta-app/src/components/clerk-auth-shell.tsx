@@ -59,9 +59,19 @@ export function ClerkAuthShell({ mode }: { mode: "sign-in" | "sign-up" }) {
       </ClerkFailed>
       <ClerkLoaded>
         {mode === "sign-up" ? (
-          <SignUp appearance={CLERK_CARD_APPEARANCE} />
+          <SignUp
+            routing="path"
+            path="/sign-up"
+            signInUrl="/login"
+            appearance={CLERK_CARD_APPEARANCE}
+          />
         ) : (
-          <SignIn appearance={CLERK_CARD_APPEARANCE} />
+          <SignIn
+            routing="path"
+            path="/login"
+            signUpUrl="/sign-up"
+            appearance={CLERK_CARD_APPEARANCE}
+          />
         )}
       </ClerkLoaded>
     </>

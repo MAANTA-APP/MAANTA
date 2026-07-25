@@ -6,7 +6,8 @@ import { ClerkAuthShell } from "../clerk-auth-shell";
 vi.mock("@clerk/nextjs", () => ({
   ClerkLoading: ({ children }: { children: React.ReactNode }) =>
     createElement("div", { "data-testid": "clerk-loading" }, children),
-  ClerkFailed: () => null,
+  ClerkFailed: ({ children }: { children: React.ReactNode }) =>
+    createElement("div", { "data-testid": "clerk-failed" }, children),
   ClerkLoaded: () => null,
   SignUp: () => null,
   SignIn: () => null,
@@ -20,5 +21,23 @@ describe("ClerkAuthShell", () => {
     const html = renderToStaticMarkup(createElement(ClerkAuthShell, { mode: "sign-up" }));
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain("animate-pulse");
+  });
+
+  it("renders relative fallback links on sign-up failure (no hard-coded deployment URLs)", () => {
+    const html = renderToStaticMarkup(createElement(ClerkAuthShell, { mode: "sign-up" }));
+    expect(html).toContain("Couldn’t load sign-up");
+    expect(html).toContain('href="/sign-up"');
+    expect(html).toContain('href="/feed"');
+    expect(html).not.toMatch(/vercel\.app/);
+    expect(html).not.toMatch(/https?:\/\//);
+  });
+
+  it("renders relative fallback links on sign-in failure", () => {
+    const html = renderToStaticMarkup(createElement(ClerkAuthShell, { mode: "sign-in" }));
+    expect(html).toContain("Couldn’t load sign-in");
+    expect(html).toContain('href="/login"');
+    expect(html).toContain('href="/feed"');
+    expect(html).not.toMatch(/vercel\.app/);
+    expect(html).not.toMatch(/https?:\/\//);
   });
 });

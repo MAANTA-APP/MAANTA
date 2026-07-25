@@ -17,6 +17,14 @@ Repro: block `**clerk**` network requests → `/sign-up` renders `bodyLen: 0`; `
 1. `ClerkAuthShell` — wraps sign-in/sign-up with `ClerkLoading`, `ClerkFailed`, `ClerkLoaded` so users always see skeleton or retry UI.
 2. Nav label changed from "Get started" → **Sign up** (hero keeps "Get started" → browse flow).
 3. `posthog-provider.tsx` — skip `posthog.init` when `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` unset (defensive).
+4. **Clerk routing hardening (2026-07-25):**
+   - Catch-all folders renamed to Clerk-recommended `[[...sign-up]]` / `[[...sign-in]]`.
+   - `<SignUp routing="path" path="/sign-up" signInUrl="/login" />` and matching `<SignIn />` props.
+   - `ClerkProvider` passes explicit `publishableKey` plus sign-in/up URL fallbacks (`/login`, `/sign-up`) so missing `NEXT_PUBLIC_CLERK_*_URL` at build time does not blank redirect config.
+   - Failure-state links stay relative (`/sign-up`, `/login`, `/feed`) — tested in `clerk-auth-shell.test.ts`.
+
+## ClerkFailed on preview URLs
+Production `pk_live_` keys only allow origins configured in the Clerk dashboard (`maanta.app`, `www.maanta.app`). `*.vercel.app` preview deploys will hit `ClerkFailed` unless the preview origin is allowlisted or preview uses `pk_test_` dev keys.
 
 ## Verify
 - Hero: `Get started` → `/feed` shows mall picker + deals/empty state.
