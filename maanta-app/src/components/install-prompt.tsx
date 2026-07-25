@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
 import { Logomark } from "@/components/ui/icons";
+import { registerServiceWorker } from "@/lib/register-service-worker";
 
 const DISMISS_KEY = "maanta_install_dismissed";
 
@@ -22,9 +23,7 @@ export function InstallPrompt() {
     if (window.matchMedia("(display-mode: standalone)").matches) return;
 
     // Register the service worker so the app is installable.
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => null);
-    }
+    void registerServiceWorker();
 
     const onPrompt = (e: Event) => {
       e.preventDefault();

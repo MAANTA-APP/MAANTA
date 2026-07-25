@@ -1,3 +1,9 @@
+/* MAANTA push-only service worker.
+ * Version: 2026-07-25 — bump this comment when changing SW behaviour so
+ * browsers treat the script as updated. Do NOT add Cache Storage / offline
+ * app-shell caching here without an explicit product decision; a caching SW
+ * can pin an old build after deploy.
+ */
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 

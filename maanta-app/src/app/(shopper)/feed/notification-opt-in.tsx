@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
 import { IconBell } from "@/components/ui/icons";
+import { registerServiceWorker } from "@/lib/register-service-worker";
 
 const DISMISS_KEY = "maanta_notif_optin_dismissed";
 
@@ -34,7 +35,8 @@ export function NotificationOptIn() {
   async function allow() {
     setBusy(true);
     try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
+      const registration = await registerServiceWorker();
+      if (!registration) return;
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
         const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;

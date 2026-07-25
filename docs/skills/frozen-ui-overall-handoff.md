@@ -1,8 +1,9 @@
 # Skills: frozen UI — overall handoff
 
-Last updated: 2026-07-25 · Status: **repo-side seed — reconcile with the Notion
-original on next documentation session.** This repo copy inventories the UI as
-it exists in code; the Notion handoff holds the design intent and screenshots.
+Last updated: 2026-07-25 (prod verify + SW updateViaCache hardening) · Status:
+**repo-side seed — reconcile with the Notion original on next documentation
+session.** This repo copy inventories the UI as it exists in code; the Notion
+handoff holds the design intent and screenshots.
 
 ## Pass 2 — Frozen UI (Shopper) applied 2026-07-18
 
@@ -101,6 +102,36 @@ canonical `DEAL_SELECT` + `lib/pricing`. Removed dead Geist font files.
 
 **Phase 6 — first touch.** `fade-in` + staggered step cards on the public landing
 (the only motion on `(public)`).
+
+## Prod verification — 2026-07-25 (post–PR #75 / `d1d45f6`)
+
+**Verdict: `https://maanta.app` IS serving the Frozen UI polish build.** It is
+not stuck on a pre-`d1d45f6` shell. A stale service worker is **not** the cause
+of any "looks old / not like the wireframes" impression.
+
+| Check | Finding |
+|---|---|
+| `origin/main` tip | `d1d45f6acad618f3327fa0c1a15caadd4b4a3881` — "Frozen UI final polish (#75)" |
+| Files on main | `(shopper)/loading.tsx`, overlays focus-trap, `redemption-result` `onSkip` / "Next customer", `IconBackspace` / `IconImage` / `IconPause` present |
+| Vercel production | `dpl_jaXZTQEw5MkK1AEzSf6irpGSnNCR` READY, target=production, `main@d1d45f6`, aliases include `maanta.app` + `www.maanta.app` (GitHub Vercel status success) |
+| Live HTML | `www.maanta.app` → `cache-control: private, no-cache, no-store`, `x-vercel-cache: MISS`; Next `buildId` **`Bbpxp6jEvuPKDZMo95_JX`** |
+| Landing checkpoints | SSR HTML includes hero + 3 step cards + `animate-fade-in` (14×); CSS ships `prefers-reduced-motion` + `otp-pop` |
+| Service worker | `public/sw.js` is **push-only** (notification + click). No `caches.open`, no app-shell caching, never had offline caching in git history. Cannot pin old HTML/JS. |
+| Clerk | Prod HTML loads `pk_test_…` + `cheerful-sailfish-3.clerk.accounts.dev` (DEV instance). `/merchant/redeem` redirects signed-out users to `/login` — Till polish is auth-gated. |
+| Wireframes vs prod | PR #75 shipped **quiet-precision polish inside the freeze**, not a pixel redesign. The Claude Design HTML under `design/claim-and-till/` is a reference artifact; deferred items (public conversion imagery, hamburger nav, etc.) were explicitly **not** shipped. |
+
+### Why a browser may still "look old"
+
+1. **Signed-out landing only** — polish on Claim/Till needs a signed-in shopper/merchant session.
+2. **Expectation mismatch** — comparing live app to the Claim/Till wireframe HTML (or Claude Design frames) rather than to the pre-`d1d45f6` app; landing change is motion-only.
+3. **Hard-reload sanity** — still worth Cmd/Ctrl+Shift+R + unregister SW if a local tab feels sticky; it will not change the fact that the network HTML already has the new markers.
+
+### Follow-up hardening (this session)
+
+- Shared `registerServiceWorker()` with `updateViaCache: "none"`.
+- Explicit `Cache-Control: public, max-age=0, must-revalidate` on `/sw.js` via `next.config.mjs`.
+- Version comment in `sw.js` so future SW edits are unmistakable updates.
+- **Do not** add offline Cache Storage without a decisions-log entry.
 
 ### Deferred to founder sign-off (cross the freeze line — NOT shipped here)
 

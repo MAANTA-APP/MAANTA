@@ -18,6 +18,22 @@ const nextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        // Always revalidate the push SW script so a deploy cannot leave
+        // clients on a byte-cached worker. No offline app-shell caching.
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
   // Required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
   experimental: {
