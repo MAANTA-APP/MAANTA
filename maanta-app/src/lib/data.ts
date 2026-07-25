@@ -153,6 +153,9 @@ export function withPublicMerchantRows<T>(query: T): T {
     .eq("is_shadow_banned", false) as unknown as T;
 }
 
+/** Max live deals fetched for the shopper feed (flash + boosted + near-me rails). */
+const FEED_DEALS_LIMIT = 120;
+
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
 export async function getLiveDeals(node: string): Promise<{
   flash: DealRow[];
@@ -169,7 +172,7 @@ export async function getLiveDeals(node: string): Promise<{
       .gt("expires_at", new Date().toISOString())
   )
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(FEED_DEALS_LIMIT);
   if (node !== ALL_NODES) query = query.eq("node", node);
   const { data, error } = await query;
   // Surface a hard query failure to the caller (feed error boundary) instead of
