@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 
-// §8.2 (Definition of Done): a /demo index page from which the three seeded
-// demo logins (shopper / merchant / admin) are reachable. Public, no auth gate.
-// All seeded accounts sign in with email OTP at /login — codes land in the
-// founder's real inbox via plus-addressing (see supabase/seed/…).
 export const metadata: Metadata = {
   title: "MAANTA — Demo & rehearsal logins",
   description:
@@ -17,50 +13,75 @@ type Account = {
   email: string;
   blurb: string;
   landing: string;
+  paths?: string[];
 };
 
-// Mirrors supabase/seed/node0_rehearsal_seed.sql. Emails are plus-addressed
-// variants of one inbox so email-OTP codes are all deliverable.
 const ACCOUNTS: Account[] = [
   {
     role: "Shopper",
     name: "Test Shopper",
     email: "aragagency+shopper@gmail.com",
-    blurb:
-      "Browse live BBS Mall deals, claim one, and open the ticking code card at the counter.",
+    blurb: "Browse BBS Mall deals, claim one, open the ticking code card.",
     landing: "/feed",
   },
   {
-    role: "Merchant · Elite",
+    role: "Merchant A · high-performing",
     name: "Nuur Fashion House",
     email: "aragagency+nuur@gmail.com",
     blurb:
-      "Funded wallet (KES 540). Verify the live seeded code 431977 on the keypad to see the success takeover and a −KES 30 ledger row.",
-    landing: "/merchant/redeem",
+      "Elite, KES 540 wallet, 2 live deals, redemption history. Verify OTP 431977 on the keypad.",
+    landing: "/merchant/dashboard",
+    paths: ["/merchant/deals", "/merchant/redeem", "/merchant/redemptions"],
   },
   {
-    role: "Merchant · low balance",
+    role: "Merchant B · onboarding",
     name: "Bilan Beauty & Cosmetics",
     email: "aragagency+bilan@gmail.com",
     blurb:
-      "Wallet is KES 20 — below the KES 30 success fee. Verifying still succeeds; the fee is recorded as arrears and settles from the next top-up.",
-    landing: "/merchant/wallet",
+      "Recently approved (5 days). Two deals, onboarding banner. Wallet KES 20 — fee arrears path.",
+    landing: "/merchant/dashboard",
+    paths: ["/merchant/deals", "/merchant/wallet", "/merchant/deals/new"],
   },
   {
-    role: "Merchant · pending",
+    role: "Merchant C · churn-risk",
+    name: "Hassan Old Town Fabrics",
+    email: "aragagency+churn@gmail.com",
+    blurb:
+      "Previously live, no current deals. Churn-risk banner and empty-state on deals.",
+    landing: "/merchant/deals",
+    paths: ["/merchant/dashboard", "/merchant/support"],
+  },
+  {
+    role: "Merchant · waitlist",
     name: "Macmacaan Sweets & Café",
     email: "aragagency+macmacaan@gmail.com",
-    blurb:
-      "Submitted, not yet activated — use the admin account to run the activation rehearsal.",
+    blurb: "Pending approval — admin activates from /admin/merchants.",
     landing: "/merchant",
+    paths: ["/merchant/dashboard"],
   },
   {
-    role: "Admin",
+    role: "Admin / founder",
     name: "Mohamed (Admin)",
     email: "aragagency@gmail.com",
-    blurb:
-      "Approvals, fraud review (one unresolved merchant-override dispute is seeded), merchant health and agent tasks.",
+    blurb: "Full platform: approvals, disputes, reports, founder KPIs.",
     landing: "/admin",
+    paths: ["/admin/merchants", "/admin/redemptions", "/founder"],
+  },
+  {
+    role: "Support / disputes",
+    name: "Sara Disputes Ops",
+    email: "aragagency+support@gmail.com",
+    blurb: "Admin role focused on redemption disputes and support queue.",
+    landing: "/admin/redemptions",
+    paths: ["/admin/support"],
+  },
+  {
+    role: "Field agent",
+    name: "Amina Field Agent",
+    email: "aragagency+agent@gmail.com",
+    blurb: "Leads, mall visits, churn outreach for Hassan Fabrics.",
+    landing: "/agent",
+    paths: ["/agent/leads", "/agent/leads/new"],
   },
 ];
 
@@ -73,16 +94,14 @@ export default function DemoPage() {
         </p>
         <h1 className="mt-2 text-2xl font-bold">Demo &amp; rehearsal logins</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-secondary">
-          Every account below signs in with an <strong>email OTP</strong> at{" "}
-          <code className="font-mono text-[13px]">/login</code> — the codes are
-          delivered to a single real inbox via plus-addressing. Run{" "}
-          <code className="font-mono text-[13px]">
-            supabase/seed/node0_rehearsal_seed.sql
-          </code>{" "}
-          first so these accounts and their deals exist.
+          Sign in with <strong>email OTP</strong> at{" "}
+          <code className="font-mono text-[13px]">/login</code>. Apply{" "}
+          <code className="font-mono text-[13px]">node0_rehearsal_seed.sql</code> then{" "}
+          <code className="font-mono text-[13px]">node0_ops_personas_seed.sql</code>.
+          Full persona map:{" "}
+          <code className="font-mono text-[13px]">docs/ops/test-accounts.md</code>.
         </p>
 
-        {/* The one amber action on this screen: the public deal feed. */}
         <div className="mt-5">
           <ButtonLink href="/feed" variant="primary" size="lg">
             Browse today&apos;s deals — no login
@@ -114,17 +133,21 @@ export default function DemoPage() {
                   Sign in
                 </ButtonLink>
                 <ButtonLink href={a.landing} variant="ghost" size="sm">
-                  Go to {a.landing}
+                  {a.landing}
                 </ButtonLink>
+                {(a.paths ?? []).map((p) => (
+                  <ButtonLink key={p} href={p} variant="ghost" size="sm">
+                    {p}
+                  </ButtonLink>
+                ))}
               </div>
             </li>
           ))}
         </ul>
 
         <p className="mt-8 font-mono text-[11px] leading-relaxed text-muted">
-          Dev/rehearsal aid only — not linked from the product. Money, codes and
-          totals shown after login come from the server (verify_redemption /
-          claim_deal), never from this page.
+          Dev/rehearsal aid only — not linked from the product. Lifecycle paths:{" "}
+          <code>docs/ops/merchant-lifecycle.md</code>.
         </p>
       </div>
     </main>
