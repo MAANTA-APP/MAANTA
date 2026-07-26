@@ -92,7 +92,7 @@ export default async function FeedPage() {
               title="Top picks near you"
               subtitle="Flash deals — grab them while they last"
               action={
-                <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
+                <Link href="/browse" className="text-xs font-semibold text-muted">
                   See all ›
                 </Link>
               }
@@ -114,7 +114,7 @@ export default async function FeedPage() {
               title="Local heroes"
               subtitle="Boosted deals near you"
               action={
-                <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
+                <Link href="/browse" className="text-xs font-semibold text-muted">
                   See all ›
                 </Link>
               }

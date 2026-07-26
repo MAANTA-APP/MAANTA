@@ -116,6 +116,7 @@ describe("Shopper UI polish", () => {
 
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
+    expect(html).toContain("All");
     expect(html).toContain("Flash");
     expect(html).toContain("Collect now");
     // List section markup appears before the map loading placeholder.

@@ -60,4 +60,13 @@ string for precision pickup.
 
 - `src/lib/__tests__/what3words.test.ts`
 - `src/lib/__tests__/browse.test.ts`
+- `src/lib/__tests__/get-live-deals.test.ts` (incl. lat/lng select fallback)
 - `src/components/__tests__/discover-deal-card.test.ts`
+- `src/app/api/merchants/onboard/__tests__/route.test.ts` (lat/lng persist)
+- `src/app/api/admin/merchants/[id]/location/__tests__/route.test.ts`
+
+## UI notes (post-ship polish)
+
+- Discover rail “See all ›” → `/browse` (not `/search`).
+- Browse rail filter default chip label: **All** (was “Category”).
+- Onboard returns `locationSaved` / `warning` when GPS update fails after merchant create.

@@ -148,6 +148,7 @@ export async function POST(request: Request) {
 
   // Persist GPS derived from the wizard's w3w validate step (coords are not
   // part of onboard_merchant's RPC signature — update after insert).
+  let locationSaved = true;
   if (typeof merchantId === "string" && lat != null && lng != null) {
     const { error: locError } = await supabase
       .from("merchants")
@@ -155,6 +156,7 @@ export async function POST(request: Request) {
       .eq("id", merchantId);
     if (locError) {
       console.error("onboard lat/lng update failed:", locError);
+      locationSaved = false;
     }
   }
 
@@ -163,5 +165,16 @@ export async function POST(request: Request) {
     void captureMerchantOnboarded({ clerkUserId, merchantId });
   }
 
-  return NextResponse.json({ merchantId });
+  // Merchant row was created; surface GPS failure so the wizard/admin can retry
+  // via the location form instead of silently missing map pins.
+  return NextResponse.json({
+    merchantId,
+    locationSaved,
+    ...(locationSaved
+      ? {}
+      : {
+          warning:
+            "Shop created, but pickup coordinates could not be saved. An admin can set the location.",
+        }),
+  });
 }

@@ -38,14 +38,14 @@ const BrowseMap = dynamic(
 );
 
 const RAIL_FILTERS: { id: BrowseRailFilter; label: string }[] = [
-  { id: "all", label: "Category" },
+  { id: "all", label: "All" },
   { id: "flash", label: "Flash" },
   { id: "boosted", label: "Boosted" },
   { id: "standard", label: "Standard" },
 ];
 
 const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
-  { id: "any", label: "Collection time" },
+  { id: "any", label: "Any time" },
   { id: "now", label: "Collect now" },
   { id: "today", label: "Today" },
 ];

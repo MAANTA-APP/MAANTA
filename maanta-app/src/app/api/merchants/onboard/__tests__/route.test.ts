@@ -8,11 +8,12 @@ import { POST } from "../route";
 // are covered by supabase/tests/onboard_agent_attribution_test.sql.
 
 const rpcMock = vi.fn();
-// The route runs onboard_merchant via the service client (it promotes the
-// user's role, which the prevent_self_role_escalation trigger only allows for
-// service_role/admin); ensureAppUser is the trust boundary. See the route.
+const updateEqMock = vi.fn();
+const updateMock = vi.fn(() => ({ eq: updateEqMock }));
+const fromMock = vi.fn(() => ({ update: updateMock }));
+
 vi.mock("@/lib/supabase/service", () => ({
-  createServiceClient: () => ({ rpc: rpcMock }),
+  createServiceClient: () => ({ rpc: rpcMock, from: fromMock }),
 }));
 
 const ensureAppUserMock = vi.fn();
@@ -49,6 +50,7 @@ describe("POST /api/merchants/onboard — agent attribution", () => {
     vi.clearAllMocks();
     ensureAppUserMock.mockResolvedValue({ id: "merchant-user-1", role: "customer" });
     rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
+    updateEqMock.mockResolvedValue({ error: null });
   });
 
   const AGENT_UUID = "22222222-2222-2222-2222-222222222222";
@@ -91,10 +93,54 @@ describe("POST /api/merchants/onboard — agent attribution", () => {
   it("maps the RPC's invalid_attribution to a 400 (valid-format id, rejected by the RPC)", async () => {
     rpcMock.mockResolvedValue({
       data: null,
-      error: { message: "invalid_attribution: p_onboarding_agent_id does not reference an active agent" },
+      error: {
+        message:
+          "invalid_attribution: p_onboarding_agent_id does not reference an active agent",
+      },
     });
     const res = await POST(req({ ...baseBody, onboardingAgentId: AGENT_UUID }));
     expect(res.status).toBe(400);
     expect(rpcMock).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/merchants/onboard — lat/lng persist", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ensureAppUserMock.mockResolvedValue({ id: "merchant-user-1", role: "customer" });
+    rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
+    updateEqMock.mockResolvedValue({ error: null });
+  });
+
+  it("persists lat/lng after successful onboard RPC", async () => {
+    const res = await POST(
+      req({ ...baseBody, lat: -1.2746, lng: 36.8501 })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.merchantId).toBe("merchant-1");
+    expect(body.locationSaved).toBe(true);
+    expect(fromMock).toHaveBeenCalledWith("merchants");
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ lat: -1.2746, lng: 36.8501 })
+    );
+    expect(updateEqMock).toHaveBeenCalledWith("id", "merchant-1");
+  });
+
+  it("returns locationSaved false when the GPS update fails", async () => {
+    updateEqMock.mockResolvedValue({ error: { message: "column missing" } });
+    const res = await POST(
+      req({ ...baseBody, lat: -1.2746, lng: 36.8501 })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.locationSaved).toBe(false);
+    expect(body.warning).toMatch(/coordinates could not be saved/i);
+  });
+
+  it("rejects mismatched lat/lng pairs before the RPC", async () => {
+    const res = await POST(req({ ...baseBody, lat: -1.27 }));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 });
