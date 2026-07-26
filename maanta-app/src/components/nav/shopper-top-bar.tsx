@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconBell, IconChevronDown } from "@/components/ui/icons";
+import { IconBell } from "@/components/ui/icons";
 import { BottomSheet } from "@/components/ui/overlays";
 import { LiveChip, ComingSoonChip } from "@/components/ui/chips";
+import { LocationPill } from "@/components/ui/claude";
 import { ALL_NODES, NODES, NODE_COOKIE, nodeLabel } from "@/lib/nodes";
 import { cn } from "@/lib/ui";
 
-/** 5c Shopper top bar — current location pill + bell; opens 8w node switcher. */
+/** Shopper top bar — Claude LocationPill + bell; opens node switcher sheet. */
 export function ShopperTopBar({ node }: { node: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -22,49 +23,43 @@ export function ShopperTopBar({ node }: { node: string }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-white/95 px-4 py-3 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex max-w-[80%] items-center gap-1.5 rounded-full border border-line bg-cream px-3 py-1.5 text-left"
-          aria-label={`Current location: ${nodeLabel(node)}. Change mall.`}
-        >
-          <span className="min-w-0">
-            <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-faint">
-              Current location
-            </span>
-            <span className="flex items-center gap-1 text-sm font-bold text-ink">
-              <span className="truncate">{nodeLabel(node)}</span>
-              <IconChevronDown className="h-3.5 w-3.5 shrink-0" />
-            </span>
-          </span>
-        </button>
-        <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/80 bg-stone/90 px-4 py-3 backdrop-blur-md">
+        <LocationPill label={nodeLabel(node)} onClick={() => setOpen(true)} />
+        <div className="flex items-center gap-1.5">
           <Link
             href="/browse"
-            className="text-xs font-semibold text-muted"
+            className="rounded-full px-3 py-2 text-xs font-semibold text-muted hover:bg-white/70"
             aria-label="Browse map"
           >
             Map
           </Link>
-          <Link href="/notifications" aria-label="Notifications" className="text-ink">
-            <IconBell className="h-6 w-6" />
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-white/70"
+          >
+            <IconBell className="h-5 w-5" />
           </Link>
         </div>
       </header>
 
       <BottomSheet open={open} onClose={() => setOpen(false)}>
-        <h2 className="mb-4 text-lg font-bold text-ink">Switch mall</h2>
+        <h2 className="mb-1 text-lg font-semibold tracking-[-0.02em] text-ink">
+          Switch mall
+        </h2>
+        <p className="mb-4 text-sm text-muted">
+          Deals update for the mall you pick.
+        </p>
         <div className="space-y-2.5">
           <button
             type="button"
             onClick={() => selectNode(ALL_NODES)}
             className={cn(
-              "flex w-full items-center justify-between rounded-card border bg-white px-4 py-4 text-left",
-              node === ALL_NODES ? "border-ink" : "border-line hover:bg-cream/60"
+              "flex w-full items-center justify-between rounded-card border bg-white px-4 py-4 text-left shadow-card",
+              node === ALL_NODES ? "border-ink" : "border-line hover:bg-stone-soft"
             )}
           >
-            <span className="text-base font-bold text-ink">All nodes</span>
+            <span className="text-base font-semibold text-ink">All nodes</span>
             <span className="text-xs text-faint">every live mall</span>
           </button>
           {NODES.map((n) => (
@@ -74,16 +69,19 @@ export function ShopperTopBar({ node }: { node: string }) {
               disabled={!n.live}
               onClick={() => selectNode(n.id)}
               className={cn(
-                "flex w-full items-center justify-between rounded-card border bg-white px-4 py-4 text-left",
+                "flex w-full items-center justify-between rounded-card border bg-white px-4 py-4 text-left shadow-card",
                 node === n.id
                   ? "border-ink"
                   : n.live
-                    ? "border-line hover:bg-cream/60"
-                    : "border-line"
+                    ? "border-line hover:bg-stone-soft"
+                    : "border-line opacity-70"
               )}
             >
               <span
-                className={cn("text-base font-bold", n.live ? "text-ink" : "text-faint")}
+                className={cn(
+                  "text-base font-semibold",
+                  n.live ? "text-ink" : "text-faint"
+                )}
               >
                 {n.label}
               </span>
@@ -91,10 +89,6 @@ export function ShopperTopBar({ node }: { node: string }) {
             </button>
           ))}
         </div>
-        <p className="mt-4 text-xs text-faint">
-          All nodes shows every live mall, sorted like the main feed: Flash → Boosted →
-          Deals Near Me
-        </p>
       </BottomSheet>
     </>
   );

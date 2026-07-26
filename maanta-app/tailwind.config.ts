@@ -39,20 +39,32 @@ const config: Config = {
         secondary: "#3D3D3D", // --text-secondary · 10.86:1 — struck prices, money context
         muted: "#5C5C5C", // --text-tertiary · 6.40:1 — labels, non-money
         faint: "#6B6B6B", // --text-muted · 5.33:1 — placeholders. NEVER money, NEVER code
+        // Claude-calm surfaces (shopper polish) — soft stone, not cream/terracotta.
+        stone: {
+          DEFAULT: "#F4F2ED", // page wash behind cards
+          soft: "#EDEAE3",
+          ink: "#1A1A18", // high-contrast body on stone
+        },
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-dm-sans)", "var(--font-inter)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "ui-monospace", "monospace"],
       },
       borderRadius: {
-        card: "1rem", // standard card
+        card: "1.25rem", // Claude-soft card
         sheet: "1.5rem", // bottom sheets / phone panels
+        pill: "9999px",
       },
       boxShadow: {
         sheet: "0 -8px 30px rgba(0,0,0,0.12)",
         modal: "0 12px 40px rgba(0,0,0,0.18)",
+        card: "0 1px 2px rgba(26,26,24,0.04), 0 8px 24px rgba(26,26,24,0.06)",
+      },
+      spacing: {
+        section: "1.75rem",
+        rail: "1.25rem",
       },
       maxWidth: {
         mobile: "430px",
