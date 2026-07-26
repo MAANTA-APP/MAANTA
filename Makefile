@@ -10,7 +10,7 @@
 SUPABASE_PROJECT_REF := axrrslqssmbngbataejg
 APP_DIR := maanta-app
 
-.PHONY: help db-link db-list db-push-dry db-push db-verify test test-e2e
+.PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify test test-e2e
 
 help:
 	@echo "MAANTA make targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  db-list      supabase migration list (local vs remote)"
 	@echo "  db-push-dry  supabase db push --dry-run (preview, no writes)"
 	@echo "  db-push      supabase db push (applies migrations; prompts)"
+	@echo "  db-prod-fixup  migrations + 100-deal seed + verify (needs DATABASE_URL)"
 	@echo "  db-verify    LOCAL ONLY: boot a throwaway local Supabase + run supabase/tests/*.sql (mirrors CI db-tests)"
 	@echo "  test         vitest suite (unit)"
 	@echo "  test-e2e     Playwright golden path (needs E2E_BASE_URL + storage; see docs/ops/e2e-golden-path.md)"
@@ -36,6 +37,10 @@ db-push-dry:
 
 db-push:
 	cd $(APP_DIR) && supabase db push
+
+# Requires DATABASE_URL = Postgres URI for axrrslqssmbngbataejg (see docs/skills/node0-seed-bbs-mall.md).
+db-prod-fixup:
+	cd $(APP_DIR) && ./scripts/prod-schema-seed-fixup.sh
 
 # db-verify — LOCAL/dev ONLY. Boots a disposable local Supabase (which applies
 # every migration), runs the supabase/tests/*.sql assertion suites against it
