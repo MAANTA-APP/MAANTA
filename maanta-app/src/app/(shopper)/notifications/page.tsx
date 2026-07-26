@@ -1,9 +1,15 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
-import { NotificationRow } from "@/components/ui/cards";
+import { NotificationRow, SettingsRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
-import { SettingsRow } from "@/components/ui/cards";
+import {
+  BackToProfileLink,
+  Body,
+  HeadingLg,
+  Page,
+  Section,
+} from "@/components/ui/claude";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +26,6 @@ export default async function NotificationsPage() {
   const service = createServiceClient();
   const items: Item[] = [];
 
-  // Code expiry reminders — pending tickets expiring within 2 hours.
   const { data: pending } = await service
     .from("redemptions")
     .select("expires_at, merchants(merchant_name)")
@@ -40,7 +45,6 @@ export default async function NotificationsPage() {
     });
   }
 
-  // Flagged redemptions under review.
   const { data: flagged } = await service
     .from("redemptions")
     .select("redeemed_at, merchants(merchant_name)")
@@ -60,7 +64,6 @@ export default async function NotificationsPage() {
     });
   }
 
-  // New deals from saved shops (last 24h).
   const { data: favs } = await service
     .from("merchant_favourites")
     .select("merchant_id")
@@ -95,20 +98,27 @@ export default async function NotificationsPage() {
   items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return (
-    <main className="px-4 pt-6">
-      <h1 className="text-2xl font-bold text-ink">Notifications</h1>
-      {items.length === 0 ? (
-        <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
-      ) : (
-        <div className="mt-5 space-y-3">
-          {items.map((n, i) => (
-            <NotificationRow key={i} {...n} />
-          ))}
-        </div>
-      )}
-      <div className="mt-6">
-        <SettingsRow href="/notifications/preferences" label="Notification preferences" />
+    <Page className="px-0 pt-4">
+      <div className="px-4">
+        <BackToProfileLink />
+        <HeadingLg className="mt-4">Notifications</HeadingLg>
+        <Body className="mt-1">Deal alerts and code reminders.</Body>
       </div>
-    </main>
+
+      <Section className="mt-6">
+        {items.length === 0 ? (
+          <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
+        ) : (
+          <div className="space-y-3">
+            {items.map((n, i) => (
+              <NotificationRow key={i} {...n} />
+            ))}
+          </div>
+        )}
+        <div className="mt-6">
+          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
+        </div>
+      </Section>
+    </Page>
   );
 }
