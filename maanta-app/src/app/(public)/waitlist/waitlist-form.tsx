@@ -33,10 +33,16 @@ const BUSINESS_LABEL: Record<WaitlistSegment, string | null> = {
   mall_operator: "Mall / company name (optional)",
 };
 
-export function WaitlistForm({ initialSegment }: { initialSegment: WaitlistSegment }) {
+export function WaitlistForm({
+  initialSegment,
+  initialEmail = "",
+}: {
+  initialSegment: WaitlistSegment;
+  initialEmail?: string;
+}) {
   const [segment, setSegment] = useState<WaitlistSegment>(initialSegment);
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [countryCode, setCountryCode] = useState("+254");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");

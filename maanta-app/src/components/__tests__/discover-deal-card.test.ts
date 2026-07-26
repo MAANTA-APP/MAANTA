@@ -17,12 +17,12 @@ vi.mock("next/link", () => ({
   }) => createElement("a", { href, ...rest }, children),
 }));
 
-import { DiscoverDealCard } from "@/components/discover-deal-card";
+import { DealCard } from "@/components/ui/claude";
 
-describe("DiscoverDealCard", () => {
+describe("DealCard (Claude design system)", () => {
   it("renders flash rail card with YOU PAY and struck compare price", () => {
     const html = renderToStaticMarkup(
-      createElement(DiscoverDealCard, {
+      createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,
         merchantName: "Nyama Spot",
@@ -44,18 +44,19 @@ describe("DiscoverDealCard", () => {
     expect(html).toContain("line-through");
     expect(html).toContain("120 m");
     expect(html).toContain("Collect 2–6pm");
+    expect(html).toContain("Flash");
   });
 
-  it("renders vertical standard card without flash/boosted tags", () => {
+  it("renders vertical standard card with Standard badge", () => {
     const html = renderToStaticMarkup(
-      createElement(DiscoverDealCard, {
+      createElement(DealCard, {
         href: "/deals/d2",
         imageUrl: null,
         merchantName: "Coffee Co",
         mallName: "BBS Mall",
         title: "Morning brew",
         pay: 200,
-        tag: null,
+        tag: "standard",
         merchantId: "m2",
         variant: "vertical",
       })
@@ -63,6 +64,6 @@ describe("DiscoverDealCard", () => {
     expect(html).toContain("Coffee Co");
     expect(html).toContain("Morning brew");
     expect(html).toContain("BBS Mall");
-    expect(html.toLowerCase()).not.toContain("flash");
+    expect(html).toContain("Standard");
   });
 });

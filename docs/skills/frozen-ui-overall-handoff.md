@@ -13,6 +13,14 @@ reachable from Browse. Merchant `lat`/`lng` added (migration
 `20260726120000_merchant_lat_lng`); what3words stays server-only via
 `W3W_API_KEY`. See `docs/skills/discover-browse-w3w.md`.
 
+### Update — 2026-07-26: Claude-inspired design system (shopper polish)
+
+Shared primitives in `src/components/ui/claude/` (`Page`, `Section`, typography,
+`LocationPill`, `FilterChip`, `DealCard`). Discover rails retitled Top picks /
+Local heroes / Deals near me / Favourites; Browse map chrome + profile + landing
+hero restyled. DM Sans for UI; Frozen money/CTA/vocab rules unchanged. See
+`docs/skills/claude-design-system.md`.
+
 ## Pass 2 — Frozen UI (Shopper) applied 2026-07-18
 
 The shopper surface was migrated from the Pass-1 palette to the **Frozen UI

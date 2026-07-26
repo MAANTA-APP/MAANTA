@@ -9,7 +9,7 @@ import { ClerkAuthShell } from "@/components/clerk-auth-shell";
 // (NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL, set to /select-mall).
 export default function LoginPage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-paper px-5 py-14">
+    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-stone px-5 py-14">
       <ClerkAuthShell mode="sign-in" />
     </main>
   );

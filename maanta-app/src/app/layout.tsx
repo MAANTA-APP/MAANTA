@@ -1,11 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
-// Frozen UI type system (maanta-design-brief §2): Inter for everything,
-// JetBrains Mono for codes / tabular figures (slashed zero enabled in globals).
+// Claude-calm shopper type: DM Sans for UI hierarchy; Inter kept as fallback
+// variable for any legacy surfaces. JetBrains Mono for codes / tabular figures.
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -50,7 +55,7 @@ export default function RootLayout({
     >
       <html lang="en">
         <body
-          className={`${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
+          className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
         >
           <PostHogClientProvider>{children}</PostHogClientProvider>
         </body>

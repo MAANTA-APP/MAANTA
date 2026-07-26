@@ -16,11 +16,13 @@ export const metadata: Metadata = {
 export default function WaitlistPage({
   searchParams,
 }: {
-  searchParams?: { segment?: string };
+  searchParams?: { segment?: string; email?: string };
 }) {
   const initialSegment: WaitlistSegment = isWaitlistSegment(searchParams?.segment)
     ? searchParams.segment
     : "shopper";
+  const initialEmail =
+    typeof searchParams?.email === "string" ? searchParams.email : "";
 
   return (
     <main className="mx-auto max-w-xl px-5 py-14">
@@ -34,7 +36,7 @@ export default function WaitlistPage({
         with a one-time code. Join the waitlist and we&apos;ll let you in on
         day one.
       </p>
-      <WaitlistForm initialSegment={initialSegment} />
+      <WaitlistForm initialSegment={initialSegment} initialEmail={initialEmail} />
     </main>
   );
 }

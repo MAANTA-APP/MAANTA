@@ -108,8 +108,10 @@ export function BrowseMap({
       {pins.map((pin) => (
         <Marker key={pin.dealId} position={[pin.lat, pin.lng]} icon={markerIcon}>
           <Popup>
-            <div className="min-w-[160px] space-y-1.5 text-sm">
-              <p className="font-bold text-ink">{pin.merchantName}</p>
+            <div className="min-w-[170px] space-y-1.5 rounded-xl p-0.5">
+              <p className="text-sm font-semibold tracking-[-0.015em] text-ink">
+                {pin.merchantName}
+              </p>
               <p className="text-xs text-muted">{pin.title}</p>
               {pin.what3wordsAddress ? (
                 <p className="font-mono text-[11px] text-ink">
@@ -118,7 +120,7 @@ export function BrowseMap({
               ) : null}
               <Link
                 href={`/deals/${pin.dealId}`}
-                className="inline-block text-xs font-semibold text-ink underline"
+                className="mt-1 inline-flex h-9 items-center rounded-full bg-brand px-3 text-xs font-semibold text-black"
               >
                 View deal
               </Link>
