@@ -26,10 +26,10 @@ import { BrowseClient } from "@/components/browse/browse-client";
 import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
-  it("BackToProfileLink returns to /you with Back label", () => {
+  it("BackToProfileLink renders a history-aware back control", () => {
     const html = renderToStaticMarkup(createElement(BackToProfileLink));
-    expect(html).toContain('href="/you"');
     expect(html).toContain("Back");
+    expect(html).toContain('type="button"');
   });
 
   it("SegmentedLinks renders compact tabs with active segment", () => {
@@ -117,7 +117,7 @@ describe("Shopper UI polish", () => {
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
     expect(html).toContain("Flash");
-    expect(html).toContain("Collect now");
+    expect(html).toContain("Live now");
     // List section markup appears before the map loading placeholder.
     const listIdx = html.indexOf("Deals around you");
     const mapIdx = html.indexOf("Loading map");

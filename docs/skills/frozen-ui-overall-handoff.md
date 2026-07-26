@@ -17,7 +17,7 @@ reachable from Browse. Merchant `lat`/`lng` added (migration
 
 Shared primitives in `src/components/ui/claude/` (`Page`, `Section`, typography,
 `LocationPill`, `FilterChip`, `DealCard`). Discover rails retitled Top picks /
-Local heroes / Deals near me / Favourites; Browse map chrome + profile + landing
+Neighbourhood favourites / Deals near me / Favourites; Browse map chrome + profile + landing
 hero restyled. DM Sans for UI; Frozen money/CTA/vocab rules unchanged. See
 `docs/skills/claude-design-system.md`.
 

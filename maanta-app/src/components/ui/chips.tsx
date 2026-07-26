@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn, timeLeftLabel, isNearExpiry } from "@/lib/ui";
+import { cn, isNearExpiry } from "@/lib/ui";
+import { getDealExpiryState } from "@/lib/deal-expiry";
 import { IconLock } from "@/components/ui/icons";
 
 /**
@@ -170,16 +171,13 @@ export function PlanChip({
   );
 }
 
-/** 2c Countdown chip — ticks every 30s; goes rust (urgency, never red/yellow —
- *  L6) near expiry, neutral grey once ended. */
+/** 2c Countdown chip — deal expiry + 15-minute grace; ticks every 30s. */
 export function CountdownChip({
   expiresAt,
   className,
-  suffix,
 }: {
   expiresAt: string | null;
   className?: string;
-  suffix?: string;
 }) {
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -187,24 +185,23 @@ export function CountdownChip({
     return () => clearInterval(t);
   }, []);
   if (!expiresAt) return null;
-  const label = timeLeftLabel(expiresAt);
-  const near = isNearExpiry(expiresAt);
-  const ended = label === "Ended";
+  const { status, displayText } = getDealExpiryState(expiresAt);
+  if (!displayText) return null;
+  const near = status === "live" && isNearExpiry(expiresAt);
+  const urgent = status === "in_grace" || near;
   return (
     <span
       className={cn(
         "tnum inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
-        // Urgency is rust, never yellow or red (L6). Ended is neutral grey.
-        ended
+        status === "expired"
           ? "bg-cream-dark text-faint"
-          : near
+          : urgent
             ? "border border-rust bg-white text-rust"
             : "bg-cream text-secondary",
         className
       )}
     >
-      {label}
-      {suffix && !ended ? <span className="ml-1">{suffix}</span> : null}
+      {displayText}
     </span>
   );
 }
