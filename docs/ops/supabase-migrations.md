@@ -59,17 +59,20 @@ order (they are all already in `supabase/migrations/`, so `db push` handles them
 ## 4. Seed (rehearsal data)
 
 There is **no** `supabase/seed.sql`, so `supabase db push --include-seed` has
-nothing to load — do **not** rely on it. The Node 0 rehearsal seed is a separate,
-**idempotent** script applied explicitly:
+nothing to load — do **not** rely on it. Seed scripts are separate, **idempotent**,
+and applied explicitly:
 
 ```bash
-# via psql (get the connection string from dashboard → Database → Connection string)
+# Small rehearsal accounts + 3 deals + live OTP (see docs/maanta-node0-rehearsal-checklist.md)
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed/node0_rehearsal_seed.sql
+
+# 100 live BBS Mall deals for Discover/Browse rails (60 merchants; flash/boosted/standard)
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed/node0_100_deals_seed.sql
+# or: ./scripts/apply-100-deals-seed.sh
 ```
 
-…or paste that file into the Supabase SQL Editor. Re-running refreshes deal
-windows + the live OTP ticket (see `docs/maanta-node0-rehearsal-checklist.md`).
-Only seed a project you intend to demo on.
+…or paste either file into the Supabase SQL Editor. Re-running refreshes deal
+expiry windows. Only seed a project you intend to demo on.
 
 ## 5. Verify the push took
 
