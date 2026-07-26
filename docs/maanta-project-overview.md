@@ -1,6 +1,6 @@
 # MAANTA project overview
 
-Last updated: 2026-07-09 · Owner: founder · Repo mirror of the Notion overview.
+Last updated: 2026-07-26 · Owner: founder · Repo mirror of the Notion overview.
 
 ## What MAANTA is
 
@@ -53,8 +53,15 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
   self-authorizing `verify_redemption` RPC. See `docs/skills/payments-rails.md`
   and `docs/skills/redemption-disputes.md`.
 - **UI**: the frozen wireframe system (`maanta-app/design/`) is implemented
-  across shopper/merchant/admin/agent/public surfaces.
-- **Auth**: phone and email sign-in; role self-escalation blocked at DB level.
+  across shopper/merchant/admin/agent/public surfaces. The shopper surfaces
+  additionally run a **Claude-inspired design system** (`src/components/ui/claude/`,
+  DM Sans) with TGTG-style Discover rails on `/feed` and a Leaflet Browse
+  map+list on `/browse`; frozen hard rules (YOU PAY, amber CTA, closed
+  vocabulary) are preserved. Merchant GPS (`lat`/`lng`) backs pins/distance
+  alongside `what3words_address`.
+- **Auth**: **Clerk** (phone OTP + email) wired as a Supabase third-party auth
+  provider (Twilio Verify decommissioned 2026-07-20); role self-escalation
+  blocked at DB level.
 - **Notifications**: Web Push to merchants (top-up received, trial expiry tasks).
 - **Testing/CI**: vitest suite + GitHub Actions.
 - **Legal**: draft ToS, privacy, refund/wallet, KYC/AML docs in
