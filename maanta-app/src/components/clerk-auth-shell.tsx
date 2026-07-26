@@ -24,6 +24,10 @@ const CLERK_CARD_APPEARANCE = {
   },
 } as const;
 
+function hasPublishableKey(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim());
+}
+
 function AuthLoading() {
   return (
     <div
@@ -40,14 +44,16 @@ function AuthLoading() {
 }
 
 function AuthFailed({ mode }: { mode: "sign-in" | "sign-up" }) {
+  const missingKey = !hasPublishableKey();
   return (
     <div className="w-full max-w-md rounded-card border border-line bg-white p-6 text-center shadow-card">
       <HeadingLg as="h1" className="text-[1.35rem]">
         {mode === "sign-up" ? "Couldn’t load sign-up" : "Couldn’t load sign-in"}
       </HeadingLg>
       <Body className="mt-2">
-        Check your connection and try again. You can also browse live deals
-        without an account.
+        {missingKey
+          ? "Sign-in isn’t configured for this deployment. The team needs to set the Clerk publishable key and redeploy."
+          : "Check your connection and try again. If this keeps happening, Clerk may be blocked or misconfigured for this domain."}
       </Body>
       <div className="mt-6 flex flex-col gap-3">
         <PrimaryButtonLink href={mode === "sign-up" ? "/sign-up" : "/login"} full>

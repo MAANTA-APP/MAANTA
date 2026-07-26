@@ -74,6 +74,29 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed/node0_100_deals_seed.sq
 …or paste either file into the Supabase SQL Editor. Re-running refreshes deal
 expiry windows. Only seed a project you intend to demo on.
 
+**Do not** paste shell (`export DATABASE_URL=…`, `./scripts/…`) into the SQL
+Editor — that is what previously left prod unseeded. Use `psql`, the apply
+script, or paste the **`.sql` file contents** only.
+
+After the 100-deal seed:
+
+```sql
+SELECT count(*) FROM merchants WHERE id::text LIKE 'c1000000-%';  -- ~60
+SELECT count(*) FROM deals     WHERE id::text LIKE 'd1000000-%';  -- ~100
+```
+
+### Lat/lng migration (required for Browse pins / distance)
+
+`20260726120000_merchant_lat_lng.sql` adds `merchants.lat` / `merchants.lng` and
+extends `merchants_public_browse`. If this version is missing remotely, older
+app builds that select `lat,lng` throw on `/feed` (error boundary). Current app
+code retries without those columns, but Browse distance still needs the push:
+
+```sql
+SELECT version FROM supabase_migrations.schema_migrations
+WHERE version = '20260726120000';
+```
+
 ## 5. Verify the push took
 
 ```sql

@@ -1,7 +1,13 @@
 import { cookies } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  isMissingLatLngColumnError,
+  type PostgrestLikeError,
+} from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
+
+export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 
 /** Currently selected node (mall) from the cookie set by the node switcher. */
 export function getSelectedNode(): string {
@@ -120,8 +126,51 @@ export type DealRow = {
   } | null;
 };
 
+/** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
+export const DEAL_SELECT_WITHOUT_LAT_LNG =
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+
 export const DEAL_SELECT =
   "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+
+type DealSelectResult = {
+  data: unknown;
+  error: PostgrestLikeError | null;
+};
+
+function asDealRows(data: unknown): DealRow[] {
+  if (data == null) return [];
+  const rows = Array.isArray(data) ? data : [data];
+  return (rows as DealRow[]).filter((d) => d?.merchants);
+}
+
+/**
+ * Run a deals+merchants select; if the remote is missing lat/lng columns,
+ * retry once without them so Discover/Browse still load (distance stays null).
+ */
+export async function selectDealsWithMerchants(
+  run: (select: string) => PromiseLike<DealSelectResult>
+): Promise<DealRow[]> {
+  const primary = await run(DEAL_SELECT);
+  if (!primary.error) {
+    return asDealRows(primary.data);
+  }
+  if (!isMissingLatLngColumnError(primary.error)) {
+    throw primary.error;
+  }
+  const fallback = await run(DEAL_SELECT_WITHOUT_LAT_LNG);
+  if (fallback.error) throw primary.error;
+  return asDealRows(fallback.data).map((d) => ({
+    ...d,
+    merchants: d.merchants
+      ? {
+          ...d.merchants,
+          lat: typeof d.merchants.lat === "number" ? d.merchants.lat : null,
+          lng: typeof d.merchants.lng === "number" ? d.merchants.lng : null,
+        }
+      : null,
+  }));
+}
 
 /**
  * Canonical public-visibility predicate for merchants — the single source of
@@ -182,22 +231,19 @@ export async function getLiveDeals(node: string): Promise<{
   verifiedByMerchant: Map<string, number>;
 }> {
   const service = createServiceClient();
-  let query = withPublicMerchant(
-    service
-      .from("deals")
-      .select(DEAL_SELECT)
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
-  )
-    .order("created_at", { ascending: false })
-    .limit(60);
-  if (node !== ALL_NODES) query = query.eq("node", node);
-  const { data, error } = await query;
-  // Surface a hard query failure to the caller (feed error boundary) instead of
-  // swallowing it into an empty result — otherwise a transient DB error is
-  // indistinguishable from "no deals live right now" and shows the empty state.
-  if (error) throw error;
-  const deals = ((data ?? []) as unknown as DealRow[]).filter((d) => d.merchants);
+  const deals = await selectDealsWithMerchants(async (select) => {
+    let query = withPublicMerchant(
+      service
+        .from("deals")
+        .select(select)
+        .eq("is_active", true)
+        .gt("expires_at", new Date().toISOString())
+    )
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (node !== ALL_NODES) query = query.eq("node", node);
+    return query;
+  });
 
   const verifiedByMerchant = await getVerifiedCounts(deals.map((d) => d.merchant_id));
 
@@ -238,8 +284,8 @@ export async function getDeal(dealId: string): Promise<DealRow | null> {
   // publicly visible. Deal-level state (expired / fully-claimed / paused) is
   // still surfaced by the page itself — this only gates merchant visibility,
   // matching claim_deal so a shopper can never see a deal they can't claim.
-  const { data } = await withPublicMerchant(
-    service.from("deals").select(DEAL_SELECT).eq("id", dealId)
-  ).maybeSingle();
-  return (data as unknown as DealRow) ?? null;
+  const rows = await selectDealsWithMerchants((select) =>
+    withPublicMerchant(service.from("deals").select(select).eq("id", dealId)).maybeSingle()
+  );
+  return rows[0] ?? null;
 }

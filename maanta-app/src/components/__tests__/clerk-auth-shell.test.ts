@@ -40,4 +40,16 @@ describe("ClerkAuthShell", () => {
     expect(html).not.toMatch(/vercel\.app/);
     expect(html).not.toMatch(/https?:\/\//);
   });
+
+  it("mentions Clerk/domain misconfiguration when a publishable key is present", () => {
+    const prev = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_example";
+    try {
+      const html = renderToStaticMarkup(createElement(ClerkAuthShell, { mode: "sign-in" }));
+      expect(html).toContain("Clerk may be blocked or misconfigured");
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+      else process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = prev;
+    }
+  });
 });
