@@ -229,3 +229,72 @@ Without AI, reaching this repo stage is a **~year and a mid-six-figure
 appeared in weeks — but **prod gates, mall trust, and legal** still move
 at human speed. AI compressed engineering calendar; it did not delete
 the launch checklist.
+
+## Valuation heuristic — 6 months post-launch at BBS Mall
+
+**Not a formal appraisal.** Early-stage company value is mostly a negotiated
+story (traction quality × expansion credibility × how competitive the round
+is). Revenue is an anchor, not a calculator output.
+
+### First clarify what “$10,000” means
+
+| If $10,000 means… | Rough MAANTA scale | Valuation logic |
+|---|---|---|
+| **~$10k / month revenue (MRR)** after month 6 | ~$120k ARR run-rate | Real seed conversation; multiples apply |
+| **$10k total over 6 months** | ~$1.7k/mo average | Angel / pre-seed; story > multiple |
+| **$10k ARR** (~$833/mo) | Very early | Mostly team + proof, not revenue math |
+
+For a “successful BBS Mall” narrative, founders usually mean something closer
+to **~$10k MRR** (or exiting month-6 near that run-rate). The ranges below
+assume that, unless noted.
+
+What $10k MRR implies economically (order of magnitude, ~KES 130/USD):
+- Pure success fees: ~**43k verified redemptions / month** at KES 30 — heavy
+  for one mall if fees are the only line.
+- More realistic mix: Elite (KES 3,500/mo) + boosts (KES 500) + fees. Example:
+  ~150 paying Elite merchants (~$4k) + fee/boost volume making up the rest.
+- Investors will ask for **retention**, not just top-ups: repeat redeeming
+  shoppers, merchants who re-fund wallets, arrears aging, and whether growth
+  is still climbing in month 6.
+
+### Plausible company value ranges (post-money, USD)
+
+Assume: product live, Node 0 only, clean books on MAANTA revenue (fees +
+subs + boosts), no major fraud/dispute crisis, and a credible “next 3–5
+malls” plan.
+
+| Scenario | What “successful” looks like | Rough company worth |
+|---|---|---|
+| **Soft** | ~$10k MRR but flat, weak retention, hard to prove mall #2 | **$0.8–1.5M** |
+| **Base** | ~$10k MRR, growing MoM, solid merchant + shopper repeat, clear unit economics | **$1.5–3M** |
+| **Strong** | ~$10k MRR with rising take, waitlist for next malls, competitive angel/seed interest | **$3–5M** |
+| **If $10k was 6-month total revenue** | Proof of life, not scale | **$0.4–1.0M** (mostly team + Node 0 learning) |
+
+Rule-of-thumb anchors (East Africa / early marketplace-SaaS hybrid):
+- Early revenue often clears at about **~5–12× ARR** when growth is real and
+  the expansion story is believed (~$0.6–1.4M on $120k ARR from multiple alone).
+- Rounds usually **price above pure multiple** when Node 0 is treated as a
+  **repeatable mall playbook**, and **below** when investors treat it as a
+  single-location services business.
+
+### What moves you up or down
+
+**Up:** month-6 still accelerating; low churn; wallet reloads; measured
+redemptions (not just claims); signed LOIs / deposits for mall 2–3; tight
+fraud losses; founder still deep in BBS operations with clean metrics.
+
+**Down:** one-mall dependency with no second-site proof; revenue mostly
+opening credits / one-off top-ups; messy disputes; legal/DPA unfinished;
+growth only from heavy manual hustle that doesn’t productize.
+
+### Founder takeaway
+
+At **~$10k MRR after six good months at BBS Mall**, a sober working band for
+company value is about **$1.5–3M**, with **~$3–5M** only if the round is
+competitive and mall expansion looks inevitable — not automatic. At
+**$10k cumulative**, think **under ~$1M** unless the qualitative traction
+(engagement, retention, mall operator pull) is unusually strong.
+
+Raise size that often fits that stage: roughly **$300k–750k** seed/angel
+against the base band, if you want runway to open the next malls without
+selling the company too early.
