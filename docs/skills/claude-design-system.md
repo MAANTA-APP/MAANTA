@@ -33,9 +33,13 @@ amber CTA + black label, closed vocabulary).
 - ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
-- `/profile` — Edit profile, Language (English / Kiswahili coming soon),
-  favourites, mall, settings; Help + Notifications have Back → Profile.
-- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past).
+- `/you` (canonical profile) — Edit profile, Language (English / Kiswahili coming soon),
+  favourites, mall, settings (Notifications, Help & support, Sign out only).
+  `/profile` redirects here.
+- `/you/notifications` — three notification toggles + Back → `/you`.
+  `/notifications/preferences` redirects here; bell icon opens activity list at `/notifications`.
+- `/you/help` — FAQ + WhatsApp CTA (re-exports `/help`).
+- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past). `/deals` redirects here.
 
 - Public landing — hero “Claim in‑mall deals before you pay.” + story sections + early-access → waitlist.
 

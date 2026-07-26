@@ -26,9 +26,9 @@ import { BrowseClient } from "@/components/browse/browse-client";
 import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
-  it("BackToProfileLink returns to /profile with Back label", () => {
+  it("BackToProfileLink returns to /you with Back label", () => {
     const html = renderToStaticMarkup(createElement(BackToProfileLink));
-    expect(html).toContain('href="/profile"');
+    expect(html).toContain('href="/you"');
     expect(html).toContain("Back");
   });
 
