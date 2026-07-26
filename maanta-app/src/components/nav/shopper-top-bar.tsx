@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { IconBell, IconChevronDown } from "@/components/ui/icons";
 import { BottomSheet } from "@/components/ui/overlays";
 import { LiveChip, ComingSoonChip } from "@/components/ui/chips";
-import { ALL_NODES, NODES, NODE_COOKIE, nodeShortLabel } from "@/lib/nodes";
+import { ALL_NODES, NODES, NODE_COOKIE, nodeLabel } from "@/lib/nodes";
 import { cn } from "@/lib/ui";
 
-/** 5c Shopper top bar — "BBS Mall ▾" + bell; opens 8w node switcher sheet. */
+/** 5c Shopper top bar — current location pill + bell; opens 8w node switcher. */
 export function ShopperTopBar({ node }: { node: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -26,14 +26,31 @@ export function ShopperTopBar({ node }: { node: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex items-center gap-1.5 text-base font-bold text-ink"
+          className="flex max-w-[80%] items-center gap-1.5 rounded-full border border-line bg-cream px-3 py-1.5 text-left"
+          aria-label={`Current location: ${nodeLabel(node)}. Change mall.`}
         >
-          {nodeShortLabel(node)}
-          <IconChevronDown className="h-4 w-4" />
+          <span className="min-w-0">
+            <span className="block text-[10px] font-medium uppercase tracking-[0.08em] text-faint">
+              Current location
+            </span>
+            <span className="flex items-center gap-1 text-sm font-bold text-ink">
+              <span className="truncate">{nodeLabel(node)}</span>
+              <IconChevronDown className="h-3.5 w-3.5 shrink-0" />
+            </span>
+          </span>
         </button>
-        <Link href="/notifications" aria-label="Notifications" className="text-ink">
-          <IconBell className="h-6 w-6" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/browse"
+            className="text-xs font-semibold text-muted"
+            aria-label="Browse map"
+          >
+            Map
+          </Link>
+          <Link href="/notifications" aria-label="Notifications" className="text-ink">
+            <IconBell className="h-6 w-6" />
+          </Link>
+        </div>
       </header>
 
       <BottomSheet open={open} onClose={() => setOpen(false)}>

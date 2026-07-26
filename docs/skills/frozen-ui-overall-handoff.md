@@ -1,8 +1,17 @@
 # Skills: frozen UI — overall handoff
 
-Last updated: 2026-07-25 · Status: **repo-side seed — reconcile with the Notion
+Last updated: 2026-07-26 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
+
+### Update — 2026-07-26: Discover rails + Browse map (within Frozen tokens)
+
+Shopper Discover (`/feed`) gained TGTG-style rail copy, a current-location pill,
+distance on cards when merchant GPS exists, a favourites rail, and a Browse map
+route (`/browse`, Leaflet/OSM). Bottom nav Search → Browse; `/search` remains
+reachable from Browse. Merchant `lat`/`lng` added (migration
+`20260726120000_merchant_lat_lng`); what3words stays server-only via
+`W3W_API_KEY`. See `docs/skills/discover-browse-w3w.md`.
 
 ## Pass 2 — Frozen UI (Shopper) applied 2026-07-18
 
@@ -132,8 +141,11 @@ on launch readiness."
 | Route | File | Purpose |
 |---|---|---|
 | `/` | `page.tsx` | Landing / entry, sign-out + enable-notifications controls in layout |
-| `/deals` | `deals/page.tsx` | Browse live deals |
-| `/deals/[id]` | `deals/[id]/page.tsx` + `redeem-button.tsx` | Deal detail; claim → OTP ticket |
+| `/feed` | `(shopper)/feed/page.tsx` | Discover rails (flash / boosted / standard / favourites) |
+| `/browse` | `(shopper)/browse/page.tsx` | Map + list of live deals (Leaflet); filters by rail / collect time |
+| `/deals` | `deals/page.tsx` | Redirects to `/feed` |
+| `/deals/[id]` | `deals/[id]/page.tsx` + `claim-flow.tsx` | Deal detail; pick-up + View on map; claim → OTP ticket |
+| `/search` | `(shopper)/search/page.tsx` | Text filter (secondary; linked from Browse) |
 | `/login` | `login/page.tsx` | Phone or email sign-in |
 
 ### Merchant

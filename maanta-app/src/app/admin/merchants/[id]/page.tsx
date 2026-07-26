@@ -5,6 +5,7 @@ import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
 import { MerchantAdminActions } from "./merchant-admin-actions";
+import { MerchantLocationForm } from "./merchant-location-form";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function AdminMerchantDetailPage({
   const { data: m } = await service
     .from("merchants")
     .select(
-      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
+      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -60,6 +61,13 @@ export default async function AdminMerchantDetailPage({
         floorUnit={[m.floor, m.unit_number].filter(Boolean).join(", ")}
         isFeatured={m.is_featured}
         isShadowBanned={m.is_shadow_banned}
+      />
+
+      <MerchantLocationForm
+        merchantId={m.id}
+        initialW3w={m.what3words_address}
+        initialLat={typeof m.lat === "number" ? m.lat : null}
+        initialLng={typeof m.lng === "number" ? m.lng : null}
       />
     </main>
   );

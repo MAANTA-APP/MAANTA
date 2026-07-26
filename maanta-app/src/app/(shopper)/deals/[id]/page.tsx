@@ -83,9 +83,45 @@ export default async function DealDetailPage({
             </Link>
           </span>
           {m.floor ? <span>· {m.floor}</span> : null}
-          <span>·</span>
-          <W3wChip address={m.what3words_address} />
         </p>
+
+        <section className="mt-5 rounded-card border border-line bg-white p-4">
+          <h2 className="text-sm font-bold text-ink">Pick-up location</h2>
+          <p className="mt-1 text-sm text-muted">
+            {m.mall_name ?? deal.node}
+            {" · "}
+            <Link
+              href={`/shops/${m.id}`}
+              className="font-semibold text-ink underline-offset-2 hover:underline"
+            >
+              {m.merchant_name}
+            </Link>
+            {m.floor ? ` · ${m.floor}` : ""}
+            {m.unit_number ? `, ${m.unit_number}` : ""}
+          </p>
+          {m.what3words_address ? (
+            <div className="mt-2">
+              <W3wChip address={m.what3words_address} />
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-faint">See directions at pickup</p>
+          )}
+          {typeof m.lat === "number" && typeof m.lng === "number" ? (
+            <div className="mt-3">
+              <ButtonLink
+                href={`/browse?lat=${m.lat}&lng=${m.lng}&dealId=${deal.id}`}
+                variant="ghost"
+                size="sm"
+              >
+                View on map
+              </ButtonLink>
+            </div>
+          ) : m.what3words_address ? (
+            <p className="mt-2 text-xs text-faint">
+              Map pin unavailable — use the what3words address at the mall.
+            </p>
+          ) : null}
+        </section>
 
         {pay != null ? (
           <div className="mt-5">

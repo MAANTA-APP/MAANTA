@@ -39,6 +39,8 @@ export type MerchantRow = {
   trial_ends_at: string | null;
   node: string;
   what3words_address: string;
+  lat: number | null;
+  lng: number | null;
   mall_name: string | null;
   floor: string | null;
   unit_number: string | null;
@@ -55,7 +57,7 @@ export async function getMerchantForUser(userId: string): Promise<MerchantRow | 
   const { data } = await service
     .from("merchants")
     .select(
-      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears"
+      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -111,13 +113,15 @@ export type DealRow = {
     floor: string | null;
     unit_number: string | null;
     what3words_address: string;
+    lat: number | null;
+    lng: number | null;
     mall_name: string | null;
     node: string;
   } | null;
 };
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 /**
  * Canonical public-visibility predicate for merchants — the single source of
@@ -151,6 +155,23 @@ export function withPublicMerchantRows<T>(query: T): T {
     .eq("status", "active")
     .eq("is_visible", true)
     .eq("is_shadow_banned", false) as unknown as T;
+}
+
+/** Merchant ids the shopper has favourited (empty when signed out). */
+export async function getFavouriteMerchantIds(
+  userId: string | null | undefined
+): Promise<Set<string>> {
+  const set = new Set<string>();
+  if (!userId) return set;
+  const service = createServiceClient();
+  const { data } = await service
+    .from("merchant_favourites")
+    .select("merchant_id")
+    .eq("user_id", userId);
+  for (const row of data ?? []) {
+    if (row.merchant_id) set.add(row.merchant_id);
+  }
+  return set;
 }
 
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */

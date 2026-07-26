@@ -55,7 +55,12 @@ export function OnboardWizard({
   // location (9f/9u)
   const [w3w, setW3w] = useState("");
   const [validating, setValidating] = useState(false);
-  const [resolved, setResolved] = useState<{ words: string; place: string | null } | null>(null);
+  const [resolved, setResolved] = useState<{
+    words: string;
+    place: string | null;
+    lat: number | null;
+    lng: number | null;
+  } | null>(null);
 
   // floor (9g)
   const [floor, setFloor] = useState("");
@@ -74,7 +79,12 @@ export function OnboardWizard({
       if (!res.ok || !body.valid) {
         setError(body.error ?? "That address didn't resolve.");
       } else {
-        setResolved({ words: body.words, place: body.nearestPlace ?? null });
+        setResolved({
+          words: body.words,
+          place: body.nearestPlace ?? null,
+          lat: typeof body.lat === "number" ? body.lat : null,
+          lng: typeof body.lng === "number" ? body.lng : null,
+        });
       }
     } catch {
       setError("Could not validate the address — try again.");
@@ -95,6 +105,8 @@ export function OnboardWizard({
           floor: floor.trim() || null,
           unitNumber: unit.trim() || null,
           what3wordsAddress: resolved?.words ?? w3w.replace(/^\/+/, ""),
+          lat: resolved?.lat ?? null,
+          lng: resolved?.lng ?? null,
           phone: fullPhone,
           email: ownerEmail.trim() || null,
           whatsapp: shopWhatsapp.trim() || null,
