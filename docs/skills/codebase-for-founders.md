@@ -424,3 +424,81 @@ Not more gradients, cards, or badges. For this product, polish is:
 - States (expired / already redeemed / arrears) readable without color alone  
 
 If a platform output fights those, discard the output — not the freeze.
+
+## Scale risks & “are we ready for 10,000 users?”
+
+**Short answer:** for **~10,000 users at BBS Mall alone**, the *architecture*
+is broadly the right shape (Vercel + Supabase + Clerk + atomic money RPCs +
+rate limits + Guardian). You are **not** yet ready for that load as a
+*company* (ops, monitoring env, M-Pesa, dispute staffing), and you are **not**
+built for multi-mall / 100k-class product scale.
+
+“10,000 users” is fine to plan against if most are casual browsers and a
+smaller set claim/redeem. Stress is not raw headcount — it is **concurrent
+claims, busy tills, admin queue depth, and wallet/webhook correctness**.
+
+### What can go wrong as you scale (product as a whole)
+
+| Risk | Why it hurts | What you already have | What’s still thin |
+|---|---|---|---|
+| **Money bugs under load** | Double fee, missed fee, double top-up = trust death | Atomic `claim_deal` / `verify_redemption`; ledger unique `provider_reference`; SQL money-path tests | Live Stripe/IntaSend cutover still human-gated |
+| **Arrears pile-up** | Verify-anyway keeps shoppers happy; merchants can owe MAANTA | Arrears recording; top-ups settle arrears first; zero-balance blocks new deals | Collections process + who chases unpaid arrears |
+| **Fraud / collusion** | Agents/merchants gaming OTP or velocity | Guardian v1 (velocity, geofence, collusion); soft/hard blocks; admin release | Human review capacity; thresholds need live tuning |
+| **Admin / dispute overload** | 72h SLA is a promise | Fee reversal, fraud tasks, admin audit log | No auto-escalation; founder/admin hours are the bottleneck |
+| **OTP / till congestion** | Busy Saturday at one shop | 20 OTP checks/min/merchant; unique pending OTP; double-verify → 409 | Extreme till spikes may need staff process, not just code |
+| **Feed / browse slowdown** | Shoppers bounce if Discover feels dead | Node-scoped feed, indexes on node/deals | Hard **60-deal** cap; verified counts can grow costly with redemption history; little caching |
+| **Single-mall trap** | Success at BBS ≠ product ready for city | `node` on merchants/deals; mall cookie | Only BBS is `live`; onboard/analytics assume Node 0; expansion deferred |
+| **Payments availability** | Merchants can’t top up → no deals | Stripe sandbox path; IntaSend code ready | IntaSend access + live STK still a blocker |
+| **Ops blindness** | You won’t see fires | Sentry + PostHog wired in code; healthz | Env may still be unset; secrets audit open on tracker |
+| **Compliance / trust** | Scale attracts scrutiny | Draft legal in repo | Lawyer publish + Kenya DPA still open |
+| **Support / onboarding quality** | Bad first week kills merchant NPS | Agent lead locks; runbook | Named onboarding/support owners still incomplete |
+
+### Infrastructure vs 10k users (honest grade)
+
+| Layer | Fit for ~10k @ one mall | Notes |
+|---|---|---|
+| Vercel (Next.js app) | ✅ Sufficient | Standard serverless; pages are mostly dynamic (fine at 10k, wasteful later) |
+| Supabase Postgres | ✅ Sufficient if plan/connections watched | Money path is DB-centric — right choice; watch connection/CPU as redemptions grow |
+| Clerk auth | ✅ Sufficient | Proven at this scale; phone-at-claim already gates abuse |
+| Rate limits | ✅ Good for launch abuse | Claim 10/min/user; OTP 20/min/merchant; onboard/top-up/waitlist capped |
+| Ledger / webhooks | ✅ Strong foundation | Idempotent credits; failure log + Sentry hook |
+| Guardian + admin | 🟡 Product OK, ops thin | Works at Node 0 volumes; breaks if dispute volume ≫ admin hours |
+| Caching / pagination | 🟡 OK at BBS catalog size | Not OK if you keep full history scans + no feed pagination into multi-mall |
+| Multi-mall product | ❌ Not ready | Intentional — prove Node 0 first |
+| Monitoring fully on | 🟡 Code yes / prod ops maybe | Turn on Sentry + PostHog env before any traffic spike |
+| M-Pesa live | ❌ / 🟡 | Commercial access gap, not architecture gap |
+
+### What “cope with 10,000 users” actually requires from you
+
+**Already in place (engineering spine):** single app, mall-scoped data,
+atomic fee path, idempotent wallet credits, rate limits, fraud gates, CI
+money tests, error/analytics hooks in code.
+
+**Must be true in production before you celebrate 10k:**
+
+1. Sentry + PostHog env live and watched weekly  
+2. Supabase migrations applied; healthz green; webhook failure table empty-ish  
+3. Stripe live (and IntaSend if Kenya top-ups matter) proven on real money  
+4. Named humans for merchant onboarding + 72h disputes  
+5. Arrears chase rule (who, when, freeze deals escalation)  
+6. In-mall rehearsal so Guardian geofence/till UX doesn’t surprise you  
+
+**Defer until after Node 0 PMF (not needed for first 10k at BBS):**
+
+- Multi-mall live flags + onboard-any-node  
+- Feed pagination + cached verified counts  
+- Heavier CDN/edge caching  
+- Automated dispute routing / more admin seats  
+- SLA-backed FX (only if non-KES live charges matter)
+
+### Founder takeaway
+
+You have put in place the **right kind of infrastructure for a single-mall
+money product** — especially the ledger and abuse controls, which are what
+usually kill early marketplaces. You have **not** yet put in place the
+**operating infrastructure** (payments go-live, monitoring env, dispute
+staffing, legal) that makes 10k users survivable.
+
+Scale failure modes to fear first: **arrears + disputes + blind production**,
+not “Postgres can’t hold 10k rows.” Scale failure modes to fear later:
+**feed performance and multi-mall productization** once BBS is clearly working.
