@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       clerkUserId,
       merchantId: merchant.id,
       amountKes: amount,
+      node: merchant.node,
     });
   }
 

@@ -13,8 +13,15 @@
  * serverless runtimes and is trivially overridable in tests.
  */
 
+import { DEFAULT_NODE } from "@/lib/nodes";
+
 const DEFAULT_HOST = "https://eu.i.posthog.com";
 const CAPTURE_TIMEOUT_MS = 2000;
+
+function resolveNode(node: string | null | undefined): string {
+  const trimmed = node?.trim();
+  return trimmed || DEFAULT_NODE;
+}
 
 /** True when server-side analytics is configured (a project key is present). */
 export function analyticsEnabled(): boolean {
@@ -69,6 +76,7 @@ export function captureGuardianOutcome(args: {
   redemptionStatus: string;
   feeChargeStatus: string | null;
   disputed: boolean;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("guardian_outcome", args.merchantId, {
     recommendation: args.recommendation ?? "clear",
@@ -79,7 +87,7 @@ export function captureGuardianOutcome(args: {
     deal_id: args.dealId,
     redemption_id: args.redemptionId,
     merchant_id: args.merchantId,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -91,6 +99,7 @@ export function captureDealClaimed(args: {
   merchantId: string;
   hadGps: boolean;
   hasFraudFlags: boolean;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("deal_claimed", args.clerkUserId, {
     redemption_id: args.redemptionId,
@@ -98,7 +107,7 @@ export function captureDealClaimed(args: {
     merchant_id: args.merchantId,
     had_gps: args.hadGps,
     has_fraud_flags: args.hasFraudFlags,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -110,6 +119,7 @@ export function captureDealPublished(args: {
   dealType: string;
   priceKes: number;
   hasMaxClaims: boolean;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("deal_published", args.clerkUserId, {
     deal_id: args.dealId,
@@ -117,7 +127,7 @@ export function captureDealPublished(args: {
     deal_type: args.dealType,
     price_kes: args.priceKes,
     has_max_claims: args.hasMaxClaims,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -125,10 +135,11 @@ export function captureDealPublished(args: {
 export function captureMerchantOnboarded(args: {
   clerkUserId: string;
   merchantId: string;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("merchant_onboarded", args.clerkUserId, {
     merchant_id: args.merchantId,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -137,11 +148,12 @@ export function captureTopupInitiated(args: {
   clerkUserId: string;
   merchantId: string;
   amountKes: number;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("topup_initiated", args.clerkUserId, {
     merchant_id: args.merchantId,
     amount_kes: args.amountKes,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -149,12 +161,13 @@ export function captureTopupInitiated(args: {
 export function captureTopupCompletedMpesa(args: {
   merchantId: string;
   amountKes: number;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("topup_completed_mpesa", args.merchantId, {
     merchant_id: args.merchantId,
     amount_kes: args.amountKes,
     payment_provider: "intasend",
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -164,6 +177,7 @@ export function captureTopupCompletedStripe(args: {
   amountKes: number;
   currency: string;
   chargedAmount: number;
+  node?: string | null;
 }): Promise<void> {
   return captureServerEvent("topup_completed_stripe", args.merchantId, {
     merchant_id: args.merchantId,
@@ -171,7 +185,7 @@ export function captureTopupCompletedStripe(args: {
     original_currency: args.currency,
     original_amount: args.chargedAmount,
     payment_provider: "stripe",
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }
 
@@ -182,6 +196,7 @@ export function captureDealViewed(args: {
   merchantId: string;
   dealType: string;
   priceKes: number | null;
+  node?: string | null;
 }): Promise<void> {
   const distinctId = args.clerkUserId ?? "anonymous";
   return captureServerEvent("deal_viewed", distinctId, {
@@ -189,6 +204,6 @@ export function captureDealViewed(args: {
     merchant_id: args.merchantId,
     deal_type: args.dealType,
     price_kes: args.priceKes,
-    node: "BBS Mall",
+    node: resolveNode(args.node),
   });
 }

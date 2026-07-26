@@ -161,6 +161,7 @@ export async function POST(request: Request) {
       dealType: dealType,
       priceKes: priceKes,
       hasMaxClaims: maxClaims !== null,
+      node: merchant.node,
     });
   }
 
