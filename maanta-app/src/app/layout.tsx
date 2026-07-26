@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
@@ -58,6 +59,7 @@ export default function RootLayout({
           className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
         >
           <PostHogClientProvider>{children}</PostHogClientProvider>
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>
