@@ -50,7 +50,7 @@ export function ShopperBottomBar() {
     { href: "/feed", label: "Feed", icon: IconHome, match: ["/feed", "/deals"] },
     { href: "/browse", label: "Browse", icon: IconPin, match: ["/browse", "/search"] },
     { href: "/my-deals", label: "Deals", icon: IconTicket, match: ["/my-deals", "/tickets"] },
-    { href: "/profile", label: "You", icon: IconUser, match: ["/profile", "/help", "/notifications"] },
+    { href: "/you", label: "You", icon: IconUser, match: ["/you", "/profile", "/help", "/notifications"] },
   ];
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)]">

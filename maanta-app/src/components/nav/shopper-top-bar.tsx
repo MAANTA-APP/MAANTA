@@ -25,10 +25,10 @@ export function ShopperTopBar({ node }: { node: string }) {
     <>
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/80 bg-stone/90 px-4 py-3 backdrop-blur-md">
         <LocationPill label={nodeLabel(node)} onClick={() => setOpen(true)} />
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Link
             href="/browse"
-            className="rounded-full px-3 py-2 text-xs font-semibold text-muted hover:bg-white/70"
+            className="rounded-full px-3.5 py-2.5 text-sm font-semibold text-ink hover:bg-white/70"
             aria-label="Browse map"
           >
             Map
@@ -36,7 +36,7 @@ export function ShopperTopBar({ node }: { node: string }) {
           <Link
             href="/notifications"
             aria-label="Notifications"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-white/70"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-white/70"
           >
             <IconBell className="h-5 w-5" />
           </Link>

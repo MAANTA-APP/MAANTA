@@ -33,6 +33,10 @@ function makeQuery(table: string) {
   return q;
 }
 
+vi.mock("next/cache", () => ({
+  unstable_cache: (fn: () => unknown) => () => fn(),
+}));
+
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
     from: (table: string) => makeQuery(table),

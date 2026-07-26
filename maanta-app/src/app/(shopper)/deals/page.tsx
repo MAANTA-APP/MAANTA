@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** The old /deals list is superseded by the home feed. */
+/** Wireframe My deals — canonical route is /my-deals. */
 export default function DealsIndex() {
-  redirect("/feed");
+  redirect("/my-deals");
 }

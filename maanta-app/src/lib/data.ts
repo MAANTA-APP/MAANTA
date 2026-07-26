@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   isMissingLatLngColumnError,
@@ -224,7 +225,7 @@ export async function getFavouriteMerchantIds(
 }
 
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
-export async function getLiveDeals(node: string): Promise<{
+async function getLiveDealsUncached(node: string): Promise<{
   flash: DealRow[];
   boosted: DealRow[];
   nearMe: DealRow[];
@@ -257,6 +258,20 @@ export async function getLiveDeals(node: string): Promise<{
         (verifiedByMerchant.get(a.merchant_id) ?? 0)
     );
   return { flash, boosted, nearMe, verifiedByMerchant };
+}
+
+/** Short-lived cache for hot Feed/Browse reads (30s per node). */
+export async function getLiveDeals(node: string): Promise<{
+  flash: DealRow[];
+  boosted: DealRow[];
+  nearMe: DealRow[];
+  verifiedByMerchant: Map<string, number>;
+}> {
+  return unstable_cache(
+    () => getLiveDealsUncached(node),
+    ["live-deals", node],
+    { revalidate: 30, tags: [`live-deals-${node}`] }
+  )();
 }
 
 /** Verified (status=success) redemption counts per merchant. */

@@ -151,11 +151,11 @@ export function SegmentedLinks({
   );
 }
 
-/** Back to Profile / You — chevron + label. */
-export function BackToProfileLink({ className }: { className?: string }) {
+/** Back to You — chevron + label (wireframe canonical route). */
+export function BackToYouLink({ className }: { className?: string }) {
   return (
     <Link
-      href="/profile"
+      href="/you"
       className={cn(
         "inline-flex items-center gap-2 text-sm font-semibold text-ink transition hover:text-muted",
         className
@@ -171,6 +171,9 @@ export function BackToProfileLink({ className }: { className?: string }) {
     </Link>
   );
 }
+
+/** @deprecated Use BackToYouLink — kept for gradual migration. */
+export const BackToProfileLink = BackToYouLink;
 
 /** Current location pill — Discover / Browse top bar. */
 export function LocationPill({
