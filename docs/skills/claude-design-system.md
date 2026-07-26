@@ -27,10 +27,10 @@ amber CTA + black label, closed vocabulary).
 
 ## Surfaces updated
 
-- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`.
+- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`. Heart → saved shops (`/my-deals?tab=shops`).
 - `/map` — full-screen map between Browse and Deals in bottom nav (raised globe icon).
-- `/browse` — **list first** (“Deals around you” + search + FilterChips), map
-  below with recenter; filters affect list + pins. Map links → `/map`.
+- `/browse` — **list first** (“Deals around you” + search + sort/filter dropdowns + time FilterChips), map
+  below with recenter; filters affect list + pins. Map links → `/map`. Header heart → saved shops.
 - ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
@@ -40,7 +40,7 @@ amber CTA + black label, closed vocabulary).
 - `/you/notifications` — three notification toggles + Back → `/you`.
   `/notifications/preferences` redirects here; bell icon opens activity list at `/notifications`.
 - `/you/help` — FAQ + WhatsApp CTA (re-exports `/help`).
-- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past) + sort dropdown. `/deals` redirects here.
+- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past) + sort dropdown; Active/Past segments match dropdown height. `/deals` redirects here.
 
 ## Expiry display
 
