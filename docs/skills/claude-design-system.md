@@ -34,7 +34,11 @@ amber CTA + black label, closed vocabulary).
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
 - `/profile` — Edit profile, Language (English / Kiswahili coming soon),
-  favourites, mall, settings; Help + Notifications have Back → Profile.
+  favourites, mall, settings (Notifications · Help & support · Sign out).
+  Notification preference toggles live only on `/notifications` (not a second
+  Settings row). Help + Notifications have Back → Profile.
+- `/feed` top bar — LocationPill (primary) + larger Map (`text-sm`) + bell
+  (`h-6` icon / `h-11` hit target); still visually secondary to the pill.
 - `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past).
 
 - Public landing — hero “Claim in‑mall deals before you pay.” + story sections + early-access → waitlist.

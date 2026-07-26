@@ -121,7 +121,6 @@ export default async function ProfilePage() {
       <Section title="Settings">
         <div className="space-y-3">
           <SettingsRow href="/notifications" label="Notifications" />
-          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
           <SettingsRow href="/help" label="Help & support" />
         </div>
       </Section>

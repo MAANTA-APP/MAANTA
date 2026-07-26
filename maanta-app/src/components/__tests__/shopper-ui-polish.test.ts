@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -23,6 +25,8 @@ import {
 } from "@/components/ui/claude";
 import { LanguageCard, ProfileCard } from "@/app/(shopper)/profile/profile-card";
 import { BrowseClient } from "@/components/browse/browse-client";
+import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
+import { NotificationPreferencesPanel } from "@/components/notifications/notification-preferences-panel";
 import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
@@ -70,6 +74,42 @@ describe("Shopper UI polish", () => {
     expect(html).toContain("Kiswahili");
     expect(html).toContain("Coming soon");
     expect(html).toContain("Active");
+  });
+
+  it("Profile Settings omits Notification preferences row", () => {
+    const src = readFileSync(
+      path.join(__dirname, "../../app/(shopper)/profile/page.tsx"),
+      "utf8"
+    );
+    expect(src).toContain('label="Notifications"');
+    expect(src).toContain('label="Help & support"');
+    expect(src).not.toContain("Notification preferences");
+    expect(src).not.toContain("/notifications/preferences");
+  });
+
+  it("ShopperTopBar Map and bell use larger type/hit targets", () => {
+    const html = renderToStaticMarkup(
+      createElement(ShopperTopBar, { node: "BBS Mall" })
+    );
+    expect(html).toContain("BBS Mall, Eastleigh");
+    expect(html).toContain("Current location");
+    expect(html).toContain(">Map</a>");
+    expect(html).toContain('href="/browse"');
+    expect(html).toContain('aria-label="Browse map"');
+    expect(html).toContain("text-sm font-semibold");
+    expect(html).toContain('aria-label="Notifications"');
+    expect(html).toContain("h-11 w-11");
+    expect(html).toContain("h-6 w-6");
+  });
+
+  it("NotificationPreferencesPanel exposes the three toggles", () => {
+    const html = renderToStaticMarkup(
+      createElement(NotificationPreferencesPanel)
+    );
+    expect(html).toContain("Flash deals near me");
+    expect(html).toContain("New deals from saved shops");
+    expect(html).toContain("Code expiry reminders");
+    expect(html).toContain('role="switch"');
   });
 
   it("BrowseClient lists deals above the map", () => {

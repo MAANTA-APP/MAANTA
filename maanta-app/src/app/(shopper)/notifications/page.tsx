@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
-import { NotificationRow, SettingsRow } from "@/components/ui/cards";
+import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
+import { NotificationPreferencesPanel } from "@/components/notifications/notification-preferences-panel";
 import {
   BackToProfileLink,
   Body,
@@ -16,8 +17,7 @@ export const dynamic = "force-dynamic";
 type Item = { title: string; body: string; at: string; unread: boolean };
 
 /**
- * 8o Notifications list — derived from the shopper's own activity
- * (no notifications table exists yet; push delivery is separate).
+ * Notifications — activity feed + preference toggles (single place for prefs).
  */
 export default async function NotificationsPage() {
   const user = await getAppUser();
@@ -115,9 +115,10 @@ export default async function NotificationsPage() {
             ))}
           </div>
         )}
-        <div className="mt-6">
-          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
-        </div>
+      </Section>
+
+      <Section title="Preferences" className="mt-8">
+        <NotificationPreferencesPanel />
       </Section>
     </Page>
   );
