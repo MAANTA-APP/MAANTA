@@ -15,14 +15,26 @@ import {
 } from "@/components/ui/claude";
 import { Skeleton } from "@/components/ui/states";
 
-const CLERK_CARD_APPEARANCE = {
+/**
+ * One Claude card wraps the form. Clerk Core 2 also paints `cardBox` + `card`
+ * (+ footer chrome) — neutralize those so we don't get stacked boxes.
+ */
+const CLERK_EMBEDDED_APPEARANCE = {
   elements: {
     rootBox: "w-full",
-    card: "shadow-none border-0 bg-transparent",
+    cardBox:
+      "!w-full !max-w-none !shadow-none !border-0 !bg-transparent !rounded-none",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none !p-0",
+    footer: "!bg-transparent !shadow-none !border-0 !rounded-none",
+    footerAction: "!bg-transparent",
     headerTitle: "hidden",
     headerSubtitle: "hidden",
   },
 } as const;
+
+/** Single visible card silhouette shared by loading / failed / loaded. */
+const AUTH_CARD =
+  "w-full max-w-md rounded-card border border-line bg-white p-5 shadow-card sm:p-6";
 
 function hasPublishableKey(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim());
@@ -30,11 +42,7 @@ function hasPublishableKey(): boolean {
 
 function AuthLoading() {
   return (
-    <div
-      className="w-full max-w-md space-y-4 rounded-card border border-line bg-white p-6 shadow-card"
-      aria-busy="true"
-      aria-label="Loading sign-in"
-    >
+    <div className={`${AUTH_CARD} space-y-4`} aria-busy="true" aria-label="Loading sign-in">
       <Skeleton className="mx-auto h-8 w-48" />
       <Skeleton className="h-10 w-full rounded-full" />
       <Skeleton className="h-10 w-full rounded-full" />
@@ -46,7 +54,7 @@ function AuthLoading() {
 function AuthFailed({ mode }: { mode: "sign-in" | "sign-up" }) {
   const missingKey = !hasPublishableKey();
   return (
-    <div className="w-full max-w-md rounded-card border border-line bg-white p-6 text-center shadow-card">
+    <div className={`${AUTH_CARD} text-center`}>
       <HeadingLg as="h1" className="text-[1.35rem]">
         {mode === "sign-up" ? "Couldn’t load sign-up" : "Couldn’t load sign-in"}
       </HeadingLg>
@@ -89,20 +97,21 @@ export function ClerkAuthShell({ mode }: { mode: "sign-in" | "sign-up" }) {
         <AuthFailed mode={mode} />
       </ClerkFailed>
       <ClerkLoaded>
-        <div className="rounded-card border border-line bg-white p-4 shadow-card sm:p-5">
+        {/* Layout frame heading above; this is the only card chrome. */}
+        <div className={AUTH_CARD} data-testid="auth-card">
           {mode === "sign-up" ? (
             <SignUp
               routing="path"
               path="/sign-up"
               signInUrl="/login"
-              appearance={CLERK_CARD_APPEARANCE}
+              appearance={CLERK_EMBEDDED_APPEARANCE}
             />
           ) : (
             <SignIn
               routing="path"
               path="/login"
               signUpUrl="/sign-up"
-              appearance={CLERK_CARD_APPEARANCE}
+              appearance={CLERK_EMBEDDED_APPEARANCE}
             />
           )}
         </div>

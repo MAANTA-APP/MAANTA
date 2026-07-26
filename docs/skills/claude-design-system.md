@@ -29,7 +29,9 @@ amber CTA + black label, closed vocabulary).
 
 - `/feed` — LocationPill, rails: Top picks / Local heroes / Deals near me / Your favourites.
 - `/browse` — rounded map, search + FilterChips, recenter, “Deals around you” list via `DealCard`.
-- ClerkAuthShell + login/sign-up — centered card, Sign in / Sign up headings.
+- ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
+  Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
+  second box inside the shell.
 - `/profile` — favourites summary, mall card, settings sections.
 - Public landing — hero “Claim in‑mall deals before you pay.” + story sections + early-access → waitlist.
 
