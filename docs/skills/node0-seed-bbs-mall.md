@@ -62,3 +62,34 @@ Then open `https://www.maanta.app/feed` and `/browse` with location **BBS Mall**
 Cloud agents without `DATABASE_URL` / unauthenticated Supabase MCP **cannot**
 run this seed. Paste the connection string when prompted; do not paste it into chat
 logs permanently.
+
+## Validation record (2026-07-26)
+
+The seed was replayed end-to-end against an ephemeral local Postgres 16 using the
+**verbatim** table + trigger definitions from the real migrations
+(`merchants`, `deals`, `tier_flags`, `users`, plus `set_deal_expiry`,
+`enforce_deal_limit`, `enforce_zero_balance_gate`, and the later
+`price_kes`/`compare_at_kes`/`charges`/`is_paused`/`lat`/`lng`/`outstanding_arrears`
+column adds). Results:
+
+| Check | Result |
+|---|---|
+| Merchants inserted | **60** (40 Elite + 20 Standard) |
+| Deals inserted | **100** — 15 flash · 20 boosted · 65 standard |
+| Trigger violations (`tier_flags` rows) | **0** — distribution honours Elite ≤2 / Standard ≤1 / flash Elite-only |
+| Zero-balance gate | passes — seeded balances 1 500 (Elite) / 400 (Standard) |
+| Idempotency (2nd run) | `INSERT 0 0` on users, merchants, deals; counts unchanged at 60 / 100 |
+| Live universe (`is_active ∧ expires_at>now() ∧ node='BBS Mall' ∧ public merchant`) | **100** deals qualify |
+| `getLiveDeals` (feed cap 60) grouping | 15 flash + 20 boosted + 25 near-me = 60 — all three rails populated |
+| GPS coverage / bounding box | 60 merchants; lat ∈ [−1.27550, −1.27388], lng ∈ [36.84944, 36.85076] — tight cluster on BBS Mall, Eastleigh |
+| Expiry windows | flash ≈ 5 h left · standard ≈ 21 h left (all live now, Nairobi) |
+| YOU PAY sanity | 0 deals with `price_kes >= compare_at_kes` |
+
+The live-deal contract mirrored from `src/lib/data.ts` (`getLiveDeals` +
+`withPublicMerchant`) is: `deals.is_active = true`, `deals.expires_at > now()`,
+`deals.node = 'BBS Mall'`, and merchant `status = 'active' AND is_visible AND NOT
+is_shadow_banned`. The seed satisfies all of these on both first run and re-run.
+
+> Note: the shopper feed itself caps at 60 deals (`.limit(60)`, `created_at DESC`),
+> so ~60 of the 100 render at once — by design. Browse and Discover draw from the
+> same live set; all 100 remain claimable.

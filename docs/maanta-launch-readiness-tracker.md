@@ -1,10 +1,43 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-24 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-26 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
 
+> **2026-07-26 shopper-experience batch (merged to `main`, PRs #85–#93):** a
+> run of Cursor-authored work landed on `main` after the 07-24 audit. All of it
+> is **repo-only** — the prod gates below are unchanged and still human-owned.
+> - **#85 Discover / Browse / GPS** — TGTG-style rails on `/feed`, a Leaflet
+>   (OSM, no Mapbox key) map+list on `/browse`, and merchant `lat`/`lng`
+>   alongside `what3words_address`. Migration `20260726120000_merchant_lat_lng`;
+>   new deploy prereq **`W3W_API_KEY`** (server-only). Docs:
+>   `docs/skills/discover-browse-w3w.md`.
+> - **#87 Claude-inspired shopper design system** — `src/components/ui/claude/`
+>   (layout / typography / controls / deal-card), DM Sans via `next/font`, calm
+>   high-contrast UI. Frozen hard rules preserved (YOU PAY in ink, amber CTA +
+>   black label, closed vocabulary; money never `text-brand`). Docs:
+>   `docs/skills/claude-design-system.md`.
+> - **#88 Node 0 100-deal seed** — idempotent
+>   `supabase/seed/node0_100_deals_seed.sql` + `scripts/apply-100-deals-seed.sh`
+>   (60 merchants · 100 deals: 15 flash / 20 boosted / 65 standard). **Validated
+>   end-to-end 2026-07-26** against a local Postgres replay of the real
+>   tables+triggers — see `docs/skills/node0-seed-bbs-mall.md` "Validation
+>   record". Still owed: run it against prod (`DATABASE_URL`).
+> - **#90 / #91 auth + deals hardening** — hardened prod deals fetch and
+>   Clerk/Supabase failure diagnostics; fixed the Clerk auth double-card by
+>   neutralizing nested `cardBox` chrome.
+> - **#92 tooling** — Supabase MCP pinned to prod; agent skills installed
+>   (`.agents/skills/supabase-postgres-best-practices`, `.cursor/mcp.json`).
+> - **#93 shopper UI polish + language** — Profile, My deals, Browse list-first;
+>   English live / Kiswahili "coming soon". Migration
+>   `20260726180000_user_preferred_language` (`users.preferred_language`, en|sw).
+>
+> Backend is now **66 migrations** (latest two are the 07-26 pair above).
+> New prod-apply items from this batch: apply both 07-26 migrations to
+> `axrrslqssmbngbataejg`, set `W3W_API_KEY` in Vercel, run the 100-deal seed,
+> and admin-set merchant GPS so Browse pins/distances render.
+>
 > **2026-07-24 repo audit:** full repo-vs-prod readiness audit in
 > `docs/skills/launch-audit-2026-07-24.md`. Repo is green (128 vitest + 15 SQL
 > suites; typecheck + lint clean). All prod-apply steps (migrations →
