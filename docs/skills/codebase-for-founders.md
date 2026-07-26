@@ -362,3 +362,65 @@ perfect tomorrow. Source of truth for status: `maanta-launch-readiness-tracker.m
 
 Code can be “ready in repo” and the company still not launchable. The list
 above is what turns a working app into a working mall business.
+
+## How to use platforms to polish UI (without breaking the freeze)
+
+MAANTA already has a **Frozen UI**: tokens, vocabulary, and money rules are
+locked. Polish means **quiet precision inside those rules**, not a new brand
+every week. Use platforms for different jobs in a pipeline — do not ask every
+tool to invent the product.
+
+### The recommended pipeline
+
+```text
+1. Decide intent     → Notion / founder note (what screen, what feeling)
+2. Explore look      → Figma or Claude Design (mock only)
+3. Lock the brief    → annotated wireframe + frozen-rule checklist
+4. Implement         → Cursor / Claude Code against real routes
+5. Review on device  → Vercel preview + two real phones at BBS
+6. Record decision   → decisions log only if a frozen rule changes
+```
+
+### Platform roles (what each is good for)
+
+| Platform | Use it for | Do not use it for |
+|---|---|---|
+| **Notion** | Design intent, screenshots of “done”, handoff notes | Pixel implementation |
+| **Figma** | Layout exploration, spacing, component variants, founder review frames | Shipping code; inventing new fee/price copy |
+| **Claude Design** | Organizing wireframes + emitting an implement prompt (you already have a template in `design-then-implement-prompt-2026-07-24.md`) | Directly editing production money paths |
+| **Repo HTML wireframes** (`maanta-app/design/`) | Ground truth for claim/till flows | Long-term design system (prefer Figma + tokens) |
+| **Cursor / Claude Code** | Implementing polish in real routes/components under Frozen tokens | Open-ended “redesign the app” without a screen list |
+| **Vercel preview URLs** | Shareable review of a PR before merge | Final mall QA (use real phones) |
+| **Real iOS + Android phones** | Till friction, OTP, thumb reach, outdoor brightness | Judging type scale on a laptop alone |
+| **Lovable / similar builders** | Disposable concept spikes only | Anything that touches wallet, OTP, or YOU PAY — verify before trust |
+
+### Best practice for a solo founder
+
+1. **One surface per polish pass** — e.g. shopper `/feed` only, or merchant redeem only. Mixed passes create thrash.
+2. **Money moments first** — deal tile YOU PAY, claim button, OTP ticket, merchant keypad, success “collect from shopper”. These must stay correct; visual polish is secondary.
+3. **Brief before generate** — paste frozen invariants into Figma/Claude Design every time: shoppers never pay in-app; amber CTA + black label; ≤1 amber action/screen; warning = rust not red; closed vocabulary.
+4. **Design → implement handoff** — have Claude Design (or Figma notes) output a single Cursor prompt with **exact routes** (`/feed`, `/deals/[id]`, `/merchant/redeem`, etc.). Your `design-then-implement-prompt` skill already corrects wrong paths.
+5. **Review on preview + phone** — merge only after you tap the flow on a real device; laptop Chrome lies about till UX.
+6. **Freeze changes are decisions** — if polish wants a new color rule or fee label, write a decisions-log entry first; otherwise stay inside `frozen-ui-overall-handoff.md` + `claude-design-system.md`.
+
+### Practical weekly rhythm
+
+| Day | Activity |
+|---|---|
+| Mon | Pick 1–2 screens from the walkthrough / launch QA gaps |
+| Tue | Figma or Claude Design exploration (30–90 min), export annotated frames |
+| Wed | Cursor implement PR; Vercel preview |
+| Thu | Founder phone review + note “keep / change / reject” |
+| Fri | Merge or iterate; update Notion screenshot of approved state |
+
+### What “polished” means for MAANTA
+
+Not more gradients, cards, or badges. For this product, polish is:
+
+- Correct YOU PAY every place it appears  
+- One clear action per screen  
+- OTP readable in bright mall light  
+- Merchant keypad fast with thumbs  
+- States (expired / already redeemed / arrears) readable without color alone  
+
+If a platform output fights those, discard the output — not the freeze.
