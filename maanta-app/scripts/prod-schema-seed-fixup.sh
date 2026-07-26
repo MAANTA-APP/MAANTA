@@ -27,8 +27,8 @@ if [[ ! "$DATABASE_URL" =~ ^postgresql:// ]]; then
   fail "DATABASE_URL must be a PostgreSQL URI. Use the Supabase Database connection string, not an HTTP app URL."
 fi
 
-if [[ "$DATABASE_URL" != *"db."*".supabase.co"* ]]; then
-  fail "DATABASE_URL host does not look like a Supabase Postgres host."
+if [[ "$DATABASE_URL" != *"db."*".supabase.co"* && "$DATABASE_URL" != *".pooler.supabase.com"* ]]; then
+  fail "DATABASE_URL host does not look like a Supabase Postgres host (direct db.*.supabase.co or *.pooler.supabase.com)."
 fi
 
 command -v psql >/dev/null 2>&1 || fail "psql not found — install PostgreSQL client tools."
