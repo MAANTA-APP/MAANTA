@@ -75,7 +75,7 @@ WHERE table_schema = 'public' AND table_name = 'merchants'
 
 ```bash
 cd maanta-app
-export DATABASE_URL='postgresql://…?sslmode=require'  # Primary DB connection string
+export DATABASE_URL='postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
 ./scripts/apply-100-deals-seed.sh
 ```
 

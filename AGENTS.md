@@ -66,3 +66,8 @@ for it to work (already configured in the image).
   directly against the running DB via the `claim_deal(user_id, deal_id)` and
   `verify_redemption(merchant_id, otp)` RPCs under a `service_role` JWT claim —
   see `supabase/tests/golden_path_test.sql` for the exact call pattern.
+- **Production ops `DATABASE_URL`:** cloud agents lack IPv6, so use the session
+  pooler URI (`aws-0-eu-west-1.pooler.supabase.com`, user
+  `postgres.axrrslqssmbngbataejg`) — not the direct `db.*.supabase.co` host and
+  not bare user `postgres`. See `docs/skills/node0-seed-bbs-mall.md`. Do not wrap
+  the URI in surrounding quotes when setting Cloud Agent secrets.

@@ -18,27 +18,53 @@ Idempotent: re-run refreshes expiry windows + GPS; does not duplicate fixed UUID
 ## Prerequisites
 
 1. Migrations applied, especially `20260726120000_merchant_lat_lng`.
-2. Production `DATABASE_URL` (Supabase → Database → Connection string URI, `sslmode=require`).
+2. Production `DATABASE_URL` — see **Connection string** below.
+
+## Production `DATABASE_URL` (canonical)
+
+Use the **Session pooler** URI (IPv4). Required for cloud agents and any client
+without IPv6. Get the password from Supabase → Project settings → Database.
+
+```text
+postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+| Part | Value |
+|---|---|
+| User | `postgres.axrrslqssmbngbataejg` (project ref suffix — **not** bare `postgres`) |
+| Host | `aws-0-eu-west-1.pooler.supabase.com` (session pooler, port `5432`) |
+| Database | `postgres` |
+| Query | `sslmode=require` |
+
+**Wrong on the pooler** (causes `password authentication failed for user "postgres"`):
+
+```text
+postgresql://postgres:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+**Direct host** (`db.axrrslqssmbngbataejg.supabase.co`) is IPv6-only. Use only from
+machines with IPv6 (e.g. local laptop with full network). Prefer the pooler URI above.
+
+`DATABASE_URL` is **not** an HTTP app URL or the Supabase REST URL. Do not wrap
+the URI in surrounding quotes when setting secrets.
 
 ## Apply (operator or agent with `DATABASE_URL`)
-
-`DATABASE_URL` must be the **Postgres** URI from Supabase → Database → Connection string
-(host `db.<project-ref>.supabase.co`, user `postgres`, `sslmode=require`).
-It is **not** an HTTP app URL or the Supabase REST URL.
 
 One-shot (migrations + seed + verify):
 
 ```bash
 cd maanta-app
-export DATABASE_URL='postgresql://…?sslmode=require'
+export DATABASE_URL='postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
 ./scripts/prod-schema-seed-fixup.sh
 ```
+
+Or from repo root: `make db-prod-fixup`
 
 Or seed only:
 
 ```bash
 cd maanta-app
-export DATABASE_URL='postgresql://…?sslmode=require'
+export DATABASE_URL='postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
 ./scripts/apply-100-deals-seed.sh
 ```
 
@@ -60,5 +86,5 @@ Then open `https://www.maanta.app/feed` and `/browse` with location **BBS Mall**
 ## Agent note
 
 Cloud agents without `DATABASE_URL` / unauthenticated Supabase MCP **cannot**
-run this seed. Paste the connection string when prompted; do not paste it into chat
-logs permanently.
+run this seed. Set `DATABASE_URL` in the Cloud Agent environment (pooler URI
+above, no surrounding quotes). Do not paste passwords into chat logs.

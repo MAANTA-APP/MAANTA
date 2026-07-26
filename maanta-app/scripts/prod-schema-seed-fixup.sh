@@ -3,6 +3,10 @@
 # Requires a Postgres URI in DATABASE_URL (see docs/skills/node0-seed-bbs-mall.md).
 # Password must be percent-encoded if it contains special characters.
 #
+# Canonical production URI (session pooler, IPv4):
+#   postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+# Do NOT use bare user "postgres" on *.pooler.supabase.com — auth will fail.
+#
 # Usage (from maanta-app/):
 #   export DATABASE_URL='<postgres-uri-from-supabase-dashboard>'
 #   ./scripts/prod-schema-seed-fixup.sh
@@ -29,6 +33,13 @@ fi
 
 if [[ "$DATABASE_URL" != *"db."*".supabase.co"* && "$DATABASE_URL" != *".pooler.supabase.com"* ]]; then
   fail "DATABASE_URL host does not look like a Supabase Postgres host (direct db.*.supabase.co or *.pooler.supabase.com)."
+fi
+
+if [[ "$DATABASE_URL" == *".pooler.supabase.com"* ]]; then
+  pooler_user="$(python3 -c "import os,urllib.parse; print(urllib.parse.urlparse(os.environ['DATABASE_URL']).username or '')")"
+  if [[ "$pooler_user" == "postgres" ]]; then
+    fail "Pooler URLs require user postgres.axrrslqssmbngbataejg, not bare postgres (see docs/skills/node0-seed-bbs-mall.md)."
+  fi
 fi
 
 command -v psql >/dev/null 2>&1 || fail "psql not found — install PostgreSQL client tools."

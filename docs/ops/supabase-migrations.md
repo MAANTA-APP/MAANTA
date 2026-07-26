@@ -15,6 +15,28 @@ commands + verifications to run yourself.
 `NEXT_PUBLIC_SUPABASE_URL` for the Production environment and check it contains
 `axrrslqssmbngbataejg`. If it doesn't, stop and reconcile first.
 
+## Production `DATABASE_URL` (ops scripts only)
+
+The Next.js app does **not** read `DATABASE_URL` at runtime — it uses
+`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. `DATABASE_URL` is for
+operator tooling (`psql`, `supabase db push --db-url`, seed scripts).
+
+**Canonical format** (session pooler, IPv4 — required for cloud agents):
+
+```text
+postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+| Part | Value |
+|---|---|
+| User | `postgres.axrrslqssmbngbataejg` — **not** bare `postgres` on the pooler |
+| Host | `aws-0-eu-west-1.pooler.supabase.com:5432` |
+| Direct host | `db.axrrslqssmbngbataejg.supabase.co` is IPv6-only; avoid unless your client has IPv6 |
+
+Set in: Cursor Cloud Agent secrets, Vercel (if any serverless job uses it),
+and local shell when running ops scripts against prod. See
+`docs/skills/node0-seed-bbs-mall.md` for the full checklist.
+
 ## 1. Link
 
 Run from `maanta-app/` (where `supabase/` lives):
@@ -148,7 +170,7 @@ mutation — low-traffic window):
 
 ```bash
 cd maanta-app
-export DATABASE_URL="postgresql://..."   # prod connection string
+export DATABASE_URL='postgresql://postgres.axrrslqssmbngbataejg:<password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
 for f in security_hardening_test capture_lead_test \
          revoke_authenticated_writes_core_tables_test browse_views_test \
          admin_ops_log_test; do
@@ -187,6 +209,7 @@ echo/run the CLI above — **review before running against prod**:
 | `make db-list` | `supabase migration list` | read-only |
 | `make db-push-dry` | `supabase db push --dry-run` | read-only (preview) |
 | `make db-push` | `supabase db push` (prompts) | **MUTATING — applies migrations to prod** |
+| `make db-prod-fixup` | migrations + 100-deal seed + verify (needs `DATABASE_URL`) | **MUTATING — see pooler URI above** |
 | `make db-verify` | boots a **throwaway local** Supabase, applies all migrations, runs `supabase/tests/*.sql`, stops it | **LOCAL/dev ONLY — never touches prod** |
 
 > **`make db-verify` is not a production verification.** It reproduces the CI

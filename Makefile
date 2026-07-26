@@ -38,7 +38,8 @@ db-push-dry:
 db-push:
 	cd $(APP_DIR) && supabase db push
 
-# Requires DATABASE_URL = Postgres URI for axrrslqssmbngbataejg (see docs/skills/node0-seed-bbs-mall.md).
+# Requires DATABASE_URL = session pooler Postgres URI for axrrslqssmbngbataejg
+# (see docs/skills/node0-seed-bbs-mall.md — user postgres.axrrslqssmbngbataejg, not bare postgres).
 db-prod-fixup:
 	cd $(APP_DIR) && ./scripts/prod-schema-seed-fixup.sh
 

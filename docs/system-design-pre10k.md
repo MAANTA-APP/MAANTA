@@ -64,7 +64,7 @@ Last updated: 2026-07-26 · Status: **repo implementation complete**; prod apply
 ## Pre-10k checklist (human-owned)
 
 1. Apply migrations to hosted Supabase (`make db-push`).
-2. Run 100-deal seed: `export DATABASE_URL=… && ./scripts/apply-100-deals-seed.sh`.
+2. Run 100-deal seed: set `DATABASE_URL` to the session pooler URI (see `docs/skills/node0-seed-bbs-mall.md`) and run `./scripts/apply-100-deals-seed.sh` or `make db-prod-fixup`.
 3. Wire Vercel env (Clerk, Supabase, Sentry, PostHog, Resend).
 4. Real-device golden path at BBS Mall (2 phones).
 5. IntaSend M-Pesa go-live when available.
