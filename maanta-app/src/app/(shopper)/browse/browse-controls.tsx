@@ -9,8 +9,8 @@ import {
   type DealListSort,
 } from "@/lib/deal-list-controls";
 
-/** Feed sort + filter dropdowns (URL-driven). */
-export function FeedControls() {
+/** Browse sort + filter dropdowns (URL-driven, same keys as /feed). */
+export function BrowseControls() {
   const router = useRouter();
   const params = useSearchParams();
   const sort = (params.get("sort") as DealListSort) ?? "nearest";
@@ -24,11 +24,11 @@ export function FeedControls() {
       next.set(key, value);
     }
     const q = next.toString();
-    router.replace(q ? `/feed?${q}` : "/feed");
+    router.replace(q ? `/browse?${q}` : "/browse");
   }
 
   return (
-    <div className="flex gap-2 px-4 pb-3">
+    <div className="flex gap-2">
       <FilterDropdown
         label="Sort by"
         value={sort}

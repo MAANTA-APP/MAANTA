@@ -264,15 +264,19 @@ export function SegmentedLinks({
   tabs,
   active,
   className,
+  size = "md",
 }: {
   tabs: { href: string; label: string; value: string }[];
   active: string;
   className?: string;
+  /** md matches FilterDropdown height (h-9). */
+  size?: "md" | "sm";
 }) {
   return (
     <div
       className={cn(
-        "flex h-8 overflow-hidden rounded-full border border-line bg-stone-soft p-0.5",
+        "flex overflow-hidden rounded-full border border-line bg-white p-0.5 shadow-card",
+        size === "md" ? "h-9" : "h-8",
         className
       )}
       role="tablist"

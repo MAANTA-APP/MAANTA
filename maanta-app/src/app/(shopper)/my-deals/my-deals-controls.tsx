@@ -10,7 +10,13 @@ const SORT_OPTIONS = [
 ];
 
 /** My deals sort dropdown (Active/Past stays segmented). */
-export function MyDealsControls({ when }: { when: "active" | "past" }) {
+export function MyDealsControls({
+  when,
+  className,
+}: {
+  when: "active" | "past";
+  className?: string;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const sort = params.get("sort") ?? "newest";
@@ -33,7 +39,7 @@ export function MyDealsControls({ when }: { when: "active" | "past" }) {
       value={sort}
       options={SORT_OPTIONS}
       onChange={updateSort}
-      className="max-w-[11rem]"
+      className={className}
     />
   );
 }

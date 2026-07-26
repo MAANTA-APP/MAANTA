@@ -14,13 +14,16 @@ import { dealPricing } from "@/lib/pricing";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
-import { dealExpiryLabel, dealRail } from "@/lib/browse";
+import { dealExpiryLabel } from "@/lib/browse";
+import {
+  filterDealRowsByRail,
+  sortDealRows,
+  type DealListFilter,
+  type DealListSort,
+} from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 
 export const dynamic = "force-dynamic";
-
-type FeedSort = "nearest" | "newest" | "ending";
-type FeedFilter = "all" | "flash" | "boosted" | "standard";
 
 function distanceForDeal(
   d: DealRow,
@@ -31,45 +34,6 @@ function distanceForDeal(
   const lng = d.merchants?.lng;
   if (typeof lat !== "number" || typeof lng !== "number") return null;
   return formatDistanceMeters(distanceMeters(origin, { lat, lng }));
-}
-
-function distanceValue(
-  d: DealRow,
-  origin: { lat: number; lng: number } | null
-): number {
-  if (!origin) return Infinity;
-  const lat = d.merchants?.lat;
-  const lng = d.merchants?.lng;
-  if (typeof lat !== "number" || typeof lng !== "number") return Infinity;
-  return distanceMeters(origin, { lat, lng });
-}
-
-function sortDeals(
-  deals: DealRow[],
-  sort: FeedSort,
-  origin: { lat: number; lng: number } | null
-): DealRow[] {
-  const copy = [...deals];
-  if (sort === "newest") {
-    return copy.sort(
-      (a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
-    );
-  }
-  if (sort === "ending") {
-    return copy.sort((a, b) => {
-      const ae = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
-      const be = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
-      return ae - be;
-    });
-  }
-  return copy.sort(
-    (a, b) => distanceValue(a, origin) - distanceValue(b, origin)
-  );
-}
-
-function filterDeals(deals: DealRow[], filter: FeedFilter): DealRow[] {
-  if (filter === "all") return deals;
-  return deals.filter((d) => dealRail(d) === filter);
 }
 
 function cardProps(
@@ -106,17 +70,17 @@ export default async function FeedPage({
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
-  const sort = (searchParams?.sort as FeedSort) ?? "nearest";
-  const filter = (searchParams?.filter as FeedFilter) ?? "all";
+  const sort = (searchParams?.sort as DealListSort) ?? "nearest";
+  const filter = (searchParams?.filter as DealListFilter) ?? "all";
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);
 
-  let flashDeals = sortDeals(flash, sort, origin);
-  let boostedDeals = sortDeals(boosted, sort, origin);
-  let nearDeals = sortDeals(nearMe, sort, origin);
+  let flashDeals = sortDealRows(flash, sort, origin);
+  let boostedDeals = sortDealRows(boosted, sort, origin);
+  let nearDeals = sortDealRows(nearMe, sort, origin);
 
   if (filter !== "all") {
     flashDeals = filter === "flash" ? flashDeals : [];
@@ -135,7 +99,7 @@ export default async function FeedPage({
   }
 
   const allDeals = [...flashDeals, ...boostedDeals, ...nearDeals];
-  const favouriteDeals = filterDeals(
+  const favouriteDeals = filterDealRowsByRail(
     allDeals.filter((d) => favourites.has(d.merchant_id)),
     filter
   );

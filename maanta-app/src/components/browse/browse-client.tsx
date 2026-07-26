@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -14,16 +14,22 @@ import { EmptyState } from "@/components/ui/states";
 import {
   dealsToPins,
   filterBrowseDeals,
-  type BrowseRailFilter,
   type BrowseTimeFilter,
   type MapBounds,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { dealExpiryLabel } from "@/lib/browse";
+import {
+  filterDealRowsByRail,
+  sortDealRows,
+  type DealListFilter,
+  type DealListSort,
+} from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 import { IconPin, IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
+import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
 
 const BrowseMap = dynamic(
   () => import("./browse-map").then((m) => m.BrowseMap),
@@ -36,13 +42,6 @@ const BrowseMap = dynamic(
     ),
   }
 );
-
-const RAIL_FILTERS: { id: BrowseRailFilter; label: string }[] = [
-  { id: "all", label: "Category" },
-  { id: "flash", label: "Flash" },
-  { id: "boosted", label: "Boosted" },
-  { id: "standard", label: "Standard" },
-];
 
 const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
   { id: "any", label: "Any time" },
@@ -57,6 +56,8 @@ export function BrowseClient({
   deals,
   origin,
   favourites,
+  sort,
+  filter,
   initialLat,
   initialLng,
   initialDealId,
@@ -65,12 +66,13 @@ export function BrowseClient({
   deals: BrowseDealPayload[];
   origin: { lat: number; lng: number };
   favourites: string[];
+  sort: DealListSort;
+  filter: DealListFilter;
   initialLat?: number | null;
   initialLng?: number | null;
   initialDealId?: string | null;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
-  const [rail, setRail] = useState<BrowseRailFilter>("all");
   const [time, setTime] = useState<BrowseTimeFilter>("any");
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const [query, setQuery] = useState("");
@@ -78,29 +80,37 @@ export function BrowseClient({
 
   const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
 
+  const applySearch = useCallback(
+    (rows: DealRow[]) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return rows;
+      return rows.filter(
+        (d) =>
+          d.title.toLowerCase().includes(q) ||
+          (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
+      );
+    },
+    [query]
+  );
+
   const filteredForPins = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time });
-    const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
-    );
-  }, [deals, rail, time, query]);
+    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
+      rail: "all",
+      time,
+    });
+    return sortDealRows(applySearch(base), sort, origin);
+  }, [deals, filter, time, sort, origin, applySearch]);
 
   const pins = useMemo(() => dealsToPins(filteredForPins), [filteredForPins]);
 
   const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time, bounds });
-    const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
-    );
-  }, [deals, rail, time, bounds, query]);
+    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
+      rail: "all",
+      time,
+      bounds,
+    });
+    return sortDealRows(applySearch(base), sort, origin);
+  }, [deals, filter, time, bounds, sort, origin, applySearch]);
 
   const focus: [number, number] | null =
     initialLat != null && initialLng != null
@@ -109,6 +119,9 @@ export function BrowseClient({
 
   const searchAndFilters = (
     <div className="space-y-2.5">
+      <Suspense fallback={null}>
+        <BrowseControls />
+      </Suspense>
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
@@ -128,17 +141,6 @@ export function BrowseClient({
         >
           <IconSearch className="h-4 w-4" />
         </Link>
-      </div>
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-        {RAIL_FILTERS.map((f) => (
-          <FilterChip
-            key={f.id}
-            active={rail === f.id}
-            onClick={() => setRail(f.id)}
-          >
-            {f.label}
-          </FilterChip>
-        ))}
       </div>
       <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
         {TIME_FILTERS.map((f) => (

@@ -42,7 +42,7 @@ describe("Shopper UI polish", () => {
         ],
       })
     );
-    expect(html).toContain("h-8");
+    expect(html).toContain("h-9");
     expect(html).toContain("Deals");
     expect(html).toContain("Shops");
     expect(html).toContain('aria-selected="true"');
@@ -111,13 +111,15 @@ describe("Shopper UI polish", () => {
         deals: [deal],
         origin: { lat: -1.2746, lng: 36.8501 },
         favourites: [],
+        sort: "nearest",
+        filter: "all",
       })
     );
 
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
-    expect(html).toContain("Flash");
     expect(html).toContain("Live now");
+    expect(html).not.toContain("Category");
     // List section markup appears before the map loading placeholder.
     const listIdx = html.indexOf("Deals around you");
     const mapIdx = html.indexOf("Loading map");

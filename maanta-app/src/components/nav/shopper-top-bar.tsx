@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconBell } from "@/components/ui/icons";
+import { IconBell, IconHeart } from "@/components/ui/icons";
 import { BottomSheet } from "@/components/ui/overlays";
 import { LiveChip, ComingSoonChip } from "@/components/ui/chips";
 import { LocationPill } from "@/components/ui/claude";
@@ -32,6 +32,13 @@ export function ShopperTopBar({ node }: { node: string }) {
             aria-label="Browse map"
           >
             Map
+          </Link>
+          <Link
+            href="/my-deals?tab=shops"
+            aria-label="Saved shops"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-white/70"
+          >
+            <IconHeart className="h-5 w-5" filled={false} />
           </Link>
           <Link
             href="/notifications"
