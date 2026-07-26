@@ -162,3 +162,70 @@ On quality specifically: **do not confuse green CI with launch.** Trust
 the money-path engineering; still insist on the human gates in
 `docs/maanta-launch-readiness-tracker.md` (device passes, prod env,
 M-Pesa, legal) before treating the product as live-ready.
+
+## Counterfactual: cost to reach this stage without AI
+
+**Context:** this repo’s first commit is **2026-07-04**; the “ready in
+repo” state described above was reached in roughly **three weeks** with
+heavy AI-assisted engineering (~200 commits, ~80 merged PRs). The
+question below asks: if coding AIs did not exist, what would a **solo
+founder** typically spend in **cash + labor** to reach a *comparable*
+stage (multi-role app, prepaid wallet, claim→verify→KES 30, security
+hardening, CI, ops docs) — still **not** including live mall ops, legal
+incorporation, or a finished marketing campaign.
+
+These are judgment ranges, not invoices. They assume 2025–2026 market
+rates and a founder who directs product but does not personally write
+all of the money-path code.
+
+### What “this stage” includes (work packages)
+
+| Package | Rough human effort without AI |
+|---|---|
+| Shopper + merchant + admin + agent surfaces on one Next.js app | 3–5 person-months |
+| Auth, roles, onboarding, Node 0 mall scoping | 0.5–1 person-month |
+| Wallet ledger, Stripe + M-Pesa webhooks, idempotency, arrears | 1.5–2.5 person-months (senior) |
+| Security / RLS / RPC lockdown + regression suites | 0.5–1.5 person-months (senior) |
+| Fraud (Guardian), disputes, fee reversal, admin audit log | 1–2 person-months |
+| Automated tests (app + SQL money path) + CI | 1–1.5 person-months (often underfunded) |
+| Design system / frozen UI implementation | 1–2 person-months (design + eng) |
+| Operating docs, decisions log, launch tracker discipline | 0.5–1 person-month |
+| **Total skilled labor** | **~9–16 person-months** |
+
+### Cash + calendar (solo founder, no AI)
+
+| Path | Calendar | Cash outlay (ex-founder living costs) | What you “pay” instead |
+|---|---|---|---|
+| **A. Technical co-founder** builds most of it | 8–14 months | $5–25k infra/tools/design freelancers | 20–40% equity |
+| **B. One strong full-stack hire/contractor** (Africa / regional remote) | 9–14 months | **$70–140k** salary/contract + $10–25k design/security spikes | Your full-time product ownership |
+| **C. One senior US/EU contractor** | 7–12 months | **$140–220k** | Faster senior judgment on money/security |
+| **D. Small agency / studio** for “MVP+” | 5–9 months | **$120–250k+** | Higher coordination tax; money-path quality varies widely |
+| **E. Founder learns to code + freelancers** | 18–30 months | **$40–90k** cash + large opportunity cost | Slowest; highest risk of unsafe money code |
+
+**Central estimate for a careful solo founder who wants this *quality of
+money spine* (not a fragile demo):** about **$100–180k cash** and
+**~10–14 months**, usually as one senior-capable engineer (or
+co-founder) plus occasional design/security help — or **equity** instead
+of most of the cash.
+
+Infra itself is cheap pre-launch (hosting, auth, DB, email: typically
+low hundreds of USD/month). The expensive part is **people who can be
+trusted near a ledger**.
+
+### What this estimate deliberately excludes
+
+- Lawyer-reviewed legal / Kenya DPA / incorporation  
+- IntaSend account access, live M-Pesa certification, Stripe live cutover  
+- Agency waitlist campaign creative and media  
+- Founder’s own time recruiting merchants at BBS Mall  
+- Post-launch support staffing  
+
+Those are company costs, not “build the repo” costs.
+
+### How to read the AI compression
+
+Without AI, reaching this repo stage is a **~year and a mid-six-figure
+(or equity-equivalent) bet**. With AI, the same *artifact density*
+appeared in weeks — but **prod gates, mall trust, and legal** still move
+at human speed. AI compressed engineering calendar; it did not delete
+the launch checklist.
