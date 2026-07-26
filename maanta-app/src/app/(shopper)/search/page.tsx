@@ -3,7 +3,7 @@ import {
   getSelectedNode,
   getVerifiedCounts,
   withPublicMerchant,
-  DEAL_SELECT,
+  selectDealsWithMerchants,
   type DealRow,
 } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
@@ -28,40 +28,39 @@ export default async function SearchPage({
 
   let results: DealRow[] = [];
   if (q || type !== "all") {
-    let query = withPublicMerchant(
-      service
-        .from("deals")
-        .select(
-          DEAL_SELECT
-        )
-        .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
-    ).limit(30);
-    if (node !== ALL_NODES) query = query.eq("node", node);
-    if (type === "flash") query = query.eq("deal_type", "flash");
-    if (type === "standard") query = query.eq("deal_type", "standard");
-    if (type === "boosted") query = query.eq("boost_active", true);
-    if (q) query = query.ilike("title", `%${q}%`);
-    const { data } = await query;
-    results = ((data ?? []) as unknown as DealRow[]).filter((d) => d.merchants);
+    results = await selectDealsWithMerchants(async (select) => {
+      let query = withPublicMerchant(
+        service
+          .from("deals")
+          .select(select)
+          .eq("is_active", true)
+          .gt("expires_at", new Date().toISOString())
+      ).limit(30);
+      if (node !== ALL_NODES) query = query.eq("node", node);
+      if (type === "flash") query = query.eq("deal_type", "flash");
+      if (type === "standard") query = query.eq("deal_type", "standard");
+      if (type === "boosted") query = query.eq("boost_active", true);
+      if (q) query = query.ilike("title", `%${q}%`);
+      return query;
+    });
 
     // Also match shop names when a text query is present.
     if (q) {
-      let shopQuery = withPublicMerchant(
-        service
-          .from("deals")
-          .select(
-            DEAL_SELECT
-          )
-          .eq("is_active", true)
-          .gt("expires_at", new Date().toISOString())
-      )
-        .ilike("merchants.merchant_name", `%${q}%`)
-        .limit(30);
-      if (node !== ALL_NODES) shopQuery = shopQuery.eq("node", node);
-      const { data: byShop } = await shopQuery;
+      const byShop = await selectDealsWithMerchants(async (select) => {
+        let shopQuery = withPublicMerchant(
+          service
+            .from("deals")
+            .select(select)
+            .eq("is_active", true)
+            .gt("expires_at", new Date().toISOString())
+        )
+          .ilike("merchants.merchant_name", `%${q}%`)
+          .limit(30);
+        if (node !== ALL_NODES) shopQuery = shopQuery.eq("node", node);
+        return shopQuery;
+      });
       const seen = new Set(results.map((d) => d.id));
-      for (const d of (byShop ?? []) as unknown as DealRow[]) {
+      for (const d of byShop) {
         if (!seen.has(d.id)) results.push(d);
       }
     }

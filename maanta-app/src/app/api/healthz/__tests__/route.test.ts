@@ -3,12 +3,21 @@ import { NextResponse } from "next/server";
 import { GET, POST } from "../route";
 
 // GET /api/healthz: public liveness is unauthenticated and dependency-free;
-// env-detail (booleans only) is gated behind the admin guard.
+// env-detail (booleans only) and supabase probe are gated behind the admin guard.
 
 const requireAdminApiMock = vi.fn();
 vi.mock("@/lib/admin", () => ({
   requireAdminApi: () => requireAdminApiMock(),
 }));
+
+const probeSupabaseMock = vi.fn();
+vi.mock("@/lib/health", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/health")>("@/lib/health");
+  return {
+    ...actual,
+    probeSupabase: () => probeSupabaseMock(),
+  };
+});
 
 function req(query = "") {
   return new Request(`http://localhost/api/healthz${query}`);
@@ -49,6 +58,22 @@ describe("GET /api/healthz", () => {
     expect(body.env).toBeDefined();
     expect(typeof body.env.supabase.NEXT_PUBLIC_SUPABASE_URL).toBe("boolean");
     expect(typeof body.env.auth.CLERK_SECRET_KEY).toBe("boolean");
+  });
+
+  it("returns a supabase probe for an admin caller", async () => {
+    requireAdminApiMock.mockResolvedValue({ user: { id: "admin-1", role: "admin" } });
+    probeSupabaseMock.mockResolvedValue({
+      configured: true,
+      reachable: true,
+      merchantLatLng: false,
+      reason: "missing_lat_lng",
+    });
+
+    const res = await GET(req("?probe=1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.supabase.reason).toBe("missing_lat_lng");
+    expect(body.supabase.merchantLatLng).toBe(false);
   });
 
   it("rejects non-GET methods with 405 + Allow", async () => {

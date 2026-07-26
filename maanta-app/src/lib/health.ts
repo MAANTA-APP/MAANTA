@@ -1,7 +1,7 @@
 /**
  * Health / readiness primitives for GET /api/healthz.
  *
- * Two independent concerns, kept separate on purpose:
+ * Three independent concerns, kept separate on purpose:
  *
  *  - `liveness()` — cheap, dependency-free "is this process up" info. Safe to
  *    expose publicly and safe for an uptime probe to hammer: it touches no DB,
@@ -10,9 +10,14 @@
  *    set on the running deployment. It NEVER returns a value, only presence, so
  *    it can't leak a secret. Even so, knowing *which* rails are wired is
  *    operational detail, so the route gates it behind an admin check.
+ *  - `probeSupabase()` — admin-gated connectivity + schema check (no secret
+ *    values; machine-readable reasons only).
  *
- * This module only READS `process.env`. It never mutates or "fixes" config.
+ * Env helpers only READ `process.env`. They never mutate or "fix" config.
  */
+
+import { createServiceClient } from "@/lib/supabase/service";
+import { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 
 /** True when an env var is set to a non-blank value (whitespace-only = unset). */
 function present(name: string): boolean {
@@ -125,4 +130,76 @@ export function liveness(): Liveness {
     uptimeSeconds: uptime,
     commit: sha ? sha.slice(0, 7) : null,
   };
+}
+
+/**
+ * Admin-only Supabase probe. Never returns connection strings, keys, or raw
+ * provider error text — only coarse reasons an operator can act on.
+ */
+export type SupabaseProbe = {
+  configured: boolean;
+  reachable: boolean | null;
+  merchantLatLng: boolean | null;
+  reason: "ok" | "missing_env" | "unreachable" | "missing_lat_lng";
+};
+
+export async function probeSupabase(): Promise<SupabaseProbe> {
+  const configured =
+    present("NEXT_PUBLIC_SUPABASE_URL") && present("SUPABASE_SERVICE_ROLE_KEY");
+  if (!configured) {
+    return {
+      configured: false,
+      reachable: null,
+      merchantLatLng: null,
+      reason: "missing_env",
+    };
+  }
+
+  try {
+    const service = createServiceClient();
+    const { error: dealsError } = await service.from("deals").select("id").limit(1);
+    if (dealsError) {
+      return {
+        configured: true,
+        reachable: false,
+        merchantLatLng: null,
+        reason: "unreachable",
+      };
+    }
+
+    const { error: latError } = await service
+      .from("merchants")
+      .select("id, lat, lng")
+      .limit(1);
+    if (latError) {
+      if (isMissingLatLngColumnError(latError)) {
+        return {
+          configured: true,
+          reachable: true,
+          merchantLatLng: false,
+          reason: "missing_lat_lng",
+        };
+      }
+      return {
+        configured: true,
+        reachable: false,
+        merchantLatLng: null,
+        reason: "unreachable",
+      };
+    }
+
+    return {
+      configured: true,
+      reachable: true,
+      merchantLatLng: true,
+      reason: "ok",
+    };
+  } catch {
+    return {
+      configured: true,
+      reachable: false,
+      merchantLatLng: null,
+      reason: "unreachable",
+    };
+  }
 }
