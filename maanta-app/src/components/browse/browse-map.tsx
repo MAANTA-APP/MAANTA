@@ -113,7 +113,7 @@ export function BrowseMap({
               <p className="text-xs text-muted">{pin.title}</p>
               {pin.what3wordsAddress ? (
                 <p className="font-mono text-[11px] text-ink">
-                  ///{pin.what3wordsAddress}
+                  {`///${pin.what3wordsAddress}`}
                 </p>
               ) : null}
               <Link

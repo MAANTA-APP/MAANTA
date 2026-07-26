@@ -20,8 +20,9 @@ ALTER TABLE public.merchants
 COMMENT ON COLUMN public.merchants.lat IS 'WGS84 latitude for map pins / distance; derived from what3words or admin entry.';
 COMMENT ON COLUMN public.merchants.lng IS 'WGS84 longitude for map pins / distance; derived from what3words or admin entry.';
 
--- Recreate public browse view to expose coords (same security_invoker = false
--- pattern as 20260723130000).
+-- Append lat/lng at the end of the projection. CREATE OR REPLACE VIEW cannot
+-- rename or reorder existing columns (inserting mid-list fails with
+-- "cannot change name of view column mall_name to lat").
 CREATE OR REPLACE VIEW public.merchants_public_browse
 WITH (security_invoker = false) AS
   SELECT
@@ -31,14 +32,14 @@ WITH (security_invoker = false) AS
     status,
     node,
     what3words_address,
-    lat,
-    lng,
     mall_name,
     floor,
     unit_number,
     is_visible,
     is_featured,
-    trust_metric
+    trust_metric,
+    lat,
+    lng
   FROM public.merchants;
 
 GRANT SELECT ON public.merchants_public_browse TO anon;
