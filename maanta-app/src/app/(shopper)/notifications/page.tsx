@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
-import { NotificationRow, SettingsRow } from "@/components/ui/cards";
+import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import {
   BackToProfileLink,
@@ -10,14 +10,14 @@ import {
   Page,
   Section,
 } from "@/components/ui/claude";
+import { NotificationPreferencesPanel } from "./preferences-panel";
 
 export const dynamic = "force-dynamic";
 
 type Item = { title: string; body: string; at: string; unread: boolean };
 
 /**
- * 8o Notifications list — derived from the shopper's own activity
- * (no notifications table exists yet; push delivery is separate).
+ * Notifications inbox + preferences (single place — no separate preferences route).
  */
 export default async function NotificationsPage() {
   const user = await getAppUser();
@@ -105,7 +105,7 @@ export default async function NotificationsPage() {
         <Body className="mt-1">Deal alerts and code reminders.</Body>
       </div>
 
-      <Section className="mt-6">
+      <Section title="Alerts" className="mt-6">
         {items.length === 0 ? (
           <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
         ) : (
@@ -115,9 +115,10 @@ export default async function NotificationsPage() {
             ))}
           </div>
         )}
-        <div className="mt-6">
-          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
-        </div>
+      </Section>
+
+      <Section title="Preferences" className="mt-2">
+        <NotificationPreferencesPanel />
       </Section>
     </Page>
   );

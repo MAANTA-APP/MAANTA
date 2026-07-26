@@ -29,13 +29,15 @@ export default async function ProfilePage() {
   // preferred_language lands with 20260726180000; default English if absent.
   const { data: prefs, error: prefsError } = await service
     .from("users")
-    .select("preferred_language")
+    .select("preferred_language, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
   const preferredLanguage =
     !prefsError && prefs?.preferred_language === "sw"
       ? ("sw" as const)
       : ("en" as const);
+  const avatarUrl =
+    !prefsError && typeof prefs?.avatar_url === "string" ? prefs.avatar_url : null;
 
   let favouriteNames: string[] = [];
   if (favourites.size > 0) {
@@ -60,6 +62,7 @@ export default async function ProfilePage() {
           phoneMasked={user.phone ? maskPhone(user.phone) : null}
           preferredLanguage={preferredLanguage}
           node={node}
+          avatarUrl={avatarUrl}
         />
       </Section>
 
@@ -121,7 +124,6 @@ export default async function ProfilePage() {
       <Section title="Settings">
         <div className="space-y-3">
           <SettingsRow href="/notifications" label="Notifications" />
-          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
           <SettingsRow href="/help" label="Help & support" />
         </div>
       </Section>
