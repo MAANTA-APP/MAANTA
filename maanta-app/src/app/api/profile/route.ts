@@ -79,7 +79,8 @@ export async function PATCH(request: Request) {
       patch.preferred_language &&
       /preferred_language|schema cache|does not exist/i.test(error.message ?? "")
     ) {
-      const { preferred_language: _drop, ...rest } = patch;
+      const rest = { ...patch };
+      delete rest.preferred_language;
       if (Object.keys(rest).length === 0) {
         return NextResponse.json({
           ok: true,
