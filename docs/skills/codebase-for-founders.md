@@ -298,3 +298,67 @@ competitive and mall expansion looks inevitable — not automatic. At
 Raise size that often fits that stage: roughly **$300k–750k** seed/angel
 against the base band, if you want runway to open the next malls without
 selling the company too early.
+
+## What’s needed outside “soft code”
+
+Soft code / eng-ops (device QA, E2E gating, Vercel env, trial cron, FX
+SLA provider, waitlist prod verify, analytics env) is **not** listed here.
+This is the **company work** that still has to happen even if the repo were
+perfect tomorrow. Source of truth for status: `maanta-launch-readiness-tracker.md`.
+
+### 1. Legal & company (blocked / gated)
+
+| Need | Why |
+|---|---|
+| Kenya incorporation decisions (Nov Nairobi trip) | Unlocks lawyer review of ToS, privacy, wallet/refund, KYC/AML drafts |
+| Lawyer-reviewed + published legal docs | Merchants and shoppers need real terms before serious traffic |
+| Kenya DPA / cross-border decision (Supabase `eu-west-1`) | Data-residency / contractual basis — launch gate |
+
+### 2. Money rails that are commercial, not code
+
+| Need | Why |
+|---|---|
+| **IntaSend account + live M-Pesa STK access** | Code exists; Kenya wallet top-ups are blocked on credentials/availability |
+| Stripe **live** cutover decision + live-mode test | Sandbox is fine for rehearsal; launch day needs a deliberate go-live |
+| Wallet float / opening-credit policy in practice | Who funds Node 0 credits, caps, and arrears chase |
+
+### 3. BBS Mall on the ground
+
+| Need | Why |
+|---|---|
+| Mall operator relationship + reporting expectations | Comms cadence, complaint path, what numbers the mall sees |
+| Merchant pipeline (recruit → visit → top-up → first deal) | A merchant isn’t live until someone can redeem against them |
+| Onboarding support ownership | Who answers phones during onboarding week (founder vs agent) |
+| On-ground agents trained | 48h lead locks, counter training, dispute follow-up at the till |
+| Two-phone family/founder rehearsal **at the shop** | Location checks and real till friction only show up in person |
+
+### 4. Growth / waitlist campaign (mostly agency)
+
+| Need | Why |
+|---|---|
+| Hand off agency brief + KPIs | Campaign cannot start as “docs in the repo” |
+| Segmented waitlist live in the email platform | Shopper / merchant / mall_operator audiences + automations |
+| Welcome sequences activated | Drafts exist; sending must be turned on |
+| Landing CTAs + 4-week social calendar | Pre-launch month is a marketing product, not an eng sprint |
+| Creative approval workflow | Avoid last-minute brand thrash |
+
+### 5. Operating rhythm (people & process)
+
+| Need | Why |
+|---|---|
+| Weekly ops review habit | Onboarding pipeline, disputes, agent coverage, mall notes |
+| 72h dispute SLA staffing | Admin must actually clear uphold/reject in time |
+| Support / FAQ ownership | Recurring friction → FAQ or product fix |
+| KPI definition used in practice | Redemptions, wallet reloads, arrears, active merchants — not vanity |
+
+### Founder priority order (non-code)
+
+1. **Incorporation + lawyer booked** (unblocks O5/O6)  
+2. **IntaSend access escalated weekly** (unblocks Kenya payments)  
+3. **Agency brief handed off** + waitlist segments live  
+4. **BBS Mall operator agreement** on reporting/comms  
+5. **Name the onboarding + dispute owners** for launch week  
+6. **In-mall two-phone rehearsal** with real merchants before open
+
+Code can be “ready in repo” and the company still not launchable. The list
+above is what turns a working app into a working mall business.
