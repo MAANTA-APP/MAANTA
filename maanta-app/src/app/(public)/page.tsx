@@ -73,14 +73,14 @@ export default function LandingPage() {
             A live feed for in‑mall deals
           </HeadingMd>
           <Body className="mt-3 max-w-xl">
-            Flash picks, boosted local heroes, and standard deals near you —
+            Flash picks, boosted neighbourhood favourites, and standard deals near you —
             filtered to the mall you&apos;re in. Save favourites and open the map
-            when you&apos;re ready to collect.
+            when you&apos;re ready to redeem.
           </Body>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {[
               ["Flash", "Short-window top picks"],
-              ["Boosted", "Local heroes pushed to the top"],
+              ["Boosted", "Neighbourhood favourites pushed to the top"],
               ["Map", "Pins with precise pickup spots"],
             ].map(([title, sub], i) => (
               <div

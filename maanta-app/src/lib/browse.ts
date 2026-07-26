@@ -27,12 +27,19 @@ export function dealRail(d: DealRow): "flash" | "boosted" | "standard" {
   return "standard";
 }
 
-export function isCollectNow(d: DealRow, now = new Date()): boolean {
+/** Deal is currently running (started and not past grace). */
+export function isLiveNow(d: DealRow, now = new Date()): boolean {
   const start = new Date(d.starts_at).getTime();
-  const end = d.expires_at ? new Date(d.expires_at).getTime() : Infinity;
   const t = now.getTime();
-  return start <= t && t <= end;
+  if (start > t) return false;
+  if (!d.expires_at) return true;
+  const graceEnd =
+    new Date(d.expires_at).getTime() + 15 * 60_000;
+  return t <= graceEnd;
 }
+
+/** @deprecated Use isLiveNow */
+export const isCollectNow = isLiveNow;
 
 export function isCollectToday(d: DealRow, now = new Date()): boolean {
   const startOfDay = new Date(now);
@@ -61,7 +68,7 @@ export function filterBrowseDeals(
 
   return deals.filter((d) => {
     if (rail !== "all" && dealRail(d) !== rail) return false;
-    if (time === "now" && !isCollectNow(d, now)) return false;
+    if (time === "now" && !isLiveNow(d, now)) return false;
     if (time === "today" && !isCollectToday(d, now)) return false;
     if (bounds) {
       const lat = d.merchants?.lat;
@@ -94,20 +101,4 @@ export function dealsToPins(deals: DealRow[]): BrowseDealPin[] {
   return pins;
 }
 
-/** Collection window label for cards ("Collect 2–6pm" / "Collect today"). */
-export function collectionWindowLabel(
-  startsAt: string,
-  expiresAt: string | null
-): string {
-  const start = new Date(startsAt);
-  const end = expiresAt ? new Date(expiresAt) : null;
-  const fmt = (d: Date) =>
-    d
-      .toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit", hour12: true })
-      .replace(" ", "")
-      .toLowerCase();
-  if (!end) return `Collect from ${fmt(start)}`;
-  const sameDay = start.toDateString() === end.toDateString();
-  if (sameDay) return `Collect ${fmt(start)}–${fmt(end)}`;
-  return `Collect ${fmt(start)} – ${fmt(end)}`;
-}
+export { dealExpiryLabel } from "@/lib/deal-expiry";

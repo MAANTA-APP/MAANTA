@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneField } from "@/components/ui/inputs";
 import { OtpInput } from "@/components/ui/otp-input";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { BackButton } from "@/components/ui/claude";
 import { IconCheck } from "@/components/ui/icons";
 
 /**
@@ -132,8 +133,9 @@ function VerifyPhoneInner() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pb-10 pt-14">
-      <h1 className="text-2xl font-bold text-ink">Add your phone to claim</h1>
+    <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pb-10 pt-6">
+      <BackButton fallback="/you" />
+      <h1 className="mt-4 text-2xl font-bold text-ink">Add your phone to claim</h1>
       <p className="mt-2 text-sm text-muted">
         Claiming a deal needs a verified phone number. We&apos;ll text you a
         one-time code, then take you back to the deal.

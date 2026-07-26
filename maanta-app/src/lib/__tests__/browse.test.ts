@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectionWindowLabel,
+  dealExpiryLabel,
   dealRail,
   dealsToPins,
   filterBrowseDeals,
-  isCollectNow,
+  isLiveNow,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 
@@ -51,7 +51,7 @@ describe("browse helpers", () => {
     expect(dealRail(deal({ id: "3" }))).toBe("standard");
   });
 
-  it("filters by rail and collect-now", () => {
+  it("filters by rail and live-now", () => {
     const now = new Date("2026-07-26T12:00:00Z");
     const deals = [
       deal({ id: "flash", deal_type: "flash" }),
@@ -67,7 +67,7 @@ describe("browse helpers", () => {
     expect(
       filterBrowseDeals(deals, { time: "now", now }).map((d) => d.id)
     ).toEqual(["flash"]);
-    expect(isCollectNow(deals[1], now)).toBe(false);
+    expect(isLiveNow(deals[1], now)).toBe(false);
   });
 
   it("filters list to map viewport bounds", () => {
@@ -125,12 +125,9 @@ describe("browse helpers", () => {
     expect(pins[0].what3wordsAddress).toBe("filled.count.soap");
   });
 
-  it("formats a same-day collection window", () => {
-    const label = collectionWindowLabel(
-      "2026-07-26T10:00:00+03:00",
-      "2026-07-26T18:00:00+03:00"
-    );
-    expect(label.startsWith("Collect ")).toBe(true);
-    expect(label).toContain("–");
+  it("formats deal expiry countdown labels", () => {
+    const now = new Date("2026-07-26T12:00:00Z");
+    const label = dealExpiryLabel("2026-07-26T14:14:00Z", now);
+    expect(label).toBe("Expires in 2h 14m");
   });
 });

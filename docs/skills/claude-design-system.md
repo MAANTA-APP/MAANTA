@@ -15,7 +15,7 @@ amber CTA + black label, closed vocabulary).
 |---|---|
 | `layout.tsx` | `Page`, `Section`, `RailScroller` |
 | `typography.tsx` | `HeadingLg`, `HeadingMd`, `HeadingSm`, `Body`, `Label`, `Meta` |
-| `controls.tsx` | `PrimaryButton(Link)`, `SecondaryButton(Link)`, `IconButton`, `Chip`, `FilterChip`, `LocationPill` |
+| `controls.tsx` | `PrimaryButton(Link)`, `SecondaryButton(Link)`, `IconButton`, `Chip`, `FilterChip`, `FilterDropdown`, `BackButton`, `BackIconButton`, `LocationPill` |
 | `deal-card.tsx` | `DealCard` (+ `DiscoverDealCard` alias) |
 | `index.ts` | barrel |
 
@@ -27,9 +27,10 @@ amber CTA + black label, closed vocabulary).
 
 ## Surfaces updated
 
-- `/feed` — LocationPill, rails: Top picks / Local heroes / Deals near me / Your favourites.
+- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`.
+- `/map` — full-screen map between Browse and Deals in bottom nav (raised globe icon).
 - `/browse` — **list first** (“Deals around you” + search + FilterChips), map
-  below with recenter; filters affect list + pins.
+  below with recenter; filters affect list + pins. Map links → `/map`.
 - ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
@@ -39,7 +40,11 @@ amber CTA + black label, closed vocabulary).
 - `/you/notifications` — three notification toggles + Back → `/you`.
   `/notifications/preferences` redirects here; bell icon opens activity list at `/notifications`.
 - `/you/help` — FAQ + WhatsApp CTA (re-exports `/help`).
-- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past). `/deals` redirects here.
+- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past) + sort dropdown. `/deals` redirects here.
+
+## Expiry display
+
+Shared `lib/deal-expiry.ts`: deal cards and merchant deal rows show **Expires in Xh Ym**, then **Grace period: N minutes left** (15-minute grace), then **Expired**. `CountdownChip` uses the same helper. Merchant “Collect from shopper” (cash at till) is unchanged.
 
 - Public landing — hero “Claim in‑mall deals before you pay.” + story sections + early-access → waitlist.
 

@@ -27,7 +27,7 @@ export function ShopperTopBar({ node }: { node: string }) {
         <LocationPill label={nodeLabel(node)} onClick={() => setOpen(true)} />
         <div className="flex items-center gap-2">
           <Link
-            href="/browse"
+            href="/map"
             className="rounded-full px-3.5 py-2.5 text-sm font-semibold text-ink hover:bg-white/70"
             aria-label="Browse map"
           >

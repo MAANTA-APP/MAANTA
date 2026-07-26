@@ -20,7 +20,7 @@ import {
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
-import { collectionWindowLabel } from "@/lib/browse";
+import { dealExpiryLabel } from "@/lib/browse";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 import { IconPin, IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
@@ -45,8 +45,8 @@ const RAIL_FILTERS: { id: BrowseRailFilter; label: string }[] = [
 ];
 
 const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
-  { id: "any", label: "Collection time" },
-  { id: "now", label: "Collect now" },
+  { id: "any", label: "Any time" },
+  { id: "now", label: "Live now" },
   { id: "today", label: "Today" },
 ];
 
@@ -198,10 +198,7 @@ export function BrowseClient({
                   merchantName={d.merchants?.merchant_name ?? ""}
                   mallName={d.merchants?.mall_name ?? d.node}
                   title={d.title}
-                  collectionLabel={collectionWindowLabel(
-                    d.starts_at,
-                    d.expires_at
-                  )}
+                  expiryLabel={dealExpiryLabel(d.expires_at)}
                   distanceLabel={distanceLabel}
                   pay={pricing.pay}
                   wasKes={pricing.was}

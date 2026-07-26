@@ -28,7 +28,7 @@ describe("DealCard (Claude design system)", () => {
         merchantName: "Nyama Spot",
         mallName: "BBS Mall",
         title: "Platter for two",
-        collectionLabel: "Collect 2–6pm",
+        expiryLabel: "Expires in 2h",
         distanceLabel: "120 m",
         pay: 500,
         wasKes: 900,
@@ -43,7 +43,7 @@ describe("DealCard (Claude design system)", () => {
     expect(html).toContain("KES 900");
     expect(html).toContain("line-through");
     expect(html).toContain("120 m");
-    expect(html).toContain("Collect 2–6pm");
+    expect(html).toContain("Expires in 2h");
     expect(html).toContain("Flash");
   });
 

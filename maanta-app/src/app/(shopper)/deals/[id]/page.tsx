@@ -4,10 +4,12 @@ import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing, chargeAmount } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
+import { isDealClaimable } from "@/lib/deal-expiry";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
-import { IconArrowLeft, IconCheck, IconPin } from "@/components/ui/icons";
+import { IconCheck, IconPin } from "@/components/ui/icons";
 import { ButtonLink, StickyCtaBar } from "@/components/ui/button";
+import { BackIconButton } from "@/components/ui/claude";
 import { ClaimFlow } from "./claim-flow";
 
 export const dynamic = "force-dynamic";
@@ -37,10 +39,12 @@ export default async function DealDetailPage({
   });
   const verifiedCount = verified.get(deal.merchant_id) ?? 0;
 
-  const expired = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
+  const claimable =
+    deal.is_active &&
+    isDealClaimable(deal.expires_at) &&
+  !(deal.max_claims != null && deal.claims_count >= deal.max_claims);
   const fullyClaimed =
     deal.max_claims != null && deal.claims_count >= deal.max_claims;
-  const claimable = deal.is_active && !expired && !fullyClaimed;
   const m = deal.merchants;
   const { pay, was, extras, charges } = dealPricing(deal);
 
@@ -48,13 +52,9 @@ export default async function DealDetailPage({
     <main className="pb-28">
       <div className="relative h-64 bg-cream">
         <CoverImage src={deal.image_url} alt={deal.title} />
-        <Link
-          href="/feed"
-          aria-label="Back"
-          className="absolute left-4 top-4 rounded-full bg-white/90 p-2 text-ink shadow"
-        >
-          <IconArrowLeft className="h-5 w-5" />
-        </Link>
+        <div className="absolute left-4 top-4">
+          <BackIconButton fallback="/feed" />
+        </div>
         <div className="absolute bottom-4 left-4 flex gap-1.5">
           {fullyClaimed ? (
             <span className="rounded-full bg-cream-dark px-2.5 py-0.5 text-[11px] font-semibold text-muted">
@@ -110,7 +110,7 @@ export default async function DealDetailPage({
           {typeof m.lat === "number" && typeof m.lng === "number" ? (
             <div className="mt-3">
               <ButtonLink
-                href={`/browse?lat=${m.lat}&lng=${m.lng}&dealId=${deal.id}`}
+                href={`/map?lat=${m.lat}&lng=${m.lng}&dealId=${deal.id}`}
                 variant="ghost"
                 size="sm"
               >
@@ -143,7 +143,6 @@ export default async function DealDetailPage({
               </div>
             ) : null}
 
-            {/* Itemised breakdown — the ONE place it appears (brief §4). */}
             {extras > 0 && deal.price_kes != null ? (
               <div className="mt-3 flex flex-col gap-2 rounded-card border border-line bg-white p-3.5">
                 <div className="flex justify-between text-sm">
