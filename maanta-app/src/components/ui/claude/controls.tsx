@@ -17,12 +17,13 @@ export function PrimaryButtonLink(
   return <ButtonLink variant="primary" {...props} />;
 }
 
-export function SecondaryButton(
-  props: Omit<React.ComponentProps<typeof Button>, "variant"> & {
-    variant?: ButtonVariant;
-  }
-) {
-  return <Button variant={props.variant ?? "secondary"} {...props} />;
+export function SecondaryButton({
+  variant = "secondary",
+  ...props
+}: Omit<React.ComponentProps<typeof Button>, "variant"> & {
+  variant?: ButtonVariant;
+}) {
+  return <Button variant={variant} {...props} />;
 }
 
 export function SecondaryButtonLink(
