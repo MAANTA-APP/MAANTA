@@ -50,6 +50,7 @@ describe("analytics", () => {
       redemptionStatus: "blocked",
       feeChargeStatus: null,
       disputed: true,
+      node: "BBS Mall",
     });
 
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -62,6 +63,41 @@ describe("analytics", () => {
     expect(body.properties.recommendation).toBe("hard_block");
     expect(body.properties.redemption_status).toBe("blocked");
     expect(body.properties.node).toBe("BBS Mall");
+  });
+
+  it("defaults node to BBS Mall when omitted, and honors an explicit node", async () => {
+    process.env[KEY] = "phc_test";
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await captureGuardianOutcome({
+      merchantId: "m1",
+      redemptionId: "r1",
+      dealId: "d1",
+      recommendation: "clear",
+      severity: "info",
+      redemptionStatus: "success",
+      feeChargeStatus: "charged",
+      disputed: false,
+    });
+    expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)).properties.node).toBe(
+      "BBS Mall"
+    );
+
+    await captureGuardianOutcome({
+      merchantId: "m1",
+      redemptionId: "r2",
+      dealId: "d1",
+      recommendation: "clear",
+      severity: "info",
+      redemptionStatus: "success",
+      feeChargeStatus: "charged",
+      disputed: false,
+      node: "Two Rivers Mall",
+    });
+    expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)).properties.node).toBe(
+      "Two Rivers Mall"
+    );
   });
 
   it("trims a trailing slash on the host", async () => {

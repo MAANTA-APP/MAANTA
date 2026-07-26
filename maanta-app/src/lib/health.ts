@@ -133,6 +133,35 @@ export function liveness(): Liveness {
 }
 
 /**
+ * Public readiness: core env required for the app to serve authenticated traffic.
+ * Booleans only — never secret values. Missing core rails → not ready (HTTP 503).
+ * Payment / email / push rails are reported but not required for readiness
+ * (IntaSend may be unavailable; waitlist is optional).
+ */
+export type Readiness = {
+  status: "ready" | "not_ready";
+  core: {
+    NEXT_PUBLIC_SUPABASE_URL: boolean;
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: boolean;
+    SUPABASE_SERVICE_ROLE_KEY: boolean;
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: boolean;
+    CLERK_SECRET_KEY: boolean;
+  };
+};
+
+export function readiness(): Readiness {
+  const core = {
+    NEXT_PUBLIC_SUPABASE_URL: present("NEXT_PUBLIC_SUPABASE_URL"),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: present("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    SUPABASE_SERVICE_ROLE_KEY: present("SUPABASE_SERVICE_ROLE_KEY"),
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: present("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+    CLERK_SECRET_KEY: present("CLERK_SECRET_KEY"),
+  };
+  const ready = Object.values(core).every(Boolean);
+  return { status: ready ? "ready" : "not_ready", core };
+}
+
+/**
  * Admin-only Supabase probe. Never returns connection strings, keys, or raw
  * provider error text — only coarse reasons an operator can act on.
  */

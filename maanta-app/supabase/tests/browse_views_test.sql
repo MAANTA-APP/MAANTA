@@ -60,4 +60,31 @@ BEGIN
   RAISE NOTICE 'Scenario B passed: anon cannot SELECT merchants base table';
 END $$;
 
+-- Scenario C: pending / shadow-banned merchants are not exposed via browse views.
+DO $$
+DECLARE
+  v_pending UUID;
+  v_shadow UUID;
+  v_n INT;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, is_shadow_banned, account_balance
+  )
+    VALUES ('__test_browse_pending', 'test.browse.pend', '+254700000402', 'BBS Mall', 'pending', TRUE, FALSE, 999)
+    RETURNING id INTO v_pending;
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, is_shadow_banned, account_balance
+  )
+    VALUES ('__test_browse_shadow', 'test.browse.shad', '+254700000403', 'BBS Mall', 'active', TRUE, TRUE, 999)
+    RETURNING id INTO v_shadow;
+
+  SET ROLE anon;
+  SELECT COUNT(*) INTO v_n FROM public.merchants_public_browse WHERE id IN (v_pending, v_shadow);
+  RESET ROLE;
+  ASSERT v_n = 0, format('C: expected 0 non-public merchants in browse view, got %s', v_n);
+
+  DELETE FROM public.merchants WHERE id IN (v_pending, v_shadow);
+  RAISE NOTICE 'Scenario C passed: browse views hide pending/shadow-banned merchants';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL browse_views scenarios passed.'; END $$;

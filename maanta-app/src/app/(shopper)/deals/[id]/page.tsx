@@ -33,6 +33,7 @@ export default async function DealDetailPage({
     merchantId: deal.merchant_id,
     dealType: deal.deal_type ?? "standard",
     priceKes: deal.price_kes ?? null,
+    node: deal.node,
   });
   const verifiedCount = verified.get(deal.merchant_id) ?? 0;
 

@@ -26,7 +26,7 @@ export default async function AdminReportsPage({
   const service = createServiceClient();
   const [
     { count: verified },
-    { data: fees },
+    { data: feeRevenue },
     { count: activeShops },
     { count: liveDeals },
     { data: chartRows },
@@ -36,11 +36,8 @@ export default async function AdminReportsPage({
       .select("id", { count: "exact", head: true })
       .eq("status", "success")
       .gte("redeemed_at", since),
-    service
-      .from("merchant_transactions")
-      .select("amount")
-      .eq("transaction_type", "success_fee")
-      .gte("created_at", since),
+    // SQL SUM — never pull fee rows into JS (PostgREST 1000-row cap under-reports).
+    service.rpc("admin_success_fee_revenue", { p_since: since }),
     service
       .from("merchants")
       .select("id", { count: "exact", head: true })
@@ -50,27 +47,27 @@ export default async function AdminReportsPage({
       .select("id", { count: "exact", head: true })
       .eq("is_active", true)
       .gt("expires_at", new Date().toISOString()),
-    service
-      .from("redemptions")
-      .select("redeemed_at")
-      .eq("status", "success")
-      .gte("redeemed_at", new Date(Date.now() - 14 * 24 * 3600_000).toISOString()),
+    service.rpc("admin_redemptions_per_day", { p_days: 14 }),
   ]);
 
-  const revenue = (fees ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
+  const revenue = Number(feeRevenue ?? 0) || 0;
 
-  // Redemptions-per-day, last 14 days.
+  // Redemptions-per-day, last 14 days (SQL GROUP BY via RPC).
   const days: { label: string; count: number }[] = [];
+  const countByDay = new Map<string, number>();
+  for (const row of chartRows ?? []) {
+    const key = String(row.day);
+    countByDay.set(key, Number(row.cnt) || 0);
+  }
   for (let i = 13; i >= 0; i--) {
     const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - i);
-    days.push({ label: d.toLocaleDateString("en-KE", { day: "numeric" }), count: 0 });
-  }
-  for (const r of chartRows ?? []) {
-    const d = new Date(r.redeemed_at);
-    const idx = 13 - Math.floor((Date.now() - d.setHours(0, 0, 0, 0)) / (24 * 3600_000));
-    if (idx >= 0 && idx < 14) days[idx].count++;
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({
+      label: d.toLocaleDateString("en-KE", { day: "numeric", timeZone: "UTC" }),
+      count: countByDay.get(key) ?? 0,
+    });
   }
   const max = Math.max(1, ...days.map((d) => d.count));
 

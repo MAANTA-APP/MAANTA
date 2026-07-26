@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { liveness, envPresence } from "../health";
+import { liveness, envPresence, readiness } from "../health";
 
 // health.ts must (a) report liveness without touching any dependency, and
 // (b) report env presence as booleans only — never a value, so it can't leak a
@@ -7,7 +7,9 @@ import { liveness, envPresence } from "../health";
 
 const TOUCHED = [
   "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "CLERK_SECRET_KEY",
   "STRIPE_SECRET_KEY",
   "RESEND_API_KEY",
@@ -82,5 +84,26 @@ describe("envPresence()", () => {
     expect(Object.keys(out).sort()).toEqual(
       ["auth", "email", "geo", "monitoring", "payments", "push", "supabase"].sort()
     );
+  });
+});
+
+describe("readiness()", () => {
+  it("is ready only when all core Supabase + Clerk vars are present", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_x";
+    process.env.CLERK_SECRET_KEY = "sk_test_x";
+    expect(readiness().status).toBe("ready");
+  });
+
+  it("is not_ready when a core var is missing", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_x";
+    delete process.env.CLERK_SECRET_KEY;
+    expect(readiness().status).toBe("not_ready");
+    expect(readiness().core.CLERK_SECRET_KEY).toBe(false);
   });
 });

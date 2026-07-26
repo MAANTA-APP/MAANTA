@@ -81,7 +81,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  void captureTopupCompletedMpesa({ merchantId, amountKes: amount });
+  const { data: merchantMeta } = await service
+    .from("merchants")
+    .select("node")
+    .eq("id", merchantId)
+    .maybeSingle();
+  void captureTopupCompletedMpesa({
+    merchantId,
+    amountKes: amount,
+    node: merchantMeta?.node,
+  });
 
   await notifyMerchant(service, merchantId, {
     title: "Top-up received",

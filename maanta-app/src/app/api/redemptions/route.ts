@@ -142,6 +142,11 @@ export async function POST(request: Request) {
 
   const clerkUserId = await currentClerkUserId();
   if (clerkUserId) {
+    const { data: dealMeta } = await service
+      .from("deals")
+      .select("node")
+      .eq("id", dealId)
+      .maybeSingle();
     void captureDealClaimed({
       clerkUserId,
       redemptionId: data.redemption_id,
@@ -149,6 +154,7 @@ export async function POST(request: Request) {
       merchantId: data.merchant_id,
       hadGps: !!gps,
       hasFraudFlags,
+      node: dealMeta?.node,
     });
   }
 

@@ -113,7 +113,18 @@ async function handleCheckoutCompleted(
 
   if (!applied) return;
 
-  void captureTopupCompletedStripe({ merchantId, amountKes: kesAmount, currency, chargedAmount });
+  const { data: merchantMeta } = await service
+    .from("merchants")
+    .select("node")
+    .eq("id", merchantId)
+    .maybeSingle();
+  void captureTopupCompletedStripe({
+    merchantId,
+    amountKes: kesAmount,
+    currency,
+    chargedAmount,
+    node: merchantMeta?.node,
+  });
 
   await notifyMerchant(service, merchantId, {
     title: "Top-up received",

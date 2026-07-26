@@ -37,6 +37,15 @@ describe("GET /api/healthz", () => {
     expect(requireAdminApiMock).not.toHaveBeenCalled();
   });
 
+  it("returns public readiness without calling the admin guard", async () => {
+    const res = await GET(req("?ready=1"));
+    expect(requireAdminApiMock).not.toHaveBeenCalled();
+    expect([200, 503]).toContain(res.status);
+    const body = await res.json();
+    expect(body).toHaveProperty("core");
+    expect(["ready", "not_ready"]).toContain(body.status);
+  });
+
   it("gates env detail: a non-admin caller gets the guard's error, no env map", async () => {
     requireAdminApiMock.mockResolvedValue({
       error: NextResponse.json({ error: "Not authorized." }, { status: 403 }),
