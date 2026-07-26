@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { cn } from "@/lib/ui";
 import { Button, ButtonLink, type ButtonVariant } from "@/components/ui/button";
-import { IconChevronDown } from "@/components/ui/icons";
+import { IconChevronDown, IconChevronLeft } from "@/components/ui/icons";
 
 /** Primary CTA — wraps Frozen Button (amber + black label). */
 export function PrimaryButton(
@@ -105,6 +106,69 @@ export function FilterChip({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Compact segmented control (My deals Deals/Shops, Active/Past).
+ * Link-based so server pages can filter via searchParams without client state.
+ */
+export function SegmentedLinks({
+  tabs,
+  active,
+  className,
+}: {
+  tabs: { href: string; label: string; value: string }[];
+  active: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-8 overflow-hidden rounded-full border border-line bg-stone-soft p-0.5",
+        className
+      )}
+      role="tablist"
+    >
+      {tabs.map((t) => {
+        const selected = active === t.value;
+        return (
+          <Link
+            key={t.value}
+            href={t.href}
+            role="tab"
+            aria-selected={selected}
+            className={cn(
+              "flex h-full flex-1 items-center justify-center rounded-full text-[12px] font-semibold transition",
+              selected ? "bg-ink text-white" : "text-muted hover:text-ink"
+            )}
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Back to Profile / You — chevron + label. */
+export function BackToProfileLink({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/profile"
+      className={cn(
+        "inline-flex items-center gap-2 text-sm font-semibold text-ink transition hover:text-muted",
+        className
+      )}
+    >
+      <span
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white shadow-card"
+        aria-hidden
+      >
+        <IconChevronLeft className="h-4 w-4" />
+      </span>
+      Back
+    </Link>
   );
 }
 

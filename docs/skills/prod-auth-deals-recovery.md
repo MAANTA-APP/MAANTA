@@ -109,5 +109,25 @@ If `ClerkFailed` persists after redeploy:
 - `createServiceClient` fails clearly when URL or service role is blank.
 - Admin `GET /api/healthz?probe=1` reports coarse Supabase readiness.
 - `ClerkAuthShell` distinguishes missing publishable key vs load/domain failure.
+- Auth shell uses **one** Claude card; Clerk `cardBox`/`card`/`footer` chrome stripped (#91).
 
 These reduce blast radius; they do **not** replace applying the migration or running the seed on prod.
+
+## Clerk domains (if Sign-in still fails with keys present)
+
+In Clerk Dashboard → **Domains** / **Allowed origins**, ensure:
+
+- Frontend: `https://www.maanta.app` and `https://maanta.app`
+- Clerk Frontend API / custom: `https://clerk.maanta.app`
+
+Vercel Production must use the **Production** instance keys (`pk_live_…` + matching `sk_live_…`), not Development.
+
+## Preferred language column
+
+Migration `20260726180000_user_preferred_language` adds `users.preferred_language`
+(`en` | `sw`). Push with other pending migrations before language preference
+persists. Profile UI still works if the column is missing (defaults to English).
+
+## Seed detail
+
+See `docs/skills/node0-seed-bbs-mall.md` for apply + verify SQL.

@@ -107,85 +107,67 @@ export function BrowseClient({
       ? [initialLat, initialLng]
       : null;
 
+  const searchAndFilters = (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search deals or shops"
+            className={`${inputClass} !h-11 !rounded-full !pl-9 !text-sm`}
+            aria-label="Search deals"
+          />
+        </div>
+        <Link
+          href="/search"
+          aria-label="Open full search"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-ink shadow-card"
+        >
+          <IconSearch className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
+        {RAIL_FILTERS.map((f) => (
+          <FilterChip
+            key={f.id}
+            active={rail === f.id}
+            onClick={() => setRail(f.id)}
+          >
+            {f.label}
+          </FilterChip>
+        ))}
+      </div>
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
+        {TIME_FILTERS.map((f) => (
+          <FilterChip
+            key={f.id}
+            active={time === f.id}
+            onClick={() => setTime(f.id)}
+          >
+            {f.label}
+          </FilterChip>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-stone">
       <ShopperTopBar node={node} />
-
-      <div className="px-4 pt-3">
-        <div className="relative overflow-hidden rounded-card border border-line bg-white shadow-card">
-          <div className="relative h-[38vh] min-h-[210px]">
-            <BrowseMap
-              key={recenterKey}
-              pins={pins}
-              center={[origin.lat, origin.lng]}
-              focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
-              selectedDealId={initialDealId}
-              onBounds={onBounds}
-            />
-
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] space-y-2 p-3">
-              <div className="pointer-events-auto flex items-center gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search deals or shops"
-                    className={`${inputClass} !h-11 !rounded-full !pl-9 !text-sm shadow-card`}
-                    aria-label="Search deals"
-                  />
-                </div>
-                <IconButton
-                  label="Recenter on current mall"
-                  onClick={() => setRecenterKey((k) => k + 1)}
-                >
-                  <IconPin className="h-4 w-4" />
-                </IconButton>
-                <Link
-                  href="/search"
-                  aria-label="Open full search"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-ink shadow-card"
-                >
-                  <IconSearch className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="pointer-events-auto no-scrollbar flex gap-1.5 overflow-x-auto">
-                {RAIL_FILTERS.map((f) => (
-                  <FilterChip
-                    key={f.id}
-                    active={rail === f.id}
-                    onClick={() => setRail(f.id)}
-                  >
-                    {f.label}
-                  </FilterChip>
-                ))}
-              </div>
-              <div className="pointer-events-auto no-scrollbar flex gap-1.5 overflow-x-auto">
-                {TIME_FILTERS.map((f) => (
-                  <FilterChip
-                    key={f.id}
-                    active={time === f.id}
-                    onClick={() => setTime(f.id)}
-                  >
-                    {f.label}
-                  </FilterChip>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <Section
         title="Deals around you"
         subtitle={
           listDeals.length === 1
             ? "1 deal in view"
-            : `${listDeals.length} deals in view · scroll the map to refresh`
+            : `${listDeals.length} deals in view · pan the map below to refresh`
         }
-        className="flex-1 pb-6"
+        className="pb-2"
       >
+        <div className="mb-4">{searchAndFilters}</div>
         {listDeals.length === 0 ? (
           <EmptyState
             title="No deals in this area"
@@ -234,6 +216,30 @@ export function BrowseClient({
           </div>
         )}
       </Section>
+
+      <div className="px-4 pb-6 pt-2">
+        <div className="relative overflow-hidden rounded-card border border-line bg-white shadow-card">
+          <div className="relative h-[34vh] min-h-[200px]">
+            <BrowseMap
+              key={recenterKey}
+              pins={pins}
+              center={[origin.lat, origin.lng]}
+              focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
+              selectedDealId={initialDealId}
+              onBounds={onBounds}
+            />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] flex justify-end p-3">
+              <IconButton
+                className="pointer-events-auto"
+                label="Recenter on current mall"
+                onClick={() => setRecenterKey((k) => k + 1)}
+              >
+                <IconPin className="h-4 w-4" />
+              </IconButton>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

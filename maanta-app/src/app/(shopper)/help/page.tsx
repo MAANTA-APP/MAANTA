@@ -1,3 +1,10 @@
+import {
+  BackToProfileLink,
+  Body,
+  HeadingLg,
+  Page,
+  Section,
+} from "@/components/ui/claude";
 import { ButtonLink } from "@/components/ui/button";
 import { IconWhatsApp } from "@/components/ui/icons";
 
@@ -15,32 +22,39 @@ const FAQS = [
 
 export default function HelpPage() {
   return (
-    <main className="px-4 pt-6">
-      <h1 className="text-center text-lg font-bold text-ink">Help</h1>
-      <div className="mt-6 space-y-3">
-        {FAQS.map((f) => (
-          <details
-            key={f.q}
-            className="rounded-card border border-line bg-white px-4 py-3.5"
-          >
-            <summary className="cursor-pointer text-sm font-semibold text-ink">
-              {f.q}
-            </summary>
-            <p className="mt-2 text-sm text-muted">{f.a}</p>
-          </details>
-        ))}
+    <Page className="px-0 pt-4">
+      <div className="px-4">
+        <BackToProfileLink />
+        <HeadingLg className="mt-4">Help</HeadingLg>
+        <Body className="mt-1">Answers and a line to WhatsApp support.</Body>
       </div>
-      <ButtonLink
-        href="https://wa.me/254700000000"
-        variant="secondary"
-        full
-        className="mt-8"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <IconWhatsApp className="h-5 w-5" />
-        Chat on WhatsApp
-      </ButtonLink>
-    </main>
+
+      <Section className="mt-6">
+        <div className="space-y-3">
+          {FAQS.map((f) => (
+            <details
+              key={f.q}
+              className="rounded-card border border-line bg-white px-4 py-3.5 shadow-card"
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-ink">
+                {f.q}
+              </summary>
+              <p className="mt-2 text-sm text-muted">{f.a}</p>
+            </details>
+          ))}
+        </div>
+        <ButtonLink
+          href="https://wa.me/254700000000"
+          variant="secondary"
+          full
+          className="mt-6"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <IconWhatsApp className="h-5 w-5" />
+          Chat on WhatsApp
+        </ButtonLink>
+      </Section>
+    </Page>
   );
 }

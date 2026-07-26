@@ -7,13 +7,13 @@ import SignOutButton from "@/app/sign-out-button";
 import {
   Body,
   HeadingLg,
-  HeadingMd,
   Meta,
   Page,
   Section,
 } from "@/components/ui/claude";
 import { nodeLabel } from "@/lib/nodes";
 import { createServiceClient } from "@/lib/supabase/service";
+import { LanguageCard, ProfileCard } from "./profile-card";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +25,20 @@ export default async function ProfilePage() {
   const node = getSelectedNode();
   const favourites = await getFavouriteMerchantIds(user.id);
 
+  const service = createServiceClient();
+  // preferred_language lands with 20260726180000; default English if absent.
+  const { data: prefs, error: prefsError } = await service
+    .from("users")
+    .select("preferred_language")
+    .eq("id", user.id)
+    .maybeSingle();
+  const preferredLanguage =
+    !prefsError && prefs?.preferred_language === "sw"
+      ? ("sw" as const)
+      : ("en" as const);
+
   let favouriteNames: string[] = [];
   if (favourites.size > 0) {
-    const service = createServiceClient();
     const { data } = await service
       .from("merchants")
       .select("merchant_name")
@@ -44,19 +55,12 @@ export default async function ProfilePage() {
       </div>
 
       <Section className="mt-6">
-        <div className="flex items-center gap-4 rounded-card border border-line bg-white p-4 shadow-card">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-line bg-stone text-2xl font-semibold text-ink">
-            {(user.full_name || "M").trim().charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <HeadingMd as="h2" className="truncate">
-              {user.full_name || "Maanta shopper"}
-            </HeadingMd>
-            <Meta as="p" className="tnum mt-1 text-xs">
-              Nairobi{user.phone ? ` · ${maskPhone(user.phone)}` : ""}
-            </Meta>
-          </div>
-        </div>
+        <ProfileCard
+          fullName={user.full_name}
+          phoneMasked={user.phone ? maskPhone(user.phone) : null}
+          preferredLanguage={preferredLanguage}
+          node={node}
+        />
       </Section>
 
       {user.email ? (
@@ -105,13 +109,18 @@ export default async function ProfilePage() {
         <div className="rounded-card border border-line bg-white px-4 py-3.5 shadow-card">
           <p className="text-sm font-semibold text-ink">{nodeLabel(node)}</p>
           <Meta as="p" className="mt-0.5">
-            Change it anytime from the location pill on Discover.
+            Change it anytime from Edit profile or the location pill on Discover.
           </Meta>
         </div>
       </Section>
 
+      <Section title="Language" subtitle="More languages coming soon">
+        <LanguageCard preferredLanguage={preferredLanguage} />
+      </Section>
+
       <Section title="Settings">
         <div className="space-y-3">
+          <SettingsRow href="/notifications" label="Notifications" />
           <SettingsRow href="/notifications/preferences" label="Notification preferences" />
           <SettingsRow href="/help" label="Help & support" />
         </div>
