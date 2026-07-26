@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui";
 import {
   IconHome,
-  IconSearch,
+  IconPin,
   IconTicket,
   IconUser,
   IconKeypad,
@@ -43,12 +43,12 @@ function BarLink({
   );
 }
 
-/** 5a Shopper bottom bar — Feed / Search / Deals / You. */
+/** 5a Shopper bottom bar — Feed / Browse / Deals / You. */
 export function ShopperBottomBar() {
   const pathname = usePathname();
   const items = [
     { href: "/feed", label: "Feed", icon: IconHome, match: ["/feed", "/deals"] },
-    { href: "/search", label: "Search", icon: IconSearch, match: ["/search"] },
+    { href: "/browse", label: "Browse", icon: IconPin, match: ["/browse", "/search"] },
     { href: "/my-deals", label: "Deals", icon: IconTicket, match: ["/my-deals", "/tickets"] },
     { href: "/profile", label: "You", icon: IconUser, match: ["/profile", "/help", "/notifications"] },
   ];

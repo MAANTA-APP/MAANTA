@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
-import { DealCardHorizontal, DealCardVertical } from "@/components/ui/cards";
+import { DiscoverDealCard } from "@/components/discover-deal-card";
 import { EmptyState } from "@/components/ui/states";
-import { getLiveDeals, getSelectedNode, getAppUser } from "@/lib/data";
+import {
+  getLiveDeals,
+  getSelectedNode,
+  getAppUser,
+  getFavouriteMerchantIds,
+  type DealRow,
+} from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { IconBolt } from "@/components/ui/icons";
 import { NotificationOptIn } from "./notification-opt-in";
+import { nodeCoords } from "@/lib/nodes";
+import { collectionWindowLabel } from "@/lib/browse";
+import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 
 export const dynamic = "force-dynamic";
 
@@ -33,17 +42,69 @@ function Rail({
           </Link>
         ) : null}
       </div>
-      <div className="no-scrollbar mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">{children}</div>
+      <div className="no-scrollbar mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
+        {children}
+      </div>
     </section>
   );
 }
 
+function distanceForDeal(
+  d: DealRow,
+  origin: { lat: number; lng: number } | null
+): string | null {
+  if (!origin) return null;
+  const lat = d.merchants?.lat;
+  const lng = d.merchants?.lng;
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  return formatDistanceMeters(distanceMeters(origin, { lat, lng }));
+}
+
+function cardProps(
+  d: DealRow,
+  opts: {
+    origin: { lat: number; lng: number } | null;
+    favourites: Set<string>;
+    tag: "flash" | "boosted" | null;
+  }
+) {
+  const pricing = dealPricing(d);
+  return {
+    href: `/deals/${d.id}`,
+    imageUrl: d.image_url,
+    merchantName: d.merchants?.merchant_name ?? "",
+    mallName: d.merchants?.mall_name ?? d.node,
+    title: d.title,
+    collectionLabel: collectionWindowLabel(d.starts_at, d.expires_at),
+    distanceLabel: distanceForDeal(d, opts.origin),
+    pay: pricing.pay,
+    wasKes: pricing.was,
+    extras: pricing.extras,
+    tag: opts.tag,
+    expiresAt: d.expires_at,
+    merchantId: d.merchant_id,
+    isFavourite: opts.favourites.has(d.merchant_id),
+  };
+}
+
 export default async function FeedPage() {
   const node = getSelectedNode();
-  const [{ flash, boosted, nearMe, verifiedByMerchant }, user] = await Promise.all([
+  const origin = nodeCoords(node);
+  const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
   ]);
+  const favourites = await getFavouriteMerchantIds(user?.id);
+
+  const allDeals = [...flash, ...boosted, ...nearMe];
+  const favouriteDeals = allDeals.filter((d) => favourites.has(d.merchant_id));
+  // Dedupe by deal id (a merchant can appear in multiple rails conceptually).
+  const seen = new Set<string>();
+  const uniqueFavourites = favouriteDeals.filter((d) => {
+    if (seen.has(d.id)) return false;
+    seen.add(d.id);
+    return true;
+  });
 
   const total = flash.length + boosted.length + nearMe.length;
 
@@ -61,67 +122,71 @@ export default async function FeedPage() {
         <>
           {flash.length > 0 ? (
             <Rail
-              title="Flash Deals"
+              title="Flash deals near you"
               icon={<IconBolt className="h-4 w-4 text-ink" />}
               seeAllHref="/search?type=flash"
             >
               {flash.map((d) => (
-                <DealCardHorizontal
+                <DiscoverDealCard
                   key={d.id}
-                  href={`/deals/${d.id}`}
-                  imageUrl={d.image_url}
-                  title={`${d.merchants?.merchant_name} — ${d.title}`}
-                  tag="flash"
-                  verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
-                  pay={dealPricing(d).pay}
-                  extras={dealPricing(d).extras}
+                  {...cardProps(d, { origin, favourites, tag: "flash" })}
                 />
               ))}
             </Rail>
           ) : null}
 
           {boosted.length > 0 ? (
-            <Rail title="Boosted Deals" seeAllHref="/search?type=boosted">
+            <Rail title="Boosted deals near you" seeAllHref="/search?type=boosted">
               {boosted.map((d) => (
-                <DealCardHorizontal
+                <DiscoverDealCard
                   key={d.id}
-                  href={`/deals/${d.id}`}
-                  imageUrl={d.image_url}
-                  title={`${d.merchants?.merchant_name} — ${d.title}`}
-                  tag="boosted"
-                  verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
-                  pay={dealPricing(d).pay}
-                  extras={dealPricing(d).extras}
+                  {...cardProps(d, { origin, favourites, tag: "boosted" })}
                 />
               ))}
             </Rail>
           ) : null}
 
           {nearMe.length > 0 ? (
-            <section className="mt-6 px-4">
-              <h2 className="text-base font-bold text-ink">Deals Near Me</h2>
-              <p className="mt-0.5 text-[11px] text-faint">
-                ranked by verified redemptions
-              </p>
+            <section className="mt-6 px-4 pb-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-ink">Standard deals near you</h2>
+                <Link
+                  href="/browse"
+                  className="text-xs font-semibold text-muted"
+                >
+                  Map ›
+                </Link>
+              </div>
               <div className="mt-3 space-y-4">
                 {nearMe.map((d) => (
-                  <DealCardVertical
+                  <DiscoverDealCard
                     key={d.id}
-                    href={`/deals/${d.id}`}
-                    imageUrl={d.image_url}
-                    merchantName={d.merchants?.merchant_name ?? ""}
-                    floor={d.merchants?.floor ?? null}
-                    title={d.title}
-                    dealType={d.deal_type}
-                    verifiedCount={verifiedByMerchant.get(d.merchant_id) ?? 0}
-                    expiresAt={d.expires_at}
-                    pay={dealPricing(d).pay}
-                    wasKes={dealPricing(d).was}
-                    extras={dealPricing(d).extras}
+                    variant="vertical"
+                    {...cardProps(d, { origin, favourites, tag: null })}
                   />
                 ))}
               </div>
             </section>
+          ) : null}
+
+          {uniqueFavourites.length > 0 ? (
+            <Rail title="Your favourites">
+              {uniqueFavourites.map((d) => (
+                <DiscoverDealCard
+                  key={`fav-${d.id}`}
+                  {...cardProps(d, {
+                    origin,
+                    favourites,
+                    tag:
+                      d.deal_type === "flash"
+                        ? "flash"
+                        : d.boost_active
+                          ? "boosted"
+                          : null,
+                  })}
+                />
+              ))}
+            </Rail>
           ) : null}
         </>
       )}

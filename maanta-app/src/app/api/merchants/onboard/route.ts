@@ -36,11 +36,24 @@ export async function POST(request: Request) {
     whatsapp,
     entranceNotes,
     onboardingAgentId,
+    lat: rawLat,
+    lng: rawLng,
   } = await request.json();
 
   if (!merchantName || !what3wordsAddress || !phone) {
     return NextResponse.json(
       { error: "Shop name, what3words address, and phone are required." },
+      { status: 400 }
+    );
+  }
+
+  const lat =
+    typeof rawLat === "number" && Number.isFinite(rawLat) ? rawLat : null;
+  const lng =
+    typeof rawLng === "number" && Number.isFinite(rawLng) ? rawLng : null;
+  if ((lat == null) !== (lng == null)) {
+    return NextResponse.json(
+      { error: "Latitude and longitude must both be set or both omitted." },
       { status: 400 }
     );
   }
@@ -131,6 +144,18 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
+  }
+
+  // Persist GPS derived from the wizard's w3w validate step (coords are not
+  // part of onboard_merchant's RPC signature — update after insert).
+  if (typeof merchantId === "string" && lat != null && lng != null) {
+    const { error: locError } = await supabase
+      .from("merchants")
+      .update({ lat, lng, updated_at: new Date().toISOString() })
+      .eq("id", merchantId);
+    if (locError) {
+      console.error("onboard lat/lng update failed:", locError);
+    }
   }
 
   const clerkUserId = await currentClerkUserId();
