@@ -102,10 +102,63 @@ fee path silently.
 | Agent lead attribution | `docs/skills/agent-attribution.md` |
 | UI roles walkthrough | `docs/skills/ui-walkthrough-roles.md` |
 
-## Bottom line for decisions
+## Codebase quality (founder read)
+
+**Verdict (as of 2026-07-26):** the repo is unusually disciplined for a
+pre-launch money product — especially around fees, wallets, and abuse.
+That is **not** the same as “ready to take live traffic.” The honest split
+used in launch audits is:
+
+- **Ready in repo** — implemented, tested, documented here.
+- **Ready in prod** — applied and verified by a human on live Vercel /
+  Supabase / Clerk / payment accounts. Many launch gates are still here.
+
+### What is strong
+
+| Signal | Why it matters to you |
+|---|---|
+| Money path is database-enforced | Claim → verify → KES 30 (or arrears) cannot be skipped by a broken button. SQL suites in CI assert double-verify cannot double-charge, low-balance → arrears, top-ups settle arrears first. |
+| Security was re-audited and patched | Mid/late July work closed real abuse paths (e.g. clients writing wallet/status fields directly). Money RPCs locked down; rate limits; admin actions logged. |
+| CI on every PR | Lint, typecheck, unit tests, production build, plus a fresh local database that re-runs ~15 SQL money/security suites. Recent `main` CI is green. |
+| Frozen business rules are explicit | Decisions log + guardrail docs tell engineers what not to casually change (fee, trial, verify-anyway, zero-balance gate). |
+| Documentation habit | Skills/ops docs, launch tracker, and “ready in repo ≠ ready in prod” language reduce silent drift. |
+
+Rough scale of the app: one Next.js codebase (~24k lines of app TypeScript),
+~66 database migrations, ~130+ automated app tests plus dedicated SQL
+suites for the fee path. Size is manageable; complexity is concentrated
+where money and roles live.
+
+### What is weaker / unfinished
+
+| Gap | Risk if ignored |
+|---|---|
+| Real-device smoke tests still owed (shopper / merchant / admin) | Repo tests prove logic; they do not prove the till experience on two phones in BBS Mall. |
+| Browser E2E exists but is opt-in | Playwright golden path is in repo; it does not yet gate every CI run against a live test env. |
+| M-Pesa live end-to-end blocked on IntaSend access | Card sandbox works; Kenya launch path for STK is not fully proven live. |
+| Prod env / secrets / scheduled jobs | Production wiring (Vercel env, trial-expiry schedule, Stripe live cutover) is human-owned and still open on the tracker. |
+| Legal / DPA | Drafts only; lawyer + incorporation decisions outstanding. |
+| Analytics / waitlist ops | Code paths exist; some need env confirmation and production signup verification. |
+
+### How to interpret “quality” as founder
+
+Think of three grades, not one:
+
+1. **Engineering craft on the money spine** — high. Fees, ledger, RLS,
+   and regression tests are treated as sacred.
+2. **Product completeness for BBS Mall launch** — good in repo, incomplete
+   in live ops (device QA, M-Pesa credentials, prod config).
+3. **Company readiness** — still gated by legal, marketing ops, and
+   human deployment checklists — not by “is the TypeScript pretty?”
+
+### Bottom line for decisions
 
 You do not need to read TypeScript to run the company. You do need to
 know: **one app, four roles, one mall first, one fee event that must never
 be wrong**. When prioritizing engineering, ask: does this make claim →
 verify → KES 30 more reliable, more usable at BBS Mall, or safer for
 wallet money? If not, it is usually later.
+
+On quality specifically: **do not confuse green CI with launch.** Trust
+the money-path engineering; still insist on the human gates in
+`docs/maanta-launch-readiness-tracker.md` (device passes, prod env,
+M-Pesa, legal) before treating the product as live-ready.
