@@ -5,8 +5,9 @@ Synthetic `@maanta.app` accounts for friends/family rehearsal. All data is fake 
 ## Apply
 
 ```bash
-export DATABASE_URL='<your-local-or-hosted-postgres-uri>'  # e.g. from `supabase start`
-make db-seed-test-accounts
+# Set your Postgres URI (from `supabase start` or Supabase dashboard → Database)
+export DB_URL='<postgres-uri>'
+DATABASE_URL="$DB_URL" make db-seed-test-accounts
 # or: cd maanta-app && ./scripts/apply-test-accounts-seed.sh
 ```
 

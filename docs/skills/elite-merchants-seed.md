@@ -15,8 +15,9 @@ UUID namespace: `b3/c3/d3` (no collision with rehearsal `b0`, demo `b1`, or test
 ## Apply
 
 ```bash
-export DATABASE_URL='<your-local-or-hosted-postgres-uri>'  # e.g. from `supabase start`
-make db-seed-elite
+# Set your Postgres URI (from `supabase start` or Supabase dashboard → Database)
+export DB_URL='<postgres-uri>'
+DATABASE_URL="$DB_URL" make db-seed-elite
 # or: cd maanta-app && ./scripts/apply-elite-merchants-seed.sh
 ```
 

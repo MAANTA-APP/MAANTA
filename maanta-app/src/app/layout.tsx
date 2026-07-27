@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { AuthProviders } from "@/components/auth/auth-providers";
 import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
@@ -42,17 +42,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-      signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "/login"}
-      signUpUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL ?? "/sign-up"}
-      signInFallbackRedirectUrl={
-        process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL ?? "/app-bootstrap"
-      }
-      signUpFallbackRedirectUrl={
-        process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL ?? "/app-bootstrap"
-      }
-    >
+    <AuthProviders>
       <html lang="en">
         <body
           className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
@@ -60,6 +50,6 @@ export default function RootLayout({
           <PostHogClientProvider>{children}</PostHogClientProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </AuthProviders>
   );
 }

@@ -62,6 +62,9 @@ for it to work (already configured in the image).
   `supabase/seed/node0_100_deals_seed.sql` (100 live BBS Mall deals). The feed
   is node-scoped via the `maanta_node` cookie (default `BBS Mall`); a stale
   cookie for another node shows an empty feed.
+- **Auth strategy:** `MAANTA_AUTH_STRATEGY=supabase` enables email OTP via
+  Supabase Auth for rehearsal (no Clerk SMS). Production launch uses `clerk`.
+  See `docs/ops/auth-strategies.md`.
 - The core money path (claim → verify → KES 30 success fee) can be exercised
   directly against the running DB via the `claim_deal(user_id, deal_id)` and
   `verify_redemption(merchant_id, otp)` RPCs under a `service_role` JWT claim —
