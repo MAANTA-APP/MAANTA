@@ -1,12 +1,19 @@
 {
-  "name": "Maanta — The mall, made live.",
+  "name": "Maanta",
   "short_name": "Maanta",
-  "description": "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
-  "start_url": "/feed",
+  "description": "Discover, claim and redeem live mall deals. Install on your phone to work faster.",
+  "start_url": "/app-bootstrap",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FDBF2D",
   "theme_color": "#FDBF2D",
   "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon.png",
       "sizes": "512x512",

@@ -110,7 +110,10 @@ export default function DemoPage() {
           <code className="font-mono text-[13px]">docs/ops/test-accounts.md</code>.
         </p>
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap gap-2">
+          <ButtonLink href="/download" variant="primary" size="sm">
+            Install the app
+          </ButtonLink>
           <ButtonLink href="/feed" variant="primary" size="lg">
             Browse today&apos;s deals — no login
           </ButtonLink>

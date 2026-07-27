@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { PostHogClientProvider } from "@/components/posthog-provider";
+import { PwaRegistrar } from "@/components/pwa-registrar";
 import "./globals.css";
 
 // Claude-calm shopper type: DM Sans for UI hierarchy; Inter kept as fallback
@@ -53,17 +54,20 @@ export default function RootLayout({
       signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "/login"}
       signUpUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL ?? "/sign-up"}
       signInFallbackRedirectUrl={
-        process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL ?? "/select-mall"
+        process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL ?? "/app-bootstrap"
       }
       signUpFallbackRedirectUrl={
-        process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL ?? "/select-mall"
+        process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL ?? "/app-bootstrap"
       }
     >
       <html lang="en">
         <body
           className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
         >
-          <PostHogClientProvider>{children}</PostHogClientProvider>
+          <PostHogClientProvider>
+            <PwaRegistrar />
+            {children}
+          </PostHogClientProvider>
         </body>
       </html>
     </ClerkProvider>

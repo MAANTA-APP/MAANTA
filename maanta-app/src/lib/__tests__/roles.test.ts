@@ -3,6 +3,7 @@ import {
   canAccessAdminConsole,
   canAccessAgentConsole,
   canAccessFounderDashboard,
+  getDefaultRouteForRole,
 } from "@/lib/roles";
 
 describe("role access matrix", () => {
@@ -30,5 +31,16 @@ describe("role access matrix", () => {
       expect(canAccessFounderDashboard(role)).toBe(false);
       expect(canAccessAgentConsole(role)).toBe(false);
     }
+  });
+});
+
+describe("getDefaultRouteForRole", () => {
+  it("routes each role to its default console", () => {
+    expect(getDefaultRouteForRole("customer")).toBe("/feed");
+    expect(getDefaultRouteForRole("merchant_admin")).toBe("/merchant/dashboard");
+    expect(getDefaultRouteForRole("merchant_staff")).toBe("/merchant/dashboard");
+    expect(getDefaultRouteForRole("admin")).toBe("/admin");
+    expect(getDefaultRouteForRole("agent")).toBe("/agent");
+    expect(getDefaultRouteForRole("cofounder")).toBe("/founder");
   });
 });

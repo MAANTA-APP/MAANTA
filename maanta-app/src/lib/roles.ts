@@ -20,3 +20,21 @@ export function canAccessFounderDashboard(role: string): boolean {
 export function canAccessAgentConsole(role: string): boolean {
   return role === "agent" || role === "admin" || role === "cofounder";
 }
+
+/** Default landing route after OTP login / PWA cold start. */
+export function getDefaultRouteForRole(role: AppRole): string {
+  switch (role) {
+    case "admin":
+      return "/admin";
+    case "agent":
+      return "/agent";
+    case "cofounder":
+      return "/founder";
+    case "merchant_admin":
+    case "merchant_staff":
+      return "/merchant/dashboard";
+    case "customer":
+    default:
+      return "/feed";
+  }
+}

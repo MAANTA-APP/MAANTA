@@ -42,12 +42,8 @@ export default function LandingPage() {
             <PrimaryButtonLink href="/feed" size="lg">
               Browse live deals
             </PrimaryButtonLink>
-            <SecondaryButtonLink
-              href="/waitlist"
-              size="lg"
-              className="!border-white/30 !bg-transparent !text-white hover:!bg-white/10"
-            >
-              Get early access
+            <SecondaryButtonLink href="/download" size="lg">
+              Install the app
             </SecondaryButtonLink>
           </div>
           <Meta as="p" className="mt-6 text-white/55">
