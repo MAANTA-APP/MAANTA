@@ -32,10 +32,21 @@ the source of truth for anything describing code behavior). Consolidated
 | `maanta-merchant-email-sequence.md` | Merchant welcome/nurture copy draft |
 | `maanta-mall-operator-email-sequence.md` | Mall-operator outreach copy draft |
 
+## Ops
+
+| File | Purpose |
+|---|---|
+| `ops/tech-stack-deep-dive-2026-07.md` | Current stack inventory, ~100k scalability assessment, upgrades, advisor map |
+| `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
+| `ops/supabase-migrations.md` | How migrations are applied and verified |
+| `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
+| `ops/test-accounts.md` | Test account conventions |
+
 ## Durable skills (for future sessions/contractors)
 
 | File | Purpose |
 |---|---|
+| `skills/tech-stack-100k.md` | Pointer to the ops deep dive (stack + path to ~100k users) |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
 | `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
