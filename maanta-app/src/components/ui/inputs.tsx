@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { cn } from "@/lib/ui";
-import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
+import { IconCheck, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
 
 export const inputClass =
   "h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand";
@@ -22,94 +22,8 @@ export function TextField({
   );
 }
 
-/** 3a Phone field — country code selectable, defaults Kenya +254. */
-const COUNTRIES = [
-  { name: "Kenya", code: "+254", ready: true },
-  { name: "Norway", code: "+47", ready: false },
-  { name: "Uganda", code: "+256", ready: false },
-];
-
-export function PhoneField({
-  countryCode,
-  onCountryCode,
-  value,
-  onChange,
-  label,
-  autoFocus,
-}: {
-  countryCode: string;
-  onCountryCode: (code: string) => void;
-  value: string;
-  onChange: (v: string) => void;
-  label?: string;
-  autoFocus?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filtered = COUNTRIES.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
-  );
-  return (
-    <div>
-      {label ? (
-        <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
-      ) : null}
-      <div className="flex h-12 items-stretch overflow-hidden rounded-xl border border-ink/80 bg-white focus-within:ring-2 focus-within:ring-brand">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-1 border-r border-line px-3 text-sm font-semibold text-ink"
-          aria-expanded={open}
-        >
-          {countryCode}
-          <IconChevronDown className="h-3.5 w-3.5" />
-        </button>
-        <input
-          type="tel"
-          inputMode="tel"
-          autoFocus={autoFocus}
-          placeholder="7XX XXX XXX"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 text-base text-ink placeholder:text-faint focus:outline-none"
-        />
-      </div>
-      {open ? (
-        <div className="mt-2 overflow-hidden rounded-xl border border-line bg-white shadow-modal">
-          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-            <IconSearch className="h-4 w-4 text-faint" />
-            <input
-              placeholder="Search country"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full text-sm focus:outline-none"
-            />
-          </div>
-          {filtered.map((c) => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => {
-                onCountryCode(c.code);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cream",
-                !c.ready && "text-faint"
-              )}
-            >
-              <span>{c.name}</span>
-              <span className="flex items-center gap-1 font-semibold">
-                {c.code}
-                {countryCode === c.code ? <IconCheck className="h-3.5 w-3.5" /> : null}
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+/** 3a Phone field — full E.164 country dropdown (see InternationalPhoneInput). */
+export { PhoneField } from "@/components/phone/international-phone-input";
 
 // (Retired) OtpCells lived here — a second, single-hidden-input OTP entry that
 // nothing rendered. The paste-aware, unit-tested `otp-input.tsx` (OtpInput) is

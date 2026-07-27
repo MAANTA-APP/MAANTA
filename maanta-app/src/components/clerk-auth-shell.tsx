@@ -86,7 +86,12 @@ export function ClerkAuthShell({ mode }: { mode: "sign-in" | "sign-up" }) {
         <Body className="mt-1.5">
           {mode === "sign-up"
             ? "Create a Maanta account to claim deals at your mall."
-            : "Welcome back — claim live deals at your mall."}
+            : "Enter your phone number in international format (e.g. +44…, +47…, +254…). You’ll receive a one-time code by SMS, or sign in with email."}
+        </Body>
+        <Body className="mt-2 text-xs text-muted">
+          <a href="/help/phone-login" className="font-semibold text-ink underline">
+            How phone login works
+          </a>
         </Body>
       </div>
 

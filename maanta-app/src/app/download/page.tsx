@@ -52,16 +52,21 @@ export default function DownloadPage() {
         <Body className="mx-auto mt-3 max-w-md text-secondary">
           One app for shoppers, merchants, agents, and founders. Browse deals, redeem
           in-store, manage shops, and run operations — all from your home screen.
+          Sign in with your phone number in international format (e.g. +44…, +47…, +254…)
+          and a one-time SMS code.
         </Body>
         <div className="mt-8 flex flex-col items-center gap-3">
           <DownloadClient />
           <PrimaryButtonLink href="/login" size="md" className="!bg-ink !text-white">
-            Log in with email OTP
+            Log in with phone or email
           </PrimaryButtonLink>
         </div>
         <Meta as="p" className="mx-auto mt-4 max-w-sm text-secondary">
-          Maanta is a lightweight web app. No Play Store or App Store needed — just add
-          it to your home screen and log in with your email OTP.
+          Maanta is a lightweight web app. No Play Store or App Store needed — add it
+          to your home screen, then sign in with your local number anywhere in the world.{" "}
+          <Link href="/help/phone-login" className="font-semibold text-ink underline">
+            Phone login help
+          </Link>
         </Meta>
       </section>
 

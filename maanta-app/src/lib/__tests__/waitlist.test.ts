@@ -31,7 +31,7 @@ describe("normalizeWaitlistPhone", () => {
 
   it("rejects invalid numbers and non-strings", () => {
     expect(normalizeWaitlistPhone("12345")).toBeNull();
-    expect(normalizeWaitlistPhone("+254812345678")).toBeNull();
+    expect(normalizeWaitlistPhone("+254812345678")).toBe("+254812345678");
     expect(normalizeWaitlistPhone("07123")).toBeNull();
     expect(normalizeWaitlistPhone("not a phone")).toBeNull();
     expect(normalizeWaitlistPhone(712345678)).toBeNull();

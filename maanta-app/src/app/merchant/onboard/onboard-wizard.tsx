@@ -6,6 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { PhoneField, TextField, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/ui";
+import { buildE164 } from "@/lib/phone/e164";
 
 type Step = "intro" | "business" | "location" | "floor" | "wallet" | "review" | "done";
 
@@ -67,7 +68,7 @@ export function OnboardWizard({
   const [unit, setUnit] = useState("");
   const [entranceNotes, setEntranceNotes] = useState("");
 
-  const fullPhone = `${ownerCc}${ownerPhone.replace(/\D/g, "").replace(/^0+/, "")}`;
+  const fullPhone = buildE164(ownerCc, ownerPhone);
 
   async function validateAddress() {
     setValidating(true);

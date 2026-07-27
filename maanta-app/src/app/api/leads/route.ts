@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { validatePhoneField } from "@/lib/phone/e164";
 
 /**
  * 11i Lead capture. The 48h lock comes from the DB default
@@ -31,12 +32,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Shop name is required." }, { status: 400 });
   }
 
+  const phoneCheck = validatePhoneField(phone, { required: false, label: "owner phone" });
+  if (!phoneCheck.ok) {
+    return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
+  }
+
   const { data: lead, error } = await service
     .rpc("capture_lead", {
       p_agent_id: agent.id,
       p_shop_name: String(shopName).trim(),
       p_owner_name: ownerName || null,
-      p_phone: phone || null,
+      p_phone: phoneCheck.e164 || null,
       p_unit_number: unitNumber || null,
       p_what3words_address: what3words
         ? String(what3words).replace(/^\/+/, "").toLowerCase()

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneField, TextField, Toggle } from "@/components/ui/inputs";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { maskPhone } from "@/lib/ui";
+import { buildE164 } from "@/lib/phone/e164";
 import Link from "next/link";
 
 type Step = "details" | "permissions" | "sent";
@@ -26,7 +27,7 @@ export default function AddStaffPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fullPhone = `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`;
+  const fullPhone = buildE164(cc, phone);
 
   async function save() {
     setBusy(true);

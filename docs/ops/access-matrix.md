@@ -4,6 +4,8 @@ Last updated: 2026-07-27
 
 Source of truth for route guards: `src/lib/roles.ts` and `docs/skills/role-permissions.md`.
 
+**Phone auth:** global E.164 at login and claim verification; role routing uses `public.users.role` only — not phone prefix. See `docs/ops/global-rollout.md`.
+
 ## Role summary
 
 | Role | DB value | Default landing after login |

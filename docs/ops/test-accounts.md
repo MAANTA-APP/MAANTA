@@ -1,8 +1,21 @@
 # Test accounts — Node 0 rehearsal personas
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27
 
-All accounts sign in with **email OTP** at `/login`. Codes land in the founder inbox via Gmail plus-addressing (`aragagency+*@gmail.com`). No passwords are set.
+All accounts sign in at `/login` with **email OTP** or **phone SMS OTP** (global E.164 — see `/help/phone-login`). Codes land in the founder inbox via Gmail plus-addressing (`aragagency+*@gmail.com`). No passwords are set.
+
+### Example phone numbers (E.164)
+
+Use these formats for remote testers installing the PWA from Norway, the UK, Kenya, or Uganda:
+
+| Country | Example E.164 |
+|---|---|
+| United Kingdom | `+447912345678` |
+| Norway | `+4791234567` |
+| Kenya | `+254712345678` |
+| Uganda | `+256712345678` |
+
+Phone login is open for all ITU country codes; M-Pesa wallet top-up remains Kenya-only.
 
 Apply seeds in order:
 

@@ -11,6 +11,7 @@ import {
   inputClass,
 } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
+import { buildE164 } from "@/lib/phone/e164";
 import { WAITLIST_CONSENT_TEXT, type WaitlistSegment } from "@/lib/waitlist";
 
 const SEGMENT_OPTIONS: { value: WaitlistSegment; label: string }[] = [
@@ -70,7 +71,7 @@ export function WaitlistForm({
           segment,
           fullName,
           email,
-          phone: `${countryCode}${phone}`,
+          phone: buildE164(countryCode, phone),
           businessName: businessName || null,
           note: note || null,
           consent,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
+import { validatePhoneField } from "@/lib/phone/e164";
 import {
   checkRateLimit,
   ONBOARD_RATE_LIMIT,
@@ -40,11 +41,16 @@ export async function POST(request: Request) {
     lng: rawLng,
   } = await request.json();
 
-  if (!merchantName || !what3wordsAddress || !phone) {
+  if (!merchantName || !what3wordsAddress) {
     return NextResponse.json(
       { error: "Shop name, what3words address, and phone are required." },
       { status: 400 }
     );
+  }
+
+  const phoneCheck = validatePhoneField(phone, { label: "owner phone" });
+  if (!phoneCheck.ok) {
+    return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
   }
 
   const lat =
@@ -102,7 +108,7 @@ export async function POST(request: Request) {
   const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
     p_user_id: appUser.id,
     p_merchant_name: merchantName,
-    p_phone: phone,
+    p_phone: phoneCheck.e164,
     p_email: email || null,
     p_whatsapp: whatsapp || null,
     p_node: "BBS Mall",

@@ -9,6 +9,7 @@ import { OtpInput } from "@/components/ui/otp-input";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { BackButton } from "@/components/ui/claude";
 import { IconCheck } from "@/components/ui/icons";
+import { buildE164, isValidE164 } from "@/lib/phone/e164";
 
 /**
  * Phone-required-at-claim step (S2 ruling 2026-07-23). Launch auth lets a
@@ -69,10 +70,14 @@ function VerifyPhoneInner() {
     return () => clearTimeout(t);
   }, [stage, next, router]);
 
-  const fullPhone = `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`;
+  const fullPhone = buildE164(cc, phone);
 
   async function sendCode() {
     if (!isLoaded || !user) return;
+    if (!isValidE164(fullPhone)) {
+      setError("Enter a valid international phone number (e.g. +44…, +47…, +254…).");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {

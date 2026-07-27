@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneField, TextField, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { cn } from "@/lib/ui";
+import { buildE164 } from "@/lib/phone/e164";
 
 /** 11i Agent lead capture — "Save lead — locks for 48h". */
 export function NewLeadForm() {
@@ -31,9 +32,7 @@ export function NewLeadForm() {
         body: JSON.stringify({
           shopName: shopName.trim(),
           ownerName: ownerName.trim() || null,
-          phone: phone.trim()
-            ? `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`
-            : null,
+          phone: phone.trim() ? buildE164(cc, phone) : null,
           unitNumber: floorUnit.trim() || null,
           what3words: w3w.trim() || null,
           notes: notes.trim() || null,

@@ -4,6 +4,8 @@
  * keep them identical across the form, this API, and the email platform.
  */
 
+import { normalizeToE164 } from "@/lib/phone/e164";
+
 export const WAITLIST_SEGMENTS = ["shopper", "merchant", "mall_operator"] as const;
 export type WaitlistSegment = (typeof WAITLIST_SEGMENTS)[number];
 
@@ -39,22 +41,11 @@ export type WaitlistSubmission = {
 };
 
 /**
- * Normalize a phone number to E.164. Kenyan formats (07XX…, 7XX…,
- * 2547XX…, +254 07XX…) all normalize to +254; other +CC numbers pass
- * through if plausibly E.164 (diaspora signups).
+ * Normalize a phone number to E.164. Kenyan local formats normalize to +254;
+ * other international numbers pass through when valid E.164.
  */
 export function normalizeWaitlistPhone(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  let s = raw.replace(/[\s().\-]/g, "");
-  if (s.startsWith("+")) {
-    if (s.startsWith("+2540")) s = `+254${s.slice(5)}`; // dropped trunk zero
-    if (s.startsWith("+254")) return /^\+254[17]\d{8}$/.test(s) ? s : null;
-    return /^\+[1-9]\d{6,14}$/.test(s) ? s : null;
-  }
-  if (/^0[17]\d{8}$/.test(s)) return `+254${s.slice(1)}`;
-  if (/^[17]\d{8}$/.test(s)) return `+254${s}`;
-  if (/^254[17]\d{8}$/.test(s)) return `+${s}`;
-  return null;
+  return normalizeToE164(raw);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -90,7 +81,11 @@ export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
 
   const phone = normalizeWaitlistPhone(b.phone);
   if (!phone) {
-    return { ok: false, error: "Enter a valid phone number (e.g. 0712 345 678)." };
+    return {
+      ok: false,
+      error:
+        "Enter a valid phone number in international format (e.g. +44…, +47…, +254 712 345 678).",
+    };
   }
 
   if (b.consent !== true) {

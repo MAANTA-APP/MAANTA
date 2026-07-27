@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext } from "@/lib/merchant";
+import { validatePhoneField } from "@/lib/phone/e164";
 
 /** Add a staff member (wireframe 10y/10ac/10aa). Owner only. */
 export async function POST(request: Request) {
@@ -18,8 +19,13 @@ export async function POST(request: Request) {
 
   const { staffName, phone, canVerify, canDeals, canTopup, canPurchase } =
     await request.json();
-  if (!staffName || !phone) {
+  if (!staffName) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  }
+
+  const phoneCheck = validatePhoneField(phone, { label: "staff phone" });
+  if (!phoneCheck.ok) {
+    return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
   }
 
   const service = createServiceClient();
@@ -28,7 +34,7 @@ export async function POST(request: Request) {
     .insert({
       merchant_id: merchant.id,
       staff_name: String(staffName).trim(),
-      phone: String(phone).trim(),
+      phone: phoneCheck.e164,
       can_verify: canVerify !== false,
       can_deals: !!canDeals,
       can_topup: !!canTopup,
