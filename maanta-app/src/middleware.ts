@@ -1,14 +1,31 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { type NextFetchEvent, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
-// Clerk owns the session now, so the middleware just runs clerkMiddleware to
-// populate auth() for downstream server code. Route gating stays where it was
-// (per-page redirects and per-route 401s) rather than being centralised here,
-// preserving the existing shopper/merchant/admin/agent access behaviour.
-export default clerkMiddleware();
+function middlewareStrategy(): string {
+  return (
+    process.env.MAANTA_AUTH_STRATEGY?.trim() ||
+    process.env.NEXT_PUBLIC_MAANTA_AUTH_STRATEGY?.trim() ||
+    "clerk"
+  );
+}
+
+const clerkHandler = clerkMiddleware();
+
+// Clerk populates auth() for the clerk strategy; Supabase Auth refreshes the
+// session cookie for the supabase/authjs dev/test strategy.
+export default async function middleware(
+  request: NextRequest,
+  event: NextFetchEvent
+) {
+  if (middlewareStrategy() === "supabase" || middlewareStrategy() === "authjs") {
+    return updateSession(request);
+  }
+  return clerkHandler(request, event);
+}
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and static assets, run on everything else + APIs.
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     "/(api|trpc)(.*)",
   ],

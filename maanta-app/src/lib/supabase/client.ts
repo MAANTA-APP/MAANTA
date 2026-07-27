@@ -1,17 +1,26 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from "@supabase/ssr";
+import { isSupabaseAuthClient } from "@/lib/auth/strategy";
 
-// Browser anon client. Auth is delegated to Clerk: when a Clerk session exists,
-// its token (carrying `sub` and `role: authenticated`) is attached via
-// `accessToken` so any client-side query runs under the caller's RLS identity.
-// Falls back to an anon token when signed out.
+// Browser anon client. Clerk strategy attaches the Clerk session token; Supabase
+// strategy uses the Supabase Auth cookie session (email OTP in dev/test).
 export function createClient() {
+  if (isSupabaseAuthClient()) {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       async accessToken() {
-        // window.Clerk is populated by <ClerkProvider>; null before it loads.
-        const clerk = (globalThis as { Clerk?: { session?: { getToken: () => Promise<string | null> } } }).Clerk;
+        const clerk = (
+          globalThis as {
+            Clerk?: { session?: { getToken: () => Promise<string | null> } };
+          }
+        ).Clerk;
         return (await clerk?.session?.getToken()) ?? null;
       },
     }

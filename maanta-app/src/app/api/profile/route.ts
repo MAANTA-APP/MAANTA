@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { clerkClient } from "@clerk/nextjs/server";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
+import { isClerkAuth } from "@/lib/auth/strategy";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ALL_NODES, DEFAULT_NODE, NODES, NODE_COOKIE } from "@/lib/nodes";
 
@@ -53,7 +54,7 @@ export async function PATCH(request: Request) {
     const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
     patch.full_name = fullName;
 
-    const clerkId = await currentClerkUserId();
+    const clerkId = isClerkAuth() ? await currentClerkUserId() : null;
     if (clerkId) {
       try {
         const client = await clerkClient();
