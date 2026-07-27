@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { ButtonLink } from "@/components/ui/button";
+import { AuthNavControls } from "@/components/auth/auth-nav-controls";
 import { Logomark } from "@/components/ui/icons";
 
 /** 5f Public top nav — MAANTA · How it works · Pricing · FAQ · [auth controls]. */
@@ -24,22 +23,7 @@ export function PublicNav() {
           </Link>
         </nav>
         <div className="flex items-center gap-3">
-          <SignedOut>
-            <SignInButton mode="redirect">
-              <button className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
-                Sign in
-              </button>
-            </SignInButton>
-            <ButtonLink href="/sign-up" size="sm">
-              Sign up
-            </ButtonLink>
-          </SignedOut>
-          <SignedIn>
-            <ButtonLink href="/feed" size="sm">
-              My feed
-            </ButtonLink>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
+          <AuthNavControls />
         </div>
       </div>
     </header>
