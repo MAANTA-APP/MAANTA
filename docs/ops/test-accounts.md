@@ -53,6 +53,7 @@ There is no separate `support` DB role — disputes specialists use `admin` with
 | Admin | `/admin` | `/admin/merchants` (approve Macmacaan), `/admin/redemptions` (dispute seed), `/founder` |
 | Support | `/admin/redemptions` | `/admin/redemptions/[id]` (merchant override dispute), `/admin/support` |
 | Agent | `/agent` | `/agent/leads` (Hassan churn lead), `/agent/leads/new` |
+| Co-founder | `/founder` | `/agent` (waitlist + churn counts, all leads read-only) |
 
 ## Shopper (control)
 
