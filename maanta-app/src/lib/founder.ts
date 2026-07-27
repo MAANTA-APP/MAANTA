@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 import { getAppUser, type AppUser } from "@/lib/data";
+import { canAccessFounderDashboard } from "@/lib/roles";
 
 /**
  * Founder/co-founder dashboard guard.
- * Launch uses the `admin` role in public.users — founders are provisioned as admin.
+ * Admin and cofounder roles may view aggregated launch metrics.
  */
 export async function requireFounderPage(): Promise<AppUser> {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/founder");
-  if (user.role !== "admin") redirect("/");
+  if (!canAccessFounderDashboard(user.role)) redirect("/");
   return user;
 }
 
@@ -25,7 +26,7 @@ export async function requireFounderApi(): Promise<
       }),
     };
   }
-  if (user.role !== "admin") {
+  if (!canAccessFounderDashboard(user.role)) {
     return {
       error: new Response(JSON.stringify({ error: "Not authorized." }), {
         status: 403,

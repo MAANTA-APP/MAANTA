@@ -16,7 +16,8 @@ export type AppRole =
   | "merchant_admin"
   | "merchant_staff"
   | "agent"
-  | "admin";
+  | "admin"
+  | "cofounder";
 
 /** Clerk user id for the current request, or null when signed out. */
 export async function currentClerkUserId(): Promise<string | null> {

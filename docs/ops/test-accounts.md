@@ -41,7 +41,8 @@ WHERE email = '<account email>';
 |---|---|---|---|---|
 | **Admin / founder** | `aragagency@gmail.com` | `admin` | — | `/admin/*`, `/founder`, `/agent/*` |
 | **Support / disputes** | `aragagency+support@gmail.com` | `admin` | — | `/admin/redemptions`, `/admin/support`, `/admin/merchants` |
-| **Field agent** | `aragagency+agent@gmail.com` | `agent` | `g0000000-0000-4000-a000-000000000001` | `/agent`, `/agent/leads`, lead capture |
+| **Co-founder** | `aragagency+cofounder@gmail.com` | `cofounder` | — | `/founder`, `/agent` (read-only leads) |
+| **Field agent** | `aragagency+agent@gmail.com` | `agent` | `b0000000-0000-4000-b000-000000000001` | `/agent`, `/agent/leads`, lead capture |
 
 There is no separate `support` DB role — disputes specialists use `admin` with a dedicated login for audit separation in rehearsal.
 

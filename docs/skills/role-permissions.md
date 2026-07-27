@@ -15,19 +15,20 @@ Provisioning: `ensureAppUser()` in `src/lib/auth.ts` creates new users as `custo
 | Shopper | `customer` | ✅ | — | — | — | — |
 | Merchant owner | `merchant_admin` | ✅ (if also shops) | ✅ | — | — | — |
 | Merchant staff | `merchant_staff` | — | ✅ (scoped) | — | — | — |
-| Field agent | `agent` | — | — | partial | — | ✅ |
+| Field agent | `agent` | — | — | — | — | ✅ |
+| Co-founder | `cofounder` | — | — | — | ✅ | ✅ (read-only) |
 | Admin / founder | `admin` | ✅ | — | ✅ | ✅ | ✅ |
 
-**Founder/co-founder:** Launch uses the `admin` role. The `/founder` dashboard is a read-focused executive view; destructive ops remain in `/admin/*`. A separate `founder` enum value is deferred until co-founder access needs to be narrower than full admin.
+**Founder/co-founder:** Full guardian uses `admin`. Executive co-founder uses `cofounder` — `/founder` + read-only `/agent` leads; no `/admin/*` or payout edits. See `docs/ops/access-matrix.md`.
 
 ## Page guards
 
 | Guard | File | Allowed roles |
 |---|---|---|
 | `requireAdminPage` / `requireAdminApi` | `src/lib/admin.ts` | `admin` |
-| `requireFounderPage` / `requireFounderApi` | `src/lib/founder.ts` | `admin` |
+| `requireFounderPage` | `src/lib/founder.ts` | `admin`, `cofounder` |
 | `getMerchantContext` | `src/lib/merchant.ts` | `merchant_admin`, `merchant_staff` |
-| Agent pages | inline in `agent/layout.tsx` | `agent`, `admin` |
+| Agent pages | inline + `src/lib/agent.ts` | `agent`, `admin`, `cofounder` |
 | Claim gate | `currentUserHasVerifiedPhone()` | any signed-in user with verified phone |
 
 ## RLS bridge

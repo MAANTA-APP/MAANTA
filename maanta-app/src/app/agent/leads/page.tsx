@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { canAccessAgentConsole } from "@/lib/roles";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft } from "@/components/ui/icons";
 
@@ -11,22 +12,27 @@ export const dynamic = "force-dynamic";
 export default async function MyLeadsPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent/leads");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!canAccessAgentConsole(user.role)) redirect("/");
 
   const service = createServiceClient();
-  const { data: agent } = await service
-    .from("agents")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const isCofounder = user.role === "cofounder";
+  const { data: agent } = isCofounder
+    ? { data: null }
+    : await service.from("agents").select("id").eq("user_id", user.id).maybeSingle();
 
-  const { data: leads } = agent
+  const { data: leads } = isCofounder
     ? await service
         .from("leads")
-        .select("id, shop_name, status, locked_until, created_at")
-        .eq("agent_id", agent.id)
+        .select("id, shop_name, status, locked_until, created_at, notes")
         .order("created_at", { ascending: false })
-    : { data: [] };
+        .limit(50)
+    : agent
+      ? await service
+          .from("leads")
+          .select("id, shop_name, status, locked_until, created_at")
+          .eq("agent_id", agent.id)
+          .order("created_at", { ascending: false })
+      : { data: [] };
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">

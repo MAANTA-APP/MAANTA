@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { canAccessAgentConsole } from "@/lib/roles";
 import { KpiCard } from "@/components/ui/cards";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
@@ -12,9 +13,76 @@ export const dynamic = "force-dynamic";
 export default async function AgentDashboardPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!canAccessAgentConsole(user.role)) redirect("/");
 
   const service = createServiceClient();
+  const isCofounder = user.role === "cofounder";
+
+  if (isCofounder) {
+    const [{ data: recentLeads }, { count: pendingMerchants }, { count: churnTasks }] =
+      await Promise.all([
+        service
+          .from("leads")
+          .select("id, shop_name, status, locked_until, notes")
+          .order("created_at", { ascending: false })
+          .limit(8),
+        service
+          .from("merchants")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        service
+          .from("agent_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("is_complete", false)
+          .ilike("description", "%churn%"),
+      ]);
+
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-ink">
+            Acquisition · {user.full_name ?? "Co-founder"}
+          </h1>
+          <span className="rounded-full bg-cream px-3 py-1 text-xs font-bold text-ink">
+            BBS Mall
+          </span>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Read-only field view. Merchant approvals and payouts stay in admin.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <KpiCard label="Waitlist" value={pendingMerchants ?? 0} />
+          <KpiCard label="Churn tasks" value={churnTasks ?? 0} />
+        </div>
+        <h2 className="mt-6 text-base font-bold text-ink">Recent leads</h2>
+        <div className="mt-2 space-y-2.5">
+          {(recentLeads ?? []).length === 0 ? (
+            <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+              No leads yet
+            </p>
+          ) : (
+            (recentLeads ?? []).map((l) => (
+              <Link
+                key={l.id}
+                href={`/agent/leads/${l.id}`}
+                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
+              >
+                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
+                <StatusChip status={l.status} />
+              </Link>
+            ))
+          )}
+        </div>
+        <Link
+          href="/founder"
+          className="mt-4 block text-center text-xs font-semibold text-muted underline"
+        >
+          Founder dashboard
+        </Link>
+      </main>
+    );
+  }
+
   const { data: agent } = await service
     .from("agents")
     .select("id, weekly_target")

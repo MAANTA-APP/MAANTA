@@ -68,6 +68,14 @@ const ACCOUNTS: Account[] = [
     paths: ["/admin/merchants", "/admin/redemptions", "/founder"],
   },
   {
+    role: "Co-founder",
+    name: "Co-founder Ops",
+    email: "aragagency+cofounder@gmail.com",
+    blurb: "Executive KPIs + read-only acquisition leads. No admin console or payouts.",
+    landing: "/founder",
+    paths: ["/agent", "/agent/leads"],
+  },
+  {
     role: "Support / disputes",
     name: "Sara Disputes Ops",
     email: "aragagency+support@gmail.com",

@@ -26,7 +26,7 @@ export type AppUser = {
   phone: string | null;
   email: string | null;
   full_name: string | null;
-  role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin";
+  role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin" | "cofounder";
 };
 
 /** The signed-in Clerk user's public.users row (null when signed out). */

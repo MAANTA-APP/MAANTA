@@ -61,7 +61,7 @@ WHERE NOT EXISTS (
 
 -- Active field agent profile (required for /agent writes and lead capture)
 INSERT INTO public.agents (id, user_id, weekly_target, is_active)
-SELECT 'g0000000-0000-4000-a000-000000000001'::uuid,
+SELECT 'b0000000-0000-4000-b000-000000000001'::uuid,
        'b0000000-0000-4000-a000-000000000006'::uuid, 15, true
 WHERE NOT EXISTS (SELECT 1 FROM public.agents a WHERE a.user_id = 'b0000000-0000-4000-a000-000000000006'::uuid);
 
@@ -146,7 +146,7 @@ WHERE NOT EXISTS (SELECT 1 FROM public.redemptions r WHERE r.id = 'e0000000-0000
 INSERT INTO public.agent_tasks (id, merchant_id, task_type, priority, description, is_complete, created_at, due_at)
 SELECT 'a1000000-0000-4000-a000-000000000002'::uuid,
        'c0000000-0000-4000-a000-000000000004'::uuid,
-       'onboarding_followup', 'medium',
+       'onboarding_followup', 'high',
        'Merchant Hassan Old Town Fabrics has had no live deals for 45+ days. Last redemption 50 days ago. Suggested outreach: check if shop still trading at BBS Mall G-19, offer onboarding refresh. [ops personas seed]',
        false, NOW() - INTERVAL '2 days', NOW() + INTERVAL '5 days'
 WHERE NOT EXISTS (SELECT 1 FROM public.agent_tasks a WHERE a.id = 'a1000000-0000-4000-a000-000000000002'::uuid);
@@ -154,14 +154,14 @@ WHERE NOT EXISTS (SELECT 1 FROM public.agent_tasks a WHERE a.id = 'a1000000-0000
 -- Lead for churn merchant (agent can see in /agent/leads)
 INSERT INTO public.leads (id, agent_id, shop_name, unit_number, owner_name, phone,
                           what3words_address, notes, status, locked_until, converted_to)
-SELECT 'l0000000-0000-4000-a000-000000000001'::uuid,
-       'g0000000-0000-4000-a000-000000000001'::uuid,
+SELECT 'c0000000-0000-4000-b000-000000000002'::uuid,
+       'b0000000-0000-4000-b000-000000000001'::uuid,
        'Hassan Old Town Fabrics', 'G-19', 'Hassan Mohamed', '+254700000108',
        'quiet.fabric.lane',
        'Converted 75 days ago; now churn-risk — no live deals. Follow up for re-activation.',
        'converted', NOW() - INTERVAL '70 days',
        'c0000000-0000-4000-a000-000000000004'::uuid
-WHERE NOT EXISTS (SELECT 1 FROM public.leads l WHERE l.id = 'l0000000-0000-4000-a000-000000000001'::uuid);
+WHERE NOT EXISTS (SELECT 1 FROM public.leads l WHERE l.id = 'c0000000-0000-4000-b000-000000000002'::uuid);
 
 -- ----------------------------------------------------------------------------
 -- 3. Enrich Merchant B (Bilan) — recently onboarded, still learning
@@ -172,29 +172,6 @@ SET onboarded_at    = NOW() - INTERVAL '5 days',
     onboarded_by    = NULL
 WHERE id = 'c0000000-0000-4000-a000-000000000002'::uuid;
 
--- Second deal for Bilan (new merchant learning curve)
-INSERT INTO public.deals (id, merchant_id, node, title, description, image_url,
-                          discount_type, discount_value, deal_type, flash_duration_hours,
-                          is_active, max_claims, claims_count, starts_at,
-                          price_kes, compare_at_kes, charges)
-SELECT 'd0000000-0000-4000-a000-000000000005'::uuid,
-       'c0000000-0000-4000-a000-000000000002'::uuid,
-  'BBS Mall', 'Flash: 20% off lip gloss sets',
-  'Limited flash — all lip gloss gift sets. New merchant promo.',
-  'data:image/svg+xml;utf8,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%20400%20300"><rect%20width="400"%20height="300"%20fill="%23db2777"/><text%20x="200"%20y="150"%20font-family="sans-serif"%20font-size="30"%20font-weight="bold"%20fill="white"%20text-anchor="middle">Bilan%20Beauty</text><text%20x="200"%20y="195"%20font-family="sans-serif"%20font-size="22"%20fill="white"%20text-anchor="middle">Flash%20lip%20gloss</text></svg>',
-  'percentage', 20, 'flash', 6, true, 8, 0, NOW() - INTERVAL '45 minutes',
-  640.00, 800.00, '[]'::jsonb
-WHERE NOT EXISTS (SELECT 1 FROM public.deals d WHERE d.id = 'd0000000-0000-4000-a000-000000000005'::uuid);
-
-UPDATE public.deals
-SET starts_at  = CASE WHEN deal_type = 'flash' THEN NOW() - INTERVAL '45 minutes' ELSE NOW() - INTERVAL '3 hours' END,
-    expires_at = CASE WHEN deal_type = 'flash' THEN NOW() + INTERVAL '5 hours 15 minutes' ELSE NOW() + INTERVAL '21 hours' END,
-    is_active  = true,
-    is_paused  = false
-WHERE merchant_id = 'c0000000-0000-4000-a000-000000000002'::uuid
-  AND id IN ('d0000000-0000-4000-a000-000000000003'::uuid,
-             'd0000000-0000-4000-a000-000000000005'::uuid);
-
 -- ----------------------------------------------------------------------------
 -- 4. Enrich Merchant A (Nuur) — high-performing baseline
 -- ----------------------------------------------------------------------------
@@ -202,7 +179,40 @@ UPDATE public.merchants
 SET onboarded_at    = NOW() - INTERVAL '90 days',
     onboarding_mode = 'agent_assisted',
     trust_metric    = 0.92,
-    onboarded_by    = 'g0000000-0000-4000-a000-000000000001'::uuid
+    onboarded_by    = 'b0000000-0000-4000-b000-000000000001'::uuid
 WHERE id = 'c0000000-0000-4000-a000-000000000001'::uuid;
+
+-- 5. Co-founder — executive acquisition (no admin console)
+-- ----------------------------------------------------------------------------
+INSERT INTO public.users (id, auth_uid, phone, email, full_name, role)
+SELECT 'b0000000-0000-4000-a000-000000000009'::uuid,
+       'a0000000-0000-4000-a000-000000000009'::uuid,
+       '+254700000109', 'aragagency+cofounder@gmail.com', 'Co-founder Ops', 'cofounder'
+WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = 'b0000000-0000-4000-a000-000000000009'::uuid);
+
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new
+)
+SELECT
+  '00000000-0000-0000-0000-000000000000'::uuid,
+  'a0000000-0000-4000-a000-000000000009'::uuid, 'authenticated', 'authenticated',
+  'aragagency+cofounder@gmail.com', '', NOW(),
+  '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, NOW(), NOW(),
+  '', '', '', ''
+WHERE NOT EXISTS (SELECT 1 FROM auth.users au WHERE au.id = 'a0000000-0000-4000-a000-000000000009'::uuid);
+
+INSERT INTO auth.identities (
+  id, user_id, identity_data, provider, provider_id,
+  last_sign_in_at, created_at, updated_at
+)
+SELECT
+  gen_random_uuid(), 'a0000000-0000-4000-a000-000000000009'::uuid,
+  jsonb_build_object('sub', 'a0000000-0000-4000-a000-000000000009', 'email', 'aragagency+cofounder@gmail.com', 'email_verified', true, 'phone_verified', false),
+  'email', 'a0000000-0000-4000-a000-000000000009', NULL, NOW(), NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM auth.identities i WHERE i.provider = 'email' AND i.provider_id = 'a0000000-0000-4000-a000-000000000009'
+);
 
 COMMIT;
