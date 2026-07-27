@@ -4,14 +4,19 @@
   "description": "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
   "start_url": "/feed",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#FDBF2D",
   "theme_color": "#FDBF2D",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
     }
   ]
 }
