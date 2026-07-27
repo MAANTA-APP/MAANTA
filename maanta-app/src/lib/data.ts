@@ -56,6 +56,7 @@ export type MerchantRow = {
   whatsapp: string | null;
   account_balance: number;
   outstanding_arrears: number;
+  onboarded_at: string | null;
 };
 
 /** The merchant owned by (or staffed by) this app user, if any. */
@@ -64,7 +65,7 @@ export async function getMerchantForUser(userId: string): Promise<MerchantRow | 
   const { data } = await service
     .from("merchants")
     .select(
-      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears"
+      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
     )
     .eq("user_id", userId)
     .maybeSingle();

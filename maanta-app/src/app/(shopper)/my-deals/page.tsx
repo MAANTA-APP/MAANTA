@@ -150,16 +150,17 @@ export default async function MyDealsPage({
         <Body className="mt-1">Claimed deals and saved shops.</Body>
         <div className="mt-4 space-y-2.5">
           {tabLinks}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
             <SegmentedLinks
               active={when}
+              className="w-full sm:flex-1"
               tabs={[
                 { value: "active", label: "Active", href: "/my-deals" },
                 { value: "past", label: "Past", href: "/my-deals?when=past" },
               ]}
             />
             <Suspense fallback={null}>
-              <MyDealsControls when={when} />
+              <MyDealsControls when={when} className="w-full sm:flex-1" />
             </Suspense>
           </div>
         </div>

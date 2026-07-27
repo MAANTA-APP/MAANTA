@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getMerchantContext, getMerchantStats } from "@/lib/merchant";
+import { getMerchantContext, getMerchantStats, expireStaleBoosts } from "@/lib/merchant";
 import { KpiCard, RedemptionRow } from "@/components/ui/cards";
 import { ButtonLink } from "@/components/ui/button";
+import {
+  getMerchantLifecycleInfo,
+  getMerchantLifecycleStats,
+} from "@/lib/merchant-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +15,15 @@ export default async function MerchantDashboardPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
   const { merchant } = res.ctx;
+  await expireStaleBoosts(merchant.id);
 
   const service = createServiceClient();
-  const [stats, { count: activeDeals }, { data: recent }] = await Promise.all([
+  const [stats, { data: dealRows }, { data: recent }] = await Promise.all([
     getMerchantStats(merchant.id),
     service
       .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("merchant_id", merchant.id)
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString()),
+      .select("expires_at, is_active")
+      .eq("merchant_id", merchant.id),
     service
       .from("redemptions")
       .select("id, status, redeemed_at, success_fee_charged")
@@ -30,14 +33,24 @@ export default async function MerchantDashboardPage() {
       .limit(5),
   ]);
 
+  const lifecycleStats = getMerchantLifecycleStats(dealRows ?? []);
+  const lifecycle = getMerchantLifecycleInfo(merchant, lifecycleStats);
+  const activeDeals = lifecycleStats.liveDealCount;
   const limit = merchant.tier === "elite" ? 2 : 1;
 
   return (
     <main className="px-4 pt-5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-ink">Dashboard</h1>
+        <span className="rounded-full bg-cream px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-secondary">
+          {lifecycle.label}
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <KpiCard label="Redemptions today" value={stats.today} />
         <KpiCard label="This week" value={stats.week} />
-        <KpiCard label="Active deals" value={`${activeDeals ?? 0}/${limit}`} />
+        <KpiCard label="Active deals" value={`${activeDeals}/${limit}`} />
         <KpiCard
           label="Wallet balance"
           value={Math.round(merchant.account_balance).toLocaleString("en-KE")}
