@@ -6,7 +6,7 @@ import { ClerkAuthShell } from "@/components/clerk-auth-shell";
 // launch mix (phone-only vs email+phone) is an open founder decision kept behind
 // a flag with both enabled — see src/lib/launch-auth.ts (default email+phone).
 // After sign-in Clerk redirects to the fallback URL
-// (NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL, set to /select-mall).
+// (NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL, default /app-bootstrap).
 export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-stone px-5 py-14">
