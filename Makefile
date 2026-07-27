@@ -10,7 +10,7 @@
 SUPABASE_PROJECT_REF := axrrslqssmbngbataejg
 APP_DIR := maanta-app
 
-.PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify test test-e2e
+.PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify db-seed-test-accounts db-seed-elite test test-e2e
 
 help:
 	@echo "MAANTA make targets:"
@@ -20,6 +20,8 @@ help:
 	@echo "  db-push      supabase db push (applies migrations; prompts)"
 	@echo "  db-prod-fixup  migrations + 100-deal seed + verify (needs DATABASE_URL)"
 	@echo "  db-verify    LOCAL ONLY: boot a throwaway local Supabase + run supabase/tests/*.sql (mirrors CI db-tests)"
+	@echo "  db-seed-test-accounts  apply test @maanta.app accounts (needs DATABASE_URL)"
+	@echo "  db-seed-elite        apply 100 elite merchants + deals seed (needs DATABASE_URL)"
 	@echo "  test         vitest suite (unit)"
 	@echo "  test-e2e     Playwright golden path (needs E2E_BASE_URL + storage; see docs/ops/e2e-golden-path.md)"
 	@echo ""
@@ -56,6 +58,14 @@ db-verify:
 	  for f in supabase/tests/*.sql; do echo "── $$f"; psql "$$db_url" -v ON_ERROR_STOP=1 -f "$$f" || rc=1; done; \
 	  supabase stop; \
 	  exit $$rc
+
+# Requires DATABASE_URL (local stack or hosted). See docs/ops/test-accounts-seed-2026-07.md
+db-seed-test-accounts:
+	cd $(APP_DIR) && ./scripts/apply-test-accounts-seed.sh
+
+# Requires DATABASE_URL. See docs/skills/elite-merchants-seed.md
+db-seed-elite:
+	cd $(APP_DIR) && ./scripts/apply-elite-merchants-seed.sh
 
 test:
 	cd $(APP_DIR) && npm test

@@ -59,4 +59,21 @@ body {
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  /* Subtle list entrance — used on feed/browse rails for a calmer first paint. */
+  .animate-list-in {
+    animation: fade-in 0.35s var(--ease-standard) both;
+  }
+}
+
+@layer components {
+  /* Shared interactive card lift — keeps hover/active consistent app-wide. */
+  .card-interactive {
+    @apply transition-[box-shadow,transform,background-color] duration-200;
+    transition-timing-function: var(--ease-standard);
+  }
+  @media (hover: hover) {
+    .card-interactive:hover {
+      @apply shadow-card;
+    }
+  }
 }

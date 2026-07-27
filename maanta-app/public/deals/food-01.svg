@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <circle cx="400" cy="260" r="90" fill="#fff" opacity="0.2"/>
+  <text x="400" y="480" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="36" font-weight="600">Food</text>
+</svg>
