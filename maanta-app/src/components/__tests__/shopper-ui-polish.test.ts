@@ -72,7 +72,7 @@ describe("Shopper UI polish", () => {
     expect(html).toContain("Active");
   });
 
-  it("BrowseClient lists deals above the map", () => {
+  it("BrowseClient renders list chips without embedded map", () => {
     const deal: DealRow = {
       id: "d1",
       merchant_id: "m1",
@@ -118,12 +118,14 @@ describe("Shopper UI polish", () => {
 
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
+    expect(html).toContain("Ending soon");
+    expect(html).toContain("Flash");
+    expect(html).toContain("Favourites");
     expect(html).toContain("Live now");
-    expect(html).not.toContain("Category");
-    // List section markup appears before the map loading placeholder.
-    const listIdx = html.indexOf("Deals around you");
-    const mapIdx = html.indexOf("Loading map");
-    expect(listIdx).toBeGreaterThan(-1);
-    expect(mapIdx).toBeGreaterThan(listIdx);
+    expect(html).toContain("Today");
+    expect(html).not.toContain("Any time");
+    expect(html).not.toContain("Loading map");
+    expect(html).not.toContain("pan the map");
+    expect(html).toContain('href="/map"');
   });
 });

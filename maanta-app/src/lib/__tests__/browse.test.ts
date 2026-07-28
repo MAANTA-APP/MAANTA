@@ -4,6 +4,7 @@ import {
   dealRail,
   dealsToPins,
   filterBrowseDeals,
+  isEndingSoon,
   isLiveNow,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
@@ -68,6 +69,49 @@ describe("browse helpers", () => {
       filterBrowseDeals(deals, { time: "now", now }).map((d) => d.id)
     ).toEqual(["flash"]);
     expect(isLiveNow(deals[1], now)).toBe(false);
+  });
+
+  it("filters by browse chips: ending soon, flash, favourites", () => {
+    const now = new Date("2026-07-26T12:00:00Z");
+    const deals = [
+      deal({
+        id: "flash-soon",
+        deal_type: "flash",
+        merchant_id: "m-fav",
+        expires_at: new Date("2026-07-26T16:00:00Z").toISOString(),
+      }),
+      deal({
+        id: "standard-later",
+        merchant_id: "m-other",
+        expires_at: new Date("2026-07-28T12:00:00Z").toISOString(),
+      }),
+      deal({
+        id: "boosted-fav",
+        deal_type: "standard",
+        boost_active: true,
+        merchant_id: "m-fav",
+        expires_at: new Date("2026-07-27T12:00:00Z").toISOString(),
+      }),
+    ];
+
+    expect(isEndingSoon(deals[0], now)).toBe(true);
+    expect(isEndingSoon(deals[1], now)).toBe(false);
+
+    expect(
+      filterBrowseDeals(deals, { chip: "flash", now }).map((d) => d.id)
+    ).toEqual(["flash-soon"]);
+
+    expect(
+      filterBrowseDeals(deals, {
+        chip: "favourites",
+        favouriteMerchantIds: new Set(["m-fav"]),
+        now,
+      }).map((d) => d.id)
+    ).toEqual(["flash-soon", "boosted-fav"]);
+
+    expect(
+      filterBrowseDeals(deals, { chip: "ending_soon", now }).map((d) => d.id)
+    ).toEqual(["flash-soon"]);
   });
 
   it("filters list to map viewport bounds", () => {
