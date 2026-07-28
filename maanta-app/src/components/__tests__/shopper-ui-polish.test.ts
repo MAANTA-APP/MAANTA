@@ -115,6 +115,8 @@ describe("Shopper UI polish", () => {
         favourites: [],
         sort: "nearest",
         filter: "all",
+        chip: "all",
+        isSignedIn: true,
       })
     );
 
