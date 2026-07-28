@@ -11,7 +11,7 @@ import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
 import {
   filterBrowseDeals,
-  type BrowseTimeFilter,
+  type BrowseChipFilter,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
@@ -27,18 +27,16 @@ import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
 
-const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
-  { id: "any", label: "Any time" },
+const BROWSE_CHIPS: { id: BrowseChipFilter; label: string }[] = [
+  { id: "ending_soon", label: "Ending soon" },
+  { id: "flash", label: "Flash" },
+  { id: "favourites", label: "Favourites" },
   { id: "now", label: "Live now" },
   { id: "today", label: "Today" },
 ];
 
 export type BrowseDealPayload = DealRow;
 
-/**
- * Browse — list/grid of live deals for the selected mall/node.
- * Map is a separate shopper persona at `/map` (not embedded here).
- */
 export function BrowseClient({
   node,
   deals,
@@ -55,7 +53,7 @@ export function BrowseClient({
   filter: DealListFilter;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
-  const [time, setTime] = useState<BrowseTimeFilter>("any");
+  const [chip, setChip] = useState<BrowseChipFilter>("all");
   const [query, setQuery] = useState("");
 
   const applySearch = useCallback(
@@ -74,10 +72,18 @@ export function BrowseClient({
   const listDeals = useMemo(() => {
     const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
       rail: "all",
-      time,
+      chip,
+      favouriteMerchantIds: favSet,
     });
     return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, time, sort, origin, applySearch]);
+  }, [deals, filter, chip, favSet, sort, origin, applySearch]);
+
+  const subtitle =
+    listDeals.length === 0
+      ? "0 deals match your filters here · try adjusting filters or switching node."
+      : listDeals.length === 1
+        ? "1 deal matches your filters"
+        : `${listDeals.length} deals match your filters`;
 
   const searchAndFilters = (
     <div className="space-y-2.5">
@@ -105,11 +111,13 @@ export function BrowseClient({
         </Link>
       </div>
       <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-        {TIME_FILTERS.map((f) => (
+        {BROWSE_CHIPS.map((f) => (
           <FilterChip
             key={f.id}
-            active={time === f.id}
-            onClick={() => setTime(f.id)}
+            active={chip === f.id}
+            onClick={() =>
+              setChip((current) => (current === f.id ? "all" : f.id))
+            }
           >
             {f.label}
           </FilterChip>
@@ -122,25 +130,12 @@ export function BrowseClient({
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-stone">
       <ShopperTopBar node={node} />
 
-      <Section
-        title="Deals around you"
-        subtitle={
-          listDeals.length === 1
-            ? "1 deal"
-            : `${listDeals.length} deals`
-        }
-        action={
-          <Link href="/map" className="text-xs font-semibold text-muted">
-            Map ›
-          </Link>
-        }
-        className="pb-6"
-      >
+      <Section title="Deals around you" subtitle={subtitle} className="pb-6">
         <div className="mb-4">{searchAndFilters}</div>
         {listDeals.length === 0 ? (
           <EmptyState
-            title="No deals match"
-            sub="Clear filters or try another mall to see more."
+            title="No deals match your filters"
+            sub="Try adjusting filters or switching node."
           />
         ) : (
           <div className="space-y-rail">

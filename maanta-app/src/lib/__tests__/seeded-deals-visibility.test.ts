@@ -27,10 +27,15 @@ describe("seeded deals visibility (post-login surfaces)", () => {
       join(root, "components/browse/browse-client.tsx"),
       "utf8"
     );
+    const shopperTopBar = readFileSync(
+      join(root, "components/nav/shopper-top-bar.tsx"),
+      "utf8"
+    );
     expect(browsePage).toContain("BrowseClient");
     expect(browsePage).not.toMatch(/BrowseMap|browse-map/);
     expect(browseClient).not.toMatch(/BrowseMap|browse-map|Loading map/);
-    expect(browseClient).toContain('href="/map"');
+    // Map remains a separate entry point (top bar), not embedded in Browse.
+    expect(shopperTopBar).toContain('href="/map"');
   });
 
   it("standalone Map page still uses BrowseMap", () => {

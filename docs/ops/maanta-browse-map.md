@@ -2,13 +2,16 @@
 
 ## Separation
 
-- **Browse** (`/browse`) is list/grid only: sort, filter, search, time chips, deal cards.
+- **Browse** (`/browse`) is list/grid only: sort, filter, search, chips, deal cards.
 - **Map** (`/map`) is a dedicated shopper persona (bottom nav + top-bar “Map” link).
 - Deal detail “View on map” deep-links to `/map?lat=&lng=&dealId=`.
 - Feed “Map ›” links to `/map`, not Browse.
 
 Do not re-embed Leaflet inside Browse. The shared `BrowseMap` component lives under
 `src/components/browse/browse-map.tsx` for the Map route only.
+
+Chip filter behaviour (Ending soon / Flash / Favourites / Live now / Today) is
+documented in [`browse-filters-2026-07.md`](./browse-filters-2026-07.md).
 
 ## Seeded data visibility (after sign-in)
 
@@ -25,4 +28,4 @@ Once a persona lands via `/app-bootstrap` (shopper → `/feed`, merchant →
 
 Lifecycle still applies: `status = active`, `is_visible`, not shadow-banned, `is_active`, unexpired. Pending elite seed merchants (every 23rd) stay in admin approval, not the shopper feed.
 
-Apply seeds with `make db-seed-elite` / test-accounts scripts when available (see `docs/skills/elite-merchants-seed.md` / `docs/ops/test-accounts-seed-2026-07.md` on the seed PR).
+Apply seeds with `make db-seed-elite` / test-accounts scripts when available (see `docs/skills/elite-merchants-seed.md` / `docs/ops/test-accounts-seed-2026-07.md`).

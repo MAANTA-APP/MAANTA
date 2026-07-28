@@ -72,7 +72,7 @@ describe("Shopper UI polish", () => {
     expect(html).toContain("Active");
   });
 
-  it("BrowseClient is list-only (no embedded map)", () => {
+  it("BrowseClient renders list chips without embedded map", () => {
     const deal: DealRow = {
       id: "d1",
       merchant_id: "m1",
@@ -118,13 +118,14 @@ describe("Shopper UI polish", () => {
 
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
+    expect(html).toContain("Ending soon");
+    expect(html).toContain("Flash");
+    expect(html).toContain("Favourites");
     expect(html).toContain("Live now");
-    expect(html).toContain("Flash tray");
-    expect(html).toContain("Habibi Grill");
-    expect(html).toContain('href="/map"');
-    expect(html).not.toContain("Category");
+    expect(html).toContain("Today");
+    expect(html).not.toContain("Any time");
     expect(html).not.toContain("Loading map");
     expect(html).not.toContain("pan the map");
-    expect(html).not.toContain("Recenter on current mall");
+    expect(html).toContain('href="/map"');
   });
 });

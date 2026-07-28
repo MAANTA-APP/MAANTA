@@ -13,10 +13,7 @@ import { DEFAULT_NODE, nodeCoords } from "@/lib/nodes";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Browse — list/grid of live deals for the selected mall/node.
- * Map lives at `/map` as its own shopper entry point (not a Browse sub-view).
- */
+/** Browse — list of live deals for the selected mall/node (map is at /map). */
 export default async function BrowsePage({
   searchParams,
 }: {
