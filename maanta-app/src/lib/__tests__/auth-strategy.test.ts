@@ -13,22 +13,22 @@ afterEach(() => {
 });
 
 describe("auth strategy toggle", () => {
-  it("defaults to clerk when unset", () => {
+  it("defaults to supabase when unset", () => {
     vi.stubEnv("MAANTA_AUTH_STRATEGY", "");
     vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "");
-    expect(authStrategy()).toBe("clerk");
-    expect(isClerkAuth()).toBe(true);
-    expect(isSupabaseAuth()).toBe(false);
-    expect(phoneOtpEnabled()).toBe(true);
+    expect(authStrategy()).toBe("supabase");
+    expect(isClerkAuth()).toBe(false);
+    expect(isSupabaseAuth()).toBe(true);
+    expect(phoneOtpEnabled()).toBe(false);
   });
 
-  it("supports supabase dev/test strategy", () => {
+  it("supabase hint mentions account creation", () => {
     vi.stubEnv("MAANTA_AUTH_STRATEGY", "supabase");
     expect(authStrategy()).toBe("supabase");
     expect(isSupabaseAuth()).toBe(true);
     expect(isClerkAuth()).toBe(false);
     expect(phoneOtpEnabled()).toBe(false);
-    expect(authModeLoginHint()).toMatch(/email/i);
+    expect(authModeLoginHint()).toMatch(/account/i);
   });
 
   it("treats authjs like supabase for now", () => {

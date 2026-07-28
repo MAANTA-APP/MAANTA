@@ -2,16 +2,16 @@ import Link from "next/link";
 import { AuthNavControls } from "@/components/auth/auth-nav-controls";
 import { Logomark } from "@/components/ui/icons";
 
-/** 5f Public top nav — MAANTA · How it works · Pricing · FAQ · [auth controls]. */
+/** 5f Public top nav — MAANTA · links · auth controls (mobile-friendly). */
 export function PublicNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+        <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2">
           <Logomark className="h-7 w-7" />
           <span className="text-lg font-black tracking-tight text-ink">MAANTA</span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-medium text-muted sm:flex">
+        <nav className="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
           <Link href="/how-it-works" className="hover:text-ink">
             How it works
           </Link>
@@ -22,7 +22,7 @@ export function PublicNav() {
             FAQ
           </Link>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <AuthNavControls />
         </div>
       </div>

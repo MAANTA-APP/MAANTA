@@ -6,8 +6,8 @@
  *   authjs   — reserved alias; not implemented yet (falls back to supabase)
  *
  * Server code reads MAANTA_AUTH_STRATEGY; client UI reads
- * NEXT_PUBLIC_MAANTA_AUTH_STRATEGY (same values). Defaults to clerk so
- * production behaviour is unchanged when unset.
+ * NEXT_PUBLIC_MAANTA_AUTH_STRATEGY (same values). Defaults to supabase so
+ * production uses email OTP until Clerk SMS is enabled for launch.
  */
 
 export type AuthStrategy = "clerk" | "supabase" | "authjs";
@@ -18,10 +18,11 @@ export const AUTH_STRATEGIES: readonly AuthStrategy[] = [
   "authjs",
 ] as const;
 
-const DEFAULT_AUTH_STRATEGY: AuthStrategy = "clerk";
+const DEFAULT_AUTH_STRATEGY: AuthStrategy = "supabase";
 
 function readStrategy(raw: string | undefined): AuthStrategy {
   const value = raw?.trim().toLowerCase();
+  if (value === "clerk") return "clerk";
   if (value === "supabase" || value === "authjs") return value;
   return DEFAULT_AUTH_STRATEGY;
 }
@@ -73,5 +74,5 @@ export function authModeLoginHint(): string {
   if (isClerkAuth()) {
     return "Sign in with email or phone. Phone OTP is required to claim deals.";
   }
-  return "For now, please use email to sign in; phone OTP will be enabled for launch.";
+  return "Enter your email — we'll send a one-time code. New here? We'll create your account.";
 }

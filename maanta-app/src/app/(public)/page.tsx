@@ -7,13 +7,14 @@ import {
   SecondaryButtonLink,
 } from "@/components/ui/claude";
 import { InstallPrompt } from "@/components/install-prompt";
-import { LandingEarlyAccess } from "./landing-early-access";
+import { LandingProductScreens } from "./landing-product-screens";
+import { LandingMerchantWaitlist } from "./landing-merchant-waitlist";
 
-/** Public landing — Claude-calm + Maanta mall story. */
+/** Public landing — hero, product screens, how-it-works, and account CTAs. */
 export default function LandingPage() {
   return (
     <main className="bg-stone">
-      {/* Hero — brand-first, one composition */}
+      {/* Hero */}
       <section className="relative overflow-hidden border-b border-line">
         <div
           className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(253,191,45,0.28),transparent_55%),radial-gradient(ellipse_at_90%_40%,rgba(10,92,52,0.12),transparent_50%),linear-gradient(180deg,#1A1A18_0%,#2A2824_100%)]"
@@ -38,73 +39,68 @@ export default function LandingPage() {
             A live feed of deals at your mall — claim on your phone, redeem at
             the counter with a code.
           </Body>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 animate-fade-in sm:flex-row">
-            <PrimaryButtonLink href="/feed" size="lg">
+          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 animate-fade-in sm:flex-row sm:items-center">
+            <PrimaryButtonLink href="/feed" size="lg" className="sm:min-w-[11rem]">
               Browse live deals
             </PrimaryButtonLink>
-            <SecondaryButtonLink
-              href="/waitlist"
+            <PrimaryButtonLink
+              href="/sign-up"
               size="lg"
+              className="!bg-white !text-ink hover:!brightness-95 sm:min-w-[11rem]"
+            >
+              Create account
+            </PrimaryButtonLink>
+          </div>
+          <p className="mt-4 animate-fade-in">
+            <SecondaryButtonLink
+              href="/login"
+              size="md"
               className="!border-white/30 !bg-transparent !text-white hover:!bg-white/10"
             >
-              Get early access
+              Sign in
             </SecondaryButtonLink>
-          </div>
+          </p>
           <Meta as="p" className="mt-6 text-white/55">
             Now live at BBS Mall, Eastleigh · Nairobi
           </Meta>
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-5 py-14">
-        <HeadingMd as="h2" className="text-xl">
-          Malls have deals. Shoppers rarely see them.
-        </HeadingMd>
-        <Body className="mt-3 max-w-xl">
-          Merchants write offers on chalkboards and WhatsApp groups. Shoppers walk
-          past without knowing. Maanta puts every live deal on one screen — before
-          you pay at the till.
-        </Body>
-      </section>
-
-      <section className="border-y border-line bg-white">
-        <div className="mx-auto max-w-3xl px-5 py-14">
-          <HeadingMd as="h2" className="text-xl">
-            A live feed for in‑mall deals
+      {/* Product screens */}
+      <section className="border-b border-line bg-white">
+        <div className="mx-auto max-w-5xl px-5 py-14">
+          <HeadingMd as="h2" className="text-center text-xl">
+            See Maanta in action
           </HeadingMd>
-          <Body className="mt-3 max-w-xl">
-            Flash picks, boosted neighbourhood favourites, and standard deals near you —
-            filtered to the mall you&apos;re in. Save favourites and open the map
-            when you&apos;re ready to redeem.
+          <Body className="mx-auto mt-3 max-w-xl text-center">
+            Browse live mall deals, claim on your phone, and redeem in person — no app store
+            required.
           </Body>
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {[
-              ["Flash", "Short-window top picks"],
-              ["Boosted", "Neighbourhood favourites pushed to the top"],
-              ["Map", "Pins with precise pickup spots"],
-            ].map(([title, sub], i) => (
-              <div
-                key={title}
-                className="animate-fade-in rounded-card border border-line bg-stone p-5 [animation-fill-mode:both]"
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <HeadingMd as="h3">{title}</HeadingMd>
-                <Body className="mt-1.5 text-muted">{sub}</Body>
-              </div>
-            ))}
+          <div className="mt-10">
+            <LandingProductScreens />
           </div>
         </div>
       </section>
 
+      {/* How it works */}
       <section className="mx-auto max-w-3xl px-5 py-14">
         <HeadingMd as="h2" className="text-xl">
           How Maanta works
         </HeadingMd>
         <ol className="mt-6 space-y-4">
           {[
-            ["Discover", "Open the feed for your mall — Flash, Boosted, and near you."],
-            ["Claim", "Tap a deal and get a 6-digit code on your phone."],
-            ["Redeem", "Show the code at the counter and pay the deal price in person."],
+            [
+              "Open deals near your mall",
+              "Pick your mall and browse Flash picks, boosted favourites, and standard deals.",
+            ],
+            [
+              "Claim on your phone",
+              "Tap a deal to get a 6-digit code — valid for the deal window plus a 15-minute grace period.",
+            ],
+            [
+              "Redeem at the counter with your code",
+              "Show the code to shop staff and pay the deal price in person. No online checkout.",
+            ],
           ].map(([title, sub], i) => (
             <li
               key={title}
@@ -122,29 +118,54 @@ export default function LandingPage() {
         </ol>
       </section>
 
-      <section className="border-t border-line bg-white">
-        <div className="mx-auto max-w-3xl px-5 py-14">
-          <HeadingMd as="h2" className="text-xl">
-            Built for Nairobi malls first
+      {/* Mid-page CTA */}
+      <section className="border-y border-line bg-ink">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-5 py-12 text-center">
+          <HeadingMd as="h2" className="text-white">
+            Ready to save at the mall?
           </HeadingMd>
-          <Body className="mt-3 max-w-xl">
-            Maanta starts at BBS Mall (Node 0) — a precise, in-person loop for
-            shoppers and merchants who already meet at the till. No online
-            checkout. Just claim, show up, and save.
+          <Body className="max-w-md text-white/75">
+            Create a free account to claim deals, save favourites, and track your codes.
           </Body>
+          <div className="flex w-full max-w-sm flex-col gap-3 sm:flex-row sm:justify-center">
+            <PrimaryButtonLink href="/sign-up" size="lg" full className="sm:w-auto sm:min-w-[10rem]">
+              Create account
+            </PrimaryButtonLink>
+            <SecondaryButtonLink
+              href="/feed"
+              size="lg"
+              full
+              className="!border-white/30 !bg-transparent !text-white hover:!bg-white/10 sm:w-auto sm:min-w-[10rem]"
+            >
+              Browse live deals
+            </SecondaryButtonLink>
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-3xl px-5 py-14">
         <HeadingMd as="h2" className="text-xl">
-          Get early access
+          Built for Nairobi malls first
         </HeadingMd>
         <Body className="mt-3 max-w-xl">
-          Join the waitlist as a shopper, merchant, or mall operator. We&apos;ll
-          email you before the next drop.
+          Maanta starts at BBS Mall (Node 0) — a precise, in-person loop for
+          shoppers and merchants who already meet at the till. No online
+          checkout. Just claim, show up, and save.
         </Body>
-        <div className="mt-6">
-          <LandingEarlyAccess />
+      </section>
+
+      <section className="border-t border-line bg-white">
+        <div className="mx-auto max-w-3xl px-5 py-14">
+          <HeadingMd as="h2" className="text-xl">
+            For merchants &amp; malls
+          </HeadingMd>
+          <Body className="mt-3 max-w-xl">
+            Maanta is live for shoppers at BBS Mall. Merchants and mall operators can
+            join the waitlist for onboarding in the next nodes.
+          </Body>
+          <div className="mt-6">
+            <LandingMerchantWaitlist />
+          </div>
         </div>
       </section>
 
