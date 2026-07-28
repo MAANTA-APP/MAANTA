@@ -3,6 +3,18 @@ import type { DealRow } from "@/lib/data";
 export type BrowseRailFilter = "all" | "flash" | "boosted" | "standard";
 export type BrowseTimeFilter = "any" | "now" | "today";
 
+/** Browse list chips — replaces legacy "Any time" on /browse. */
+export type BrowseChipFilter =
+  | "all"
+  | "ending_soon"
+  | "flash"
+  | "favourites"
+  | "now"
+  | "today";
+
+/** Deals expiring within this window qualify for the Ending soon chip. */
+export const ENDING_SOON_HOURS = 6;
+
 export type MapBounds = {
   south: number;
   west: number;
@@ -52,24 +64,76 @@ export function isCollectToday(d: DealRow, now = new Date()): boolean {
   return start <= endOfDay.getTime() && end >= startOfDay.getTime();
 }
 
+/** Live deal expiring within ENDING_SOON_HOURS (flash-aligned window). */
+export function isEndingSoon(
+  d: DealRow,
+  now = new Date(),
+  withinHours = ENDING_SOON_HOURS
+): boolean {
+  if (!d.expires_at) return false;
+  if (!isLiveNow(d, now)) return false;
+  const expires = new Date(d.expires_at).getTime();
+  return expires <= now.getTime() + withinHours * 3_600_000;
+}
+
+function applyBrowseChipFilter(
+  d: DealRow,
+  chip: BrowseChipFilter,
+  now: Date,
+  favouriteMerchantIds: ReadonlySet<string> | null
+): boolean {
+  switch (chip) {
+    case "all":
+      return true;
+    case "ending_soon":
+      return isEndingSoon(d, now);
+    case "flash":
+      return dealRail(d) === "flash";
+    case "favourites":
+      return favouriteMerchantIds?.has(d.merchant_id) ?? false;
+    case "now":
+      return isLiveNow(d, now);
+    case "today":
+      return isCollectToday(d, now);
+    default: {
+      const _exhaustive: never = chip;
+      return _exhaustive;
+    }
+  }
+}
+
 export function filterBrowseDeals(
   deals: DealRow[],
   opts: {
     rail?: BrowseRailFilter;
     time?: BrowseTimeFilter;
+    chip?: BrowseChipFilter;
+    favouriteMerchantIds?: ReadonlySet<string> | string[] | null;
     bounds?: MapBounds | null;
     now?: Date;
   } = {}
 ): DealRow[] {
   const rail = opts.rail ?? "all";
-  const time = opts.time ?? "any";
   const now = opts.now ?? new Date();
   const bounds = opts.bounds ?? null;
+  const favSet =
+    opts.favouriteMerchantIds instanceof Set
+      ? opts.favouriteMerchantIds
+      : opts.favouriteMerchantIds
+        ? new Set(opts.favouriteMerchantIds)
+        : null;
 
   return deals.filter((d) => {
     if (rail !== "all" && dealRail(d) !== rail) return false;
-    if (time === "now" && !isLiveNow(d, now)) return false;
-    if (time === "today" && !isCollectToday(d, now)) return false;
+
+    if (opts.chip !== undefined) {
+      if (!applyBrowseChipFilter(d, opts.chip, now, favSet)) return false;
+    } else {
+      const time = opts.time ?? "any";
+      if (time === "now" && !isLiveNow(d, now)) return false;
+      if (time === "today" && !isCollectToday(d, now)) return false;
+    }
+
     if (bounds) {
       const lat = d.merchants?.lat;
       const lng = d.merchants?.lng;
