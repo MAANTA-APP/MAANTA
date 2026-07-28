@@ -36,6 +36,7 @@ the source of truth for anything describing code behavior). Consolidated
 
 | File | Purpose |
 |---|---|
+| `ops/pwa-install.md` | `/download` install landing + `/app-bootstrap` role router |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
 | `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
