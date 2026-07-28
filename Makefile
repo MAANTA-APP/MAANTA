@@ -10,7 +10,8 @@
 SUPABASE_PROJECT_REF := axrrslqssmbngbataejg
 APP_DIR := maanta-app
 
-.PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify test test-e2e
+.PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify \
+        db-seed-nairobi-150 db-seed-test-accounts test test-e2e
 
 help:
 	@echo "MAANTA make targets:"
@@ -20,6 +21,8 @@ help:
 	@echo "  db-push      supabase db push (applies migrations; prompts)"
 	@echo "  db-prod-fixup  migrations + 100-deal seed + verify (needs DATABASE_URL)"
 	@echo "  db-verify    LOCAL ONLY: boot a throwaway local Supabase + run supabase/tests/*.sql (mirrors CI db-tests)"
+	@echo "  db-seed-nairobi-150  Apply 150-merchant Nairobi 3-node seed (needs DATABASE_URL or local stack)"
+	@echo "  db-seed-test-accounts  Apply @maanta.app role test accounts (run after nairobi-150 seed)"
 	@echo "  test         vitest suite (unit)"
 	@echo "  test-e2e     Playwright golden path (needs E2E_BASE_URL + storage; see docs/ops/e2e-golden-path.md)"
 	@echo ""
@@ -56,6 +59,19 @@ db-verify:
 	  for f in supabase/tests/*.sql; do echo "── $$f"; psql "$$db_url" -v ON_ERROR_STOP=1 -f "$$f" || rc=1; done; \
 	  supabase stop; \
 	  exit $$rc
+
+# Nairobi 3-node rehearsal seed (150 merchants + deals). Requires DATABASE_URL or
+# a running local stack (postgresql://postgres:postgres@127.0.0.1:54322/postgres).
+db-seed-nairobi-150:
+	@db_url="$${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"; \
+	  echo "Applying nairobi_nodes_150_merchants.sql to $$db_url"; \
+	  psql "$$db_url" -v ON_ERROR_STOP=1 -f $(APP_DIR)/supabase/seed/nairobi_nodes_150_merchants.sql
+
+# Role test accounts (@maanta.app). Run after db-seed-nairobi-150.
+db-seed-test-accounts:
+	@db_url="$${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"; \
+	  echo "Applying test_accounts_maanta_2026_07.sql to $$db_url"; \
+	  psql "$$db_url" -v ON_ERROR_STOP=1 -f $(APP_DIR)/supabase/seed/test_accounts_maanta_2026_07.sql
 
 test:
 	cd $(APP_DIR) && npm test

@@ -62,3 +62,16 @@ Then open `https://www.maanta.app/feed` and `/browse` with location **BBS Mall**
 Cloud agents without `DATABASE_URL` / unauthenticated Supabase MCP **cannot**
 run this seed. Paste the connection string when prompted; do not paste it into chat
 logs permanently.
+
+## Nairobi 3-node seed (150 merchants — 2026-07)
+
+For multi-node rehearsal (BBS + CBD Galleria + Westlands Hub), use the newer seed:
+
+```bash
+make db-seed-nairobi-150      # 150 merchants + 188 deals
+make db-seed-test-accounts    # @maanta.app role accounts
+```
+
+Docs: `docs/ops/nodes-nairobi-2026-07.md`, `docs/ops/test-accounts-seed-2026-07.md`,
+`docs/ops/role-tasks-nairobi-150-2026-07.md`. Regenerate SQL:
+`python3 maanta-app/scripts/generate-nairobi-merchants-seed.py`.
