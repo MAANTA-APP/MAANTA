@@ -57,6 +57,7 @@ Run from `maanta-app/`:
 - `docs/skills/redemption-disputes.md`
 - `docs/skills/frozen-ui-overall-handoff.md`
 - `docs/skills/prod-auth-deals-recovery.md`
+- `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`
 
 ## Frozen business rules (change only via a new decisions-log entry)
