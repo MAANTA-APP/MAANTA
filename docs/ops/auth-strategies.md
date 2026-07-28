@@ -1,7 +1,8 @@
 # Ops — Auth strategies (dev/test vs launch)
 
 **Audience:** engineers running rehearsal vs production launch.  
-**Related:** `docs/skills/clerk-auth.md`, `docs/skills/global-phone-auth.md`.
+**Related:** `docs/skills/clerk-auth.md`, `docs/skills/global-phone-auth.md`,
+`docs/skills/supabase-prod-email-auth.md`.
 
 ## Summary
 
@@ -138,6 +139,42 @@ Implementation: `maanta-app/src/lib/auth/strategy.ts`.
 **Local / staging:** set both strategy vars to `supabase` (or leave unset). Enable Email OTP in
 the Supabase dashboard (Authentication → Providers → Email).
 
+### Production email OTP checklist (when strategy=`supabase`)
+
+Canonical host is **`https://www.maanta.app`** (`maanta.app` 308s there). Configure:
+
+| Setting | Value |
+|---|---|
+| Site URL | `https://www.maanta.app` (`SUPABASE_AUTH_SITE_URL`) |
+| Redirect URLs (allow list) | `https://www.maanta.app/auth/callback` **and** `https://maanta.app/auth/callback` |
+| Vercel `NEXT_PUBLIC_APP_URL` | `https://www.maanta.app` |
+
+`emailRedirectTo` and `/auth/callback` both canonicalize apex → www so
+session cookies stick on the host shoppers actually use.
+
+**Preferred sign-in path:** 6-digit OTP typed on `/login` (same browser that
+requested the email). Magic-link PKCE fails when iPhone Mail / Outlook opens
+the link in a different browser than the one that called `signInWithOtp`.
+
+For clickable email links that survive that handoff, use a **token_hash**
+template (not only `{{ .ConfirmationURL }}`):
+
+```html
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/app-bootstrap">
+  Sign in to Maanta
+</a>
+<p>Or enter this code: {{ .Token }}</p>
+```
+
+`/auth/callback` accepts both PKCE `?code=` and `?token_hash=&type=`, and
+writes session cookies onto the redirect response. `/app-bootstrap` is
+strategy-aware (Supabase session vs Clerk).
+
+Diagnostics: browser + server logs tagged `[maanta-auth]` with stages
+`send` | `verify_otp` | `callback_parse` | `session_exchange` | `bootstrap`.
+
+See also `docs/skills/supabase-prod-email-auth.md`.
+
 ## Clerk strategy (launch)
 
 - `<ClerkProvider>` wraps the app (`src/components/auth/auth-providers.tsx`).
@@ -146,7 +183,7 @@ the Supabase dashboard (Authentication → Providers → Email).
 - Phone OTP at sign-in and `/verify-phone` for claim gate (S2 ruling).
 - Requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY`.
 
-**Production Vercel:** set both strategy vars to `clerk`.
+**Production Vercel:** set both strategy vars to `clerk` and full-redeploy (see Production checklist above).
 
 ## Role assignment
 
@@ -172,6 +209,10 @@ Unchanged in both strategies:
 | `src/lib/auth/strategy.ts` | Toggle helpers |
 | `src/lib/auth.ts` | Dual-path `ensureAppUser` |
 | `src/components/auth/auth-providers.tsx` | Conditional ClerkProvider |
-| `src/components/auth/supabase-email-login.tsx` | Dev email OTP UI |
+| `src/components/auth/supabase-email-login.tsx` | Email OTP UI + stage-specific errors |
+| `src/lib/auth/supabase-email-auth.ts` | Redirect URL + error mapping + `[maanta-auth]` logs |
+| `src/app/auth/callback/route.ts` | PKCE / token_hash callback (cookies on redirect) |
+| `src/app/app-bootstrap/page.tsx` | Role router (Clerk or Supabase session) |
 | `src/middleware.ts` | Clerk vs Supabase session refresh |
 | `src/app/login`, `src/app/verify-phone` | Strategy-aware pages |
+| `docs/skills/supabase-prod-email-auth.md` | Production email-auth recovery skill |
