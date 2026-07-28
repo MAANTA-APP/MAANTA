@@ -7,46 +7,56 @@
 
 | Phase | Strategy | Sign-in | Phone OTP | Env |
 |---|---|---|---|---|
-| **Dev / staging rehearsal** | `supabase` | Email OTP via Supabase Auth | Disabled (no Clerk SMS cost) | `MAANTA_AUTH_STRATEGY=supabase` |
-| **Production launch** | `clerk` | Email + phone via Clerk | Enabled (global E.164, `/verify-phone`) | `MAANTA_AUTH_STRATEGY=clerk` |
+| **Production rehearsal (default)** | `supabase` | Email OTP via Supabase Auth | Disabled (no Clerk SMS cost) | unset or `MAANTA_AUTH_STRATEGY=supabase` |
+| **Production launch** | `clerk` | Email + phone via Clerk | Enabled (global E.164, `/verify-phone`) | **both** vars `=clerk` |
 
 Flip between phases by changing env vars and redeploying — no code changes required.
 
+**Important:** `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` is inlined at **build time**. After changing it on Vercel, trigger a new production deployment (not just a runtime env save).
+
 ## Toggle
 
-Set **both** (server + client must agree):
+Set **both** (server + client must agree for Clerk launch):
 
 ```bash
-MAANTA_AUTH_STRATEGY=clerk          # server: middleware, ensureAppUser, API routes
-NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=clerk   # client: login UI, nav, verify-phone
+MAANTA_AUTH_STRATEGY=clerk          # server: middleware, ensureAppUser, API routes, /login SSR
+NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=clerk   # client: AuthProviders, nav, verify-phone (build-time)
 ```
 
-Values: `clerk` (default) | `supabase` | `authjs` (reserved; same as supabase today).
+For Supabase rehearsal (default when unset):
+
+```bash
+MAANTA_AUTH_STRATEGY=supabase
+NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=supabase
+```
+
+Values: `clerk` | `supabase` | `authjs` (reserved; same as supabase today).
 
 Implementation: `maanta-app/src/lib/auth/strategy.ts`.
 
-## Clerk strategy (launch)
-
-- `<ClerkProvider>` wraps the app (`src/components/auth/auth-providers.tsx`).
-- `/login` and `/sign-up` render Clerk hosted components.
-- Clerk JWT `sub` → `public.users.clerk_user_id`.
-- Phone OTP at sign-in and `/verify-phone` for claim gate (S2 ruling).
-- Requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY`.
-
-**Production Vercel:** set both strategy vars to `clerk`.
-
-## Supabase strategy (dev/test)
+## Supabase strategy (default / rehearsal)
 
 - No `<ClerkProvider>` — Clerk keys optional for rehearsal.
-- `/login` and `/sign-up` render email OTP form (`SupabaseEmailLogin`).
+- `/login` and `/sign-up` render email OTP form (`SupabaseEmailLogin`) when strategy ≠ clerk.
+- Routes use `export const dynamic = 'force-dynamic'` so auth UI is not baked in at build time.
 - Supabase Auth session cookie; JWT `sub` (UUID) → `public.users.auth_uid`.
 - Phone claim gate **relaxed** — `phoneOtpEnabled()` is false so rehearsal can
   exercise claim → verify without SMS spend.
 - `/verify-phone` shows “launch-only” copy instead of Clerk SMS flow.
 - E.164 `PhoneField` UI remains in the codebase for launch.
 
-**Local / staging:** set both strategy vars to `supabase`. Enable Email OTP in
+**Local / staging:** set both strategy vars to `supabase` (or leave unset). Enable Email OTP in
 the Supabase dashboard (Authentication → Providers → Email).
+
+## Clerk strategy (launch)
+
+- `<ClerkProvider>` wraps the app (`src/components/auth/auth-providers.tsx`).
+- `/login` and `/sign-up` render Clerk hosted components (`ClerkAuthShell`).
+- Clerk JWT `sub` → `public.users.clerk_user_id`.
+- Phone OTP at sign-in and `/verify-phone` for claim gate (S2 ruling).
+- Requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY`.
+
+**Production Vercel:** set both strategy vars to `clerk`.
 
 ## Role assignment
 
