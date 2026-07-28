@@ -206,3 +206,12 @@ echo/run the CLI above — **review before running against prod**:
   point-in-time snapshot first if you're uneasy.
 - `make db-verify` is safe to run anytime in dev/CI (local stack only); it has
   no path to production.
+- `make db-migration-checklist` prints the human-run steps without touching prod.
+
+## Related launch docs (2026-07 hardening)
+
+| Doc | Purpose |
+|---|---|
+| `docs/ops/prod-sync-checklist-2026-07.md` | Schema + env + monitoring + smoke alignment |
+| `docs/ops/launch-runbook-2026-07.md` | Launch-day sequence |
+| `docs/ops/founder-manual-actions-checklist-2026-07.md` | What only a human can do |

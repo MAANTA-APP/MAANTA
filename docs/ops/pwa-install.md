@@ -22,14 +22,18 @@ Home still mounts `InstallPrompt` (auto bottom sheet) which reuses the same hook
 
 ## Role bootstrap
 
-After Clerk sign-in/sign-up, fallback redirect is **`/app-bootstrap`**
-(`NEXT_PUBLIC_CLERK_SIGN_*_FALLBACK_REDIRECT_URL`, defaults in `src/app/layout.tsx`).
+After sign-in/sign-up (Clerk **or** Supabase email OTP), redirect is
+**`/app-bootstrap`** (`NEXT_PUBLIC_CLERK_SIGN_*_FALLBACK_REDIRECT_URL` for Clerk;
+Supabase OTP verify and `/auth/callback` also land here).
 
-`/app-bootstrap` (client):
+`/app-bootstrap` (client, **strategy-aware** as of 2026-07-28):
 
-1. If signed out → `/login?next=/app-bootstrap`
-2. `GET /api/me` → `{ role }` from `ensureAppUser`
-3. `destinationForRole(role)` → home for that role
+1. Detect session:
+   - **Clerk:** `useAuth()` (`isLoaded` / `isSignedIn`)
+   - **Supabase / authjs:** `useSupabaseSignedIn()` (`null` = loading)
+2. If signed out → `/login?next=/app-bootstrap`
+3. `GET /api/me` → `{ role }` from `ensureAppUser`
+4. `destinationForRole(role)` → home for that role
 
 | Role | Destination |
 |---|---|

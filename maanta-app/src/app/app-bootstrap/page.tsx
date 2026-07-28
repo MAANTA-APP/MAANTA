@@ -4,14 +4,28 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { destinationForRole } from "@/lib/pwa/app-bootstrap";
+import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { useSupabaseSignedIn } from "@/components/auth/supabase-email-login";
 import { Body, HeadingMd } from "@/components/ui/claude";
 
 /**
- * Role-aware entry after Clerk sign-in and as the PWA `start_url`.
+ * Role-aware entry after sign-in and as the PWA `start_url`.
  * Role lives on `public.users` (not Clerk metadata) — fetched via GET /api/me.
+ *
+ * Strategy-aware: Clerk mode uses `useAuth()`; Supabase/authjs mode uses
+ * `useSupabaseSignedIn()`. Never call Clerk hooks when ClerkProvider is absent.
  */
-export default function AppBootstrapPage() {
-  const { isLoaded, isSignedIn } = useAuth();
+
+function BootstrapShell({ status }: { status: string }) {
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-stone px-5 text-center">
+      <HeadingMd as="h1">Maanta</HeadingMd>
+      <Body className="mt-2 text-muted">{status}</Body>
+    </main>
+  );
+}
+
+function useRoleRedirect(isLoaded: boolean, isSignedIn: boolean) {
   const router = useRouter();
   const [status, setStatus] = useState("Opening Maanta…");
 
@@ -54,10 +68,22 @@ export default function AppBootstrapPage() {
     };
   }, [isLoaded, isSignedIn, router]);
 
-  return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-stone px-5 text-center">
-      <HeadingMd as="h1">Maanta</HeadingMd>
-      <Body className="mt-2 text-muted">{status}</Body>
-    </main>
-  );
+  return status;
+}
+
+function ClerkBootstrap() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const status = useRoleRedirect(isLoaded, Boolean(isSignedIn));
+  return <BootstrapShell status={status} />;
+}
+
+function SupabaseBootstrap() {
+  const signedIn = useSupabaseSignedIn();
+  const isLoaded = signedIn !== null;
+  const status = useRoleRedirect(isLoaded, Boolean(signedIn));
+  return <BootstrapShell status={status} />;
+}
+
+export default function AppBootstrapPage() {
+  return isClerkAuthClient() ? <ClerkBootstrap /> : <SupabaseBootstrap />;
 }

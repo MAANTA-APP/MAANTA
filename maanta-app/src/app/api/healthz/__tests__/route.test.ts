@@ -43,6 +43,8 @@ describe("GET /api/healthz", () => {
     expect([200, 503]).toContain(res.status);
     const body = await res.json();
     expect(body).toHaveProperty("core");
+    expect(body).toHaveProperty("strategy");
+    expect(body).toHaveProperty("missing");
     expect(["ready", "not_ready"]).toContain(body.status);
   });
 

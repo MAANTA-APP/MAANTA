@@ -57,13 +57,19 @@ Unchanged in both strategies:
 - Promote test merchants/admins via SQL seed or admin RPCs — see
   `docs/ops/test-accounts.md`.
 
+- `/api/me` + `destinationForRole` unchanged across strategies.
+- **`/app-bootstrap` is strategy-aware** (2026-07-28): Clerk mode uses
+  `useAuth()`; Supabase/authjs mode uses `useSupabaseSignedIn()`. Never mounts
+  Clerk hooks when `ClerkProvider` is absent.
+
 ## Switching back to Clerk for launch
 
 1. Set `MAANTA_AUTH_STRATEGY=clerk` and `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=clerk`.
-2. Confirm Clerk keys in Vercel Production.
+2. Confirm Clerk keys in Vercel Production (publishable **and** secret for the **same** instance).
 3. Enable phone SMS in Clerk dashboard (Kenya / global E.164).
-4. Redeploy.
-5. Smoke-test `/login` (email + phone) and `/verify-phone` claim gate.
+4. Redeploy (required — `NEXT_PUBLIC_*` are build-time).
+5. Smoke-test `/login` (email + phone), `/app-bootstrap` role routing, and `/verify-phone` claim gate.
+6. Confirm `GET /api/healthz?ready=1` returns `"status":"ready"` and `"strategy":"clerk"`.
 
 ## Files
 
@@ -71,7 +77,9 @@ Unchanged in both strategies:
 |---|---|
 | `src/lib/auth/strategy.ts` | Toggle helpers |
 | `src/lib/auth.ts` | Dual-path `ensureAppUser` |
+| `src/lib/env.ts` | Env catalog + strategy-aware critical checks |
 | `src/components/auth/auth-providers.tsx` | Conditional ClerkProvider |
-| `src/components/auth/supabase-email-login.tsx` | Dev email OTP UI |
+| `src/components/auth/supabase-email-login.tsx` | Dev email OTP UI + `useSupabaseSignedIn` |
 | `src/middleware.ts` | Clerk vs Supabase session refresh |
 | `src/app/login`, `src/app/verify-phone` | Strategy-aware pages |
+| `src/app/app-bootstrap/page.tsx` | Strategy-aware role router (PWA start_url) |

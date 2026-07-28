@@ -11,6 +11,8 @@ const TOUCHED = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "CLERK_SECRET_KEY",
+  "MAANTA_AUTH_STRATEGY",
+  "NEXT_PUBLIC_MAANTA_AUTH_STRATEGY",
   "STRIPE_SECRET_KEY",
   "RESEND_API_KEY",
   "W3W_API_KEY",
@@ -69,9 +71,7 @@ describe("envPresence()", () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = secret;
     const out = envPresence();
     expect(out.supabase.SUPABASE_SERVICE_ROLE_KEY).toBe(true);
-    // The serialized map must not contain the value, only the boolean.
     expect(JSON.stringify(out)).not.toContain(secret);
-    // Every leaf is a boolean.
     for (const group of Object.values(out)) {
       for (const v of Object.values(group)) {
         expect(typeof v).toBe("boolean");
@@ -79,31 +79,60 @@ describe("envPresence()", () => {
     }
   });
 
-  it("covers every critical rail group", () => {
+  it("covers every critical rail group including auth strategy presence", () => {
     const out = envPresence();
     expect(Object.keys(out).sort()).toEqual(
       ["auth", "email", "geo", "monitoring", "payments", "push", "supabase"].sort()
     );
+    expect("MAANTA_AUTH_STRATEGY" in out.auth).toBe(true);
   });
 });
 
 describe("readiness()", () => {
-  it("is ready only when all core Supabase + Clerk vars are present", () => {
+  it("is ready for clerk when Supabase + Clerk vars are present", () => {
+    process.env.MAANTA_AUTH_STRATEGY = "clerk";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_x";
     process.env.CLERK_SECRET_KEY = "sk_test_x";
-    expect(readiness().status).toBe("ready");
+    const r = readiness();
+    expect(r.status).toBe("ready");
+    expect(r.strategy).toBe("clerk");
   });
 
-  it("is not_ready when a core var is missing", () => {
+  it("is not_ready for clerk when Clerk secret is missing", () => {
+    process.env.MAANTA_AUTH_STRATEGY = "clerk";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_x";
     delete process.env.CLERK_SECRET_KEY;
-    expect(readiness().status).toBe("not_ready");
-    expect(readiness().core.CLERK_SECRET_KEY).toBe(false);
+    const r = readiness();
+    expect(r.status).toBe("not_ready");
+    expect(r.missing).toContain("CLERK_SECRET_KEY");
+  });
+
+  it("is ready for supabase strategy without Clerk keys", () => {
+    process.env.MAANTA_AUTH_STRATEGY = "supabase";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
+    delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    delete process.env.CLERK_SECRET_KEY;
+    const r = readiness();
+    expect(r.status).toBe("ready");
+    expect(r.strategy).toBe("supabase");
+    expect(r.missing).toEqual([]);
+  });
+
+  it("is not_ready for supabase when service role is missing", () => {
+    process.env.MAANTA_AUTH_STRATEGY = "supabase";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const r = readiness();
+    expect(r.status).toBe("not_ready");
+    expect(r.missing).toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
 });
