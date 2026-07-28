@@ -12,8 +12,27 @@ export type BrowseChipFilter =
   | "now"
   | "today";
 
-/** Deals expiring within this window qualify for the Ending soon chip. */
+/** Deals expiring within this window qualify for the Expiring soon chip. */
 export const ENDING_SOON_HOURS = 6;
+
+const BROWSE_CHIP_FILTERS: BrowseChipFilter[] = [
+  "all",
+  "ending_soon",
+  "flash",
+  "favourites",
+  "now",
+  "today",
+];
+
+/** Parse `?chip=` from browse URL; unknown values fall back to `all`. */
+export function parseBrowseChip(
+  raw: string | null | undefined
+): BrowseChipFilter {
+  if (!raw) return "all";
+  return BROWSE_CHIP_FILTERS.includes(raw as BrowseChipFilter)
+    ? (raw as BrowseChipFilter)
+    : "all";
+}
 
 export type MapBounds = {
   south: number;

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { BrowseClient } from "@/components/browse/browse-client";
 import {
   getAppUser,
@@ -5,6 +6,7 @@ import {
   getLiveDeals,
   getSelectedNode,
 } from "@/lib/data";
+import { parseBrowseChip } from "@/lib/browse";
 import {
   type DealListFilter,
   type DealListSort,
@@ -18,14 +20,28 @@ export default async function BrowsePage({
   searchParams,
 }: {
   searchParams?: {
+    lat?: string;
+    lng?: string;
+    dealId?: string;
     sort?: string;
     filter?: string;
+    chip?: string;
   };
 }) {
+  // Legacy deep links from deal detail → standalone map.
+  if (searchParams?.lat && searchParams?.lng) {
+    const q = new URLSearchParams();
+    q.set("lat", searchParams.lat);
+    q.set("lng", searchParams.lng);
+    if (searchParams.dealId) q.set("dealId", searchParams.dealId);
+    redirect(`/map?${q.toString()}`);
+  }
+
   const node = getSelectedNode();
   const origin = nodeCoords(node) ?? nodeCoords(DEFAULT_NODE)!;
   const sort = (searchParams?.sort as DealListSort) ?? "nearest";
   const filter = (searchParams?.filter as DealListFilter) ?? "all";
+  const chip = parseBrowseChip(searchParams?.chip);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
@@ -41,6 +57,8 @@ export default async function BrowsePage({
       favourites={Array.from(favourites)}
       sort={sort}
       filter={filter}
+      chip={chip}
+      isSignedIn={!!user}
     />
   );
 }
