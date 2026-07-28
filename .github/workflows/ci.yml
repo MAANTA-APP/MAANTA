@@ -66,7 +66,8 @@ jobs:
       - name: Install the Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pin to avoid GitHub API rate limits when resolving `latest`.
+          version: 2.109.1
 
       - name: Start Supabase (applies supabase/migrations/)
         run: supabase start
@@ -87,4 +88,4 @@ jobs:
 
       - name: Stop Supabase
         if: always()
-        run: supabase stop
+        run: command -v supabase >/dev/null && supabase stop || true
