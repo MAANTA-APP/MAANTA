@@ -54,9 +54,12 @@ Canonical host is **`https://www.maanta.app`** (`maanta.app` 308s there). Config
 
 | Setting | Value |
 |---|---|
-| Site URL | `https://www.maanta.app` |
+| Site URL | `https://www.maanta.app` (`SUPABASE_AUTH_SITE_URL`) |
 | Redirect URLs (allow list) | `https://www.maanta.app/auth/callback` **and** `https://maanta.app/auth/callback` |
 | Vercel `NEXT_PUBLIC_APP_URL` | `https://www.maanta.app` |
+
+`emailRedirectTo` and `/auth/callback` both canonicalize apex → www so
+session cookies stick on the host shoppers actually use.
 
 **Preferred sign-in path:** 6-digit OTP typed on `/login` (same browser that
 requested the email). Magic-link PKCE fails when iPhone Mail / Outlook opens

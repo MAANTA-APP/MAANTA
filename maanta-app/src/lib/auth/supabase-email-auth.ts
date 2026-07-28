@@ -31,14 +31,33 @@ export function safeAuthNextPath(
 }
 
 /**
+ * Normalize the browser/app origin used for Auth redirects.
+ * Apex `maanta.app` 308s to `www.maanta.app` on Vercel — magic links and
+ * emailRedirectTo must target www so cookies land on the canonical host.
+ */
+export function canonicalAuthOrigin(origin: string): string {
+  const base = origin.replace(/\/$/, "");
+  try {
+    const url = new URL(base);
+    if (url.hostname === "maanta.app") {
+      url.hostname = "www.maanta.app";
+      return url.origin;
+    }
+    return url.origin;
+  } catch {
+    return base;
+  }
+}
+
+/**
  * Build the emailRedirectTo / redirectTo URL for signInWithOtp.
- * Always points at /auth/callback on the given origin (www in prod).
+ * Always points at /auth/callback on the canonical origin (www in prod).
  */
 export function supabaseEmailRedirectTo(
   origin: string,
   next: string = "/app-bootstrap"
 ): string {
-  const base = origin.replace(/\/$/, "");
+  const base = canonicalAuthOrigin(origin);
   const safeNext = safeAuthNextPath(next);
   return `${base}/auth/callback?next=${encodeURIComponent(safeNext)}`;
 }
@@ -48,6 +67,9 @@ export const SUPABASE_AUTH_ALLOWED_REDIRECTS = [
   "https://www.maanta.app/auth/callback",
   "https://maanta.app/auth/callback",
 ] as const;
+
+/** Preferred Site URL for the hosted Supabase Auth dashboard. */
+export const SUPABASE_AUTH_SITE_URL = "https://www.maanta.app" as const;
 
 export function logAuthFlow(
   stage: AuthFlowStage,

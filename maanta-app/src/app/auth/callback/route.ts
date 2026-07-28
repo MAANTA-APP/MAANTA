@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  canonicalAuthOrigin,
   logAuthFlow,
   normalizeEmailOtpType,
   parseAuthCallbackParams,
@@ -23,7 +24,8 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const parsed = parseAuthCallbackParams(url.searchParams);
   const next = safeAuthNextPath(parsed.next);
-  const origin = url.origin;
+  // Prefer www so Set-Cookie after apex → www handoff sticks on the canonical host.
+  const origin = canonicalAuthOrigin(url.origin);
 
   const fail = (errorCode: string, stage: Parameters<typeof logAuthFlow>[0]) => {
     logAuthFlow(stage, "auth callback failed", {
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(parsed.code);
     if (error) {
       logAuthFlow("session_exchange", "PKCE exchange failed", {
-        message: error.message,
+        errorMessage: error.message,
         status: error.status,
         code: error.code,
       });

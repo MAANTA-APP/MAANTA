@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SUPABASE_AUTH_ALLOWED_REDIRECTS,
+  SUPABASE_AUTH_SITE_URL,
+  canonicalAuthOrigin,
   mapAuthCallbackQueryError,
   mapOtpSendError,
   mapOtpVerifyError,
@@ -13,6 +15,26 @@ import {
 describe("supabase email auth helpers", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe("canonicalAuthOrigin", () => {
+    it("rewrites apex maanta.app to www for production cookie affinity", () => {
+      expect(canonicalAuthOrigin("https://maanta.app")).toBe(
+        "https://www.maanta.app"
+      );
+      expect(canonicalAuthOrigin("https://maanta.app/")).toBe(
+        "https://www.maanta.app"
+      );
+    });
+
+    it("leaves www and localhost unchanged", () => {
+      expect(canonicalAuthOrigin("https://www.maanta.app")).toBe(
+        "https://www.maanta.app"
+      );
+      expect(canonicalAuthOrigin("http://localhost:3000")).toBe(
+        "http://localhost:3000"
+      );
+    });
   });
 
   describe("safeAuthNextPath", () => {
@@ -40,6 +62,12 @@ describe("supabase email auth helpers", () => {
       );
     });
 
+    it("rewrites apex origin to www so production magic links match Site URL", () => {
+      expect(supabaseEmailRedirectTo("https://maanta.app")).toBe(
+        "https://www.maanta.app/auth/callback?next=%2Fapp-bootstrap"
+      );
+    });
+
     it("strips trailing slash on origin", () => {
       expect(supabaseEmailRedirectTo("https://www.maanta.app/")).toBe(
         "https://www.maanta.app/auth/callback?next=%2Fapp-bootstrap"
@@ -52,7 +80,8 @@ describe("supabase email auth helpers", () => {
       ).toBe("https://www.maanta.app/auth/callback?next=%2Fapp-bootstrap");
     });
 
-    it("documents allowlisted production redirect URLs", () => {
+    it("documents allowlisted production redirect URLs and Site URL", () => {
+      expect(SUPABASE_AUTH_SITE_URL).toBe("https://www.maanta.app");
       expect(SUPABASE_AUTH_ALLOWED_REDIRECTS).toContain(
         "https://www.maanta.app/auth/callback"
       );
@@ -87,6 +116,12 @@ describe("supabase email auth helpers", () => {
         "SMTP is down"
       );
     });
+
+    it("never blames send when the failure is only a verify-stage issue", () => {
+      expect(mapOtpVerifyError({ message: "Invalid OTP" })).not.toMatch(
+        /Couldn't send the code/
+      );
+    });
   });
 
   describe("mapOtpVerifyError", () => {
@@ -108,6 +143,10 @@ describe("supabase email auth helpers", () => {
       expect(mapAuthCallbackQueryError("session_exchange")).toMatch(
         /6-digit code/i
       );
+    });
+
+    it("explains expired token_hash links", () => {
+      expect(mapAuthCallbackQueryError("token_hash")).toMatch(/expired/i);
     });
 
     it("returns null when no error param", () => {

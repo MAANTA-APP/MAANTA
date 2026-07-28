@@ -74,7 +74,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
     } catch (err) {
       const authErr = err as AuthErrorLike;
       logAuthFlow("send", "signInWithOtp failed", {
-        message: authErr?.message,
+        errorMessage: authErr?.message,
         status: authErr?.status,
         code: authErr?.code,
       });
