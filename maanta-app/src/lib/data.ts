@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   isMissingLatLngColumnError,
@@ -55,6 +56,7 @@ export type MerchantRow = {
   whatsapp: string | null;
   account_balance: number;
   outstanding_arrears: number;
+  onboarded_at: string | null;
 };
 
 /** The merchant owned by (or staffed by) this app user, if any. */
@@ -63,7 +65,7 @@ export async function getMerchantForUser(userId: string): Promise<MerchantRow | 
   const { data } = await service
     .from("merchants")
     .select(
-      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears"
+      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -223,40 +225,85 @@ export async function getFavouriteMerchantIds(
   return set;
 }
 
+/** Per-rail caps so flash/boosted are not crowded out of a single global limit. */
+const LIVE_DEAL_FLASH_LIMIT = 20;
+const LIVE_DEAL_BOOSTED_LIMIT = 20;
+const LIVE_DEAL_STANDARD_LIMIT = 40;
+
+type LiveDealBucket = "flash" | "boosted" | "standard";
+
+async function selectLiveDealBucket(
+  node: string,
+  bucket: LiveDealBucket,
+  limit: number
+): Promise<DealRow[]> {
+  const service = createServiceClient();
+  const nowIso = new Date().toISOString();
+  return selectDealsWithMerchants(async (select) => {
+    let query = withPublicMerchant(
+      service
+        .from("deals")
+        .select(select)
+        .eq("is_active", true)
+        .gt("expires_at", nowIso)
+    ).order("created_at", { ascending: false });
+
+    if (bucket === "flash") {
+      query = query.eq("deal_type", "flash");
+    } else if (bucket === "boosted") {
+      query = query.eq("boost_active", true).neq("deal_type", "flash");
+    } else {
+      query = query.eq("deal_type", "standard").eq("boost_active", false);
+    }
+
+    query = query.limit(limit);
+    if (node !== ALL_NODES) query = query.eq("node", node);
+    return query;
+  });
+}
+
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
+async function getLiveDealsUncached(node: string): Promise<{
+  flash: DealRow[];
+  boosted: DealRow[];
+  nearMe: DealRow[];
+  verifiedByMerchant: Map<string, number>;
+}> {
+  // Three bucket queries (not one .limit(60) then filter) so a flood of new
+  // standard deals cannot starve flash/boosted rails.
+  const [flash, boosted, standard] = await Promise.all([
+    selectLiveDealBucket(node, "flash", LIVE_DEAL_FLASH_LIMIT),
+    selectLiveDealBucket(node, "boosted", LIVE_DEAL_BOOSTED_LIMIT),
+    selectLiveDealBucket(node, "standard", LIVE_DEAL_STANDARD_LIMIT),
+  ]);
+
+  const merchantIds = [
+    ...flash.map((d) => d.merchant_id),
+    ...boosted.map((d) => d.merchant_id),
+    ...standard.map((d) => d.merchant_id),
+  ];
+  const verifiedByMerchant = await getVerifiedCounts(merchantIds);
+
+  const nearMe = [...standard].sort(
+    (a, b) =>
+      (verifiedByMerchant.get(b.merchant_id) ?? 0) -
+      (verifiedByMerchant.get(a.merchant_id) ?? 0)
+  );
+  return { flash, boosted, nearMe, verifiedByMerchant };
+}
+
+/** Short-lived cache for hot Feed/Browse reads (30s per node). */
 export async function getLiveDeals(node: string): Promise<{
   flash: DealRow[];
   boosted: DealRow[];
   nearMe: DealRow[];
   verifiedByMerchant: Map<string, number>;
 }> {
-  const service = createServiceClient();
-  const deals = await selectDealsWithMerchants(async (select) => {
-    let query = withPublicMerchant(
-      service
-        .from("deals")
-        .select(select)
-        .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
-    )
-      .order("created_at", { ascending: false })
-      .limit(60);
-    if (node !== ALL_NODES) query = query.eq("node", node);
-    return query;
-  });
-
-  const verifiedByMerchant = await getVerifiedCounts(deals.map((d) => d.merchant_id));
-
-  const flash = deals.filter((d) => d.deal_type === "flash");
-  const boosted = deals.filter((d) => d.boost_active && d.deal_type !== "flash");
-  const nearMe = deals
-    .filter((d) => !d.boost_active && d.deal_type !== "flash")
-    .sort(
-      (a, b) =>
-        (verifiedByMerchant.get(b.merchant_id) ?? 0) -
-        (verifiedByMerchant.get(a.merchant_id) ?? 0)
-    );
-  return { flash, boosted, nearMe, verifiedByMerchant };
+  return unstable_cache(
+    () => getLiveDealsUncached(node),
+    ["live-deals", node],
+    { revalidate: 30, tags: [`live-deals-${node}`] }
+  )();
 }
 
 /** Verified (status=success) redemption counts per merchant. */
@@ -267,13 +314,16 @@ export async function getVerifiedCounts(
   const ids = Array.from(new Set(merchantIds)).filter(Boolean);
   if (ids.length === 0) return map;
   const service = createServiceClient();
-  const { data } = await service
-    .from("redemptions")
-    .select("merchant_id")
-    .in("merchant_id", ids)
-    .eq("status", "success");
-  for (const r of data ?? []) {
-    map.set(r.merchant_id, (map.get(r.merchant_id) ?? 0) + 1);
+  // SQL GROUP BY via RPC — never pull raw redemption rows (PostgREST silently
+  // caps at 1000 rows, which under-counts verified badges and feed ranking).
+  const { data, error } = await service.rpc("verified_counts_by_merchant", {
+    p_merchant_ids: ids,
+  });
+  if (error) throw error;
+  for (const row of data ?? []) {
+    const merchantId = row.merchant_id as string;
+    const count = Number(row.verified_count);
+    if (merchantId && Number.isFinite(count)) map.set(merchantId, count);
   }
   return map;
 }

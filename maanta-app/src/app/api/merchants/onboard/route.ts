@@ -162,7 +162,11 @@ export async function POST(request: Request) {
 
   const clerkUserId = await currentClerkUserId();
   if (clerkUserId && typeof merchantId === "string") {
-    void captureMerchantOnboarded({ clerkUserId, merchantId });
+    void captureMerchantOnboarded({
+      clerkUserId,
+      merchantId,
+      node: "BBS Mall",
+    });
   }
 
   // Merchant row was created; surface GPS failure so the wizard/admin can retry

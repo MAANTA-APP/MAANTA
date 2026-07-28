@@ -41,7 +41,7 @@ export function DealCard({
   merchantName,
   mallName,
   title,
-  collectionLabel,
+  expiryLabel,
   distanceLabel,
   pay,
   wasKes,
@@ -59,7 +59,7 @@ export function DealCard({
   merchantName: string;
   mallName?: string | null;
   title: string;
-  collectionLabel?: string | null;
+  expiryLabel?: string | null;
   distanceLabel?: string | null;
   pay?: number | null;
   wasKes?: number | null;
@@ -103,9 +103,9 @@ export function DealCard({
               {mallName ? ` · ${mallName}` : ""}
             </Meta>
             <HeadingSm as="h3">{title}</HeadingSm>
-            {(collectionLabel || distanceLabel) && (
+            {(expiryLabel || distanceLabel) && (
               <Meta as="p">
-                {[collectionLabel, distanceLabel].filter(Boolean).join(" · ")}
+                {[expiryLabel, distanceLabel].filter(Boolean).join(" · ")}
               </Meta>
             )}
             {pay != null ? (
@@ -160,9 +160,9 @@ export function DealCard({
             {merchantName}
           </HeadingSm>
           <p className="truncate text-xs text-muted">{title}</p>
-          {(collectionLabel || distanceLabel) && (
+          {(expiryLabel || distanceLabel) && (
             <Meta as="p" className="truncate">
-              {[collectionLabel, distanceLabel].filter(Boolean).join(" · ")}
+              {[expiryLabel, distanceLabel].filter(Boolean).join(" · ")}
             </Meta>
           )}
           {pay != null ? (

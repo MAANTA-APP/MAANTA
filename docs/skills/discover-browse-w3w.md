@@ -41,7 +41,7 @@ string for precision pickup.
 - Leaflet + OSM (no Mapbox key). `react-leaflet@4` for React 18.
 - Filters: rail type (All/Flash/Boosted/Standard) + Collect now / Today.
 - List synced to map viewport bounds (`lib/browse.ts` helpers).
-- Deep link: `/browse?lat=&lng=&dealId=` from deal detail “View on map”.
+- Deep link: `/map?lat=&lng=&dealId=` from deal detail “View on map” (legacy `/browse?lat=…` redirects to `/map`).
 - Bottom nav: Search tab → **Browse** (`/search` remains via header icon on Browse).
 
 ## Onboarding / admin
@@ -68,5 +68,5 @@ string for precision pickup.
 ## UI notes (post-ship polish)
 
 - Discover rail “See all ›” → `/browse` (not `/search`).
-- Browse rail filter default chip label: **All** (was “Category”).
+- Browse is list-first with URL chips/controls; map lives on `/map` (embedded Browse map removed on `main`).
 - Onboard returns `locationSaved` / `warning` when GPS update fails after merchant create.

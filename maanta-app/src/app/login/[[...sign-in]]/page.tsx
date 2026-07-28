@@ -1,16 +1,17 @@
 import { ClerkAuthShell } from "@/components/clerk-auth-shell";
+import { SupabaseEmailLogin } from "@/components/auth/supabase-email-login";
+import { isClerkAuth } from "@/lib/auth/strategy";
 
-// Clerk-hosted sign-in mounted on a catch-all so it can own its sub-routes
-// (verification, SSO callback, factor-two). Enabled methods — phone OTP and
-// email — are configured in the Clerk dashboard, matching the prior flow. The
-// launch mix (phone-only vs email+phone) is an open founder decision kept behind
-// a flag with both enabled — see src/lib/launch-auth.ts (default email+phone).
-// After sign-in Clerk redirects to the fallback URL
-// (NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL, set to /select-mall).
+// After sign-in, Clerk (and Supabase email OTP) should land on /app-bootstrap
+// so role routing picks feed / merchant / admin / agent. See docs/ops/pwa-install.md.
 export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-stone px-5 py-14">
-      <ClerkAuthShell mode="sign-in" />
+      {isClerkAuth() ? (
+        <ClerkAuthShell mode="sign-in" />
+      ) : (
+        <SupabaseEmailLogin mode="sign-in" />
+      )}
     </main>
   );
 }

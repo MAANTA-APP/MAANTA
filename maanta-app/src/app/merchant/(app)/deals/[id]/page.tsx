@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
 import { getBoostFee } from "@/lib/data";
 import { CoverImage, KpiCard } from "@/components/ui/cards";
-import { StatusChip } from "@/components/ui/chips";
+import { CountdownChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
 import { DealActions } from "./deal-actions";
@@ -69,7 +69,10 @@ export default async function MerchantDealDetailPage({
           <IconArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-ink">{deal.title}</h1>
-        <StatusChip status={status} />
+        <div className="flex flex-none items-center gap-2">
+          {deal.expires_at ? <CountdownChip expiresAt={deal.expires_at} /> : null}
+          <StatusChip status={status} />
+        </div>
       </div>
 
       <div className="mt-4 h-44 overflow-hidden rounded-2xl border border-line bg-cream">

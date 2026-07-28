@@ -1,114 +1,130 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   DealCard,
-  FilterChip,
-  IconButton,
   Section,
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
 import {
-  dealsToPins,
   filterBrowseDeals,
-  type BrowseRailFilter,
-  type BrowseTimeFilter,
-  type MapBounds,
+  type BrowseChipFilter,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
-import { collectionWindowLabel } from "@/lib/browse";
+import { dealExpiryLabel } from "@/lib/browse";
+import {
+  filterDealRowsByRail,
+  sortDealRows,
+  type DealListFilter,
+  type DealListSort,
+} from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
-import { IconPin, IconSearch } from "@/components/ui/icons";
+import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
-
-const BrowseMap = dynamic(
-  () => import("./browse-map").then((m) => m.BrowseMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center rounded-card bg-stone-soft text-sm text-muted">
-        Loading map…
-      </div>
-    ),
-  }
-);
-
-const RAIL_FILTERS: { id: BrowseRailFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "flash", label: "Flash" },
-  { id: "boosted", label: "Boosted" },
-  { id: "standard", label: "Standard" },
-];
-
-const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
-  { id: "any", label: "Any time" },
-  { id: "now", label: "Collect now" },
-  { id: "today", label: "Today" },
-];
+import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
+import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 
 export type BrowseDealPayload = DealRow;
+
+function browseEmptyState(opts: {
+  chip: BrowseChipFilter;
+  isSignedIn: boolean;
+  favouritesCount: number;
+}): { title: string; sub: string; actionLabel?: string; actionHref?: string } {
+  if (opts.chip === "favourites") {
+    if (!opts.isSignedIn) {
+      return {
+        title: "Sign in to see favourites",
+        sub: "Save shops from deal cards, then filter deals from those merchants here.",
+        actionLabel: "Sign in",
+        actionHref: "/login?next=/browse",
+      };
+    }
+    if (opts.favouritesCount === 0) {
+      return {
+        title: "No saved shops yet",
+        sub: "Tap the heart on a deal card to save a shop, then return here.",
+        actionLabel: "View saved shops",
+        actionHref: "/my-deals?tab=shops",
+      };
+    }
+    return {
+      title: "No deals from saved shops",
+      sub: "Your saved merchants have no live deals in this node right now.",
+    };
+  }
+
+  return {
+    title: "No deals match your filters",
+    sub: "Try adjusting filters or switching node.",
+  };
+}
 
 export function BrowseClient({
   node,
   deals,
   origin,
   favourites,
-  initialLat,
-  initialLng,
-  initialDealId,
+  sort,
+  filter,
+  chip,
+  isSignedIn,
 }: {
   node: string;
   deals: BrowseDealPayload[];
   origin: { lat: number; lng: number };
   favourites: string[];
-  initialLat?: number | null;
-  initialLng?: number | null;
-  initialDealId?: string | null;
+  sort: DealListSort;
+  filter: DealListFilter;
+  chip: BrowseChipFilter;
+  isSignedIn: boolean;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
-  const [rail, setRail] = useState<BrowseRailFilter>("all");
-  const [time, setTime] = useState<BrowseTimeFilter>("any");
-  const [bounds, setBounds] = useState<MapBounds | null>(null);
   const [query, setQuery] = useState("");
-  const [recenterKey, setRecenterKey] = useState(0);
 
-  const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
-
-  const filteredForPins = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time });
-    const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
-    );
-  }, [deals, rail, time, query]);
-
-  const pins = useMemo(() => dealsToPins(filteredForPins), [filteredForPins]);
+  const applySearch = useCallback(
+    (rows: DealRow[]) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return rows;
+      return rows.filter(
+        (d) =>
+          d.title.toLowerCase().includes(q) ||
+          (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
+      );
+    },
+    [query]
+  );
 
   const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time, bounds });
-    const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (d) =>
-        d.title.toLowerCase().includes(q) ||
-        (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
-    );
-  }, [deals, rail, time, bounds, query]);
+    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
+      rail: "all",
+      chip,
+      favouriteMerchantIds: favSet,
+    });
+    return sortDealRows(applySearch(base), sort, origin);
+  }, [deals, filter, chip, favSet, sort, origin, applySearch]);
 
-  const focus: [number, number] | null =
-    initialLat != null && initialLng != null
-      ? [initialLat, initialLng]
-      : null;
+  const empty = browseEmptyState({
+    chip,
+    isSignedIn,
+    favouritesCount: favourites.length,
+  });
+
+  const subtitle =
+    listDeals.length === 0
+      ? "0 deals match your filters here · try adjusting filters or switching node."
+      : listDeals.length === 1
+        ? "1 deal matches your filters"
+        : `${listDeals.length} deals match your filters`;
 
   const searchAndFilters = (
     <div className="space-y-2.5">
+      <Suspense fallback={null}>
+        <BrowseControls />
+      </Suspense>
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
@@ -129,28 +145,9 @@ export function BrowseClient({
           <IconSearch className="h-4 w-4" />
         </Link>
       </div>
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-        {RAIL_FILTERS.map((f) => (
-          <FilterChip
-            key={f.id}
-            active={rail === f.id}
-            onClick={() => setRail(f.id)}
-          >
-            {f.label}
-          </FilterChip>
-        ))}
-      </div>
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-        {TIME_FILTERS.map((f) => (
-          <FilterChip
-            key={f.id}
-            active={time === f.id}
-            onClick={() => setTime(f.id)}
-          >
-            {f.label}
-          </FilterChip>
-        ))}
-      </div>
+      <Suspense fallback={null}>
+        <BrowseChips />
+      </Suspense>
     </div>
   );
 
@@ -158,20 +155,14 @@ export function BrowseClient({
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-stone">
       <ShopperTopBar node={node} />
 
-      <Section
-        title="Deals around you"
-        subtitle={
-          listDeals.length === 1
-            ? "1 deal in view"
-            : `${listDeals.length} deals in view · pan the map below to refresh`
-        }
-        className="pb-2"
-      >
+      <Section title="Deals around you" subtitle={subtitle} className="pb-6">
         <div className="mb-4">{searchAndFilters}</div>
         {listDeals.length === 0 ? (
           <EmptyState
-            title="No deals in this area"
-            sub="Pan the map or clear filters to see more."
+            title={empty.title}
+            sub={empty.sub}
+            actionLabel={empty.actionLabel}
+            actionHref={empty.actionHref}
           />
         ) : (
           <div className="space-y-rail">
@@ -198,10 +189,7 @@ export function BrowseClient({
                   merchantName={d.merchants?.merchant_name ?? ""}
                   mallName={d.merchants?.mall_name ?? d.node}
                   title={d.title}
-                  collectionLabel={collectionWindowLabel(
-                    d.starts_at,
-                    d.expires_at
-                  )}
+                  expiryLabel={dealExpiryLabel(d.expires_at)}
                   distanceLabel={distanceLabel}
                   pay={pricing.pay}
                   wasKes={pricing.was}
@@ -216,30 +204,6 @@ export function BrowseClient({
           </div>
         )}
       </Section>
-
-      <div className="px-4 pb-6 pt-2">
-        <div className="relative overflow-hidden rounded-card border border-line bg-white shadow-card">
-          <div className="relative h-[34vh] min-h-[200px]">
-            <BrowseMap
-              key={recenterKey}
-              pins={pins}
-              center={[origin.lat, origin.lng]}
-              focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
-              selectedDealId={initialDealId}
-              onBounds={onBounds}
-            />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] flex justify-end p-3">
-              <IconButton
-                className="pointer-events-auto"
-                label="Recenter on current mall"
-                onClick={() => setRecenterKey((k) => k + 1)}
-              >
-                <IconPin className="h-4 w-4" />
-              </IconButton>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

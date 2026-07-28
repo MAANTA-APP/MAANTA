@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
-import { NotificationRow, SettingsRow } from "@/components/ui/cards";
+import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import {
   BackToProfileLink,
@@ -115,9 +115,6 @@ export default async function NotificationsPage() {
             ))}
           </div>
         )}
-        <div className="mt-6">
-          <SettingsRow href="/notifications/preferences" label="Notification preferences" />
-        </div>
       </Section>
     </Page>
   );

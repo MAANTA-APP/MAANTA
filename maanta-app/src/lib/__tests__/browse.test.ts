@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectionWindowLabel,
+  dealExpiryLabel,
   dealRail,
   dealsToPins,
   filterBrowseDeals,
-  isCollectNow,
+  isEndingSoon,
+  isLiveNow,
+  parseBrowseChip,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 
@@ -43,6 +45,12 @@ function deal(partial: Partial<DealRow> & { id: string }): DealRow {
 }
 
 describe("browse helpers", () => {
+  it("parses browse chip URL param", () => {
+    expect(parseBrowseChip(null)).toBe("all");
+    expect(parseBrowseChip("flash")).toBe("flash");
+    expect(parseBrowseChip("bogus")).toBe("all");
+  });
+
   it("classifies flash / boosted / standard rails", () => {
     expect(dealRail(deal({ id: "1", deal_type: "flash" }))).toBe("flash");
     expect(
@@ -51,7 +59,7 @@ describe("browse helpers", () => {
     expect(dealRail(deal({ id: "3" }))).toBe("standard");
   });
 
-  it("filters by rail and collect-now", () => {
+  it("filters by rail and live-now", () => {
     const now = new Date("2026-07-26T12:00:00Z");
     const deals = [
       deal({ id: "flash", deal_type: "flash" }),
@@ -67,7 +75,50 @@ describe("browse helpers", () => {
     expect(
       filterBrowseDeals(deals, { time: "now", now }).map((d) => d.id)
     ).toEqual(["flash"]);
-    expect(isCollectNow(deals[1], now)).toBe(false);
+    expect(isLiveNow(deals[1], now)).toBe(false);
+  });
+
+  it("filters by browse chips: ending soon, flash, favourites", () => {
+    const now = new Date("2026-07-26T12:00:00Z");
+    const deals = [
+      deal({
+        id: "flash-soon",
+        deal_type: "flash",
+        merchant_id: "m-fav",
+        expires_at: new Date("2026-07-26T16:00:00Z").toISOString(),
+      }),
+      deal({
+        id: "standard-later",
+        merchant_id: "m-other",
+        expires_at: new Date("2026-07-28T12:00:00Z").toISOString(),
+      }),
+      deal({
+        id: "boosted-fav",
+        deal_type: "standard",
+        boost_active: true,
+        merchant_id: "m-fav",
+        expires_at: new Date("2026-07-27T12:00:00Z").toISOString(),
+      }),
+    ];
+
+    expect(isEndingSoon(deals[0], now)).toBe(true);
+    expect(isEndingSoon(deals[1], now)).toBe(false);
+
+    expect(
+      filterBrowseDeals(deals, { chip: "flash", now }).map((d) => d.id)
+    ).toEqual(["flash-soon"]);
+
+    expect(
+      filterBrowseDeals(deals, {
+        chip: "favourites",
+        favouriteMerchantIds: new Set(["m-fav"]),
+        now,
+      }).map((d) => d.id)
+    ).toEqual(["flash-soon", "boosted-fav"]);
+
+    expect(
+      filterBrowseDeals(deals, { chip: "ending_soon", now }).map((d) => d.id)
+    ).toEqual(["flash-soon"]);
   });
 
   it("filters list to map viewport bounds", () => {
@@ -125,12 +176,9 @@ describe("browse helpers", () => {
     expect(pins[0].what3wordsAddress).toBe("filled.count.soap");
   });
 
-  it("formats a same-day collection window", () => {
-    const label = collectionWindowLabel(
-      "2026-07-26T10:00:00+03:00",
-      "2026-07-26T18:00:00+03:00"
-    );
-    expect(label.startsWith("Collect ")).toBe(true);
-    expect(label).toContain("–");
+  it("formats deal expiry countdown labels", () => {
+    const now = new Date("2026-07-26T12:00:00Z");
+    const label = dealExpiryLabel("2026-07-26T14:14:00Z", now);
+    expect(label).toBe("Expires in 2h 14m");
   });
 });

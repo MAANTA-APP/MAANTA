@@ -1,9 +1,14 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-24 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-28 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
+
+> **Staged readiness (now / launch / 10k / 100k):** see
+> [`docs/maanta-staged-readiness-now-launch-10k-100k.md`](maanta-staged-readiness-now-launch-10k-100k.md)
+> for CTO/ops checklists and scale matrices. This tracker remains the gate
+> status source of truth.
 
 > **2026-07-24 repo audit:** full repo-vs-prod readiness audit in
 > `docs/skills/launch-audit-2026-07-24.md`. Repo is green (128 vitest + 15 SQL

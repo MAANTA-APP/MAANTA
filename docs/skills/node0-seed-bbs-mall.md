@@ -22,6 +22,20 @@ Idempotent: re-run refreshes expiry windows + GPS; does not duplicate fixed UUID
 
 ## Apply (operator or agent with `DATABASE_URL`)
 
+`DATABASE_URL` must be the **Postgres** URI from Supabase → Database → Connection string
+(host `db.<project-ref>.supabase.co`, user `postgres`, `sslmode=require`).
+It is **not** an HTTP app URL or the Supabase REST URL.
+
+One-shot (migrations + seed + verify):
+
+```bash
+cd maanta-app
+export DATABASE_URL='postgresql://…?sslmode=require'
+./scripts/prod-schema-seed-fixup.sh
+```
+
+Or seed only:
+
 ```bash
 cd maanta-app
 export DATABASE_URL='postgresql://…?sslmode=require'
@@ -48,3 +62,16 @@ Then open `https://www.maanta.app/feed` and `/browse` with location **BBS Mall**
 Cloud agents without `DATABASE_URL` / unauthenticated Supabase MCP **cannot**
 run this seed. Paste the connection string when prompted; do not paste it into chat
 logs permanently.
+
+## Nairobi 3-node seed (150 merchants — 2026-07)
+
+For multi-node rehearsal (BBS + CBD Galleria + Westlands Hub), use the newer seed:
+
+```bash
+make db-seed-nairobi-150      # 150 merchants + 188 deals
+make db-seed-test-accounts    # @maanta.app role accounts
+```
+
+Docs: `docs/ops/nodes-nairobi-2026-07.md`, `docs/ops/test-accounts-seed-2026-07.md`,
+`docs/ops/role-tasks-nairobi-150-2026-07.md`. Regenerate SQL:
+`python3 maanta-app/scripts/generate-nairobi-merchants-seed.py`.
