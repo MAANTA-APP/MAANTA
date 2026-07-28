@@ -18,6 +18,9 @@ export function BrowseControls() {
 
   function update(key: "sort" | "filter", value: string) {
     const next = new URLSearchParams(params.toString());
+    if (key === "filter" && value !== "all") {
+      next.delete("chip");
+    }
     if (value === (key === "sort" ? "nearest" : "all")) {
       next.delete(key);
     } else {

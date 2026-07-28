@@ -6,6 +6,7 @@ import {
   filterBrowseDeals,
   isEndingSoon,
   isLiveNow,
+  parseBrowseChip,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 
@@ -44,6 +45,12 @@ function deal(partial: Partial<DealRow> & { id: string }): DealRow {
 }
 
 describe("browse helpers", () => {
+  it("parses browse chip URL param", () => {
+    expect(parseBrowseChip(null)).toBe("all");
+    expect(parseBrowseChip("flash")).toBe("flash");
+    expect(parseBrowseChip("bogus")).toBe("all");
+  });
+
   it("classifies flash / boosted / standard rails", () => {
     expect(dealRail(deal({ id: "1", deal_type: "flash" }))).toBe("flash");
     expect(

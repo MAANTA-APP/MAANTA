@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("next/link", () => ({
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/claude";
 import { LanguageCard, ProfileCard } from "@/app/(shopper)/profile/profile-card";
 import { BrowseClient } from "@/components/browse/browse-client";
+import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
@@ -118,14 +120,36 @@ describe("Shopper UI polish", () => {
 
     expect(html).toContain("Deals around you");
     expect(html).toContain("Search deals or shops");
-    expect(html).toContain("Ending soon");
-    expect(html).toContain("Flash");
-    expect(html).toContain("Favourites");
-    expect(html).toContain("Live now");
-    expect(html).toContain("Today");
     expect(html).not.toContain("Any time");
     expect(html).not.toContain("Loading map");
     expect(html).not.toContain("pan the map");
     expect(html).toContain('href="/map"');
+  });
+
+  it("BrowseChips renders expiring, flash, and favourites chips", () => {
+    const html = renderToStaticMarkup(createElement(BrowseChips));
+    expect(html).toContain("Expiring soon");
+    expect(html).toContain("Flash");
+    expect(html).toContain("Favourites");
+    expect(html).toContain("Live now");
+    expect(html).toContain("Today");
+  });
+
+  it("BrowseClient shows sign-in prompt for Favourites when signed out", () => {
+    const html = renderToStaticMarkup(
+      createElement(BrowseClient, {
+        node: "BBS Mall",
+        deals: [],
+        origin: { lat: -1.2746, lng: 36.8501 },
+        favourites: [],
+        sort: "nearest",
+        filter: "all",
+        chip: "favourites",
+        isSignedIn: false,
+      })
+    );
+
+    expect(html).toContain("Sign in to see favourites");
+    expect(html).toContain("/login?next=/browse");
   });
 });

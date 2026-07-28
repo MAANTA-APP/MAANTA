@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
@@ -11,6 +11,7 @@ import {
   filterBrowseDeals,
   type BrowseRailFilter,
   type BrowseTimeFilter,
+  type MapBounds,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { IconPin, IconSearch } from "@/components/ui/icons";
@@ -61,9 +62,11 @@ export function MapClient({
   const [time, setTime] = useState<BrowseTimeFilter>("any");
   const [query, setQuery] = useState("");
   const [recenterKey, setRecenterKey] = useState(0);
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
+  const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
 
   const filtered = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time });
+    const base = filterBrowseDeals(deals, { rail, time, bounds });
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter(
@@ -71,7 +74,7 @@ export function MapClient({
         d.title.toLowerCase().includes(q) ||
         (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
     );
-  }, [deals, rail, time, query]);
+  }, [deals, rail, time, bounds, query]);
 
   const pins = useMemo(() => dealsToPins(filtered), [filtered]);
 
@@ -92,7 +95,7 @@ export function MapClient({
             center={[origin.lat, origin.lng]}
             focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
             selectedDealId={initialDealId}
-            onBounds={() => {}}
+            onBounds={onBounds}
           />
         </div>
 

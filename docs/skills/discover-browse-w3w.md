@@ -41,7 +41,7 @@ string for precision pickup.
 - Leaflet + OSM (no Mapbox key). `react-leaflet@4` for React 18.
 - Filters: rail type (All/Flash/Boosted/Standard) + Collect now / Today.
 - List synced to map viewport bounds (`lib/browse.ts` helpers).
-- Deep link: `/browse?lat=&lng=&dealId=` from deal detail “View on map”.
+- Deep link: `/map?lat=&lng=&dealId=` from deal detail “View on map” (legacy `/browse?lat=…` redirects to `/map`).
 - Bottom nav: Search tab → **Browse** (`/search` remains via header icon on Browse).
 
 ## Onboarding / admin
