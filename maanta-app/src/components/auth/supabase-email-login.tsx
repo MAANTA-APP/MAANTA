@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -11,11 +12,13 @@ import { authModeLoginHint } from "@/lib/auth/strategy";
 type Stage = "email" | "code";
 
 /**
- * Dev/test email OTP sign-in via Supabase Auth. Replaces Clerk on /login when
- * MAANTA_AUTH_STRATEGY=supabase.
+ * Email OTP sign-in via Supabase Auth. Used on /login and /sign-up when
+ * MAANTA_AUTH_STRATEGY=supabase (production default).
  */
 export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") ?? "/app-bootstrap";
   const [stage, setStage] = useState<Stage>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -54,7 +57,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         type: "email",
       });
       if (verifyError) throw verifyError;
-      router.push("/select-mall");
+      router.push(nextPath);
       router.refresh();
     } catch {
       setError("Code didn't match. Check your email and try again.");
@@ -67,7 +70,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
     <div className="w-full max-w-md">
       <div className="mb-5 text-center">
         <HeadingLg as="h1" className="text-[1.5rem]">
-          {mode === "sign-up" ? "Sign up" : "Sign in"}
+          {mode === "sign-up" ? "Create your account" : "Sign in"}
         </HeadingLg>
         <Body className="mt-1.5">{authModeLoginHint()}</Body>
       </div>
@@ -88,7 +91,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
             </label>
             {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
             <Button full onClick={sendCode} loading={busy} disabled={!email.trim()}>
-              Send code
+              {mode === "sign-up" ? "Send sign-up code" : "Send sign-in code"}
             </Button>
           </div>
         ) : (
@@ -132,11 +135,29 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
           </div>
         )}
       </div>
+
+      <p className="mt-5 text-center text-sm text-muted">
+        {mode === "sign-up" ? (
+          <>
+            Already have an account?{" "}
+            <Link href={`/login?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-ink underline">
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            New to Maanta?{" "}
+            <Link href={`/sign-up?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-ink underline">
+              Create account
+            </Link>
+          </>
+        )}
+      </p>
     </div>
   );
 }
 
-/** Signed-in guard for Supabase Auth sessions (dev/test). */
+/** Signed-in guard for Supabase Auth sessions. */
 export function SupabaseSignedIn({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -161,7 +182,7 @@ export function SupabaseSignedIn({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Signed-out branch for Supabase Auth (dev/test). */
+/** Signed-out branch for Supabase Auth. */
 export function SupabaseSignedOut({ children }: { children: React.ReactNode }) {
   const signedIn = useSupabaseSignedIn();
   if (signedIn === null) return null;
@@ -169,7 +190,7 @@ export function SupabaseSignedOut({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Signed-out redirect for Supabase Auth (dev/test). */
+/** Signed-out redirect for Supabase Auth. */
 export function SupabaseRedirectToSignIn() {
   const router = useRouter();
   const signedIn = useSupabaseSignedIn();

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ClerkAuthShell } from "@/components/clerk-auth-shell";
 import { SupabaseEmailLogin } from "@/components/auth/supabase-email-login";
 import { isClerkAuth } from "@/lib/auth/strategy";
@@ -8,7 +9,9 @@ export default function LoginPage() {
       {isClerkAuth() ? (
         <ClerkAuthShell mode="sign-in" />
       ) : (
-        <SupabaseEmailLogin mode="sign-in" />
+        <Suspense fallback={<div className="h-48 w-full max-w-md animate-pulse rounded-card bg-line" />}>
+          <SupabaseEmailLogin mode="sign-in" />
+        </Suspense>
       )}
     </main>
   );

@@ -11,7 +11,7 @@ function ClerkAuthControls() {
   return (
     <>
       <SignedOut>
-        <SignInButton mode="redirect">
+        <SignInButton mode="redirect" forceRedirectUrl="/app-bootstrap">
           <button className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
             Sign in
           </button>

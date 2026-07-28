@@ -7,8 +7,8 @@
 
 | Phase | Strategy | Sign-in | Phone OTP | Env |
 |---|---|---|---|---|
-| **Dev / staging rehearsal** | `supabase` | Email OTP via Supabase Auth | Disabled (no Clerk SMS cost) | `MAANTA_AUTH_STRATEGY=supabase` |
-| **Production launch** | `clerk` | Email + phone via Clerk | Enabled (global E.164, `/verify-phone`) | `MAANTA_AUTH_STRATEGY=clerk` |
+| **Production (current)** | `supabase` | Email OTP via Supabase Auth | Disabled until Clerk SMS launch | `MAANTA_AUTH_STRATEGY=supabase` |
+| **Launch (future)** | `clerk` | Email + phone via Clerk | Enabled (global E.164, `/verify-phone`) | `MAANTA_AUTH_STRATEGY=clerk` |
 
 Flip between phases by changing env vars and redeploying — no code changes required.
 
@@ -17,15 +17,25 @@ Flip between phases by changing env vars and redeploying — no code changes req
 Set **both** (server + client must agree):
 
 ```bash
-MAANTA_AUTH_STRATEGY=clerk          # server: middleware, ensureAppUser, API routes
-NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=clerk   # client: login UI, nav, verify-phone
+MAANTA_AUTH_STRATEGY=supabase          # server: middleware, ensureAppUser, API routes
+NEXT_PUBLIC_MAANTA_AUTH_STRATEGY=supabase   # client: login UI, nav, verify-phone
 ```
 
-Values: `clerk` (default) | `supabase` | `authjs` (reserved; same as supabase today).
+Values: `supabase` (default) | `clerk` | `authjs` (reserved; same as supabase today).
 
 Implementation: `maanta-app/src/lib/auth/strategy.ts`.
 
-## Clerk strategy (launch)
+## Supabase strategy (production default)
+
+- No `<ClerkProvider>` — no “Secured by Clerk” UI on public pages.
+- `/login` and `/sign-up` render Supabase email OTP (`SupabaseEmailLogin`).
+- Post-auth redirect: `/app-bootstrap` → role-aware dashboard (`/feed`, `/merchant/dashboard`, etc.).
+- Supabase JWT `sub` (UUID) → `public.users.auth_uid`.
+- Phone OTP at claim is relaxed until Clerk launch.
+
+**Production Vercel:** set both strategy vars to `supabase` (code default when unset).
+
+## Clerk strategy (future launch)
 
 - `<ClerkProvider>` wraps the app (`src/components/auth/auth-providers.tsx`).
 - `/login` and `/sign-up` render Clerk hosted components.
@@ -33,20 +43,12 @@ Implementation: `maanta-app/src/lib/auth/strategy.ts`.
 - Phone OTP at sign-in and `/verify-phone` for claim gate (S2 ruling).
 - Requires `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY`.
 
-**Production Vercel:** set both strategy vars to `clerk`.
+**When enabling Clerk:** set both strategy vars to `clerk` and configure SMS in the Clerk dashboard.
 
-## Supabase strategy (dev/test)
+## Local development
 
-- No `<ClerkProvider>` — Clerk keys optional for rehearsal.
-- `/login` and `/sign-up` render email OTP form (`SupabaseEmailLogin`).
-- Supabase Auth session cookie; JWT `sub` (UUID) → `public.users.auth_uid`.
-- Phone claim gate **relaxed** — `phoneOtpEnabled()` is false so rehearsal can
-  exercise claim → verify without SMS spend.
-- `/verify-phone` shows “launch-only” copy instead of Clerk SMS flow.
-- E.164 `PhoneField` UI remains in the codebase for launch.
-
-**Local / staging:** set both strategy vars to `supabase`. Enable Email OTP in
-the Supabase dashboard (Authentication → Providers → Email).
+- `/verify-phone` shows “launch-only” copy when strategy is `supabase`.
+- Enable Email OTP in the Supabase dashboard (Authentication → Providers → Email).
 
 ## Role assignment
 
