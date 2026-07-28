@@ -71,7 +71,16 @@ Unchanged in both strategies:
 |---|---|
 | `src/lib/auth/strategy.ts` | Toggle helpers |
 | `src/lib/auth.ts` | Dual-path `ensureAppUser` |
+| `src/lib/app-url.ts` | Canonical origin — production always `https://www.maanta.app` for email redirects |
 | `src/components/auth/auth-providers.tsx` | Conditional ClerkProvider |
-| `src/components/auth/supabase-email-login.tsx` | Dev email OTP UI |
+| `src/components/auth/supabase-email-login.tsx` | Dev email OTP UI (`emailRedirectTo` via `getAuthEmailRedirectTo`) |
+| `src/app/auth/callback/route.ts` | Magic-link / OTP callback; uses `getAppOrigin()` |
 | `src/middleware.ts` | Clerk vs Supabase session refresh |
 | `src/app/login`, `src/app/verify-phone` | Strategy-aware pages |
+
+## Production email redirects
+
+Supabase dashboard Site URL / Redirect URLs must allow `https://www.maanta.app/**`.
+App-side: `getAppOrigin()` never returns localhost in production (even if
+`NEXT_PUBLIC_APP_URL` is mis-set to loopback). OTP/magic-link flows pass
+`emailRedirectTo` → `https://www.maanta.app/auth/callback?next=…`.

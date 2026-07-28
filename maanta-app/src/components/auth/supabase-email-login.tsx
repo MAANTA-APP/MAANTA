@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { Body, HeadingLg } from "@/components/ui/claude";
 import { authModeLoginHint } from "@/lib/auth/strategy";
+import { getAuthEmailRedirectTo } from "@/lib/app-url";
 
 type Stage = "email" | "code";
 
@@ -31,7 +32,12 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
       const supabase = createClient();
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: trimmed,
-        options: { shouldCreateUser: true },
+        options: {
+          shouldCreateUser: true,
+          // Production resolves to https://www.maanta.app via getAppOrigin() —
+          // never rely on Supabase Site URL alone (was previously localhost).
+          emailRedirectTo: getAuthEmailRedirectTo("/select-mall"),
+        },
       });
       if (otpError) throw otpError;
       setStage("code");

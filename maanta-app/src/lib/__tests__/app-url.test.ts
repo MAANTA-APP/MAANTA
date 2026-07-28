@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAppOrigin } from "@/lib/app-url";
+import {
+  getAppOrigin,
+  getAuthEmailRedirectTo,
+  PRODUCTION_APP_ORIGIN,
+} from "@/lib/app-url";
 
 describe("getAppOrigin", () => {
   afterEach(() => {
@@ -17,9 +21,29 @@ describe("getAppOrigin", () => {
     expect(getAppOrigin()).toBe("http://localhost:3000");
   });
 
-  it("returns null in production when unset", () => {
+  it("defaults to www.maanta.app in production when unset", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
     vi.stubEnv("NODE_ENV", "production");
-    expect(getAppOrigin()).toBeNull();
+    expect(getAppOrigin()).toBe(PRODUCTION_APP_ORIGIN);
+  });
+
+  it("ignores localhost NEXT_PUBLIC_APP_URL in production", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(getAppOrigin()).toBe(PRODUCTION_APP_ORIGIN);
+  });
+});
+
+describe("getAuthEmailRedirectTo", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("builds production callback URL on www.maanta.app", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(getAuthEmailRedirectTo("/select-mall")).toBe(
+      "https://www.maanta.app/auth/callback?next=%2Fselect-mall"
+    );
   });
 });
