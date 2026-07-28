@@ -54,7 +54,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         type: "email",
       });
       if (verifyError) throw verifyError;
-      router.push("/select-mall");
+      router.push("/app-bootstrap");
       router.refresh();
     } catch {
       setError("Code didn't match. Check your email and try again.");

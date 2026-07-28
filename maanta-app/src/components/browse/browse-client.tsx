@@ -4,7 +4,6 @@ import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   DealCard,
-  FilterChip,
   Section,
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
@@ -26,16 +25,43 @@ import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
-
-const BROWSE_CHIPS: { id: BrowseChipFilter; label: string }[] = [
-  { id: "ending_soon", label: "Ending soon" },
-  { id: "flash", label: "Flash" },
-  { id: "favourites", label: "Favourites" },
-  { id: "now", label: "Live now" },
-  { id: "today", label: "Today" },
-];
+import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 
 export type BrowseDealPayload = DealRow;
+
+function browseEmptyState(opts: {
+  chip: BrowseChipFilter;
+  isSignedIn: boolean;
+  favouritesCount: number;
+}): { title: string; sub: string; actionLabel?: string; actionHref?: string } {
+  if (opts.chip === "favourites") {
+    if (!opts.isSignedIn) {
+      return {
+        title: "Sign in to see favourites",
+        sub: "Save shops from deal cards, then filter deals from those merchants here.",
+        actionLabel: "Sign in",
+        actionHref: "/login?next=/browse",
+      };
+    }
+    if (opts.favouritesCount === 0) {
+      return {
+        title: "No saved shops yet",
+        sub: "Tap the heart on a deal card to save a shop, then return here.",
+        actionLabel: "View saved shops",
+        actionHref: "/my-deals?tab=shops",
+      };
+    }
+    return {
+      title: "No deals from saved shops",
+      sub: "Your saved merchants have no live deals in this node right now.",
+    };
+  }
+
+  return {
+    title: "No deals match your filters",
+    sub: "Try adjusting filters or switching node.",
+  };
+}
 
 export function BrowseClient({
   node,
@@ -44,6 +70,8 @@ export function BrowseClient({
   favourites,
   sort,
   filter,
+  chip,
+  isSignedIn,
 }: {
   node: string;
   deals: BrowseDealPayload[];
@@ -51,9 +79,10 @@ export function BrowseClient({
   favourites: string[];
   sort: DealListSort;
   filter: DealListFilter;
+  chip: BrowseChipFilter;
+  isSignedIn: boolean;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
-  const [chip, setChip] = useState<BrowseChipFilter>("all");
   const [query, setQuery] = useState("");
 
   const applySearch = useCallback(
@@ -77,6 +106,12 @@ export function BrowseClient({
     });
     return sortDealRows(applySearch(base), sort, origin);
   }, [deals, filter, chip, favSet, sort, origin, applySearch]);
+
+  const empty = browseEmptyState({
+    chip,
+    isSignedIn,
+    favouritesCount: favourites.length,
+  });
 
   const subtitle =
     listDeals.length === 0
@@ -110,19 +145,9 @@ export function BrowseClient({
           <IconSearch className="h-4 w-4" />
         </Link>
       </div>
-      <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
-        {BROWSE_CHIPS.map((f) => (
-          <FilterChip
-            key={f.id}
-            active={chip === f.id}
-            onClick={() =>
-              setChip((current) => (current === f.id ? "all" : f.id))
-            }
-          >
-            {f.label}
-          </FilterChip>
-        ))}
-      </div>
+      <Suspense fallback={null}>
+        <BrowseChips />
+      </Suspense>
     </div>
   );
 
@@ -134,8 +159,10 @@ export function BrowseClient({
         <div className="mb-4">{searchAndFilters}</div>
         {listDeals.length === 0 ? (
           <EmptyState
-            title="No deals match your filters"
-            sub="Try adjusting filters or switching node."
+            title={empty.title}
+            sub={empty.sub}
+            actionLabel={empty.actionLabel}
+            actionHref={empty.actionHref}
           />
         ) : (
           <div className="space-y-rail">

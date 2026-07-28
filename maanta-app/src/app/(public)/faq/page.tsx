@@ -14,7 +14,7 @@ const FAQS = [
   },
   {
     q: "Do I need to download an app?",
-    a: "No — Maanta runs in your browser and can be added to your home screen with one tap.",
+    a: "No — Maanta runs in your browser. For a faster home-screen experience, open /download and follow Install (or Add to Home Screen) tips.",
   },
 ];
 
