@@ -37,12 +37,12 @@ describe("public auth routes (/login, /sign-up)", () => {
     }
   );
 
-  it.each([
+  it.each<[string, string]>([
     ["supabase", "supabase"],
     ["clerk", "supabase"],
     ["supabase", "clerk"],
     ["", ""],
-  ] as const)(
+  ])(
     "does not enable clerk auth when MAANTA=%s and NEXT_PUBLIC=%s (unless both clerk)",
     (server, client) => {
       vi.stubEnv("MAANTA_AUTH_STRATEGY", server);
