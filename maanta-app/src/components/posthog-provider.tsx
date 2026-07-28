@@ -4,10 +4,9 @@ import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
+import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { createClient } from "@/lib/supabase/client";
 
-// Initialize posthog-js once on the client when configured. The typeof window
-// guard ensures this never runs during SSR; skipping init when the token is
-// unset matches the server-side no-op in src/lib/analytics.ts.
 const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 if (typeof window !== "undefined" && posthogToken) {
   posthog.init(posthogToken, {
@@ -19,10 +18,7 @@ if (typeof window !== "undefined" && posthogToken) {
   });
 }
 
-// Syncs the Clerk-authenticated user into PostHog as a named person so that
-// client-side events, server-side events (keyed by Clerk user ID), and session
-// replays all land on the same PostHog person.
-function PostHogUserSync() {
+function ClerkPostHogUserSync() {
   const { user, isLoaded, isSignedIn } = useUser();
 
   useEffect(() => {
@@ -40,10 +36,37 @@ function PostHogUserSync() {
   return null;
 }
 
+function SupabasePostHogUserSync() {
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      if (user) {
+        posthog.identify(user.id, { email: user.email ?? undefined });
+      } else {
+        posthog.reset();
+      }
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      if (user) {
+        posthog.identify(user.id, { email: user.email ?? undefined });
+      } else {
+        posthog.reset();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return null;
+}
+
 export function PostHogClientProvider({ children }: { children: React.ReactNode }) {
   return (
     <PostHogProvider client={posthog}>
-      <PostHogUserSync />
+      {isClerkAuthClient() ? <ClerkPostHogUserSync /> : <SupabasePostHogUserSync />}
       {children}
     </PostHogProvider>
   );

@@ -43,9 +43,18 @@ export default function LandingPage() {
               Browse live deals
             </PrimaryButtonLink>
             <SecondaryButtonLink
-              href="/waitlist"
+              href="/download"
               size="lg"
               className="!border-white/30 !bg-transparent !text-white hover:!bg-white/10"
+            >
+              Install the app
+            </SecondaryButtonLink>
+          </div>
+          <div className="mt-3 animate-fade-in">
+            <SecondaryButtonLink
+              href="/waitlist"
+              size="lg"
+              className="!border-white/30 !bg-transparent !text-white/80 hover:!bg-white/10"
             >
               Get early access
             </SecondaryButtonLink>

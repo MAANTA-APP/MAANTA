@@ -37,6 +37,8 @@ the source of truth for anything describing code behavior). Consolidated
 | File | Purpose |
 |---|---|
 | `ops/tech-stack-deep-dive-2026-07.md` | Current stack inventory, ~100k scalability assessment, upgrades, advisor map |
+| `ops/pwa-install.md` | `/download` install landing + `/app-bootstrap` role router |
+| `ops/auth-strategies.md` | Clerk (launch) vs Supabase email OTP (dev/test) toggle |
 | `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
