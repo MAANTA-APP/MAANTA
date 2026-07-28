@@ -38,9 +38,10 @@ string for precision pickup.
 
 ## Browse (`/browse`)
 
-- List/grid of live deals for the selected mall (sort, filter, search, time chips).
+- List/grid of live deals for the selected mall (sort, filter, search, chips).
 - **Map is not embedded** — shoppers open the dedicated `/map` route (bottom nav / top bar).
-- Filters: rail type via URL dropdowns (All/Flash/Boosted/Standard) + Live now / Today.
+- Filters: rail type via URL dropdowns (All/Flash/Boosted/Standard) + chips
+  (Ending soon / Flash / Favourites / Live now / Today) — see `docs/ops/browse-filters-2026-07.md`.
 - Bottom nav: Browse tab → `/browse` (`/search` remains via header icon on Browse).
 
 ## Map (`/map`)
