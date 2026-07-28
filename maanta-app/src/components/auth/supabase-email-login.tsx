@@ -7,12 +7,24 @@ import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { Body, HeadingLg } from "@/components/ui/claude";
 import { authModeLoginHint } from "@/lib/auth/strategy";
+import {
+  logAuthFlow,
+  mapAuthCallbackQueryError,
+  mapOtpSendError,
+  mapOtpVerifyError,
+  supabaseEmailRedirectTo,
+  type AuthErrorLike,
+} from "@/lib/auth/supabase-email-auth";
 
 type Stage = "email" | "code";
 
 /**
- * Dev/test email OTP sign-in via Supabase Auth. Replaces Clerk on /login when
+ * Email OTP sign-in via Supabase Auth. Replaces Clerk on /login when
  * MAANTA_AUTH_STRATEGY=supabase.
+ *
+ * Primary path: 6-digit OTP typed on this device (works across email clients).
+ * Secondary path: magic / confirm link → /auth/callback (prefer token_hash
+ * templates in the Supabase dashboard so mobile Mail/Outlook handoff works).
  */
 export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
@@ -22,6 +34,18 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
+    const fromCallback = mapAuthCallbackQueryError(errorParam);
+    if (fromCallback) {
+      logAuthFlow("callback_parse", "surfaced callback error on login", {
+        error: errorParam,
+      });
+      setError(fromCallback);
+    }
+  }, []);
+
   async function sendCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
@@ -29,14 +53,32 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
     setError(null);
     try {
       const supabase = createClient();
+      const emailRedirectTo = supabaseEmailRedirectTo(
+        window.location.origin,
+        "/app-bootstrap"
+      );
+      logAuthFlow("send", "signInWithOtp starting", {
+        emailRedirectTo,
+        host: window.location.host,
+      });
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: trimmed,
-        options: { shouldCreateUser: true },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo,
+        },
       });
       if (otpError) throw otpError;
+      logAuthFlow("send", "signInWithOtp accepted; awaiting code entry");
       setStage("code");
-    } catch {
-      setError("Couldn't send the code. Check the email and try again.");
+    } catch (err) {
+      const authErr = err as AuthErrorLike;
+      logAuthFlow("send", "signInWithOtp failed", {
+        message: authErr?.message,
+        status: authErr?.status,
+        code: authErr?.code,
+      });
+      setError(mapOtpSendError(authErr));
     } finally {
       setBusy(false);
     }
@@ -48,16 +90,24 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
     setError(null);
     try {
       const supabase = createClient();
+      logAuthFlow("verify_otp", "verifyOtp starting");
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email: trimmed,
         token: code.trim(),
         type: "email",
       });
       if (verifyError) throw verifyError;
+      logAuthFlow("bootstrap", "verifyOtp ok; routing to /app-bootstrap");
       router.push("/app-bootstrap");
       router.refresh();
-    } catch {
-      setError("Code didn't match. Check your email and try again.");
+    } catch (err) {
+      const authErr = err as AuthErrorLike;
+      logAuthFlow("verify_otp", "verifyOtp failed", {
+        errorMessage: authErr?.message,
+        status: authErr?.status,
+        code: authErr?.code,
+      });
+      setError(mapOtpVerifyError(authErr));
     } finally {
       setBusy(false);
     }
@@ -94,7 +144,9 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         ) : (
           <div className="space-y-4">
             <p className="text-center text-sm text-muted">
-              Enter the code we sent to <strong className="text-ink">{email}</strong>
+              Enter the 6-digit code we sent to{" "}
+              <strong className="text-ink">{email}</strong>. Prefer the code
+              over the email link if your mail app opens a different browser.
             </p>
             <label className="block text-sm font-medium text-ink">
               Verification code
