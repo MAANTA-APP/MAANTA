@@ -10,6 +10,13 @@ const AUTH_ROUTE_FILES = [
   "app/sign-up/[[...sign-up]]/page.tsx",
 ] as const;
 
+const CLERK_UI_MARKERS = [
+  "ClerkAuthShell",
+  "Secured by Clerk",
+  "@clerk/nextjs",
+  "data-clerk",
+] as const;
+
 function readRouteSource(rel: (typeof AUTH_ROUTE_FILES)[number]): string {
   return readFileSync(join(srcRoot, rel), "utf8");
 }
@@ -30,10 +37,31 @@ describe("public auth routes (/login, /sign-up)", () => {
     }
   );
 
-  it("does not render Clerk auth when MAANTA_AUTH_STRATEGY=supabase", () => {
-    vi.stubEnv("MAANTA_AUTH_STRATEGY", "supabase");
-    vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "supabase");
-    expect(isClerkAuth()).toBe(false);
+  it.each([
+    ["supabase", "supabase"],
+    ["clerk", "supabase"],
+    ["supabase", "clerk"],
+    ["", ""],
+  ] as const)(
+    "does not enable clerk auth when MAANTA=%s and NEXT_PUBLIC=%s (unless both clerk)",
+    (server, client) => {
+      vi.stubEnv("MAANTA_AUTH_STRATEGY", server);
+      vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", client);
+      const bothClerk = server === "clerk" && client === "clerk";
+      expect(isClerkAuth()).toBe(bothClerk);
+    }
+  );
+
+  it("enables clerk auth only when both vars are explicitly clerk", () => {
+    vi.stubEnv("MAANTA_AUTH_STRATEGY", "clerk");
+    vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "clerk");
+    expect(isClerkAuth()).toBe(true);
+  });
+
+  it("middleware uses authStrategy() — not a hardcoded clerk fallback", () => {
+    const middleware = readFileSync(join(srcRoot, "middleware.ts"), "utf8");
+    expect(middleware).toContain("authStrategy()");
+    expect(middleware).not.toMatch(/strategy\s*===\s*["']clerk["']/);
   });
 
   it("AuthProviders skips ClerkProvider unless client strategy is clerk", () => {
@@ -43,5 +71,15 @@ describe("public auth routes (/login, /sign-up)", () => {
     );
     expect(providers).toMatch(/if\s*\(\s*!isClerkAuthClient\(\)\s*\)/);
     expect(providers).toContain("ClerkProvider");
+  });
+
+  it("SupabaseEmailLogin does not import Clerk UI", () => {
+    const supabaseLogin = readFileSync(
+      join(srcRoot, "components/auth/supabase-email-login.tsx"),
+      "utf8"
+    );
+    for (const marker of CLERK_UI_MARKERS) {
+      expect(supabaseLogin).not.toContain(marker);
+    }
   });
 });

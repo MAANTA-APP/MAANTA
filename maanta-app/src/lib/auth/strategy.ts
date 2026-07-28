@@ -2,12 +2,12 @@
  * Auth strategy toggle — rehearsal vs launch.
  *
  *   supabase — default: email OTP via Supabase Auth (production rehearsal)
- *   clerk    — launch only when MAANTA_AUTH_STRATEGY=clerk (email + phone OTP)
+ *   clerk    — launch only when BOTH env vars are explicitly `clerk`
  *   authjs   — reserved alias; behaves like supabase until Auth.js is wired
  *
- * Server reads MAANTA_AUTH_STRATEGY (falls back to NEXT_PUBLIC mirror).
- * Client reads NEXT_PUBLIC_MAANTA_AUTH_STRATEGY (inlined at build time).
- * Both must be set to `clerk` for Clerk launch; unset or `supabase` → Supabase UI.
+ * Server reads MAANTA_AUTH_STRATEGY; client reads NEXT_PUBLIC_MAANTA_AUTH_STRATEGY
+ * (inlined at build time). Clerk mode requires both to be explicitly `clerk` —
+ * partial or mismatched values always fall back to Supabase UI.
  */
 
 export type AuthStrategy = "clerk" | "supabase" | "authjs";
@@ -29,20 +29,42 @@ function readStrategy(raw: string | undefined): AuthStrategy {
   return DEFAULT_AUTH_STRATEGY;
 }
 
-/** Active strategy on the server (MAANTA_AUTH_STRATEGY → public mirror → supabase). */
-export function authStrategy(): AuthStrategy {
-  return readStrategy(
-    process.env.MAANTA_AUTH_STRATEGY ?? process.env.NEXT_PUBLIC_MAANTA_AUTH_STRATEGY
+function explicitServerStrategy(): AuthStrategy | null {
+  const raw = process.env.MAANTA_AUTH_STRATEGY?.trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "clerk" || raw === "supabase" || raw === "authjs") return raw;
+  return null;
+}
+
+function explicitClientStrategy(): AuthStrategy | null {
+  const raw = process.env.NEXT_PUBLIC_MAANTA_AUTH_STRATEGY?.trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "clerk" || raw === "supabase" || raw === "authjs") return raw;
+  return null;
+}
+
+/** True only when both server and public env vars are explicitly `clerk`. */
+export function isClerkAuth(): boolean {
+  return (
+    explicitServerStrategy() === "clerk" && explicitClientStrategy() === "clerk"
   );
+}
+
+/**
+ * Active strategy on the server. Clerk only when both vars agree; partial clerk
+ * or mismatched values never enable Clerk middleware or SSR auth UI.
+ */
+export function authStrategy(): AuthStrategy {
+  if (isClerkAuth()) return "clerk";
+  const server = explicitServerStrategy();
+  const client = explicitClientStrategy();
+  if (server === "authjs" || client === "authjs") return "authjs";
+  return DEFAULT_AUTH_STRATEGY;
 }
 
 /** Client-side strategy (NEXT_PUBLIC only — set at Vercel build time). */
 export function authStrategyClient(): AuthStrategy {
   return readStrategy(process.env.NEXT_PUBLIC_MAANTA_AUTH_STRATEGY);
-}
-
-export function isClerkAuth(): boolean {
-  return authStrategy() === "clerk";
 }
 
 export function isSupabaseAuth(): boolean {
@@ -54,8 +76,9 @@ export function isAuthJsAuth(): boolean {
   return authStrategy() === "authjs";
 }
 
+/** Client bundle: Clerk UI only when NEXT_PUBLIC is explicitly `clerk`. */
 export function isClerkAuthClient(): boolean {
-  return authStrategyClient() === "clerk";
+  return explicitClientStrategy() === "clerk";
 }
 
 export function isSupabaseAuthClient(): boolean {

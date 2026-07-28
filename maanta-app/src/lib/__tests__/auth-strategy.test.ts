@@ -29,7 +29,7 @@ describe("auth strategy toggle", () => {
     expect(authModeLoginHint()).toMatch(/email/i);
   });
 
-  it("uses clerk only when explicitly set", () => {
+  it("uses clerk only when both server and public vars are explicitly clerk", () => {
     vi.stubEnv("MAANTA_AUTH_STRATEGY", "clerk");
     vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "clerk");
     expect(authStrategy()).toBe("clerk");
@@ -38,6 +38,24 @@ describe("auth strategy toggle", () => {
     expect(isClerkAuthClient()).toBe(true);
     expect(phoneOtpEnabled()).toBe(true);
     expect(authModeLoginHint()).toMatch(/phone/i);
+  });
+
+  it("does not enable clerk when only the server var is clerk", () => {
+    vi.stubEnv("MAANTA_AUTH_STRATEGY", "clerk");
+    vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "");
+    expect(isClerkAuth()).toBe(false);
+    expect(isClerkAuthClient()).toBe(false);
+    expect(authStrategy()).toBe("supabase");
+    expect(phoneOtpEnabled()).toBe(false);
+  });
+
+  it("does not enable clerk when only the public var is clerk", () => {
+    vi.stubEnv("MAANTA_AUTH_STRATEGY", "");
+    vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "clerk");
+    expect(isClerkAuth()).toBe(false);
+    expect(isClerkAuthClient()).toBe(true);
+    expect(authStrategy()).toBe("supabase");
+    expect(phoneOtpEnabled()).toBe(false);
   });
 
   it("supports supabase dev/test strategy", () => {
@@ -59,10 +77,20 @@ describe("auth strategy toggle", () => {
     expect(AUTH_STRATEGIES).toEqual(["clerk", "supabase", "authjs"]);
   });
 
-  it("server strategy prefers MAANTA_AUTH_STRATEGY over public mirror", () => {
+  it("never enables clerk when server and public vars disagree", () => {
     vi.stubEnv("MAANTA_AUTH_STRATEGY", "supabase");
     vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "clerk");
+    expect(isClerkAuth()).toBe(false);
     expect(authStrategy()).toBe("supabase");
     expect(authStrategyClient()).toBe("clerk");
+    expect(phoneOtpEnabled()).toBe(false);
+  });
+
+  it("falls back to supabase when server is clerk but public is supabase", () => {
+    vi.stubEnv("MAANTA_AUTH_STRATEGY", "clerk");
+    vi.stubEnv("NEXT_PUBLIC_MAANTA_AUTH_STRATEGY", "supabase");
+    expect(isClerkAuth()).toBe(false);
+    expect(authStrategy()).toBe("supabase");
+    expect(isClerkAuthClient()).toBe(false);
   });
 });
