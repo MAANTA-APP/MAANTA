@@ -225,4 +225,36 @@ describe("getLiveDeals — error vs empty", () => {
     expect(res.boosted.map((d) => d.id)).toEqual(["d2"]);
     expect(res.nearMe.map((d) => d.id)).toEqual(["d3"]);
   });
+
+  it("returns enough rows to surface elite seed inventory (100 flash + 100 standard)", async () => {
+    const merchants = {
+      id: "m1",
+      merchant_name: "Elite Shop",
+      is_visible: true,
+      status: "active",
+      is_shadow_banned: false,
+    };
+    dealsFixture = [];
+    for (let i = 1; i <= 100; i++) {
+      dealsFixture.push({
+        id: `flash-${i}`,
+        merchant_id: `m${i}`,
+        deal_type: "flash",
+        boost_active: false,
+        merchants: { ...merchants, id: `m${i}` },
+      });
+      dealsFixture.push({
+        id: `std-${i}`,
+        merchant_id: `m${i}`,
+        deal_type: "standard",
+        boost_active: false,
+        merchants: { ...merchants, id: `m${i}` },
+      });
+    }
+    const res = await getLiveDeals("BBS Mall");
+    expect(res.flash).toHaveLength(100);
+    expect(res.nearMe).toHaveLength(100);
+    expect(res.flash[0]?.id).toMatch(/^flash-/);
+    expect(res.nearMe[0]?.id).toMatch(/^std-/);
+  });
 });

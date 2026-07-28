@@ -1,21 +1,17 @@
 "use client";
 
 import { Suspense, useCallback, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   DealCard,
   FilterChip,
-  IconButton,
   Section,
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
 import {
-  dealsToPins,
   filterBrowseDeals,
   type BrowseTimeFilter,
-  type MapBounds,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
@@ -27,21 +23,9 @@ import {
   type DealListSort,
 } from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
-import { IconPin, IconSearch } from "@/components/ui/icons";
+import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
-
-const BrowseMap = dynamic(
-  () => import("./browse-map").then((m) => m.BrowseMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center rounded-card bg-stone-soft text-sm text-muted">
-        Loading map…
-      </div>
-    ),
-  }
-);
 
 const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
   { id: "any", label: "Any time" },
@@ -51,6 +35,10 @@ const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
 
 export type BrowseDealPayload = DealRow;
 
+/**
+ * Browse — list/grid of live deals for the selected mall/node.
+ * Map is a separate shopper persona at `/map` (not embedded here).
+ */
 export function BrowseClient({
   node,
   deals,
@@ -58,9 +46,6 @@ export function BrowseClient({
   favourites,
   sort,
   filter,
-  initialLat,
-  initialLng,
-  initialDealId,
 }: {
   node: string;
   deals: BrowseDealPayload[];
@@ -68,17 +53,10 @@ export function BrowseClient({
   favourites: string[];
   sort: DealListSort;
   filter: DealListFilter;
-  initialLat?: number | null;
-  initialLng?: number | null;
-  initialDealId?: string | null;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
   const [time, setTime] = useState<BrowseTimeFilter>("any");
-  const [bounds, setBounds] = useState<MapBounds | null>(null);
   const [query, setQuery] = useState("");
-  const [recenterKey, setRecenterKey] = useState(0);
-
-  const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
 
   const applySearch = useCallback(
     (rows: DealRow[]) => {
@@ -93,29 +71,13 @@ export function BrowseClient({
     [query]
   );
 
-  const filteredForPins = useMemo(() => {
+  const listDeals = useMemo(() => {
     const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
       rail: "all",
       time,
     });
     return sortDealRows(applySearch(base), sort, origin);
   }, [deals, filter, time, sort, origin, applySearch]);
-
-  const pins = useMemo(() => dealsToPins(filteredForPins), [filteredForPins]);
-
-  const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
-      rail: "all",
-      time,
-      bounds,
-    });
-    return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, time, bounds, sort, origin, applySearch]);
-
-  const focus: [number, number] | null =
-    initialLat != null && initialLng != null
-      ? [initialLat, initialLng]
-      : null;
 
   const searchAndFilters = (
     <div className="space-y-2.5">
@@ -164,16 +126,21 @@ export function BrowseClient({
         title="Deals around you"
         subtitle={
           listDeals.length === 1
-            ? "1 deal in view"
-            : `${listDeals.length} deals in view · pan the map below to refresh`
+            ? "1 deal"
+            : `${listDeals.length} deals`
         }
-        className="pb-2"
+        action={
+          <Link href="/map" className="text-xs font-semibold text-muted">
+            Map ›
+          </Link>
+        }
+        className="pb-6"
       >
         <div className="mb-4">{searchAndFilters}</div>
         {listDeals.length === 0 ? (
           <EmptyState
-            title="No deals in this area"
-            sub="Pan the map or clear filters to see more."
+            title="No deals match"
+            sub="Clear filters or try another mall to see more."
           />
         ) : (
           <div className="space-y-rail">
@@ -215,30 +182,6 @@ export function BrowseClient({
           </div>
         )}
       </Section>
-
-      <div className="px-4 pb-6 pt-2">
-        <div className="relative overflow-hidden rounded-card border border-line bg-white shadow-card">
-          <div className="relative h-[34vh] min-h-[200px]">
-            <BrowseMap
-              key={recenterKey}
-              pins={pins}
-              center={[origin.lat, origin.lng]}
-              focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
-              selectedDealId={initialDealId}
-              onBounds={onBounds}
-            />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] flex justify-end p-3">
-              <IconButton
-                className="pointer-events-auto"
-                label="Recenter on current mall"
-                onClick={() => setRecenterKey((k) => k + 1)}
-              >
-                <IconPin className="h-4 w-4" />
-              </IconButton>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

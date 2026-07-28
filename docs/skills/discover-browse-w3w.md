@@ -38,11 +38,17 @@ string for precision pickup.
 
 ## Browse (`/browse`)
 
-- Leaflet + OSM (no Mapbox key). `react-leaflet@4` for React 18.
-- Filters: rail type (All/Flash/Boosted/Standard) + Collect now / Today.
-- List synced to map viewport bounds (`lib/browse.ts` helpers).
-- Deep link: `/browse?lat=&lng=&dealId=` from deal detail “View on map”.
-- Bottom nav: Search tab → **Browse** (`/search` remains via header icon on Browse).
+- List/grid of live deals for the selected mall (sort, filter, search, time chips).
+- **Map is not embedded** — shoppers open the dedicated `/map` route (bottom nav / top bar).
+- Filters: rail type via URL dropdowns (All/Flash/Boosted/Standard) + Live now / Today.
+- Bottom nav: Browse tab → `/browse` (`/search` remains via header icon on Browse).
+
+## Map (`/map`)
+
+- Full-screen Leaflet + OSM (no Mapbox key). `react-leaflet@4` for React 18.
+- Shared pin component: `src/components/browse/browse-map.tsx` (Map-only; not Browse).
+- Deep link: `/map?lat=&lng=&dealId=` from deal detail “View on map”.
+- “List view” link on Map returns to `/browse`.
 
 ## Onboarding / admin
 

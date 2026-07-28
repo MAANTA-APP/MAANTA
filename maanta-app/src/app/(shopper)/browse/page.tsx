@@ -13,20 +13,14 @@ import { DEFAULT_NODE, nodeCoords } from "@/lib/nodes";
 
 export const dynamic = "force-dynamic";
 
-function parseCoord(raw: string | string[] | undefined): number | null {
-  if (typeof raw !== "string") return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
-}
-
-/** Browse — map + list of live deals for the selected mall/node. */
+/**
+ * Browse — list/grid of live deals for the selected mall/node.
+ * Map lives at `/map` as its own shopper entry point (not a Browse sub-view).
+ */
 export default async function BrowsePage({
   searchParams,
 }: {
   searchParams?: {
-    lat?: string;
-    lng?: string;
-    dealId?: string;
     sort?: string;
     filter?: string;
   };
@@ -50,11 +44,6 @@ export default async function BrowsePage({
       favourites={Array.from(favourites)}
       sort={sort}
       filter={filter}
-      initialLat={parseCoord(searchParams?.lat)}
-      initialLng={parseCoord(searchParams?.lng)}
-      initialDealId={
-        typeof searchParams?.dealId === "string" ? searchParams.dealId : null
-      }
     />
   );
 }
