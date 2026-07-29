@@ -15,6 +15,21 @@ export function isWaitlistSegment(value: unknown): value is WaitlistSegment {
 }
 
 /**
+ * Segment options in canonical order. Shared by the landing early-access
+ * form and the full waitlist form so the two entry points cannot drift —
+ * a shopper-labelled option that posts `merchant` would corrupt the
+ * segmentation the email plan reads from.
+ */
+export const WAITLIST_SEGMENT_OPTIONS: {
+  value: WaitlistSegment;
+  label: string;
+}[] = [
+  { value: "shopper", label: "Shopper" },
+  { value: "merchant", label: "Merchant" },
+  { value: "mall_operator", label: "Mall operator" },
+];
+
+/**
  * Exact consent wording shown at signup. Stored with every contact
  * (Kenya DPA 2019 — consent timestamp + wording required before any
  * email sequence). Align with legal/privacy-policy.md before go-live.
