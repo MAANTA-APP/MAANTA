@@ -421,10 +421,11 @@ Load `/`, `/feed`, `/malls/bbs-mall`:
    runs every `supabase/tests/*.sql`. This is the single most valuable thing you
    can do before applying.
 
-2. **`/demo/deal-placeholder.svg` does not exist.** Reseeded deals reference it,
-   so demo flash deals will show a broken image. Either add the file to
-   `maanta-app/public/demo/` or change the `image_url` literal in migration 3.
-   Cosmetic, but it will be visible in exactly the screenshots you want.
+2. ~~`/demo/deal-placeholder.svg` does not exist.~~ **Closed.** Added at
+   `maanta-app/public/demo/deal-placeholder.svg` and verified serving at
+   `/demo/deal-placeholder.svg` (`200`, `image/svg+xml`). It carries a visible
+   **SAMPLE / demo data** mark, so a deal card screenshotted on its own — away
+   from the demo banner — still discloses that it is synthetic.
 
 3. **Two switches, not one.** `app_config` drives visibility; `MAANTA_DEMO_MODE`
    drives analytics tagging. Drift is possible. Failure is in the safe direction
