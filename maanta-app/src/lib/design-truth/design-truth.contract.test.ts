@@ -86,7 +86,7 @@ describe("references resolve", () => {
     // are deliberately uncited and must stay that way:
     const ALLOWED_UNREFERENCED: Record<string, string> = {
       "R-VERIFY-ANYWAY":
-        "DISPUTED (drift D-07). Deliberately not cited by any frame — citing it would pick a side of an unresolved product decision.",
+        "Settled by founder ruling 2026-07-29 (drift D-07 resolved). It governs 10a's location-mismatch state and 13e's dispute intake, but `runtimeRule` is a single id per frame and those frames cite R-RESOLVE-THEN-CHARGE and R-REVERSAL-NOTE respectively. The behaviour is pinned instead by 10a.states including `location-mismatch`, by the assertions below, and by src/app/api/redemptions/preflight/__tests__/route.test.ts.",
       "R-FEE-ON-VERIFIED":
         "Money-path invariant asserted by supabase/tests/*.sql, not owned by a single frame; 10a cites R-RESOLVE-THEN-CHARGE for the UI order.",
     };
@@ -201,6 +201,33 @@ describe("smoke eligibility is complete and honest", () => {
       ).toBe(true);
     }
   );
+});
+
+describe("settled rulings stay settled", () => {
+  // Drift D-07 was resolved by founder ruling on 2026-07-29: a location
+  // mismatch still redeems and the dispute goes to admin. The rule text used to
+  // say "DISPUTED / Unresolved"; if that language ever returns, or 10a stops
+  // declaring the mismatch state, the contract has quietly reopened a decision
+  // that was made — and someone may build the superseded hard-reject branch.
+  it("no longer describes verify-anyway as disputed", () => {
+    const rule = contract.runtimeRules["R-VERIFY-ANYWAY"];
+    expect(rule).toBeTruthy();
+    expect(rule).not.toMatch(/DISPUTED|Unresolved|D-07/i);
+    expect(rule).toMatch(/still redeems/i);
+  });
+
+  it("keeps the location-mismatch state declared and covered on frame 10a", () => {
+    const f = frames.find((x) => x.id === "10a")!;
+    expect(f.states).toContain("location-mismatch");
+    expect(f.stateCoverage.covered).toContain("location-mismatch");
+    expect(f.stateCoverage.missing).not.toContain("location-mismatch");
+  });
+
+  it("records D-07 as resolved, not as blocked on a product decision", () => {
+    const d07 = contract.drift.find((d) => d.id === "D-07")!;
+    expect(d07.blockedOn).toBe("none");
+    expect(d07.detail).toMatch(/still redeems/i);
+  });
 });
 
 describe("capture readiness is safe", () => {

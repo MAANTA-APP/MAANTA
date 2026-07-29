@@ -121,3 +121,55 @@ describe("POST /api/redemptions/preflight — Collect-from-shopper amount", () =
     expect(body.maskedPhone).toBeNull();
   });
 });
+
+/**
+ * Verify-anyway on a location mismatch — founder ruling 2026-07-29, drift D-07
+ * resolved (design/current-reality/frames.json → R-VERIFY-ANYWAY, frame 10a
+ * state `location-mismatch`).
+ *
+ * A mismatch is DISCLOSED, never a rejection. Preflight must still resolve the
+ * code (`found: true`) and hand the merchant the mismatch plus the distance, so
+ * the counter can confirm with the customer in front of them and the dispute
+ * routes to Guardian afterwards. An earlier design showed wrong-shop as a hard
+ * rejection with no fee; that branch is superseded and must not come back.
+ */
+describe("POST /api/redemptions/preflight — verify-anyway on location mismatch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    usersRow = { phone: null };
+  });
+
+  it("still resolves the code when the claim carries a geofence flag", async () => {
+    redemptionRow = row({ fraud_flags: ["geofence"], distance_from_shop: 420 });
+    const body = await (await POST(req({ otpCode: "123456" }))).json();
+
+    expect(body.found).toBe(true); // NOT a rejection
+    expect(body.expired).toBe(false);
+    expect(body.locationMismatch).toBe(true);
+    expect(body.distanceMeters).toBe(420);
+    // The fee is still disclosed and the amount still collectable — a
+    // mismatched redemption is a real redemption.
+    expect(body.collectAmount).toBe(2400);
+  });
+
+  it("flags a mismatch on distance alone, past the warn threshold", async () => {
+    redemptionRow = row({ fraud_flags: [], distance_from_shop: 900 });
+    const body = await (await POST(req({ otpCode: "123456" }))).json();
+    expect(body.found).toBe(true);
+    expect(body.locationMismatch).toBe(true);
+  });
+
+  it("does not flag a shopper standing inside the shop", async () => {
+    redemptionRow = row({ fraud_flags: [], distance_from_shop: 10 });
+    const body = await (await POST(req({ otpCode: "123456" }))).json();
+    expect(body.found).toBe(true);
+    expect(body.locationMismatch).toBe(false);
+  });
+
+  it("treats a missing distance as no mismatch, not as suspicious", async () => {
+    // Legacy rows and shops without GPS must not be punished at the counter.
+    redemptionRow = row({ fraud_flags: [], distance_from_shop: null });
+    const body = await (await POST(req({ otpCode: "123456" }))).json();
+    expect(body.locationMismatch).toBe(false);
+  });
+});

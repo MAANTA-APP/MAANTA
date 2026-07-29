@@ -35,7 +35,7 @@
     "R-FEE-ON-VERIFIED": "The KES 30 success fee is debited only on a verified redemption, and is disclosed before it is taken.",
     "R-RESOLVE-THEN-CHARGE": "Resolve the code first, then charge. Never charge before the outcome is known.",
     "R-ARREARS": "Redemptions continue while a merchant owes. Arrears settle automatically from the next top-up.",
-    "R-VERIFY-ANYWAY": "DISPUTED. The repo claim-and-till mirror documents verify-anyway: a location mismatch still redeems, dispute routes to admin review. Frames show wrong-shop as hard rejection. Unresolved \u2014 see drift D-07.",
+    "R-VERIFY-ANYWAY": "A location mismatch still redeems. The merchant is shown the mismatch and the distance before confirming, confirms only with the customer at the counter, and the reason is recorded on the redemption; the dispute then routes to admin/Guardian review. The KES 30 fee applies because the redemption is verified \u2014 a reversal is a later, note-required admin action. Never a hard rejection.",
     "R-PHONE-BEFORE-CLAIM": "An email-only account is blocked at claim until a phone number is verified.",
     "R-APPROVAL-GATE": "A shop stays hidden from shoppers until an admin approves it.",
     "R-REVERSAL-NOTE": "A success-fee reversal is blocked without a note. Every reversal is audit-trailed.",
@@ -283,6 +283,7 @@
         "idle",
         "resolving",
         "fee-disclosure",
+        "location-mismatch",
         "success",
         "rejected",
         "offline"
@@ -292,6 +293,7 @@
           "idle",
           "resolving",
           "fee-disclosure",
+          "location-mismatch",
           "success",
           "rejected",
           "offline"
@@ -868,11 +870,11 @@
   "drift": [
     {
       "id": "D-07",
-      "classification": "current-mismatch",
-      "blockedOn": "product-decision",
-      "what": "Verify-anyway on location mismatch",
-      "detail": "claim-and-till README documents verify-anyway (mismatch still redeems, dispute routes to admin). Frames and prototype show wrong-shop as hard rejection with no fee. One is wrong.",
-      "where": "10a, 13e, design/claim-and-till/README.md"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "RESOLVED 2026-07-29 \u2014 verify-anyway is correct; the frames were wrong",
+      "detail": "Founder ruling 2026-07-29: a location mismatch still redeems and the dispute goes to admin. The frames and prototype showed wrong-shop as a hard rejection with no fee \u2014 that branch is superseded and must not be built. The shipped code already implemented the correct behaviour: preflight returns locationMismatch + distance, the keypad discloses it as a warning and records a reason on confirm, and Guardian (13e) receives the dispute. No code change was required.",
+      "where": "10a, 13e, design/claim-and-till/README.md, src/app/api/redemptions/preflight/route.ts:59-62, src/app/merchant/(app)/redeem/redeem-keypad.tsx:298-325"
     },
     {
       "id": "D-08",
@@ -995,6 +997,27 @@
         "was": "src/app/merchant/(app)/staff/page.tsx",
         "now": "src/components/merchant/staff-verify-gate.tsx, src/app/merchant/(app)/redeem/page.tsx, src/app/merchant/(app)/staff/page.tsx",
         "evidence": "the gate screen renders at /merchant/redeem when permissions.can_verify is false (src/app/merchant/(app)/redeem/page.tsx); /merchant/staff is where the owner grants it"
+      },
+      {
+        "frame": "runtimeRules.R-VERIFY-ANYWAY",
+        "field": "rule text",
+        "was": "DISPUTED. The repo claim-and-till mirror documents verify-anyway: a location mismatch still redeems, dispute routes to admin review. Frames show wrong-shop as hard rejection. Unresolved \u2014 see drift D-07.",
+        "now": "A location mismatch still redeems. The merchant is shown the mismatch and the distance before confirming, confirms only with the customer at the counter, and the reason is recorded on the redemption; the dispute then routes to admin/Guardian review. The KES 30 fee applies because the redemption is verified \u2014 a reversal is a later, note-required admin action. Never a hard rejection.",
+        "evidence": "founder ruling 2026-07-29; shipped behaviour at src/app/api/redemptions/preflight/route.ts:59-62 and redeem-keypad.tsx:298-325"
+      },
+      {
+        "frame": "D-07",
+        "field": "classification",
+        "was": "current-mismatch / blocked on product-decision",
+        "now": "historical / resolved \u2014 frames superseded, repo already correct",
+        "evidence": "same ruling; no code change was needed"
+      },
+      {
+        "frame": "10a",
+        "field": "states",
+        "was": "idle, resolving, fee-disclosure, success, rejected, offline",
+        "now": "+ location-mismatch",
+        "evidence": "redeem-keypad.tsx:298-303 renders the mismatch warning; :316-323 records the confirm reason"
       }
     ]
   }

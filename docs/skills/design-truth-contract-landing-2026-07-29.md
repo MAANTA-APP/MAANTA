@@ -73,12 +73,13 @@ Layer 1 caught all five on first run.
 
 ## Not done, and why
 
-- **10a wrong-shop branch — BLOCKED on D-07.** The repo's `claim-and-till`
-  README documents verify-anyway (mismatch still redeems, dispute routes to
-  admin); the frames show wrong-shop as a hard rejection with no fee. One is
-  wrong. Neither branch was built, and `R-VERIFY-ANYWAY` is deliberately cited by
-  no frame — Layer 1 has an explicit exception for it so the omission cannot be
-  mistaken for an oversight.
+- **10a wrong-shop branch — RESOLVED, no code change.** Founder ruling
+  2026-07-29: verify-anyway is correct — a mismatch still redeems and the dispute
+  goes to admin. **The frames were wrong**; the repo already did the right thing
+  (`preflight` returns `locationMismatch` + distance and still resolves the code;
+  the keypad discloses it as a warning and records a reason on confirm; Guardian
+  receives the dispute). The wrong-shop hard-reject branch is superseded and must
+  not be built. See the "D-07 resolution" section below.
 - **M8 Create deal** — `design-ahead`. Not built (`TODO(D-03)`); the schema
   forbids smoke on unshipped behaviour.
 - **The full visual restyle** — the frames' palette (`#F5F2EB` paper, `#000`,
@@ -118,3 +119,44 @@ across 3 spec files, 14 of them generated from the contract.
 
 One existing copy-lock test moved with the contract:
 `src/__tests__/cash-only-and-copy.test.ts` now asserts frame 13f's heading.
+
+## D-07 resolution (founder ruling, 2026-07-29)
+
+**Verify-anyway is correct.** A location mismatch still redeems; the dispute goes
+to admin. The design frames and the phone prototype both showed wrong-shop as a
+hard rejection with no fee — that branch is **superseded**.
+
+The decisive finding: **the shipped code was already right, so nothing was
+built.** Evidence, in call order:
+
+| Step | Where | Behaviour |
+|---|---|---|
+| Resolve | `api/redemptions/preflight/route.ts:59-62` | Flags `locationMismatch` (geofence flag **or** distance > 150 m) and still returns `found: true` with `distanceMeters`. Not a rejection. |
+| Disclose | `redeem-keypad.tsx:298-303` | Rust `InlineAlert` — "Claimed away from your shop… confirm only if the customer is standing at your counter (Nm away)". Calm, not red. |
+| Confirm | `redeem-keypad.tsx:316-323` | Confirm records `Location mismatch (Nm from shop) — merchant confirmed customer at counter`. The fee is disclosed above it (`R-RESOLVE-THEN-CHARGE`). |
+| Charge | `api/redemptions/verify/route.ts` | Fee applies — the redemption **is** verified (`R-FEE-ON-VERIFIED`). Returns `disputed`. |
+| Review | `/admin/redemptions/[id]` (13e) | Guardian holds/releases/reverses, note required (`R-REVERSAL-NOTE`). |
+
+### Changed
+
+- `runtimeRules.R-VERIFY-ANYWAY` — rewritten from "DISPUTED … Unresolved" to the
+  settled statement. Leaving the old text would have kept inviting someone to
+  build the superseded branch.
+- Drift `D-07` — `current-mismatch / product-decision` → `historical / none`,
+  detail recording the ruling and that the frames, not the code, were wrong.
+- Frame `10a` — gained the `location-mismatch` state it has always rendered but
+  never declared; `stateCoverage.covered` now lists all seven.
+- All three recorded in `landedInRepo.corrections` with evidence.
+
+### Pinned so it cannot silently reopen
+
+- `preflight/__tests__/route.test.ts` — 4 new cases: geofence flag still
+  resolves; distance alone past the threshold flags; a shopper inside the shop
+  does not; a **missing** distance is not treated as suspicious (legacy rows and
+  shops without GPS must not be punished at the counter).
+- `design-truth.contract.test.ts` → "settled rulings stay settled": the rule text
+  may not contain `DISPUTED`/`Unresolved`/`D-07` again, 10a must keep the
+  mismatch state covered, and D-07 must stay `blockedOn: none`.
+- `docs/maanta-decisions-log.md` — ruling logged with its code references.
+
+Suite after this change: **452 passing**.
