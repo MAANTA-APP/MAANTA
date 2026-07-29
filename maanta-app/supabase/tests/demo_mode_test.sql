@@ -19,6 +19,35 @@
 -- with the b/c/d/e/f seed batches.
 -- ============================================================
 
+-- ------------------------------------------------------------------
+-- THROWAWAY-DATABASE GUARD — read this before removing it.
+--
+-- Scenarios F and G call wipe_demo_data(TRUE), which deletes EVERY is_demo
+-- row in the database, not just this file's fixtures. Against a database
+-- holding a real demo dataset (production does, as of 2026-07-29: 213
+-- merchants, 291 deals, 221 users) that would destroy the whole rehearsal
+-- set mid-demo.
+--
+-- So: refuse to run if any demo row is not one of ours. On a throwaway stack
+-- from `make db-verify` there are none, and the suite proceeds normally.
+-- ------------------------------------------------------------------
+DO $$
+DECLARE v_foreign INT;
+BEGIN
+  SELECT count(*) INTO v_foreign FROM (
+    SELECT id FROM public.merchants   WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
+    UNION ALL SELECT id FROM public.deals WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
+    UNION ALL SELECT id FROM public.users WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
+  ) s;
+
+  IF v_foreign > 0 THEN
+    RAISE EXCEPTION USING
+      MESSAGE = format('REFUSING TO RUN: %s demo row(s) in this database are not test fixtures.', v_foreign),
+      DETAIL  = 'Scenarios F and G call wipe_demo_data(TRUE), which would DELETE them all.',
+      HINT    = 'Run this suite only against a throwaway stack — make db-verify. Never against production.';
+  END IF;
+END $$;
+
 -- Preserve the operator's demo-mode setting: these tests flip it, and leaving
 -- it on would silently expose synthetic data in whatever environment ran them.
 CREATE TEMP TABLE _demo_mode_restore AS

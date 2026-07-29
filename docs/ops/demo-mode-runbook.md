@@ -8,6 +8,28 @@
 Run everything from the repo root. Each step states the command and the output
 you should see. **Stop conditions are marked 🛑 — do not continue past one.**
 
+> ## ✅ Section 1 is DONE — migrations applied to production 2026-07-29
+> Applied via the Supabase MCP `apply_migration` (the CLI could not run in the
+> authoring environment: the Docker image pull is blocked by the egress proxy).
+> Recorded in `supabase_migrations.schema_migrations` as `20260729140000`,
+> `20260729141000`, `20260729142000` — matching the repo filenames, so
+> `make db-list` shows them applied and `make db-push` will not re-run them.
+>
+> Post-apply state, verified: 213 demo merchants / 291 demo deals / 221 demo
+> users tagged; **7 real users retained**; `demo_mode_enabled = false`; both
+> browse views return **0**; `reseed_demo_flash_deals()` returns 0 while off;
+> both cron jobs active (`maanta_demo_reseed`, `maanta_handle_trial_expiry`).
+>
+> **291 synthetic deals that were publicly visible are now hidden.**
+>
+> Start at **section 3** to run a demo, or **section 4** to wipe before launch.
+
+> ## ⛔ Never run `supabase/tests/demo_mode_test.sql` against production
+> Scenarios F and G call `wipe_demo_data(TRUE)`, which deletes **every**
+> `is_demo` row — currently 737 of them. The file now refuses to run when it
+> finds demo rows that are not its own fixtures, but do not rely on that:
+> the suite is for throwaway stacks (`make db-verify`) only.
+
 ---
 
 ## 0. What will run
