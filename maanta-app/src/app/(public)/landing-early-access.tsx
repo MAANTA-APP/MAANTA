@@ -41,7 +41,11 @@ export function LandingEarlyAccess() {
       {/* The section above offers shopper, merchant, or mall operator — so the
           form has to be able to say which. Segment is a required, separate
           audience from the first signup, not a default. */}
-      <div>
+      {/* role="group" + aria-labelledby is what actually attaches the label:
+          SegmentedControl renders a bare role="tablist", which has no accessible
+          name of its own, so without this a screen reader announces three
+          unexplained tabs. The <span> id alone does nothing. */}
+      <div role="group" aria-labelledby={segmentLabelId}>
         <span
           id={segmentLabelId}
           className="mb-1.5 block text-xs font-medium text-muted"

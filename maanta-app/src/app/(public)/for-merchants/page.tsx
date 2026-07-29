@@ -225,7 +225,7 @@ export default function ForMerchantsPage() {
                 {[
                   "Two active deals, plus flash deals",
                   "Boost a deal to the top of the feed",
-                  "30-day trial, then stays free on Standard if you don't convert",
+                  "30-day trial, then a 7-day grace period, then stays free on Standard if you don't convert",
                 ].map((line) => (
                   <li
                     key={line}

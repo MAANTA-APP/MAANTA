@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-29
 **Scope:** `maanta-app/src/app/(public)/page.tsx` + `landing-early-access.tsx` + `/for-merchants`
-**Status:** Analysis complete — awaiting founder ruling on Decision 1 before build
+**Status:** Built. Decision 1 was ruled shopper-primary; build-order items 1-7
+are implemented in this branch. Kept as the record of *why* each change was
+made — the audit and the reasoning outlive the diff.
 **Method:** Read of live code, live web research, WCAG audit against the actual token palette
 
 ---
@@ -96,7 +98,7 @@ It is concrete, it is short, and "before you pay" does real work — it signals 
 
 ### What the page does now
 
-```
+```text
 HERO ── "Claim in-mall deals before you pay."
         [Browse live deals]  ← primary
         [Install the app]    ← competing
@@ -119,7 +121,7 @@ EARLY ACCESS ── email form
 
 ### Recommended structure
 
-```
+```text
 HERO ── headline + subhead
         [Browse live deals]        ← ONE primary CTA
         "Install the app" as a quiet text link beneath
@@ -194,9 +196,10 @@ Nairobi mall entrances are bright. The `text-white/55` meta line passes AA at 5.
 
 ---
 
-## Cross-cutting defect — flagged, not fixed
+## Cross-cutting defect — found here, fixed in this branch
 
-**`LandingEarlyAccess` hardcodes `segment: "shopper"`** — `landing-early-access.tsx:23-26`
+**`LandingEarlyAccess` hardcoded `segment: "shopper"`** — this is what the code
+said when the audit was written:
 
 ```ts
 const params = new URLSearchParams({
@@ -213,9 +216,10 @@ This contradicts the frozen rule in `CLAUDE.md`:
 
 **Impact:** merchants and mall operators captured via the homepage land in the shopper segment. That corrupts the segmentation the email plan depends on, and it silently under-counts merchant interest during exactly the O2 window where merchant demand signal matters most.
 
-**Recommended fix:** a three-way segment picker in the form, defaulting to shopper. Small change, and it protects the data the launch decisions will be read from.
-
-> This is a code change beyond a UI/UX brief, so it is flagged rather than applied. It wants its own commit and a line in the decisions log.
+**Fix, as shipped:** a three-way segment picker defaulting to shopper, driven by
+`WAITLIST_SEGMENT_OPTIONS` in `src/lib/waitlist.ts` so the form and the waitlist
+page cannot disagree about what the segments are. Landed in its own commit
+(`fix(waitlist): let landing signups choose their segment`), as flagged.
 
 ---
 
@@ -223,15 +227,20 @@ This contradicts the frozen rule in `CLAUDE.md`:
 
 | # | Change | Effort | Why first |
 |---|---|---|---|
-| 1 | Hero → one primary CTA, demote install to a text link | S | Largest single conversion lever |
-| 2 | Promote the BBS Mall trust line into a real trust strip | S | Only proof on the page; currently the faintest text |
-| 3 | Move "How it works" above the feature grid | S | Novel mechanic must land before features |
-| 4 | Add merchant band → `/for-merchants` | S | Repairs the broken O2 outreach handoff |
-| 5 | Fix `segment` hardcode (three-way picker) | M | Protects segmentation data; needs a decisions-log entry |
-| 6 | A11y-1/2/3 on the early-access form | S | Cheap, and the errors are currently silent |
-| 7 | Build `/for-merchants` properly with Variant A | M | Currently a stub with a placeholder div |
+| # | Change | Effort | Why first | Status |
+|---|---|---|---|---|
+| 1 | Hero → one primary CTA, demote install to a text link | S | Largest single conversion lever | Done |
+| 2 | Promote the BBS Mall trust line into a real trust strip | S | Only proof on the page; was the faintest text | Done |
+| 3 | Move "How it works" above the feature grid | S | Novel mechanic must land before features | Done |
+| 4 | Add merchant band → `/for-merchants` | S | Repairs the broken O2 outreach handoff | Done |
+| 5 | Fix `segment` hardcode (three-way picker) | M | Protects segmentation data | Done |
+| 6 | A11y-1/2/3 on the early-access form | S | Cheap, and the errors were silent | Done |
+| 7 | Build `/for-merchants` properly with Variant A | M | Was a stub with a placeholder div | Done |
 
-Items 1–4 and 6 are a single focused session. Item 5 needs the founder ruling. Item 7 needs the dashboard screenshot that the placeholder is standing in for.
+One correction worth keeping: A11y-2 as originally drafted put error text in
+`text-flame`. `frozen-ui-rules.test.ts` rejects that, and the rule is right —
+error body text stays `text-ink` so the state survives greyscale, with red
+carried on the icon and border instead. The frozen rule beat the brief.
 
 ---
 
