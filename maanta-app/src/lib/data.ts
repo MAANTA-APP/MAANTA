@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 import {
   isMissingLatLngColumnError,
   type PostgrestLikeError,
@@ -192,20 +193,50 @@ export async function selectDealsWithMerchants(
 // so we narrow to just the chainable shape we use and pass the type through.
 type EqChain = { eq(column: string, value: unknown): EqChain };
 
+/**
+ * Demo-row handling for the two helpers below.
+ *
+ * `includeDemo` defaults to FALSE everywhere, so synthetic rows are excluded
+ * unless a caller opts in explicitly. A surface can only show demo data by
+ * naming it at the call site — which is what makes the demo branches greppable
+ * (`includeDemo:`) rather than scattered.
+ *
+ * The flag comes from `isDemoModeEnabled()` in lib/demo-mode.ts, which mirrors
+ * the SQL `public.is_demo_mode()`. See docs/ops/demo-mode.md.
+ */
+export type PublicVisibilityOptions = { includeDemo?: boolean };
+
 /** Restrict a `deals` query (with a `merchants!inner` join) to public merchants. */
-export function withPublicMerchant<T>(query: T): T {
-  return (query as unknown as EqChain)
+export function withPublicMerchant<T>(
+  query: T,
+  opts: PublicVisibilityOptions = {}
+): T {
+  const chained = (query as unknown as EqChain)
     .eq("merchants.status", "active")
     .eq("merchants.is_visible", true)
-    .eq("merchants.is_shadow_banned", false) as unknown as T;
+    .eq("merchants.is_shadow_banned", false);
+
+  // Both sides: a deal is synthetic if either it or its merchant is.
+  return (
+    opts.includeDemo
+      ? chained
+      : chained.eq("is_demo", false).eq("merchants.is_demo", false)
+  ) as unknown as T;
 }
 
 /** Restrict a `merchants` base-table query to publicly-visible rows. */
-export function withPublicMerchantRows<T>(query: T): T {
-  return (query as unknown as EqChain)
+export function withPublicMerchantRows<T>(
+  query: T,
+  opts: PublicVisibilityOptions = {}
+): T {
+  const chained = (query as unknown as EqChain)
     .eq("status", "active")
     .eq("is_visible", true)
-    .eq("is_shadow_banned", false) as unknown as T;
+    .eq("is_shadow_banned", false);
+
+  return (
+    opts.includeDemo ? chained : chained.eq("is_demo", false)
+  ) as unknown as T;
 }
 
 /** Merchant ids the shopper has favourited (empty when signed out). */
@@ -235,7 +266,8 @@ type LiveDealBucket = "flash" | "boosted" | "standard";
 async function selectLiveDealBucket(
   node: string,
   bucket: LiveDealBucket,
-  limit: number
+  limit: number,
+  includeDemo: boolean
 ): Promise<DealRow[]> {
   const service = createServiceClient();
   const nowIso = new Date().toISOString();
@@ -245,7 +277,8 @@ async function selectLiveDealBucket(
         .from("deals")
         .select(select)
         .eq("is_active", true)
-        .gt("expires_at", nowIso)
+        .gt("expires_at", nowIso),
+      { includeDemo }
     ).order("created_at", { ascending: false });
 
     if (bucket === "flash") {
@@ -271,10 +304,13 @@ async function getLiveDealsUncached(node: string): Promise<{
 }> {
   // Three bucket queries (not one .limit(60) then filter) so a flood of new
   // standard deals cannot starve flash/boosted rails.
+  // Resolved once per call and threaded into every bucket, so one feed render
+  // does one config read and all three rails agree on the same answer.
+  const includeDemo = await isDemoModeEnabled();
   const [flash, boosted, standard] = await Promise.all([
-    selectLiveDealBucket(node, "flash", LIVE_DEAL_FLASH_LIMIT),
-    selectLiveDealBucket(node, "boosted", LIVE_DEAL_BOOSTED_LIMIT),
-    selectLiveDealBucket(node, "standard", LIVE_DEAL_STANDARD_LIMIT),
+    selectLiveDealBucket(node, "flash", LIVE_DEAL_FLASH_LIMIT, includeDemo),
+    selectLiveDealBucket(node, "boosted", LIVE_DEAL_BOOSTED_LIMIT, includeDemo),
+    selectLiveDealBucket(node, "standard", LIVE_DEAL_STANDARD_LIMIT, includeDemo),
   ]);
 
   const merchantIds = [
@@ -334,8 +370,11 @@ export async function getDeal(dealId: string): Promise<DealRow | null> {
   // publicly visible. Deal-level state (expired / fully-claimed / paused) is
   // still surfaced by the page itself — this only gates merchant visibility,
   // matching claim_deal so a shopper can never see a deal they can't claim.
+  const includeDemo = await isDemoModeEnabled();
   const rows = await selectDealsWithMerchants((select) =>
-    withPublicMerchant(service.from("deals").select(select).eq("id", dealId)).maybeSingle()
+    withPublicMerchant(service.from("deals").select(select).eq("id", dealId), {
+      includeDemo,
+    }).maybeSingle()
   );
   return rows[0] ?? null;
 }

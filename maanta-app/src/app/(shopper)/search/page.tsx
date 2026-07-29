@@ -6,6 +6,7 @@ import {
   selectDealsWithMerchants,
   type DealRow,
 } from "@/lib/data";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { dealPricing } from "@/lib/pricing";
 import { ALL_NODES } from "@/lib/nodes";
 import { SearchControls } from "./search-controls";
@@ -25,6 +26,8 @@ export default async function SearchPage({
   const type = searchParams.type ?? "all";
   const node = getSelectedNode();
   const service = createServiceClient();
+  // Synthetic rows are excluded unless demo mode is explicitly on.
+  const includeDemo = await isDemoModeEnabled();
 
   let results: DealRow[] = [];
   if (q || type !== "all") {
@@ -34,7 +37,8 @@ export default async function SearchPage({
           .from("deals")
           .select(select)
           .eq("is_active", true)
-          .gt("expires_at", new Date().toISOString())
+          .gt("expires_at", new Date().toISOString()),
+        { includeDemo }
       ).limit(30);
       if (node !== ALL_NODES) query = query.eq("node", node);
       if (type === "flash") query = query.eq("deal_type", "flash");
@@ -52,7 +56,8 @@ export default async function SearchPage({
             .from("deals")
             .select(select)
             .eq("is_active", true)
-            .gt("expires_at", new Date().toISOString())
+            .gt("expires_at", new Date().toISOString()),
+          { includeDemo }
         )
           .ilike("merchants.merchant_name", `%${q}%`)
           .limit(30);
