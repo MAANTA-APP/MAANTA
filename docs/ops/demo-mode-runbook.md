@@ -24,6 +24,31 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 >
 > Start at **section 3** to run a demo, or **section 4** to wipe before launch.
 
+> ## ✅ Section 3 is DONE — demo mode ENABLED and seeded 2026-07-29
+> `demo_mode_enabled = true`. **251 deals and 210 merchants are publicly
+> visible**, including **20 live flash deals** across 12 different expiry hours.
+> Activity history: **339 successful redemptions across 145 merchants**.
+>
+> **Still outstanding — a human must do this:** set `MAANTA_DEMO_MODE=true` in
+> Vercel (Production) and redeploy, so analytics events are tagged. Data
+> visibility does not need it (that reads `app_config` at request time), but
+> until it is set, rehearsal traffic is recorded as `is_demo:false` and mixes
+> into real PostHog insights.
+>
+> **Also unverified:** the demo banner on the live site. The sandbox cannot
+> reach www.maanta.app, so nobody has yet confirmed the disclosure renders.
+> **Load the site and check the amber banner is showing before demoing to
+> anyone** — synthetic data visible without it is the one outcome this whole
+> feature exists to prevent.
+
+> ## A fourth migration was needed
+> `20260729150000_demo_reseed_respect_deal_limits.sql`. The first reseed run
+> against production **failed**: flash deals are Elite-only and
+> `enforce_deal_limit()` counts every `is_active` deal regardless of expiry, so
+> the reseed picked Standard merchants and aborted. It now filters on tier,
+> balance and the real active-deal count. The failed run rolled back cleanly —
+> no `tier_flags` rows were left behind.
+
 > ## ⛔ Never run `supabase/tests/demo_mode_test.sql` against production
 > Scenarios F and G call `wipe_demo_data(TRUE)`, which deletes **every**
 > `is_demo` row — currently 737 of them. The file now refuses to run when it
