@@ -153,6 +153,9 @@ export function BrowseClient({
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-stone">
+      {/* Visually hidden h1 — Browse leads with the map/list, not a title.
+          Stable anchor for frames.json → S-browse. */}
+      <h1 className="sr-only">Browse deals</h1>
       <ShopperTopBar node={node} />
 
       <Section title="Deals around you" subtitle={subtitle} className="pb-6">

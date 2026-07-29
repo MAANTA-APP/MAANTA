@@ -114,6 +114,11 @@ export default async function FeedPage({
 
   return (
     <Page>
+      {/* Every page needs an h1 for screen readers and document outline. The
+          Discover design intentionally leads with the top bar, so this is
+          visually hidden rather than shown. It is also the stable anchor the
+          design-truth smoke suite asserts (frames.json → S-feed). */}
+      <h1 className="sr-only">Discover deals</h1>
       <ShopperTopBar node={node} />
       <Suspense fallback={null}>
         <FeedControls />

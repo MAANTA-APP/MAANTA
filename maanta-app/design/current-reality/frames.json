@@ -44,7 +44,16 @@
       "title": "Admin approvals queue",
       "route": "/admin",
       "role": "admin",
-      "status": "current"
+      "status": "current",
+      "smoke": {
+        "role": "admin",
+        "heading": "Pending approvals",
+        "denyRoles": [
+          "shopper",
+          "owner",
+          "agent"
+        ]
+      }
     },
     {
       "id": "A-billing",
@@ -93,7 +102,14 @@
       "status": "current",
       "rules": [
         "verify-anyway"
-      ]
+      ],
+      "smoke": {
+        "role": "admin",
+        "heading": "Redemption monitoring",
+        "denyRoles": [
+          "agent"
+        ]
+      }
     },
     {
       "id": "A-reports",
@@ -115,7 +131,16 @@
       "route": "/founder",
       "role": "founder",
       "status": "current",
-      "notes": "Read-only KPIs + shortcuts into /admin. Gated on the admin role \u2014 there is no founder DB role. Split plan: docs/skills/founder-role-split.md."
+      "notes": "Read-only KPIs + shortcuts into /admin. Gated on the admin role \u2014 there is no founder DB role. Split plan: docs/skills/founder-role-split.md.",
+      "smoke": {
+        "role": "admin",
+        "heading": "Founder dashboard",
+        "denyRoles": [
+          "shopper",
+          "owner",
+          "agent"
+        ]
+      }
     },
     {
       "id": "G-agent",
@@ -123,7 +148,15 @@
       "route": "/agent",
       "role": "agent",
       "status": "current",
-      "notes": "Agent + admin only. No approvals, no fee reversal, no /admin."
+      "notes": "Agent + admin only. No approvals, no fee reversal, no /admin.",
+      "smoke": {
+        "role": "agent",
+        "heading": "Agent",
+        "denyRoles": [
+          "shopper",
+          "owner"
+        ]
+      }
     },
     {
       "id": "G-lead-new",
@@ -138,7 +171,11 @@
       "title": "My leads (48h lock)",
       "route": "/agent/leads",
       "role": "agent",
-      "status": "current"
+      "status": "current",
+      "smoke": {
+        "role": "agent",
+        "heading": "My leads"
+      }
     },
     {
       "id": "M-dashboard",
@@ -149,7 +186,11 @@
       "rules": [
         "staff-permissions"
       ],
-      "notes": "Quick actions are filtered to what this user may do; the block hides entirely if none apply."
+      "notes": "Quick actions are filtered to what this user may do; the block hides entirely if none apply.",
+      "smoke": {
+        "role": "owner",
+        "heading": "Dashboard"
+      }
     },
     {
       "id": "M-deal-new",
@@ -174,7 +215,11 @@
         "deal-limit",
         "staff-permissions"
       ],
-      "notes": "Requires can_deals for create CTAs. Plan line shows used/limit; create CTAs hide at the limit."
+      "notes": "Requires can_deals for create CTAs. Plan line shows used/limit; create CTAs hide at the limit.",
+      "smoke": {
+        "role": "owner",
+        "heading": "My deals"
+      }
     },
     {
       "id": "M-deals-archived",
@@ -227,7 +272,15 @@
         "verify-anyway",
         "staff-permissions"
       ],
-      "notes": "Requires can_verify. Fee is disclosed before the single Confirm; resolving charges nothing."
+      "notes": "Requires can_verify. Fee is disclosed before the single Confirm; resolving charges nothing.",
+      "smoke": {
+        "role": "owner",
+        "heading": "Redeem a code",
+        "denyRoles": [
+          "shopper",
+          "agent"
+        ]
+      }
     },
     {
       "id": "M-redemptions",
@@ -258,7 +311,14 @@
         "stripe-phase-1",
         "staff-permissions"
       ],
-      "notes": "Card is primary wherever IntaSend credentials are absent; the M-Pesa form is not rendered there."
+      "notes": "Card is primary wherever IntaSend credentials are absent; the M-Pesa form is not rendered there.",
+      "smoke": {
+        "role": "owner",
+        "heading": "Top up",
+        "denyRoles": [
+          "staffVerifyOnly"
+        ]
+      }
     },
     {
       "id": "M-wallet",
@@ -270,7 +330,11 @@
         "success-fee",
         "staff-permissions"
       ],
-      "notes": "Ledger readable by any merchant user; the Top-up CTA needs can_topup."
+      "notes": "Ledger readable by any merchant user; the Top-up CTA needs can_topup.",
+      "smoke": {
+        "role": "owner",
+        "heading": "Wallet"
+      }
     },
     {
       "id": "P-demo",
@@ -290,6 +354,42 @@
       "status": "current"
     },
     {
+      "id": "R-deals-index",
+      "title": "Legacy /deals \u2192 My deals",
+      "route": "/deals",
+      "role": "shopper",
+      "status": "current",
+      "notes": "Wireframe named this My deals; canonical route is /my-deals.",
+      "smoke": {
+        "role": "shopper",
+        "redirectTarget": "/my-deals"
+      }
+    },
+    {
+      "id": "R-notif-prefs",
+      "title": "Legacy /notifications/preferences \u2192 You notifications",
+      "route": "/notifications/preferences",
+      "role": "shopper",
+      "status": "current",
+      "notes": "Canonical preferences screen is /you/notifications.",
+      "smoke": {
+        "role": "shopper",
+        "redirectTarget": "/you/notifications"
+      }
+    },
+    {
+      "id": "R-profile",
+      "title": "Legacy /profile \u2192 You",
+      "route": "/profile",
+      "role": "shopper",
+      "status": "current",
+      "notes": "Legacy wireframe route. Canonical hub is /you.",
+      "smoke": {
+        "role": "shopper",
+        "redirectTarget": "/you"
+      }
+    },
+    {
       "id": "S-browse",
       "title": "Browse map + list",
       "route": "/browse",
@@ -298,7 +398,11 @@
       "rules": [
         "node-scope"
       ],
-      "notes": "Leaflet/OSM. what3words stays server-only."
+      "notes": "Leaflet/OSM. what3words stays server-only.",
+      "smoke": {
+        "role": "shopper",
+        "heading": "Browse deals"
+      }
     },
     {
       "id": "S-deal",
@@ -321,7 +425,11 @@
         "demo-mode",
         "node-scope"
       ],
-      "notes": "Rails: Top picks near you (flash) \u00b7 Neighbourhood favourites (boosted) \u00b7 All active deals (standard) \u00b7 Your favourites. The standard rail is NOT distance-filtered; per-card distance shows only where merchant GPS exists."
+      "notes": "Rails: Top picks near you (flash) \u00b7 Neighbourhood favourites (boosted) \u00b7 All active deals (standard) \u00b7 Your favourites. The standard rail is NOT distance-filtered; per-card distance shows only where merchant GPS exists.",
+      "smoke": {
+        "role": "shopper",
+        "heading": "Discover deals"
+      }
     },
     {
       "id": "S-map",
@@ -338,7 +446,11 @@
       "title": "My deals",
       "route": "/my-deals",
       "role": "shopper",
-      "status": "current"
+      "status": "current",
+      "smoke": {
+        "role": "shopper",
+        "heading": "My deals"
+      }
     },
     {
       "id": "S-notifications",
@@ -357,7 +469,11 @@
       "rules": [
         "demo-mode"
       ],
-      "notes": "Filter types: all | standard | flash | boosted. The feed's See-all links land here with ?type=flash and ?type=boosted, so the sheet must be able to represent both."
+      "notes": "Filter types: all | standard | flash | boosted. The feed's See-all links land here with ?type=flash and ?type=boosted, so the sheet must be able to represent both.",
+      "smoke": {
+        "role": "shopper",
+        "heading": "Search"
+      }
     },
     {
       "id": "S-select-mall",
@@ -403,7 +519,11 @@
       "title": "You / profile hub",
       "route": "/you",
       "role": "shopper",
-      "status": "current"
+      "status": "current",
+      "smoke": {
+        "role": "shopper",
+        "heading": "You"
+      }
     },
     {
       "id": "X-deals-near-me",
@@ -454,5 +574,12 @@
       "notes": "Code path exists and stays dormant. Blocked on IntaSend credentials, not on engineering."
     }
   ],
-  "coverage": "Primary screens plus every surface that carries a role gate or a runtime rule. Leaf/legacy routes are intentionally omitted: /profile -> /you, /deals -> /my-deals and /notifications/preferences -> /you/notifications are redirects, and /app-bootstrap is a role router, not a screen. Adding a new gated or rule-bearing route means adding a frame."
+  "coverage": "Primary screens, every surface carrying a role gate or runtime rule, and the legacy redirects whose destination is part of the contract (R-* frames). The /app-bootstrap role router is omitted \u2014 it is infrastructure, not a screen. Adding a new gated or rule-bearing route means adding a frame. A frame additionally carrying `smoke` gets an executable behavioural check; see smokeContract.",
+  "smokeContract": {
+    "$comment": "Optional per-frame behavioural contract. A frame with `smoke` gets an executable check in e2e/design-truth-smoke.spec.ts; frames without it stay route-only. Keep this set small and high-value \u2014 it is a contract, not a screenshot suite.",
+    "role": "Which e2e storage-state role should reach the frame (see e2e/helpers/roles.ts). Its absence skips that frame's smoke test, never fails it.",
+    "heading": "Exact text of a user-visible or screen-reader h1 on the page. Asserted with getByRole('heading'). Must exist in the page source \u2014 enforced by design-truth.test.ts.",
+    "redirectTarget": "For redirect-only routes: the path the user must end up on. Mutually exclusive with `heading`.",
+    "denyRoles": "Roles that must NOT reach the frame; asserted to be redirected away."
+  }
 }

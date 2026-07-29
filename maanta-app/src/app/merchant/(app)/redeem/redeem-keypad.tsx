@@ -361,6 +361,10 @@ export function RedeemKeypad({
   const checking = screen.kind === "checking";
   return (
     <main className="px-5 pt-4 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:px-8 lg:pt-8">
+      {/* The till screen leads with the keypad, not a title — so the h1 is
+          visually hidden. It gives the page a document outline for screen
+          readers and is the stable anchor for frames.json → M-redeem. */}
+      <h1 className="sr-only">Redeem a code</h1>
       {/* LEFT — keypad + code entry (the focus). Type does not shrink; boxes grow. */}
       <div className="mx-auto w-full max-w-[420px] lg:mx-0">
         {/* Persistent wallet balance + chevron. Phone-only: the tablet layout

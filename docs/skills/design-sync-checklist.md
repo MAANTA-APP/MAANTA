@@ -14,7 +14,9 @@ labels, runtime rules, or role/permission visibility. Rules:
 - [ ] No `design-ahead` frame was implemented without a decision linked here
 - [ ] Server-side guard is still the authority; UI hiding is clarity only
 - [ ] Frozen business rules untouched, or a decisions-log entry is linked
-- [ ] `npm test` passes (includes the design-truth route check)
+- [ ] If this adds/changes a role entry screen, redirect, or guarded route, it has a `smoke` block
+- [ ] Any new page anchor is a real heading (visible or `sr-only`), not a `data-testid`
+- [ ] `npm test` passes (design-truth route, contract and anchor checks)
 ```
 
 ## Reviewer prompts
@@ -56,3 +58,12 @@ Adding a route means adding a frame. Minimum shape:
 `role` is one of `shopper | merchant | admin | agent | founder | public |
 mall-operator`. `rules` keys must already exist in `runtimeRules` — add the
 definition there first if the rule is new.
+
+If the frame is a role entry screen, a contract-bearing redirect, or guarded,
+add a `smoke` block too — see `docs/design-truth-protocol.md` §4 for when it is
+required and which anchor to add. No test file needs editing;
+`e2e/design-truth-smoke.spec.ts` generates a test per contracted frame.
+
+```json
+"smoke": { "role": "owner", "heading": "Wallet", "denyRoles": ["shopper"] }
+```

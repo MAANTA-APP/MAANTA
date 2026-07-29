@@ -7,7 +7,7 @@
 CI job is gated off — so it is honest coverage when enabled and never a false
 green before then.
 
-Two spec files:
+Three spec files:
 
 - **`golden-path.spec.ts`** — the money path: shopper feed/browse/map → claim →
   OTP ticket → merchant verify → fee disclosure → "Collect from shopper", plus
@@ -16,6 +16,11 @@ Two spec files:
   bottom-nav visibility per staff permission, permission notices on deep links,
   and route-guard negatives (agent/shopper/staff cannot reach `/admin`,
   `/founder`). Each persona's block skips independently.
+- **`design-truth-smoke.spec.ts`** — generated from the `smoke` blocks in
+  `maanta-app/design/current-reality/frames.json`: for each contracted frame,
+  the intended role lands on the route, the page shows the promised heading,
+  denied roles are bounced, and legacy redirects arrive at the documented
+  target. Adding coverage means editing `frames.json`, not this spec.
 
 ## Why it can't just run in CI today
 

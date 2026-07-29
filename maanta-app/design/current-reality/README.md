@@ -70,9 +70,22 @@ fails when:
   moving it to `current`),
 - ids are not unique, or a status isn't one of the four defined labels.
 
-That is deliberately shallow: it proves the *map* still matches the territory's
-street names. It cannot prove a screen looks right — that stays a human review,
-which is what `docs/skills/design-sync-checklist.md` is for.
+It also checks the **behavioural contract** carried by frames with a `smoke`
+block: that the block is well formed (exactly one of `heading` /
+`redirectTarget`, a role the E2E helpers can drive), that a declared heading
+really exists in that route's source, and that a declared redirect matches the
+page's actual `redirect()` call. So renaming a heading fails CI immediately,
+without a browser.
+
+`npm run test:e2e` then executes the same contract for real:
+`e2e/design-truth-smoke.spec.ts` generates one test per contracted frame —
+the intended role lands on the route, the anchor is visible, denied roles are
+bounced, redirects arrive. It needs a live env and skips per frame when a role
+storage state isn't provisioned.
+
+Neither layer proves a screen *looks* right — that stays a human review, which
+is what `docs/skills/design-sync-checklist.md` is for. See
+`docs/design-truth-protocol.md` §4 for when a frame needs a `smoke` block.
 
 ## Opening the human view
 

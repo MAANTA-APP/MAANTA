@@ -46,7 +46,56 @@ safe to build off an artifact alone.
 
 Bump `lastVerified` whenever you touch `frames.json`.
 
-## 4. Evidence rule (avoid receipt-style drift claims)
+## 4. Behavioural smoke coverage
+
+Two layers protect a frame. Route/rule metadata is checked for **every** frame;
+executable behaviour is checked only for frames carrying a `smoke` block.
+
+**A frame needs `smoke` when any of these is true:**
+
+- it is a **role entry screen** — the first thing a role lands on (`/feed`,
+  `/merchant/redeem`, `/agent`, `/admin`, `/founder`);
+- it is a **redirect** whose destination is part of the contract (`/profile` →
+  `/you`);
+- **reaching it is itself the guarantee** — a guard, gate or permission decides
+  whether the user gets there;
+- it is on the **money path** entry (`/merchant/wallet`, `/merchant/topup`).
+
+**A frame stays route-only when:** it is a leaf reachable only from a covered
+parent, it needs seeded dynamic data (`/deals/[id]`, `/tickets/[id]` — depth for
+those lives in `golden-path.spec.ts`), or it is `design-ahead`/`superseded`.
+
+**How to add it.** In `frames.json`, on the frame:
+
+```json
+"smoke": {
+  "role": "owner",              // a role in e2e/helpers/roles.ts
+  "heading": "Redeem a code",   // exact text of an h1 on the page
+  "denyRoles": ["shopper"]      // optional: must be bounced away
+}
+```
+
+Redirect frames use `"redirectTarget": "/you"` **instead of** `heading` — the
+two are mutually exclusive and CI enforces that.
+
+No test file needs editing: `e2e/design-truth-smoke.spec.ts` generates a test
+per contracted frame.
+
+**If the page has no stable anchor**, add one — in this order of preference:
+a visible `<h1>` if the design already shows a title; otherwise a
+`<h1 className="sr-only">`, which gives the page a real document outline for
+screen readers and costs nothing visually. Do **not** add `data-testid` for
+this; the smoke suite asserts by ARIA role so the anchor has to be a real
+heading.
+
+**Keeping the two layers in sync.** `design-truth.test.ts` runs in `npm test`
+(no browser) and asserts the contract is coherent *and* that each declared
+heading actually exists in that route's source, following one level of `@/`
+imports. So renaming a heading fails CI immediately, long before the browser
+suite runs — which matters, because the browser suite only runs once an
+operator has provisioned `E2E_BASE_URL` and the role storage states.
+
+## 5. Evidence rule (avoid receipt-style drift claims)
 
 Do not record a drift item, or claim something is "audited", unless you can name
 the evidence. Acceptable evidence:
@@ -62,7 +111,7 @@ be checked in or the claim must be labelled as unverified.** Where a document is
 reconstructed rather than imported, say so in its provenance block — see
 `maanta-app/design/current-reality/README.md` for the pattern.
 
-## 5. Where things live
+## 6. Where things live
 
 | Path | What |
 |---|---|
@@ -73,12 +122,21 @@ reconstructed rather than imported, say so in its provenance block — see
 | `docs/skills/` | Durable handoffs and dated audits. Historical unless marked current. |
 | `docs/skills/design-sync-checklist.md` | The review checklist for a design-sync PR. |
 
-## 6. CI
+## 7. CI
 
-`npm test` runs `src/lib/__tests__/design-truth.test.ts`, which fails when a
-`current` frame's route no longer exists, a frame cites an undefined runtime
-rule, a `superseded` frame points nowhere, a `design-ahead` frame acquires a
-route, ids collide, or provenance claims an import that hasn't happened.
+**`npm test`** runs `src/lib/__tests__/design-truth.test.ts` — no browser, so it
+gates every PR. It fails when a `current` frame's route no longer exists, a
+frame cites an undefined runtime rule, a `superseded` frame points nowhere, a
+`design-ahead` frame acquires a route, ids collide, a `smoke` block is malformed
+(both/neither of heading+redirectTarget, an unknown role, a denied role that is
+also the driving role), a declared heading is missing from the route's source, a
+declared redirect doesn't match the page's `redirect()` call, or provenance
+claims an import that hasn't happened.
 
-It checks the map, not the pixels. Visual and behavioural parity stays a human
-review.
+**`npm run test:e2e`** runs `e2e/design-truth-smoke.spec.ts`, generated from the
+same `smoke` blocks: the intended role lands on the frame, the anchor is
+visible, denied roles are bounced, redirects arrive. It needs `E2E_BASE_URL` and
+role storage states, and skips per frame when a role isn't provisioned — honest
+partial coverage, never a false green.
+
+Neither layer checks pixels. Visual parity stays a human review.
