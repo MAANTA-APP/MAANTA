@@ -3,6 +3,16 @@
 Use this if applying the refresh by hand. Repo drafts live in `docs/notion-refresh/`.  
 Parent: **MAANTA — Build OS** (`3892048e-2734-81e6-9249-e9cd4ef8c399`).
 
+> **§C + §D executed 2026-07-29** (audit follow-up, `docs/skills/full-state-audit-2026-07-29.md`).
+> Sections **A/B** (create the 14 canonical pages + Operating Truth hub) were already
+> done in the 07-28 refresh. This pass added the missing **§C** banners — Testing & QA,
+> Post-Launch Operating Plan, CLAUDE.md (mirror-only), RLS Permissions — and the **§D**
+> additive notes on Frozen Scope (dual-auth + language≠i18n), Revenue (cash off-app),
+> Open Questions, Decisions Log parity, Waitlist (E7), Legal (O5/O6), and README. Pages
+> already bannered on 07-28 (Product Brief, User Flows, both 12-Week plans, Schema
+> Reference, API Actions, WALKTHROUGH, Architecture, Node 0 Rehearsal) were **left as-is,
+> not double-banded**. All writes were prepend/insert-only — no page or content deleted.
+
 ## Before you start
 
 - [ ] Skim `notion-page-map.md` and `notion-information-architecture.md`
