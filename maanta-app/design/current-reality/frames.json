@@ -502,7 +502,7 @@
       "name": "Create deal + charge disclosure",
       "role": "merchant",
       "route": "/merchant/deals/new",
-      "status": "design-ahead",
+      "status": "live",
       "job": "Publish a deal with an honest total price the shopper can trust.",
       "primaryAction": "Publish the deal",
       "runtimeRule": "R-ONE-PRICE",
@@ -521,17 +521,17 @@
         ],
         "missing": []
       },
-      "prototypeStatus": "blocked-code",
-      "prototypeBlockedReason": "The repo create flow has no charge-disclosure step, so prototype parity cannot be verified against shipped behaviour.",
+      "prototypeStatus": "current-not-clickable",
+      "prototypeBlockedReason": "Not included in the phone prototype. The previous reason \u2014 that the repo create flow has no charge-disclosure step \u2014 was factually wrong: the step ships and is unskippable.",
       "captureReadiness": "after-copy",
-      "evidenceSource": "repo-partial",
+      "evidenceSource": "repo",
       "sourceFiles": [
         "src/app/merchant/(app)/deals/new/page.tsx"
       ],
       "canvasRef": "10e",
-      "driftId": "D-03",
       "smoke": false,
-      "captureReadinessReason": "Charge-disclosure copy is not shipped behaviour."
+      "captureReadinessReason": "Charge-disclosure copy is shipped but still under review.",
+      "notes": "Charge disclosure (M9) ships and is unskippable: extrasChoice starts null so neither option is preselected, and Continue is disabled until priceReady, which requires an explicit choice. Live preview and the Publish CTA both carry the summed YOU PAY number. Left smoke:false deliberately \u2014 reaching the wizard depends on a free deal slot and a positive balance (deal-limit and zero-balance gates), so there is no stable anchor state to assert."
     },
     {
       "id": "13a",
@@ -878,11 +878,11 @@
     },
     {
       "id": "D-08",
-      "classification": "current-mismatch",
-      "blockedOn": "provenance",
-      "what": "No current-reality mirror exists in the repo",
-      "detail": "The mirror lives at handoff/current-reality/ in the Claude Design project, not in the app repo. 0 of 579 files on main match frames.json / current-reality / design-truth. The repo\u2019s only design folder is maanta-app/design/claim-and-till/, mirroring a different Claude Design project. Until this folder is committed and CI runs the contract test, \"the repo validates the contract\" is aspiration.",
-      "where": "repo main"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 the mirror is committed and CI validates it",
+      "detail": "The mirror now lives at maanta-app/design/current-reality/ (frames.json + frames.schema.json + this README) and Layer 1 runs on every PR via npm run test:design-truth, so \"the repo validates the contract\" is no longer aspiration. Layer 1 caught five stale references on its first run; all are recorded under landedInRepo.corrections.",
+      "where": "maanta-app/design/current-reality/; src/lib/design-truth/design-truth.contract.test.ts; package.json scripts"
     },
     {
       "id": "D-01",
@@ -894,35 +894,35 @@
     },
     {
       "id": "D-02",
-      "classification": "design-ahead",
-      "blockedOn": "code",
-      "what": "See-all screens for Flash and Priority",
-      "detail": "8af and 8ag exist as frames with no matching route.",
-      "where": "8af, 8ag"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 see-all destinations exist",
+      "detail": "The mirror recorded frames 8af/8ag as having no matching route. Both see-all links resolve: the feed links /search?type=flash and /search?type=boosted, and the search page queries both (deal_type = flash; boost_active = true). The filter sheet gained a Boosted option so the arriving state is representable. No dedicated see-all ROUTE was built and none is needed \u2014 /search with a type parameter is the shipped destination.",
+      "where": "src/app/(shopper)/feed/page.tsx:140,162; src/app/(shopper)/search/page.tsx:26,44,46; search-controls.tsx SegmentedControl"
     },
     {
       "id": "D-03",
-      "classification": "design-ahead",
-      "blockedOn": "code",
-      "what": "Archive with repost / delete",
-      "detail": "Archive frame with per-deal KPIs and repost not found in the codebase.",
-      "where": "10q"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 archive repost/delete ships",
+      "detail": "The mirror recorded the archive frame with repost as not found in the codebase. /merchant/deals/archived lists the last five expired deals and renders Repost / Delete via archived-actions.tsx; both writes are real and permission-gated with requireMerchant(\"can_deals\"). The buttons render only for users holding can_deals.",
+      "where": "src/app/merchant/(app)/deals/archived/{page,archived-actions}.tsx; src/app/api/deals/repost/route.ts:12; src/app/api/archive/[id]/route.ts:10"
     },
     {
       "id": "D-04",
-      "classification": "design-ahead",
-      "blockedOn": "code",
-      "what": "Elite allows 2 active deals",
-      "detail": "Stated across frames; enforcement not confirmed in the repo. Product intent, not shipped behaviour.",
-      "where": "9n, 10b, 12e"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 the Elite 2-deal limit is enforced",
+      "detail": "The mirror recorded the limit as stated across frames with enforcement not confirmed in the repo. It is enforced in Postgres by the enforce_deal_limit trigger: standard -> deal_limit 1, elite -> 2, counted over deals WHERE is_active = TRUE, raising when active_count >= deal_limit; flash on Standard raises separately. src/lib/deal-limits.ts mirrors the same rule in the UI so the merchant is blocked before filling in the wizard rather than at publish.",
+      "where": "supabase/migrations/20260630231915_maanta_schema_v3_baseline.sql:318-343; src/lib/deal-limits.ts:25-27; src/lib/__tests__/deal-limits.test.ts"
     },
     {
       "id": "D-05",
-      "classification": "design-ahead",
-      "blockedOn": "code",
-      "what": "Staff permission granularity",
-      "detail": "Frames model four permissions; the repo has a coarser staff gate.",
-      "where": "10y, 10ac, 10aa"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 staff permissions are four-way",
+      "detail": "The mirror recorded the frames modelling four permissions against a coarser repo gate. merchant_staff carries all four booleans (can_verify default TRUE, can_deals/can_topup/can_purchase default FALSE), requireMerchant(\"can_*\") enforces each on the server, and src/lib/merchant-nav.ts maps each one to the entry points it gates so nav and guards cannot disagree.",
+      "where": "supabase/migrations/20260709175532_deal_pause_boosts_staff.sql:305-318; src/lib/merchant-api.ts requireMerchant; src/lib/merchant-nav.ts:34-40; src/lib/__tests__/merchant-nav.test.ts"
     },
     {
       "id": "D-06",
@@ -960,6 +960,10 @@
   "landedInRepo": {
     "date": "2026-07-29",
     "closesDrift": [
+      "D-02",
+      "D-03",
+      "D-04",
+      "D-05",
       "D-08"
     ],
     "corrections": [
@@ -1018,6 +1022,48 @@
         "was": "idle, resolving, fee-disclosure, success, rejected, offline",
         "now": "+ location-mismatch",
         "evidence": "redeem-keypad.tsx:298-303 renders the mismatch warning; :316-323 records the confirm reason"
+      },
+      {
+        "frame": "D-02",
+        "field": "classification",
+        "was": "design-ahead / blocked on code",
+        "now": "historical / none \u2014 shipped in the repo",
+        "evidence": "src/app/(shopper)/feed/page.tsx:140,162; src/app/(shopper)/search/page.tsx:26,44,46; search-controls.tsx SegmentedControl"
+      },
+      {
+        "frame": "D-03",
+        "field": "classification",
+        "was": "design-ahead / blocked on code",
+        "now": "historical / none \u2014 shipped in the repo",
+        "evidence": "src/app/merchant/(app)/deals/archived/{page,archived-actions}.tsx; src/app/api/deals/repost/route.ts:12; src/app/api/archive/[id]/route.ts:10"
+      },
+      {
+        "frame": "D-04",
+        "field": "classification",
+        "was": "design-ahead / blocked on code",
+        "now": "historical / none \u2014 shipped in the repo",
+        "evidence": "supabase/migrations/20260630231915_maanta_schema_v3_baseline.sql:318-343; src/lib/deal-limits.ts:25-27; src/lib/__tests__/deal-limits.test.ts"
+      },
+      {
+        "frame": "D-05",
+        "field": "classification",
+        "was": "design-ahead / blocked on code",
+        "now": "historical / none \u2014 shipped in the repo",
+        "evidence": "supabase/migrations/20260709175532_deal_pause_boosts_staff.sql:305-318; src/lib/merchant-api.ts requireMerchant; src/lib/merchant-nav.ts:34-40; src/lib/__tests__/merchant-nav.test.ts"
+      },
+      {
+        "frame": "M8",
+        "field": "status/evidenceSource/driftId/prototypeStatus",
+        "was": "{\"status\": \"design-ahead\", \"evidenceSource\": \"repo-partial\", \"driftId\": \"D-03\", \"prototypeStatus\": \"blocked-code\", \"prototypeBlockedReason\": \"The repo create flow has no charge-disclosure step, so prototype parity cannot be verified against shipped behaviour.\"}",
+        "now": "live / repo / no driftId / current-not-clickable",
+        "evidence": "charge-question at new-deal-wizard.tsx:375 with extrasChoice null at :51 and priceReady at :80-84; live preview at :487-491; Publish CTA carrying the total at :619-620. The frame's own stateCoverage already claimed missing: [], contradicting design-ahead. Its driftId pointed at D-03 (archive), a different feature."
+      },
+      {
+        "frame": "D-08",
+        "field": "classification",
+        "was": "current-mismatch / blocked on provenance",
+        "now": "historical / none \u2014 mirror committed, Layer 1 in CI",
+        "evidence": "maanta-app/design/current-reality/frames.json is this file; src/lib/design-truth/ + npm run test:design-truth"
       }
     ]
   }

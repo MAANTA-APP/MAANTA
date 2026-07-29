@@ -74,6 +74,21 @@ describe("references resolve", () => {
     }
   });
 
+  it("keeps every design-ahead frame linked to an OPEN drift row", () => {
+    // The incoherence this catches, found 2026-07-29: M8 sat `design-ahead`
+    // pointing at D-03, while D-03 described a different feature that had
+    // already shipped. A frame held back by a drift row that is closed is a
+    // frame held back by nothing — either it ships, or the drift is still open.
+    for (const f of frames.filter((x) => x.status === "design-ahead")) {
+      const row = contract.drift.find((dr) => dr.id === f.driftId);
+      expect(row, `${f.id}.driftId ${f.driftId} not found`).toBeTruthy();
+      expect(
+        row!.blockedOn,
+        `${f.id} is design-ahead but ${f.driftId} is closed (blockedOn: none). Flip the frame to live, or reopen the drift.`
+      ).not.toBe("none");
+    }
+  });
+
   it("every supersedes resolves to a superseded row", () => {
     const supersededIds = contract.superseded.map((s) => s.id);
     for (const f of frames.filter((x) => x.supersedes)) {
@@ -223,6 +238,22 @@ describe("settled rulings stay settled", () => {
     expect(f.stateCoverage.missing).not.toContain("location-mismatch");
   });
 
+  it.each([
+    ["D-02", /see-all/i],
+    ["D-03", /archive/i],
+    ["D-04", /limit is enforced/i],
+    ["D-05", /four-way/i],
+    ["D-08", /committed/i],
+  ])("keeps %s closed against the repo", (id, expected) => {
+    // Each was verified shipped on 2026-07-29 with file evidence recorded in
+    // landedInRepo.corrections. Reopening one silently would re-invite work
+    // that is already done.
+    const row = contract.drift.find((dr) => dr.id === id)!;
+    expect(row, `${id} missing`).toBeTruthy();
+    expect(row.blockedOn, `${id} reopened`).toBe("none");
+    expect(row.what).toMatch(expected);
+  });
+
   it("records D-07 as resolved, not as blocked on a product decision", () => {
     const d07 = contract.drift.find((d) => d.id === "D-07")!;
     expect(d07.blockedOn).toBe("none");
@@ -248,9 +279,15 @@ describe("no declared enum value is unexercised", () => {
   // Anti-fake-sync 8: an enum value nobody uses is either dead schema or a
   // frame that should have used it. `allowedUnused` documents the exceptions.
   const allowedUnused: Record<string, string[]> = {
-    // No frame is currently blocked by design or by product — both blocked
-    // frames are blocked by code (M8) or intentionally out of prototype scope.
-    prototypeStatus: ["blocked-design", "blocked-product"],
+    // No frame is blocked by design, by product, or by code. M8 was the only
+    // `blocked-code` frame and its reason was stale — the charge-disclosure step
+    // ships — so it is now `live` / `current-not-clickable` (2026-07-29).
+    prototypeStatus: ["blocked-design", "blocked-product", "blocked-code"],
+    // Nothing is design-ahead any more: M8 was the last one, and D-02..D-05 all
+    // closed as already-shipped. A future unshipped frame reintroduces both this
+    // status and `repo-partial`, and must link an OPEN drift row (asserted above).
+    status: ["design-ahead"],
+    evidenceSource: ["repo-partial"],
     // The contract carries no redirect-only frame yet.
     authState: [],
   };
