@@ -134,8 +134,8 @@ export default async function FeedPage({
         <>
           {flashDeals.length > 0 ? (
             <Section
-              title="Top picks near you"
-              subtitle="Flash deals — grab them while they last"
+              title="Flash deals"
+              subtitle="Grab them while they last"
               action={
                 <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
                   See all ›
@@ -156,8 +156,8 @@ export default async function FeedPage({
 
           {boostedDeals.length > 0 ? (
             <Section
-              title="Neighbourhood favourites"
-              subtitle="Boosted deals near you"
+              title="Priority placements"
+              subtitle="Boosted by the shop"
               action={
                 <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
                   See all ›

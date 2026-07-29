@@ -42,7 +42,7 @@ export function ClaimedCode({
       aria-label="Redemption code"
     >
       <div className="text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
-        For the shop
+        Show this code
       </div>
       <div className="font-code mt-2 text-center text-[30px] font-medium tracking-[0.14em] text-ink">
         {formatCode(code)}

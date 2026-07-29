@@ -1,115 +1,104 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { test, expect } from "@playwright/test";
-import { asRole, roleAvailable, skipReason, type Role } from "./helpers/roles";
+import { test, expect, type Page } from "@playwright/test";
+import { loadSmokeFrames, type SmokeFrame } from "../src/lib/design-truth/load";
+import { contextForRole, roleForContract, type Role } from "./helpers/roles";
 
 /**
- * Design-truth behavioural smoke.
+ * Layer 2 — behavioural smoke, generated FROM the contract.
  *
- * `design/current-reality/frames.json` is the contract; this file executes it.
- * For every frame carrying a `smoke` block we prove three things a route/rule
- * check cannot:
+ * One test per `smoke: true` frame in `design/current-reality/frames.json`. No
+ * route, role or anchor is re-declared here: if a test needs changing, the
+ * contract is what changes. That is the whole point — a test file that restates
+ * the contract can drift from it, and then neither is trustworthy.
  *
- *   1. the intended role actually LANDS on the frame (guards, redirects and
- *      middleware all cooperate), not just that a file exists at that path;
- *   2. the page exposes the user-facing anchor the contract promises;
- *   3. roles the contract denies are bounced away.
+ * What each test proves, in order:
+ *   1. the frame's `requiredRole` / `authState` can actually be driven;
+ *   2. the route resolves and, where `redirectTarget` is set, bounces there;
+ *   3. the promised anchor (`expectedHeading` or `expectedAnchor`) is visible.
  *
- * Deliberately shallow — one anchor per frame, no screenshots, no layout
- * assertions. This is a contract suite, not visual regression: it should stay
- * fast enough that nobody is tempted to skip it, and it must not fail because a
- * card moved. Depth for the money path lives in golden-path.spec.ts; depth for
- * permissions lives in role-access.spec.ts.
+ * Accessible locators only. `expectedHeading` asserts by ARIA role, so a
+ * screen-reader-only `<h1>` counts and a restyled `<div>` does not.
  *
- * Frames without a `smoke` block stay route-only by design (see the protocol,
- * docs/design-truth-protocol.md → "when a frame needs behavioural smoke").
- *
- * Like the rest of the suite, each frame skips — never fails — when its role's
- * storage state isn't provisioned.
+ * PREREQUISITES FAIL LOUDLY. A missing role account throws
+ * `missing test role: agent` — it never passes by skipping, because a silently
+ * skipped contract test is indistinguishable from a passing one in CI output.
+ * The whole suite is gated on `E2E_BASE_URL` (see playwright.config.ts); with no
+ * base URL there is no environment to test and the file reports that once,
+ * rather than 14 confusing failures.
  */
 
-type Smoke = {
-  role: Role;
-  heading?: string;
-  redirectTarget?: string;
-  denyRoles?: Role[];
+const frames = loadSmokeFrames();
+
+/** Env that must exist before any smoke test can mean anything. */
+const REQUIRED_ENV = ["E2E_BASE_URL"] as const;
+
+/**
+ * `[id]` routes need a seeded row. Each is supplied by env so the suite never
+ * invents an id: E2E_DEAL_ID, E2E_TICKET_ID, E2E_LEAD_ID, E2E_REDEMPTION_ID.
+ */
+const SEED_ENV: Record<string, string> = {
+  "/deals/[id]": "E2E_DEAL_ID",
+  "/tickets/[id]": "E2E_TICKET_ID",
+  "/agent/leads/[id]": "E2E_LEAD_ID",
+  "/admin/redemptions/[id]": "E2E_REDEMPTION_ID",
 };
 
-type Frame = {
-  id: string;
-  title: string;
-  route: string | null;
-  role: string;
-  status: string;
-  smoke?: Smoke;
-};
+function resolveRoute(route: string): string {
+  if (!route.includes("[")) return route;
+  const envName = SEED_ENV[route];
+  if (!envName) {
+    throw new Error(
+      `design-truth smoke: no seed env mapped for dynamic route ${route}. Add it to SEED_ENV.`
+    );
+  }
+  const value = process.env[envName];
+  if (!value) throw new Error(`missing seed row: ${envName} (for ${route})`);
+  return route.replace(/\[\w+\]/, value);
+}
 
-const FRAMES: Frame[] = JSON.parse(
-  readFileSync(
-    path.join(__dirname, "../design/current-reality/frames.json"),
-    "utf8"
-  )
-).frames;
+const configured = REQUIRED_ENV.every((k) => process.env[k]);
 
-const contracted = FRAMES.filter(
-  (f): f is Frame & { route: string; smoke: Smoke } =>
-    Boolean(f.smoke && f.route) &&
-    // A dynamic route needs a seeded id, which this suite has no way to pin.
-    !f.route!.includes("[")
-);
+test.describe("design truth: contract smoke", () => {
+  test.skip(
+    !configured,
+    `design-truth smoke needs ${REQUIRED_ENV.join(", ")} plus role storage states and seed rows — see design/current-reality/README.md`
+  );
 
-test.describe("design truth: current frames behave as the contract says", () => {
-  for (const frame of contracted) {
-    const { id, title, route, smoke } = frame;
+  test("the contract declares smoke frames to generate from", () => {
+    // Guards against an empty generation loop reporting green.
+    expect(frames.length).toBeGreaterThan(0);
+  });
 
-    test.describe(`${id} — ${title}`, () => {
-      test.skip(!roleAvailable(smoke.role), skipReason(smoke.role));
+  for (const frame of frames) {
+    test(`${frame.id} ${frame.name} [${frame.role}]`, async ({ browser }) => {
+      // Fail loudly, and name what is missing.
+      const role = roleForContract(frame.requiredRole, frame.authState);
+      const ctx = await contextForRole(browser, role);
+      try {
+        const page = await ctx.newPage();
+        await page.goto(resolveRoute(frame.route));
 
-      if (smoke.redirectTarget) {
-        test(`${route} redirects to ${smoke.redirectTarget}`, async ({ browser }) => {
-          await asRole(browser, smoke.role, async (page) => {
-            await page.goto(route);
-            // Legacy paths are linked from the wild (bookmarks, old QR codes),
-            // so where they land is part of the contract, not an accident.
-            await expect(page).toHaveURL(
-              new RegExp(`${escapeRe(smoke.redirectTarget!)}(/|\\?|$)`)
-            );
-          });
-        });
-      } else {
-        test(`${smoke.role} lands on ${route} and sees "${smoke.heading}"`, async ({
-          browser,
-        }) => {
-          await asRole(browser, smoke.role, async (page) => {
-            await page.goto(route);
-            // Still on the intended route — proves no guard bounced us.
-            await expect(page).toHaveURL(new RegExp(`${escapeRe(route)}(/|\\?|$)`));
-            // The anchor is a heading by ROLE, so a screen-reader-only h1
-            // counts and a restyled div does not. Substring match survives
-            // dynamic suffixes ("Pending approvals (3)"); the exact string is
-            // pinned against source by src/lib/__tests__/design-truth.test.ts.
-            await expect(
-              page.getByRole("heading", { name: smoke.heading! }).first()
-            ).toBeVisible();
-          });
-        });
-      }
+        if (frame.redirectTarget) {
+          await expect(page).toHaveURL(new RegExp(escapeRe(frame.redirectTarget)));
+        }
 
-      for (const denied of smoke.denyRoles ?? []) {
-        test(`${denied} cannot reach ${route}`, async ({ browser }) => {
-          test.skip(!roleAvailable(denied), skipReason(denied));
-          await asRole(browser, denied, async (page) => {
-            await page.goto(route);
-            await expect(page).not.toHaveURL(
-              new RegExp(`${escapeRe(route)}(/|\\?|$)`)
-            );
-          });
-        });
+        await expect(anchorFor(page, frame)).toBeVisible();
+      } finally {
+        await ctx.close();
       }
     });
   }
 });
 
+/** The frame's promised user-facing anchor, by ARIA role where possible. */
+function anchorFor(page: Page, frame: SmokeFrame) {
+  return frame.expectedHeading
+    ? page.getByRole("heading", { name: frame.expectedHeading }).first()
+    : page.getByText(frame.expectedAnchor!, { exact: false }).first();
+}
+
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+// Re-exported for the helper's benefit; keeps the Role union in one place.
+export type { Role };

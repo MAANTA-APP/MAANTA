@@ -1,105 +1,201 @@
-# Current Reality — canonical current-state design truth
+# Maanta — current-reality mirror (design-side contract)
 
-**This folder is the canonical in-repo home for what MAANTA's product actually
-is today.** When code and a design doc disagree about a current-state screen,
-route, label or runtime rule, this folder wins — unless the code is provably a
-newer verified behaviour, in which case update this folder in the same PR.
+`frames.json` is the contract artifact for audited current-state design truth.
+`frames.schema.json` validates it. Everything else in this folder is instructions
+for landing that contract in the app repo.
 
-| File | Role |
-|---|---|
-| `frames.json` | **Canonical.** Machine-readable frame inventory: id, title, route, role, status, runtime rules, notes. Diffable and CI-checked. |
-| `index.html` | Human view of the same data. Self-contained, no build, no network. |
-| `README.md` | This file — provenance and how to replace the mirror with the real export. |
+## Provenance — read this first
 
-**Coverage:** primary screens plus every surface carrying a role gate or a
-runtime rule — not every leaf route. Redirect-only legacy routes (`/profile`,
-`/deals`, `/notifications/preferences`) and the `/app-bootstrap` role router are
-deliberately absent. Adding a new gated or rule-bearing route means adding a
-frame; the `coverage` field in `frames.json` says the same thing next to the data.
+This mirror was **authored in Claude Design, not extracted from the repo.** Frames were
+verified by reading `MAANTA-APP/MAANTA@main` (tree `118ba8ebdd84`, 2026-07-29) and the
+canonical Notion pages. That verification is **manual and dated** — it is not generated,
+and it will rot. Do not describe this file as repo-derived.
 
-Protocol (truth order, labels, what to update when): **`docs/design-truth-protocol.md`**.
+**Where this actually lives.** `handoff/current-reality/` inside the Claude Design project.
+It is **not** at `maanta-app/design/current-reality/` — that path does not exist on `main`.
+The human-readable view is `Maanta Current Reality.dc.html` at the project root; **there is
+no `index.html` in this folder.** The contract is `frames.json` (21 frames) plus its schema.
+If you were told this folder is already in the repo, or that it carries 45 frames, or that it
+ships an `index.html`, none of that is true — see drift D-08 and D-11.
 
-## Provenance — read before citing this
+Two facts that were checked, not assumed:
 
-This is a **repo-native mirror**, honestly labelled as such.
+- There is **no `maanta-app/design/current-reality/`** on `main`. A search across all
+  579 files matched `frames.json`, `current-reality`, and `design-truth` **zero times**.
+  If you were told that folder, a protocol doc, and `design-truth.test.ts` already exist,
+  that is not true of `main` as of the date above.
+- The repo's only design folder is **`maanta-app/design/claim-and-till/`**, which mirrors a
+  *different* Claude Design project and takes its screen map from
+  `design/Maanta_Wireframe_System.pdf`. Useful, but not this artifact.
 
-The named source artifact, **`Maanta Current Reality.dc.html`**, is a Claude
-Design canvas — the same kind of file as the one behind
-`maanta-app/design/claim-and-till/`. It was **not reachable** from the session
-that created this folder: not in the repo, not in Notion, not in Google Drive,
-not in Canva. No content here is copied from it.
+**Truth order, fixed:** Notion (product / current state) → repo (implementation) →
+design system (visual, may describe an ideal ahead of shipped). A frame never overrules
+the first two. The schema enforces this order in `mirror.truthOrder`.
 
-Every row in `frames.json` was re-derived from sources that *are* checked in or
-directly verifiable:
+## What the contract carries
 
-- `docs/notion-refresh/what-is-real-vs-staged-vs-planned.md`
-- `docs/notion-refresh/product-flows.md`
-- `docs/skills/ui-walkthrough-roles.md`
-- the repo's own routes, role guards and migrations, verified directly
+21 frames, each with: `id`, `name`, `role`, `route`, `status`, `job`, `primaryAction`,
+`runtimeRule` (an id into `runtimeRules`, never inline prose), `states`, `stateCoverage`,
+`prototypeStatus`, `prototypeRef`, `captureReadiness`, `captureReadinessReason`,
+`evidenceSource`, `sourceFiles`.
 
-**Do not describe this file as "the audit" or cite it as if it were the canvas.**
-It is a reconstruction that agrees with the repo as of `lastVerified`.
+Three fields carry the review weight:
 
-## Importing the real artifact later
+- **`stateCoverage`** is `{covered:[], missing:[]}`, not a ratio. `3/4` never told a reviewer
+  *which* state was missing; `missing: ["expired"]` does.
+- **`prototypeRef`** is the `role/screen` key of the screen that proves a `clickable` claim.
+  Required whenever `prototypeStatus` is `clickable` — this is what makes a false coverage
+  claim structurally impossible rather than merely discouraged.
+- **`captureReadinessReason`** is required for every label except `safe-now`, so screenshot
+  planning never has to guess what blocks a capture.
 
-The structure is designed so the export drops in without rethinking anything:
+Plus, for smoke-eligible frames only: `smoke`, `expectedHeading` **or** `expectedAnchor`,
+`requiredRole`, `authState`, and `redirectTarget` where a route is expected to bounce.
 
-1. Export the canvas and commit it here as
-   `Maanta Current Reality.dc.html` (keep the original filename — that is the
-   provenance), alongside any assets it needs.
-2. Reconcile `frames.json` against it, row by row. Where they disagree, the
-   canvas wins for design intent and the repo wins for shipped behaviour —
-   record the resolution in `docs/maanta-decisions-log.md` if it changes a rule.
-3. Update `provenance.kind` to `"imported"`, drop `awaitingSourceImport`, and
-   bump `lastVerified`.
-4. Leave `frames.json` canonical for machine checks. The `.dc.html` is the
-   visual authority; the JSON is what CI can enforce.
+Enums are closed. `status` ∈ live · gated · blocked · rehearsal · design-ahead.
+`captureReadiness` ∈ safe-now · after-copy · after-data · internal-only.
+`prototypeStatus` ∈ clickable · blocked-design · blocked-product · blocked-code ·
+current-not-clickable.
 
-`index.html` stays useful either way — it renders `frames.json`, not the canvas.
+## Landing it in the repo
 
-## What CI enforces
+Copy this folder to `maanta-app/design/current-reality/`. Then build three **separate**
+layers so a failure names itself.
 
-`maanta-app/src/lib/__tests__/design-truth.test.ts` runs with `npm test` and
-fails when:
+### Layer 1 — static contract (`src/lib/design-truth/`)
 
-- a `current` frame's `route` no longer resolves to a page in `src/app`
-  (catches a renamed or deleted route before it silently becomes drift),
-- a frame cites a `rules` key that isn't defined in `runtimeRules`,
-- a `superseded` frame points at a `supersededBy` id that doesn't exist,
-- a `design-ahead` frame has acquired a route (i.e. someone built it without
-  moving it to `current`),
-- ids are not unique, or a status isn't one of the four defined labels.
+- `schema.ts` — Zod mirror of `frames.schema.json` (single source: generate types with
+  `z.infer`, do not hand-maintain a parallel `interface`).
+- `load.ts` — reads and parses `frames.json` once, throws on first invalid frame with the
+  frame `id` in the message.
+- `design-truth.contract.test.ts` — parses the file, asserts every `runtimeRule` resolves
+  to a key in `runtimeRules`, every `sourceFiles` entry exists on disk, every `driftId`
+  resolves to a `drift[].id`, every `supersedes` resolves to a `superseded[].id`, and
+  every `route` resolves to a real `src/app` page (walk the app dir; map `[id]` to any
+  dynamic segment). **This is the check that catches a stale route name in the mirror.**
 
-It also checks the **behavioural contract** carried by frames with a `smoke`
-block: that the block is well formed (exactly one of `heading` /
-`redirectTarget`, a role the E2E helpers can drive), that a declared heading
-really exists in that route's source, and that a declared redirect matches the
-page's actual `redirect()` call. So renaming a heading fails CI immediately,
-without a browser.
+### Layer 2 — behavioural smoke (`e2e/design-truth-smoke.spec.ts`)
 
-`npm run test:e2e` then executes the same contract for real:
-`e2e/design-truth-smoke.spec.ts` generates one test per contracted frame —
-the intended role lands on the route, the anchor is visible, denied roles are
-bounced, redirects arrive. It needs a live env and skips per frame when a role
-storage state isn't provisioned.
+Driven **from the contract** — never re-declare a route in a test:
 
-Neither layer proves a screen *looks* right — that stays a human review, which
-is what `docs/skills/design-sync-checklist.md` is for. See
-`docs/design-truth-protocol.md` §4 for when a frame needs a `smoke` block.
-
-## Opening the human view
-
-```bash
-# canonical data — just read it
-cat maanta-app/design/current-reality/frames.json
-
-# rendered view (fetch is blocked on file://, so serve the folder)
-cd maanta-app/design/current-reality && python3 -m http.server 8000
+```ts
+for (const frame of loadFrames().filter(f => f.smoke)) {
+  test(`${frame.id} ${frame.name} [${frame.role}]`, async ({ page }) => {
+    await signInAs(page, frame.requiredRole, frame.authState);
+    await page.goto(resolveRoute(frame.route));            // fills [id] from seed data
+    if (frame.redirectTarget) await expect(page).toHaveURL(new RegExp(frame.redirectTarget));
+    const anchor = frame.expectedHeading
+      ? page.getByRole('heading', { name: frame.expectedHeading })
+      : page.getByText(frame.expectedAnchor!, { exact: false });
+    await expect(anchor).toBeVisible();
+  });
+}
 ```
 
-## Related
+Accessible locators only — `getByRole`, `getByLabel`, visible text. No CSS or
+`data-testid` unless a screen genuinely offers no user-facing anchor, and then prefer
+adding a real heading or `aria-label` to the app over adding a test hook.
 
-- `maanta-app/design/claim-and-till/` — interactive wireframe canvas for the
-  claim + till moments (mirrors its own `.dc.html`).
-- `maanta-app/design/Maanta_Wireframe_System.pdf` — the frame-ID system.
-- `docs/skills/frozen-ui-overall-handoff.md` — how the frozen UI maps to code.
+12 of 21 frames are `smoke: true`: 13f, 8f, 8g, 8j, 10a, 13j, 13h, 10b, 13a, 13b, 13d,
+11a, 13e, 12a. They cover every role and the whole money path (claim → code → verify →
+wallet). The rest are deliberately route-only — see *Still route-only* below.
+
+### Layer 3 — process integration
+
+```json
+"scripts": {
+  "test:design-truth":        "vitest run src/lib/design-truth",
+  "test:design-truth:smoke":  "playwright test e2e/design-truth-smoke.spec.ts",
+  "test:design-truth:all":    "npm run test:design-truth && npm run test:design-truth:smoke"
+}
+```
+
+Layer 1 is pure and runs anywhere — put it on every PR. Layer 2 needs a seeded non-prod
+environment; run it on a schedule or a label, not on every commit.
+
+**Smoke prerequisites — fail loudly, never skip silently.** Assert these in a
+`beforeAll` and throw with the missing name:
+
+- `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — non-prod project only.
+- `CLERK_SECRET_KEY`, and a test-user set: shopper, shopper-unverified-phone, merchant,
+  merchant-staff-no-verify, agent, admin.
+- Seed rows for the `[id]` routes: one claimable deal, one claimed ticket, one held
+  redemption, one open lead, one pending shop.
+- `E2E_BASE_URL`.
+
+If a role account is missing, the test must fail with `missing test role: agent`, not
+pass by skipping.
+
+## Anti-fake-sync checks
+
+Seven are already enforced by the schema, so a bad mirror cannot even parse:
+
+1. A `smoke: true` frame **must** declare `requiredRole`, `authState`, and an anchor.
+2. Any blocked `prototypeStatus` **must** carry a written `prototypeBlockedReason`.
+3. A `design-ahead` frame **must** set `evidenceSource: repo-partial` and link a `driftId`.
+4. A `design-ahead` frame **may not** be smoke-tested — smoke asserts shipped behaviour.
+5. Founder and admin frames **must** be `captureReadiness: internal-only`.
+6. A `clickable` `prototypeStatus` **must** carry a `prototypeRef` naming the screen.
+7. Any `captureReadiness` other than `safe-now` **must** carry a `captureReadinessReason`.
+
+Three more belong in Layer 1, because they need the filesystem:
+
+6. Every `smoke: true` frame has a generated test — assert the generated test count equals
+   the smoke count, so a smoke-marked frame can never sit uncovered.
+7. Every `route` resolves to a real page, and every `sourceFiles` path exists. This is what
+   catches a `design-ahead` frame quietly becoming live without a status change.
+8. No field in the schema is unexercised: assert each declared enum value appears at least
+   once across the mirror, or is explicitly listed in an `allowedUnused` array with a reason.
+
+## Capture readiness
+
+For marketing and documentation. Follows current demo-data reality, not future polish.
+
+| Label | Meaning |
+|---|---|
+| `safe-now` | Capture as-is. |
+| `after-copy` | Reads correctly but carries unresolved copy (payment order, launch offer, example-code framing). |
+| `after-data` | Correct, but marketplace density is seeded during Node 0 rehearsal. |
+| `internal-only` | Shows money owed, lead contact details, or ops tooling. Never public. |
+
+Every label except `safe-now` carries a `captureReadinessReason`. Only three frames are
+`safe-now` today: 13f verify-phone, 10a redeem, 12a landing. Both founder and all admin
+frames are `internal-only` by schema rule, so no ops surface can leak into marketing.
+
+## Prototype coverage
+
+18 of 21 frames are `clickable` and name a `prototypeRef`. Three are not, each with a
+written reason:
+
+| Frame | Status | Why |
+|---|---|---|
+| M8 Create deal | `blocked-code` | The repo create flow has no charge-disclosure step, so parity cannot be verified against shipped behaviour. |
+| 11e Support | `current-not-clickable` | Desktop ops surface, intentionally outside the phone prototype. |
+| 12e Pricing | `current-not-clickable` | Launch-offer copy unresolved; building it would bake in a number that may change. |
+
+Founder and guardian surfaces are desktop in production and are rendered compact in the
+phone prototype. That is a deliberate compromise, noted rather than hidden.
+
+## Still route-only, and why
+
+| Frame | Reason |
+|---|---|
+| 13g Browse | Map surface; anchor depends on seeded geo data. |
+| 8l My deals | Covered transitively by 8j; low marginal value. |
+| 13i Top-up | Payment provider order unresolved (D-06) — an anchor now would lock in the wrong primary method. |
+| 13k Alerts | Alert copy still moving. |
+| M8 Create deal | `design-ahead`; schema forbids smoke on unshipped behaviour (D-03). |
+| 11e Support | Desktop ops surface, outside the phone prototype. |
+| 12e Pricing | Launch-offer copy unresolved. |
+
+## Open blockers
+
+- **D-07 verify-anyway (product decision).** `claim-and-till/README.md` documents that a
+  location mismatch still redeems and the dispute routes to admin review. The frames and
+  prototype show wrong-shop as a hard rejection with no fee. One is wrong. Resolve before
+  anyone builds the reject path — a smoke test written against the wrong branch would
+  cement the error.
+- **D-06 payment order (code).** Design system says M-Pesa is always primary; shipped runs
+  Stripe Phase 1 pending IntaSend credentials.
+- **D-08 provenance.** This mirror lives in Claude Design, not the repo. Until the folder
+  is committed and CI runs Layer 1, "the repo validates the contract" is aspiration.

@@ -72,6 +72,8 @@ export default function LandingPage() {
         <HeadingMd as="h2" className="text-xl">
           How Maanta works
         </HeadingMd>
+        {/* R-TAGLINE: exact wording, never paraphrased. */}
+        <p className="mt-2 text-sm font-semibold text-ink">Discover, Claim and Redeem.</p>
         <ol className="mt-6 space-y-4">
           {[
             ["Discover", "Open the feed for your mall — Flash, Boosted, and near you."],

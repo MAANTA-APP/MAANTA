@@ -76,7 +76,10 @@ describe("key user-facing copy is locked", () => {
 
   it("verify-phone heading, success line, and resend cooldown", () => {
     const src = read("src/app/verify-phone/page.tsx");
-    expect(src).toContain("Add your phone to claim");
+    // Contract frame 13f (design/current-reality/frames.json) declares this
+    // heading, and the design-truth smoke suite asserts it by ARIA role. Both
+    // must move together — see docs/design-truth-protocol.md.
+    expect(src).toContain("Verify your phone");
     expect(src).toContain("Phone verified");
     expect(src).toMatch(/Resend code in \$\{resendIn\}s/);
   });

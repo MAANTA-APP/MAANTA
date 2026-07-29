@@ -17,7 +17,9 @@ import { expect, type Browser, type BrowserContext, type Page } from "@playwrigh
  * seeded account backs it.
  */
 export type Role =
+  | "anonymous"
   | "shopper"
+  | "shopperUnverifiedPhone"
   | "owner"
   | "staffVerifyOnly"
   | "staffDeals"
@@ -30,7 +32,10 @@ export type Role =
  * already-provisioned CI secrets.
  */
 const STORAGE_ENV: Record<Role, string[]> = {
+  // No storage state — a signed-out context is always available.
+  anonymous: [],
   shopper: ["E2E_SHOPPER_STORAGE"],
+  shopperUnverifiedPhone: ["E2E_SHOPPER_UNVERIFIED_PHONE_STORAGE"],
   owner: ["E2E_MERCHANT_STORAGE", "E2E_OWNER_STORAGE"],
   staffVerifyOnly: ["E2E_STAFF_VERIFY_STORAGE"],
   staffDeals: ["E2E_STAFF_DEALS_STORAGE"],
@@ -40,7 +45,10 @@ const STORAGE_ENV: Record<Role, string[]> = {
 
 /** Human-readable description of what a role's seeded account must look like. */
 export const ROLE_FIXTURES: Record<Role, string> = {
+  anonymous: "no session — signed-out visitor",
   shopper: "public.users.role = 'customer', verified phone, can claim deals",
+  shopperUnverifiedPhone:
+    "public.users.role = 'customer' with NO verified phone — blocked at claim (R-PHONE-BEFORE-CLAIM)",
   owner: "merchants.user_id = this user (owner holds every staff permission)",
   staffVerifyOnly:
     "merchant_staff row: can_verify = true, can_deals/can_topup/can_purchase = false",
@@ -54,6 +62,39 @@ export function baseUrlConfigured(): boolean {
   return Boolean(process.env.E2E_BASE_URL);
 }
 
+/**
+ * Map a contract frame's `requiredRole` + `authState` onto a storage-state role.
+ *
+ * `design/current-reality/frames.json` names roles in product terms
+ * ("merchant", "merchant-staff-no-verify", "public"); this suite names them by
+ * the session it captured. Keeping the mapping here means the contract never
+ * has to know about Playwright, and a new contract role fails loudly at the
+ * boundary rather than silently resolving to the wrong session.
+ */
+const CONTRACT_ROLE_MAP: Record<string, Role> = {
+  shopper: "shopper",
+  "shopper-unverified-phone": "shopperUnverifiedPhone",
+  merchant: "owner",
+  "merchant-staff-no-verify": "staffVerifyOnly",
+  agent: "agent",
+  admin: "admin",
+  founder: "admin", // founders are provisioned as admin — docs/skills/founder-role-split.md
+};
+
+export function roleForContract(requiredRole: string, authState: string): Role {
+  // An anonymous frame needs no session at all.
+  if (authState === "anonymous" || requiredRole === "public") return "anonymous";
+
+  const role = CONTRACT_ROLE_MAP[requiredRole];
+  if (!role) {
+    throw new Error(
+      `unmapped contract role: ${requiredRole} — add it to CONTRACT_ROLE_MAP in e2e/helpers/roles.ts`
+    );
+  }
+  if (authState === "authenticated-unverified-phone") return "shopperUnverifiedPhone";
+  return role;
+}
+
 function rawStorage(role: Role): string | undefined {
   for (const key of STORAGE_ENV[role]) {
     const value = process.env[key];
@@ -64,7 +105,10 @@ function rawStorage(role: Role): string | undefined {
 
 /** True when this role can actually be driven in this environment. */
 export function roleAvailable(role: Role): boolean {
-  return baseUrlConfigured() && Boolean(rawStorage(role));
+  if (!baseUrlConfigured()) return false;
+  // A signed-out context needs no provisioning.
+  if (role === "anonymous") return true;
+  return Boolean(rawStorage(role));
 }
 
 /** Skip reason naming the exact env vars an operator still has to provide. */
@@ -94,8 +138,11 @@ export async function contextForRole(
   browser: Browser,
   role: Role
 ): Promise<BrowserContext> {
+  if (role === "anonymous") return browser.newContext();
   const raw = rawStorage(role);
-  if (!raw) throw new Error(`No storage state for role "${role}" — ${skipReason(role)}`);
+  // Contract-driven suites must fail with the missing role NAMED, never skip:
+  // a silently skipped contract test looks identical to a passing one.
+  if (!raw) throw new Error(`missing test role: ${role}`);
   return browser.newContext({ storageState: parseStorage(raw) });
 }
 

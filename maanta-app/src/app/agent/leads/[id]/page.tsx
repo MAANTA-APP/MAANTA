@@ -6,6 +6,7 @@ import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { friendlyTime, maskPhone } from "@/lib/ui";
 import { LinkMerchant } from "./link-merchant";
+import { SendOnboardingLink } from "./send-onboarding-link";
 
 export const dynamic = "force-dynamic";
 
@@ -101,9 +102,13 @@ export default async function LeadDetailPage({
           </div>
         </Link>
       ) : (
-        <p className="mt-5 rounded-card border border-line bg-white px-4 py-3 text-sm text-muted">
-          Not yet a merchant.
-        </p>
+        <>
+          <p className="mt-5 rounded-card border border-line bg-white px-4 py-3 text-sm text-muted">
+            Not yet a merchant.
+          </p>
+          {/* Frame 13b primary action (R-AGENT-NO-SUBMIT). */}
+          <SendOnboardingLink shopName={lead.shop_name} phone={lead.phone} />
+        </>
       )}
 
       {/* Lead details */}

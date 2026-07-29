@@ -8,15 +8,16 @@ labels, runtime rules, or role/permission visibility. Rules:
 ## Design sync
 
 - [ ] Checked `maanta-app/design/current-reality/frames.json` for the frames this touches
-- [ ] `frames.json` updated (route / label / rule / status) — or N/A, and why:
-- [ ] `lastVerified` bumped if `frames.json` changed
+- [ ] `frames.json` updated (`route` / `sourceFiles` / `expectedHeading` / `runtimeRule` / `status` / `stateCoverage`) — or N/A, and why:
+- [ ] Any mirror correction recorded under `landedInRepo.corrections` with its evidence
 - [ ] Every drift claim in this PR names its evidence (file:line, migration, or doc)
 - [ ] No `design-ahead` frame was implemented without a decision linked here
 - [ ] Server-side guard is still the authority; UI hiding is clarity only
 - [ ] Frozen business rules untouched, or a decisions-log entry is linked
-- [ ] If this adds/changes a role entry screen, redirect, or guarded route, it has a `smoke` block
+- [ ] If this adds/changes a role entry screen or guarded route, the frame has `smoke: true` + `requiredRole` + `authState` + an anchor
 - [ ] Any new page anchor is a real heading (visible or `sr-only`), not a `data-testid`
-- [ ] `npm test` passes (design-truth route, contract and anchor checks)
+- [ ] `npm run test:design-truth` passes (contract, routes, sourceFiles, anchors)
+- [ ] `captureReadiness` still correct — founder/admin stay `internal-only`
 ```
 
 ## Reviewer prompts
@@ -45,19 +46,31 @@ Adding a route means adding a frame. Minimum shape:
 
 ```json
 {
-  "id": "M-something",
-  "title": "Human name of the screen",
-  "route": "/merchant/something",
+  "id": "13x",
+  "name": "Human name of the screen",
   "role": "merchant",
-  "status": "current",
-  "rules": ["staff-permissions"],
-  "notes": "Anything a future engineer would otherwise have to re-derive."
+  "route": "/merchant/something",
+  "status": "live",
+  "job": "What the user is here to get done.",
+  "primaryAction": "The single obvious thing to do",
+  "runtimeRule": "R-ARREARS",
+  "states": ["default", "empty"],
+  "stateCoverage": { "covered": ["default"], "missing": ["empty"] },
+  "prototypeStatus": "current-not-clickable",
+  "prototypeBlockedReason": "Why there is no clickable prototype screen yet.",
+  "captureReadiness": "internal-only",
+  "captureReadinessReason": "Why it is not safe-now.",
+  "evidenceSource": "repo",
+  "sourceFiles": ["src/app/merchant/(app)/something/page.tsx"],
+  "smoke": false
 }
 ```
 
-`role` is one of `shopper | merchant | admin | agent | founder | public |
-mall-operator`. `rules` keys must already exist in `runtimeRules` — add the
-definition there first if the rule is new.
+`role` ∈ `shopper | merchant | agent | founder | admin | public`.
+`runtimeRule` is a single id that must already exist in `runtimeRules` — add the
+definition there first if the rule is new. The schema enforces the seven
+anti-fake-sync rules listed in `maanta-app/design/current-reality/README.md`, so
+an incomplete frame will not parse.
 
 If the frame is a role entry screen, a contract-bearing redirect, or guarded,
 add a `smoke` block too — see `docs/design-truth-protocol.md` §4 for when it is
@@ -65,5 +78,5 @@ required and which anchor to add. No test file needs editing;
 `e2e/design-truth-smoke.spec.ts` generates a test per contracted frame.
 
 ```json
-"smoke": { "role": "owner", "heading": "Wallet", "denyRoles": ["shopper"] }
+"smoke": true, "requiredRole": "merchant", "authState": "role-session", "expectedHeading": "Wallet"
 ```
