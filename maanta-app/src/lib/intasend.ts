@@ -25,6 +25,22 @@ function assertKeyMatchesEnv(publicKey: string, secretKey: string): void {
   }
 }
 
+/**
+ * Whether the M-Pesa (IntaSend) top-up rail is actually usable in this
+ * deployment.
+ *
+ * Current reality (docs/notion-refresh/what-is-real-vs-staged-vs-planned.md):
+ * **Stripe Checkout is the Phase 1 top-up rail; IntaSend M-Pesa is planned and
+ * blocked externally on credentials.** IntaSend keys are optional in
+ * `.env.example`, so on every environment that hasn't been granted credentials
+ * this returns false — and the top-up screen must not present M-Pesa as the
+ * primary action there. This reads the real env; it is not a feature flag and
+ * cannot be flipped to fake a rail that isn't provisioned.
+ */
+export function isMpesaTopupConfigured(): boolean {
+  return Boolean(process.env.INTASEND_API_KEY && process.env.INTASEND_SECRET);
+}
+
 export async function initiateMpesaStkPush(params: {
   amount: number;
   phoneNumber: string;

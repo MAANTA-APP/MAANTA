@@ -9,7 +9,10 @@ import { cn } from "@/lib/ui";
 
 const RECENTS_KEY = "maanta_recent_searches";
 
-/** Search input + recent chips + 8n filter sheet (All / Standard / Flash). */
+/** The `type` values `/search` actually queries (see search/page.tsx). */
+type SearchType = "all" | "standard" | "flash" | "boosted";
+
+/** Search input + recent chips + 8n filter sheet (All / Standard / Flash / Boosted). */
 export function SearchControls({
   initialQuery,
   initialType,
@@ -93,13 +96,19 @@ export function SearchControls({
       <BottomSheet open={filterOpen} onClose={() => setFilterOpen(false)}>
         <h2 className="text-lg font-bold text-ink">Filter</h2>
         <div className="mt-4">
+          {/* "Boosted" is here because the feed's "Neighbourhood favourites →
+              See all" link lands on /search?type=boosted, which the page has
+              always queried. Without this option the filter sheet could not
+              represent the state it arrived in, and Apply silently dropped the
+              shopper into a different result set. */}
           <SegmentedControl
             options={[
               { value: "all", label: "All" },
               { value: "standard", label: "Standard" },
               { value: "flash", label: "Flash" },
+              { value: "boosted", label: "Boosted" },
             ]}
-            value={type as "all" | "standard" | "flash"}
+            value={type as SearchType}
             onChange={(t) => setType(t)}
           />
         </div>

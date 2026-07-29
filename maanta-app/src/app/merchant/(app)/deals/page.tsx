@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
 import { canUseMerchantSurface } from "@/lib/merchant-nav";
+import { dealLimitLabel, getDealLimitState } from "@/lib/deal-limits";
 import { MerchantDealRow } from "@/components/ui/cards";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
@@ -58,7 +59,11 @@ export default async function MerchantDealsPage() {
   const live = (deals ?? []).filter(
     (d) => !d.expires_at || isDealClaimable(d.expires_at)
   );
-  const limit = merchant.tier === "elite" ? 2 : 1;
+  // The query above is already `is_active = true`, which is exactly what
+  // `enforce_deal_limit` counts — so this matches what the DB will allow.
+  const limitState = getDealLimitState(merchant.tier, (deals ?? []).length);
+  // Offer "New deal" only when it can actually succeed (permission + slot).
+  const canCreate = canDeals && !limitState.atLimit;
 
   const emptyTitle =
     lifecycle.stage === "churn_risk"
@@ -73,7 +78,7 @@ export default async function MerchantDealsPage() {
     <main className="px-4 pt-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">My deals</h1>
-        {canDeals ? (
+        {canCreate ? (
           <Link
             href="/merchant/deals/new"
             aria-label="New deal"
@@ -89,8 +94,8 @@ export default async function MerchantDealsPage() {
         <EmptyState
           title={emptyTitle}
           sub={emptySub}
-          actionLabel={canDeals ? "Create your first deal" : undefined}
-          actionHref={canDeals ? "/merchant/deals/new" : undefined}
+          actionLabel={canCreate ? "Create your first deal" : undefined}
+          actionHref={canCreate ? "/merchant/deals/new" : undefined}
         />
       ) : (
         <div className="mt-4 space-y-3">
@@ -109,11 +114,20 @@ export default async function MerchantDealsPage() {
       )}
 
       <p className="mt-4 text-xs text-faint">
-        {merchant.tier === "elite" ? "Elite" : "Standard"} plan · {limit} active deal
-        {limit > 1 ? "s" : ""} at a time · Wallet {formatKes(merchant.account_balance)}
+        {dealLimitLabel(merchant.tier)} · {limitState.activeCount}/{limitState.limit} used
+        · Wallet {formatKes(merchant.account_balance)}
       </p>
 
-      {canDeals ? (
+      {/* The plan limit is a DB-enforced rule (enforce_deal_limit). Say so here
+          rather than letting a merchant meet it as an error at Publish. */}
+      {canDeals && limitState.atLimit ? (
+        <p className="mt-2 text-xs text-secondary">
+          You&apos;re at your plan&apos;s limit. End or archive a deal to publish
+          another.
+        </p>
+      ) : null}
+
+      {canCreate ? (
         <div className="mt-5">
           <ButtonLink href="/merchant/deals/new" variant="ghost" full>
             New deal

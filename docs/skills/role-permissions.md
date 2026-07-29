@@ -86,3 +86,9 @@ UPDATE public.users SET role = 'admin' WHERE email = 'founder@example.com';
 ```
 
 Or use the rehearsal seed accounts documented in `/demo` and `supabase/seed/node0_rehearsal_seed.sql`.
+
+## Update — 2026-07-29: archived-deals actions
+
+`/merchant/deals/archived` renders Repost / Delete only with `can_deals`. Both
+writes (`POST /api/deals/repost`, `DELETE /api/archive/[id]`) were already
+`requireMerchant("can_deals")`; the UI now agrees with them.

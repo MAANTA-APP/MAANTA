@@ -16,17 +16,28 @@ type Stage =
 
 const WAIT_LIMIT_MS = 120_000;
 
-/** 9i Top up (M-Pesa STK + card) with 10s/10t result screens. */
+/**
+ * 9i Top up with 10s/10t result screens.
+ *
+ * Two rails, and which one leads is CURRENT REALITY, not preference:
+ * card (Stripe Checkout) is the Phase 1 rail that actually works, and M-Pesa
+ * STK (IntaSend) is planned/blocked on credentials. When `mpesaEnabled` is
+ * false the M-Pesa form is not rendered at all — offering a "Send STK push"
+ * button that can only 503 is a dead end, and showing it implies a live rail
+ * MAANTA does not have.
+ */
 export function TopupFlow({
   balance,
   merchantPhone,
   initialAmount,
   stripeResult,
+  mpesaEnabled = true,
 }: {
   balance: number;
   merchantPhone: string;
   initialAmount: number;
   stripeResult: string | null;
+  mpesaEnabled?: boolean;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(initialAmount);
@@ -179,43 +190,73 @@ export function TopupFlow({
         <AmountField value={amount} onChange={setAmount} />
       </div>
 
-      <div className="mt-5">
-        <TextField
-          label="M-Pesa number"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+254 7XX XXX XXX"
-        />
-      </div>
+      {mpesaEnabled ? (
+        <>
+          <div className="mt-5">
+            <TextField
+              label="M-Pesa number"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+254 7XX XXX XXX"
+            />
+          </div>
 
-      {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
 
-      <Button
-        full
-        className="mt-6"
-        onClick={sendStk}
-        loading={busy}
-        disabled={!amount || amount <= 0 || !phone.trim()}
-      >
-        Send STK push
-      </Button>
+          <Button
+            full
+            className="mt-6"
+            onClick={sendStk}
+            loading={busy}
+            disabled={!amount || amount <= 0 || !phone.trim()}
+          >
+            Send STK push
+          </Button>
 
-      {stage.kind === "waiting" ? (
-        <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
-          <span
-            aria-hidden
-            className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
-          />
-          Waiting for M-Pesa confirmation…
-        </div>
-      ) : null}
+          {stage.kind === "waiting" ? (
+            <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
+              <span
+                aria-hidden
+                className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
+              />
+              Waiting for M-Pesa confirmation…
+            </div>
+          ) : null}
 
-      <p className="my-4 text-center text-xs text-faint">or</p>
+          <p className="my-4 text-center text-xs text-faint">or</p>
 
-      <Button variant="ghost" full onClick={payWithCard} loading={busy && stage.kind === "form"}>
-        Pay with card
-      </Button>
+          <Button
+            variant="ghost"
+            full
+            onClick={payWithCard}
+            loading={busy && stage.kind === "form"}
+          >
+            Pay with card
+          </Button>
+        </>
+      ) : (
+        <>
+          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+
+          <Button
+            full
+            className="mt-6"
+            onClick={payWithCard}
+            loading={busy}
+            disabled={!amount || amount <= 0}
+          >
+            Pay with card
+          </Button>
+
+          {/* Honest about the rail that isn't live yet — no M-Pesa form, no
+              button that can only fail. Rust (warning), never red. */}
+          <p className="mt-4 text-center text-xs text-muted">
+            M-Pesa top-up is coming. For now, card payment is the way to add
+            funds — your balance updates as soon as the payment clears.
+          </p>
+        </>
+      )}
     </main>
   );
 }

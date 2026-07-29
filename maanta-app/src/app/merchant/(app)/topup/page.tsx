@@ -1,5 +1,6 @@
 import { getMerchantContext } from "@/lib/merchant";
 import { canUseMerchantSurface } from "@/lib/merchant-nav";
+import { isMpesaTopupConfigured } from "@/lib/intasend";
 import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
 import { TopupFlow } from "./topup-flow";
 
@@ -29,6 +30,9 @@ export default async function TopupPage({
       merchantPhone={merchant.phone}
       initialAmount={isNaN(suggested) ? 3000 : suggested}
       stripeResult={searchParams.stripe ?? null}
+      // Phase 1 reality: card (Stripe) is the shipped rail; M-Pesa appears only
+      // where IntaSend credentials actually exist.
+      mpesaEnabled={isMpesaTopupConfigured()}
     />
   );
 }

@@ -171,10 +171,16 @@ export default async function FeedPage({
             </Section>
           ) : null}
 
+          {/* "All active deals", named for what it actually is: every live
+              standard deal at the selected node, ranked by verified
+              redemptions and the chosen sort. It is not distance-filtered and
+              merchant GPS is optional, so the old "Deals near me" title
+              promised a proximity guarantee the query never made. Distance,
+              where it is known, is shown per card instead. */}
           {nearDeals.length > 0 ? (
             <Section
-              title="Deals near me"
-              subtitle="Standard deals at your mall"
+              title="All active deals"
+              subtitle="Every live deal at your mall"
               action={
                 <Link href="/map" className="text-xs font-semibold text-muted">
                   Map ›

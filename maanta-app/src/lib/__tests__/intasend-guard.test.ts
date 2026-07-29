@@ -15,6 +15,34 @@ const stkParams = {
   email: "merchant@example.com",
 };
 
+describe("isMpesaTopupConfigured", () => {
+  const savedEnv = { ...process.env };
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it("is false with no IntaSend credentials — the default deployment", async () => {
+    delete process.env.INTASEND_API_KEY;
+    delete process.env.INTASEND_SECRET;
+    const { isMpesaTopupConfigured } = await freshIntasend();
+    expect(isMpesaTopupConfigured()).toBe(false);
+  });
+
+  it("is false when only one of the two keys is set", async () => {
+    process.env.INTASEND_API_KEY = "ISPubKey_test_abc";
+    delete process.env.INTASEND_SECRET;
+    const { isMpesaTopupConfigured } = await freshIntasend();
+    expect(isMpesaTopupConfigured()).toBe(false);
+  });
+
+  it("is true only once both keys exist", async () => {
+    process.env.INTASEND_API_KEY = "ISPubKey_test_abc";
+    process.env.INTASEND_SECRET = "ISSecretKey_test_abc";
+    const { isMpesaTopupConfigured } = await freshIntasend();
+    expect(isMpesaTopupConfigured()).toBe(true);
+  });
+});
+
 describe("initiateMpesaStkPush env guard", () => {
   const savedEnv = { ...process.env };
 
