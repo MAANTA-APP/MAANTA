@@ -121,6 +121,10 @@ BEGIN
        AND m.status = 'active'
        AND m.is_visible
        AND NOT m.is_shadow_banned
+       -- Mirror the zero-balance gate (trg_enforce_zero_balance_gate): a
+       -- merchant at or below zero cannot have a deal inserted, and the
+       -- exception would abort the whole reseed rather than skip one shop.
+       AND m.account_balance > 0
        AND (
          SELECT count(*)
            FROM public.deals d
@@ -219,6 +223,7 @@ DECLARE
   v_feerev      BIGINT;
   v_adminops    BIGINT;
   v_agents      BIGINT;
+  v_agents_kept BIGINT;
   v_leads       BIGINT;
   v_tierflags   BIGINT;
   v_tasks       BIGINT;
@@ -245,8 +250,12 @@ BEGIN
     WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
   SELECT count(*) INTO v_adminops FROM public.admin_ops_log
     WHERE admin_user_id IN (SELECT id FROM public.users WHERE is_demo);
-  SELECT count(*) INTO v_agents FROM public.agents
-    WHERE user_id IN (SELECT id FROM public.users WHERE is_demo);
+  SELECT count(*) INTO v_agents FROM public.agents a
+    WHERE a.user_id IN (SELECT id FROM public.users WHERE is_demo)
+      AND NOT EXISTS (SELECT 1 FROM public.leads l WHERE l.agent_id = a.id);
+  SELECT count(*) INTO v_agents_kept FROM public.agents a
+    WHERE a.user_id IN (SELECT id FROM public.users WHERE is_demo)
+      AND EXISTS (SELECT 1 FROM public.leads l WHERE l.agent_id = a.id);
   SELECT count(*) INTO v_leads FROM public.leads
     WHERE converted_to IN (SELECT id FROM public.merchants WHERE is_demo);
   SELECT count(*) INTO v_tierflags FROM public.tier_flags
@@ -279,8 +288,13 @@ BEGIN
       WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
     DELETE FROM public.admin_ops_log
       WHERE admin_user_id IN (SELECT id FROM public.users WHERE is_demo);
-    DELETE FROM public.agents
-      WHERE user_id IN (SELECT id FROM public.users WHERE is_demo);
+    -- Agents: delete only those no lead points at. leads.agent_id is NOT NULL,
+    -- so a lead captured BY a demo agent cannot be detached — and deleting the
+    -- lead to unblock the agent would destroy prospect data that may be real.
+    -- Such an agent (and the user behind it) is RETAINED and reported instead.
+    DELETE FROM public.agents a
+      WHERE a.user_id IN (SELECT id FROM public.users WHERE is_demo)
+        AND NOT EXISTS (SELECT 1 FROM public.leads l WHERE l.agent_id = a.id);
 
     -- 2. Leads are NEVER deleted — a lead can be a real prospect even when the
     --    merchant it converted to was synthetic. Detach instead.
@@ -301,7 +315,10 @@ BEGIN
     DELETE FROM public.tier_flags  WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
     DELETE FROM public.agent_tasks WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
     DELETE FROM public.merchants             WHERE is_demo;
-    DELETE FROM public.users                 WHERE is_demo;
+    -- Retain any demo user still backing an agent held by a lead (above).
+    DELETE FROM public.users u
+      WHERE u.is_demo
+        AND NOT EXISTS (SELECT 1 FROM public.agents a WHERE a.user_id = u.id);
   END IF;
 
   RETURN QUERY
@@ -312,6 +329,7 @@ BEGIN
     UNION ALL SELECT 'fee_reversals',         v_feerev,      p_confirm
     UNION ALL SELECT 'admin_ops_log',         v_adminops,    p_confirm
     UNION ALL SELECT 'agents',                v_agents,      p_confirm
+    UNION ALL SELECT 'agents RETAINED (held by a lead)', v_agents_kept, p_confirm
     UNION ALL SELECT 'leads (detached)',      v_leads,       p_confirm
     UNION ALL SELECT 'tier_flags',            v_tierflags,   p_confirm
     UNION ALL SELECT 'agent_tasks',           v_tasks,       p_confirm

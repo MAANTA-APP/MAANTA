@@ -57,9 +57,9 @@ DECLARE
   v_demo_deal     UUID := '9d9d9d9d-1111-4000-a000-000000000002';
   v_n             INT;
 BEGIN
-  INSERT INTO public.merchants (id, merchant_name, phone, status, is_visible, is_demo)
-  VALUES (v_real_merchant, 'ZZ Test Real Shop', '+254700099001', 'active', TRUE, FALSE),
-         (v_demo_merchant, 'ZZ Test Demo Shop', '+254700099002', 'active', TRUE, TRUE);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_visible, account_balance, is_demo)
+  VALUES (v_real_merchant, 'ZZ Test Real Shop', 'zz.test.real', '+254700099001', 'active', TRUE, 500, FALSE),
+         (v_demo_merchant, 'ZZ Test Demo Shop', 'zz.test.demo', '+254700099002', 'active', TRUE, 500, TRUE);
 
   INSERT INTO public.deals (id, merchant_id, title, image_url, is_active, expires_at, is_demo)
   VALUES (v_real_deal, v_real_merchant, 'ZZ Real deal', '/x.png', TRUE, NOW() + INTERVAL '6 hours', FALSE),
@@ -102,8 +102,8 @@ DECLARE
 BEGIN
   UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled';
 
-  INSERT INTO public.merchants (id, merchant_name, phone, status, is_visible, is_demo)
-  VALUES (v_demo_merchant, 'ZZ Test Demo Shop 3', '+254700099003', 'active', TRUE, TRUE);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_visible, account_balance, is_demo)
+  VALUES (v_demo_merchant, 'ZZ Test Demo Shop 3', 'zz.test.three', '+254700099003', 'active', TRUE, 500, TRUE);
   INSERT INTO public.deals (id, merchant_id, title, image_url, is_active, expires_at, is_demo)
   VALUES (v_untagged_deal, v_demo_merchant, 'ZZ untagged deal', '/x.png', TRUE, NOW() + INTERVAL '6 hours', FALSE);
 
@@ -125,10 +125,10 @@ DECLARE
   v_n INT;
 BEGIN
   INSERT INTO public.merchants
-    (id, merchant_name, phone, status, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, is_demo)
+    (id, merchant_name, what3words_address, phone, status, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, is_demo)
   VALUES
-    (v_real, 'ZZ Trial Real', '+254700099010', 'active', 'elite', TRUE, NOW() - INTERVAL '2 days', NULL, FALSE),
-    (v_demo, 'ZZ Trial Demo', '+254700099011', 'active', 'elite', TRUE, NOW() - INTERVAL '2 days', NULL, TRUE);
+    (v_real, 'ZZ Trial Real', 'zz.trial.real', '+254700099010', 'active', 'elite', TRUE, NOW() - INTERVAL '2 days', NULL, FALSE),
+    (v_demo, 'ZZ Trial Demo', 'zz.trial.demo', '+254700099011', 'active', 'elite', TRUE, NOW() - INTERVAL '2 days', NULL, TRUE);
 
   PERFORM public.handle_trial_expiry();
 
@@ -184,9 +184,9 @@ DECLARE
   v_demo UUID := '9d9d9d9d-0000-4000-a000-000000000021';
   v_n INT;
 BEGIN
-  INSERT INTO public.merchants (id, merchant_name, phone, status, is_demo)
-  VALUES (v_real, 'ZZ Wipe Real', '+254700099020', 'active', FALSE),
-         (v_demo, 'ZZ Wipe Demo', '+254700099021', 'active', TRUE);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo)
+  VALUES (v_real, 'ZZ Wipe Real', 'zz.wipe.real', '+254700099020', 'active', FALSE),
+         (v_demo, 'ZZ Wipe Demo', 'zz.wipe.demo', '+254700099021', 'active', TRUE);
 
   -- Default call must report only.
   PERFORM public.wipe_demo_data();
@@ -215,22 +215,25 @@ DECLARE
   v_demo_m UUID := '9d9d9d9d-0000-4000-a000-000000000030';
   v_real_m UUID := '9d9d9d9d-0000-4000-a000-000000000031';
   v_demo_u UUID := '9d9d9d9d-2222-4000-a000-000000000030';
+  v_agent  UUID;
   v_n INT;
 BEGIN
   INSERT INTO public.users (id, email, role, is_demo)
   VALUES (v_demo_u, 'zz-demo-agent@example.test', 'agent', TRUE);
-  INSERT INTO public.merchants (id, merchant_name, phone, status, is_demo)
-  VALUES (v_demo_m, 'ZZ FK Demo', '+254700099030', 'active', TRUE),
-         (v_real_m, 'ZZ FK Real', '+254700099031', 'active', FALSE);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo)
+  VALUES (v_demo_m, 'ZZ FK Demo', 'zz.fk.demo', '+254700099030', 'active', TRUE),
+         (v_real_m, 'ZZ FK Real', 'zz.fk.real', '+254700099031', 'active', FALSE);
 
-  -- Blockers on the demo merchant / demo user.
-  INSERT INTO public.fraud_events (merchant_id) VALUES (v_demo_m);
-  INSERT INTO public.agents (user_id) VALUES (v_demo_u);
-  INSERT INTO public.audit_logs (merchant_id) VALUES (v_demo_m);
+  -- Blockers on the demo merchant / demo user. agents.user_id and
+  -- fraud_events.event_type are NOT NULL, and leads/audit_logs both require an
+  -- agent_id, so the demo agent is created first and reused below.
+  INSERT INTO public.agents (user_id) VALUES (v_demo_u) RETURNING id INTO v_agent;
+  INSERT INTO public.fraud_events (merchant_id, event_type) VALUES (v_demo_m, 'merchant_override');
+  INSERT INTO public.audit_logs (agent_id, merchant_id) VALUES (v_agent, v_demo_m);
   -- A REAL lead that happened to convert to a synthetic merchant.
-  INSERT INTO public.leads (converted_to) VALUES (v_demo_m);
+  INSERT INTO public.leads (agent_id, shop_name, converted_to) VALUES (v_agent, 'ZZ FK Lead', v_demo_m);
   -- The real merchant's own trail, which must survive untouched.
-  INSERT INTO public.audit_logs (merchant_id) VALUES (v_real_m);
+  INSERT INTO public.audit_logs (agent_id, merchant_id) VALUES (v_agent, v_real_m);
 
   -- Would raise a foreign_key_violation before the dependent handling existed.
   PERFORM public.wipe_demo_data(TRUE);

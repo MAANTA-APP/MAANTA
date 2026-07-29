@@ -102,7 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_merchants_demo_batch ON public.merchants (demo_ba
 --
 --    Seeded DISABLED. Turning demo mode on is always a deliberate act.
 -- ----------------------------------------------------------------------------
-INSERT INTO public.app_config (key, value, description)
+INSERT INTO public.app_config (key, value, notes)
 VALUES (
   'demo_mode_enabled', 'false',
   'When true, is_demo rows are visible in shopper browse surfaces and the demo flash-deal reseed job runs. Must be false at launch — see docs/ops/demo-mode.md. Anything other than the exact string true is treated as disabled.'
@@ -111,7 +111,7 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Threshold + ceiling for the reseed job (part 3). Kept in config so the demo
 -- can be tuned during a rehearsal without a migration.
-INSERT INTO public.app_config (key, value, description)
+INSERT INTO public.app_config (key, value, notes)
 VALUES
   ('demo_flash_deal_floor', '12',
    'Reseed fires when live demo flash deals drop below this count.'),

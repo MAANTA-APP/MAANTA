@@ -398,6 +398,27 @@ Load `/`, `/feed`, `/malls/bbs-mall`:
 
 ## 6. Safeguard status — honest assessment
 
+### Defects found by full-chain verification (all fixed)
+
+Three bugs survived fixture-based testing and were caught only by applying the
+real migration chain:
+
+1. **`app_config` has no `description` column** — it is `notes`. Migration 1
+   inserted into `description`, so **`make db-push` would have failed** at the
+   demo-mode migration and rolled back. Confirmed against production.
+2. **The zero-balance gate blocks deal inserts.**
+   `trg_enforce_zero_balance_gate` raises on any merchant at or below zero
+   balance. The reseed now mirrors that predicate and skips such merchants
+   rather than aborting the whole run. (All 210 active demo merchants currently
+   hold KES 20–1500, so this would not have fired today.)
+3. **A lead captured by a demo agent blocks deleting that agent.**
+   `leads.agent_id` is NOT NULL, so it cannot be detached, and deleting the lead
+   would destroy prospect data. The wipe now **retains** such agents and the
+   users behind them, and reports them as
+   `agents RETAINED (held by a lead)`. A non-zero user count after a wipe is
+   explained by this row — check it before assuming the wipe failed.
+
+
 ### Covered and tested
 
 | Safeguard | Test |
@@ -414,12 +435,19 @@ Load `/`, `/feed`, `/malls/bbs-mall`:
 
 ### Known gaps — accept or close before you rely on them
 
-1. **`demo_mode_test.sql` has not been run against the full migration chain.**
-   It was verified against a hand-built fixture (this container has no Docker,
-   so `make db-verify` couldn't run). **Run `make db-verify` locally before
-   `db-push`** — that boots a throwaway stack, applies all 71 migrations, and
-   runs every `supabase/tests/*.sql`. This is the single most valuable thing you
-   can do before applying.
+1. ~~`demo_mode_test.sql` has not been run against the full migration chain.~~
+   **Closed.** `make db-verify` itself cannot run in the authoring sandbox (the
+   Supabase Docker image pull is blocked by the egress proxy), so an equivalent
+   was run instead: a local Postgres 16 with a Supabase-compatible scaffold
+   (anon/authenticated/service_role roles, `auth.uid/role/jwt`, a `storage`
+   stub, postgis in `extensions`), then **all 71 migrations in order, then
+   every `supabase/tests/*.sql`**. Result: **71 applied / 0 failed, 17 suites
+   passed / 0 failed.**
+
+   This found three defects a fixture could not — see the changelog below.
+   Running `make db-verify` on your own machine is still worth doing (it uses
+   Postgres 17 and the real storage/auth images), but it is no longer the only
+   thing standing between this work and production.
 
 2. ~~`/demo/deal-placeholder.svg` does not exist.~~ **Closed.** Added at
    `maanta-app/public/demo/deal-placeholder.svg` and verified serving at
