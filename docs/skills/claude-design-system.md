@@ -1,5 +1,10 @@
 # Skills: Claude-inspired shopper design system
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 Last updated: 2026-07-26 · Status: **shipped in code**.
 
 ## Intent

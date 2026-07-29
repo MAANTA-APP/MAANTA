@@ -1,5 +1,10 @@
 # S1/S2/S3/M3/M4 screen alignment to wireframes — 2026-07-24
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 **Mode:** Builder · **Branch:** `claude/maanta-wireframes-prompt-nc7h4c`.
 Aligned the shipped shopper + merchant screens to the organized wireframes.
 UI/copy only — no money-path RPC, fee, wallet, or API-shape change. Checks:

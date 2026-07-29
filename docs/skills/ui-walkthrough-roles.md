@@ -1,5 +1,10 @@
 # Skills: UI walkthrough — all four roles (shopper / merchant / admin / agent)
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 **Date:** 2026-07-22 · **Env:** live app `www.maanta.app` (Vercel prod, build
 `mV511WCbzlvUZ134NGUnY`) on Supabase project **`axrrslqssmbngbataejg`** (MAANTA-APP
 org), Clerk instance `cheerful-sailfish-3`. **Method:** observational — no product

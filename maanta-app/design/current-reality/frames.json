@@ -1,0 +1,458 @@
+{
+  "$comment": "CANONICAL current-state design truth for MAANTA. Diffable, machine-checked. See README.md for provenance and docs/design-truth-protocol.md for the rules. Every `route` on a `current` frame is validated against src/app by src/lib/__tests__/design-truth.test.ts \u2014 a renamed or deleted route fails CI.",
+  "version": 1,
+  "lastVerified": "2026-07-29",
+  "provenance": {
+    "kind": "repo-native-mirror",
+    "reconstructedFrom": [
+      "docs/notion-refresh/what-is-real-vs-staged-vs-planned.md",
+      "docs/notion-refresh/product-flows.md",
+      "docs/skills/ui-walkthrough-roles.md",
+      "repo routes, guards and migrations verified directly"
+    ],
+    "awaitingSourceImport": "Maanta Current Reality.dc.html",
+    "sourceNote": "The named .dc.html is a Claude Design canvas (same family as design/claim-and-till). It was NOT reachable from the session that built this file \u2014 not in the repo, Notion, Google Drive or Canva. Nothing here is copied from it; every row was re-derived from the sources listed above. Replace this file when the canvas is exported, and keep the schema."
+  },
+  "statusLabels": {
+    "current": "Shipped and current-state. Code must match this row; a mismatch is drift to fix.",
+    "design-ahead": "Designed but deliberately not built. Do NOT implement without a decision.",
+    "superseded": "Replaced by a current row. Kept for provenance; never an implementation authority.",
+    "historical": "Predates the frozen brief. Provenance only."
+  },
+  "runtimeRules": {
+    "success-fee": "KES 30 per verified redemption, debited at merchant verification, or recorded as arrears.",
+    "verify-anyway": "Wallet state never blocks verification; disputes route to admin after the fact.",
+    "zero-balance-gate": "A merchant with no balance cannot create new deals (redemptions still work).",
+    "deal-limit": "Standard 1 / Elite 2 active deals; flash is Elite-only. Trigger: enforce_deal_limit.",
+    "claim-phone-gate": "Under the Clerk strategy, claiming requires a verified phone (/verify-phone).",
+    "otp-expiry": "Ticket code is valid until deal expiry + 15 minutes.",
+    "staff-permissions": "merchant_staff booleans can_verify/can_deals/can_topup/can_purchase; owners hold all four.",
+    "stripe-phase-1": "Card (Stripe Checkout) is the shipped top-up rail. M-Pesa STK is planned, blocked on IntaSend credentials.",
+    "demo-mode": "Synthetic rows are excluded from public surfaces unless demo mode is explicitly on.",
+    "node-scope": "Node 0 = BBS Mall is the live node; other nodes are seeded rehearsal."
+  },
+  "frames": [
+    {
+      "id": "A-agents",
+      "title": "Agents",
+      "route": "/admin/agents",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-approvals",
+      "title": "Admin approvals queue",
+      "route": "/admin",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-billing",
+      "title": "Plans & billing overrides",
+      "route": "/admin/billing",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-customers",
+      "title": "Customers",
+      "route": "/admin/customers",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-deals",
+      "title": "Deal moderation",
+      "route": "/admin/deals",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-merchants",
+      "title": "Merchants list + detail",
+      "route": "/admin/merchants",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-redemption-detail",
+      "title": "Redemption detail (release, appeal, reverse fee)",
+      "route": "/admin/redemptions/[id]",
+      "role": "admin",
+      "status": "current",
+      "rules": [
+        "success-fee"
+      ],
+      "notes": "Fee reversal requires a decision note at route, RPC and DB layers."
+    },
+    {
+      "id": "A-redemptions",
+      "title": "Redemptions / Guardian queue",
+      "route": "/admin/redemptions",
+      "role": "admin",
+      "status": "current",
+      "rules": [
+        "verify-anyway"
+      ]
+    },
+    {
+      "id": "A-reports",
+      "title": "Platform reports",
+      "route": "/admin/reports",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "A-support",
+      "title": "Support / disputes",
+      "route": "/admin/support",
+      "role": "admin",
+      "status": "current"
+    },
+    {
+      "id": "F-founder",
+      "title": "Founder executive dashboard",
+      "route": "/founder",
+      "role": "founder",
+      "status": "current",
+      "notes": "Read-only KPIs + shortcuts into /admin. Gated on the admin role \u2014 there is no founder DB role. Split plan: docs/skills/founder-role-split.md."
+    },
+    {
+      "id": "G-agent",
+      "title": "Agent console",
+      "route": "/agent",
+      "role": "agent",
+      "status": "current",
+      "notes": "Agent + admin only. No approvals, no fee reversal, no /admin."
+    },
+    {
+      "id": "G-lead-new",
+      "title": "Lead capture (48h lock)",
+      "route": "/agent/leads/new",
+      "role": "agent",
+      "status": "current",
+      "notes": "Page-level role gate plus the API gate."
+    },
+    {
+      "id": "G-leads",
+      "title": "My leads (48h lock)",
+      "route": "/agent/leads",
+      "role": "agent",
+      "status": "current"
+    },
+    {
+      "id": "M-dashboard",
+      "title": "Merchant dashboard",
+      "route": "/merchant/dashboard",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "staff-permissions"
+      ],
+      "notes": "Quick actions are filtered to what this user may do; the block hides entirely if none apply."
+    },
+    {
+      "id": "M-deal-new",
+      "title": "Create deal wizard",
+      "route": "/merchant/deals/new",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "deal-limit",
+        "zero-balance-gate",
+        "staff-permissions"
+      ],
+      "notes": "Blocks up front on the plan limit and surfaces the zero-balance top-up CTA; cover image required; M9 charge disclosure unskippable."
+    },
+    {
+      "id": "M-deals",
+      "title": "My deals (active)",
+      "route": "/merchant/deals",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "deal-limit",
+        "staff-permissions"
+      ],
+      "notes": "Requires can_deals for create CTAs. Plan line shows used/limit; create CTAs hide at the limit."
+    },
+    {
+      "id": "M-deals-archived",
+      "title": "Archived deals (repost / delete)",
+      "route": "/merchant/deals/archived",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "staff-permissions"
+      ],
+      "notes": "Last 5 expired deals. Repost/Delete render only with can_deals."
+    },
+    {
+      "id": "M-more",
+      "title": "More",
+      "route": "/merchant/more",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "staff-permissions"
+      ]
+    },
+    {
+      "id": "M-onboard",
+      "title": "Merchant onboarding wizard",
+      "route": "/merchant/onboard",
+      "role": "merchant",
+      "status": "current",
+      "notes": "what3words gate; optional agent attribution."
+    },
+    {
+      "id": "M-plan",
+      "title": "Plan & billing",
+      "route": "/merchant/plan",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "staff-permissions"
+      ],
+      "notes": "Needs can_purchase to appear in More/Settings."
+    },
+    {
+      "id": "M-redeem",
+      "title": "Redemption keypad (two-step resolve then charge)",
+      "route": "/merchant/redeem",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "success-fee",
+        "verify-anyway",
+        "staff-permissions"
+      ],
+      "notes": "Requires can_verify. Fee is disclosed before the single Confirm; resolving charges nothing."
+    },
+    {
+      "id": "M-redemptions",
+      "title": "Redemption history",
+      "route": "/merchant/redemptions",
+      "role": "merchant",
+      "status": "current",
+      "notes": "Informational \u2014 visible to any merchant user including verify-only staff."
+    },
+    {
+      "id": "M-staff",
+      "title": "Staff roster",
+      "route": "/merchant/staff",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "staff-permissions"
+      ],
+      "notes": "Owner-only. New invites default to verify-only."
+    },
+    {
+      "id": "M-topup",
+      "title": "Top up wallet",
+      "route": "/merchant/topup",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "stripe-phase-1",
+        "staff-permissions"
+      ],
+      "notes": "Card is primary wherever IntaSend credentials are absent; the M-Pesa form is not rendered there."
+    },
+    {
+      "id": "M-wallet",
+      "title": "Wallet ledger",
+      "route": "/merchant/wallet",
+      "role": "merchant",
+      "status": "current",
+      "rules": [
+        "success-fee",
+        "staff-permissions"
+      ],
+      "notes": "Ledger readable by any merchant user; the Top-up CTA needs can_topup."
+    },
+    {
+      "id": "P-demo",
+      "title": "Demo persona index",
+      "route": "/demo",
+      "role": "public",
+      "status": "current",
+      "rules": [
+        "demo-mode"
+      ]
+    },
+    {
+      "id": "P-landing",
+      "title": "Public landing",
+      "route": "/",
+      "role": "public",
+      "status": "current"
+    },
+    {
+      "id": "S-browse",
+      "title": "Browse map + list",
+      "route": "/browse",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "node-scope"
+      ],
+      "notes": "Leaflet/OSM. what3words stays server-only."
+    },
+    {
+      "id": "S-deal",
+      "title": "Deal detail (YOU PAY + itemised breakdown)",
+      "route": "/deals/[id]",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "claim-phone-gate"
+      ],
+      "notes": "The only surface that itemises charges; elsewhere they collapse to one line."
+    },
+    {
+      "id": "S-feed",
+      "title": "Discover feed",
+      "route": "/feed",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "demo-mode",
+        "node-scope"
+      ],
+      "notes": "Rails: Top picks near you (flash) \u00b7 Neighbourhood favourites (boosted) \u00b7 All active deals (standard) \u00b7 Your favourites. The standard rail is NOT distance-filtered; per-card distance shows only where merchant GPS exists."
+    },
+    {
+      "id": "S-map",
+      "title": "Map",
+      "route": "/map",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "node-scope"
+      ]
+    },
+    {
+      "id": "S-my-deals",
+      "title": "My deals",
+      "route": "/my-deals",
+      "role": "shopper",
+      "status": "current"
+    },
+    {
+      "id": "S-notifications",
+      "title": "Notifications list",
+      "route": "/notifications",
+      "role": "shopper",
+      "status": "current",
+      "notes": "Derived from the shopper's own activity; no notifications table exists. Preferences are a separate screen at /you/notifications."
+    },
+    {
+      "id": "S-search",
+      "title": "Search + filter sheet",
+      "route": "/search",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "demo-mode"
+      ],
+      "notes": "Filter types: all | standard | flash | boosted. The feed's See-all links land here with ?type=flash and ?type=boosted, so the sheet must be able to represent both."
+    },
+    {
+      "id": "S-select-mall",
+      "title": "Select mall / node",
+      "route": "/select-mall",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "node-scope"
+      ],
+      "notes": "Sits outside the (shopper) shell, so it carries its own back affordance."
+    },
+    {
+      "id": "S-shop",
+      "title": "Shop profile",
+      "route": "/shops/[id]",
+      "role": "shopper",
+      "status": "current"
+    },
+    {
+      "id": "S-ticket",
+      "title": "Claimed code ticket (S5)",
+      "route": "/tickets/[id]",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "otp-expiry"
+      ],
+      "notes": "Card holds label + code + live countdown only; price renders outside it."
+    },
+    {
+      "id": "S-verify-phone",
+      "title": "Verify phone",
+      "route": "/verify-phone",
+      "role": "shopper",
+      "status": "current",
+      "rules": [
+        "claim-phone-gate"
+      ]
+    },
+    {
+      "id": "S-you",
+      "title": "You / profile hub",
+      "route": "/you",
+      "role": "shopper",
+      "status": "current"
+    },
+    {
+      "id": "X-deals-near-me",
+      "title": "\"Deals near me\" proximity rail",
+      "route": "/feed",
+      "role": "shopper",
+      "status": "superseded",
+      "supersededBy": "S-feed",
+      "notes": "The rail is not distance-filtered and merchant GPS is optional, so the title promised a guarantee the query never made. Real proximity ranking needs a geolocation decision + a merchant GPS backfill."
+    },
+    {
+      "id": "X-mpesa-primary",
+      "title": "M-Pesa-primary top-up (STK push as the lead action)",
+      "route": "/merchant/topup",
+      "role": "merchant",
+      "status": "superseded",
+      "supersededBy": "M-topup",
+      "rules": [
+        "stripe-phase-1"
+      ],
+      "notes": "Historic ideal. Presenting M-Pesa as primary implies a live rail MAANTA does not have. Do not restore without IntaSend credentials."
+    },
+    {
+      "id": "D-elite-self-serve",
+      "title": "Self-serve Elite subscription purchase",
+      "route": null,
+      "role": "merchant",
+      "status": "design-ahead",
+      "notes": "Elite is activated by the MAANTA team; /merchant/plan/upgrade routes to support by design. Needs a subscription payment rail."
+    },
+    {
+      "id": "D-mall-operator",
+      "title": "Mall-operator analytics dashboard",
+      "route": null,
+      "role": "mall-operator",
+      "status": "design-ahead",
+      "notes": "Frozen-UI deferred item. No route, no code. Do not build without a decision."
+    },
+    {
+      "id": "D-mpesa-live",
+      "title": "Live M-Pesa STK top-up",
+      "route": null,
+      "role": "merchant",
+      "status": "design-ahead",
+      "rules": [
+        "stripe-phase-1"
+      ],
+      "notes": "Code path exists and stays dormant. Blocked on IntaSend credentials, not on engineering."
+    }
+  ],
+  "coverage": "Primary screens plus every surface that carries a role gate or a runtime rule. Leaf/legacy routes are intentionally omitted: /profile -> /you, /deals -> /my-deals and /notifications/preferences -> /you/notifications are redirects, and /app-bootstrap is a role router, not a screen. Adding a new gated or rule-bearing route means adding a frame."
+}

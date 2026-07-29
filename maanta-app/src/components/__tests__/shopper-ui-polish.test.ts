@@ -19,7 +19,7 @@ vi.mock("next/link", () => ({
 }));
 
 import {
-  BackToProfileLink,
+  BackToYouLink,
   SegmentedLinks,
 } from "@/components/ui/claude";
 import { LanguageCard, ProfileCard } from "@/app/(shopper)/profile/profile-card";
@@ -28,8 +28,8 @@ import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
-  it("BackToProfileLink renders a history-aware back control", () => {
-    const html = renderToStaticMarkup(createElement(BackToProfileLink));
+  it("BackToYouLink renders a history-aware back control", () => {
+    const html = renderToStaticMarkup(createElement(BackToYouLink));
     expect(html).toContain("Back");
     expect(html).toContain('type="button"');
   });

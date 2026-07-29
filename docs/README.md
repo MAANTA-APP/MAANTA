@@ -44,6 +44,15 @@ the source of truth for anything describing code behavior). Consolidated
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
 
+## Design truth
+
+| File | Purpose |
+|---|---|
+| `design-truth-protocol.md` | **Start here for design/code questions.** Truth order, status labels, what to update when routes/labels/rules change, and the evidence rule |
+| `../maanta-app/design/current-reality/` | **Canonical** current-state screens, routes, roles and runtime rules (`frames.json`, CI-checked) |
+| `../maanta-app/design/README.md` | Index of all design artifacts and what each one is authoritative for |
+| `skills/design-sync-checklist.md` | PR checklist for changes that touch routes, labels, rules or permissions |
+
 ## Durable skills (for future sessions/contractors)
 
 | File | Purpose |
@@ -51,4 +60,4 @@ the source of truth for anything describing code behavior). Consolidated
 | `skills/tech-stack-100k.md` | Pointer to the ops deep dive (stack + path to ~100k users) |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
-| `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
+| `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it (design intent; current-state truth lives in `design/current-reality/`) |

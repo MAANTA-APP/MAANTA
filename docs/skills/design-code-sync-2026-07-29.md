@@ -96,9 +96,13 @@ Suite: 336 passing across 49 files. `lint`, `typecheck` and `build` green.
 
 ## Still out of sync after this pass
 
-- The `.dc.html` current-reality artifact is not checked into the repo, so
-  there is no in-repo diffable design truth. Checking it into `maanta-app/design/`
-  (next to the claim-and-till wireframes) would make this triage repeatable.
+- ~~The `.dc.html` current-reality artifact is not checked into the repo, so
+  there is no in-repo diffable design truth.~~ **Closed 2026-07-29** by the
+  follow-up pass: `maanta-app/design/current-reality/` is now the canonical
+  home (`frames.json`, CI-checked), with `docs/design-truth-protocol.md` and
+  `docs/skills/design-sync-checklist.md`. The original `.dc.html` remains
+  unavailable, so that folder is an honestly-labelled reconstruction awaiting
+  source import — see its README.
 - `docs/skills/claude-design-system.md` and `frozen-ui-overall-handoff.md` list
   the old rail name; both updated here, but they remain hand-maintained mirrors
   of Notion and can drift again.

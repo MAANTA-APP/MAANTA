@@ -1,5 +1,10 @@
 # Skills: frozen UI — overall handoff
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 Last updated: 2026-07-26 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.

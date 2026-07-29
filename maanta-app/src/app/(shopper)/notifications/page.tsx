@@ -4,7 +4,7 @@ import { getAppUser } from "@/lib/data";
 import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import {
-  BackToProfileLink,
+  BackToYouLink,
   Body,
   HeadingLg,
   Page,
@@ -100,7 +100,7 @@ export default async function NotificationsPage() {
   return (
     <Page className="px-0 pt-4">
       <div className="px-4">
-        <BackToProfileLink />
+        <BackToYouLink />
         <HeadingLg className="mt-4">Notifications</HeadingLg>
         <Body className="mt-1">Deal alerts and code reminders.</Body>
       </div>
