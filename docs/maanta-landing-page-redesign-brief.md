@@ -138,12 +138,21 @@ Two changes carry most of the value: **one CTA in the hero**, and **"How it work
 
 ## STEP 4 — Wireframe
 
-Lo-fi wireframe to be produced in the MAANTA Figma team file (connected, verified: `admin@maanta.app`, Full seat, pro tier). Frames to cover:
+**Figma:** https://www.figma.com/design/3pqxndF6dqIDXQ11Qdmhsi
 
-- Shopper homepage — 375px and 1280px
-- `/for-merchants` — 375px and 1280px, Variant A hero
-- Merchant band component (the homepage → merchant handoff)
-- Segment-picker state for the early-access form
+Built in the MAANTA team file. Three frames at 375px, side by side:
+
+| Frame | What it shows |
+|---|---|
+| **BEFORE — Shopper home 375** | Live today. Three stacked CTAs, trust line as the faintest text, "How it works" fourth down, no merchant door. |
+| **AFTER — Shopper home 375** | One primary CTA + install as a quiet text link, trust promoted into a strip with room for real counts, "How it works" moved above features, merchant band in brand amber, segment picker on the form, footer CTA repeat. |
+| **NEW — /for-merchants 375** | Variant A hero, fee math section, merchant how-it-works, and the dashboard screenshot slot that is currently a placeholder div. |
+
+The BEFORE/AFTER pair is the argument: the hero goes from three competing decisions to one, and the trust signal moves from the bottom of the hero to inside it.
+
+Wireframes use the real token palette (`brand #FDBF2D`, `ink #111111`, `stone #F4F2ED`, `line #E5E2DA`) so spacing and colour read true against the built page.
+
+Not yet drawn — add if useful before build: 1280px desktop variants, and the expanded segment-picker states.
 
 ---
 
