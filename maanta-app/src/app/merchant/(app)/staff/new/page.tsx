@@ -17,9 +17,10 @@ export default function AddStaffPage() {
   const [name, setName] = useState("");
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
+  // Defaults match merchant_staff DB columns (verify-only until owner opts in).
   const [perms, setPerms] = useState({
     canVerify: true,
-    canDeals: true,
+    canDeals: false,
     canTopup: false,
     canPurchase: false,
   });
