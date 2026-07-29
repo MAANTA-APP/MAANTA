@@ -32,11 +32,15 @@ the staff verify gate now names the owner and offers a `tel:` contact; Browse
 distinguishes "nothing nearby" from a filter miss; the landing hero carries the
 exact tagline **Discover, Claim and Redeem.**
 
-**D-07 verify-anyway is still open and this repo has already picked a side** —
-`redeem-keypad.tsx` warns on a location mismatch and leaves Confirm enabled, per
-the rule stated under "UI-visible business rules" below. The current-reality
-frames show a hard rejection instead. Do not build the reject path without a
-decisions-log entry.
+**D-07 is not the fork it was recorded as.** Geofence ships two bands
+(`app_config.guardian_thresholds`): `> 250 m` flags and still charges the KES 30
+(the verify-anyway behaviour under "UI-visible business rules" below), `> 2000 m`
+declines at the counter with no fee (the frames' behaviour). Both ship; neither
+document named a threshold. The live defect is that the merchant warning in
+`preflight/route.ts` fires at its own hardcoded 150 m, leaving a 150–250 m band
+where the cashier is warned but Guardian returns `clear` — no flag, no dispute
+trail — and the two numbers drift apart whenever ops retunes Guardian. Now a
+Pending decision in `maanta-decisions-log.md`; nothing changed.
 
 ### Update — 2026-07-26: Discover rails + Browse map (within Frozen tokens)
 

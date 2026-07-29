@@ -183,6 +183,21 @@ export const mirrorSchema = z
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     }),
     stage: z.string(),
+    /**
+     * Honest statement of whether Layer 2 has ever executed. `smoke: true` on a
+     * frame means "declared and generated", never "passing" — without this field
+     * a reader counts 14 smoke frames and assumes 14 green browser checks.
+     * `lastRunAt` stays null until a real run reports back.
+     */
+    smokeCoverage: z
+      .object({
+        status: z.enum(["prepared-not-run", "running", "passing", "failing"]),
+        detail: z.string().min(20),
+        blockedBy: z.array(z.string().min(4)),
+        lastRunAt: z.string().nullable(),
+      })
+      .strict()
+      .optional(),
   })
   .passthrough();
 

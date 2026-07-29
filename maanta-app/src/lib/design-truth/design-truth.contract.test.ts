@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { APP_ROOT, CONTRACT_PATH, loadContract, smokeFrames } from "./load";
 import { appRoutes, resolveContractRoute } from "./routes";
+import { anchorTextOf, findAnchorSource } from "./anchors";
 import {
   CAPTURE_READINESS,
   DRIFT_BLOCKED_ON,
@@ -30,6 +31,9 @@ const contract = loadContract();
 
 /** Layer 2's generated spec, asserted here because Layer 1 owns the filesystem. */
 const SMOKE_SPEC = "e2e/design-truth-smoke.spec.ts";
+
+/** The reviewable half of drift D-13. */
+const CORRECTIONS_PATH = "design/current-reality/CORRECTIONS.md";
 
 /** Enum values with no instance in the mirror today, and why that is expected. */
 const ALLOWED_UNUSED: Record<string, string> = {
@@ -150,6 +154,58 @@ describe("design-truth contract (Layer 1)", () => {
     expect(incomplete, `Smoke frames missing test prerequisites:\n  ${incomplete.join(", ")}`).toEqual([]);
   });
 
+  it("only declares smoke anchors the shipped source actually contains", () => {
+    // The rule that stops the mirror describing copy the app has never had. Five
+    // anchors landed stale; each would have failed Layer 2 against a correct
+    // screen, and read as truth to anyone reviewing the contract.
+    //
+    // Fixing a failure here has exactly two honest moves:
+    //   1. the anchor is wrong    -> correct it to the shipped copy
+    //   2. the screen has no anchor -> add a real heading or aria-label to the
+    //      app (a visually-hidden <h1> counts), never a data-testid
+    // Adding the string to `sourceFiles` without it being rendered is not one of
+    // them, and is what Layer 2 exists to catch.
+    const stale = smokeFrames()
+      .filter((f) => findAnchorSource(f) === null)
+      .map((f) => `${f.id} (${f.name}) -> "${anchorTextOf(f)}" not found in ${f.sourceFiles.join(", ")}`);
+    expect(
+      stale,
+      `Smoke anchors that no listed source file contains — the contract is describing copy the app does not render:\n  ${stale.join("\n  ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps a frame route-only rather than letting it carry an unbacked anchor", () => {
+    // The counterpart to the check above: a frame with no stable anchor is
+    // allowed to exist, but it must be `smoke: false` and say why. Overclaiming
+    // smoke coverage is the failure mode; declining it is a legitimate choice.
+    const overclaiming = contract.frames
+      .filter((f) => !f.smoke && (f.expectedHeading || f.expectedAnchor))
+      .map((f) => f.id);
+    expect(
+      overclaiming,
+      `Non-smoke frames carrying an anchor — either opt into smoke or drop the anchor, don't half-declare:\n  ${overclaiming.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("names every corrected frame in the corrections audit record", () => {
+    // CORRECTIONS.md is the reviewable half of D-13. If it names a frame that no
+    // longer exists, the audit trail has rotted.
+    const doc = existsSync(path.join(APP_ROOT, CORRECTIONS_PATH))
+      ? readFileSync(path.join(APP_ROOT, CORRECTIONS_PATH), "utf8")
+      : null;
+    expect(doc, `${CORRECTIONS_PATH} is missing — D-13 has no audit record`).not.toBeNull();
+
+    const ids = new Set(contract.frames.map((f) => f.id));
+    // Table rows open with a backticked frame id: | `8l` | route | ...
+    const named = Array.from(doc!.matchAll(/^\| `([\w-]+)` \|/gm), (m) => m[1]);
+    const unknown = named.filter((id) => !ids.has(id) && !id.startsWith("R-") && id !== "mirror" && !/^D-\d{2}$/.test(id));
+    expect(
+      Array.from(new Set(unknown)),
+      `CORRECTIONS.md names frames that are not in the contract:\n  ${unknown.join(", ")}`
+    ).toEqual([]);
+    expect(named.length, "CORRECTIONS.md has no correction rows").toBeGreaterThan(0);
+  });
+
   it("exercises every declared enum value, or records why it does not", () => {
     const used = {
       role: new Set(contract.frames.map((f) => f.role)),
@@ -185,6 +241,37 @@ describe("design-truth contract (Layer 1)", () => {
 
   it("records the contract path the smoke layer reads", () => {
     expect(existsSync(path.join(APP_ROOT, CONTRACT_PATH))).toBe(true);
+  });
+
+  describe("smoke coverage is not overclaimed", () => {
+    const coverage = contract.mirror.smokeCoverage;
+
+    it("states whether Layer 2 has ever run", () => {
+      // Without this, 14 `smoke: true` frames read as 14 green browser checks.
+      expect(
+        coverage,
+        "mirror.smokeCoverage is missing — the contract would imply runtime coverage it cannot evidence"
+      ).toBeDefined();
+    });
+
+    it("lists what blocks a run while it has never run", () => {
+      if (coverage?.status !== "prepared-not-run") return;
+      expect(
+        coverage.blockedBy.length,
+        "smokeCoverage is prepared-not-run but names nothing blocking it — then why has it not run?"
+      ).toBeGreaterThan(0);
+    });
+
+    it("cannot claim a passing run with no run timestamp", () => {
+      // The specific lie this forbids: flipping status to "passing" to make a
+      // dashboard green without a run behind it.
+      if (coverage?.status === "passing" || coverage?.status === "failing") {
+        expect(
+          coverage.lastRunAt,
+          `smokeCoverage.status is "${coverage.status}" but lastRunAt is null — a result needs a run`
+        ).not.toBeNull();
+      }
+    });
   });
 
   describe("the smoke layer is driven from the contract", () => {

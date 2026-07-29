@@ -51,6 +51,7 @@ Format: date · decision · consequence in product/code.
 
 | Decision | Needed by | Notes |
 |---|---|---|
+| **D-07 — geofence band labelling and the 150 m / 250 m split** | Before any wrong-shop UI copy changes, and before a smoke test asserts either outcome | **Not the fork it was recorded as.** D-07 in `maanta-app/design/current-reality/frames.json` says the claim-and-till mirror documents verify-anyway on a location mismatch while the frames show a hard rejection with no fee, and that "one is wrong". Reading the shipped code: **both ship, at different distances.** Guardian v1 geofence has two bands (`app_config.guardian_thresholds`): `> warn_m` (default **250 m**) → `flag` → allow, KES 30 applies, suspicious event logged — the claim-and-till behaviour; `> hard_m` (default **2000 m**) → `hard_block` → declined at the counter, **no fee**, admin-appealable — the frames' behaviour. Neither document names a threshold, so each describes one band and reads as a contradiction. **The real finding is narrower:** the merchant-facing warning in `preflight/route.ts` uses its own hardcoded `GEOFENCE_WARN_METERS = 150`, which does **not** match Guardian's tunable 250 m. Between 150 m and 250 m the cashier is warned "Claimed away from your shop" but Guardian returns `clear` — no flag, no `guardian_events` row, no dispute trail. And because Guardian's value is live-tunable while the preflight constant is not, an ops retune silently desynchronises them. Decide: (a) align preflight to read Guardian's `warn_m` (removing the dead 150–250 m band), (b) keep an intentionally earlier merchant warning and document the gap as deliberate, or (c) change a band's outcome. **Nothing was changed pending this ruling** — see `docs/skills/design-truth-contract.md` §D-07. |
 | Browser golden-path E2E (Playwright) | When a live Supabase + Clerk test env exists | RPC-level golden path is covered (`supabase/tests/golden_path_test.sql`); the browser flow is not. Add a Playwright golden path `/demo → claim → verify → wallet` and gate CI on it. Own ticket, depends on infra — deliberately not scaffolded (an unrunnable suite is false coverage). See `docs/skills/frozen-ui-locked-rules-audit.md` |
 | Kenya incorporation + entity details | Nov 2026 Nairobi trip | Blocks publishing legal docs; governing-law refs assume Kenya |
 | ~~Which email platform hosts the waitlist~~ | ~~Before campaign build~~ | **Resolved 2026-07-10: Resend** (see Recent decisions) |
@@ -65,4 +66,6 @@ Format: date · decision · consequence in product/code.
 2. If it changes a frozen rule, say what it supersedes.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
-Last updated: 2026-07-23 (waitlist built on Resend: /waitlist page + stateless proxy route; prior 2026-07-22 Guardian and fee-reversal entries retained)
+Last updated: 2026-07-29 (D-07 added to Pending decisions — geofence band labelling and the
+preflight 150 m vs Guardian 250 m split; no behaviour changed. Prior waitlist/Guardian/
+fee-reversal entries retained.)

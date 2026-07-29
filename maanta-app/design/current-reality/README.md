@@ -224,15 +224,18 @@ phone prototype. That is a deliberate compromise, noted rather than hidden.
 
 ## Open blockers
 
-- **D-07 verify-anyway (product decision) — STILL OPEN, and the repo has already picked a
-  side.** `claim-and-till/README.md` documents that a location mismatch still redeems and the
-  dispute routes to admin review. The frames and prototype show wrong-shop as a hard
-  rejection with no fee. **The shipped code implements verify-anyway**: `redeem-keypad.tsx`
-  shows a rust "Claimed away from your shop" warning, leaves Confirm enabled, and records an
-  override reason on the redemption; `docs/skills/frozen-ui-overall-handoff.md` states the
-  same rule. So the frames are the side that disagrees with production. Neither branch was
-  touched while landing this mirror — changing it either way is a money-path product
-  decision, and a smoke test written against the wrong branch would cement the error.
+- **D-07 geofence bands (product decision) — STILL OPEN, but not the fork it was recorded
+  as.** The row says claim-and-till documents verify-anyway on a mismatch while the frames
+  show a hard rejection with no fee, and one must be wrong. **Both ship, at different
+  distances.** Guardian geofence has two bands in `app_config.guardian_thresholds`:
+  `> warn_m` (250 m) → `flag`, redemption succeeds, KES 30 applies, a `guardian_events` row
+  is logged — claim-and-till's behaviour; `> hard_m` (2000 m) → `hard_block`, declined at the
+  counter, no fee, admin-appealable — the frames' behaviour. Neither document named a
+  threshold, so each described one band. The surviving defect is narrower: the merchant
+  warning in `preflight/route.ts` uses its own hardcoded 150 m, so between 150 m and 250 m the
+  cashier is warned but Guardian returns `clear` — no flag, no event row, no dispute trail —
+  and Guardian is live-tunable while that constant is not. Nothing was changed. Full analysis
+  and the three ways to close it: `docs/skills/design-truth-contract.md` §D-07.
 - **D-06 payment order (code).** Design system says M-Pesa is always primary; the shipped
   rail is Stripe Checkout pending IntaSend credentials, so card carries the primary action on
   `/merchant/topup` today. `TODO(D-06)` in `topup-flow.tsx` marks the reorder.

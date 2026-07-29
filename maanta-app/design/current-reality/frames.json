@@ -28,7 +28,18 @@
     "location": "maanta-app/design/current-reality/ in MAANTA-APP/MAANTA. Landed from the Claude Design project handoff/current-reality/ folder; Layer 1 now validates it in CI (D-08 closed).",
     "humanReadableView": "Maanta Current Reality.dc.html (project root). There is no index.html in this folder.",
     "frameCount": 21,
-    "reconciliation": "Frames were re-read against the working tree on 2026-07-29 while landing the contract. Routes, sourceFiles, smoke anchors and stateCoverage were corrected to shipped reality (repo outranks the design frame). Every correction is listed in drift D-13."
+    "reconciliation": "Frames were re-read against the working tree on 2026-07-29 while landing the contract. Routes, sourceFiles, smoke anchors and stateCoverage were corrected to shipped reality (repo outranks the design frame). Every correction is listed in drift D-13.",
+    "smokeCoverage": {
+      "status": "prepared-not-run",
+      "detail": "Every smoke:true frame has a generated test in e2e/design-truth-smoke.spec.ts, and Layer 1 asserts the generation. NO RUN HAS EVER HAPPENED: it needs a seeded non-prod deployment, six role storage states and four seed rows. smoke:true means \"declared and generated\", never \"passing\".",
+      "blockedBy": [
+        "E2E_BASE_URL — a seeded non-prod deployment (the e2e.yml host guard refuses maanta.app)",
+        "six role storage states: E2E_STORAGE_SHOPPER, E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE, E2E_STORAGE_MERCHANT, E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY, E2E_STORAGE_AGENT, E2E_STORAGE_ADMIN",
+        "four seed rows: E2E_SEED_DEAL_ID (claimable deal), E2E_SEED_TICKET_ID (claimed ticket), E2E_SEED_LEAD_ID (open lead), E2E_SEED_HELD_REDEMPTION_ID (held redemption); plus a pending shop for 11a",
+        "repository variable E2E_DESIGN_TRUTH=true to enable the opt-in job"
+      ],
+      "lastRunAt": null
+    }
   },
   "runtimeRules": {
     "R-FEED-ORDER": "Feed section order is frozen: Flash Deals then Priority Placements then the third section. Never reorderable.",
@@ -36,7 +47,7 @@
     "R-FEE-ON-VERIFIED": "The KES 30 success fee is debited only on a verified redemption, and is disclosed before it is taken.",
     "R-RESOLVE-THEN-CHARGE": "Resolve the code first, then charge. Never charge before the outcome is known.",
     "R-ARREARS": "Redemptions continue while a merchant owes. Arrears settle automatically from the next top-up.",
-    "R-VERIFY-ANYWAY": "DISPUTED. The repo claim-and-till mirror documents verify-anyway: a location mismatch still redeems, dispute routes to admin review. Frames show wrong-shop as hard rejection. Unresolved — see drift D-07.",
+    "R-VERIFY-ANYWAY": "Geofence has TWO shipped bands, not one outcome. Beyond guardian_thresholds.geofence.warn_m (default 250m) a mismatch still redeems, the KES 30 fee applies, and a suspicious event is logged for admin review. Beyond hard_m (default 2000m) Guardian declines at the counter and no fee moves. The merchant-facing warning fires earlier still, at preflight GEOFENCE_WARN_METERS (150m). Recorded as disputed in D-07 because no document named a threshold — see D-07 before writing wrong-shop copy.",
     "R-PHONE-BEFORE-CLAIM": "An email-only account is blocked at claim until a phone number is verified.",
     "R-APPROVAL-GATE": "A shop stays hidden from shoppers until an admin approves it.",
     "R-REVERSAL-NOTE": "A success-fee reversal is blocked without a note. Every reversal is audit-trailed.",
@@ -153,7 +164,8 @@
       "evidenceSource": "repo",
       "sourceFiles": [
         "src/app/(shopper)/browse/page.tsx",
-        "src/app/(shopper)/map/page.tsx"
+        "src/app/(shopper)/map/page.tsx",
+        "src/components/browse/browse-client.tsx"
       ],
       "canvasRef": "13g",
       "smoke": false,
@@ -186,7 +198,8 @@
       "captureReadiness": "after-data",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/(shopper)/deals/[id]/page.tsx"
+        "src/app/(shopper)/deals/[id]/page.tsx",
+        "src/app/(shopper)/deals/[id]/claim-flow.tsx"
       ],
       "canvasRef": "8g,8ae",
       "smoke": true,
@@ -222,7 +235,8 @@
       "captureReadiness": "after-copy",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/(shopper)/tickets/[id]/page.tsx"
+        "src/app/(shopper)/tickets/[id]/page.tsx",
+        "src/app/(shopper)/tickets/[id]/claimed-code.tsx"
       ],
       "canvasRef": "8j,8k",
       "smoke": true,
@@ -297,7 +311,8 @@
       "captureReadiness": "safe-now",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/merchant/(app)/redeem/page.tsx"
+        "src/app/merchant/(app)/redeem/page.tsx",
+        "src/app/merchant/(app)/redeem/redeem-keypad.tsx"
       ],
       "canvasRef": "10a",
       "smoke": true,
@@ -407,7 +422,8 @@
       "captureReadiness": "after-copy",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/merchant/(app)/topup/page.tsx"
+        "src/app/merchant/(app)/topup/page.tsx",
+        "src/app/merchant/(app)/topup/topup-flow.tsx"
       ],
       "canvasRef": "13i",
       "smoke": false,
@@ -860,9 +876,9 @@
       "id": "D-07",
       "classification": "current-mismatch",
       "blockedOn": "product-decision",
-      "what": "Verify-anyway on location mismatch",
-      "detail": "claim-and-till README documents verify-anyway (mismatch still redeems, dispute routes to admin). Frames and prototype show wrong-shop as hard rejection with no fee. One is wrong.",
-      "where": "10a, 13e, design/claim-and-till/README.md"
+      "what": "Geofence band labelling, and the preflight 150m vs Guardian 250m split",
+      "detail": "Recorded as a contradiction: claim-and-till README documents verify-anyway on a location mismatch, frames show wrong-shop as a hard rejection with no fee, one must be wrong. Reading the shipped code, BOTH ship at different distances — Guardian geofence warn_m (250m) flags and charges, hard_m (2000m) declines with no fee, and neither document named a threshold. The surviving defect is narrower: preflight/route.ts warns the cashier from its own hardcoded 150m, so between 150m and 250m the counter sees a mismatch but Guardian returns clear (no flag, no guardian_events row, no dispute trail) — and Guardian is live-tunable while the preflight constant is not, so an ops retune desynchronises them. Unresolved by decision, not by ambiguity: nothing was changed.",
+      "where": "10a, 13e, design/claim-and-till/README.md, src/app/api/redemptions/preflight/route.ts, supabase/migrations/20260722140000_guardian_thresholds_config.sql"
     },
     {
       "id": "D-08",

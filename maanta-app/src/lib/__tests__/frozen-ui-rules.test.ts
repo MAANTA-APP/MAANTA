@@ -81,6 +81,22 @@ describe("frozen UI hard rules (static enforcement)", () => {
     ).toEqual([]);
   });
 
+  // R-PLAN-NAMES: the plans are Standard and Elite, never "Free". The existing
+  // vocabulary check above bans the phrase "free plan", which let a bare "Free"
+  // through as a PRICE on two plan cards (`/pricing` and `/for-merchants`) — the
+  // more damaging form, because pricing a plan at "Free" hides the KES 30 success
+  // fee that is the actual price. Standard has no monthly fee and may say so in
+  // prose ("No monthly fee, ever"); it may not be priced as Free.
+  it("never prices a plan as Free", () => {
+    // A JSX text node that is exactly "Free" — i.e. rendered copy, not a word
+    // inside a sentence like "first month of Elite free".
+    const hits = scan((l) => /(^|>)\s*Free\s*(<|$)/.test(l));
+    expect(
+      hits,
+      `A plan priced as "Free" — use KES 0 and state the success fee (R-PLAN-NAMES):\n${fmt(hits)}`
+    ).toEqual([]);
+  });
+
   // Rule 4: failures are dark (#141414), never red. The merchant verify failure
   // surface must render on bg-ink-900 and never on a red fill.
   it("keeps the merchant failure takeover dark, not red", () => {

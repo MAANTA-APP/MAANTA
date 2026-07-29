@@ -83,24 +83,94 @@ and "Top-up received" with `added: 0`. The shopper had paid; the **wallet had
 not been credited** — that happens when the webhook lands. A success tick against
 an unsettled top-up is exactly the class of lie the money rules exist to prevent.
 
-Now: a return renders **`waiting-card`** (its own screen, so a merchant who has
-already paid is not dropped back on a form that invites paying twice), polls the
-wallet, and only promotes to **`credited`** when the balance actually rises. If it
-does not settle inside the wait window it becomes **`unsettled`** — "Top-up still
-pending", never "not completed", because a card payment that already went through
-Checkout says nothing about failure by timing out. An STK push that times out
-*is* a non-payment, so that one still reads as failed.
+The rule, stated once: **only a balance that has actually risen may be described
+as credited.** Everything before that is pending.
 
-## Open decisions this work did not make
+The full state model in `topup-flow.tsx` — six states, and what each is allowed
+to claim about the money:
 
-- **D-07 verify-anyway — the one to resolve first.** `design/claim-and-till/README.md`
-  documents verify-anyway (a location mismatch still redeems, the dispute routes
-  to admin review). The frames show wrong-shop as a hard rejection with no fee.
-  **The shipped code implements verify-anyway** — `redeem-keypad.tsx` shows a rust
-  "Claimed away from your shop" warning, leaves Confirm enabled, and records an
-  override reason; `frozen-ui-overall-handoff.md` states the same. So the frames
-  are the side that disagrees with production. Neither branch was touched. A
-  smoke test written against the wrong branch would cement the error.
+| State | Reached by | What the merchant sees | May it claim money moved? |
+|---|---|---|---|
+| `form` | default | Amount, card first, M-Pesa second, "Your balance updates when the payment settles." | no |
+| `waiting-mpesa` | STK push accepted | Inline "Waiting for M-Pesa confirmation…" on the form (the prompt is on their phone) | no |
+| `waiting-card` | return from Checkout `?stripe=success` | Own screen: "Confirming your payment" + persistent "Not credited yet." + **"Don't pay again"** | **no** — this is the state that used to lie |
+| `credited` | wallet poll sees `balance > startBalance` | "KES N added", new balance | **yes — the only state that may** |
+| `unsettled` | card wait exceeds 120 s | "Top-up still pending", "Not credited yet", → Check wallet | no, and explicitly not a failure |
+| `failed` | STK timeout, or `?stripe=cancelled` | "Top-up not completed", "No money left your account" | no — asserts money did **not** move |
+
+Two asymmetries in that table are deliberate:
+
+- **A card timeout is `unsettled`, not `failed`.** The payment already cleared
+  Checkout, so a slow webhook says nothing about whether the money moved. Calling
+  it "not completed" would be as wrong as calling it credited.
+- **An STK timeout *is* `failed`.** An STK push that never completes means the
+  shopper dismissed the prompt — no money moved, and that is knowable, so it is
+  safe to state.
+
+Pinned by `src/app/merchant/(app)/topup/__tests__/topup-settlement-states.test.ts`
+(8 assertions, including that the Checkout return contains none of "Top-up
+received" / "added" / "New balance").
+
+## §D-07 — geofence bands, and what the decision actually is
+
+D-07 is recorded in the contract as a straight contradiction: the claim-and-till
+mirror documents verify-anyway on a location mismatch, the frames show wrong-shop
+as a hard rejection with no fee, "one is wrong". **That framing is incorrect, and
+so was an earlier version of this note.** Reading the shipped code, both
+behaviours ship — at different distances.
+
+Geofence is a **three-threshold** system, and no document named a number:
+
+| Distance from shop (recorded at claim) | Where the number lives | Shipped behaviour |
+|---|---|---|
+| `> 150 m` | `GEOFENCE_WARN_METERS`, hardcoded in `api/redemptions/preflight/route.ts` | Merchant-facing only: the keypad shows "Claimed away from your shop", **Confirm stays enabled**, and confirming records an override reason on the redemption |
+| `> 250 m` (`geofence.warn_m`) | `app_config.guardian_thresholds`, live-tunable | Guardian returns `flag` → redemption succeeds, **KES 30 applies**, a `guardian_events` row is written for admin review — this is the claim-and-till behaviour |
+| `> 2000 m` (`geofence.hard_m`) | same config row | Guardian returns `hard_block` → **declined at the counter, no fee moves**, admin-appealable via `admin_appeal_hard_block` — this is the frames' behaviour |
+
+So the frames describe the hard band and the claim-and-till mirror describes the
+warn band. Neither is wrong about behaviour; both are incomplete about
+threshold. That is a documentation merge, not a product fork.
+
+**The real defect is narrower, and it is worth your ruling.** The merchant warning
+fires at 150 m, but Guardian does not flag until 250 m. Between the two:
+
+- the cashier is warned "Claimed away from your shop" and can confirm with an
+  override reason, but
+- Guardian returns `clear` — no flag, no `guardian_events` row, **no dispute
+  trail** for the override that just happened.
+
+And because Guardian's threshold is live-tunable via `app_config` while the
+preflight constant is compiled in, an ops retune of `warn_m` silently
+desynchronises the two.
+
+Three ways to close it:
+
+1. **Align** — preflight reads Guardian's `warn_m` instead of its own constant.
+   Removes the dead 150–250 m band and keeps one number. Smallest change.
+2. **Keep the earlier warning deliberately** — a cashier-facing heads-up before
+   Guardian's flag band is arguably useful. Then document the gap as intentional
+   and decide whether a 150–250 m override should still write an audit row.
+3. **Change a band's outcome** — the only option that is a real product change,
+   and the only one that touches money.
+
+**Nothing was changed.** The decision is in the decisions log under *Pending
+decisions → D-07*; a `TODO(D-07)` sits on the constant in
+`preflight/route.ts`; and `R-VERIFY-ANYWAY` in `frames.json` now carries the
+band table instead of "DISPUTED".
+
+### If you rule for the frames later
+
+"Rule for the frames" now means one of two much smaller things, not a rewrite:
+
+- **If it means "any mismatch should decline"**: that is option 3 — lower
+  `geofence.hard_m` in `app_config` (no deploy) and remove the confirm-anyway
+  branch in `redeem-keypad.tsx`. It voids the 2026-07-03 verify-anyway decision
+  and the Guardian v1 refinement, so it needs its own frozen-rules entry.
+- **If it means "the docs should describe the hard band"**: nothing in the app
+  changes. Update `design/claim-and-till/README.md` to name both bands, close
+  D-07, and delete the `TODO(D-07)` comment.
+
+## Other open decisions this work did not make
 - **M8 create-deal (in D-13).** The frame is recorded `design-ahead` because "the
   repo create flow has no charge-disclosure step" — but `new-deal-wizard.tsx`
   ships a mandatory charge-disclosure step (the `price` step; decisions-log

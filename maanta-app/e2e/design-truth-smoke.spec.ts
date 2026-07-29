@@ -26,6 +26,18 @@ import { smokeFrames, type Frame } from "../src/lib/design-truth/load";
  *    green tick is read as coverage.
  */
 
+/**
+ * STATUS: PREPARED, NEVER RUN.
+ *
+ * Recorded in the contract itself as `mirror.smokeCoverage.status =
+ * "prepared-not-run"` with `lastRunAt: null`, and asserted by Layer 1, so nobody
+ * can read `smoke: true` on 14 frames as 14 green browser checks. `smoke: true`
+ * means "declared and generated". It does not mean passing.
+ *
+ * When a real run happens, update `mirror.smokeCoverage` (status + lastRunAt) in
+ * the same commit — Layer 1 refuses a `passing`/`failing` status with a null
+ * `lastRunAt`.
+ */
 const BASE_URL = process.env.E2E_BASE_URL;
 const CONFIGURED = Boolean(BASE_URL);
 
