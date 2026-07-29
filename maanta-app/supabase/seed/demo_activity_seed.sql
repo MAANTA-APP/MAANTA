@@ -46,9 +46,9 @@ INSERT INTO public.redemptions (
   is_demo, demo_source
 )
 SELECT
-  d.id,
-  d.merchant_id,
-  u.id,
+  r.deal_id,
+  r.merchant_id,
+  r.user_id,
   -- Six digits, zero-padded. Cannot collide with a live claim: these rows are
   -- already terminal ('success'), so no verify path can match them.
   lpad(((random() * 899999)::INT + 100000)::TEXT, 6, '0'),
@@ -58,33 +58,58 @@ SELECT
   -- counts. 'verified' is the word the product uses at the counter, not a
   -- status value — using it here would fail the constraint.
   'success',
-  ts.redeemed_at,
+  r.redeemed_at,
   -- expires_at is NOT NULL: the OTP window that was open when it was redeemed.
-  ts.redeemed_at + INTERVAL '10 minutes',
+  r.redeemed_at + INTERVAL '10 minutes',
   TRUE,
   'demo_activity'
 FROM (
-  -- Up to 3 redemptions per demo deal, on ~60% of deals, so verified counts
-  -- vary between shops instead of every merchant showing the same number.
-  SELECT d.id, d.merchant_id, generate_series(1, (1 + floor(random() * 3))::INT) AS n
-    FROM public.deals d
-    JOIN public.merchants m ON m.id = d.merchant_id
-   WHERE d.is_demo
-     AND m.is_demo
-     AND m.status = 'active'
-     AND random() < 0.6
-) d
-CROSS JOIN LATERAL (
-  SELECT id FROM public.users
-   WHERE is_demo AND role = 'customer'
-   ORDER BY random()
-   LIMIT 1
-) u
--- squared random → recency bias, so the week reads as a mall picking up
--- rather than a flat generated distribution.
-CROSS JOIN LATERAL (
-  SELECT NOW() - (random() * random() * INTERVAL '7 days') AS redeemed_at
-) ts;
+  SELECT
+    x.id          AS deal_id,
+    x.merchant_id AS merchant_id,
+    -- CORRELATED on purpose — see the note below. `x.id IS NOT NULL` is always
+    -- true; it exists solely to make this a lateral reference so the shopper is
+    -- drawn per redemption.
+    (SELECT u.id
+       FROM public.users u
+      WHERE u.is_demo
+        AND u.role = 'customer'
+        AND x.id IS NOT NULL
+      ORDER BY random()
+      LIMIT 1) AS user_id,
+    -- squared random → recency bias, so the week reads as a mall picking up
+    -- rather than a flat generated distribution. Evaluated here, in the target
+    -- list over already-expanded rows, so it varies per redemption and both
+    -- redeemed_at and expires_at derive from the same draw.
+    NOW() - (random() * random() * INTERVAL '7 days') AS redeemed_at
+  FROM (
+    -- Up to 3 redemptions per demo deal, on ~60% of deals, so verified counts
+    -- vary between shops instead of every merchant showing the same number.
+    SELECT d.id, d.merchant_id,
+           generate_series(1, (1 + floor(random() * 3))::INT) AS n
+      FROM public.deals d
+      JOIN public.merchants m ON m.id = d.merchant_id
+     WHERE d.is_demo
+       AND m.is_demo
+       AND m.status = 'active'
+       AND random() < 0.6
+  ) x
+) r;
+
+-- Why the correlation matters, so nobody "simplifies" it back:
+--
+--   An uncorrelated CROSS JOIN LATERAL is not evaluated per row. With no
+--   reference to the outer query, the planner hoists it out of the nested loop
+--   and computes it ONCE, then reuses that single result for every row —
+--   volatility of random() notwithstanding. Measured on PG16: an uncorrelated
+--   `ORDER BY random() LIMIT 1` produced 1 distinct value across 8 rows.
+--
+--   The previous version of this seed used two uncorrelated LATERALs, so every
+--   redemption it wrote shared one shopper and one timestamp — defeating both
+--   properties the comments above claim (per-shop variation, recency spread).
+--   Any batch written before this fix is degenerate; re-run the seed to replace
+--   it (the DELETE at the top makes that safe).
+
 
 DO $$
 DECLARE v_n INT; v_m INT;

@@ -32,7 +32,10 @@ help:
 	@echo "  demo-off     disable demo mode (data stays, becomes invisible)"
 	@echo "  demo-seed    seed demo activity history"
 	@echo "  demo-reseed  force a flash-deal top-up now"
-	@echo "  demo-wipe    DELETE every demo row (prompts; run demo-off first)"
+	@echo "  demo-wipe    DELETE demo rows (prompts; refuses while demo mode is on)"
+	@echo "               Agents/users a surviving real row still references are"
+	@echo "               RETAINED and reported — a non-zero count is expected,"
+	@echo "               not a partial failure. Do not re-run to 'finish' it."
 	@echo "  test-e2e     Playwright golden path (needs E2E_BASE_URL + storage; see docs/ops/e2e-golden-path.md)"
 	@echo ""
 	@echo "db-link/db-list/db-push* target PRODUCTION ($(SUPABASE_PROJECT_REF)) and are HUMAN-RUN."
@@ -83,8 +86,10 @@ db-seed-test-accounts:
 	  psql "$$db_url" -v ON_ERROR_STOP=1 -f $(APP_DIR)/supabase/seed/test_accounts_maanta_2026_07.sql
 
 # ---------------------------------------------------------------------------
-# Demo mode. All targets are demo-scoped: they read and write only rows where
-# is_demo, and the flag itself lives in app_config. See docs/ops/demo-mode.md.
+# Demo mode. Targets read and write only rows where is_demo — with one
+# deliberate exception: demo-on and demo-off update the control flag itself,
+# public.app_config.demo_mode_enabled, which is not a demo row.
+# See docs/ops/demo-mode.md.
 #
 # DB_URL resolution matches the seed targets above: DATABASE_URL if set,
 # otherwise the local stack.

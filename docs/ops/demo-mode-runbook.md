@@ -1,14 +1,32 @@
 # Demo mode — production runbook
 
 **Target:** Supabase project `axrrslqssmbngbataejg`
-**Branch:** `claude/maanta-plugin-setup-rt4bfy`
+**Branch:** `claude/demo-mode-node0-rt4bfy` (PR #128)
 **Audience:** founder or ops lead. `db-push` is human-run.
 **Design doc:** `docs/ops/demo-mode.md` (read once before your first run)
 
 Run everything from the repo root. Each step states the command and the output
 you should see. **Stop conditions are marked 🛑 — do not continue past one.**
 
-> ## ✅ Section 1 is DONE — migrations applied to production 2026-07-29
+> ## Current state — read this first
+> The boxes below are **dated checkpoints from 2026-07-29, in the order they
+> happened**. They are history, not instructions, and they contradict each
+> other by design — each records what was true at the time. The authoritative
+> current state is:
+>
+> | | |
+> |---|---|
+> | Migrations applied to production | `140000`, `141000`, `142000`, `150000`, `160000` (**5**) |
+> | Migrations pending `db-push` | `170000`, `180000`, `190000` (**3**) |
+> | `demo_mode_enabled` | `true` |
+> | App code deployed | **none of it** until PR #128 merges |
+>
+> So: section 1 expects **3** pending migrations, not the three named in the
+> first checkpoint below. Section 3 has already been run once. If you are here
+> to finish the rollout, go to section 1b, confirm the three pending files, and
+> continue from there.
+
+> ## ✅ Checkpoint (2026-07-29) — first three migrations applied to production
 > Applied via the Supabase MCP `apply_migration` (the CLI could not run in the
 > authoring environment: the Docker image pull is blocked by the egress proxy).
 > Recorded in `supabase_migrations.schema_migrations` as `20260729140000`,
@@ -24,7 +42,7 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 >
 > Start at **section 3** to run a demo, or **section 4** to wipe before launch.
 
-> ## ✅ Section 3 is DONE — demo mode ENABLED and seeded 2026-07-29
+> ## ✅ Checkpoint (2026-07-29) — demo mode enabled and seeded
 > `demo_mode_enabled = true`. **251 deals and 210 merchants are publicly
 > visible**, including **20 live flash deals** across 12 different expiry hours.
 > Activity history: **339 successful redemptions across 145 merchants**.
@@ -103,7 +121,7 @@ you must export `DATABASE_URL` first** or you'll silently hit localhost.
 
 ```bash
 cd ~/MAANTA
-git checkout claude/maanta-plugin-setup-rt4bfy && git pull
+git checkout claude/demo-mode-node0-rt4bfy && git pull
 export DATABASE_URL="postgresql://postgres:<PASSWORD>@db.axrrslqssmbngbataejg.supabase.co:5432/postgres"
 ```
 
@@ -138,8 +156,9 @@ make db-list        # local vs remote migration state
 make db-push-dry    # preview, writes nothing
 ```
 
-Expect the three `20260729…` migrations listed as pending and nothing else
-unexpected.
+Expect exactly **three** pending — `20260729170000`, `20260729180000`,
+`20260729190000` — and nothing else unexpected. The earlier five are already
+applied; see the current-state table at the top.
 
 > 🛑 **Stop if any migration you don't recognise appears as pending.**
 
@@ -409,7 +428,7 @@ your real accounts.
 > 🛑 **Stop if any `demo_rows` is non-zero.** The wipe partially failed — most
 > likely a new FK dependent. Get the error from:
 > ```sql
-> SELECT * FROM public.wipe_demo_data(TRUE);
+> SELECT * FROM public.wipe_demo_data();   -- DRY RUN: reports, deletes nothing
 > ```
 
 ### 4.6 Unschedule the reseed
@@ -445,7 +464,7 @@ Load `/`, `/feed`, `/malls/bbs-mall`:
 |---|---|
 | Demo data visible when it shouldn't be | `make demo-off` — instant, no data change |
 | Reseed misbehaving | `SELECT cron.unschedule('maanta_demo_reseed');` |
-| Need the whole feature gone | Rollback SQL is in each migration's header comment. Drop order: 3, 2, 1. Migration 2's rollback re-runs the two original migrations verbatim. |
+| Need the whole feature gone | Rollback SQL is in each migration's header comment. Reverse order: **8, 7, 6, 5, 4, then 3, 2, 1**. Migrations 4-8 are `CREATE OR REPLACE` function bodies, so each one's rollback is simply re-applying its predecessor — undo those first, then drop the objects in 3, 2, 1. Migration 2's rollback re-runs the two original migrations verbatim. |
 | Wipe deleted something it shouldn't | **No undo.** Restore from Supabase PITR. This is why 4.4's dry run exists. |
 
 ---

@@ -146,7 +146,10 @@ BEGIN
          AND expires_at > NOW()
     );
 
-    v_hours := 2 + (random() * 12);
+    -- Rounded and bounded ONCE, then used for both the stored duration and the
+    -- expiry. Rounding only at the column left a countdown derived from
+    -- flash_duration_hours drifting up to 30 minutes from the real expires_at.
+    v_hours := GREATEST(1, LEAST(24, round(2 + (random() * 12))));
 
     INSERT INTO public.deals (
       merchant_id, node, title, description, image_url,
@@ -162,7 +165,7 @@ BEGIN
       v_item->>'d',
       public.demo_placeholder_image(),
       'flash',
-      GREATEST(1, LEAST(24, round(v_hours)::SMALLINT)),
+      v_hours::SMALLINT,
       TRUE,
       (8 + floor(random() * 25))::INT,
       floor(random() * 6)::INT,

@@ -1,6 +1,6 @@
 -- ============================================================
 -- Test: demo mode — tagging, isolation, reseed, wipe
---   (migrations 20260729140000 / 141000 / 142000 / 150000 / 160000 / 170000)
+--   (migrations 20260729140000 / 141000 / 142000 / 150000 / 160000 / 170000 / 180000 / 190000)
 --
 -- Self-contained and self-cleaning. Run against a database that has the
 -- migrations applied, e.g.:
@@ -32,7 +32,7 @@
 -- from `make db-verify` there are none, and the suite proceeds normally.
 -- ------------------------------------------------------------------
 DO $$
-DECLARE v_foreign INT;
+DECLARE v_foreign INT; v_trial_eligible INT;
 BEGIN
   SELECT count(*) INTO v_foreign FROM (
     SELECT id FROM public.merchants   WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
@@ -51,19 +51,50 @@ BEGIN
       DETAIL  = 'Scenarios F and G call wipe_demo_data(TRUE), which would DELETE them all.',
       HINT    = 'Run this suite only against a throwaway stack — make db-verify. Never against production.';
   END IF;
+
+  -- Second blast radius, and it is NOT demo-scoped. Scenario D calls
+  -- handle_trial_expiry() with no argument — it processes every eligible
+  -- merchant in the database — while cleanup only removes D's two fixture ids.
+  -- On a database holding real merchants with expired Elite trials, the suite
+  -- starts grace periods, writes agent_tasks and tier_flags, and downgrades
+  -- tiers, then leaves all of it behind. A database with zero demo rows passes
+  -- the check above and is still mutated, so this needs its own guard.
+  --
+  -- Predicates mirror handle_trial_expiry() (20260729141000, phases 1 and 2).
+  SELECT count(*) INTO v_trial_eligible
+    FROM public.merchants
+   WHERE NOT is_demo
+     AND id::text NOT LIKE '9d9d9d9d%'
+     AND elite_trial_active
+     AND (
+       (grace_period_ends_at IS NOT NULL AND grace_period_ends_at < NOW())
+       OR (trial_ends_at IS NOT NULL AND trial_ends_at < NOW()
+           AND grace_period_ends_at IS NULL)
+     );
+
+  IF v_trial_eligible > 0 THEN
+    RAISE EXCEPTION USING
+      MESSAGE = format('REFUSING TO RUN: %s real merchant(s) have an Elite trial this suite would act on.', v_trial_eligible),
+      DETAIL  = 'Scenario D calls handle_trial_expiry() unscoped: it would start grace periods, insert agent_tasks and tier_flags, and downgrade tiers for real merchants, and does not clean them up.',
+      HINT    = 'Run this suite only against a throwaway stack — make db-verify. Never against production.';
+  END IF;
 END $$;
 
 -- Preserve the operator's demo-mode setting: these tests flip it, and leaving
 -- it on would silently expose synthetic data in whatever environment ran them.
+-- All three keys the suite overwrites, not just the flag: scenario E2 retunes
+-- the floor and ceiling, and writing literals back would silently discard
+-- whatever the operator had set for a rehearsal.
 CREATE TEMP TABLE _demo_mode_restore AS
-  SELECT value FROM public.app_config WHERE key = 'demo_mode_enabled';
+  SELECT key, value FROM public.app_config
+   WHERE key IN ('demo_mode_enabled', 'demo_flash_deal_floor', 'demo_flash_deal_ceiling');
 
 -- If the key is missing the snapshot is empty and the restore UPDATE at the
 -- end silently matches nothing, leaving whatever the last scenario wrote. Fail
 -- here instead, where the message still points at the cause.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM _demo_mode_restore) THEN
+  IF NOT EXISTS (SELECT 1 FROM _demo_mode_restore WHERE key = 'demo_mode_enabled') THEN
     RAISE EXCEPTION 'app_config.demo_mode_enabled is missing — the restore step could not honour its contract. Apply 20260729140000_demo_mode_tagging.sql first.';
   END IF;
 END $$;
@@ -80,14 +111,12 @@ BEGIN
   UPDATE public.app_config SET value = ' TRUE ' WHERE key = 'demo_mode_enabled';
   ASSERT public.is_demo_mode(),      'A2: whitespace/case variants of true should enable';
 
-  FOR i IN 1..1 LOOP
-    UPDATE public.app_config SET value = '1'    WHERE key = 'demo_mode_enabled';
-    ASSERT NOT public.is_demo_mode(), 'A3: "1" must NOT enable demo mode';
-    UPDATE public.app_config SET value = 'yes'  WHERE key = 'demo_mode_enabled';
-    ASSERT NOT public.is_demo_mode(), 'A4: "yes" must NOT enable demo mode';
-    UPDATE public.app_config SET value = ''     WHERE key = 'demo_mode_enabled';
-    ASSERT NOT public.is_demo_mode(), 'A5: empty must NOT enable demo mode';
-  END LOOP;
+  UPDATE public.app_config SET value = '1'    WHERE key = 'demo_mode_enabled';
+  ASSERT NOT public.is_demo_mode(), 'A3: "1" must NOT enable demo mode';
+  UPDATE public.app_config SET value = 'yes'  WHERE key = 'demo_mode_enabled';
+  ASSERT NOT public.is_demo_mode(), 'A4: "yes" must NOT enable demo mode';
+  UPDATE public.app_config SET value = ''     WHERE key = 'demo_mode_enabled';
+  ASSERT NOT public.is_demo_mode(), 'A5: empty must NOT enable demo mode';
 
   RAISE NOTICE 'A ok — is_demo_mode() fail-safe';
 END $$;
@@ -286,9 +315,9 @@ BEGIN
    WHERE merchant_id = v_elite AND is_active AND expires_at <= NOW();
   ASSERT v_n = 0, 'E10: no expired demo deal may still be counted as active';
 
+  -- Floor/ceiling are restored from the snapshot at the end of the file, not
+  -- reset to literals here.
   UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled';
-  UPDATE public.app_config SET value = '12' WHERE key = 'demo_flash_deal_floor';
-  UPDATE public.app_config SET value = '40' WHERE key = 'demo_flash_deal_ceiling';
 
   DELETE FROM public.archive_history WHERE merchant_id IN (v_elite, v_standard);
   DELETE FROM public.deals           WHERE merchant_id IN (v_elite, v_standard);
@@ -435,11 +464,72 @@ BEGIN
   RAISE NOTICE 'H ok — non-lead references hold a demo agent through the wipe';
 END $$;
 
+-- Scenario I: a demo USER is blocked by references other than agents.
+--   Same bug class as H, on the other side of the graph. Four non-CASCADE FKs
+--   point at users from rows the wipe does not clear: a real merchant owned by
+--   or onboarded by a demo user, a real redemption made by one, a real fee
+--   reversal approved by one. Any of them aborts the whole wipe.
+--   (migration 20260729190000)
+DO $$
+DECLARE
+  v_demo_m UUID := '9d9d9d9d-0000-4000-a000-000000000050';
+  v_real_m UUID := '9d9d9d9d-0000-4000-a000-000000000051';
+  v_demo_u UUID := '9d9d9d9d-2222-4000-a000-000000000050';
+  v_real_d UUID := '9d9d9d9d-1111-4000-a000-000000000050';
+  v_n INT;
+BEGIN
+  INSERT INTO public.users (id, email, role, is_demo)
+  VALUES (v_demo_u, 'zz-demo-shopper-i@example.test', 'customer', TRUE);
+
+  -- account_balance > 0: the zero-balance gate blocks new deals otherwise, and
+  -- this scenario needs a real deal to hang a real redemption off.
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo, account_balance, onboarded_by_user_id)
+  VALUES (v_real_m, 'ZZ User-Ref Real', 'zz.userref.real', '+254700099051', 'active', FALSE, 500, v_demo_u);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo)
+  VALUES (v_demo_m, 'ZZ User-Ref Demo', 'zz.userref.demo', '+254700099050', 'active', TRUE);
+
+  -- A REAL redemption made by the demo shopper. The wipe deletes redemptions
+  -- on is_demo alone, so this one survives and must hold the user.
+  INSERT INTO public.deals (id, merchant_id, title, image_url, is_active, expires_at, is_demo)
+  VALUES (v_real_d, v_real_m, 'ZZ Real deal I', '/x.png', TRUE, NOW() + INTERVAL '6 hours', FALSE);
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status,
+                                  redeemed_at, expires_at, is_demo)
+  VALUES (v_real_d, v_real_m, v_demo_u, '424242', 'success',
+          NOW() - INTERVAL '1 hour', NOW() - INTERVAL '50 minutes', FALSE);
+
+  -- Would raise a foreign_key_violation before 20260729190000.
+  PERFORM public.wipe_demo_data(TRUE);
+
+  SELECT count(*) INTO v_n FROM public.merchants WHERE id = v_demo_m;
+  ASSERT v_n = 0, 'I1: wipe must still remove demo merchants';
+
+  SELECT count(*) INTO v_n FROM public.users WHERE id = v_demo_u;
+  ASSERT v_n = 1, 'I2: a user a surviving row references must be retained';
+
+  SELECT count(*) INTO v_n FROM public.redemptions WHERE user_id = v_demo_u AND NOT is_demo;
+  ASSERT v_n = 1, 'I3: a real redemption must survive the wipe';
+
+  SELECT count(*) INTO v_n FROM public.merchants WHERE id = v_real_m;
+  ASSERT v_n = 1, 'I4: a real merchant onboarded by a demo user must survive';
+
+  -- The dry run must agree with what actually happens: this user is retained,
+  -- so it must be reported as retained rather than counted for deletion.
+  SELECT rows_affected INTO v_n FROM public.wipe_demo_data()
+   WHERE table_name = 'users RETAINED (still referenced)';
+  ASSERT v_n >= 1, 'I5: dry run must report the retained user';
+
+  DELETE FROM public.redemptions WHERE user_id = v_demo_u;
+  DELETE FROM public.deals       WHERE id = v_real_d;
+  DELETE FROM public.merchants   WHERE id = v_real_m;
+  DELETE FROM public.users       WHERE id = v_demo_u;
+  RAISE NOTICE 'I ok — non-agent references hold a demo user through the wipe';
+END $$;
+
 -- Restore the operator's original demo-mode setting.
 UPDATE public.app_config a
    SET value = r.value
   FROM _demo_mode_restore r
- WHERE a.key = 'demo_mode_enabled';
+ WHERE a.key = r.key;
 
 SELECT 'demo_mode_test: all scenarios passed. demo_mode_enabled restored to '
        || (SELECT value FROM public.app_config WHERE key = 'demo_mode_enabled') AS result;

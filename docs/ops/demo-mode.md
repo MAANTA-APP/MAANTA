@@ -111,8 +111,13 @@ New `app_config` keys: `demo_mode_enabled` (false), `demo_flash_deal_floor`
 - No-ops entirely unless demo mode is on.
 - Fires only when live demo flash deals fall **below the floor** (12); tops up
   toward the **ceiling** (40).
-- Caps **2 live flash deals per merchant**, so the pool is bounded by
-  `eligible demo merchants × 2` regardless of the ceiling.
+- Selects **Elite demo merchants only** — flash is Elite-only in
+  `enforce_deal_limit()`, and picking a Standard merchant aborts the whole run.
+- Respects the Elite allowance of **2**, counted over *every* `is_active` deal
+  whether expired or not, matching the trigger's own predicate. Expired demo
+  deals are retired first (`20260729180000`), or that allowance never frees up.
+- Writes an inline `data:` SVG cover from `demo_placeholder_image()`, so a demo
+  row never depends on an asset in the deployed bundle.
 - Staggered expiries (2–14h) and staggered "posted" times, so the feed shows a
   natural spread rather than a wall of identical timers.
 - Skips a title already live on that merchant.
@@ -137,6 +142,14 @@ a rehearsal carries the disclosure with it.
 Server events carry `is_demo` and, in demo mode, `environment: "demo"` — set
 from `MAANTA_DEMO_MODE` in the app environment rather than a database read,
 because analytics is best-effort and must never add a query to the verify path.
+
+**This is a second switch and it can drift from the first.** `demo_mode_enabled`
+governs visibility; `MAANTA_DEMO_MODE` governs tagging, is read from the server
+bundle, and therefore **only changes on redeploy**. Move them together:
+flag on + env unset means synthetic activity lands in PostHog untagged and
+inflates real numbers; flag off + env set means genuine launch traffic is
+labelled `is_demo` and gets filtered *out* of them. Failure is in the safe
+direction, but it is two levers, not one.
 
 ---
 
@@ -239,10 +252,21 @@ the risk even behind a flag, and none of the app surfaces needed them to look
 populated. The trust strip on the landing page still carries **no numbers** for
 the same reason — see `docs/maanta-landing-page-redesign-brief.md`.
 
-**Reseed cannot reach the floor with a small merchant pool.** With the
-per-merchant cap of 2, the pool maxes at `eligible demo merchants × 2`. Below
-the floor it will run hourly and create 0 — harmless, but it means the floor is
-a target, not a guarantee. With 213 demo merchants this is not a live concern.
+**Reseed cannot reach the floor with a small ELIGIBLE pool.** The bound is
+`eligible Elite demo merchants × 2` — not 213 × 2. Eligibility narrowed twice
+after the first version of this doc: `20260729150000` restricted selection to
+`tier = 'elite'` (its header records **109 of 210** visible demo merchants as
+Standard) and to `account_balance > 0`. So the ceiling of 40 is reachable only
+if at least 20 demo merchants are Elite *and* funded. Below that the job runs
+hourly and creates fewer than asked — harmless, but the floor is a target, not a
+guarantee. Check the real bound before trusting it:
+
+```sql
+SELECT count(*) * 2 AS max_pool
+  FROM public.merchants
+ WHERE is_demo AND status = 'active' AND is_visible
+   AND NOT is_shadow_banned AND tier = 'elite' AND account_balance > 0;
+```
 
 ---
 
