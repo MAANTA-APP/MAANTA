@@ -43,6 +43,15 @@ export async function captureServerEvent(
 
   const host = (process.env.POSTHOG_HOST ?? DEFAULT_HOST).replace(/\/+$/, "");
 
+  // Demo mode marks every event so synthetic activity can be filtered out of
+  // any PostHog insight, rather than silently inflating real numbers. Read
+  // from env, not the database: analytics is best-effort and must never add a
+  // query to the verify path (frozen "never block the shopper"). Operators set
+  // MAANTA_DEMO_MODE alongside flipping app_config for the duration of a
+  // rehearsal — and if it is forgotten, events simply carry is_demo:false,
+  // which is the same state as today rather than a regression.
+  const isDemo = process.env.MAANTA_DEMO_MODE === "true";
+
   try {
     await fetch(`${host}/capture/`, {
       method: "POST",
@@ -51,7 +60,14 @@ export async function captureServerEvent(
         api_key: key,
         event,
         distinct_id: distinctId,
-        properties: { ...properties, $lib: "maanta-server" },
+        properties: {
+          ...properties,
+          $lib: "maanta-server",
+          is_demo: isDemo,
+          // Separate the event stream entirely, so a dashboard built on real
+          // data cannot pick up rehearsal traffic even if a filter is missed.
+          ...(isDemo ? { environment: "demo" } : {}),
+        },
         timestamp: new Date().toISOString(),
       }),
       signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
