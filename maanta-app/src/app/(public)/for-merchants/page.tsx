@@ -21,6 +21,19 @@ const SUCCESS_FEE = 30;
 const EXAMPLE_BEFORE = 500;
 const EXAMPLE_AFTER = 400;
 
+/**
+ * Node 0 launch promo. Frozen at KES 300 for the first 100 merchants
+ * (app_config `node0_opening_credit_kes` / `node0_opening_credit_merchant_cap`),
+ * granted by `activate_merchant` at activation — not at signup — and only
+ * inside the launch window (`node0_launch_period_ends_at`).
+ *
+ * This copy is live-dependent: pull it once the window closes or the cap
+ * fills, or a merchant reads a promise the product will not keep.
+ */
+const OPENING_CREDIT = 300;
+const OPENING_CREDIT_CAP = 100;
+const CREDITED_REDEMPTIONS = Math.floor(OPENING_CREDIT / SUCCESS_FEE);
+
 const STEPS: [string, string][] = [
   ["Post a deal", "Two minutes on your phone. One standard deal is free."],
   ["A shopper claims it", "They get a 6-digit code. Nothing has cost you anything yet."],
@@ -60,6 +73,14 @@ export default function ForMerchantsPage() {
           </div>
           <p className="mt-4 text-[13px] text-white/60">
             Free to list · takes about two minutes
+          </p>
+          <p className="mt-6 inline-flex items-center gap-2 rounded-pill border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white/90">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
+              aria-hidden
+            />
+            First {OPENING_CREDIT_CAP} shops start with{" "}
+            {formatKes(OPENING_CREDIT)} credit
           </p>
         </div>
       </section>
@@ -109,6 +130,24 @@ export default function ForMerchantsPage() {
           The same {formatKes(SUCCESS_FEE)} applies whether the deal is worth{" "}
           {formatKes(200)} or {formatKes(5000)}.
         </p>
+
+        {/* Launch promo — see OPENING_CREDIT above. Stating the cap is both
+            honest and the reason to act now. */}
+        <div className="mt-6 rounded-card border-[1.5px] border-ink bg-brand-tint p-5">
+          <HeadingMd as="h3">
+            Your first {CREDITED_REDEMPTIONS} are on us
+          </HeadingMd>
+          <Body className="mt-2 max-w-xl !text-ink">
+            The first {OPENING_CREDIT_CAP} shops we activate at BBS Mall start
+            with {formatKes(OPENING_CREDIT)} of opening credit — enough to cover{" "}
+            {CREDITED_REDEMPTIONS} verified redemptions before you top up a
+            shilling.
+          </Body>
+          <p className="mt-3 text-xs text-muted">
+            Credit is added when we activate your shop, during the BBS Mall
+            launch period.
+          </p>
+        </div>
       </section>
 
       <section className="border-y border-line bg-white">
