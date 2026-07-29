@@ -59,13 +59,20 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 
 ## 0. What will run
 
-### Migrations (3, applied by `make db-push`)
+### Migrations (7 in total; 5 already applied, 2 pending)
+
+Rows 1-5 were applied to production on 2026-07-29. Rows 6-7 ship with this
+branch and still need `make db-push`.
 
 | # | File | What it does | Reversible by |
 |---|---|---|---|
 | 1 | `20260729140000_demo_mode_tagging.sql` | Adds `is_demo` / `demo_batch_id` / `demo_source` + partial indexes to `users`, `merchants`, `deals`, `redemptions`, `merchant_transactions`. Seeds `demo_mode_enabled=false`, `demo_flash_deal_floor=12`, `demo_flash_deal_ceiling=40`. Creates `is_demo_mode()`. **Backfills the 3 known seed batches.** | `DROP COLUMN` ×3 per table (header has exact SQL). Drops tagging, destroys no rows. |
 | 2 | `20260729141000_demo_mode_isolation.sql` | Re-creates `merchants_public_browse` / `deals_public_browse` with a demo predicate. Re-creates `handle_trial_expiry()` with `AND NOT is_demo` on both loops. Adds `demo_data_census` view. | Re-run `20260726200000_architecture_now_fixes.sql` and `20260701111223_handle_trial_expiry_phase2.sql` — both `CREATE OR REPLACE`. |
 | 3 | `20260729142000_demo_mode_reseed.sql` | Creates `reseed_demo_flash_deals()` and `wipe_demo_data()`. Schedules pg_cron job `maanta_demo_reseed` (hourly at `:07`). | `cron.unschedule('maanta_demo_reseed')` + `DROP FUNCTION` ×2. |
+| 4 | `20260729150000_demo_reseed_respect_deal_limits.sql` | Reseed filters on `tier = 'elite'`, `account_balance > 0` and the real active-deal count, matching `enforce_deal_limit()`. | Re-apply migration 3. |
+| 5 | `20260729160000_demo_reseed_inline_placeholder.sql` | Reseed writes an inline `data:` URI cover instead of a bundle path, so a demo row can't depend on a deployed asset. | Re-apply migration 4. |
+| 6 | `20260729170000_demo_wipe_agent_references.sql` | **Pending.** `wipe_demo_data()` retains a demo agent that ANY surviving row references — six FKs point at `agents(id)`, not just `leads`. Moves the agents delete after merchants. | Re-apply migration 3. |
+| 7 | `20260729180000_demo_reseed_retire_expired.sql` | **Pending.** Reseed deactivates expired demo deals before selecting merchants; without it every Elite demo merchant saturates at the 2-deal cap and the job returns 0 permanently. | Re-apply migration 5. |
 
 **Write scope of migration 1's backfill:** `UPDATE` only, only on rows whose id
 matches a shipped seed prefix (`b0/b1/b2`, `c0/c1/c2`, `d0/d1/d2`, `e0`, `f0`),
@@ -496,11 +503,16 @@ real migration chain:
    Postgres 17 and the real storage/auth images), but it is no longer the only
    thing standing between this work and production.
 
-2. ~~`/demo/deal-placeholder.svg` does not exist.~~ **Closed.** Added at
-   `maanta-app/public/demo/deal-placeholder.svg` and verified serving at
-   `/demo/deal-placeholder.svg` (`200`, `image/svg+xml`). It carries a visible
-   **SAMPLE / demo data** mark, so a deal card screenshotted on its own — away
-   from the demo banner — still discloses that it is synthetic.
+2. ~~`/demo/deal-placeholder.svg` does not exist.~~ **Closed, but not the way
+   this originally said.** The file was added at
+   `maanta-app/public/demo/deal-placeholder.svg`; it serves from a preview
+   deployment of this branch, **not** from production, which runs `main`. That
+   is the whole reason migration 5 exists: a DB row must not point at an asset
+   in a bundle that may not be deployed, so the reseed now writes an inline
+   `data:` URI instead. The SVG is still the higher-fidelity artwork the app
+   uses once deployed. Both carry a visible **SAMPLE / demo data** mark, so a
+   deal card screenshotted on its own — away from the demo banner — still
+   discloses that it is synthetic.
 
 3. **Two switches, not one.** `app_config` drives visibility; `MAANTA_DEMO_MODE`
    drives analytics tagging. Drift is possible. Failure is in the safe direction

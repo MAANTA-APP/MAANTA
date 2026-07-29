@@ -296,7 +296,10 @@ async function selectLiveDealBucket(
 }
 
 /** Live deals for the shopper feed, ranked by verified redemptions within groups. */
-async function getLiveDealsUncached(node: string): Promise<{
+async function getLiveDealsUncached(
+  node: string,
+  includeDemo: boolean
+): Promise<{
   flash: DealRow[];
   boosted: DealRow[];
   nearMe: DealRow[];
@@ -304,9 +307,8 @@ async function getLiveDealsUncached(node: string): Promise<{
 }> {
   // Three bucket queries (not one .limit(60) then filter) so a flood of new
   // standard deals cannot starve flash/boosted rails.
-  // Resolved once per call and threaded into every bucket, so one feed render
-  // does one config read and all three rails agree on the same answer.
-  const includeDemo = await isDemoModeEnabled();
+  // `includeDemo` is resolved by the caller and threaded into every bucket, so
+  // one feed render does one config read and all three rails agree.
   const [flash, boosted, standard] = await Promise.all([
     selectLiveDealBucket(node, "flash", LIVE_DEAL_FLASH_LIMIT, includeDemo),
     selectLiveDealBucket(node, "boosted", LIVE_DEAL_BOOSTED_LIMIT, includeDemo),
@@ -335,9 +337,16 @@ export async function getLiveDeals(node: string): Promise<{
   nearMe: DealRow[];
   verifiedByMerchant: Map<string, number>;
 }> {
+  // Resolved OUTSIDE the cached function on purpose. Inside, the flag would be
+  // baked into the cache entry and a demo-mode toggle would keep serving the
+  // old answer for up to 30s — long enough to show synthetic deals after
+  // switching to launch mode. It is also part of the cache key, so the demo and
+  // launch feeds are separate entries rather than one that overwrites the other.
+  const includeDemo = await isDemoModeEnabled();
+  const mode = includeDemo ? "demo" : "real";
   return unstable_cache(
-    () => getLiveDealsUncached(node),
-    ["live-deals", node],
+    () => getLiveDealsUncached(node, includeDemo),
+    ["live-deals", node, mode],
     { revalidate: 30, tags: [`live-deals-${node}`] }
   )();
 }

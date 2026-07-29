@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { DEMO_BANNER_TEXT, isDemoModeEnabled } from "@/lib/demo-mode";
 
 /**
@@ -13,8 +14,16 @@ import { DEMO_BANNER_TEXT, isDemoModeEnabled } from "@/lib/demo-mode";
  *
  * Deliberately loud rather than tasteful: rust on amber, not a subtle grey
  * footnote. The failure mode this guards against is someone not noticing.
+ *
+ * `noStore()` lives here rather than as a `dynamic` export on each layout so
+ * the guarantee travels with the component. `/` and `/for-merchants` are
+ * otherwise statically rendered, which would bake in whatever demo mode said at
+ * build time — turning demo mode on later would then show synthetic data with
+ * no disclosure above it. That is the one failure this component cannot have,
+ * and a per-layout export is something a future shell can forget to add.
  */
 export async function DemoModeBanner() {
+  noStore();
   if (!(await isDemoModeEnabled())) return null;
 
   return (

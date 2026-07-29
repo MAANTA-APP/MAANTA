@@ -1,6 +1,8 @@
 # Demo mode
 
-**Status:** implemented 2026-07-29, **not yet applied to production**
+**Status:** implemented 2026-07-29; migrations **applied to production** the
+same day and demo mode **enabled** there. The app-side code that acts on the
+flag is not deployed until this branch merges — see "Risks and caveats".
 **Owner:** founder
 **Switch:** `app_config.demo_mode_enabled` (default `false`)
 
@@ -202,9 +204,21 @@ doesn't need the migration again.
 
 ## Risks and caveats
 
-**Not applied to production.** All three migrations are written and tested but
-have not been pushed. `make db-push` is human-run against
-`axrrslqssmbngbataejg` by design.
+**The database is ahead of the app.** All five demo-mode migrations were applied
+to production on 2026-07-29 and `demo_mode_enabled` is `true` there, but
+production serves `main`, which contains none of the app-side filtering, the
+disclosure banner, or the analytics tagging. Until this branch merges and
+deploys:
+
+- the SQL browse views already gate synthetic rows, so the DB is honest;
+- but nothing in the deployed bundle reads the flag, so `make demo-off` does
+  **not** change what the live site renders — it changes what the views return;
+- and the disclosure banner is not on any deployed page.
+
+Verify against the deployed site, not against view counts. Two further
+migrations (`20260729170000`, `20260729180000`) ship with this branch and are
+**not yet applied** — `make db-push` is human-run against `axrrslqssmbngbataejg`
+by design.
 
 **The backfill asserts an audit that may have aged.** It tags exactly the three
 UUID prefixes measured on 2026-07-29 and raises a `NOTICE` listing any merchant

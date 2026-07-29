@@ -111,8 +111,15 @@ demo-seed:
 demo-reseed:
 	@$(DEMO_PSQL) -c "SELECT public.reseed_demo_flash_deals() AS deals_created;"
 
-# Destructive. Shows the dry run first, then requires an explicit yes.
+# Destructive. Refuses while demo mode is on, shows the dry run, then requires
+# an explicit yes. The precondition is enforced, not just documented: wiping
+# while the public site is still serving demo data empties it under live eyes.
 demo-wipe:
+	@on="$$($(DEMO_PSQL) -Atc 'SELECT public.is_demo_mode();')"; \
+	  if [ "$$on" = "t" ]; then \
+	    echo "Refusing: demo mode is ON. Run 'make demo-off' first, then retry."; \
+	    exit 1; \
+	  fi
 	@echo "Dry run — rows that WOULD be deleted:"
 	@$(DEMO_PSQL) -c "SELECT * FROM public.wipe_demo_data();"
 	@printf "Type 'wipe' to delete all demo data: "; read ans; \

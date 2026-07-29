@@ -111,8 +111,16 @@ function makeDealsQuery() {
   return q;
 }
 
+// Records the key every cached read is filed under. The demo flag must be part
+// of it: resolved inside the cached function instead, a demo-mode toggle would
+// keep serving the previous answer for the whole revalidate window.
+const cache = vi.hoisted(() => ({ keys: [] as string[][] }));
+
 vi.mock("next/cache", () => ({
-  unstable_cache: (fn: () => unknown) => () => fn(),
+  unstable_cache: (fn: () => unknown, keys: string[]) => {
+    cache.keys.push(keys);
+    return () => fn();
+  },
 }));
 
 vi.mock("@/lib/supabase/service", () => ({
@@ -236,6 +244,13 @@ describe("getLiveDeals — error vs empty", () => {
     ];
     const res = await getLiveDeals("BBS Mall");
     expect(res.nearMe.map((d) => d.id)).toEqual(["real"]);
+  });
+
+  it("keys the cache entry on the demo flag, so a toggle isn't served stale", async () => {
+    cache.keys.length = 0;
+    await getLiveDeals("BBS Mall");
+    expect(cache.keys).toHaveLength(1);
+    expect(cache.keys[0]).toEqual(["live-deals", "BBS Mall", "real"]);
   });
 
   it("returns empty rails (no throw) when there are genuinely no deals", async () => {

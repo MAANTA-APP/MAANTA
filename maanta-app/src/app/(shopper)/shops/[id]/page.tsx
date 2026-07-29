@@ -47,14 +47,20 @@ export default async function ShopProfilePage({
     isFav = !!fav;
   }
 
+  // The merchant gate above already makes a demo shop unreachable in launch
+  // mode, so this second filter is belt-and-braces: it keeps the rule "no
+  // synthetic row renders unless demo mode is on" true per-row rather than
+  // relying on demo deals only ever hanging off demo merchants.
+  let dealsQuery = service
+    .from("deals")
+    .select("id, title, image_url, expires_at, deal_type")
+    .eq("merchant_id", shop.id)
+    .eq("is_active", true)
+    .gt("expires_at", new Date().toISOString());
+  if (!includeDemo) dealsQuery = dealsQuery.eq("is_demo", false);
+
   const [{ data: deals }, verified] = await Promise.all([
-    service
-      .from("deals")
-      .select("id, title, image_url, expires_at, deal_type")
-      .eq("merchant_id", shop.id)
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
-      .order("expires_at", { ascending: true }),
+    dealsQuery.order("expires_at", { ascending: true }),
     getVerifiedCounts([shop.id]),
   ]);
 

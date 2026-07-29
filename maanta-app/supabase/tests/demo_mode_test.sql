@@ -1,6 +1,6 @@
 -- ============================================================
 -- Test: demo mode — tagging, isolation, reseed, wipe
---   (migrations 20260729140000 / 20260729141000 / 20260729142000)
+--   (migrations 20260729140000 / 141000 / 142000 / 150000 / 160000 / 170000)
 --
 -- Self-contained and self-cleaning. Run against a database that has the
 -- migrations applied, e.g.:
@@ -38,6 +38,11 @@ BEGIN
     SELECT id FROM public.merchants   WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
     UNION ALL SELECT id FROM public.deals WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
     UNION ALL SELECT id FROM public.users WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
+    -- Every table the wipe deletes on `WHERE is_demo` alone belongs here. A
+    -- database holding demo redemption history but no demo merchants would
+    -- otherwise pass the guard and lose it.
+    UNION ALL SELECT id FROM public.redemptions           WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
+    UNION ALL SELECT id FROM public.merchant_transactions WHERE is_demo AND id::text NOT LIKE '9d9d9d9d%'
   ) s;
 
   IF v_foreign > 0 THEN
@@ -52,6 +57,16 @@ END $$;
 -- it on would silently expose synthetic data in whatever environment ran them.
 CREATE TEMP TABLE _demo_mode_restore AS
   SELECT value FROM public.app_config WHERE key = 'demo_mode_enabled';
+
+-- If the key is missing the snapshot is empty and the restore UPDATE at the
+-- end silently matches nothing, leaving whatever the last scenario wrote. Fail
+-- here instead, where the message still points at the cause.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM _demo_mode_restore) THEN
+    RAISE EXCEPTION 'app_config.demo_mode_enabled is missing — the restore step could not honour its contract. Apply 20260729140000_demo_mode_tagging.sql first.';
+  END IF;
+END $$;
 
 -- Scenario A: is_demo_mode() is fail-safe.
 --   Only the exact string 'true' (case/whitespace insensitive) enables demo
@@ -206,6 +221,82 @@ BEGIN
   RAISE NOTICE 'E ok — reseed gated and demo-scoped';
 END $$;
 
+-- Scenario E2: the reseed's CREATION path.
+--   E1-E4 above run entirely with demo mode off, so they only prove the master
+--   switch works — every assertion about created rows passes over an empty set.
+--   This turns demo mode on and exercises what 20260729150000/160000/180000
+--   actually changed: Elite-only eligibility, the active-deal limit, and the
+--   retirement of expired demo deals that would otherwise saturate it.
+DO $$
+DECLARE
+  v_elite    UUID := '9d9d9d9d-0000-4000-a000-000000000040';
+  v_standard UUID := '9d9d9d9d-0000-4000-a000-000000000041';
+  v_created  INT;
+  v_n        INT;
+BEGIN
+  UPDATE public.app_config SET value = 'true'  WHERE key = 'demo_mode_enabled';
+  -- Floor 1 / ceiling 2 keeps the run small and deterministic in intent.
+  UPDATE public.app_config SET value = '1' WHERE key = 'demo_flash_deal_floor';
+  UPDATE public.app_config SET value = '2' WHERE key = 'demo_flash_deal_ceiling';
+
+  INSERT INTO public.merchants
+    (id, merchant_name, what3words_address, phone, status, is_demo, is_visible,
+     tier, account_balance)
+  VALUES
+    (v_elite,    'ZZ Reseed Elite',    'zz.reseed.elite',    '+254700099040',
+     'active', TRUE, TRUE, 'elite',    500),
+    (v_standard, 'ZZ Reseed Standard', 'zz.reseed.standard', '+254700099041',
+     'active', TRUE, TRUE, 'standard', 500);
+
+  v_created := public.reseed_demo_flash_deals();
+  ASSERT v_created > 0, 'E5: reseed must create rows when demo mode is on';
+
+  SELECT count(*) INTO v_n FROM public.deals
+   WHERE merchant_id = v_elite AND demo_source = 'autoreseed'
+     AND is_demo AND deal_type = 'flash';
+  ASSERT v_n > 0, 'E6: an eligible Elite demo merchant must be selected';
+
+  -- Flash is Elite-only in enforce_deal_limit(); picking a Standard merchant
+  -- would raise and abort the whole run.
+  SELECT count(*) INTO v_n FROM public.deals WHERE merchant_id = v_standard;
+  ASSERT v_n = 0, 'E7: a Standard demo merchant must never be selected';
+
+  ASSERT NOT EXISTS (
+    SELECT 1 FROM public.deals WHERE demo_source = 'autoreseed' AND NOT is_demo
+  ), 'E8: every created row must be tagged is_demo';
+
+  -- Saturation: expire the Elite merchant's deals but leave is_active TRUE,
+  -- which is exactly the state the reseed leaves behind an hour later. Before
+  -- 20260729180000 the merchant stayed pinned at the limit and the job returned
+  -- 0 forever, draining the pool.
+  --   Two rounds, because one merchant reaches the cap of 2 only on the second
+  --   pass — and the whole point is that the failure is slow. Round 2 is where
+  --   the unfixed function goes to 0 and stays there.
+  FOR v_n IN 1..2 LOOP
+    UPDATE public.deals SET expires_at = NOW() - INTERVAL '1 hour'
+     WHERE merchant_id = v_elite AND is_demo;
+
+    v_created := public.reseed_demo_flash_deals();
+    ASSERT v_created > 0,
+      format('E9: expired demo deals must be retired so the reseed can refill (round %s returned %s)',
+             v_n, v_created);
+  END LOOP;
+
+  SELECT count(*) INTO v_n FROM public.deals
+   WHERE merchant_id = v_elite AND is_active AND expires_at <= NOW();
+  ASSERT v_n = 0, 'E10: no expired demo deal may still be counted as active';
+
+  UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled';
+  UPDATE public.app_config SET value = '12' WHERE key = 'demo_flash_deal_floor';
+  UPDATE public.app_config SET value = '40' WHERE key = 'demo_flash_deal_ceiling';
+
+  DELETE FROM public.archive_history WHERE merchant_id IN (v_elite, v_standard);
+  DELETE FROM public.deals           WHERE merchant_id IN (v_elite, v_standard);
+  DELETE FROM public.tier_flags      WHERE merchant_id IN (v_elite, v_standard);
+  DELETE FROM public.merchants       WHERE id IN (v_elite, v_standard);
+  RAISE NOTICE 'E2 ok — reseed creates Elite-only rows and retires expired ones';
+END $$;
+
 -- Scenario F: wipe_demo_data() is dry-run by default and spares real rows.
 DO $$
 DECLARE
@@ -276,10 +367,72 @@ BEGIN
   SELECT count(*) INTO v_n FROM public.leads WHERE converted_to = v_demo_m;
   ASSERT v_n = 0, 'G3: leads must be detached from wiped demo merchants';
 
-  DELETE FROM public.audit_logs WHERE merchant_id = v_real_m;
-  DELETE FROM public.leads      WHERE converted_to IS NULL;
+  -- Clean up EVERY fixture this scenario created, scoped to the agent it made.
+  -- `WHERE converted_to IS NULL` would have matched every real unconverted lead
+  -- in the database, so scoping is not tidiness — it is the difference between
+  -- a self-contained test and a data-loss bug. The demo agent and its user are
+  -- deliberately spared by wipe_demo_data (leads.agent_id is NOT NULL), so they
+  -- are removed here too, otherwise a second run collides on the fixed UUID.
+  DELETE FROM public.audit_logs WHERE agent_id = v_agent;
+  DELETE FROM public.leads      WHERE agent_id = v_agent;
   DELETE FROM public.merchants  WHERE id = v_real_m;
+  DELETE FROM public.agents     WHERE id = v_agent;
+  DELETE FROM public.users      WHERE id = v_demo_u;
   RAISE NOTICE 'G ok — wipe clears blocking dependents, spares real trails';
+END $$;
+
+-- Scenario H: a demo agent is blocked by references OTHER than leads.
+--   Five columns point at agents(id), all ON DELETE NO ACTION. Scenario G
+--   covers the leads route; this covers the two that survive on a REAL parent
+--   — an audit of a real merchant, and onboarding attribution on one — which
+--   the original leads-only guard walked straight into.
+--   (migration 20260729170000)
+DO $$
+DECLARE
+  v_demo_m UUID := '9d9d9d9d-0000-4000-a000-000000000032';
+  v_real_m UUID := '9d9d9d9d-0000-4000-a000-000000000033';
+  v_demo_u UUID := '9d9d9d9d-2222-4000-a000-000000000032';
+  v_agent  UUID;
+  v_n INT;
+BEGIN
+  INSERT INTO public.users (id, email, role, is_demo)
+  VALUES (v_demo_u, 'zz-demo-agent-h@example.test', 'agent', TRUE);
+  -- Deliberately NO lead: the old guard would have deleted this agent.
+  INSERT INTO public.agents (user_id) VALUES (v_demo_u) RETURNING id INTO v_agent;
+
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo, onboarded_by)
+  VALUES (v_real_m, 'ZZ Agent-Ref Real', 'zz.agentref.real', '+254700099033', 'active', FALSE, v_agent);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status, is_demo)
+  VALUES (v_demo_m, 'ZZ Agent-Ref Demo', 'zz.agentref.demo', '+254700099032', 'active', TRUE);
+
+  -- The demo agent audited a REAL merchant. audit_logs.agent_id is NOT NULL
+  -- and the wipe only clears rows on DEMO merchants, so this row survives and
+  -- must hold the agent.
+  INSERT INTO public.audit_logs (agent_id, merchant_id) VALUES (v_agent, v_real_m);
+
+  -- Would raise a foreign_key_violation before 20260729170000.
+  PERFORM public.wipe_demo_data(TRUE);
+
+  SELECT count(*) INTO v_n FROM public.merchants WHERE id = v_demo_m;
+  ASSERT v_n = 0, 'H1: wipe must still remove demo merchants';
+
+  SELECT count(*) INTO v_n FROM public.agents WHERE id = v_agent;
+  ASSERT v_n = 1, 'H2: an agent a surviving row references must be retained';
+
+  SELECT count(*) INTO v_n FROM public.users WHERE id = v_demo_u;
+  ASSERT v_n = 1, 'H3: the user behind a retained agent must be retained too';
+
+  SELECT count(*) INTO v_n FROM public.audit_logs WHERE merchant_id = v_real_m;
+  ASSERT v_n = 1, 'H4: a real merchant''s audit trail must survive the wipe';
+
+  SELECT count(*) INTO v_n FROM public.merchants WHERE id = v_real_m;
+  ASSERT v_n = 1, 'H5: a real merchant onboarded by a demo agent must survive';
+
+  DELETE FROM public.audit_logs WHERE agent_id = v_agent;
+  DELETE FROM public.merchants  WHERE id = v_real_m;
+  DELETE FROM public.agents     WHERE id = v_agent;
+  DELETE FROM public.users      WHERE id = v_demo_u;
+  RAISE NOTICE 'H ok — non-lead references hold a demo agent through the wipe';
 END $$;
 
 -- Restore the operator's original demo-mode setting.

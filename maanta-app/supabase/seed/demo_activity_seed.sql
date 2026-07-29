@@ -96,7 +96,7 @@ BEGIN
   -- Fail loudly rather than leaving a half-populated demo: no shopper users
   -- means the CROSS JOIN LATERAL produced nothing and the seed silently no-oped.
   IF v_n = 0 THEN
-    RAISE WARNING 'demo activity seed produced no rows — are there demo merchants, demo deals, and demo users with role=customer?';
+    RAISE EXCEPTION 'demo activity seed produced no rows — are there demo merchants, demo deals, and demo users with role=customer?';
   END IF;
 END $$;
 
