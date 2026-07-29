@@ -30,6 +30,11 @@ export default function LandingPage() {
           <p className="animate-fade-in text-[11px] font-semibold uppercase tracking-[0.16em] text-brand">
             Maanta
           </p>
+          {/* R-TAGLINE — the tagline is frozen, exact, and belongs on the one
+              screen that introduces the product. */}
+          <p className="animate-fade-in mt-1.5 text-sm font-semibold text-white/80">
+            Discover, Claim and Redeem.
+          </p>
           <HeadingLg className="mx-auto mt-3 max-w-xl animate-fade-in text-white sm:text-[2.35rem]">
             Claim in‑mall deals before you pay.
           </HeadingLg>

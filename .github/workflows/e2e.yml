@@ -114,3 +114,106 @@ jobs:
           E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
           E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
         run: npm run test:e2e
+
+  # Layer 2 of the design-truth contract: one browser check per `smoke: true`
+  # frame, generated from design/current-reality/frames.json. Separate from the
+  # golden path because it needs the FULL test-role set (six accounts) and four
+  # seed rows, not just shopper + merchant. Layer 1 runs on every PR in ci.yml.
+  #
+  # To enable, in addition to the golden-path setup above:
+  #   Variable E2E_DESIGN_TRUTH = true
+  #   Env secrets on `e2e`: E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE,
+  #     E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY, E2E_STORAGE_AGENT, E2E_STORAGE_ADMIN
+  #     (shopper and merchant reuse E2E_SHOPPER_STORAGE / E2E_MERCHANT_STORAGE)
+  #   Env secrets for the seed rows: E2E_SEED_DEAL_ID, E2E_SEED_TICKET_ID,
+  #     E2E_SEED_LEAD_ID, E2E_SEED_HELD_REDEMPTION_ID
+  design-truth-smoke:
+    if: ${{ vars.E2E_BASE_URL != '' && vars.E2E_DESIGN_TRUTH == 'true' && github.ref == 'refs/heads/main' }}
+    # Runs after the golden path, not beside it: both drive the same mutable
+    # backend, and a redemption completing mid-navigation would flake the smoke
+    # assertions for no useful signal.
+    needs: e2e
+    runs-on: ubuntu-latest
+    environment: e2e
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+    steps:
+      - name: Guard the E2E target (non-prod only)
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+          E2E_ALLOWED_HOST: ${{ vars.E2E_ALLOWED_HOST }}
+        run: |
+          set -euo pipefail
+          case "$E2E_BASE_URL" in
+            *maanta.app*)
+              echo "::error::E2E_BASE_URL points at a production host (maanta.app) — refusing. Smoke drives admin and founder ops surfaces."
+              exit 1 ;;
+          esac
+          if [ -n "${E2E_ALLOWED_HOST:-}" ] && [ "${E2E_BASE_URL#*"$E2E_ALLOWED_HOST"}" = "$E2E_BASE_URL" ]; then
+            echo "::error::E2E_BASE_URL ($E2E_BASE_URL) is not in the approved non-prod allowlist (E2E_ALLOWED_HOST=$E2E_ALLOWED_HOST)."
+            exit 1
+          fi
+          echo "E2E target OK: $E2E_BASE_URL"
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: maanta-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm i -D --no-save @playwright/test
+          npx playwright install --with-deps chromium
+
+      # The spec itself throws `missing test role: <role>` for an absent account,
+      # so a partial run fails rather than covering 9 of 14 frames in green. This
+      # step is the earlier, clearer version of the same failure.
+      - name: Require the full role set and seed rows
+        env:
+          E2E_STORAGE_SHOPPER: ${{ secrets.E2E_SHOPPER_STORAGE }}
+          E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE: ${{ secrets.E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE }}
+          E2E_STORAGE_MERCHANT: ${{ secrets.E2E_MERCHANT_STORAGE }}
+          E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY: ${{ secrets.E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY }}
+          E2E_STORAGE_AGENT: ${{ secrets.E2E_STORAGE_AGENT }}
+          E2E_STORAGE_ADMIN: ${{ secrets.E2E_STORAGE_ADMIN }}
+          E2E_SEED_DEAL_ID: ${{ secrets.E2E_SEED_DEAL_ID }}
+          E2E_SEED_TICKET_ID: ${{ secrets.E2E_SEED_TICKET_ID }}
+          E2E_SEED_LEAD_ID: ${{ secrets.E2E_SEED_LEAD_ID }}
+          E2E_SEED_HELD_REDEMPTION_ID: ${{ secrets.E2E_SEED_HELD_REDEMPTION_ID }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in E2E_STORAGE_SHOPPER E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE \
+                   E2E_STORAGE_MERCHANT E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY \
+                   E2E_STORAGE_AGENT E2E_STORAGE_ADMIN \
+                   E2E_SEED_DEAL_ID E2E_SEED_TICKET_ID E2E_SEED_LEAD_ID \
+                   E2E_SEED_HELD_REDEMPTION_ID; do
+            if [ -z "${!v:-}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::design-truth smoke is enabled but these are unset:$missing — a partial run would report coverage it does not have."
+            exit 1
+          fi
+          echo "All roles and seed rows present."
+
+      - name: Run design-truth smoke (Layer 2)
+        env:
+          E2E_STORAGE_SHOPPER: ${{ secrets.E2E_SHOPPER_STORAGE }}
+          E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE: ${{ secrets.E2E_STORAGE_SHOPPER_UNVERIFIED_PHONE }}
+          E2E_STORAGE_MERCHANT: ${{ secrets.E2E_MERCHANT_STORAGE }}
+          E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY: ${{ secrets.E2E_STORAGE_MERCHANT_STAFF_NO_VERIFY }}
+          E2E_STORAGE_AGENT: ${{ secrets.E2E_STORAGE_AGENT }}
+          E2E_STORAGE_ADMIN: ${{ secrets.E2E_STORAGE_ADMIN }}
+          E2E_SEED_DEAL_ID: ${{ secrets.E2E_SEED_DEAL_ID }}
+          E2E_SEED_TICKET_ID: ${{ secrets.E2E_SEED_TICKET_ID }}
+          E2E_SEED_LEAD_ID: ${{ secrets.E2E_SEED_LEAD_ID }}
+          E2E_SEED_HELD_REDEMPTION_ID: ${{ secrets.E2E_SEED_HELD_REDEMPTION_ID }}
+        run: npm run test:design-truth:smoke

@@ -9,8 +9,13 @@ export default function PricingPage() {
           <p className="mt-2 text-sm text-muted">
             1 standard deal · KES 30 success fee per verified redemption
           </p>
-          <p className="mt-6 text-3xl font-black text-ink">Free</p>
-          <p className="mt-1 text-xs text-faint">pay only when a redemption is verified</p>
+          {/* R-PLAN-NAMES: the plans are Standard and Elite. Standard has no
+              monthly fee, but it is never called "Free" — the success fee is the
+              price, and naming a plan "Free" hides it. */}
+          <p className="tnum mt-6 text-3xl font-black text-ink">KES 0</p>
+          <p className="mt-1 text-xs text-secondary">
+            per month · pay only when a redemption is verified
+          </p>
         </div>
         <div className="rounded-card border-[3px] border-ink bg-ink p-6">
           <h2 className="text-lg font-bold text-brand">Elite</h2>

@@ -1,8 +1,42 @@
 # Skills: frozen UI — overall handoff
 
-Last updated: 2026-07-26 · Status: **repo-side seed — reconcile with the Notion
+Last updated: 2026-07-29 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
+
+### Update — 2026-07-29: design-truth contract landed (`docs/skills/design-truth-contract.md`)
+
+The audited current-reality frames now live at `maanta-app/design/current-reality/`
+and are validated on every PR by `src/lib/design-truth/` (Layer 1, 19
+assertions — including that every frame `route` resolves to a real `src/app`
+page). `e2e/design-truth-smoke.spec.ts` generates one browser check per
+`smoke: true` frame **from the contract**, as an opt-in `e2e.yml` job.
+
+Nine screens changed to make declared states and rules real, all within the
+frozen tokens and vocabulary — no surface moved, no palette value changed. The
+two that matter most:
+
+- **Top-up (money trust).** Returning from Stripe Checkout rendered a green tick
+  and "Top-up received" before the webhook credited the wallet. It now renders a
+  distinct pending state and only claims "added" once the balance actually rises;
+  a card wait that times out reads "still pending", never "not completed".
+- **Pricing copy.** Standard's price read **"Free"**, which R-PLAN-NAMES forbids
+  (the plans are Standard and Elite; naming one "Free" hides the success fee).
+  Now `KES 0` / "per month · pay only when a redemption is verified". The
+  `frozen-ui-rules` ratchet bans "free plan" but not the bare word, so this had
+  slipped through.
+
+Also: the claimed code carries the frozen validity sentence plus a real
+grace-period state; the till gained an `sr-only` `<h1>` (it had no page heading);
+the staff verify gate now names the owner and offers a `tel:` contact; Browse
+distinguishes "nothing nearby" from a filter miss; the landing hero carries the
+exact tagline **Discover, Claim and Redeem.**
+
+**D-07 verify-anyway is still open and this repo has already picked a side** —
+`redeem-keypad.tsx` warns on a location mismatch and leaves Confirm enabled, per
+the rule stated under "UI-visible business rules" below. The current-reality
+frames show a hard rejection instead. Do not build the reject path without a
+decisions-log entry.
 
 ### Update — 2026-07-26: Discover rails + Browse map (within Frozen tokens)
 

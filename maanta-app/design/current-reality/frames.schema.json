@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maanta.app/schemas/current-reality/frames.schema.json",
+  "title": "Maanta current-reality mirror",
+  "description": "Contract artifact for audited current-state design truth. Validates structure, enums, provenance labelling, and smoke-eligibility completeness.",
+  "type": "object",
+  "required": ["mirror", "runtimeRules", "frames", "superseded", "drift"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "mirror": {
+      "type": "object",
+      "required": ["artifact", "version", "generatedFrom", "provenance", "truthOrder", "verifiedAgainst", "stage"],
+      "additionalProperties": true,
+      "properties": {
+        "artifact": { "const": "maanta-current-reality" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "generatedFrom": { "type": "string", "minLength": 8 },
+        "provenance": {
+          "type": "string",
+          "description": "Must state that the mirror is design-authored, not repo-extracted. Guards against the mirror being passed off as generated.",
+          "pattern": "NOT EXTRACTED FROM THE REPO"
+        },
+        "truthOrder": {
+          "type": "array",
+          "description": "Notion outranks repo, repo outranks design system. Order is fixed.",
+          "items": { "type": "string" },
+          "prefixItems": [
+            { "const": "notion:product-and-current-state" },
+            { "const": "repo:implementation" },
+            { "const": "design-system:visual" }
+          ],
+          "minItems": 3, "maxItems": 3
+        },
+        "verifiedAgainst": {
+          "type": "object",
+          "required": ["repo", "branch", "date"],
+          "properties": {
+            "repo": { "type": "string", "pattern": "^[\\w.-]+/[\\w.-]+$" },
+            "branch": { "type": "string" },
+            "treeSha": { "type": "string" },
+            "date": { "type": "string", "format": "date" }
+          }
+        },
+        "stage": { "type": "string" },
+        "liveNodes": { "type": "array", "items": { "type": "string" } },
+        "rehearsalNodes": { "type": "array", "items": { "type": "string" } },
+        "knownRepoDesignMirror": { "type": "string" }
+      }
+    },
+    "runtimeRules": {
+      "type": "object",
+      "description": "Rule id to plain-language statement. Frames reference these by id; a frame may not invent an inline rule.",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^R-[A-Z0-9-]+$" },
+      "additionalProperties": { "type": "string", "minLength": 12 }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/frame" }
+    },
+    "superseded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "what", "why", "replacedBy"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "what": { "type": "string" },
+          "why": { "type": "string", "minLength": 12 },
+          "replacedBy": { "type": "string", "minLength": 2 }
+        }
+      }
+    },
+    "drift": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "classification", "blockedOn", "what", "detail", "where"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^D-\\d{2}$" },
+          "classification": { "enum": ["current-mismatch", "design-ahead", "historical", "blocked-on-prototype"] },
+          "blockedOn": { "enum": ["code", "product-decision", "prototype", "provenance", "none"] },
+          "what": { "type": "string" },
+          "detail": { "type": "string", "minLength": 20 },
+          "where": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "frame": {
+      "type": "object",
+      "required": [
+        "id", "name", "role", "route", "status", "job", "primaryAction",
+        "runtimeRule", "states", "stateCoverage", "prototypeStatus",
+        "captureReadiness", "evidenceSource", "sourceFiles", "smoke"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 2 },
+        "name": { "type": "string", "minLength": 3 },
+        "role": { "enum": ["shopper", "merchant", "agent", "founder", "admin", "public"] },
+        "route": {
+          "type": "string",
+          "description": "Next.js app-router path. Dynamic segments as [id].",
+          "pattern": "^/([\\w\\-\\[\\]().]+(/[\\w\\-\\[\\]().]+)*)?$"
+        },
+        "status": { "enum": ["live", "gated", "blocked", "rehearsal", "design-ahead"] },
+        "job": { "type": "string", "minLength": 12 },
+        "primaryAction": { "type": "string", "minLength": 3 },
+        "runtimeRule": { "type": "string", "pattern": "^R-[A-Z0-9-]+$" },
+        "states": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "stateCoverage": {
+          "type": "object",
+          "description": "Which of the frame's declared states are actually rendered somewhere reviewable, and which are not. Structured so a reviewer can see WHICH state is missing, not just a ratio.",
+          "required": ["covered", "missing"],
+          "additionalProperties": false,
+          "properties": {
+            "covered": { "type": "array", "items": { "type": "string" } },
+            "missing": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "prototypeStatus": { "enum": ["clickable", "blocked-design", "blocked-product", "blocked-code", "current-not-clickable"] },
+        "prototypeBlockedReason": { "type": "string", "minLength": 15 },
+        "prototypeRef": {
+          "type": "string",
+          "description": "role/screen key of the reachable prototype screen. Required when prototypeStatus is clickable, so a clickable claim always names the screen that proves it.",
+          "pattern": "^(shopper|merchant|agent|founder|admin)/[a-z]+$"
+        },
+        "captureReadinessReason": { "type": "string", "minLength": 10 },
+        "captureReadiness": { "enum": ["safe-now", "after-copy", "after-data", "internal-only"] },
+        "evidenceSource": { "enum": ["repo", "repo+notion", "repo-partial"] },
+        "sourceFiles": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^src/" } },
+        "canvasRef": { "type": "string" },
+        "supersedes": { "type": "string" },
+        "driftId": { "type": "string", "pattern": "^D-\\d{2}$" },
+        "notes": { "type": "string" },
+        "smoke": { "type": "boolean" },
+        "expectedHeading": { "type": "string", "minLength": 2 },
+        "expectedAnchor": { "type": "string", "minLength": 2 },
+        "redirectTarget": { "type": "string", "pattern": "^/" },
+        "requiredRole": { "type": "string", "minLength": 3 },
+        "authState": { "enum": ["anonymous", "authenticated", "authenticated-unverified-phone", "role-session"] }
+      },
+      "allOf": [
+        {
+          "$comment": "Anti-fake-sync 1: opting into smoke coverage requires a real user-facing anchor plus a role and auth state. A smoke frame cannot be declared without saying how to test it.",
+          "if": { "properties": { "smoke": { "const": true } }, "required": ["smoke"] },
+          "then": {
+            "required": ["requiredRole", "authState"],
+            "anyOf": [ { "required": ["expectedHeading"] }, { "required": ["expectedAnchor"] } ]
+          }
+        },
+        {
+          "$comment": "Anti-fake-sync 2: any blocked prototype status must carry a written reason.",
+          "if": { "properties": { "prototypeStatus": { "enum": ["blocked-design", "blocked-product", "blocked-code", "current-not-clickable"] } }, "required": ["prototypeStatus"] },
+          "then": { "required": ["prototypeBlockedReason"] }
+        },
+        {
+          "$comment": "Anti-fake-sync 3: a design-ahead frame must not claim full repo evidence, and must link the drift row that tracks it.",
+          "if": { "properties": { "status": { "const": "design-ahead" } }, "required": ["status"] },
+          "then": {
+            "required": ["driftId"],
+            "properties": { "evidenceSource": { "const": "repo-partial" } }
+          }
+        },
+        {
+          "$comment": "Anti-fake-sync 4: a design-ahead frame may not be smoke-tested — smoke asserts shipped behaviour.",
+          "if": { "properties": { "status": { "const": "design-ahead" } }, "required": ["status"] },
+          "then": { "properties": { "smoke": { "const": false } } }
+        },
+        {
+          "$comment": "Anti-fake-sync 6: a clickable prototype claim must name the screen that proves it. This is the rule that catches a frame claiming coverage for markup that cannot render.",
+          "if": { "properties": { "prototypeStatus": { "const": "clickable" } }, "required": ["prototypeStatus"] },
+          "then": { "required": ["prototypeRef"] }
+        },
+        {
+          "$comment": "Anti-fake-sync 7: any capture label other than safe-now must say what blocks it, so screenshot planning never guesses.",
+          "if": { "properties": { "captureReadiness": { "enum": ["after-copy", "after-data", "internal-only"] } }, "required": ["captureReadiness"] },
+          "then": { "required": ["captureReadinessReason"] }
+        },
+        {
+          "$comment": "Anti-fake-sync 5: internal-only capture readiness is required for founder and admin surfaces — ops tooling is never public marketing material.",
+          "if": { "properties": { "role": { "enum": ["founder", "admin"] } }, "required": ["role"] },
+          "then": { "properties": { "captureReadiness": { "const": "internal-only" } } }
+        }
+      ]
+    }
+  }
+}
