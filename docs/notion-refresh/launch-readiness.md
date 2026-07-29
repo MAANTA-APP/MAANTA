@@ -66,15 +66,18 @@ M1–M7 largely ⬜ / not campaign-live — agency brief exists; handoff incompl
 
 ## Prod apply checklist (human-owned)
 
-Carry forward and refresh the 2026-07-27 checklist:
+Updated 2026-07-28 — see `docs/ops/backend-prod-setup-status-2026-07.md` and
+`docs/ops/founder-backend-prod-checklist-2026-07.md`.
 
-- [ ] Apply pending migrations to `axrrslqssmbngbataejg` (`docs/ops/supabase-migrations.md` / `make db-prod-fixup`)
+- [x] Apply pending migrations to `axrrslqssmbngbataejg` — **verified aligned** (67/67; dry-run up to date)
+- [x] Node 0 100-deal seed refreshed (100 live) + Nairobi 150 + @maanta.app test accounts applied
+- [ ] Confirm Vercel Production **required-now** env set (founder checklist) + redeploy
 - [ ] Confirm `W3W_API_KEY` on Vercel
-- [ ] Run Node 0 seed / Nairobi seeds intentionally; record counts
-- [ ] Confirm Production auth strategy (`clerk` vs `supabase`) and dashboard URL/SMTP/SMS settings
+- [ ] Confirm Production auth strategy (`clerk` vs `supabase`) and Clerk dashboard URL/SMS settings
 - [ ] Smoke `/feed`, `/browse`, map, claim, verify, `/founder`
 - [x] Sentry + PostHog on Vercel (confirmed 2026-07-27) — still verify live events
 - [ ] 2-phone golden path at BBS
+- [ ] Dedupe duplicate `admin@maanta.app` Clerk user rows
 
 ## Tonight / this week vs launch
 

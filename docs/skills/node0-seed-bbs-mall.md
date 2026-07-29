@@ -63,6 +63,10 @@ Cloud agents without `DATABASE_URL` / unauthenticated Supabase MCP **cannot**
 run this seed. Paste the connection string when prompted; do not paste it into chat
 logs permanently.
 
+If `db.<ref>.supabase.co` is IPv6-only and the agent host has no IPv6, use the
+**session pooler** URI (`postgres.<ref>@aws-0-eu-west-1.pooler.supabase.com:5432`)
+instead of the direct DB host. See `docs/ops/backend-prod-setup-status-2026-07.md`.
+
 ## Nairobi 3-node seed (150 merchants — 2026-07)
 
 For multi-node rehearsal (BBS + CBD Galleria + Westlands Hub), use the newer seed:
