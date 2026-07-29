@@ -7,6 +7,7 @@ import {
   type PostgrestLikeError,
 } from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
+import type { AppRole } from "@/lib/roles";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
@@ -27,7 +28,7 @@ export type AppUser = {
   phone: string | null;
   email: string | null;
   full_name: string | null;
-  role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin";
+  role: AppRole;
 };
 
 /** The signed-in Clerk user's public.users row (null when signed out). */

@@ -1,4 +1,5 @@
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { SettingsRow } from "@/components/ui/cards";
 import SignOutButton from "@/app/sign-out-button";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function MerchantSettingsPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant, isOwner } = res.ctx;
+  const { merchant, isOwner, permissions } = res.ctx;
 
   return (
     <main className="px-4 pt-5">
@@ -19,7 +20,9 @@ export default async function MerchantSettingsPage() {
           label="Location & floor"
           value={[merchant.floor, merchant.unit_number].filter(Boolean).join(", ")}
         />
-        <SettingsRow href="/merchant/plan" label="Plan & billing" />
+        {canUseMerchantSurface("plan", permissions) ? (
+          <SettingsRow href="/merchant/plan" label="Plan & billing" />
+        ) : null}
         {isOwner ? <SettingsRow href="/merchant/staff" label="Staff" /> : null}
         <SettingsRow href="/merchant/support" label="Support" />
       </div>

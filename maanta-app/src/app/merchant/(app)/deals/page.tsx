@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { MerchantDealRow } from "@/components/ui/cards";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
@@ -18,7 +19,11 @@ export const dynamic = "force-dynamic";
 export default async function MerchantDealsPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
+  // Deep-linked staff without `can_deals` get the read-only list, not create
+  // CTAs that bounce off the wizard's permission notice (/api/deals is the
+  // authority and already 403s).
+  const canDeals = canUseMerchantSurface("deals", permissions);
   await expireStaleBoosts(merchant.id);
 
   const service = createServiceClient();
@@ -68,13 +73,15 @@ export default async function MerchantDealsPage() {
     <main className="px-4 pt-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">My deals</h1>
-        <Link
-          href="/merchant/deals/new"
-          aria-label="New deal"
-          className="rounded-full bg-cream p-2 text-ink hover:bg-cream-dark"
-        >
-          <IconPlus className="h-5 w-5" />
-        </Link>
+        {canDeals ? (
+          <Link
+            href="/merchant/deals/new"
+            aria-label="New deal"
+            className="rounded-full bg-cream p-2 text-ink hover:bg-cream-dark"
+          >
+            <IconPlus className="h-5 w-5" />
+          </Link>
+        ) : null}
       </div>
       <p className="mt-1 text-xs text-muted">Active deals</p>
 
@@ -82,8 +89,8 @@ export default async function MerchantDealsPage() {
         <EmptyState
           title={emptyTitle}
           sub={emptySub}
-          actionLabel="Create your first deal"
-          actionHref="/merchant/deals/new"
+          actionLabel={canDeals ? "Create your first deal" : undefined}
+          actionHref={canDeals ? "/merchant/deals/new" : undefined}
         />
       ) : (
         <div className="mt-4 space-y-3">
@@ -106,11 +113,13 @@ export default async function MerchantDealsPage() {
         {limit > 1 ? "s" : ""} at a time · Wallet {formatKes(merchant.account_balance)}
       </p>
 
-      <div className="mt-5">
-        <ButtonLink href="/merchant/deals/new" variant="ghost" full>
-          New deal
-        </ButtonLink>
-      </div>
+      {canDeals ? (
+        <div className="mt-5">
+          <ButtonLink href="/merchant/deals/new" variant="ghost" full>
+            New deal
+          </ButtonLink>
+        </div>
+      ) : null}
 
       <Link
         href="/merchant/deals/archived"

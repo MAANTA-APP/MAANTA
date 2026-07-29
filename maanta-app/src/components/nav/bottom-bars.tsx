@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui";
+import type { StaffPermissions } from "@/lib/merchant";
+import {
+  merchantBottomNavItems,
+  type MerchantSurface,
+} from "@/lib/merchant-nav";
 import {
   IconHome,
   IconPin,
@@ -77,7 +82,10 @@ export function ShopperBottomBar() {
     },
   ];
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav
+      aria-label="Shopper"
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)]"
+    >
       <div className="flex">
         {items.map((i) => (
           <BarLink
@@ -94,41 +102,47 @@ export function ShopperBottomBar() {
   );
 }
 
-/** 5b Merchant bottom bar — Redeem / Deals / Wallet / More. */
+const MERCHANT_ICONS: Record<
+  MerchantSurface,
+  (p: { className?: string }) => React.ReactNode
+> = {
+  redeem: IconKeypad,
+  deals: IconTicket,
+  wallet: IconWallet,
+  topup: IconWallet,
+  plan: IconMore,
+  more: IconMore,
+};
+
+/**
+ * 5b Merchant bottom bar — Redeem / Deals / Wallet / More, filtered to the
+ * tabs this user can actually use (`merchantBottomNavItems`). An owner holds
+ * every permission, so the owner bar is unchanged; verify-only staff get a
+ * deliberately verify-focused shell instead of tabs that dead-end on a
+ * permission notice.
+ */
 // Widens to lg:max-w-3xl to stay flush with the merchant frame, which itself
 // widens at lg for the tablet-at-the-till two-pane redeem layout. (Was capped
 // at max-w-mobile, leaving a 430px nav island under a 768px column.)
-export function MerchantBottomBar() {
+export function MerchantBottomBar({
+  permissions,
+}: {
+  permissions: StaffPermissions;
+}) {
   const pathname = usePathname();
-  const items = [
-    { href: "/merchant/redeem", label: "Redeem", icon: IconKeypad, match: ["/merchant/redeem"] },
-    { href: "/merchant/deals", label: "Deals", icon: IconTicket, match: ["/merchant/deals"] },
-    { href: "/merchant/wallet", label: "Wallet", icon: IconWallet, match: ["/merchant/wallet", "/merchant/topup"] },
-    {
-      href: "/merchant/more",
-      label: "More",
-      icon: IconMore,
-      match: [
-        "/merchant/more",
-        "/merchant/dashboard",
-        "/merchant/settings",
-        "/merchant/plan",
-        "/merchant/staff",
-        "/merchant/support",
-        "/merchant/alerts",
-        "/merchant/redemptions",
-      ],
-    },
-  ];
+  const items = merchantBottomNavItems(permissions);
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)] lg:max-w-3xl">
+    <nav
+      aria-label="Merchant"
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-mobile border-t border-line bg-white pb-[env(safe-area-inset-bottom)] lg:max-w-3xl"
+    >
       <div className="flex">
         {items.map((i) => (
           <BarLink
             key={i.href}
             href={i.href}
             label={i.label}
-            icon={i.icon}
+            icon={MERCHANT_ICONS[i.surface]}
             active={i.match.some((m) => pathname === m || pathname.startsWith(`${m}/`))}
           />
         ))}

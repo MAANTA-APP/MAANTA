@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAppUser } from "@/lib/data";
+import { hasAgentConsoleAccess } from "@/lib/roles";
 import { NewLeadForm } from "./new-lead-form";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function NewLeadPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent/leads/new");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!hasAgentConsoleAccess(user)) redirect("/");
 
   return <NewLeadForm />;
 }

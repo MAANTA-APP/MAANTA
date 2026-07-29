@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { MerchantTopBar } from "@/components/nav/merchant-top-bar";
 import { MerchantBottomBar } from "@/components/nav/bottom-bars";
 import { OfflineBanner } from "@/components/ui/states";
@@ -19,7 +20,7 @@ export default async function MerchantAppLayout({
   if (res.status === "signed-out") redirect("/login?next=/merchant/redeem");
   if (res.status === "no-merchant") redirect("/merchant");
 
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
   const fee = await getSuccessFee();
   const lowThreshold = fee * 3;
 
@@ -37,10 +38,11 @@ export default async function MerchantAppLayout({
         merchantName={merchant.merchant_name}
         balance={merchant.account_balance}
         lowThreshold={lowThreshold}
+        canOpenWallet={canUseMerchantSurface("wallet", permissions)}
       />
       <MerchantLifecycleBanner merchant={merchant} deals={deals ?? []} />
       <div className="flex-1 pb-24">{children}</div>
-      <MerchantBottomBar />
+      <MerchantBottomBar permissions={permissions} />
     </div>
   );
 }

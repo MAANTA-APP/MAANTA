@@ -1,10 +1,21 @@
-# Ops — Browser golden-path E2E (Playwright, tracker E14 / PR #35)
+# Ops — Browser golden-path + role-access E2E (Playwright, tracker E14 / PR #35)
 
 **Status:** suite authored in repo (`maanta-app/e2e/golden-path.spec.ts`,
+`maanta-app/e2e/role-access.spec.ts`, `maanta-app/e2e/helpers/roles.ts`,
 `maanta-app/playwright.config.ts`, opt-in `.github/workflows/e2e.yml`). It is
 **inert until a human provisions a live test env** — the specs self-skip and the
 CI job is gated off — so it is honest coverage when enabled and never a false
 green before then.
+
+Two spec files:
+
+- **`golden-path.spec.ts`** — the money path: shopper feed/browse/map → claim →
+  OTP ticket → merchant verify → fee disclosure → "Collect from shopper", plus
+  an invalid-code negative. Needs the shopper + owner storage states.
+- **`role-access.spec.ts`** — permission coverage across the personas: merchant
+  bottom-nav visibility per staff permission, permission notices on deep links,
+  and route-guard negatives (agent/shopper/staff cannot reach `/admin`,
+  `/founder`). Each persona's block skips independently.
 
 ## Why it can't just run in CI today
 
@@ -16,15 +27,45 @@ the human/ops gate.
 
 ## What Claude Code did (repo)
 
-- `e2e/golden-path.spec.ts` — shopper browse→claim→ticket, merchant verify
-  (fee disclosed → **Collect from shopper** (P12) + **Verified**), and a
+- `e2e/golden-path.spec.ts` — shopper feed/browse/map, claim→ticket, merchant
+  verify (fee disclosed → **Collect from shopper** (P12) + **Redeemed**), and a
   negative invalid-code case. Self-skips unless the env below is set.
+- `e2e/role-access.spec.ts` — per-persona permission and route-guard coverage.
+- `e2e/helpers/roles.ts` — reusable Clerk-session helpers: `asRole(browser,
+  role, fn)`, `expectMerchantNav(page, tabs)`, `claimFirstDeal`, `enterCode`,
+  plus `roleAvailable`/`skipReason` so an unprovisioned role skips with a
+  message naming the exact env var to set.
 - `playwright.config.ts` — `baseURL` from `E2E_BASE_URL`, GitHub reporter, CI
   retries.
 - `.github/workflows/e2e.yml` — opt-in job gated on the `E2E_BASE_URL` repo
   variable; installs Playwright on demand (kept out of `package.json` so the
   main `npm ci` lockfile stays valid).
 - `npm run test:e2e` script.
+
+## Role storage states (fixtures)
+
+One Playwright `storageState` per persona, supplied by env var. Only the first
+two are required; the rest each unlock one more block of `role-access.spec.ts`.
+
+| Env var | Persona | Seeded account must satisfy |
+|---|---|---|
+| `E2E_SHOPPER_STORAGE` **(required)** | Shopper | `users.role = 'customer'`, verified phone, can claim |
+| `E2E_MERCHANT_STORAGE` **(required)** | Merchant owner | `merchants.user_id` = this user (owner holds all four permissions). `E2E_OWNER_STORAGE` is accepted as an alias. |
+| `E2E_STAFF_VERIFY_STORAGE` | Verify-only staff | `merchant_staff`: `can_verify = true`, `can_deals`/`can_topup`/`can_purchase` = false |
+| `E2E_STAFF_DEALS_STORAGE` | Staff + deals | `merchant_staff`: `can_verify`, `can_deals` = true; `can_topup`, `can_purchase` = false |
+| `E2E_AGENT_STORAGE` | Field agent | `users.role = 'agent'` with an active `agents` row |
+| `E2E_ADMIN_STORAGE` | Admin / founder | `users.role = 'admin'` (also serves `/founder` today) |
+
+The two staff personas need **merchant_staff rows against the same test
+merchant as the owner account**, each linked to its own Clerk test user (the
+row links on first sign-in by `user_id`, or by matching `phone`). The rehearsal
+seeds in `docs/ops/test-accounts.md` cover shopper / owner / agent / admin; the
+two staff rows are the only new fixtures this suite adds — create them with the
+owner's own "Add staff" flow against the test merchant, then capture each
+session.
+
+**No secrets live in the repo.** Storage states are CI environment secrets or
+local gitignored files; the specs read paths or inline JSON, never both hardcoded.
 
 ## ⚠️ This suite charges real money — use a dedicated non-prod env
 
@@ -66,7 +107,7 @@ wallet. Static storage-state sessions + the rehearsal seed mean this state
      target regardless, since the suite charges real KES 30 fees.
    - On the **`e2e` environment**, secrets `E2E_SHOPPER_STORAGE`,
      `E2E_MERCHANT_STORAGE` = the JSON contents (or adapt the spec to read file
-     paths).
+     paths), plus any of the optional role secrets in the fixtures table above.
 5. **Trigger posture:** the workflow runs **post-merge on `main`** and on-demand
    via **`workflow_dispatch`** — never on `pull_request`, and the job only runs
    when `github.ref == refs/heads/main`, so a manual dispatch can't run
@@ -85,5 +126,17 @@ npm run test:e2e
 ```
 
 Selectors match the current frozen UI (redeem keypad "Confirm redemption —
-KES 30 fee", success "Verified" + "Collect from shopper", failure "Code not
+KES 30 fee", success "Redeemed" + "Collect from shopper", failure "Code not
 valid" / "No fee was charged"); update them here if that copy changes.
+
+The bottom bars are addressed by accessible name —
+`getByRole("navigation", { name: "Merchant" | "Shopper" })` — so tab assertions
+survive styling changes. Keep those `aria-label`s on
+`src/components/nav/bottom-bars.tsx` if the nav is reworked.
+
+## Cost note for role-access.spec.ts
+
+`role-access.spec.ts` charges **nothing**: it never completes a redemption. The
+verify-only staff test deliberately enters an invalid code (`000000`) to prove
+the keypad renders. Only `golden-path.spec.ts` performs a real, fee-charging
+redemption.

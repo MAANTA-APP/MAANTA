@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/components/ui/icons";
 import { PlanChip } from "@/components/ui/chips";
+import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 
@@ -86,14 +87,7 @@ export function NewDealWizard({
   }
 
   if (!canDeals) {
-    return (
-      <main className="px-6 py-24 text-center">
-        <p className="text-sm font-semibold text-ink">
-          You don&apos;t have permission to create deals.
-        </p>
-        <p className="mt-1 text-xs text-muted">Ask the shop owner to enable it in Staff.</p>
-      </main>
-    );
+    return <MerchantPermissionDenied action="create deals" />;
   }
 
   async function publish() {

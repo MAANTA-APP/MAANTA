@@ -1,4 +1,6 @@
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
+import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
 import { TopupFlow } from "./topup-flow";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +13,13 @@ export default async function TopupPage({
 }) {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
+
+  // /api/topup and /api/topup/stripe both require `can_topup`, so rendering the
+  // amount picker for staff without it is a dead end — say so instead.
+  if (!canUseMerchantSurface("topup", permissions)) {
+    return <MerchantPermissionDenied action="top up the wallet" />;
+  }
 
   const suggested = parseInt(searchParams.suggested ?? "", 10);
 

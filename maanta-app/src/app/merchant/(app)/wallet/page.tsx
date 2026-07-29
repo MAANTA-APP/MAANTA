@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { getSuccessFee } from "@/lib/data";
 import { ButtonLink } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -34,7 +35,10 @@ export default async function WalletPage({
 }) {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
+  // The ledger stays readable for any merchant user; only the top-up ACTION is
+  // gated (the /api/topup routes are the authority — see merchant-api.ts).
+  const canTopup = canUseMerchantSurface("topup", permissions);
   const fee = await getSuccessFee();
   const balance = merchant.account_balance;
   const arrears = merchant.outstanding_arrears;
@@ -116,12 +120,18 @@ export default async function WalletPage({
         </InlineAlert>
       ) : null}
 
-      {/* The one amber action. */}
-      <div className="mt-4">
-        <ButtonLink href="/merchant/topup" full>
-          Top up wallet
-        </ButtonLink>
-      </div>
+      {/* The one amber action — hidden for staff who can't top up. */}
+      {canTopup ? (
+        <div className="mt-4">
+          <ButtonLink href="/merchant/topup" full>
+            Top up wallet
+          </ButtonLink>
+        </div>
+      ) : (
+        <p className="mt-4 text-xs text-muted">
+          Only the shop owner and staff with top-up permission can add funds.
+        </p>
+      )}
 
       <div className="mt-6 flex gap-2">
         {FILTERS.map((f) => (

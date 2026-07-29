@@ -17,9 +17,11 @@ export default function AddStaffPage() {
   const [name, setName] = useState("");
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
+  // Verify-only by default — least privilege, and the same default /api/staff
+  // applies when a field is omitted. The owner opts each extra power in.
   const [perms, setPerms] = useState({
     canVerify: true,
-    canDeals: true,
+    canDeals: false,
     canTopup: false,
     canPurchase: false,
   });

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMerchantContext } from "@/lib/merchant";
+import { merchantHomeHref } from "@/lib/merchant-nav";
 import { ButtonLink } from "@/components/ui/button";
 import { Logomark } from "@/components/ui/icons";
 
@@ -8,7 +9,10 @@ export const dynamic = "force-dynamic";
 /** 9a Merchant landing / intro. Existing merchants go straight to the keypad. */
 export default async function MerchantLandingPage() {
   const res = await getMerchantContext();
-  if (res.status === "ok") redirect("/merchant/redeem");
+  // Owners and verify-capable staff land on the keypad; staff without
+  // `can_verify` would only meet a permission notice there, so send them to
+  // their first usable tab instead.
+  if (res.status === "ok") redirect(merchantHomeHref(res.ctx.permissions));
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-6 pb-10 pt-14">

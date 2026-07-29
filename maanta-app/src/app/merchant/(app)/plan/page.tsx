@@ -1,4 +1,5 @@
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { ButtonLink } from "@/components/ui/button";
 import { SettingsRow } from "@/components/ui/cards";
 import { timeLeftLabel } from "@/lib/ui";
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function PlanPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
+  const canPurchase = canUseMerchantSurface("plan", permissions);
 
   const isElite = merchant.tier === "elite";
   const trialDaysLeft =
@@ -41,7 +43,7 @@ export default async function PlanPage() {
         ) : null}
       </div>
 
-      {!isElite ? (
+      {!isElite && canPurchase ? (
         <ButtonLink href="/merchant/plan/upgrade" variant="secondary" full className="mt-4">
           Upgrade to Elite — KES 3,500/mo
         </ButtonLink>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, getMerchantStats, expireStaleBoosts } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { KpiCard, RedemptionRow } from "@/components/ui/cards";
 import { ButtonLink } from "@/components/ui/button";
 import {
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function MerchantDashboardPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
   await expireStaleBoosts(merchant.id);
 
   const service = createServiceClient();
@@ -38,6 +39,24 @@ export default async function MerchantDashboardPage() {
   const activeDeals = lifecycleStats.liveDealCount;
   const limit = merchant.tier === "elite" ? 2 : 1;
 
+  const quickActions = (
+    [
+      { surface: "redeem", href: "/merchant/redeem", label: "Redeem", variant: undefined },
+      {
+        surface: "deals",
+        href: "/merchant/deals/new",
+        label: "New deal",
+        variant: "ghost",
+      },
+      {
+        surface: "topup",
+        href: "/merchant/topup",
+        label: "Top up",
+        variant: "ghost",
+      },
+    ] as const
+  ).filter((a) => canUseMerchantSurface(a.surface, permissions));
+
   return (
     <main className="px-4 pt-5">
       <div className="flex items-center justify-between gap-3">
@@ -57,18 +76,25 @@ export default async function MerchantDashboardPage() {
         />
       </div>
 
-      <h2 className="mt-6 text-base font-bold text-ink">Quick actions</h2>
-      <div className="mt-3 flex gap-2.5">
-        <ButtonLink href="/merchant/redeem" size="md" className="flex-1">
-          Redeem
-        </ButtonLink>
-        <ButtonLink href="/merchant/deals/new" size="md" variant="ghost" className="flex-1">
-          New deal
-        </ButtonLink>
-        <ButtonLink href="/merchant/topup" size="md" variant="ghost" className="flex-1">
-          Top up
-        </ButtonLink>
-      </div>
+      {/* Quick actions mirror the bottom bar: only what this user can do. */}
+      {quickActions.length > 0 ? (
+        <>
+          <h2 className="mt-6 text-base font-bold text-ink">Quick actions</h2>
+          <div className="mt-3 flex gap-2.5">
+            {quickActions.map((a) => (
+              <ButtonLink
+                key={a.href}
+                href={a.href}
+                size="md"
+                variant={a.variant}
+                className="flex-1"
+              >
+                {a.label}
+              </ButtonLink>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       <h2 className="mt-6 text-base font-bold text-ink">Recent activity</h2>
       <div className="mt-2 rounded-card border border-line bg-white px-4">
