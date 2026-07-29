@@ -15,6 +15,8 @@ type DealFixture = {
   merchant_id: string;
   deal_type: "flash" | "standard";
   boost_active: boolean;
+  /** Omitted means a real deal. Set true to assert demo rows are excluded. */
+  is_demo?: boolean;
   merchants: Record<string, unknown>;
 };
 
@@ -57,6 +59,10 @@ function makeDealsQuery() {
             }
             let rows = [...dealsFixture].map((r) => ({
               ...r,
+              // Fixtures model REAL deals unless they say otherwise, so the
+              // is_demo=false predicate is exercised rather than ignored: a
+              // fixture with is_demo:true must genuinely be filtered out.
+              is_demo: "is_demo" in r ? r.is_demo : false,
               merchants: {
                 ...r.merchants,
                 lat: "lat" in r.merchants ? r.merchants.lat : null,
@@ -105,8 +111,16 @@ function makeDealsQuery() {
   return q;
 }
 
+// Records the key every cached read is filed under. The demo flag must be part
+// of it: resolved inside the cached function instead, a demo-mode toggle would
+// keep serving the previous answer for the whole revalidate window.
+const cache = vi.hoisted(() => ({ keys: [] as string[][] }));
+
 vi.mock("next/cache", () => ({
-  unstable_cache: (fn: () => unknown) => () => fn(),
+  unstable_cache: (fn: () => unknown, keys: string[]) => {
+    cache.keys.push(keys);
+    return () => fn();
+  },
 }));
 
 vi.mock("@/lib/supabase/service", () => ({
@@ -204,6 +218,39 @@ describe("getLiveDeals — error vs empty", () => {
     expect(res.nearMe.map((d) => d.id)).toEqual(["d1"]);
     expect(res.nearMe[0]?.merchants?.lat).toBeNull();
     expect(res.nearMe[0]?.merchants?.lng).toBeNull();
+  });
+
+  // Demo mode is unreachable here (the mock has no app_config table, so the
+  // config read throws), which is the fail-safe path: an unreadable flag must
+  // resolve to "exclude demo" rather than leaking synthetic rows into the feed.
+  it("excludes demo deals from the feed when demo mode cannot be confirmed", async () => {
+    const merchants = {
+      id: "m1",
+      merchant_name: "Shop",
+      is_visible: true,
+      status: "active",
+      is_shadow_banned: false,
+    };
+    dealsFixture = [
+      { id: "real", merchant_id: "m1", deal_type: "standard", boost_active: false, merchants },
+      {
+        id: "synthetic",
+        merchant_id: "m1",
+        deal_type: "standard",
+        boost_active: false,
+        is_demo: true,
+        merchants,
+      },
+    ];
+    const res = await getLiveDeals("BBS Mall");
+    expect(res.nearMe.map((d) => d.id)).toEqual(["real"]);
+  });
+
+  it("keys the cache entry on the demo flag, so a toggle isn't served stale", async () => {
+    cache.keys.length = 0;
+    await getLiveDeals("BBS Mall");
+    expect(cache.keys).toHaveLength(1);
+    expect(cache.keys[0]).toEqual(["live-deals", "BBS Mall", "real"]);
   });
 
   it("returns empty rails (no throw) when there are genuinely no deals", async () => {
