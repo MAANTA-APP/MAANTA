@@ -196,6 +196,15 @@ REVOKE EXECUTE ON FUNCTION public.reseed_demo_flash_deals() FROM PUBLIC;
 --
 --    Real rows are never in scope: every DELETE is guarded by is_demo.
 -- ----------------------------------------------------------------------------
+-- Dependent tables that reference merchants/deals/users with ON DELETE NO
+-- ACTION. Each one BLOCKS the delete until its demo-scoped rows are cleared
+-- first. Verified against the live FK graph on 2026-07-29 — with the shipped
+-- seeds in place, `fraud_events` (1 row) and `agents` (1 row) already blocked
+-- the wipe, so this is not defensive programming.
+--
+-- CASCADE dependents (archive_history, kpi_counters, merchant_favourites,
+-- merchant_staff.merchant_id, tier_flags, boost_flags.deal_id,
+-- notifications.user_id) clear themselves and are not listed.
 CREATE OR REPLACE FUNCTION public.wipe_demo_data(p_confirm BOOLEAN DEFAULT FALSE)
 RETURNS TABLE (table_name TEXT, rows_affected BIGINT, applied BOOLEAN)
 LANGUAGE plpgsql
@@ -203,12 +212,47 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_guardian    BIGINT;
+  v_fraud       BIGINT;
+  v_boost       BIGINT;
+  v_audit       BIGINT;
+  v_feerev      BIGINT;
+  v_adminops    BIGINT;
+  v_agents      BIGINT;
+  v_leads       BIGINT;
+  v_tierflags   BIGINT;
+  v_tasks       BIGINT;
   v_redemptions BIGINT;
   v_mtx         BIGINT;
   v_deals       BIGINT;
   v_merchants   BIGINT;
   v_users       BIGINT;
 BEGIN
+  -- Count everything first so the dry run reports the full blast radius,
+  -- including the dependent rows the caller never explicitly asked about.
+  SELECT count(*) INTO v_guardian FROM public.guardian_events g
+    WHERE g.merchant_id IN (SELECT id FROM public.merchants WHERE is_demo)
+       OR g.deal_id     IN (SELECT id FROM public.deals     WHERE is_demo)
+       OR g.user_id     IN (SELECT id FROM public.users     WHERE is_demo);
+  SELECT count(*) INTO v_fraud FROM public.fraud_events f
+    WHERE f.merchant_id IN (SELECT id FROM public.merchants WHERE is_demo)
+       OR f.user_id     IN (SELECT id FROM public.users     WHERE is_demo);
+  SELECT count(*) INTO v_boost FROM public.boost_flags
+    WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+  SELECT count(*) INTO v_audit FROM public.audit_logs
+    WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+  SELECT count(*) INTO v_feerev FROM public.fee_reversals
+    WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+  SELECT count(*) INTO v_adminops FROM public.admin_ops_log
+    WHERE admin_user_id IN (SELECT id FROM public.users WHERE is_demo);
+  SELECT count(*) INTO v_agents FROM public.agents
+    WHERE user_id IN (SELECT id FROM public.users WHERE is_demo);
+  SELECT count(*) INTO v_leads FROM public.leads
+    WHERE converted_to IN (SELECT id FROM public.merchants WHERE is_demo);
+  SELECT count(*) INTO v_tierflags FROM public.tier_flags
+    WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+  SELECT count(*) INTO v_tasks FROM public.agent_tasks
+    WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
   SELECT count(*) INTO v_redemptions FROM public.redemptions           WHERE is_demo;
   SELECT count(*) INTO v_mtx         FROM public.merchant_transactions WHERE is_demo;
   SELECT count(*) INTO v_deals       FROM public.deals                 WHERE is_demo;
@@ -216,24 +260,66 @@ BEGIN
   SELECT count(*) INTO v_users       FROM public.users                 WHERE is_demo;
 
   IF p_confirm THEN
-    -- Children first: redemptions and transactions reference deals/merchants.
+    -- 1. Blocking dependents, scoped to demo parents. These are audit and
+    --    fraud trails FOR SYNTHETIC MERCHANTS — deleting them removes a record
+    --    of events that never really happened. Real merchants' trails are not
+    --    in scope: every predicate keys off a demo parent id.
+    DELETE FROM public.guardian_events g
+      WHERE g.merchant_id IN (SELECT id FROM public.merchants WHERE is_demo)
+         OR g.deal_id     IN (SELECT id FROM public.deals     WHERE is_demo)
+         OR g.user_id     IN (SELECT id FROM public.users     WHERE is_demo);
+    DELETE FROM public.fraud_events f
+      WHERE f.merchant_id IN (SELECT id FROM public.merchants WHERE is_demo)
+         OR f.user_id     IN (SELECT id FROM public.users     WHERE is_demo);
+    DELETE FROM public.boost_flags
+      WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+    DELETE FROM public.audit_logs
+      WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+    DELETE FROM public.fee_reversals
+      WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+    DELETE FROM public.admin_ops_log
+      WHERE admin_user_id IN (SELECT id FROM public.users WHERE is_demo);
+    DELETE FROM public.agents
+      WHERE user_id IN (SELECT id FROM public.users WHERE is_demo);
+
+    -- 2. Leads are NEVER deleted — a lead can be a real prospect even when the
+    --    merchant it converted to was synthetic. Detach instead.
+    UPDATE public.leads SET converted_to = NULL
+      WHERE converted_to IN (SELECT id FROM public.merchants WHERE is_demo);
+
+    -- 3. A demo user staffing a real merchant: detach rather than delete, so
+    --    the real merchant's staff list survives. (Rows on demo merchants
+    --    cascade away with the merchant below.)
+    UPDATE public.merchant_staff SET user_id = NULL
+      WHERE user_id IN (SELECT id FROM public.users WHERE is_demo)
+        AND merchant_id NOT IN (SELECT id FROM public.merchants WHERE is_demo);
+
+    -- 4. Core rows, children before parents.
     DELETE FROM public.redemptions           WHERE is_demo;
     DELETE FROM public.merchant_transactions WHERE is_demo;
     DELETE FROM public.deals                 WHERE is_demo;
-    -- Dependent rows that hang off demo merchants but carry no is_demo of
-    -- their own. Scoped by merchant, so real merchants are untouched.
-    DELETE FROM public.tier_flags   WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
-    DELETE FROM public.agent_tasks  WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+    DELETE FROM public.tier_flags  WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
+    DELETE FROM public.agent_tasks WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
     DELETE FROM public.merchants             WHERE is_demo;
     DELETE FROM public.users                 WHERE is_demo;
   END IF;
 
   RETURN QUERY
-    SELECT 'redemptions'::TEXT,           v_redemptions, p_confirm
-    UNION ALL SELECT 'merchant_transactions', v_mtx,     p_confirm
-    UNION ALL SELECT 'deals',                 v_deals,   p_confirm
-    UNION ALL SELECT 'merchants',             v_merchants, p_confirm
-    UNION ALL SELECT 'users',                 v_users,   p_confirm;
+    SELECT 'guardian_events'::TEXT,           v_guardian,    p_confirm
+    UNION ALL SELECT 'fraud_events',          v_fraud,       p_confirm
+    UNION ALL SELECT 'boost_flags',           v_boost,       p_confirm
+    UNION ALL SELECT 'audit_logs',            v_audit,       p_confirm
+    UNION ALL SELECT 'fee_reversals',         v_feerev,      p_confirm
+    UNION ALL SELECT 'admin_ops_log',         v_adminops,    p_confirm
+    UNION ALL SELECT 'agents',                v_agents,      p_confirm
+    UNION ALL SELECT 'leads (detached)',      v_leads,       p_confirm
+    UNION ALL SELECT 'tier_flags',            v_tierflags,   p_confirm
+    UNION ALL SELECT 'agent_tasks',           v_tasks,       p_confirm
+    UNION ALL SELECT 'redemptions',           v_redemptions, p_confirm
+    UNION ALL SELECT 'merchant_transactions', v_mtx,         p_confirm
+    UNION ALL SELECT 'deals',                 v_deals,       p_confirm
+    UNION ALL SELECT 'merchants',             v_merchants,   p_confirm
+    UNION ALL SELECT 'users',                 v_users,       p_confirm;
 END;
 $$;
 

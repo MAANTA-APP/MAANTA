@@ -203,6 +203,53 @@ BEGIN
   RAISE NOTICE 'F ok — wipe is dry-run by default and real-safe';
 END $$;
 
+-- Scenario G: the wipe clears FK dependents that would otherwise block it.
+--   Every table below references merchants/deals/users with ON DELETE NO
+--   ACTION, so an unhandled row raises a foreign-key violation and the whole
+--   wipe aborts. With the shipped seeds in place, fraud_events and agents both
+--   already held such rows — this scenario reproduces that and asserts the
+--   wipe now completes, that a real merchant's own audit trail survives, and
+--   that leads are detached rather than destroyed.
+DO $$
+DECLARE
+  v_demo_m UUID := '9d9d9d9d-0000-4000-a000-000000000030';
+  v_real_m UUID := '9d9d9d9d-0000-4000-a000-000000000031';
+  v_demo_u UUID := '9d9d9d9d-2222-4000-a000-000000000030';
+  v_n INT;
+BEGIN
+  INSERT INTO public.users (id, email, role, is_demo)
+  VALUES (v_demo_u, 'zz-demo-agent@example.test', 'agent', TRUE);
+  INSERT INTO public.merchants (id, merchant_name, phone, status, is_demo)
+  VALUES (v_demo_m, 'ZZ FK Demo', '+254700099030', 'active', TRUE),
+         (v_real_m, 'ZZ FK Real', '+254700099031', 'active', FALSE);
+
+  -- Blockers on the demo merchant / demo user.
+  INSERT INTO public.fraud_events (merchant_id) VALUES (v_demo_m);
+  INSERT INTO public.agents (user_id) VALUES (v_demo_u);
+  INSERT INTO public.audit_logs (merchant_id) VALUES (v_demo_m);
+  -- A REAL lead that happened to convert to a synthetic merchant.
+  INSERT INTO public.leads (converted_to) VALUES (v_demo_m);
+  -- The real merchant's own trail, which must survive untouched.
+  INSERT INTO public.audit_logs (merchant_id) VALUES (v_real_m);
+
+  -- Would raise a foreign_key_violation before the dependent handling existed.
+  PERFORM public.wipe_demo_data(TRUE);
+
+  SELECT count(*) INTO v_n FROM public.merchants WHERE id = v_demo_m;
+  ASSERT v_n = 0, 'G1: wipe must complete despite FK dependents';
+
+  SELECT count(*) INTO v_n FROM public.audit_logs WHERE merchant_id = v_real_m;
+  ASSERT v_n = 1, 'G2: a real merchant''s audit trail must survive the wipe';
+
+  SELECT count(*) INTO v_n FROM public.leads WHERE converted_to = v_demo_m;
+  ASSERT v_n = 0, 'G3: leads must be detached from wiped demo merchants';
+
+  DELETE FROM public.audit_logs WHERE merchant_id = v_real_m;
+  DELETE FROM public.leads      WHERE converted_to IS NULL;
+  DELETE FROM public.merchants  WHERE id = v_real_m;
+  RAISE NOTICE 'G ok — wipe clears blocking dependents, spares real trails';
+END $$;
+
 -- Restore the operator's original demo-mode setting.
 UPDATE public.app_config a
    SET value = r.value
