@@ -34,9 +34,13 @@ import path from "node:path";
  *    which is enforcement-shaped and enforces nothing. The append-only rule is
  *    carried by the register's prose for those cases, not by this file.
  *  - **No check for "design-ahead frames reference open drift rows."** The
- *    original brief asked for it, but this repo has no frames artifact (see §0 of
- *    docs/skills/truth-audit-2026-07-30.md). Asserting against a file that does
- *    not exist would be its own false claim.
+ *    original brief asked for it. It was skipped because this repo had no frames
+ *    artifact, and asserting against a file that does not exist would have been
+ *    its own false claim. **That reason expired on 2026-07-30**, when #146 added
+ *    maanta-app/design/current-reality/frames.json. The check is now buildable
+ *    and is still not built, which is tracked as D26 rather than left implied by
+ *    a stale comment here. Note it would fail as written today: the file has one
+ *    design-ahead surface and references no drift row anywhere.
  */
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
