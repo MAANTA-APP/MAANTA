@@ -315,15 +315,37 @@ live database.
 **Resolved by renumbering the repo file** to
 `20260730160000_correct_success_fee_config_notes.sql` — after the newest applied
 version (`20260730150000`), because a local migration older than the remote head
-makes the CLI report the histories as diverged. The remote history was left alone.
-The correction is metadata-only (`ON CONFLICT DO UPDATE` on `notes`, so it cannot
-touch the KES 30 value) and is **still unapplied** — it goes in on the next manual
-push.
+makes the CLI report the histories as diverged. That collision was fixed entirely on
+the repo side; the remote history was not touched for it.
+
+**Then applied** (2026-07-30), and verified — 10 checks, all passing:
+
+- `value` is still **exactly `'30.00'`**, and `30` numerically. The migration is
+  metadata-only: its `ON CONFLICT DO UPDATE` sets `notes` and nothing else, so it has
+  no path to the fee. Checked rather than asserted, because "it can't touch the value"
+  is precisely the kind of claim worth proving on a money field.
+- `notes` now point at **`CLAUDE.md`** and **`docs/maanta-decisions-log.md`**, both of
+  which exist in the repo (confirmed). The pointers to `PROJECT_RULES.md` and bare
+  `DECISIONS_LOG.md` — neither of which has ever existed — are gone.
+- The Elite price review reads **Feb 2027**, per the founder ruling of 2026-07-20;
+  the stale **Oct 2026** is gone.
+- The `COMMENT ON FUNCTION public.enforce_deal_success_fee()` carries the same
+  correction, so an operator reading the guardrail function sees it too.
+- The note still states the fee applies to **ALL plans** — the correction fixed the
+  pointers and the date without weakening the frozen rule.
+
+**Version pinning, again.** It recorded as `20260730120521` (clock-derived) and was
+pinned to `20260730160000`. That makes three migrations whose `version` column was
+corrected this way. The durable guidance now lives in
+`docs/ops/supabase-migrations.md` → "Migration versions: read this before 'fixing' a
+timestamp", including the caution **not** to renumber `…160000` back into
+chronological order.
 
 **Still outstanding:** `node_scoped_opening_credit_cap` is applied to production but
-has no file in this repo, so a fresh database built from `supabase/migrations/` will
-not have it. Its SQL is recoverable from `supabase_migrations.schema_migrations`
-(the `statements` column), which is what a fix would commit.
+has no file in this repo — never committed, so it is absent from git history
+entirely. A database rebuilt from `supabase/migrations/` will not have it. Its SQL is
+recoverable from the `statements` column of `supabase_migrations.schema_migrations`,
+which is what a fix would commit.
 
 ---
 

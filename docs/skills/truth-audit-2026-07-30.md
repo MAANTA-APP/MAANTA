@@ -293,15 +293,18 @@ fail when the thing they guard is removed.
 - **FU-2 (operator, human only).** Two migrations need pushing to
   `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
   not run migrations — a human operator must.
-  - `20260730160000_correct_success_fee_config_notes.sql` — metadata only, safe to
-    batch with anything. **Renumbered from `20260730120000` on 2026-07-30**, and
-    still not applied. Production already had a *different* migration recorded at
+  - `20260730160000_correct_success_fee_config_notes.sql` — metadata only.
+    **APPLIED to production 2026-07-30**, and verified: the notes now point at
+    `CLAUDE.md` and `docs/maanta-decisions-log.md`, read "Feb 2027", and the fee
+    value is still exactly `30.00`. F2 is closed in the live database, not just
+    in the repo.
+    **Renumbered from `20260730120000`** first, and worth knowing why it had to
+    be: production already had a *different* migration recorded at
     `20260730120000` (`node_scoped_opening_credit_cap`, applied by hand, never
     committed), and Supabase matches history on the version string alone — so
     while this file kept that number, `db push` treated it as already applied and
-    skipped it silently. If you have read the live
-    `app_config.success_fee_kes.notes` since 2026-07-30 and it still said
-    "Oct 2026", that is why.
+    skipped it in silence. **Do not renumber it back into chronological order** —
+    see `docs/ops/supabase-migrations.md` → "Migration versions".
   - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
     the note before pushing.** It adds a column, backfills it, and starts
     enforcing the cap. **Check the backfill result before announcing the offer:**

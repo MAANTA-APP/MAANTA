@@ -207,6 +207,62 @@ echo/run the CLI above — **review before running against prod**:
 - `make db-verify` is safe to run anytime in dev/CI (local stack only); it has
   no path to production.
 
+## Migration versions: read this before "fixing" a timestamp (2026-07-30)
+
+**Do not renumber `20260730160000_correct_success_fee_config_notes.sql` back into
+chronological order.** It sits out of sequence deliberately. Same for anything else
+that looks misfiled — check this section first.
+
+### What happened
+
+Some migrations have been applied to production **by hand** (via the Supabase MCP
+`apply_migration` tool, or the dashboard SQL editor) rather than by `supabase db push`.
+That tool derives the recorded version from the **wall clock at apply time, not from
+the filename**. Two consequences, both of which have already bitten:
+
+1. **A hand-applied migration can be recorded at a version that a repo file already
+   claims.** Production records `20260730120000` as `node_scoped_opening_credit_cap` —
+   applied manually, and **never committed, so no file for it exists anywhere in this
+   repo's history**. The repo's file at that same version was
+   `20260730120000_correct_success_fee_config_notes.sql`. Supabase matches history on
+   the version string alone, so `db push` treated that version as done and **silently
+   skipped** the success-fee correction. It went unnoticed for as long as it did
+   because a skip is not an error.
+
+2. **A hand-applied migration is usually recorded *below* its own filename's version**
+   (apply on 2026-07-30 at 11:53 → `20260730115309`, for a file named `…140000`), which
+   leaves `db push` still seeing it as unapplied.
+
+### How it was resolved, and what was and was not edited
+
+| Problem | Fix | Remote history edited? |
+|---|---|---|
+| Version collision with `node_scoped_opening_credit_cap` | **Renamed the repo file** `20260730120000…` → `20260730160000_correct_success_fee_config_notes.sql` | **No** — the collision was resolved entirely on the repo side |
+| Clock-derived versions below their filenames (`…140000`, `…150000`, `…160000`) | `UPDATE supabase_migrations.schema_migrations SET version = <filename version>` | **Yes, narrowly** — the `version` column on those three rows only. No migration was added, removed, reordered or re-run, and no applied SQL was rewritten |
+
+The renumber went to `160000` rather than filling the `120000` gap because a local
+version *older* than the remote head makes the CLI report the two histories as
+diverged. **A repo filename must sort after everything already applied.**
+
+### Rules going forward
+
+- Prefer `supabase db push` (§3). It records the filename's version, so none of the
+  above arises.
+- If you must apply by hand, **immediately pin the recorded version to the filename**:
+  ```sql
+  UPDATE supabase_migrations.schema_migrations
+     SET version = '<the filename version>'
+   WHERE version = '<the clock-derived version just written>' AND name = '<name>';
+  ```
+  Then re-check with `supabase migration list` before walking away.
+- **Commit the file first, apply second.** `node_scoped_opening_credit_cap` is the
+  counter-example: it is live on production with no file, so a database rebuilt from
+  `supabase/migrations/` will not have it. Its SQL is still recoverable from the
+  `statements` column of `supabase_migrations.schema_migrations` — that is what a fix
+  would commit. **Open.**
+- A `db push` that reports "up to date" is not proof a given change is live. Verify the
+  effect, not the history (§5).
+
 ## Status note (2026-07-28)
 
 Production `axrrslqssmbngbataejg` was verified **fully aligned** with the 67
