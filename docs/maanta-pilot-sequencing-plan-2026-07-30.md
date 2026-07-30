@@ -73,10 +73,11 @@ travelling to the mall.
 
 - ~~No `supabase db push`.~~ **Superseded** — see the headline. `20260730180000`
   (paused-deal claim gate) is E2E-relevant and must be pushed first.
-- The F2 re-land (`20260730170000`) does **not** need to be merged or pushed
-  first. Zero opening credits have been granted and only one node exists, so the
-  global-vs-per-node count is indistinguishable today. The pilot merchant gets
-  KES 300 either way.
+- The F2 re-land (`20260730170000`) is **not independently blocking** — zero
+  opening credits granted and one node, so global-vs-per-node is
+  indistinguishable today and the pilot merchant gets KES 300 either way. It
+  nonetheless **ships with the required push above**, because it sorts below
+  `20260730180000` and `db push` applies them together. Nothing extra to do.
 - No auth-strategy change. Whatever the pilot phones verified against is the
   strategy for the run.
 
@@ -114,8 +115,7 @@ travelling to the mall.
 
 | Owner | Type | Blocking? | Action | Proof / outcome |
 |---|---|---:|---|---|
-| Founder | Ops | No | Merge this branch, then merge **#131** (rebase first — 32 behind) | `20260730170000` reaches `main`. Note #131 needs **no renumber** — the F1 rename freed `20260730120000` |
-| Founder | DB | No | `make db-list`, then `make db-push-dry`, then `make db-push` | `20260730170000` and `20260730180000` apply; `20260730160000` is skipped as already recorded. After push, `make db-list` shows local == remote |
+| Founder | Ops | No | Merge **#131** (rebase first — 32 behind) | Note #131 needs **no renumber** — the F1 rename freed `20260730120000`. `20260730170000` already reached `main` with this PR |
 | Founder | DB | No | Verify the F2 fix actually took: read the live `activate_merchant` body | The credit count `JOIN`s `merchants` and filters `m.node = v_launch_node`. If it does not, `130000` clobbered it again |
 | Cursor/Claude | Code | No | Renumber **#108**'s `20260727010000_cofounder_role.sql` and **#94**'s `20260726190000_avatars_storage_and_columns.sql` above `20260730170000` | Both sort after every applied version; `db push --dry-run` shows them as the only pending items |
 | Founder | Ops | No | Decide the auth strategy from what the pilot phones actually did, then land exactly one of **#119 / #117 / #108** | One settled login path before recruiting merchant #2 |
@@ -129,8 +129,9 @@ travelling to the mall.
 
 ## Not required for E2E
 
-- **The F2 fix above `130000`** — written and tested, but only matters when a
-  second node opens. Zero credits granted; one node exists. Merge it after the run.
+- **The F2 fix above `130000`** as a *separate* action — it only matters when a
+  second node opens, but it is applied by the pre-E2E push anyway (it sorts
+  below the pause gate), so there is nothing to defer or remember.
 - **Broader 100-merchant polish** — recruiting surfaces, agent tooling, scale
   work. E2E needs one merchant, not a hundred.
 - **Plugin / superpower / UI-UX enhancement work** — none of it blocks the walkthrough.

@@ -103,7 +103,11 @@ These are environment/ops, not product defects:
 
 1. Interactive Clerk needs real publishable **and** secret keys (placeholder → Invalid host).
 2. Playwright golden path needs `E2E_*` secrets against a **non-prod** deploy.
-3. Prod must apply migration `20260730180000` (and any earlier 07-30 files still pending).
+3. Prod must apply migrations `20260730170000` and `20260730180000`. Everything
+   `20260730120000`–`20260730160000` is already applied — verified against
+   `supabase_migrations.schema_migrations`, not inferred from the repo. Do not
+   re-push those: they are recorded, and chasing "earlier 07-30 files still
+   pending" is what walks an operator into the F1 version collision.
 
 The **product critical path is E2E-ready** once those env prerequisites are met.
 

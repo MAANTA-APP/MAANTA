@@ -24,7 +24,8 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
   - `20260730140000_trial_expiry_launch_sentinel_null_guard`
   - `20260730150000_demo_wipe_audit_trail_retention`
   - `20260730180000_restore_claim_deal_pause_gate` ← pause must block new claims
-  - (safe metadata) `20260730120000_correct_success_fee_config_notes`
+  - (safe metadata) `20260730160000_correct_success_fee_config_notes`
+  - `20260730170000_node_scoped_opening_credit_cap_reland` ← per-node credit count
 - [ ] **Cap status:** run `SELECT * FROM public.elite_trial_cap_status();`  
   Note `cap / granted / remaining`. If `granted` looks high after first apply,
   that is the durable backfill — slots already consumed stay consumed.

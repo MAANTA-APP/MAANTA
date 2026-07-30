@@ -20,16 +20,20 @@ Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.
 
 ## 1. PRs that must be merged before pilot day
 
+**Updated 2026-07-30 (evening).** This table described the cohort as of the
+morning. #141 has since merged, along with #113, #119, #120, #130, #144, #145 and
+#146, and every migration it listed is applied. The active PR is now **#143**.
+
 | PR | Why | Status |
 |---|---|---|
-| **#139** trial-expiry launch sentinel | `handle_trial_expiry` must not freeze new expiries if `node0_launch_period_ends_at` is missing | **Merged** 2026-07-30 — still needs **`db push`** |
-| **#140** Option C demo-wipe retention | Real-merchant audit trails survive demo wipe | **Merged** 2026-07-30 — still needs **`db push`** |
-| **This branch** `#141` live-pilot-readiness | Admin Elite-cap surface, approve notice, pilot runbook + this prep note | Open — merge then deploy app |
+| **#139** trial-expiry launch sentinel | `handle_trial_expiry` must not freeze new expiries if `node0_launch_period_ends_at` is missing | **Merged and applied** |
+| **#140** Option C demo-wipe retention | Real-merchant audit trails survive demo wipe | **Merged and applied** |
+| **#141** live-pilot-readiness | Admin Elite-cap surface, approve notice, pilot runbook + this prep note | **Merged** — verify it is *deployed*, which is a separate question |
+| **#143** pilot sequencing | F1 migration renumber, F2 per-node credit re-land, E2E board | **Open — merge, then `db push`** |
 
-Already on `main` earlier: Elite cap migration
-`20260730130000_enforce_elite_trial_first_100_cap.sql` via #135 (also still
-needs **`db push`** if not yet applied on production — check
-`elite_trial_cap_status()`).
+Elite cap migration `20260730130000_enforce_elite_trial_first_100_cap.sql`
+(via #135) is **applied**; `elite_trial_cap_status()` reads `cap 100, granted 0,
+remaining 100`. No push needed for it.
 
 ### Do **not** merge/apply for pilot day
 
