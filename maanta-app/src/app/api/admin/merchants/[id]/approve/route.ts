@@ -25,11 +25,11 @@ export async function POST(
   // resolved against the DB in the 2026-07-29 full-state audit — no longer an
   // open conflict.
   //
-  // Note the grant is opt-in per approval, not automatic: the frozen launch
-  // offer ("first 100 BBS Mall merchants") has no cap or node check anywhere in
-  // code or app_config, so honouring the cap is currently an admin discipline
-  // question, not an enforced invariant. Open decision D2 in
-  // docs/skills/truth-audit-2026-07-30.md.
+  // Since 2026-07-30 the trial is capped at the first 100 launch-node merchants
+  // (migration 20260730130000, decision D2). When the offer is exhausted the RPC
+  // still activates the merchant, on Standard, and simply does not grant the
+  // trial — so `grantEliteTrial` is a REQUEST, not an outcome, and we read the
+  // result back below rather than assuming it was honoured.
   const { error } = await service.rpc("activate_merchant", {
     p_merchant_id: params.id,
     p_admin_user_id: appUser.id,
@@ -44,13 +44,43 @@ export async function POST(
     );
   }
 
+  // What actually happened. Logging the request as if it were the outcome would
+  // put "granted a trial" in the audit trail for a merchant that never got one —
+  // the audit log has to record the fee/entitlement reality, not the intent.
+  let eliteTrialGranted = false;
+  if (grantEliteTrial) {
+    const { data: merchant } = await service
+      .from("merchants")
+      .select("elite_trial_active")
+      .eq("id", params.id)
+      .maybeSingle();
+    eliteTrialGranted = merchant?.elite_trial_active === true;
+  }
+
   await logAdminOp(service, {
     adminUserId: appUser.id,
     action: "merchant.approve",
     targetType: "merchant",
     targetId: params.id,
-    details: { grantEliteTrial },
+    details: {
+      grantEliteTrial,
+      eliteTrialGranted,
+      ...(grantEliteTrial && !eliteTrialGranted
+        ? { eliteTrialSkippedReason: "launch_offer_cap_reached" }
+        : {}),
+    },
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    eliteTrialGranted,
+    // Surfaced so the approve modal can tell the admin the shop went live on
+    // Standard instead of silently appearing to have granted a trial.
+    ...(grantEliteTrial && !eliteTrialGranted
+      ? {
+          notice:
+            "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.",
+        }
+      : {}),
+  });
 }

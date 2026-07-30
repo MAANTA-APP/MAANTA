@@ -133,23 +133,64 @@ Verified as a ratchet: reverting the default to `nearest` and removing the
 
 **One Notion edit is now outstanding** — see FU-6.
 
-## 3b. Open decisions — NOT actioned, founder call required
+## 3b. D2 — RESOLVED 2026-07-30 (founder ruling: enforce the cap)
 
-### D2 — The first-100 cap on the Elite trial is unenforced
+### What was wrong
 
-The frozen offer is capped at 100 BBS Mall merchants. In code the trial is an
+The frozen offer is capped at 100 BBS Mall merchants. In code the trial was an
 **admin opt-in per approval** (`grantEliteTrial` on `/api/admin/merchants/[id]/approve`,
-or `grant-trial` on `/api/admin/plans/[id]`). There is **no counter, no cap and
-no node check** anywhere — no `app_config` key equivalent to
+or `grant-trial` on `/api/admin/plans/[id]`) with **no counter, no cap and no node
+check** anywhere — no `app_config` key equivalent to
 `node0_opening_credit_merchant_cap`, which does exactly this job for the KES 300
-credit.
+credit. The cap rested entirely on admin discipline, while `/pricing` advertised
+it publicly.
 
-So the cap currently rests on admin discipline. Options: (a) add
-`elite_trial_merchant_cap` + a node check inside `activate_merchant`, mirroring
-the opening-credit pattern; (b) rule that the offer is discretionary and adjust
-the frozen rule's wording. Copy has been corrected to state the cap either way —
-**if (b) is chosen, the copy must change again**, because it now advertises a
-bound the product does not enforce.
+### The fix — migration `20260730130000_enforce_elite_trial_first_100_cap.sql`
+
+Four decisions inside it are worth understanding, because each is a place the
+obvious implementation would have been wrong:
+
+1. **A durable marker, not current state.** `merchants.elite_trial_granted_at` is
+   stamped once and never cleared. Counting `elite_trial_active = TRUE` would
+   have been the natural approach and would have been **broken**: the trial
+   columns are cleared on downgrade and on mark-paid, so slots would silently
+   recycle and far more than 100 merchants could take the offer over time. A
+   consumed slot stays consumed. Existing trial-holders are backfilled, so
+   enforcement does not begin from a false zero and re-issue the first 100 slots.
+
+2. **A trigger, not just the RPC.** The ruling said "enforce it in
+   `activate_merchant`", but doing only that would have left the documented
+   bypass wide open — `/api/admin/plans/[id]` writes the trial columns directly
+   and never touches the RPC. `trg_enforce_elite_trial_cap` fires on every
+   `elite_trial_active` FALSE→TRUE transition, so the cap holds on all paths,
+   including any added later. Enforcing only in the RPC would have let us *claim*
+   the cap was enforced while it wasn't — the exact failure this audit exists to
+   catch.
+
+3. **The two paths fail differently, deliberately.** `activate_merchant` checks
+   availability first and, when the offer is spent, **activates the merchant on
+   Standard with no trial and no error** — a promo running out must never stop a
+   merchant going live, which is the same choice the Node 0 opening credit makes.
+   A direct admin grant **raises** `ELITE_TRIAL_CAP_REACHED` (surfaced as a 409,
+   not a 500): there the admin asked for this specific merchant, so silently
+   doing nothing would be worse than an error.
+
+4. **Concurrency and scope.** Grants serialize on `pg_advisory_xact_lock`, so two
+   simultaneous approvals cannot both read "99 granted" and push the total to
+   101. Demo rows and off-node merchants are outside the offer and neither
+   consume slots nor are blocked by an exhausted one. No launch-*window* check
+   was added: the frozen rule caps by count and node and says nothing about a
+   date, unlike the opening credit which explicitly reuses
+   `node0_launch_period_ends_at`. Adding one would have been inventing a rule.
+
+### A second bug this surfaced
+
+The approve route logged `details: { grantEliteTrial }` — the **request**. Once a
+grant can legitimately be refused, that puts "granted a trial" in the audit trail
+for a merchant that never got one. It now reads the result back and logs
+`eliteTrialGranted` plus a skip reason, and returns a notice so the approve modal
+can tell the admin the shop went live on Standard. An audit log has to record
+what happened to the entitlement, not what was asked for.
 
 ## 4. Guardrails added
 
@@ -182,9 +223,35 @@ end-to-end through `getLiveDeals`, not just at the comparator level — the
 pre-audit bug was a correct comparator being discarded downstream, which a
 unit-level test alone would not have caught.
 
+`supabase/tests/elite_trial_cap_test.sql` (7 scenarios), from the D2 fix.
+
+| Invariant | Prevents |
+|---|---|
+| Cap config, durable column and trigger all present; cap defaults to 100 | The enforcement being dropped by a later migration |
+| Under the cap: trial granted **and** slot stamped | A grant that does not consume a slot |
+| At the cap: merchant still **activated**, on Standard, no error | A spent promo blocking a merchant going live |
+| A direct `UPDATE` past the cap **raises** | The admin-plans route bypassing the cap again |
+| Downgrade leaves `elite_trial_granted_at` set | The 100 slots being recycled indefinitely |
+| A re-grant to the same merchant consumes no second slot | A restarted trial burning two slots |
+| Off-node and demo merchants neither consume nor are blocked | Rehearsal data eating real launch slots |
+
+Verified as a behavioural ratchet, not just a presence check: neutering the
+trigger to a pass-through (leaving it installed) fails the suite at scenario B.
+
 Existing `frozen-ui-rules.test.ts` was left as-is; it covers design tokens and
-the `free plan` term, and the new files cover the commercial claims and the
-locked feed structure.
+the `free plan` term, and the new files cover the commercial claims, the locked
+feed structure and the launch-offer cap.
+
+### How the SQL suites were verified in this session
+
+`supabase start` needs Docker, which is unavailable here, so the SQL guardrails
+were run against a throwaway local Postgres 16 with PostGIS and a minimal
+Supabase shim (`auth.users`, `auth.uid/role/jwt`, `storage.buckets/objects`,
+`storage.foldername/filename/extension`, and the `anon`/`authenticated`/
+`service_role` roles). On that cluster **all 51 migrations apply cleanly in order
+and all 19 SQL suites pass** — the same work CI's `db-tests` job does. Worth
+repeating rather than trusting: the two new suites were also each confirmed to
+fail when the thing they guard is removed.
 
 ## 5. Follow-ups
 
@@ -192,10 +259,20 @@ locked feed structure.
   F6 were re-discoverable. Either adopt a `docs/drift-register.md` with
   open/closed rows and evidence links, or make each audit doc explicitly close
   the prior audit's rows by ID.
-- **FU-2 (operator, human only).** `supabase/migrations/20260730120000_*.sql`
-  needs pushing to `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md`
-  Claude Code does not run migrations — a human operator must. Metadata only;
-  safe to batch with the next push.
+- **FU-2 (operator, human only).** Two migrations need pushing to
+  `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
+  not run migrations — a human operator must.
+  - `20260730120000_correct_success_fee_config_notes.sql` — metadata only, safe to
+    batch with anything.
+  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
+    the note before pushing.** It adds a column, backfills it, and starts
+    enforcing the cap. **Check the backfill result before announcing the offer:**
+    run `SELECT * FROM public.elite_trial_cap_status();` straight after the push.
+    That tells you how many of the 100 slots existing merchants already consumed.
+    If `granted` looks higher than expected, the backfill counted merchants whose
+    trial was granted before the cap existed — which is correct, but it is a
+    number the founder should see rather than discover when the offer runs out
+    early.
 - **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
   (correct for rehearsal; its own notes say "must be false at launch"). The
   paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from
@@ -231,16 +308,32 @@ locked feed structure.
 
 - Code, repo mirror and Notion now agree on: the success fee, plan names and
   entitlements, deal limits, boost, expiry, archive, roles, the zero-balance
-  gate, verify-anyway, the launch offer's stated terms, and — after the D1 fix —
+  gate, verify-anyway, the launch offer — **stated terms and enforced cap** — and
   the locked feed structure.
-- **One mismatch remains: D2**, tagged as a product decision. D1 was ruled on and
-  fixed the same day.
+- **No mismatches remain open.** Both product decisions were ruled on the same
+  day: D1 (feed default) and D2 (launch-offer cap) are implemented, tested and
+  recorded in the decisions log.
 - The audit pass itself made no behavioural change (public copy, one shared
-  constant, one comment, one metadata migration, tests). **The D1 fix is a
-  deliberate behavioural change**, made on an explicit founder ruling and
-  recorded in the decisions log: the feed's default rail order changed, so the
-  boosted rail now delivers the placement Elite merchants pay for.
-- Outstanding: **FU-2 only** — a human operator must push the metadata migration
-  (`docs/ops/supabase-migrations.md` reserves that to humans). FU-6 is done: the
-  one inaccurate Notion enforcement claim was corrected on 2026-07-30 and
-  verified by re-fetch.
+  constant, one comment, one metadata migration, tests). **D1 and D2 are both
+  deliberate behavioural changes**, each on an explicit founder ruling: the feed's
+  default rail order changed so the boosted rail delivers the placement Elite
+  merchants pay for, and the launch offer is now capped in the database on every
+  path that grants a trial.
+- Verified: 47 JS test files / 326 tests; 51 migrations apply cleanly and 19 SQL
+  suites pass on a local Postgres+PostGIS cluster; lint and typecheck clean; the
+  production build compiles and generates 90/90 pages.
+- Outstanding: **FU-2 only** — a human operator must push the two migrations, and
+  should read `elite_trial_cap_status()` right after, since the backfill decides
+  how many launch-offer slots are already spent. FU-6 is done: the one inaccurate
+  Notion enforcement claim was corrected 2026-07-30 and verified by re-fetch.
+
+### What this audit actually taught
+
+The rules were almost never wrong. What was wrong, repeatedly, was the **claim
+that something enforced them**: Notion said the feed structure was enforced in
+code when no test covered it; the repo said the launch offer was frozen while no
+counter existed; a stale comment said a resolved conflict was still open. Drift
+here does not look like a disagreement about the rule — it looks like everyone
+agreeing on the rule and nobody holding the invariant. That is why every fix in
+this pass shipped with a test that was **checked to fail** when its guard is
+removed. A guardrail nobody has seen fail is itself just another claim.
