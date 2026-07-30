@@ -127,7 +127,7 @@ Repo convention is merge commits (`Merge origin/main into …`), not rebase.
 ## Operator follow-ups (human)
 
 1. Merge consolidation branch (pause-gate `180000` + prefs canonicalization) to `main` first.
-2. Rebase/merge #137/#143/#94 against that tip; delete duplicate pause-gate files if any.
+2. **Merge** `main` into #137/#143/#94 (`git merge origin/main`, resolve, push normally) — do not rebase. These are shared Claude/Cursor branches, so a rebase rewrites history that others hold, and the only way to push it is the force-push step 5 forbids. Merging is also the repo convention stated above. Then confirm exactly one pause-gate file remains: `ls maanta-app/supabase/migrations/ | grep pause_gate` → `20260730180000_…` only.
 3. Delete the fully-merged list above.
 4. Close stale open PRs in the abandoned table.
 5. Do **not** force-push rebased history onto shared Claude/Cursor branches without owner OK.
