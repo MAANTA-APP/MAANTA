@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
-import { EliteTrialCapStatus } from "@/components/admin/elite-trial-cap-status";
 import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
+import {
+  formatAdminTrialStatus,
+  parseEliteTrialCapStatus,
+  type EliteTrialCapStatus,
+} from "@/lib/elite-trial";
 import { MerchantAdminActions } from "./merchant-admin-actions";
 import { MerchantLocationForm } from "./merchant-location-form";
 
@@ -19,14 +23,25 @@ export default async function AdminMerchantDetailPage({
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: m } = await service
-    .from("merchants")
-    .select(
-      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, elite_trial_granted_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
-    )
-    .eq("id", params.id)
-    .maybeSingle();
+  const [{ data: m }, { data: capRows }] = await Promise.all([
+    service
+      .from("merchants")
+      .select(
+        "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, elite_trial_granted_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
+      )
+      .eq("id", params.id)
+      .maybeSingle(),
+    service.rpc("elite_trial_cap_status"),
+  ]);
   if (!m) notFound();
+
+  const trialCap: EliteTrialCapStatus | null = parseEliteTrialCapStatus(capRows);
+
+  const trialStatus = formatAdminTrialStatus({
+    eliteTrialActive: m.elite_trial_active === true,
+    trialEndsAt: m.trial_ends_at,
+    gracePeriodEndsAt: m.grace_period_ends_at,
+  });
 
   return (
     <main className="max-w-3xl">
@@ -46,20 +61,24 @@ export default async function AdminMerchantDetailPage({
         <span className="tnum font-semibold text-ink">{formatKes(m.account_balance)}</span> ·
         Trust <span className="tnum">{Number(m.trust_metric).toFixed(2)}</span>
       </p>
-      {m.elite_trial_active && m.trial_ends_at ? (
-        <p className="mt-1 text-xs text-muted">
-          Elite trial active · ends{" "}
-          <span className="tnum text-ink">
-            {new Date(m.trial_ends_at).toISOString().slice(0, 10)}
-          </span>
+      {trialStatus ? (
+        <p className="mt-2 text-sm font-semibold text-ink" data-testid="admin-trial-status">
+          {trialStatus}
+          {m.trial_ends_at ? (
+            <span className="ml-2 font-normal text-muted">
+              trial ends {new Date(m.trial_ends_at).toLocaleDateString()}
+            </span>
+          ) : null}
+          {m.grace_period_ends_at ? (
+            <span className="ml-2 font-normal text-muted">
+              · grace ends {new Date(m.grace_period_ends_at).toLocaleDateString()}
+            </span>
+          ) : null}
         </p>
       ) : m.elite_trial_granted_at ? (
-        <p className="mt-1 text-xs text-muted">
-          Elite trial slot consumed{" "}
-          <span className="tnum">
-            {new Date(m.elite_trial_granted_at).toISOString().slice(0, 10)}
-          </span>
-          {" "}(durable — not freed on downgrade)
+        <p className="mt-2 text-xs text-muted" data-testid="admin-trial-slot-consumed">
+          Launch-offer trial slot consumed{" "}
+          {new Date(m.elite_trial_granted_at).toLocaleDateString()} (not currently on trial)
         </p>
       ) : null}
 
@@ -68,10 +87,6 @@ export default async function AdminMerchantDetailPage({
         w3w resolved: <W3wChip address={m.what3words_address} />
         {m.entrance_notes ? <span className="text-muted">— {m.entrance_notes}</span> : null}
       </div>
-
-      {m.status === "pending" ? (
-        <EliteTrialCapStatus className="mt-4" compact />
-      ) : null}
 
       <MerchantAdminActions
         merchantId={m.id}
@@ -82,6 +97,7 @@ export default async function AdminMerchantDetailPage({
         floorUnit={[m.floor, m.unit_number].filter(Boolean).join(", ")}
         isFeatured={m.is_featured}
         isShadowBanned={m.is_shadow_banned}
+        trialCap={trialCap}
       />
 
       <MerchantLocationForm

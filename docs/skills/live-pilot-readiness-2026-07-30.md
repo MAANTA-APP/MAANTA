@@ -26,6 +26,8 @@ Intent (do not redefine):
 - `docs/ops/live-pilot-3-person-2026-07-30.md` — Act-by-Act runbook
 - `docs/ops/live-pilot-day-one-prep-2026-07-30.md` — PRs, `db push`, config flips
 - Admin Elite cap status on `/admin/billing` and pending merchant detail
+  (shared helpers in `src/lib/elite-trial.ts`, landed via #144; this PR keeps the
+  pilot runbooks and no longer ships a duplicate React panel)
 - Approve UI shows server `notice` when trial skipped / outcome unknown
 - Local `supabase db reset` + SQL suites: elite cap A–H; after applying #139/#140
   files, sentinel + Option C retention suites green

@@ -121,11 +121,12 @@ UPDATE public.app_config
 
 After this PR deploys:
 
-- `/admin/billing` — full **Elite trial launch offer** panel (`granted / cap`,
-  remaining, exhausted behaviour).
-- `/admin/merchants/[id]` when status is pending — compact cap line above Approve.
-- Approve modal now surfaces the API `notice` when the trial was requested but
-  skipped because the cap was reached (or outcome unknown).
+- `/admin/billing` — **Elite trial launch offer** line (`granted / cap`,
+  remaining, exhausted behaviour) via `elite_trial_cap_status()`.
+- `/admin/merchants/[id]` when status is pending — same cap line above Approve,
+  plus a pre-approve warning when the offer is exhausted.
+- Approve modal surfaces outcome notices (granted / skipped at cap / unknown)
+  via `approveOutcomeMessage` so a silent refresh cannot look like a trial grant.
 
 SQL fallback if the UI is down:
 
