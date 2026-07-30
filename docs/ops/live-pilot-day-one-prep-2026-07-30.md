@@ -57,12 +57,27 @@ supabase db push                 # apply in order
 
 ### Migrations that must be live for pilot day
 
-| Version | Source | What it does |
-|---|---|---|
-| `20260730120000` | #135 (main) | Correct success-fee config notes (metadata) |
-| `20260730130000` | #135 (main) | Elite trial first-100 cap + `elite_trial_cap_status()` |
-| `20260730140000` | #139 (merged) | Trial-expiry launch-sentinel NULL guard |
-| `20260730150000` | #140 (merged) | Demo-wipe Option C audit retention |
+**Corrected 2026-07-30 (PR #143).** This table previously listed
+`20260730120000`–`150000` as needing a push, and labelled `20260730120000` as the
+success-fee notes migration. Both were wrong, verified against
+`supabase_migrations.schema_migrations`:
+
+- All four of those versions are **already applied**. Pushing is not needed and
+  the CLI will not re-run them.
+- Production records `20260730120000` as `node_scoped_opening_credit_cap`, **not**
+  the notes migration — the notes migration was applied as `20260730160000`. The
+  repo file has been renumbered to match. See
+  `docs/maanta-pilot-sequencing-plan-2026-07-30.md` F1 before running any
+  `migration repair`; the one the CLI suggests is wrong.
+
+| Version | Source | Status | What it does |
+|---|---|---|---|
+| `20260730130000` | #135 | **Applied** | Elite trial first-100 cap + `elite_trial_cap_status()` |
+| `20260730140000` | #139 | **Applied** | Trial-expiry launch-sentinel NULL guard |
+| `20260730150000` | #140 | **Applied** | Demo-wipe Option C audit retention |
+| `20260730160000` | #143 | **Applied** (as this version) | Success-fee notes correction — metadata only |
+| `20260730170000` | #143 | **Pending** | Per-node opening-credit count. Not E2E-blocking (0 credits granted, one node); matters at Node 1 |
+| `20260730180000` | #146/#143 | **Pending — push before the pilot** | Restores the paused-deal claim gate. Without it a paused deal still accepts claims while the merchant UI says it will not |
 
 ### Immediately after push
 
