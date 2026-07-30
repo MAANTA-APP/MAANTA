@@ -8,7 +8,7 @@ Produced by: the repo-side design-sync sessions on `claude/maanta-role-hardening
 `maanta-app/design/current-reality/frames.json` is authored in Claude Design and
 mirrored into the repo. Across four founder rulings (D-07, D-01, D-06, D-12) and
 a set of evidence corrections, **the repo won every disagreement** — the code was
-right and the frames described something else. All 12 drift rows are now closed
+right and the frames described something else. All 11 drift rows are now closed
 on the repo side; the canvas has not been redrawn to match.
 
 One item below (**12d For merchants**) is not a drift row. It came out of applying
@@ -144,6 +144,30 @@ repo: no `canvasRef`, no `prototypeRef`, `prototypeStatus:
 current-not-clickable`, and `captureReadiness: after-data` (a screenshot pins
 whichever promo state happened to be live). Treat those four as questions, not
 assertions.
+
+**The row as it stands**, so you can diff against it rather than guess:
+
+| Field | Value |
+|---|---|
+| `id` / `name` / `role` | `12d` / For merchants / `public` |
+| `route` | `/for-merchants` |
+| `status` | `live` |
+| `primaryAction` | List your shop |
+| `runtimeRule` | **`R-LAUNCH-CREDIT-CONFIG`** — new rule, added with the frame |
+| `states` | `credit-live`, `credit-absent`, `credit-uncapped`, `credit-under-one-redemption` (all covered, `missing: []`) |
+| `evidenceSource` | `repo` |
+| `sourceFiles` | `src/app/(public)/for-merchants/page.tsx`, `src/lib/launch-credit.ts` |
+| `smoke` | `true` — anchor is the `h1` *"You only pay when a customer walks in."*, `public` / `anonymous` |
+
+`R-LAUNCH-CREDIT-CONFIG` is the rule text to work from — it names all four
+`app_config` keys and says the cap is per node, so the contract alone shows which
+switches control the promise. Layer 1 asserts it keeps naming those four keys and
+that `credit-absent` stays in `states`. **If you reword the rule, keep the key
+names and the words "PER NODE" in it**, or the build fails.
+
+Because 12d is smoke-covered, its anchor heading is now load-bearing: change
+*"You only pay when a customer walks in."* on the canvas and the repo's smoke
+suite looks for a heading that no longer exists. Flag it loudly if it must move.
 
 ### 8f Deal feed — the third rail is "Deals Near Me" (founder decision, closes D-01)
 
@@ -287,6 +311,18 @@ Update both fields.
   extracted from the repo* — the schema enforces that string. Keep it. If you
   re-verify against the repo, update `mirror.verifiedAgainst` (`branch`,
   `treeSha`, `date`) to what you actually read, and bump `mirror.version`.
+- **Three mechanical invariants that will fail the build if you miss them.** These
+  bite on *any* frame you add or remove, not just 12d:
+  1. **`mirror.frameCount` must equal the number of frames.** It is 22 now. Add a
+     frame and bump it. Asserted unconditionally — omitting the field fails too.
+  2. **A frame with no `canvasRef` must be disclosed in
+     `landedInRepo.corrections`.** Every frame you author has a `canvasRef`, so
+     this only bites a row that did not come from the canvas — which is precisely
+     the case worth catching.
+  3. **Every `runtimeRules` entry must be cited by at least one frame's
+     `runtimeRule`.** Adding a rule nobody references fails the build. There are
+     two documented exceptions (`R-VERIFY-ANYWAY`, `R-FEE-ON-VERIFIED`) and adding
+     a third needs a reason written into the test, not a quiet append.
 - **Leave `landedInRepo` alone.** That block is the repo side of the handshake —
   it records what landed, which drift rows closed, and each correction with
   file:line evidence. It is written by the code session, not by you.
@@ -319,4 +355,5 @@ Update both fields.
 - Rulings: `docs/maanta-decisions-log.md` (2026-07-29 entries for D-07, D-01, D-06, D-12; 2026-07-30 entries for the config-driven launch credit and its per-node cap)
 - Per-row session notes: `docs/skills/{design-truth-contract-landing,feed-deals-near-me,topup-rails-d06,support-pricing-d12}-2026-07-29.md`
 - 12d launch credit: `docs/skills/launch-credit-config-driven-2026-07-30.md` · the rule lives in `src/lib/launch-credit.ts` · the grant is `activate_merchant`, per-node cap since migration `20260730120000_node_scoped_opening_credit_cap.sql` (applied to prod 2026-07-30)
-- Enforcement: `src/lib/design-truth/design-truth.contract.test.ts` (Layer 1, 130 assertions, every PR) · `e2e/design-truth-smoke.spec.ts` (Layer 2, seeded non-prod env) · `src/__tests__/cash-only-and-copy.test.ts` (public copy governance: plan names, no ungoverned offers, no hardcoded launch-credit numbers)
+- Enforcement: `src/lib/design-truth/design-truth.contract.test.ts` (Layer 1, **139 assertions**, every PR) · `e2e/design-truth-smoke.spec.ts` (Layer 2, **18 smoke frames**, seeded non-prod env) · `src/__tests__/cash-only-and-copy.test.ts` (public copy governance: plan names, no ungoverned offers, no hardcoded launch-credit numbers)
+- Contract shape as of this prompt: **22 frames**, 19 runtime rules, 11 drift rows all `blockedOn: none`

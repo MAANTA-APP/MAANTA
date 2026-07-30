@@ -166,7 +166,7 @@ Contract: frame `12e` → `captureReadiness: safe-now` (its
 the generic invariant means reopening the row while 12e claims `safe-now` fails
 Layer 1.
 
-**All 12 drift rows are now `blockedOn: none`.**
+**All 11 drift rows are now `blockedOn: none`.**
 
 ## Verification
 
