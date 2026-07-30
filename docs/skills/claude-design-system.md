@@ -15,7 +15,7 @@ amber CTA + black label, closed vocabulary).
 |---|---|
 | `layout.tsx` | `Page`, `Section`, `RailScroller` |
 | `typography.tsx` | `HeadingLg`, `HeadingMd`, `HeadingSm`, `Body`, `Label`, `Meta` |
-| `controls.tsx` | `PrimaryButton(Link)`, `SecondaryButton(Link)`, `IconButton`, `Chip`, `FilterChip`, `LocationPill` |
+| `controls.tsx` | `PrimaryButton(Link)`, `SecondaryButton(Link)`, `IconButton`, `Chip`, `FilterChip`, `FilterDropdown`, `BackButton`, `BackIconButton`, `LocationPill` |
 | `deal-card.tsx` | `DealCard` (+ `DiscoverDealCard` alias) |
 | `index.ts` | barrel |
 
@@ -27,15 +27,24 @@ amber CTA + black label, closed vocabulary).
 
 ## Surfaces updated
 
-- `/feed` — LocationPill, rails: Top picks / Local heroes / Deals near me / Your favourites.
-- `/browse` — **list first** (“Deals around you” + search + FilterChips), map
-  below with recenter; filters affect list + pins.
+- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`. Heart → saved shops (`/my-deals?tab=shops`).
+- `/map` — full-screen map between Browse and Deals in bottom nav (raised globe icon).
+- `/browse` — **list first** (“Deals around you” + search + sort/filter dropdowns + time FilterChips), map
+  below with recenter; filters affect list + pins. Map links → `/map`. Header heart → saved shops.
 - ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
-- `/profile` — Edit profile, Language (English / Kiswahili coming soon),
-  favourites, mall, settings; Help + Notifications have Back → Profile.
-- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past).
+- `/you` (canonical profile) — Edit profile, Language (English / Kiswahili coming soon),
+  favourites, mall, settings (Notifications, Help & support, Sign out only).
+  `/profile` redirects here.
+- `/you/notifications` — three notification toggles + Back → `/you`.
+  `/notifications/preferences` redirects here; bell icon opens activity list at `/notifications`.
+- `/you/help` — FAQ + WhatsApp CTA (re-exports `/help`).
+- `/my-deals` — compact `SegmentedLinks` (Deals/Shops, Active/Past) + sort dropdown; Active/Past segments match dropdown height. `/deals` redirects here.
+
+## Expiry display
+
+Shared `lib/deal-expiry.ts`: deal cards and merchant deal rows show **Expires in Xh Ym**, then **Grace period: N minutes left** (15-minute grace), then **Expired**. `CountdownChip` uses the same helper. Merchant “Collect from shopper” (cash at till) is unchanged.
 
 - Public landing — hero “Claim in‑mall deals before you pay.” + story sections + early-access → waitlist.
 

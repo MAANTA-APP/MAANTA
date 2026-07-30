@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     redemptionStatus: data.redemption_status,
     feeChargeStatus: data.fee_charge_status,
     disputed: data.disputed === true,
+    node: merchant.node,
   });
 
   // Guardian v1 block/held outcomes (docs/maanta-guardian-v1.md §3). No money

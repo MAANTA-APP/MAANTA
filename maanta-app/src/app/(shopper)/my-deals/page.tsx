@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, getVerifiedCounts } from "@/lib/data";
@@ -14,20 +15,46 @@ import {
   Section,
   SegmentedLinks,
 } from "@/components/ui/claude";
+import { MyDealsControls } from "./my-deals-controls";
 
 export const dynamic = "force-dynamic";
+
+type SortKey = "newest" | "ending" | "redeemed";
+
+function sortRedemptions<T extends { expires_at: string; redeemed_at: string | null }>(
+  rows: T[],
+  sort: SortKey
+): T[] {
+  const copy = [...rows];
+  if (sort === "ending") {
+    return copy.sort(
+      (a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
+    );
+  }
+  if (sort === "redeemed") {
+    return copy.sort((a, b) => {
+      const ar = a.redeemed_at ? new Date(a.redeemed_at).getTime() : 0;
+      const br = b.redeemed_at ? new Date(b.redeemed_at).getTime() : 0;
+      return br - ar;
+    });
+  }
+  return copy.sort(
+    (a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime()
+  );
+}
 
 /** 8l My deals (claimed) + 8ab Favourites (Shops tab) + 8t empty. */
 export default async function MyDealsPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; when?: string };
+  searchParams: { tab?: string; when?: string; sort?: string };
 }) {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/my-deals");
 
   const tab = searchParams.tab === "shops" ? "shops" : "deals";
   const when = searchParams.when === "past" ? "past" : "active";
+  const sort = (searchParams.sort as SortKey) ?? "newest";
   const service = createServiceClient();
 
   const tabLinks = (
@@ -103,6 +130,7 @@ export default async function MyDealsPage({
     otp_code: string;
     status: string;
     expires_at: string;
+    redeemed_at: string | null;
     merchants: { merchant_name: string } | null;
     deals: { title: string; expires_at: string | null } | null;
   }[];
@@ -110,7 +138,10 @@ export default async function MyDealsPage({
   const now = new Date();
   const isActive = (r: (typeof rows)[number]) =>
     r.status === "pending" && new Date(r.expires_at) > now;
-  const shown = rows.filter((r) => (when === "active" ? isActive(r) : !isActive(r)));
+  const shown = sortRedemptions(
+    rows.filter((r) => (when === "active" ? isActive(r) : !isActive(r))),
+    sort
+  );
 
   return (
     <Page className="px-0 pt-6">
@@ -119,13 +150,19 @@ export default async function MyDealsPage({
         <Body className="mt-1">Claimed deals and saved shops.</Body>
         <div className="mt-4 space-y-2.5">
           {tabLinks}
-          <SegmentedLinks
-            active={when}
-            tabs={[
-              { value: "active", label: "Active", href: "/my-deals" },
-              { value: "past", label: "Past", href: "/my-deals?when=past" },
-            ]}
-          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <SegmentedLinks
+              active={when}
+              className="w-full sm:flex-1"
+              tabs={[
+                { value: "active", label: "Active", href: "/my-deals" },
+                { value: "past", label: "Past", href: "/my-deals?when=past" },
+              ]}
+            />
+            <Suspense fallback={null}>
+              <MyDealsControls when={when} className="w-full sm:flex-1" />
+            </Suspense>
+          </div>
         </div>
       </div>
 
@@ -160,10 +197,9 @@ export default async function MyDealsPage({
                       <span className="font-code tracking-[0.06em]">
                         {formatCode(r.otp_code)}
                       </span>
-                      {isActiveRow ? " · valid while the deal runs" : ""}
                     </p>
                     {isActiveRow ? (
-                      <CountdownChip expiresAt={r.expires_at} className="mt-1.5" />
+                      <CountdownChip expiresAt={r.deals?.expires_at ?? r.expires_at} className="mt-1.5" />
                     ) : null}
                   </div>
                   <ClaimChip state={state} className="flex-none" />

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
@@ -7,7 +6,8 @@ import { dealPricing } from "@/lib/pricing";
 import { W3wChip, ClaimChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
-import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
+import { IconCheck } from "@/components/ui/icons";
+import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
 
@@ -170,9 +170,7 @@ export default async function TicketPage({
     <main className="flex flex-col items-center px-5 pb-10 pt-4">
       <TicketWatcher active />
       <div className="flex w-full items-center">
-        <Link href="/my-deals" aria-label="Back" className="-ml-1 p-1 text-ink">
-          <IconArrowLeft className="h-5 w-5" />
-        </Link>
+        <BackIconButton fallback="/my-deals" className="bg-transparent p-1 shadow-none" />
       </div>
 
       {justClaimed ? (

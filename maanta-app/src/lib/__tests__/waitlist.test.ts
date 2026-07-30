@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   normalizeWaitlistPhone,
   validateWaitlistSubmission,
   WAITLIST_SEGMENTS,
+  WAITLIST_SEGMENT_OPTIONS,
 } from "@/lib/waitlist";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 
@@ -86,6 +89,41 @@ describe("validateWaitlistSubmission", () => {
   it("rejects non-object bodies", () => {
     expect(validateWaitlistSubmission(null).ok).toBe(false);
     expect(validateWaitlistSubmission("hi").ok).toBe(false);
+  });
+});
+
+// Frozen rule: shoppers, merchants, and mall operators are separate audiences
+// from the FIRST signup. The landing form used to hardcode segment=shopper, so
+// every merchant captured there landed in the shopper audience. These are
+// ratchets — they fail the moment an entry point stops asking.
+describe("waitlist segment capture", () => {
+  const SRC = path.resolve(__dirname, "..", "..");
+  const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
+  const LANDING = ["app", "(public)", "landing-early-access.tsx"];
+  const WAITLIST = ["app", "(public)", "waitlist", "waitlist-form.tsx"];
+
+  it("offers every segment, in canonical order", () => {
+    expect(WAITLIST_SEGMENT_OPTIONS.map((o) => o.value)).toEqual([
+      ...WAITLIST_SEGMENTS,
+    ]);
+    for (const o of WAITLIST_SEGMENT_OPTIONS) expect(o.label.trim()).not.toBe("");
+  });
+
+  it("never hardcodes a segment at an entry point", () => {
+    for (const file of [LANDING, WAITLIST]) {
+      const src = read(...file);
+      expect(
+        /segment:\s*["'](shopper|merchant|mall_operator)["']/.test(src),
+        `${file.join("/")} pins a literal segment — the visitor must choose`
+      ).toBe(false);
+    }
+  });
+
+  it("drives both entry points from the shared option list", () => {
+    for (const file of [LANDING, WAITLIST]) {
+      expect(read(...file), `${file.join("/")} should not define its own list`)
+        .toContain("WAITLIST_SEGMENT_OPTIONS");
+    }
   });
 });
 

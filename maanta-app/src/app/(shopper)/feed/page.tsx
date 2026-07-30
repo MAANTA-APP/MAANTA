@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { DealCard, Page, Section, RailScroller } from "@/components/ui/claude";
 import { EmptyState } from "@/components/ui/states";
@@ -11,8 +12,17 @@ import {
 } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { NotificationOptIn } from "./notification-opt-in";
+import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
-import { collectionWindowLabel } from "@/lib/browse";
+import { dealExpiryLabel } from "@/lib/browse";
+import {
+  DEFAULT_FEED_SORT,
+  FEED_SORT_OPTIONS,
+  filterDealRowsByRail,
+  parseDealListFilter,
+  parseDealListSort,
+  sortDealRows,
+} from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +53,7 @@ function cardProps(
     merchantName: d.merchants?.merchant_name ?? "",
     mallName: d.merchants?.mall_name ?? d.node,
     title: d.title,
-    collectionLabel: collectionWindowLabel(d.starts_at, d.expires_at),
+    expiryLabel: dealExpiryLabel(d.expires_at),
     distanceLabel: distanceForDeal(d, opts.origin),
     pay: pricing.pay,
     wasKes: pricing.was,
@@ -55,17 +65,52 @@ function cardProps(
   };
 }
 
-export default async function FeedPage() {
+export default async function FeedPage({
+  searchParams,
+}: {
+  searchParams?: { sort?: string; filter?: string };
+}) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
+  // Validated, not cast: an unrecognised ?sort= would otherwise reach the
+  // distance branch and undo the locked order, and an unrecognised ?filter=
+  // would empty every rail and claim there are no deals.
+  const sort = parseDealListSort(searchParams?.sort, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS);
+  const filter = parseDealListFilter(searchParams?.filter);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);
 
-  const allDeals = [...flash, ...boosted, ...nearMe];
-  const favouriteDeals = allDeals.filter((d) => favourites.has(d.merchant_id));
+  // `getLiveDeals` already returns each rail in its locked order, so the default
+  // path leaves them alone — `sortDealRows` is a pass-through for "featured".
+  // Only an explicit shopper choice re-sorts, and then it applies to all rails.
+  let flashDeals = sortDealRows(flash, sort, origin);
+  let boostedDeals = sortDealRows(boosted, sort, origin);
+  let nearDeals = sortDealRows(nearMe, sort, origin);
+
+  if (filter !== "all") {
+    flashDeals = filter === "flash" ? flashDeals : [];
+    boostedDeals = filter === "boosted" ? boostedDeals : [];
+    nearDeals = filter === "standard" ? nearDeals : [];
+    if (filter === "flash") {
+      boostedDeals = [];
+      nearDeals = [];
+    } else if (filter === "boosted") {
+      flashDeals = [];
+      nearDeals = [];
+    } else if (filter === "standard") {
+      flashDeals = [];
+      boostedDeals = [];
+    }
+  }
+
+  const allDeals = [...flashDeals, ...boostedDeals, ...nearDeals];
+  const favouriteDeals = filterDealRowsByRail(
+    allDeals.filter((d) => favourites.has(d.merchant_id)),
+    filter
+  );
   const seen = new Set<string>();
   const uniqueFavourites = favouriteDeals.filter((d) => {
     if (seen.has(d.id)) return false;
@@ -73,11 +118,14 @@ export default async function FeedPage() {
     return true;
   });
 
-  const total = flash.length + boosted.length + nearMe.length;
+  const total = flashDeals.length + boostedDeals.length + nearDeals.length;
 
   return (
     <Page>
       <ShopperTopBar node={node} />
+      <Suspense fallback={null}>
+        <FeedControls />
+      </Suspense>
       {user ? <NotificationOptIn /> : null}
 
       {total === 0 ? (
@@ -87,7 +135,7 @@ export default async function FeedPage() {
         />
       ) : (
         <>
-          {flash.length > 0 ? (
+          {flashDeals.length > 0 ? (
             <Section
               title="Top picks near you"
               subtitle="Flash deals — grab them while they last"
@@ -99,7 +147,7 @@ export default async function FeedPage() {
               padded={false}
             >
               <RailScroller>
-                {flash.map((d) => (
+                {flashDeals.map((d) => (
                   <DealCard
                     key={d.id}
                     {...cardProps(d, { origin, favourites, tag: "flash" })}
@@ -109,9 +157,9 @@ export default async function FeedPage() {
             </Section>
           ) : null}
 
-          {boosted.length > 0 ? (
+          {boostedDeals.length > 0 ? (
             <Section
-              title="Local heroes"
+              title="Neighbourhood favourites"
               subtitle="Boosted deals near you"
               action={
                 <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
@@ -121,7 +169,7 @@ export default async function FeedPage() {
               padded={false}
             >
               <RailScroller>
-                {boosted.map((d) => (
+                {boostedDeals.map((d) => (
                   <DealCard
                     key={d.id}
                     {...cardProps(d, { origin, favourites, tag: "boosted" })}
@@ -131,18 +179,18 @@ export default async function FeedPage() {
             </Section>
           ) : null}
 
-          {nearMe.length > 0 ? (
+          {nearDeals.length > 0 ? (
             <Section
               title="Deals near me"
               subtitle="Standard deals at your mall"
               action={
-                <Link href="/browse" className="text-xs font-semibold text-muted">
+                <Link href="/map" className="text-xs font-semibold text-muted">
                   Map ›
                 </Link>
               }
             >
               <div className="space-y-rail">
-                {nearMe.map((d) => (
+                {nearDeals.map((d) => (
                   <DealCard
                     key={d.id}
                     variant="vertical"

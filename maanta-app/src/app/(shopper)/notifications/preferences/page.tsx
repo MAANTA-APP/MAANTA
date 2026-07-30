@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Preferences live on /notifications — keep this path as a redirect. */
+/** Legacy route — wireframe canonical is /you/notifications. */
 export default function NotificationPreferencesRedirect() {
-  redirect("/notifications");
+  redirect("/you/notifications");
 }

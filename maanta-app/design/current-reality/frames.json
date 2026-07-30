@@ -1,0 +1,332 @@
+{
+  "$schema_note": "MAANTA design current-reality inventory — 2026-07-30 parity audit. Not pixel truth; classifies routes vs code/SQL.",
+  "generated": "2026-07-30",
+  "source_of_truth_order": [
+    "Notion / product decisions",
+    "Repo implementation (Next.js + SQL migrations)",
+    "This inventory (design current-reality)",
+    "Human sync docs under docs/skills/",
+    "Audit prompts"
+  ],
+  "surfaces": [
+    {
+      "role": "shopper",
+      "route": "/login",
+      "status": "live",
+      "design_frame": null,
+      "frontend": ["src/app/login/[[...sign-in]]/page.tsx"],
+      "backend": ["Clerk SignIn or SupabaseEmailLogin via MAANTA_AUTH_STRATEGY"],
+      "sql": ["public.users via ensureAppUser"],
+      "primary_action": "Sign in",
+      "notes": "Interactive browser needs real Clerk keys; placeholder keys fail FAPI handshake."
+    },
+    {
+      "role": "shopper",
+      "route": "/otp",
+      "status": "superseded",
+      "design_frame": "S2 / phone OTP",
+      "frontend": ["src/app/otp/page.tsx"],
+      "backend": ["redirect → /verify-phone"],
+      "sql": null,
+      "primary_action": "Alias to phone verify",
+      "notes": "Canonical OTP UI is /verify-phone. Alias added 2026-07-30."
+    },
+    {
+      "role": "shopper",
+      "route": "/verify-phone",
+      "status": "gated",
+      "design_frame": "S2",
+      "frontend": ["src/app/verify-phone/page.tsx"],
+      "backend": ["Clerk phone SMS; claim API phone_required"],
+      "sql": null,
+      "primary_action": "Verify phone for claim",
+      "notes": "Rehearsal (Supabase auth) skips phone gate intentionally."
+    },
+    {
+      "role": "shopper",
+      "route": "/feed",
+      "status": "live",
+      "design_frame": "S1 / locked Flash→Priority→All Active",
+      "frontend": ["src/app/(shopper)/feed/page.tsx"],
+      "backend": ["getLiveDeals"],
+      "sql": ["deals", "boost_flags", "verified_counts_by_merchant"],
+      "primary_action": "Browse rails / open deal",
+      "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded."
+    },
+    {
+      "role": "shopper",
+      "route": "/browse",
+      "status": "live",
+      "design_frame": "Discover browse list",
+      "frontend": ["src/app/(shopper)/browse/page.tsx"],
+      "backend": ["getLiveDeals"],
+      "sql": ["deals"],
+      "primary_action": "Filter/list deals",
+      "notes": "Canonical list surface. DEFAULT_BROWSE_SORT=nearest. Lat/lng deep links redirect to /map."
+    },
+    {
+      "role": "shopper",
+      "route": "/map",
+      "status": "live",
+      "design_frame": null,
+      "frontend": ["src/app/(shopper)/map/page.tsx"],
+      "backend": ["getLiveDeals"],
+      "sql": ["deals", "merchants.lat/lng"],
+      "primary_action": "Map pins",
+      "notes": "Separate from feed (Notion do-not-build: map inside feed). Does NOT redirect to /browse — both are first-class nav peers."
+    },
+    {
+      "role": "shopper",
+      "route": "/deals/[id]",
+      "status": "live",
+      "design_frame": "8g / 8ae / 8h",
+      "frontend": ["src/app/(shopper)/deals/[id]/page.tsx", "claim-flow.tsx"],
+      "backend": ["POST /api/redemptions → claim_deal"],
+      "sql": ["claim_deal", "you_pay_kes", "is_paused gate"],
+      "primary_action": "Claim deal",
+      "notes": "YOU PAY = price + extras. New claims live-only; pause CTA honest; phone gate under Clerk."
+    },
+    {
+      "role": "shopper",
+      "route": "/tickets",
+      "status": "superseded",
+      "design_frame": null,
+      "frontend": ["src/app/(shopper)/tickets/page.tsx"],
+      "backend": ["redirect → /my-deals"],
+      "sql": null,
+      "primary_action": "List claimed deals",
+      "notes": "Canonical list is /my-deals (nav label Deals)."
+    },
+    {
+      "role": "shopper",
+      "route": "/tickets/[id]",
+      "status": "gated",
+      "design_frame": "8i / 8j",
+      "frontend": ["src/app/(shopper)/tickets/[id]/page.tsx", "claimed-code.tsx"],
+      "backend": ["redemptions read"],
+      "sql": ["redemptions.expires_at = deal.expires_at + 15m"],
+      "primary_action": "Show OTP at counter",
+      "notes": "Grace is for claimed codes only."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/onboarding",
+      "status": "superseded",
+      "design_frame": null,
+      "frontend": ["src/app/merchant/onboarding/page.tsx"],
+      "backend": ["redirect → /merchant/onboard"],
+      "sql": null,
+      "primary_action": "Alias",
+      "notes": "Canonical wizard /merchant/onboard with ?shop= prefill."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/onboard",
+      "status": "gated",
+      "design_frame": "Merchant onboarding",
+      "frontend": ["src/app/merchant/onboard/page.tsx"],
+      "backend": ["onboarding API / ensure merchant"],
+      "sql": ["merchants status pending→active via admin"],
+      "primary_action": "Submit shop",
+      "notes": "Merchant-authored; agent attribution only."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/redeem",
+      "status": "gated",
+      "design_frame": "9k / 9t / 9l / 9m",
+      "frontend": ["redeem/page.tsx", "redeem-keypad.tsx"],
+      "backend": ["preflight + verify APIs"],
+      "sql": ["verify_redemption", "deduct_success_fee_or_record_arrears"],
+      "primary_action": "Confirm redemption (KES 30)",
+      "notes": "Resolve-then-charge; can_verify gate; verify-anyway for balance + location override path."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/deals",
+      "status": "gated",
+      "design_frame": "10b / 10ab",
+      "frontend": ["deals/page.tsx"],
+      "backend": ["deals CRUD"],
+      "sql": ["enforce_deal_limit", "is_paused"],
+      "primary_action": "Manage deals",
+      "notes": "List keeps grace-window deals for till management."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/deals/new",
+      "status": "gated",
+      "design_frame": "Deal create wizard",
+      "frontend": ["deals/new/page.tsx", "new-deal-wizard.tsx"],
+      "backend": ["POST /api/deals"],
+      "sql": ["zero_balance_gate", "enforce_deal_limit", "enforce_deal_success_fee"],
+      "primary_action": "Create deal",
+      "notes": "Not design-ahead — wizard + YOU PAY + extras are live. Zero balance → top-up CTA + API 402."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/wallet",
+      "status": "gated",
+      "design_frame": "Wallet",
+      "frontend": ["wallet/page.tsx"],
+      "backend": ["ledger read"],
+      "sql": ["account_balance", "arrears", "topup_settles_arrears_first"],
+      "primary_action": "View balance / arrears",
+      "notes": "Honest verify-anyway + new-deal pause copy."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/topup",
+      "status": "gated",
+      "design_frame": "Top-up",
+      "frontend": ["topup/page.tsx", "topup-flow.tsx"],
+      "backend": ["/api/topup/stripe", "/api/topup STK"],
+      "sql": ["wallet credit + arrears settle"],
+      "primary_action": "Pay with card (Stripe Phase 1)",
+      "notes": "STK secondary when IntaSend configured. Notion: Stripe primary."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/alerts",
+      "status": "gated",
+      "design_frame": "10x Alerts",
+      "frontend": ["alerts/page.tsx"],
+      "backend": ["derived from wallet/deals/boosts"],
+      "sql": null,
+      "primary_action": "Read derived alerts",
+      "notes": "Not a push inbox. Low-balance copy aligned with verify-anyway (2026-07-30)."
+    },
+    {
+      "role": "merchant",
+      "route": "/merchant/staff",
+      "status": "gated",
+      "design_frame": "Staff",
+      "frontend": ["staff/page.tsx"],
+      "backend": ["/api/staff"],
+      "sql": ["merchant_staff permissions"],
+      "primary_action": "Manage staff perms",
+      "notes": "Owner-only; can_verify gates redeem."
+    },
+    {
+      "role": "admin",
+      "route": "/admin",
+      "status": "gated",
+      "design_frame": "11 merchant queue",
+      "frontend": ["admin/page.tsx"],
+      "backend": ["approve APIs"],
+      "sql": ["activate_merchant", "elite trial cap"],
+      "primary_action": "Approve merchants",
+      "notes": "Optional Elite trial; cap enforced in SQL."
+    },
+    {
+      "role": "admin",
+      "route": "/admin/redemptions/[id]",
+      "status": "gated",
+      "design_frame": "Dispute / reverse",
+      "frontend": ["admin/redemptions/[id]/page.tsx"],
+      "backend": ["hold/release/reverse-fee"],
+      "sql": ["fee_reversals", "guardian"],
+      "primary_action": "Hold / release / reverse fee",
+      "notes": "Reverse requires note + audit."
+    },
+    {
+      "role": "admin",
+      "route": "/admin/support",
+      "status": "gated",
+      "design_frame": null,
+      "frontend": ["admin/support/page.tsx"],
+      "backend": ["agent_tasks"],
+      "sql": ["agent_tasks"],
+      "primary_action": "Support override queue",
+      "notes": null
+    },
+    {
+      "role": "admin",
+      "route": "/admin/billing",
+      "status": "gated",
+      "design_frame": "11j plans",
+      "frontend": ["admin/billing/page.tsx"],
+      "backend": ["plans APIs", "elite_trial_cap_status"],
+      "sql": ["20260730130000 elite trial cap"],
+      "primary_action": "Grant trial / mark paid / downgrade",
+      "notes": "Cap line surfaced in UI."
+    },
+    {
+      "role": "admin",
+      "route": "/admin/deals",
+      "status": "gated",
+      "design_frame": "11c",
+      "frontend": ["admin/deals/page.tsx"],
+      "backend": ["fraud_events → deals"],
+      "sql": ["fraud_events"],
+      "primary_action": "Moderate flagged deals",
+      "notes": "Reason taxonomy design-ahead; cosmetic reason filters removed 2026-07-30."
+    },
+    {
+      "role": "agent",
+      "route": "/agent",
+      "status": "gated",
+      "design_frame": null,
+      "frontend": ["agent/page.tsx"],
+      "backend": ["leads KPIs"],
+      "sql": ["leads", "48h lock"],
+      "primary_action": "Agent home",
+      "notes": "agent|admin layout gate."
+    },
+    {
+      "role": "agent",
+      "route": "/agent/leads",
+      "status": "gated",
+      "design_frame": null,
+      "frontend": ["agent/leads/page.tsx"],
+      "backend": ["/api/leads"],
+      "sql": ["capture_lead", "locked_until"],
+      "primary_action": "List leads",
+      "notes": "48h lead lock ≠ commission attribution window."
+    },
+    {
+      "role": "agent",
+      "route": "/agent/leads/[id]",
+      "status": "gated",
+      "design_frame": null,
+      "frontend": ["agent/leads/[id]/page.tsx"],
+      "backend": ["lead detail / link"],
+      "sql": ["leads"],
+      "primary_action": "Lead detail",
+      "notes": "Onboarding attribution label-only (no money-path effect)."
+    },
+    {
+      "role": "founder",
+      "route": "/founder",
+      "status": "gated",
+      "design_frame": null,
+      "frontend": ["founder/page.tsx"],
+      "backend": ["KPI reads"],
+      "sql": ["aggregates"],
+      "primary_action": "Founder dashboard",
+      "notes": "requireFounderPage ≡ admin role."
+    },
+    {
+      "role": "founder",
+      "route": "/founder/reports",
+      "status": "superseded",
+      "design_frame": null,
+      "frontend": ["founder/reports/page.tsx"],
+      "backend": ["redirect → /admin/reports"],
+      "sql": null,
+      "primary_action": "Platform reports alias",
+      "notes": "Canonical charts at /admin/reports."
+    },
+    {
+      "role": "public",
+      "route": "/contact",
+      "status": "design-ahead",
+      "design_frame": null,
+      "frontend": ["(public)/contact/page.tsx"],
+      "backend": null,
+      "sql": null,
+      "primary_action": "Send message (client-only)",
+      "notes": "Fake success — no API. Do not treat as shipped support channel."
+    }
+  ]
+}

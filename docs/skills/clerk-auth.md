@@ -162,12 +162,14 @@ shopper board.
 3. **Environment** (deploy target + local `.env`)
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
    - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
-   - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/select-mall` (and the sign-up equivalent)
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/app-bootstrap` (and the sign-up equivalent)
 4. **Apply the migration** `20260720140000_clerk_third_party_auth.sql` to the
    Supabase project (CI's db-tests job applies it automatically on PR).
 
 ## Verify it end-to-end (after the steps above)
-- Sign in at `/login` with a phone number → land on `/select-mall`.
+- Sign in at `/login` with a phone number → land on `/app-bootstrap` → role home
+  (shopper `/feed`, merchant `/merchant/dashboard`, etc.). See
+  `docs/ops/pwa-install.md`.
 - `select * from public.users where clerk_user_id is not null` shows your row.
 - Hit an authenticated route (e.g. save a favourite) → succeeds, and the RPC's
   internal `current_user_id()` resolves (no `unauthorized` error).

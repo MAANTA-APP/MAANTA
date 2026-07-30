@@ -89,6 +89,9 @@ export async function POST(request: Request) {
     ) {
       status = 404;
       userMessage = "This deal is no longer available.";
+    } else if (message.includes("deal_paused")) {
+      status = 409;
+      userMessage = "This deal is paused — no new claims right now.";
     } else if (message.includes("deal_expired")) {
       status = 410;
       userMessage = "This deal has expired.";
@@ -142,6 +145,11 @@ export async function POST(request: Request) {
 
   const clerkUserId = await currentClerkUserId();
   if (clerkUserId) {
+    const { data: dealMeta } = await service
+      .from("deals")
+      .select("node")
+      .eq("id", dealId)
+      .maybeSingle();
     void captureDealClaimed({
       clerkUserId,
       redemptionId: data.redemption_id,
@@ -149,6 +157,7 @@ export async function POST(request: Request) {
       merchantId: data.merchant_id,
       hadGps: !!gps,
       hasFraudFlags,
+      node: dealMeta?.node,
     });
   }
 

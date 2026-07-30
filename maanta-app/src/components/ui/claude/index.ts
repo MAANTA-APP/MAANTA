@@ -15,8 +15,12 @@ export {
   IconButton,
   Chip,
   FilterChip,
+  FilterDropdown,
+  BackButton,
+  BackIconButton,
   LocationPill,
   SegmentedLinks,
+  BackToYouLink,
   BackToProfileLink,
 } from "@/components/ui/claude/controls";
 export { DealCard, DiscoverDealCard } from "@/components/ui/claude/deal-card";

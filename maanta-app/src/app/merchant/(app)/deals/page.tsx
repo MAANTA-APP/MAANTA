@@ -6,6 +6,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { formatKes } from "@/lib/ui";
 import { IconPlus } from "@/components/ui/icons";
+import { isDealInRedemptionWindow } from "@/lib/deal-expiry";
+import {
+  getMerchantLifecycleInfo,
+  getMerchantLifecycleStats,
+} from "@/lib/merchant-lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +25,7 @@ export default async function MerchantDealsPage() {
   const [{ data: deals }, { data: verified }] = await Promise.all([
     service
       .from("deals")
-      .select("id, title, image_url, is_paused, boost_active, expires_at, claims_count, max_claims")
+      .select("id, title, image_url, is_paused, boost_active, expires_at, claims_count, max_claims, is_active")
       .eq("merchant_id", merchant.id)
       .eq("is_active", true)
       .order("created_at", { ascending: false }),
@@ -36,10 +41,29 @@ export default async function MerchantDealsPage() {
     verifiedByDeal.set(r.deal_id, (verifiedByDeal.get(r.deal_id) ?? 0) + 1);
   }
 
+  const allDealRows = (deals ?? []).map((d) => ({
+    expires_at: d.expires_at,
+    is_active: d.is_active,
+  }));
+  const lifecycle = getMerchantLifecycleInfo(
+    merchant,
+    getMerchantLifecycleStats(allDealRows)
+  );
+
+  // Merchant list keeps grace-window deals so till codes can still be managed.
   const live = (deals ?? []).filter(
-    (d) => !d.expires_at || new Date(d.expires_at) > new Date()
+    (d) => !d.expires_at || isDealInRedemptionWindow(d.expires_at)
   );
   const limit = merchant.tier === "elite" ? 2 : 1;
+
+  const emptyTitle =
+    lifecycle.stage === "churn_risk"
+      ? "No active deals — shoppers can't find you"
+      : "No deals published yet";
+  const emptySub =
+    lifecycle.stage === "churn_risk"
+      ? "You haven't posted a deal in 30+ days. Create a new deal to re-appear in the feed."
+      : undefined;
 
   return (
     <main className="px-4 pt-5">
@@ -57,7 +81,8 @@ export default async function MerchantDealsPage() {
 
       {live.length === 0 ? (
         <EmptyState
-          title="No deals published yet"
+          title={emptyTitle}
+          sub={emptySub}
           actionLabel="Create your first deal"
           actionHref="/merchant/deals/new"
         />
