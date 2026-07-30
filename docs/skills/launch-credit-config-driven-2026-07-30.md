@@ -220,6 +220,53 @@ Postgres 16 with a Supabase shim (roles, `auth`/`storage`/`cron` schemas, the
 every migration applied in order from a clean database. They also run in CI
 `db-tests` against a real `supabase start`.
 
+## The page is now a contract frame — 12d
+
+Added on request, 2026-07-30. It is the **only frame in `frames.json` not authored
+in Claude Design**, so the provenance is stated rather than implied:
+`evidenceSource: repo`, **no `canvasRef`**, and a `landedInRepo.corrections` entry
+recording that the code session added it and that Claude Design still owes the
+canvas linkage.
+
+That could have been a quiet fake-sync, so it is now a CI invariant instead:
+**every frame authored in Claude Design carries a `canvasRef`, therefore any frame
+without one must be disclosed in `landedInRepo.corrections`.** Delete the
+disclosure and Layer 1 fails.
+
+The frame's four states are the launch-credit block — `credit-live`,
+`credit-absent`, `credit-uncapped`, `credit-under-one-redemption` — all shipped,
+`missing: []`. It cites a new runtime rule, **`R-LAUNCH-CREDIT-CONFIG`**, which
+names all four `app_config` keys and says the cap is counted per node, so ops can
+see from the contract alone which switches control the promise. A settled-ruling
+block asserts the rule keeps naming those keys and that `credit-absent` stays in
+`states` — a promo that cannot disappear is the bug this frame records as fixed.
+
+Smoke coverage went 17 → **18 frames**; 12d asserts the `h1` *"You only pay when a
+customer walks in."* as `public` / `anonymous`, which needs no seeded auth.
+
+Two fields were left deliberately conservative because the repo cannot prove them:
+no `prototypeRef` (so `prototypeStatus: current-not-clickable`) and
+`captureReadiness: after-data`, since a screenshot pins whichever promo state was
+live. Both are flagged in the design prompt as questions, not assertions.
+
+### A vacuous test caught while adding it
+
+The first version of the `mirror.frameCount === frames.length` invariant **passed
+while frameCount said 21 and the file had 22 frames.** `frameCount` was not
+modelled in `mirrorSchema`, and Zod strips unknown keys — so
+`contract.mirror.frameCount` was `undefined` and the `if (declared !== undefined)`
+guard skipped the assertion entirely. It only surfaced because the invariant was
+negative-tested; a green suite would otherwise have vouched for a count nothing
+compared.
+
+Fixed by modelling `frameCount` in both `mirrorSchema` and the design-side
+`frames.schema.json`, and by dropping the guard so a missing field fails too.
+Negative-tested twice: wrong count → fails, field deleted → fails.
+
+The general lesson, worth carrying: **a conditional assertion on a field that can
+vanish is not a test.** If a guard exists so the test can skip, the skip is the
+failure mode.
+
 ## Applied to prod — 2026-07-30
 
 Project `axrrslqssmbngbataejg` (eu-west-1).

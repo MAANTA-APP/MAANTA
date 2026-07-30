@@ -191,6 +191,11 @@ export const mirrorSchema = z.object({
   liveNodes: z.array(z.string()).optional(),
   rehearsalNodes: z.array(z.string()).optional(),
   knownRepoDesignMirror: z.string().optional(),
+  // Must be modelled, not merely present in the JSON: Zod strips unknown keys,
+  // so an unmodelled field reads as `undefined` downstream and any test that
+  // guards on it passes vacuously. The contract test asserts it against
+  // frames.length.
+  frameCount: z.number().int().positive().optional(),
 });
 
 export const supersededSchema = z

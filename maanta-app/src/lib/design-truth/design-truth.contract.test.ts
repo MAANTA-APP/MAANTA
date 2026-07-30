@@ -57,6 +57,34 @@ describe("contract parses", () => {
     const ids = frames.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("keeps mirror.frameCount equal to the number of frames", () => {
+    // A self-describing count that nothing checks is a count that goes stale.
+    // Asserted unconditionally: dropping the field is itself a contract change,
+    // and an `if (declared !== undefined)` guard would pass vacuously the moment
+    // the field stopped surviving schema parsing — which is exactly what happened
+    // before `frameCount` was added to mirrorSchema.
+    expect(
+      contract.mirror.frameCount,
+      "mirror.frameCount is missing or disagrees with frames.length"
+    ).toBe(frames.length);
+  });
+
+  it("discloses any frame that did not come from the canvas", () => {
+    // Every frame authored in Claude Design carries a canvasRef. A frame without
+    // one was added repo-side, which is the exact provenance this contract exists
+    // to keep honest — so it must be declared in landedInRepo.corrections rather
+    // than passed off as design truth.
+    const declared = new Set(
+      (contract.landedInRepo?.corrections ?? []).map((c) => c.frame)
+    );
+    for (const f of frames.filter((x) => !x.canvasRef)) {
+      expect(
+        declared.has(f.id),
+        `${f.id} has no canvasRef, so it was not authored in Claude Design. Record it in landedInRepo.corrections, or add the canvasRef that proves it came from the canvas.`
+      ).toBe(true);
+    }
+  });
 });
 
 describe("references resolve", () => {
@@ -305,6 +333,33 @@ describe("settled rulings stay settled", () => {
     const d07 = contract.drift.find((d) => d.id === "D-07")!;
     expect(d07.blockedOn).toBe("none");
     expect(d07.detail).toMatch(/still redeems/i);
+  });
+
+  it("keeps 12d's launch credit config-gated, per node, and absent-able", () => {
+    // The Node 0 opening credit is the counterpart to D-12's withdrawn Elite
+    // offer: it stays because config, the decisions log and activate_merchant all
+    // back it. What must never come back is drawing it as unconditional.
+    const f = frames.find((x) => x.id === "12d")!;
+    expect(f.runtimeRule).toBe("R-LAUNCH-CREDIT-CONFIG");
+
+    // The absent state is the whole point — a promo that cannot disappear is the
+    // bug this frame records as fixed.
+    expect(f.states).toContain("credit-absent");
+    expect(f.stateCoverage.missing).toEqual([]);
+
+    const rule = contract.runtimeRules["R-LAUNCH-CREDIT-CONFIG"];
+    expect(rule).toMatch(/app_config/);
+    expect(rule).toMatch(/PER NODE/);
+    // Naming the keys is what lets ops see, from the contract alone, which
+    // switches control the promise.
+    for (const key of [
+      "node0_opening_credit_kes",
+      "node0_opening_credit_merchant_cap",
+      "node0_launch_node",
+      "node0_launch_period_ends_at",
+    ]) {
+      expect(rule, `R-LAUNCH-CREDIT-CONFIG omits ${key}`).toContain(key);
+    }
   });
 });
 

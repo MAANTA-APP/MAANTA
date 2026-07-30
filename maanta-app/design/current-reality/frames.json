@@ -27,7 +27,7 @@
     "knownRepoDesignMirror": "maanta-app/design/claim-and-till/ \u2014 mirrors a DIFFERENT Claude Design project. There is no maanta-app/design/current-reality/ on main as of this date.",
     "location": "handoff/current-reality/ in the Claude Design project. NOT committed to the app repo \u2014 see drift D-08.",
     "humanReadableView": "Maanta Current Reality.dc.html (project root). There is no index.html in this folder.",
-    "frameCount": 21
+    "frameCount": 22
   },
   "runtimeRules": {
     "R-FEED-ORDER": "Feed section order is frozen: Flash deals, then Priority placements, then Deals Near Me. Never reorderable. The three are distinct product concepts: Flash and Priority placements are promotional surfaces; Deals Near Me is proximity-led local discovery carrying nearby STANDARD, non-boosted deals only (a Standard merchant's one standard deal plus an Elite merchant's non-boosted standard deals). Merchant tier is not a filter. Proximity is node-scoped and ordered by each shop's distance from the node centre, not device geolocation.",
@@ -47,7 +47,8 @@
     "R-VERIFIED-REDEMPTIONS": "The merchant trust and ranking signal is verified redemptions. Never stars or ratings.",
     "R-ONE-PRICE": "One summed YOU PAY number, identical on tile, detail and claimed code. Extra charges are declared up front and cannot be added at the counter.",
     "R-PLAN-NAMES": "Plans are Standard and Elite, never Free. Success fee KES 30, Elite KES 3,500/month, boost KES 500/24h.",
-    "R-TAGLINE": "Tagline is exact: Discover, Claim and Redeem."
+    "R-TAGLINE": "Tagline is exact: Discover, Claim and Redeem.",
+    "R-LAUNCH-CREDIT-CONFIG": "A launch credit or offer may only be advertised while the config that grants it says it is on. The Node 0 opening credit's amount, merchant cap, launch node and window all come from app_config (node0_opening_credit_kes / node0_opening_credit_merchant_cap / node0_launch_node / node0_launch_period_ends_at), and the promo copy reads the same keys the grant reads \u2014 so both blocks disappear when the window closes, the cap fills, the amount is set to 0, or the config cannot be read. The cap is counted PER NODE, so the promo can be live at a new node after an earlier one filled. An ungoverned offer is not advertised at all \u2014 see R-PLAN-NAMES and drift D-12."
   },
   "frames": [
     {
@@ -806,6 +807,45 @@
       "prototypeRef": "shopper/landing"
     },
     {
+      "id": "12d",
+      "name": "For merchants",
+      "role": "public",
+      "route": "/for-merchants",
+      "status": "live",
+      "job": "Let a shop owner work out what listing costs before signing up, and see the launch credit only while it is genuinely on offer.",
+      "primaryAction": "List your shop",
+      "runtimeRule": "R-LAUNCH-CREDIT-CONFIG",
+      "states": [
+        "credit-live",
+        "credit-absent",
+        "credit-uncapped",
+        "credit-under-one-redemption"
+      ],
+      "stateCoverage": {
+        "covered": [
+          "credit-live",
+          "credit-absent",
+          "credit-uncapped",
+          "credit-under-one-redemption"
+        ],
+        "missing": []
+      },
+      "prototypeStatus": "current-not-clickable",
+      "prototypeBlockedReason": "Public marketing page, and no prototypeRef is confirmed for it. This row was added repo-side (see landedInRepo), so Claude Design still owes the canvas and prototype linkage \u2014 do not read the missing canvasRef as a decision that the canvas excludes the screen.",
+      "captureReadiness": "after-data",
+      "captureReadinessReason": "The two launch-credit blocks render from live app_config, so a capture pins whichever promo state happened to be true at capture time.",
+      "evidenceSource": "repo",
+      "sourceFiles": [
+        "src/app/(public)/for-merchants/page.tsx",
+        "src/lib/launch-credit.ts"
+      ],
+      "smoke": true,
+      "expectedHeading": "You only pay when a customer walks in.",
+      "requiredRole": "public",
+      "authState": "anonymous",
+      "notes": "Added repo-side on 2026-07-30, NOT authored in Claude Design \u2014 the only frame in this file with that provenance, recorded in landedInRepo.corrections. The four states are the launch-credit block: `credit-live` shows the hero pill plus the derived \u201cYour first N are on us\u201d headline (N = credit / success fee, floored); `credit-absent` omits BOTH blocks and is reached four ways (window closed, cap filled, amount 0, config unreadable), so the page must read complete without them; `credit-uncapped` drops the \u201cfirst N shops\u201d claim rather than inventing a cap; `credit-under-one-redemption` keeps the card but drops the derived headline, because \u201cyour first 0 are on us\u201d is worse than silence. Every number comes from app_config via src/lib/launch-credit.ts, which fails closed. The promo sentence names the launch node FROM CONFIG because the cap is per-node (migration 20260730120000); the hero and closing sections keep \u201cBBS Mall, Eastleigh\u201d because that states Node 0's frozen identity. R-PLAN-NAMES also binds this page \u2014 its Plans section names Standard and Elite and prices Standard as \u201cNo monthly fee\u201d, locked by src/__tests__/cash-only-and-copy.test.ts, which additionally forbids hardcoded launch-credit numbers here."
+    },
+    {
       "id": "12e",
       "name": "Pricing",
       "role": "public",
@@ -1157,6 +1197,13 @@
         "was": "current-mismatch / blocked on product-decision",
         "now": "historical / none \u2014 closed by founder decision",
         "evidence": "offer removed; four closing conditions asserted in src/__tests__/cash-only-and-copy.test.ts"
+      },
+      {
+        "frame": "12d",
+        "field": "frame (added)",
+        "was": "absent \u2014 the 21 frames had no row for /for-merchants, though the page itself is commented \u201c12d For merchants\u201d",
+        "now": "added repo-side by the code session, with evidenceSource repo, no canvasRef, and the canvas/prototype linkage still owed by Claude Design",
+        "evidence": "src/app/(public)/for-merchants/page.tsx ships all four launch-credit states from src/lib/launch-credit.ts; the h1 \u201cYou only pay when a customer walks in.\u201d is the smoke anchor. Requested explicitly 2026-07-30 after the config-driven launch-credit and per-node cap changes; prompt docs/skills/claude-design-wireframe-update-prompt-2026-07-30.md"
       }
     ]
   }

@@ -120,12 +120,30 @@ Two limits to draw honestly rather than around:
 - **The credit lands at activation, not signup.** The existing "Credit is added
   when we activate your shop" line is correct and load-bearing — keep it.
 
-**Contract note:** `frames.json` currently has no `12d` row (the 21 frames do not
-include it), though the repo page is commented as frame 12d. If the canvas
-carries the screen, add a proper row for it with the states above rather than
-leaving the repo's most promise-heavy public page outside the contract. If the
-canvas deliberately excludes it, say so explicitly in the changelog — either
-answer is fine, silence is not.
+**Contract note — a 12d row now exists, and it is the one frame in the file you
+did not author.** It was added repo-side on 2026-07-30 (founder request), because
+leaving the repo's most promise-heavy public page outside the contract meant
+nothing checked it. It carries `evidenceSource: repo`, **no `canvasRef`**, and it
+is declared in `landedInRepo.corrections` so its provenance is explicit rather
+than passed off as design truth. A Layer 1 invariant now enforces exactly that:
+**any frame without a `canvasRef` must be disclosed in
+`landedInRepo.corrections`**, so a repo-authored row can never quietly masquerade
+as canvas-authored.
+
+What you owe on it, either way:
+
+- **If the canvas carries the screen** — add the `canvasRef`, set a
+  `prototypeRef` if it is in the prototype, and correct anything I got wrong. The
+  frame's `prototypeBlockedReason` says the linkage is unconfirmed; replacing that
+  with a real reason is the point.
+- **If the canvas deliberately excludes it** — say so in the changelog and I will
+  reconsider whether the row belongs. Do not silently delete it.
+
+Fields I deliberately left conservative because I could not verify them from the
+repo: no `canvasRef`, no `prototypeRef`, `prototypeStatus:
+current-not-clickable`, and `captureReadiness: after-data` (a screenshot pins
+whichever promo state happened to be live). Treat those four as questions, not
+assertions.
 
 ### 8f Deal feed — the third rail is "Deals Near Me" (founder decision, closes D-01)
 
@@ -288,7 +306,9 @@ Update both fields.
 3. A short changelog: **frame → what changed → which ruling or evidence drove
    it.** One line each. This is what the next code session diffs against.
 4. For 12d specifically: an explicit answer on whether the canvas carries the
-   screen, and therefore whether the contract gains a `12d` row.
+   screen — and if it does, its `canvasRef`, its `prototypeRef` if any, and
+   corrections to the four conservative fields listed in that section. The row
+   already exists; what is missing is your half of it.
 
 ---
 

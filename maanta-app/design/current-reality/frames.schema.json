@@ -45,7 +45,12 @@
         "stage": { "type": "string" },
         "liveNodes": { "type": "array", "items": { "type": "string" } },
         "rehearsalNodes": { "type": "array", "items": { "type": "string" } },
-        "knownRepoDesignMirror": { "type": "string" }
+        "knownRepoDesignMirror": { "type": "string" },
+        "frameCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of frames in this artifact. The repo asserts it equals frames.length (src/lib/design-truth/design-truth.contract.test.ts), so it cannot go stale unnoticed."
+        }
       }
     },
     "runtimeRules": {
