@@ -238,6 +238,25 @@ describe("settled rulings stay settled", () => {
     expect(f.stateCoverage.missing).not.toContain("location-mismatch");
   });
 
+  it("keeps D-01 decided: the third feed section is Deals Near Me", () => {
+    // Founder decision 2026-07-29. The rule text must name the section, and the
+    // repo's label must match — src/lib/__tests__/feed-sections.test.ts pins the
+    // constant itself. Reopening this row would re-invite "All active deals".
+    const row = contract.drift.find((dr) => dr.id === "D-01")!;
+    expect(row.blockedOn).toBe("none");
+    expect(row.what).toMatch(/Deals Near Me/);
+
+    const rule = contract.runtimeRules["R-FEED-ORDER"];
+    expect(rule).toMatch(/Deals Near Me/);
+    expect(rule).toMatch(/Flash deals/);
+    expect(rule).toMatch(/Priority placements/);
+    // The order is frozen, so the three must appear in it.
+    expect(rule.indexOf("Flash deals")).toBeLessThan(rule.indexOf("Priority placements"));
+    expect(rule.indexOf("Priority placements")).toBeLessThan(rule.indexOf("Deals Near Me"));
+    // And it must not describe the rail as generic global inventory.
+    expect(rule).not.toMatch(/all active deals/i);
+  });
+
   it.each([
     ["D-02", /see-all/i],
     ["D-03", /archive/i],

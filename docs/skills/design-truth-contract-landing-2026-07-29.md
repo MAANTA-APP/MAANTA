@@ -63,7 +63,7 @@ Layer 1 caught all five on first run.
 
 | Frame | Rule | Change |
 |---|---|---|
-| 8f Deal feed | `R-FEED-ORDER` | Rails renamed to the frozen names: **Flash deals**, **Priority placements**. Third section left as "All active deals" — its label is unresolved (D-01), so the repo's wording stands. Order unchanged. |
+| 8f Deal feed | `R-FEED-ORDER` | Rails renamed to the frozen names: **Flash deals**, **Priority placements**. Third section was left pending D-01 and is now **Deals Near Me** — see `docs/skills/feed-deals-near-me-2026-07-29.md`. Order unchanged. |
 | 13f Verify-phone | `R-PHONE-BEFORE-CLAIM` | Entry heading → **"Verify your phone"**. |
 | 8j Claimed code | `R-GRACE` | Card label → **"Show this code"**. Card still holds only label + code + countdown (R6). |
 | 13j Staff verify gate | `R-VERIFY-PERMISSION` | New `StaffVerifyGate` screen: **"You can't verify codes"** + a **Contact the owner** action (WhatsApp when the shop has a number). Replaces the generic permission notice at `/merchant/redeem`. Server guards untouched. |
@@ -150,7 +150,7 @@ reopening D-04 produced exactly two targeted failures.
 
 | Row | Blocked on | Why it stays open |
 |---|---|---|
-| D-01 | product-decision | Third feed section's name. Repo renders "All active deals"; the frames say "Deals Near Me". Needs a founder call. |
+| ~~D-01~~ | ~~product-decision~~ | **Closed 2026-07-29** — founder decided: Deals Near Me, proximity-led standard deals. |
 | D-06 | code | M-Pesa-primary vs Stripe Phase 1 — blocked on IntaSend credentials, not engineering. |
 | D-12 | prototype | Admin support (11e) and public pricing (12e) are intentionally documentation-only. |
 

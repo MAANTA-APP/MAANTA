@@ -13,7 +13,7 @@ import {
 import { dealPricing } from "@/lib/pricing";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
-import { nodeCoords } from "@/lib/nodes";
+import { nodeCoords, nodeLabel } from "@/lib/nodes";
 import { dealExpiryLabel } from "@/lib/browse";
 import {
   filterDealRowsByRail,
@@ -22,6 +22,12 @@ import {
   type DealListSort,
 } from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
+import {
+  FEED_SECTIONS,
+  nearMeSubtitle,
+  orderNearMeDeals,
+  selectNearMeDeals,
+} from "@/lib/feed-sections";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +86,13 @@ export default async function FeedPage({
 
   let flashDeals = sortDealRows(flash, sort, origin);
   let boostedDeals = sortDealRows(boosted, sort, origin);
-  let nearDeals = sortDealRows(nearMe, sort, origin);
+  // D-01: Deals Near Me is proximity-led by definition, so it is ordered by
+  // `orderNearMeDeals` rather than the shared sort control — and re-filtered so
+  // a flash or boosted deal can never leak in from a widened query.
+  let nearDeals =
+    sort === "nearest"
+      ? orderNearMeDeals(selectNearMeDeals(nearMe), origin)
+      : sortDealRows(selectNearMeDeals(nearMe), sort, origin);
 
   if (filter !== "all") {
     flashDeals = filter === "flash" ? flashDeals : [];
@@ -134,8 +146,8 @@ export default async function FeedPage({
         <>
           {flashDeals.length > 0 ? (
             <Section
-              title="Flash deals"
-              subtitle="Grab them while they last"
+              title={FEED_SECTIONS.flash.title}
+              subtitle={FEED_SECTIONS.flash.subtitle}
               action={
                 <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
                   See all ›
@@ -156,8 +168,8 @@ export default async function FeedPage({
 
           {boostedDeals.length > 0 ? (
             <Section
-              title="Priority placements"
-              subtitle="Boosted by the shop"
+              title={FEED_SECTIONS.boosted.title}
+              subtitle={FEED_SECTIONS.boosted.subtitle}
               action={
                 <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
                   See all ›
@@ -176,16 +188,17 @@ export default async function FeedPage({
             </Section>
           ) : null}
 
-          {/* "All active deals", named for what it actually is: every live
-              standard deal at the selected node, ranked by verified
-              redemptions and the chosen sort. It is not distance-filtered and
-              merchant GPS is optional, so the old "Deals near me" title
-              promised a proximity guarantee the query never made. Distance,
-              where it is known, is shown per card instead. */}
+          {/* Deals Near Me — founder decision D-01. Nearby STANDARD deals only:
+              a Standard merchant's one standard deal plus an Elite merchant's
+              non-boosted standard deals. Flash and Priority placements stay
+              separate surfaces above. "Near" is node-scoped and ordered by each
+              shop's distance from the node centre — not device geolocation — so
+              the subtitle says exactly that and drops the proximity claim when
+              there are no coordinates. See src/lib/feed-sections.ts. */}
           {nearDeals.length > 0 ? (
             <Section
-              title="All active deals"
-              subtitle="Every live deal at your mall"
+              title={FEED_SECTIONS.nearMe.title}
+              subtitle={nearMeSubtitle(origin, nodeLabel(node))}
               action={
                 <Link href="/map" className="text-xs font-semibold text-muted">
                   Map ›

@@ -30,7 +30,7 @@
     "frameCount": 21
   },
   "runtimeRules": {
-    "R-FEED-ORDER": "Feed section order is frozen: Flash Deals then Priority Placements then the third section. Never reorderable.",
+    "R-FEED-ORDER": "Feed section order is frozen: Flash deals, then Priority placements, then Deals Near Me. Never reorderable. The three are distinct product concepts: Flash and Priority placements are promotional surfaces; Deals Near Me is proximity-led local discovery carrying nearby STANDARD, non-boosted deals only (a Standard merchant's one standard deal plus an Elite merchant's non-boosted standard deals). Merchant tier is not a filter. Proximity is node-scoped and ordered by each shop's distance from the node centre, not device geolocation.",
     "R-GRACE": "A claimed code is valid until the deal expires, plus a 15-minute grace period. Never a fixed countdown from claim.",
     "R-FEE-ON-VERIFIED": "The KES 30 success fee is debited only on a verified redemption, and is disclosed before it is taken.",
     "R-RESOLVE-THEN-CHARGE": "Resolve the code first, then charge. Never charge before the outcome is known.",
@@ -94,7 +94,7 @@
       "role": "shopper",
       "route": "/feed",
       "status": "live",
-      "job": "Find a live deal worth walking to, ranked so the urgent ones surface first.",
+      "job": "Find a live deal worth walking to. Flash deals and Priority placements lead; Deals Near Me carries nearby standard deals so the default discovery rail is proximity-led.",
       "primaryAction": "Open a deal",
       "runtimeRule": "R-FEED-ORDER",
       "states": [
@@ -117,7 +117,8 @@
       "captureReadiness": "after-data",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/(shopper)/feed/page.tsx"
+        "src/app/(shopper)/feed/page.tsx",
+        "src/lib/feed-sections.ts"
       ],
       "canvasRef": "8f",
       "smoke": true,
@@ -125,7 +126,8 @@
       "requiredRole": "shopper",
       "authState": "authenticated",
       "prototypeRef": "shopper/feed",
-      "captureReadinessReason": "Marketplace density is seeded during Node 0 rehearsal."
+      "captureReadinessReason": "Marketplace density is seeded during Node 0 rehearsal.",
+      "notes": "Section order is R-FEED-ORDER and is read from FEED_SECTIONS in src/lib/feed-sections.ts, so the labels live in one place. Deals Near Me is ordered by orderNearMeDeals (located shops nearest-first, then unlocated newest-first) and its subtitle drops the proximity claim when the node has no coordinates."
     },
     {
       "id": "13g",
@@ -886,11 +888,11 @@
     },
     {
       "id": "D-01",
-      "classification": "design-ahead",
-      "blockedOn": "product-decision",
-      "what": "Third feed section named 'Deals Near Me'",
-      "detail": "Frames say Deals Near Me; repo renders All Active Deals.",
-      "where": "8f"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "DECIDED 2026-07-29 \u2014 the third feed section is Deals Near Me",
+      "detail": "Founder decision: the third section is named Deals Near Me and carries nearby standard deals only. The rationale is behavioural \u2014 shoppers engage with deals in the area they are in or travelling to, so the default standard rail is proximity-led while Flash and Priority placements stay separate promotional surfaces. The repo briefly rendered 'All active deals', which is now superseded. The bucket query already returned exactly the right class of deal (deal_type = standard AND boost_active = false); what changed is the label, an explicit proximity ordering, and an honest subtitle.",
+      "where": "8f, src/lib/feed-sections.ts, src/app/(shopper)/feed/page.tsx"
     },
     {
       "id": "D-02",
@@ -960,6 +962,7 @@
   "landedInRepo": {
     "date": "2026-07-29",
     "closesDrift": [
+      "D-01",
       "D-02",
       "D-03",
       "D-04",
@@ -1064,6 +1067,27 @@
         "was": "current-mismatch / blocked on provenance",
         "now": "historical / none \u2014 mirror committed, Layer 1 in CI",
         "evidence": "maanta-app/design/current-reality/frames.json is this file; src/lib/design-truth/ + npm run test:design-truth"
+      },
+      {
+        "frame": "runtimeRules.R-FEED-ORDER",
+        "field": "rule text",
+        "was": "Feed section order is frozen: Flash Deals then Priority Placements then the third section. Never reorderable.",
+        "now": "Feed section order is frozen: Flash deals, then Priority placements, then Deals Near Me. Never reorderable. The three are distinct product concepts: Flash and Priority placements are promotional surfaces; Deals Near Me is proximity-led local discovery carrying nearby STANDARD, non-boosted deals only (a Standard merchant's one standard deal plus an Elite merchant's non-boosted standard deals). Merchant tier is not a filter. Proximity is node-scoped and ordered by each shop's distance from the node centre, not device geolocation.",
+        "evidence": "founder decision 2026-07-29 naming the third section and its contents"
+      },
+      {
+        "frame": "D-01",
+        "field": "classification",
+        "was": "design-ahead / blocked on product-decision",
+        "now": "historical / none \u2014 decided: Deals Near Me",
+        "evidence": "src/lib/feed-sections.ts FEED_SECTIONS.nearMe; src/lib/__tests__/feed-sections.test.ts"
+      },
+      {
+        "frame": "8f",
+        "field": "job/sourceFiles/notes",
+        "was": "{\"job\": \"Find a live deal worth walking to, ranked so the urgent ones surface first.\", \"sourceFiles\": [\"src/app/(shopper)/feed/page.tsx\"]}",
+        "now": "job names the three rails; sourceFiles adds src/lib/feed-sections.ts",
+        "evidence": "labels and ordering now live in src/lib/feed-sections.ts"
       }
     ]
   }

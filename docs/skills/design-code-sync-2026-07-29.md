@@ -27,7 +27,7 @@ checked in later, re-run this triage against it.
 
 | # | Drift item | Classification | Action | Status |
 |---|---|---|---|---|
-| 1 | "Deals Near Me" label vs shipped All Active Deals | **Copy mismatch** | Rail renamed to **"All active deals"** / "Every live deal at your mall" | ✅ synced |
+| 1 | "Deals Near Me" label vs shipped All Active Deals | **Copy mismatch** | Rail renamed to "All active deals" — **superseded by founder decision D-01 (2026-07-29): the section is Deals Near Me.** See `docs/skills/feed-deals-near-me-2026-07-29.md`. | ↩ reverted by decision |
 | 2 | See-all screens with no route | **Partly stale + IA gap** | Routes existed (`/search?type=flash|boosted`); the filter sheet had no **Boosted** option, so the arriving state was unrepresentable and Apply silently changed it. Option added. | ✅ synced |
 | 3 | Archive repost/delete absent | **Stale — code ahead of prototype** | Both shipped (`/api/deals/repost`, `DELETE /api/archive/[id]`, `archived-actions.tsx`). Real gap found instead: the buttons rendered for staff the API 403s. Now gated on `can_deals`. | ✅ synced (item itself was stale) |
 | 4 | Elite 2-deal limit unenforced | **Stale at DB, real in UI** | `enforce_deal_limit` has always enforced 1/2 in Postgres. The UI never surfaced it: a merchant completed the whole wizard and uploaded a cover before meeting a raw trigger message. Limit now surfaced up front + product copy on the 409. | ✅ synced |
@@ -38,7 +38,12 @@ checked in later, re-run this triage against it.
 
 ## Detail on what changed
 
-### 1. Feed rail: "Deals near me" → "All active deals"
+### 1. Feed rail: "Deals near me" → "All active deals" — SUPERSEDED
+
+> **This rename was reversed.** Founder decision D-01 (2026-07-29) named the third
+> section **Deals Near Me** and made it proximity-led. The reasoning below was
+> right that the query was not distance-*filtered*; the decision was to make the
+> rail genuinely proximity-led rather than to rename it away. Kept for provenance.
 
 The rail is fed by `getLiveDeals().nearMe`, which is the **standard** deal
 bucket for the selected node ordered by verified-redemption count, then by the

@@ -323,12 +323,11 @@ async function getLiveDealsUncached(
   ];
   const verifiedByMerchant = await getVerifiedCounts(merchantIds);
 
-  const nearMe = [...standard].sort(
-    (a, b) =>
-      (verifiedByMerchant.get(b.merchant_id) ?? 0) -
-      (verifiedByMerchant.get(a.merchant_id) ?? 0)
-  );
-  return { flash, boosted, nearMe, verifiedByMerchant };
+  // `nearMe` is the standard, non-boosted bucket. It is returned in query order
+  // and ordered for display by `orderNearMeDeals` (proximity-led, D-01) — this
+  // used to pre-sort by verified-redemption count, which the feed then threw
+  // away by re-sorting, so the sort was dead and misleading.
+  return { flash, boosted, nearMe: standard, verifiedByMerchant };
 }
 
 /** Short-lived cache for hot Feed/Browse reads (30s per node). */
