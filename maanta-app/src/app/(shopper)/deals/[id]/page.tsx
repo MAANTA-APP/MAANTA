@@ -116,7 +116,7 @@ export default async function DealDetailPage({
           {typeof m.lat === "number" && typeof m.lng === "number" ? (
             <div className="mt-3">
               <ButtonLink
-                href={`/map?lat=${m.lat}&lng=${m.lng}&dealId=${deal.id}`}
+                href={`/browse?lat=${m.lat}&lng=${m.lng}&dealId=${deal.id}`}
                 variant="ghost"
                 size="sm"
               >

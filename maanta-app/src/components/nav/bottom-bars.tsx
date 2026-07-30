@@ -6,7 +6,6 @@ import { cn } from "@/lib/ui";
 import {
   IconHome,
   IconPin,
-  IconGlobe,
   IconTicket,
   IconUser,
   IconKeypad,
@@ -50,18 +49,17 @@ function BarLink({
   );
 }
 
-/** Shopper bottom bar — Feed / Browse / Map / Deals / You. */
+/** Shopper bottom bar — Feed / Browse / Deals / You (Search → Browse per plan). */
 export function ShopperBottomBar() {
   const pathname = usePathname();
   const items = [
     { href: "/feed", label: "Feed", icon: IconHome, match: ["/feed"] },
-    { href: "/browse", label: "Browse", icon: IconPin, match: ["/browse", "/search"] },
     {
-      href: "/map",
-      label: "Map",
-      icon: IconGlobe,
+      href: "/browse",
+      label: "Browse",
+      icon: IconPin,
       prominent: true,
-      match: ["/map"],
+      match: ["/browse", "/search", "/map"],
     },
     {
       href: "/my-deals",
@@ -86,7 +84,7 @@ export function ShopperBottomBar() {
             label={i.label}
             icon={i.icon}
             active={i.match.some((m) => pathname === m || pathname.startsWith(`${m}/`))}
-            prominent={"prominent" in i && i.prominent}
+            prominent={"prominent" in i && !!i.prominent}
           />
         ))}
       </div>

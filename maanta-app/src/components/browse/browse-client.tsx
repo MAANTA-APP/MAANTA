@@ -1,89 +1,86 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   DealCard,
+  FilterChip,
+  IconButton,
   Section,
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
 import {
+  dealsToPins,
   filterBrowseDeals,
-  type BrowseChipFilter,
+  type BrowseRailFilter,
+  type BrowseTimeFilter,
+  type MapBounds,
 } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { dealExpiryLabel } from "@/lib/browse";
-import {
-  filterDealRowsByRail,
-  sortDealRows,
-  type DealListFilter,
-  type DealListSort,
-} from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
-import { IconSearch } from "@/components/ui/icons";
+import { IconPin, IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
-import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
-import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
+
+const BrowseMap = dynamic(
+  () => import("./browse-map").then((m) => m.BrowseMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center rounded-card bg-stone-soft text-sm text-muted">
+        Loading map…
+      </div>
+    ),
+  }
+);
+
+const RAIL_FILTERS: { id: BrowseRailFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "flash", label: "Flash" },
+  { id: "boosted", label: "Boosted" },
+  { id: "standard", label: "Standard" },
+];
+
+const TIME_FILTERS: { id: BrowseTimeFilter; label: string }[] = [
+  { id: "any", label: "Any time" },
+  { id: "now", label: "Collect now" },
+  { id: "today", label: "Today" },
+];
 
 export type BrowseDealPayload = DealRow;
 
-function browseEmptyState(opts: {
-  chip: BrowseChipFilter;
-  isSignedIn: boolean;
-  favouritesCount: number;
-}): { title: string; sub: string; actionLabel?: string; actionHref?: string } {
-  if (opts.chip === "favourites") {
-    if (!opts.isSignedIn) {
-      return {
-        title: "Sign in to see favourites",
-        sub: "Save shops from deal cards, then filter deals from those merchants here.",
-        actionLabel: "Sign in",
-        actionHref: "/login?next=/browse",
-      };
-    }
-    if (opts.favouritesCount === 0) {
-      return {
-        title: "No saved shops yet",
-        sub: "Tap the heart on a deal card to save a shop, then return here.",
-        actionLabel: "View saved shops",
-        actionHref: "/my-deals?tab=shops",
-      };
-    }
-    return {
-      title: "No deals from saved shops",
-      sub: "Your saved merchants have no live deals in this node right now.",
-    };
-  }
-
-  return {
-    title: "No deals match your filters",
-    sub: "Try adjusting filters or switching node.",
-  };
-}
-
+/**
+ * Browse — Leaflet map + deal list filtered to map bounds.
+ * Rail + collect-time filters match the Discover/Browse plan.
+ */
 export function BrowseClient({
   node,
   deals,
   origin,
   favourites,
-  sort,
-  filter,
-  chip,
-  isSignedIn,
+  initialLat,
+  initialLng,
+  initialDealId,
 }: {
   node: string;
   deals: BrowseDealPayload[];
   origin: { lat: number; lng: number };
   favourites: string[];
-  sort: DealListSort;
-  filter: DealListFilter;
-  chip: BrowseChipFilter;
-  isSignedIn: boolean;
+  initialLat?: number | null;
+  initialLng?: number | null;
+  initialDealId?: string | null;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
+  const [rail, setRail] = useState<BrowseRailFilter>("all");
+  const [time, setTime] = useState<BrowseTimeFilter>("any");
+  const [bounds, setBounds] = useState<MapBounds | null>(null);
   const [query, setQuery] = useState("");
+  const [recenterKey, setRecenterKey] = useState(0);
+
+  const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
 
   const applySearch = useCallback(
     (rows: DealRow[]) => {
@@ -98,71 +95,104 @@ export function BrowseClient({
     [query]
   );
 
+  /** Pins use rail/time/search only — not bounds (pins drive the viewport). */
+  const filteredForPins = useMemo(() => {
+    return applySearch(filterBrowseDeals(deals, { rail, time }));
+  }, [deals, rail, time, applySearch]);
+
+  const pins = useMemo(() => dealsToPins(filteredForPins), [filteredForPins]);
+
+  /** List is further clipped to the current map viewport. */
   const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
-      rail: "all",
-      chip,
-      favouriteMerchantIds: favSet,
-    });
-    return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, chip, favSet, sort, origin, applySearch]);
+    return applySearch(filterBrowseDeals(deals, { rail, time, bounds }));
+  }, [deals, rail, time, bounds, applySearch]);
 
-  const empty = browseEmptyState({
-    chip,
-    isSignedIn,
-    favouritesCount: favourites.length,
-  });
-
-  const subtitle =
-    listDeals.length === 0
-      ? "0 deals match your filters here · try adjusting filters or switching node."
-      : listDeals.length === 1
-        ? "1 deal matches your filters"
-        : `${listDeals.length} deals match your filters`;
-
-  const searchAndFilters = (
-    <div className="space-y-2.5">
-      <Suspense fallback={null}>
-        <BrowseControls />
-      </Suspense>
-      <div className="flex items-center gap-2">
-        <div className="relative min-w-0 flex-1">
-          <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search deals or shops"
-            className={`${inputClass} !h-11 !rounded-full !pl-9 !text-sm`}
-            aria-label="Search deals"
-          />
-        </div>
-        <Link
-          href="/search"
-          aria-label="Open full search"
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white text-ink shadow-card"
-        >
-          <IconSearch className="h-4 w-4" />
-        </Link>
-      </div>
-      <Suspense fallback={null}>
-        <BrowseChips />
-      </Suspense>
-    </div>
-  );
+  const focus: [number, number] | null =
+    initialLat != null && initialLng != null
+      ? [initialLat, initialLng]
+      : null;
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-stone">
       <ShopperTopBar node={node} />
 
-      <Section title="Deals around you" subtitle={subtitle} className="pb-6">
-        <div className="mb-4">{searchAndFilters}</div>
+      <div className="relative h-[42vh] min-h-[220px] w-full shrink-0 border-b border-line">
+        <BrowseMap
+          key={recenterKey}
+          pins={pins}
+          center={[origin.lat, origin.lng]}
+          focus={focus ?? (recenterKey > 0 ? [origin.lat, origin.lng] : null)}
+          selectedDealId={initialDealId}
+          onBounds={onBounds}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] space-y-2 p-3">
+          <div className="pointer-events-auto flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search deals or shops"
+                className={`${inputClass} !h-11 !rounded-full !bg-white/95 !pl-9 !text-sm backdrop-blur-sm`}
+                aria-label="Search deals"
+              />
+            </div>
+            <Link
+              href="/search"
+              aria-label="Open full search"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-white/95 text-ink shadow-card backdrop-blur-sm"
+            >
+              <IconSearch className="h-4 w-4" />
+            </Link>
+            <IconButton
+              label="Recenter on current mall"
+              onClick={() => setRecenterKey((k) => k + 1)}
+              className="bg-white/95 backdrop-blur-sm"
+            >
+              <IconPin className="h-4 w-4" />
+            </IconButton>
+          </div>
+          <div className="pointer-events-auto no-scrollbar flex gap-1.5 overflow-x-auto">
+            {RAIL_FILTERS.map((f) => (
+              <FilterChip
+                key={f.id}
+                active={rail === f.id}
+                onClick={() => setRail(f.id)}
+              >
+                {f.label}
+              </FilterChip>
+            ))}
+          </div>
+          <div className="pointer-events-auto no-scrollbar flex gap-1.5 overflow-x-auto">
+            {TIME_FILTERS.map((f) => (
+              <FilterChip
+                key={f.id}
+                active={time === f.id}
+                onClick={() => setTime(f.id)}
+              >
+                {f.label}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <Section
+        title="Deals around you"
+        subtitle={
+          listDeals.length === 0
+            ? "No deals in this map area — pan the map or clear filters."
+            : listDeals.length === 1
+              ? "1 deal in view"
+              : `${listDeals.length} deals in view`
+        }
+        className="pb-6"
+      >
         {listDeals.length === 0 ? (
           <EmptyState
-            title={empty.title}
-            sub={empty.sub}
-            actionLabel={empty.actionLabel}
-            actionHref={empty.actionHref}
+            title="No deals in this area"
+            sub="Try clearing filters or panning the map."
           />
         ) : (
           <div className="space-y-rail">

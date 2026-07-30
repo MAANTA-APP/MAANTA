@@ -184,8 +184,8 @@ export default async function FeedPage({
               title="Deals near me"
               subtitle="Standard deals at your mall"
               action={
-                <Link href="/map" className="text-xs font-semibold text-muted">
-                  Map ›
+                <Link href="/browse" className="text-xs font-semibold text-muted">
+                  See all ›
                 </Link>
               }
             >

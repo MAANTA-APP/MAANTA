@@ -4,6 +4,13 @@ Last updated: 2026-07-26 · Status: **repo-side seed — reconcile with the Noti
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
 
+### Update — 2026-07-30: Browse map+list co-located on `/browse`
+
+Browse again hosts Leaflet map + viewport-filtered deal list (plan). Filters:
+All/Flash/Boosted/Standard + Collect now/Today. Deal detail “View on map” →
+`/browse?lat=&lng=&dealId=`. `/map` redirects to `/browse`. Bottom nav: Feed /
+Browse / Deals / You. See `docs/skills/discover-browse-w3w.md`.
+
 ### Update — 2026-07-26: Discover rails + Browse map (within Frozen tokens)
 
 Shopper Discover (`/feed`) gained TGTG-style rail copy, a current-location pill,

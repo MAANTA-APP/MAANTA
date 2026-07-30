@@ -1,12 +1,12 @@
 # Skills: Discover / Browse / what3words precision
 
-Last updated: 2026-07-26 · Status: **shipped in code** (apply migration + `W3W_API_KEY` before deploy).
+Last updated: 2026-07-30 · Status: **shipped in code** (apply migration + `W3W_API_KEY` before deploy).
 
 ## What shipped
 
-TGTG-style Discover rails on `/feed`, a Leaflet Browse map+list on `/browse`,
-and merchant GPS (`lat`/`lng`) alongside the existing `what3words_address`
-string for precision pickup.
+TGTG-style Discover rails on `/feed`, a Leaflet Browse **map + list** on
+`/browse`, and merchant GPS (`lat`/`lng`) alongside the existing
+`what3words_address` string for precision pickup.
 
 ## Data model
 
@@ -33,20 +33,24 @@ string for precision pickup.
 
 - Data: `getLiveDeals(node)` → flash / boosted / nearMe (`getLiveDeals` unchanged partition).
 - Favourites rail: `getFavouriteMerchantIds` × live deals (`merchant_favourites`).
-- Cards: `DiscoverDealCard` (distance via Haversine from node centroid when GPS present).
+- Cards: Claude `DealCard` (distance via Haversine from node centroid when GPS present).
 - Location pill: `ShopperTopBar` “Current location: {mall}”.
+- Rail “See all ›” → `/browse`.
 
 ## Browse (`/browse`)
 
 - Leaflet + OSM (no Mapbox key). `react-leaflet@4` for React 18.
-- Filters: rail type (All/Flash/Boosted/Standard) + Collect now / Today.
-- List synced to map viewport bounds (`lib/browse.ts` helpers).
-- Deep link: `/map?lat=&lng=&dealId=` from deal detail “View on map” (legacy `/browse?lat=…` redirects to `/map`).
+- Map on top; deal-card list below, clipped to current map bounds.
+- Filters over map: rail type (**All / Flash / Boosted / Standard**) +
+  **Collect now / Today** (+ Any time).
+- Deep link: `/browse?lat=&lng=&dealId=` from deal detail “View on map”.
+- `/map` redirects to `/browse` (query preserved) for old bookmarks.
 - Bottom nav: Search tab → **Browse** (`/search` remains via header icon on Browse).
 
 ## Onboarding / admin
 
 - Wizard forwards `lat`/`lng` from validate → onboard route updates after RPC insert.
+- Onboard returns `locationSaved` / `warning` when GPS update fails after create.
 - Admin merchant detail: `MerchantLocationForm` (w3w → coords, or coords → optional reverse words).
 
 ## Deploy checklist
@@ -62,11 +66,6 @@ string for precision pickup.
 - `src/lib/__tests__/browse.test.ts`
 - `src/lib/__tests__/get-live-deals.test.ts` (incl. lat/lng select fallback)
 - `src/components/__tests__/discover-deal-card.test.ts`
+- `src/components/__tests__/shopper-ui-polish.test.ts` (Browse map+list smoke)
 - `src/app/api/merchants/onboard/__tests__/route.test.ts` (lat/lng persist)
 - `src/app/api/admin/merchants/[id]/location/__tests__/route.test.ts`
-
-## UI notes (post-ship polish)
-
-- Discover rail “See all ›” → `/browse` (not `/search`).
-- Browse is list-first with URL chips/controls; map lives on `/map` (embedded Browse map removed on `main`).
-- Onboard returns `locationSaved` / `warning` when GPS update fails after merchant create.

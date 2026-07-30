@@ -27,10 +27,8 @@ amber CTA + black label, closed vocabulary).
 
 ## Surfaces updated
 
-- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`. Heart → saved shops (`/my-deals?tab=shops`).
-- `/map` — full-screen map between Browse and Deals in bottom nav (raised globe icon).
-- `/browse` — **list first** (“Deals around you” + search + sort/filter dropdowns + time FilterChips), map
-  below with recenter; filters affect list + pins. Map links → `/map`. Header heart → saved shops.
+- `/feed` — LocationPill, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/browse`. Heart → saved shops (`/my-deals?tab=shops`).
+- `/browse` — Leaflet map on top + deal list below (bounds-synced); rail filters All/Flash/Boosted/Standard + Collect now/Today; `/search` via header icon. `/map` redirects here.
 - ClerkAuthShell + login/sign-up — heading + copy above **one** Claude card;
   Clerk `cardBox`/`card`/`footer` chrome is neutralized so forms don’t stack a
   second box inside the shell.
