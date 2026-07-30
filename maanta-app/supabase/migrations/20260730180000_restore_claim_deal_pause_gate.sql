@@ -1,3 +1,9 @@
+-- Version note (repo branch audit 2026-07-30):
+-- On main this file was 20260730160000, which collides with production's ledger
+-- entry for correct_success_fee_config_notes (and with this branch's renumber of
+-- that notes migration to 20260730160000). Renumbered to 20260730180000 so
+-- supabase db push cannot silently skip it. Do not tidy this gap closed.
+--
 -- E2E readiness: restore the paused-deal claim gate.
 --
 -- Migration 20260709175532 added `is_paused` and raised `deal_paused` in

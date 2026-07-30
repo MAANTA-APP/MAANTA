@@ -88,7 +88,7 @@ lock-name alignment, command palette / dashboards, analytics expansions.
 | `TopupFlow` Stripe-primary + `isIntasendConfigured()` | Stops false STK-live interpretation during E2E |
 | `/merchant/onboarding` → `/merchant/onboard` | Inventory/doc links work |
 | `/tickets` → `/my-deals` | Inventory list path works |
-| `20260730160000_restore_claim_deal_pause_gate.sql` | Matches merchant pause UI contract |
+| `20260730180000_restore_claim_deal_pause_gate.sql` | Matches merchant pause UI contract |
 | Claim API `deal_paused` → 409 | Honest shopper error |
 | Merchant support FAQ verify-anyway line | Operator not misled |
 | Unit tests (topup, intasend, claim mapping) + SQL pause gate test | Confidence ratchet |
