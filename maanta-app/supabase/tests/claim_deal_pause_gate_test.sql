@@ -13,6 +13,8 @@ DECLARE
   v_mid UUID;
   v_did UUID;
   v_err TEXT;
+  v_claimed BOOLEAN := false;
+  v_pause_rejected BOOLEAN := false;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
@@ -24,18 +26,37 @@ BEGIN
     VALUES (v_mid, 'Paused deal', 'https://img/x', true, true, NOW() + INTERVAL '6 hours', 50, 0, 30)
     RETURNING id INTO v_did;
 
+  -- Do NOT raise the "expected" sentinel inside this block. The previous version
+  -- did, and the sentinel text contained "deal_paused", so the WHEN OTHERS
+  -- handler caught its own sentinel and the LIKE '%deal_paused%' assertion
+  -- passed. That made the test report OK even with the gate absent — verified by
+  -- stripping `RAISE EXCEPTION 'deal_paused'` from claim_deal and re-running:
+  -- it still printed OK. Record success/failure in a flag and assert outside.
   BEGIN
     PERFORM public.claim_deal(v_uid, v_did);
-    RAISE EXCEPTION 'expected deal_paused';
+    v_claimed := true;
   EXCEPTION WHEN OTHERS THEN
     v_err := SQLERRM;
-    ASSERT v_err LIKE '%deal_paused%',
-      format('paused claim must raise deal_paused, got: %s', v_err);
+    -- Exact match, not LIKE: a substring test is what let the sentinel through.
+    v_pause_rejected := v_err = 'deal_paused';
   END;
+
+  ASSERT NOT v_claimed,
+    'claim_deal accepted a claim on a paused deal — the deal_paused gate is missing';
+  ASSERT v_pause_rejected,
+    format('paused claim must raise deal_paused, got: %s', COALESCE(v_err, '<none>'));
 
   ASSERT NOT EXISTS (
     SELECT 1 FROM public.redemptions WHERE deal_id = v_did
   ), 'paused deal must not create a redemption';
+
+  -- Clean up: 21 of the 22 suites here delete their fixtures, and a successful
+  -- DO block commits. Without this, every run leaves rows behind and the
+  -- documented `psql "$DATABASE_URL"` invocation pollutes a shared database.
+  DELETE FROM public.redemptions WHERE deal_id = v_did;
+  DELETE FROM public.deals WHERE id = v_did;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DELETE FROM public.users WHERE id = v_uid;
 
   RAISE NOTICE 'claim_deal_pause_gate_test: OK';
 END $$;

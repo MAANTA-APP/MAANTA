@@ -2,9 +2,16 @@
 
 Last updated: 2026-07-30
 
-The single durable record of **known gaps between what MAANTA claims and what is
-true**, with open/closed state per row. Created 2026-07-30 to close FU-1 of
-`docs/skills/truth-audit-2026-07-30.md`.
+The **canonical** durable record of **known gaps between what MAANTA claims and
+what is true**, with open/closed state per row. Created 2026-07-30 to close FU-1
+of `docs/skills/truth-audit-2026-07-30.md`.
+
+"Canonical", not "only": `docs/skills/parity-drift-register-2026-07-30.md` also
+exists and is a dated narrative companion, not a state tracker. That split is
+itself tracked as **D27** and is not the intended end state — items there should
+land here as rows and close by D-number. This paragraph exists because the header
+previously said "single durable record" while D27 recorded a second register four
+screens below it, which is precisely the claim-vs-reality gap this file is for.
 
 ## Why this file exists
 
@@ -99,6 +106,7 @@ than shipped as written — which is the entire mechanism, applied to itself.
 | D26 | open | process | 2026-07-30 | Design truth | The audit brief asked for a guardrail asserting that design-ahead frames reference open drift rows. It was deliberately skipped, and both `docs/skills/truth-audit-2026-07-30.md` §0 and the docblock in `maanta-app/src/lib/__tests__/drift-register.test.ts` justified the omission by saying this repo has no frames artifact. #146 added `maanta-app/design/current-reality/frames.json`, so that justification is now void — the stated reason for not building it no longer holds | Decide whether every `design-ahead` surface must cite an open drift row, then build the guardrail. It would fail today: the file has exactly one design-ahead surface, `/contact`, and the whole file contains no drift-row reference at all (0 occurrences of "drift"). The stale claims in the two docs are corrected in this change; the missing guardrail is what keeps this row open | eng |
 | D27 | open | process | 2026-07-30 | Process | A second drift register now exists — `docs/skills/parity-drift-register-2026-07-30.md`, added by #146 — recreating the exact pattern D16 closed: a dated narrative that carries no forward state and is enforced by nothing. `docs/README.md` and `CLAUDE.md` both present `docs/maanta-drift-register.md` as the durable record, which is no longer the whole picture. It is already drifting: its M1 entry previously cited the pause gate as `20260730160000`, the number D25 renumbered away from (now `20260730180000` on the consolidation map) | Fold the parity items into this register as rows, or make the parity doc an explicitly narrative companion that closes items by D-number here. Until one or the other, "we already tracked that" is again unanswerable — which is what D16 existed to prevent | eng |
 | D28 | open | code-outlier | 2026-07-30 | Support | `/contact` renders a success state without sending anything: `onSubmit` calls `setSent(true)` and there is no fetch, no action and no API route behind it. A shopper or merchant who uses it believes they have contacted support, and nobody receives the message. `frames.json` classifies the surface `design-ahead` and its own note says "Fake success — no API" | Either wire the form to a real destination (the page comment says delivery is meant to land on WhatsApp/email ops) or replace the fake success with the honest channel, as `/merchant/(app)/support` already does. Evidence: `maanta-app/src/app/(public)/contact/page.tsx` | founder |
+| D29 | open | code-outlier | 2026-07-30 | Core loop | `public.deals.expires_at` is nullable, but `public.redemptions.expires_at` is `NOT NULL`, and `claim_deal` explicitly tolerates a NULL deal expiry (`IF v_deal.expires_at IS NOT NULL AND ... <= NOW()`) before inserting `v_deal.expires_at + INTERVAL '15 minutes'`. A claim on a no-expiry deal therefore dies on a raw NOT NULL constraint violation instead of a clean domain error, and the returned redemption window would be NULL. Latent, not live: 0 of 409 production deals have a NULL expiry, verified read-only 2026-07-30 | Pre-existing — the pause-gate migration is a surgical restore that kept this body, so it did not introduce it. **Deliberately not fixed here**: rejecting or defaulting a no-expiry claim changes claim behaviour on the money path, which is a product decision, not a review fix. Decide the intended semantics (reject with `deal_expired`, require an expiry at write time via a NOT NULL constraint, or define a no-expiry branch), then guard it in `maanta-app/supabase/tests/claim_deal_pause_gate_test.sql` or a sibling suite. Found by CodeRabbit on #137 | founder |
 
 ---
 

@@ -18,7 +18,11 @@
 -- Surgical restore: keep the current claim_deal body, re-select is_paused, and
 -- raise deal_paused after the active check.
 --
--- Numbered 170000, not 160000, and the gap is deliberate — do not "tidy" it.
+-- (Superseded by the version note at the top: this file shipped briefly as
+-- 170000 before 170000 was reserved for the node_scoped reland. The reasoning
+-- below is unchanged and still applies; only the number moved.)
+--
+-- Numbered past 160000, and the gap is deliberate — do not "tidy" it.
 -- Production's migration ledger already holds version 20260730160000, recorded
 -- against a different migration (correct_success_fee_config_notes; the repo
 -- carries that one as 20260730120000, which prod in turn assigned to a

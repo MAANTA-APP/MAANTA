@@ -39,8 +39,10 @@ Documented in `docs/ops/supabase-migrations.md` (“Versioning rule”). Refs/te
 **Landing order for open PRs:**
 
 1. Land consolidation (this renumber) on `main` first.
-2. `#137` (truth-audit): drop/replace its `170000` pause-gate file with main’s `180000` (do not keep two pause-gate versions).
+2. ~~`#137` (truth-audit): drop/replace its `170000` pause-gate file with main's `180000`.~~ **Already done — do not re-do it.** As of `252f679` the truth-audit branch carries `20260730180000_restore_claim_deal_pause_gate.sql` and no `170000` file at all. Following the original step now would mean hunting for a file that does not exist, or re-adding one. Verify before acting: `ls maanta-app/supabase/migrations/ | grep pause_gate` must return exactly one file, `20260730180000_…`.
 3. `#143` (pilot): already uses `180000` pause + `170000` opening-credit — aligns with the map above.
+
+**Invariant, whatever the landing order:** exactly one `*_restore_claim_deal_pause_gate.sql` exists, and its version is above every version in production's ledger (currently max `20260730160000`). Two pause-gate files, or one at or below the ledger max, both reproduce the original silent-skip. Tracked as **D24**/**D25**.
 
 ### 2. Avatars + notification prefs — canonical surface
 

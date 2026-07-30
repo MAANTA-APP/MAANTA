@@ -114,6 +114,9 @@ The **product critical path is E2E-ready** once those env prerequisites are met.
 ```text
 cd maanta-app && npm test
 # 50 files / 389 tests passed (+6: topup×3, intasend×2, claim pause mapping×1)
+# ^ historical: measured on the E2E branch before it merged. The count is higher
+#   on main now (main's own work plus #137's). Treat this as the record of that
+#   run, not as the current total — re-run rather than quoting it.
 
 cd maanta-app && npm run typecheck
 # clean
