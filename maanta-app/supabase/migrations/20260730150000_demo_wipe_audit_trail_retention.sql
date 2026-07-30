@@ -74,9 +74,17 @@ BEGIN;
 -- Returns TRUE only when the target is PROVABLY synthetic. An unresolvable
 -- target (the row it named is already gone) is deliberately NOT provably demo:
 -- for an audit log, an action against a since-deleted subject is still a real
--- record, and over-retaining is the safe direction. This is why the wipe deletes
--- admin_ops_log in step 1, while demo merchants and deals still exist to resolve
--- against.
+-- record, and over-retaining is the safe direction.
+--
+-- That makes the delete ORDER load-bearing, which the first cut of this migration
+-- got wrong. It ran admin_ops_log last in step 1, reasoning that merchants and
+-- deals are not deleted until step 4 — true, but `fraud_event` targets resolve
+-- through a row deleted earlier in step 1, and `agent_task` targets through one
+-- deleted in step 4. So an ops row on a demo fraud_event was counted as doomed,
+-- then stopped resolving before its own DELETE, survived, and permanently
+-- retained its demo admin via the admin_ops_log arm of demo_user_is_retained().
+-- Caught by CodeRabbit on PR #140. admin_ops_log is now deleted FIRST, before any
+-- candidate target is gone.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.demo_admin_ops_target_is_demo(
   p_target_type TEXT,
@@ -318,6 +326,18 @@ BEGIN
     --    merchants' trails. Keying off "a demo parent id" is not by itself
     --    enough to keep real subjects out of scope — a demo actor id attaches
     --    to events whose subject is real.)
+    -- admin_ops_log goes FIRST, before anything its polymorphic target could
+    -- point at is removed. target_type covers merchant, deal, redemption,
+    -- fraud_event and agent_task; the last two resolve through rows this very
+    -- step (fraud_events) and step 4 (agent_tasks) delete. Run it later and a
+    -- provably-synthetic ops row whose target was a demo fraud_event stops
+    -- resolving, so it is counted as doomed and then survives — and its demo
+    -- admin is retained forever through the admin_ops_log arm of
+    -- demo_user_is_retained(). Safe to hoist: target_id is a plain UUID with no
+    -- FK, and admin_user_id points at users, deleted in step 6.
+    DELETE FROM public.admin_ops_log l
+      WHERE l.admin_user_id IN (SELECT id FROM public.users WHERE is_demo)
+        AND public.demo_admin_ops_target_is_demo(l.target_type, l.target_id);
     DELETE FROM public.guardian_events g
       WHERE g.merchant_id   IN (SELECT id FROM public.merchants   WHERE is_demo)
          OR g.deal_id       IN (SELECT id FROM public.deals       WHERE is_demo)
@@ -345,13 +365,6 @@ BEGIN
       WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
     DELETE FROM public.fee_reversals
       WHERE merchant_id IN (SELECT id FROM public.merchants WHERE is_demo);
-    -- Runs while demo merchants and deals still exist, so the polymorphic
-    -- target can be resolved. A target that cannot be resolved is not provably
-    -- synthetic and the ops record is kept.
-    DELETE FROM public.admin_ops_log l
-      WHERE l.admin_user_id IN (SELECT id FROM public.users WHERE is_demo)
-        AND public.demo_admin_ops_target_is_demo(l.target_type, l.target_id);
-
     -- 2. Leads are NEVER deleted — a lead can be a real prospect even when the
     --    merchant it converted to was synthetic. Detach instead.
     UPDATE public.leads SET converted_to = NULL

@@ -55,6 +55,7 @@ END $$;
 DO $$
 DECLARE
   v_real_m  UUID;
+  v_real_d  UUID;
   v_demo_u  UUID := '9d9d9d9d-0000-4000-a000-00000000a001';
   v_real_r  UUID := '9d9d9d9d-0000-4000-a000-00000000a002';
   v_g       UUID;
@@ -64,13 +65,18 @@ BEGIN
   VALUES ('ZZ real merchant A', 'test.real.a', '+254700008101', 'BBS Mall', 'active', FALSE)
   RETURNING id INTO v_real_m;
 
+  -- redemptions.deal_id is NOT NULL, so the real redemption needs a real deal.
+  INSERT INTO public.deals (merchant_id, title, image_url, price_kes, is_demo)
+  VALUES (v_real_m, 'ZZ real deal A', 'https://example.test/a.png', 100, FALSE)
+  RETURNING id INTO v_real_d;
+
   INSERT INTO public.users (id, phone, role, is_demo)
   VALUES (v_demo_u, '+254700008102', 'customer', TRUE);
 
   -- A REAL redemption: guardian_events.redemption_id is ON DELETE CASCADE, so a
   -- demo redemption would take the guardian row with it whatever retention says.
-  INSERT INTO public.redemptions (id, user_id, merchant_id, is_demo)
-  VALUES (v_real_r, v_demo_u, v_real_m, FALSE);
+  INSERT INTO public.redemptions (id, user_id, merchant_id, deal_id, otp_code, expires_at, is_demo)
+  VALUES (v_real_r, v_demo_u, v_real_m, v_real_d, '000001', NOW() + INTERVAL '1 hour', FALSE);
 
   INSERT INTO public.guardian_events (redemption_id, merchant_id, user_id, check_type, severity, recommendation)
   VALUES (v_real_r, v_real_m, v_demo_u, 'geofence', 'info', 'clear')
@@ -99,6 +105,7 @@ BEGIN
   DELETE FROM public.guardian_events WHERE id = v_g;
   DELETE FROM public.fraud_events    WHERE id = v_f;
   DELETE FROM public.redemptions     WHERE id = v_real_r;
+  DELETE FROM public.deals           WHERE id = v_real_d;
   DELETE FROM public.users           WHERE id = v_demo_u;
   DELETE FROM public.merchants       WHERE id = v_real_m;
 
@@ -120,12 +127,12 @@ DECLARE
 BEGIN
   INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, node, status, is_demo)
   VALUES (v_demo_m, 'ZZ demo merchant B', 'test.demo.b', '+254700008201', 'BBS Mall', 'active', TRUE);
-  INSERT INTO public.deals (id, merchant_id, title, price_kes, is_demo)
-  VALUES (v_demo_d, v_demo_m, 'ZZ demo deal B', 100, TRUE);
+  INSERT INTO public.deals (id, merchant_id, title, image_url, price_kes, is_demo)
+  VALUES (v_demo_d, v_demo_m, 'ZZ demo deal B', 'https://example.test/b.png', 100, TRUE);
   INSERT INTO public.users (id, phone, role, is_demo)
   VALUES (v_demo_u, '+254700008202', 'customer', TRUE);
-  INSERT INTO public.redemptions (id, user_id, merchant_id, deal_id, is_demo)
-  VALUES (v_demo_r, v_demo_u, v_demo_m, v_demo_d, TRUE);
+  INSERT INTO public.redemptions (id, user_id, merchant_id, deal_id, otp_code, expires_at, is_demo)
+  VALUES (v_demo_r, v_demo_u, v_demo_m, v_demo_d, '000002', NOW() + INTERVAL '1 hour', TRUE);
 
   INSERT INTO public.guardian_events (redemption_id, merchant_id, user_id, deal_id, check_type, severity, recommendation)
   VALUES (v_demo_r, v_demo_m, v_demo_u, v_demo_d, 'geofence', 'info', 'clear')
@@ -164,7 +171,12 @@ DECLARE
   v_admin_u  UUID := '9d9d9d9d-0000-4000-a000-00000000c002';
   v_ops_real UUID;
   v_ops_demo UUID;
+  v_ops_fe   UUID;
+  v_demo_fe  UUID;
   v_kept     BIGINT;
+  v_ops_n    BIGINT;
+  v_ops_before BIGINT;
+  v_ops_after  BIGINT;
 BEGIN
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_demo)
   VALUES ('ZZ real merchant C', 'test.real.c', '+254700008301', 'BBS Mall', 'active', FALSE)
@@ -174,13 +186,26 @@ BEGIN
   INSERT INTO public.users (id, phone, role, is_demo)
   VALUES (v_admin_u, '+254700008303', 'admin', TRUE);
 
+  -- A demo fraud_event, to be an ops TARGET. This is the case that hid the
+  -- ordering defect: `fraud_event` targets resolve through a row that step 1
+  -- itself deletes, so if admin_ops_log is not deleted first, this ops row is
+  -- counted as doomed, stops resolving, then survives — and permanently retains
+  -- its demo admin. Merchant targets alone cannot catch that, because merchants
+  -- are not deleted until step 4.
+  INSERT INTO public.fraud_events (merchant_id, event_type, severity)
+  VALUES (v_demo_m, 'velocity', 'low') RETURNING id INTO v_demo_fe;
+
   INSERT INTO public.admin_ops_log (admin_user_id, action, target_type, target_id)
   VALUES (v_admin_u, 'approve', 'merchant', v_real_m) RETURNING id INTO v_ops_real;
   INSERT INTO public.admin_ops_log (admin_user_id, action, target_type, target_id)
   VALUES (v_admin_u, 'approve', 'merchant', v_demo_m) RETURNING id INTO v_ops_demo;
+  INSERT INTO public.admin_ops_log (admin_user_id, action, target_type, target_id)
+  VALUES (v_admin_u, 'resolve', 'fraud_event', v_demo_fe) RETURNING id INTO v_ops_fe;
 
   ASSERT NOT public.demo_admin_ops_target_is_demo('merchant', v_real_m), 'C: real target read as demo';
   ASSERT public.demo_admin_ops_target_is_demo('merchant', v_demo_m),     'C: demo target not detected';
+  ASSERT public.demo_admin_ops_target_is_demo('fraud_event', v_demo_fe),
+    'C: demo fraud_event target not detected';
 
   -- The retained-user count must include this admin, and say so on the report.
   SELECT rows_affected INTO v_kept FROM public.wipe_demo_data()
@@ -188,12 +213,24 @@ BEGIN
   ASSERT v_kept >= 1,
     format('C: retained-user count on the dry-run report was %s, expected at least 1', v_kept);
 
+  -- The dry run must predict the admin_ops_log deletions exactly. Compared as a
+  -- delta rather than an absolute, since the count is database-wide.
+  SELECT rows_affected INTO v_ops_n FROM public.wipe_demo_data()
+    WHERE table_name = 'admin_ops_log';
+  SELECT count(*) INTO v_ops_before FROM public.admin_ops_log;
+
   PERFORM public.wipe_demo_data(TRUE);
+
+  SELECT count(*) INTO v_ops_after FROM public.admin_ops_log;
+  ASSERT v_ops_before - v_ops_after = v_ops_n,
+    format('C: dry run said %s admin_ops_log rows, %s were actually removed', v_ops_n, v_ops_before - v_ops_after);
 
   ASSERT EXISTS (SELECT 1 FROM public.admin_ops_log WHERE id = v_ops_real),
     'C: ops record against a REAL merchant was deleted';
   ASSERT NOT EXISTS (SELECT 1 FROM public.admin_ops_log WHERE id = v_ops_demo),
     'C: ops record against a demo merchant survived';
+  ASSERT NOT EXISTS (SELECT 1 FROM public.admin_ops_log WHERE id = v_ops_fe),
+    'C: ops record against a demo fraud_event survived — admin_ops_log is being deleted after its targets';
   ASSERT EXISTS (SELECT 1 FROM public.users WHERE id = v_admin_u),
     'C: demo admin deleted while its surviving ops record still references it';
 
@@ -202,6 +239,7 @@ BEGIN
   ASSERT v_kept >= 1, 'C: retained-user count dropped to 0 after the wipe';
 
   DELETE FROM public.admin_ops_log WHERE admin_user_id = v_admin_u;
+  DELETE FROM public.fraud_events  WHERE id = v_demo_fe;
   DELETE FROM public.users     WHERE id = v_admin_u;
   DELETE FROM public.merchants WHERE id = v_real_m;
 
