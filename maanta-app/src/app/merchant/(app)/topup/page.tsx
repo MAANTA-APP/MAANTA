@@ -1,9 +1,10 @@
 import { getMerchantContext } from "@/lib/merchant";
+import { isIntasendConfigured } from "@/lib/intasend";
 import { TopupFlow } from "./topup-flow";
 
 export const dynamic = "force-dynamic";
 
-/** 9i Wallet top-up + 10s success / 10t failed. */
+/** Wallet top-up — Stripe Checkout is Phase 1; STK only when IntaSend is set. */
 export default async function TopupPage({
   searchParams,
 }: {
@@ -32,6 +33,7 @@ export default async function TopupPage({
       merchantPhone={merchant.phone}
       initialAmount={isNaN(suggested) ? 3000 : suggested}
       stripeResult={searchParams.stripe ?? null}
+      mpesaAvailable={isIntasendConfigured()}
     />
   );
 }
