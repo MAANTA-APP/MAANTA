@@ -18,13 +18,24 @@ import path from "node:path";
  *  - `pending-deploy` rows must name the migration that is not yet applied, and
  *    that migration must exist. "Merged" is precisely where tracking usually
  *    stops, so the register refuses to treat it as done.
- *  - IDs are unique and never reused, so closing a row cannot quietly erase what
- *    was once wrong.
+ *  - IDs are unique within the register, and D-numbers are contiguous, so a
+ *    deleted row leaves a detectable hole rather than quietly erasing what was
+ *    once wrong.
  *
- * There is no check here for "design-ahead frames reference open drift rows" —
- * the original brief asked for it, but this repo has no frames artifact (see §0
- * of docs/skills/truth-audit-2026-07-30.md). Adding a test for a file that does
- * not exist would be its own false claim.
+ * Two limits, stated rather than left to be discovered — the point of this file
+ * is that an unenforced claim is worse than an absent one:
+ *
+ *  - **ID reuse is only caught when it leaves a gap.** Deleting D7 and reusing
+ *    the number fails contiguity. Deliberately renumbering the whole tail
+ *    (delete D7, shift D8..Dn down by one) does not, because detecting it needs
+ *    history and CI checks out at `fetch-depth: 1` — a base-branch guard would
+ *    find nothing to compare against and pass silently, which is enforcement-
+ *    shaped and enforces nothing. The append-only rule is carried by the
+ *    register's prose for that case.
+ *  - **No check for "design-ahead frames reference open drift rows."** The
+ *    original brief asked for it, but this repo has no frames artifact (see §0 of
+ *    docs/skills/truth-audit-2026-07-30.md). Asserting against a file that does
+ *    not exist would be its own false claim.
  */
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
