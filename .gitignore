@@ -1,0 +1,18 @@
+# Repo-root ignores.
+#
+# The app has its own maanta-app/.gitignore, but its `/node_modules` rule is
+# anchored to that directory. Running any npm command from the repo root — e.g.
+# `npm test --prefix maanta-app` — creates a stray root-level node_modules with
+# tooling caches inside it (vitest writes node_modules/.vite/...), which then
+# shows up as untracked and is one careless `git add -A` away from being
+# committed. Ignore it at the root too.
+node_modules/
+
+# Tooling caches that can land outside maanta-app for the same reason.
+.vite/
+.next/
+*.tsbuildinfo
+
+# OS noise
+.DS_Store
+Thumbs.db
