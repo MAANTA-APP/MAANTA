@@ -81,10 +81,15 @@ gift sets" (standard).
 
 **D. Merchant activation (full lifecycle)**
 6. As admin → `/admin/merchants` → Macmacaan Sweets & Café (pending) → Approve
-   (optionally grant Elite trial). Expected: status flips to active AND the
-   wallet shows **KES 300** — the Node 0 opening credit (2026-07-16) is granted
-   automatically at activation (first 100 BBS merchants; config-driven, ledger
-   row tagged `node0_opening_credit`).
+   (optionally grant Elite trial). **Before confirming:** read the Elite trial
+   launch-offer slot line (also on `/admin/billing`). **After confirming:** an
+   InlineAlert must state whether the trial was granted, skipped (cap full), or
+   unconfirmed — do not assume the checkbox equals the outcome. Expected: status
+   flips to active AND the wallet shows **KES 300** — the Node 0 opening credit
+   (2026-07-16) is granted automatically at activation (first 100 BBS merchants;
+   config-driven, ledger row tagged `node0_opening_credit`). For the full
+   acquisition→approve→claim→verify founder path see
+   `docs/ops/founder-e2e-checklist-2026-07-30.md`.
 7. Incognito: `/login` as **macmacaan** → merchant dashboard loads with the
    KES 300 balance, so deal creation works immediately (Standard = 1 active
    deal, no flash). Still rehearse the top-up: `/merchant/topup` — Stripe
