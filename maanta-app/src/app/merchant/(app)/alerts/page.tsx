@@ -19,14 +19,16 @@ export default async function MerchantAlertsPage() {
   const service = createServiceClient();
   const alerts: Alert[] = [];
 
+  // Verify-anyway: low/zero balance never blocks till verify — shortfalls become
+  // arrears. Low-balance alerts must not imply verification is blocked.
   if (merchant.account_balance < fee * 4) {
-    const remaining = Math.floor(merchant.account_balance / fee);
+    const covered = Math.max(0, Math.floor(merchant.account_balance / fee));
     alerts.push({
       title: `Balance low — ${formatKes(merchant.account_balance)} left`,
       body:
-        remaining > 0
-          ? `Only ${remaining} more redemption${remaining === 1 ? "" : "s"} can be verified`
-          : "Top up to verify redemptions",
+        covered > 0
+          ? `About ${covered} more redemption${covered === 1 ? "" : "s"} before fees go to arrears. Top up to stay ahead.`
+          : "You can still verify at the till — fees will record as arrears until you top up. New deals stay blocked at zero balance.",
       at: new Date().toISOString(),
       unread: true,
     });

@@ -1,31 +1,28 @@
-import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { FraudChip } from "@/components/ui/chips";
-import { cn } from "@/lib/ui";
 import { ModerationActions } from "./moderation-actions";
 
 export const dynamic = "force-dynamic";
-
-const REASONS = ["all", "misleading", "prohibited"] as const;
 
 /**
  * 11c Deal moderation (flagged only). There is no shopper-side "report deal"
  * source yet, so this surfaces deals whose merchant has unresolved fraud
  * events — the only organic flag signal in the DB today.
+ *
+ * Reason chips (misleading / prohibited) are design-ahead until a report
+ * taxonomy exists; they were previously rendered as filters that did not
+ * change the query, which implied a capability the backend cannot prove.
  */
 export default async function AdminDealsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; reason?: string };
+  searchParams: { q?: string };
 }) {
   await requireAdminPage();
 
   const q = (searchParams.q ?? "").trim();
-  const reason = (REASONS as readonly string[]).includes(searchParams.reason ?? "")
-    ? searchParams.reason!
-    : "all";
 
   const service = createServiceClient();
   const { data: events } = await service
@@ -56,27 +53,14 @@ export default async function AdminDealsPage({
   return (
     <main className="max-w-4xl">
       <h1 className="text-2xl font-bold text-ink">Flagged deals ({deals.length})</h1>
+      <p className="mt-1 text-sm text-muted">
+        From unresolved fraud signals — report-reason filters are not live yet.
+      </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <form action="/admin/deals" className="w-full max-w-md">
           <SearchField name="q" defaultValue={q} placeholder="Search deals…" />
         </form>
-        <div className="flex gap-2">
-          {REASONS.map((r) => (
-            <Link
-              key={r}
-              href={`/admin/deals${r === "all" ? "" : `?reason=${r}`}`}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize",
-                // A6 — active filter pill is neutral ink, not amber; amber is
-                // reserved for the one primary action (the row CTA).
-                reason === r ? "bg-ink text-white" : "bg-cream text-muted"
-              )}
-            >
-              {r === "all" ? "All reasons" : r}
-            </Link>
-          ))}
-        </div>
       </div>
 
       <div className="mt-5 space-y-3">

@@ -78,8 +78,25 @@ export function dealExpiryLabel(
   return displayText;
 }
 
-/** True while the deal is claimable (live or in grace). */
+/**
+ * True while NEW claims are allowed — deal end has not passed.
+ * Matches `claim_deal` (`deal.expires_at > NOW()`). The 15-minute grace is
+ * for already-claimed tickets only, not for opening new claims.
+ */
 export function isDealClaimable(
+  expiresAt: string | null | undefined,
+  now = new Date(),
+  graceMinutes = DEAL_GRACE_MINUTES
+): boolean {
+  const { status } = getDealExpiryState(expiresAt, now, graceMinutes);
+  return status === "live";
+}
+
+/**
+ * True while pending codes may still redeem (live or in the 15-minute grace).
+ * Use on merchant surfaces that manage till redemptions after deal end.
+ */
+export function isDealInRedemptionWindow(
   expiresAt: string | null | undefined,
   now = new Date(),
   graceMinutes = DEAL_GRACE_MINUTES

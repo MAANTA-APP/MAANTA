@@ -45,10 +45,12 @@ export default async function DealDetailPage({
   });
   const verifiedCount = verified.get(deal.merchant_id) ?? 0;
 
+  const paused = deal.is_paused === true;
   const claimable =
     deal.is_active &&
+    !paused &&
     isDealClaimable(deal.expires_at) &&
-  !(deal.max_claims != null && deal.claims_count >= deal.max_claims);
+    !(deal.max_claims != null && deal.claims_count >= deal.max_claims);
   const fullyClaimed =
     deal.max_claims != null && deal.claims_count >= deal.max_claims;
   const m = deal.merchants;
@@ -203,7 +205,11 @@ export default async function DealDetailPage({
         <StickyCtaBar>
           <div className="space-y-2.5">
             <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
-              {fullyClaimed ? "Fully claimed" : "Deal ended"}
+              {fullyClaimed
+                ? "Fully claimed"
+                : paused
+                  ? "Deal paused"
+                  : "Deal ended"}
             </div>
             <ButtonLink href="/feed" variant="ghost" full>
               See similar deals

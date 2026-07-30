@@ -114,6 +114,8 @@ export type DealRow = {
   deal_type: "standard" | "flash";
   flash_duration_hours: number;
   is_active: boolean;
+  /** When true, deal is hidden from shopper feed/browse/map and new claims fail. */
+  is_paused: boolean;
   max_claims: number | null;
   claims_count: number;
   success_fee: number;
@@ -138,10 +140,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;
@@ -279,11 +281,15 @@ async function selectLiveDealBucket(
   const service = createServiceClient();
   const nowIso = new Date().toISOString();
   return selectDealsWithMerchants(async (select) => {
+    // Wireframe 10ab / claim_deal: paused deals are hidden from the feed and
+    // reject new claims. Mirror that filter here so shopper surfaces never
+    // advertise a CTA the backend will refuse.
     let query = withPublicMerchant(
       service
         .from("deals")
         .select(select)
         .eq("is_active", true)
+        .eq("is_paused", false)
         .gt("expires_at", nowIso),
       { includeDemo }
     ).order("created_at", { ascending: false });
