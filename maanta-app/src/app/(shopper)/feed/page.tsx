@@ -17,10 +17,11 @@ import { nodeCoords } from "@/lib/nodes";
 import { dealExpiryLabel } from "@/lib/browse";
 import {
   DEFAULT_FEED_SORT,
+  FEED_SORT_OPTIONS,
   filterDealRowsByRail,
+  parseDealListFilter,
+  parseDealListSort,
   sortDealRows,
-  type DealListFilter,
-  type DealListSort,
 } from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 
@@ -71,8 +72,11 @@ export default async function FeedPage({
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
-  const sort = (searchParams?.sort as DealListSort) ?? DEFAULT_FEED_SORT;
-  const filter = (searchParams?.filter as DealListFilter) ?? "all";
+  // Validated, not cast: an unrecognised ?sort= would otherwise reach the
+  // distance branch and undo the locked order, and an unrecognised ?filter=
+  // would empty every rail and claim there are no deals.
+  const sort = parseDealListSort(searchParams?.sort, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS);
+  const filter = parseDealListFilter(searchParams?.filter);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),

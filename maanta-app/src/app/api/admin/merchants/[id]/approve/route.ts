@@ -47,14 +47,31 @@ export async function POST(
   // What actually happened. Logging the request as if it were the outcome would
   // put "granted a trial" in the audit trail for a merchant that never got one —
   // the audit log has to record the fee/entitlement reality, not the intent.
-  let eliteTrialGranted = false;
+  //
+  // Three outcomes, not two. If the read-back itself fails we do not know, and
+  // collapsing that into `false` would be the same class of lie in the other
+  // direction: the log would claim the cap was reached and the admin would be
+  // told Standard was applied, on a merchant that may well have got the trial.
+  // Unknown is recorded as unknown.
+  type TrialOutcome = "granted" | "skipped_cap_reached" | "unknown";
+  let outcome: TrialOutcome | null = null;
+
   if (grantEliteTrial) {
-    const { data: merchant } = await service
+    const { data: merchant, error: readError } = await service
       .from("merchants")
       .select("elite_trial_active")
       .eq("id", params.id)
       .maybeSingle();
-    eliteTrialGranted = merchant?.elite_trial_active === true;
+
+    if (readError || !merchant) {
+      console.error(
+        "Could not confirm Elite trial outcome after activation:",
+        readError
+      );
+      outcome = "unknown";
+    } else {
+      outcome = merchant.elite_trial_active === true ? "granted" : "skipped_cap_reached";
+    }
   }
 
   await logAdminOp(service, {
@@ -64,22 +81,28 @@ export async function POST(
     targetId: params.id,
     details: {
       grantEliteTrial,
-      eliteTrialGranted,
-      ...(grantEliteTrial && !eliteTrialGranted
-        ? { eliteTrialSkippedReason: "launch_offer_cap_reached" }
-        : {}),
+      // null when no trial was requested; otherwise the verified outcome.
+      eliteTrialOutcome: outcome,
+      eliteTrialGranted: outcome === "granted",
     },
   });
 
   return NextResponse.json({
     success: true,
-    eliteTrialGranted,
-    // Surfaced so the approve modal can tell the admin the shop went live on
-    // Standard instead of silently appearing to have granted a trial.
-    ...(grantEliteTrial && !eliteTrialGranted
+    eliteTrialGranted: outcome === "granted",
+    eliteTrialOutcome: outcome,
+    // Surfaced so the approve modal can tell the admin what really happened
+    // rather than implying a trial that may not exist.
+    ...(outcome === "skipped_cap_reached"
       ? {
           notice:
             "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.",
+        }
+      : {}),
+    ...(outcome === "unknown"
+      ? {
+          notice:
+            "Shop approved, but we could not confirm whether the Elite trial was granted — check the shop's plan before telling the merchant.",
         }
       : {}),
   });

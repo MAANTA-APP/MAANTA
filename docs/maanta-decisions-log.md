@@ -70,4 +70,4 @@ Format: date · decision · consequence in product/code.
 2. If it changes a frozen rule, say what it supersedes.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
-Last updated: 2026-07-23 (waitlist built on Resend: /waitlist page + stateless proxy route; prior 2026-07-22 Guardian and fee-reversal entries retained)
+Last updated: 2026-07-30 (truth audit: launch offer recorded and its first-100 cap enforced in the DB; feed defaults to the locked feed structure — closes D1 and D2; prior 2026-07-23 waitlist/Resend and 2026-07-22 Guardian and fee-reversal entries retained)

@@ -242,6 +242,37 @@ Existing `frozen-ui-rules.test.ts` was left as-is; it covers design tokens and
 the `free plan` term, and the new files cover the commercial claims, the locked
 feed structure and the launch-offer cap.
 
+## 4b. Review round on PR #135 (CodeRabbit, 2026-07-30)
+
+Ten findings. Nine accepted, one partly rejected with evidence. Three were real
+defects in this audit's own work, which is worth recording rather than glossing:
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | `/for-merchants` metadata kept an independent `KES 30` literal | **Fixed** — derived from `SUCCESS_FEE_KES`. Search/social previews are public fee copy too |
+| 2 | **`?sort=bogus` still reached the distance branch** | **Fixed** — real hole in the D1 fix. A cast is not validation: `?? fallback` only catches null/undefined, so any unrecognised string skipped the default and silently re-sorted all three rails by mall centroid *from a URL*. New `parseDealListSort`, used by feed and Browse |
+| — | (found while fixing #2) `?filter=bogus` emptied every rail | **Fixed** — same bug class, worse symptom: a bad URL rendered "No deals live right now" in a mall that had deals. New `parseDealListFilter` |
+| 3 | Approve route reported a failed read-back as "trial skipped" | **Fixed** — three outcomes now (`granted` / `skipped_cap_reached` / `unknown`). Collapsing an unknown into `false` was the same audit-log lie the read-back existed to prevent, in the other direction |
+| 4 | `pricing-copy` offer detector missed `/for-merchants`' "30-day trial" wording | **Fixed** — the guardrail was covering one page while appearing to cover two |
+| 5 | `byNewest` parsed dates directly, so a malformed `starts_at` gave a NaN comparator | **Fixed** — routed through `millis`; NaN made `sortDealRows` order implementation-defined |
+| 6 | Migration `…120000` header claimed it re-asserts `value = '30.00'` | **Fixed** — it does not; `ON CONFLICT` touches `notes` only. My own inaccurate comment, in a migration whose entire purpose was correcting an inaccurate comment |
+| 7 | **Cap enforced on UPDATE only — INSERT bypassed it** | **Fixed** — and demonstrable, not theoretical: `node0_rehearsal_seed.sql` inserts a BBS Mall merchant with `elite_trial_active = TRUE`. It consumed a slot with no stamp, so `elite_trial_cap_status()` under-counted permanently. Trigger widened to `BEFORE INSERT OR UPDATE`, plus a values-based `elite_trial_slot_available_for` — the id-based helper returns FALSE on `BEFORE INSERT` (row not yet visible), so a naive widening would have rejected every seeded trial |
+| 8 | Claim: a failed assertion leaves the cap at `'0'` for later suites | **Partly rejected, with evidence.** psql runs each statement in its own transaction, so a `DO` block whose assertion fails has *its own* mutations rolled back — verified by experiment: after a deliberately failing block the cap still read `100`. No `EXCEPTION` handlers added. The sub-point *was* valid: the closing `UPDATE … SET value = '100'` hardcoded the cap, which would rewrite an intentionally different deployed value and made the final assertion tautological — now compares against the value captured at file start |
+| 9 | Scenario G asserted absolute `granted = 0` | **Fixed** — delta pattern, matching E and F. Would have failed on any seeded/staging database, where the backfill starts the count non-zero. Passed locally and in CI only because both databases were pristine |
+| 10 | Decisions log "Last updated" still said 2026-07-23 | **Fixed** — the repo's own rule (line 3 of that section) requires marking it |
+
+New coverage from this round: `Scenario H` in `elite_trial_cap_test.sql` (INSERT
+path stamped under the cap, refused at it) and six URL-param cases in
+`locked-feed-order.test.ts`. Both verified behaviourally — the seed's exact
+merchant INSERT was replayed against a migrated database and now reports
+`stamped = true`, `granted 1, remaining 99`; before the fix it was unstamped with
+`granted 0`.
+
+The pattern in findings 2, 7 and 9 is the same one this audit is about: an
+invariant that was *claimed* rather than *held*. #2 and #7 were holes in
+enforcement I had described as complete, and #9 was a test that passed only
+because of an accident of the environment it ran in.
+
 ### How the SQL suites were verified in this session
 
 `supabase start` needs Docker, which is unavailable here, so the SQL guardrails

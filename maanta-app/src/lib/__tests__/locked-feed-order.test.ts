@@ -7,6 +7,8 @@ import {
   lockedBoostedOrder,
   lockedFlashOrder,
   lockedStandardOrder,
+  parseDealListFilter,
+  parseDealListSort,
   sortDealRows,
 } from "@/lib/deal-list-controls";
 import type { DealRow } from "@/lib/data";
@@ -99,6 +101,55 @@ describe("the feed's default sort is the locked structure", () => {
   });
 });
 
+describe("URL params cannot smuggle past the locked default", () => {
+  // A cast is not validation. `?sort=bogus` is a truthy string, so `?? fallback`
+  // never fires and sortDealRows falls through to the distance branch — silently
+  // reinstating the D1 regression from a URL. Caught by CodeRabbit on #135.
+  it("resolves unrecognised, empty and absent ?sort= to the feed default", () => {
+    for (const raw of ["bogus", "", "FEATURED", "nearest ", "0", undefined]) {
+      expect(
+        parseDealListSort(raw as string | undefined, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS),
+        `?sort=${String(raw)} must fall back to ${DEFAULT_FEED_SORT}`
+      ).toBe(DEFAULT_FEED_SORT);
+    }
+  });
+
+  it("still honours every sort the feed actually offers", () => {
+    for (const o of FEED_SORT_OPTIONS) {
+      expect(parseDealListSort(o.value, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS)).toBe(o.value);
+    }
+  });
+
+  it("rejects a repeated ?sort= array rather than coercing it", () => {
+    // Next gives string[] for repeated params; a cast would sail past.
+    expect(
+      parseDealListSort(["nearest", "newest"], DEFAULT_FEED_SORT, FEED_SORT_OPTIONS)
+    ).toBe(DEFAULT_FEED_SORT);
+  });
+
+  it("does not offer the feed's `featured` to Browse", () => {
+    // Browse has no rails, so `featured` there would be a no-op pass-through of
+    // DB order rather than a meaningful sort.
+    expect(parseDealListSort("featured", DEFAULT_BROWSE_SORT, DEAL_SORT_OPTIONS)).toBe(
+      DEFAULT_BROWSE_SORT
+    );
+  });
+
+  // Same bug class, worse symptom: an unrecognised filter is not "all", so every
+  // rail is emptied and the feed claims there are no deals in a mall that has them.
+  it("resolves unrecognised ?filter= to all, so a bad URL is not an empty market", () => {
+    for (const raw of ["bogus", "", "FLASH", undefined, ["flash", "boosted"]]) {
+      expect(
+        parseDealListFilter(raw as string | undefined),
+        `?filter=${String(raw)} must fall back to "all"`
+      ).toBe("all");
+    }
+    expect(parseDealListFilter("flash")).toBe("flash");
+    expect(parseDealListFilter("boosted")).toBe("boosted");
+    expect(parseDealListFilter("standard")).toBe("standard");
+  });
+});
+
 describe("locked rail 1 — Flash: soonest expiry first", () => {
   it("orders by soonest expiry", () => {
     const rows = [
@@ -124,6 +175,22 @@ describe("locked rail 1 — Flash: soonest expiry first", () => {
     ];
     lockedFlashOrder(rows);
     expect(ids(rows)).toEqual(["late", "soon"]);
+  });
+
+  it("stays a consistent comparator when starts_at is malformed", () => {
+    // byNewest goes through `millis`, so a garbage timestamp yields a finite
+    // fallback instead of NaN. A NaN comparator makes sort order
+    // implementation-defined, which would show up as deals shuffling per render.
+    const rows = [
+      deal("bad", { starts_at: "not-a-date", expires_at: null }),
+      deal("good", { starts_at: "2026-07-26T08:00:00Z", expires_at: null }),
+    ];
+    const once = ids(lockedFlashOrder(rows));
+    const twice = ids(lockedFlashOrder([...rows].reverse()));
+    expect(once).toEqual(twice);
+    expect(ids(sortDealRows(rows, "newest", null))).toEqual(
+      ids(sortDealRows([...rows].reverse(), "newest", null))
+    );
   });
 });
 

@@ -8,9 +8,10 @@ import {
 } from "@/lib/data";
 import { parseBrowseChip } from "@/lib/browse";
 import {
+  DEAL_SORT_OPTIONS,
   DEFAULT_BROWSE_SORT,
-  type DealListFilter,
-  type DealListSort,
+  parseDealListFilter,
+  parseDealListSort,
 } from "@/lib/deal-list-controls";
 import { DEFAULT_NODE, nodeCoords } from "@/lib/nodes";
 
@@ -40,8 +41,11 @@ export default async function BrowsePage({
 
   const node = getSelectedNode();
   const origin = nodeCoords(node) ?? nodeCoords(DEFAULT_NODE)!;
-  const sort = (searchParams?.sort as DealListSort) ?? DEFAULT_BROWSE_SORT;
-  const filter = (searchParams?.filter as DealListFilter) ?? "all";
+  // Browse offers DEAL_SORT_OPTIONS (no `featured` — it has no rails), so a
+  // hand-typed ?sort=featured resolves to the Browse default rather than
+  // silently becoming a no-op pass-through of DB order.
+  const sort = parseDealListSort(searchParams?.sort, DEFAULT_BROWSE_SORT, DEAL_SORT_OPTIONS);
+  const filter = parseDealListFilter(searchParams?.filter);
   const chip = parseBrowseChip(searchParams?.chip);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),

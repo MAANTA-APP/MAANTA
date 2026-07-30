@@ -21,8 +21,11 @@ import { SUCCESS_FEE_KES } from "@/lib/pricing";
  *  - `/pricing` promised "first month of Elite free" with no qualification. The
  *    frozen rule is capped and node-scoped — "first 100 BBS Mall merchants get
  *    30-day free Elite trial" — and the success fee is still charged throughout.
- *    Nothing in code or `app_config` enforces the cap, so the copy is the only
- *    thing standing between a bounded promo and an unbounded promise.
+ *    At the time this file was written nothing enforced the cap, so the copy was
+ *    the only thing standing between a bounded promo and an unbounded promise.
+ *    The cap is now enforced in the database (migration 20260730130000), which
+ *    raises rather than lowers the stakes on the copy: unqualified copy now
+ *    promises something the product will actively refuse at the counter.
  *  - the fee appeared as an independent `30` literal in several places, so a
  *    future fee change could update `app_config` and some pages but not others.
  */
@@ -124,13 +127,25 @@ describe("public pricing copy matches the frozen commercial rules", () => {
   });
 
   // The launch offer is capped and node-scoped, and the fee still applies. Any
-  // page that mentions it must carry all three qualifications, because none of
-  // them is enforced anywhere in code.
+  // page that mentions it must carry all three qualifications.
+  //
+  // The cap IS now enforced in the database (migration 20260730130000,
+  // trg_enforce_elite_trial_cap), so copy that drops the cap no longer promises
+  // something the product cannot do — it promises something the product will
+  // actively refuse, which is worse for the merchant standing at the counter.
+  //
+  // The detector has to match every phrasing in use, not just the one on
+  // /pricing: /for-merchants says "30-day trial" without the words "Elite trial",
+  // and before this was widened that page was skipped entirely — the guardrail
+  // silently covered one page while appearing to cover both.
   it("states the Elite trial launch offer with its cap, node and fee caveat", () => {
     const problems: string[] = [];
     for (const f of PUBLIC_FILES) {
       const text = copyText(f);
-      const mentionsOffer = /launch offer/i.test(text) || /Elite trial/i.test(text);
+      const mentionsOffer =
+        /launch offer/i.test(text) ||
+        /Elite trial/i.test(text) ||
+        /30-day trial/i.test(text);
       if (!mentionsOffer) continue;
       if (!/\b100\b/.test(text)) {
         problems.push(`  ${rel(f)}  mentions the Elite trial but not the first-100 cap`);
@@ -147,7 +162,7 @@ describe("public pricing copy matches the frozen commercial rules", () => {
     expect(
       problems,
       `The frozen launch offer is "first 100 BBS Mall merchants get a 30-day Elite trial,\n` +
-        `success fee still applies". Nothing in code or app_config enforces the cap, so copy\n` +
+        `success fee still applies". The cap is enforced in the database, so copy\n` +
         `that drops a qualification promises more than the product delivers:\n${problems.join("\n")}`
     ).toEqual([]);
   });

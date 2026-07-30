@@ -12,8 +12,11 @@ import { SUCCESS_FEE_KES } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "For merchants — pay only for verified redemptions | Maanta",
-  description:
-    "Publish deals to shoppers at BBS Mall and pay KES 30 only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.",
+  // Fee derived, not written: search and social previews are public fee copy too,
+  // and this string is the one place a stale KES amount could outlive a fee change.
+  description: `Publish deals to shoppers at BBS Mall and pay ${formatKes(
+    SUCCESS_FEE_KES
+  )} only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.`,
 };
 
 /**

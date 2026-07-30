@@ -23,6 +23,15 @@
 
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
+-- Record the cap as found, so the closing check can prove this file left it alone
+-- without hardcoding a value (which would rewrite an intentionally different
+-- deployed cap and make the assertion tautological).
+SELECT set_config(
+  'maanta.test_cap_at_start',
+  (SELECT value FROM public.app_config WHERE key = 'elite_trial_merchant_cap'),
+  false
+);
+
 -- Helper: a pending merchant at a given node, returning its id.
 CREATE OR REPLACE FUNCTION public.__test_etc_merchant(
   p_node text DEFAULT 'BBS Mall',
@@ -230,10 +239,11 @@ END $$;
 
 -- Scenario G: off-node and demo merchants are outside the capped offer.
 DO $$
-DECLARE v_off uuid; v_demo uuid; v_saved text;
+DECLARE v_off uuid; v_demo uuid; v_saved text; v_before int; v_after int;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
   SELECT value INTO v_saved FROM public.app_config WHERE key = 'elite_trial_merchant_cap';
+  SELECT granted INTO v_before FROM public.elite_trial_cap_status();
   UPDATE public.app_config SET value = '0' WHERE key = 'elite_trial_merchant_cap';
 
   -- The cap is scoped to the launch node by the frozen rule, so a merchant at
@@ -253,24 +263,99 @@ BEGIN
   ASSERT (SELECT elite_trial_active FROM public.merchants WHERE id = v_demo),
     'G: a demo merchant must not be blocked by the launch-offer cap';
 
-  ASSERT (SELECT granted FROM public.elite_trial_cap_status()) = 0,
-    'G: neither an off-node nor a demo merchant may consume a real launch-offer slot';
+  -- Delta, not an absolute. `granted = 0` only holds on a pristine database: the
+  -- migration's backfill stamps every merchant that already had a trial, so a
+  -- seeded or staging database starts non-zero and an absolute assertion would
+  -- report a false failure there. What this scenario actually claims is that
+  -- these two merchants consumed NOTHING.
+  SELECT granted INTO v_after FROM public.elite_trial_cap_status();
+  ASSERT v_after = v_before,
+    format('G: neither an off-node nor a demo merchant may consume a real launch-offer slot (%s → %s)', v_before, v_after);
 
   UPDATE public.app_config SET value = v_saved WHERE key = 'elite_trial_merchant_cap';
   DELETE FROM public.merchants WHERE id IN (v_off, v_demo);
   RAISE NOTICE 'Scenario G passed: off-node and demo merchants sit outside the capped offer';
 END $$;
 
--- Restore the frozen cap and drop the helpers, so later suites see stock config.
-UPDATE public.app_config SET value = '100' WHERE key = 'elite_trial_merchant_cap';
+-- Scenario H: an INSERT carrying a trial is gated and stamped like an UPDATE.
+-- This is the path supabase/seed/node0_rehearsal_seed.sql uses, and before
+-- 2026-07-30 it consumed a slot invisibly: no stamp, so cap_status under-counted
+-- permanently and the offer could overshoot 100.
+DO $$
+DECLARE
+  v_before int; v_after int; v_granted timestamptz; v_saved text;
+  v_id uuid; v_sfx text; v_raised boolean := false;
+BEGIN
+  PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+  SELECT granted INTO v_before FROM public.elite_trial_cap_status();
+
+  -- H1: under the cap, a direct INSERT with a trial is allowed AND stamped.
+  v_sfx := left(replace(gen_random_uuid()::text, '-', ''), 10);
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status,
+    tier, elite_trial_active, trial_ends_at
+  )
+  VALUES (
+    '__test_etc_ins_'||v_sfx, 'test.etc.i.'||v_sfx, '+254'||left(v_sfx,9),
+    'BBS Mall', 'active', 'elite', TRUE, NOW() + INTERVAL '30 days'
+  )
+  RETURNING id, elite_trial_granted_at INTO v_id, v_granted;
+
+  ASSERT v_granted IS NOT NULL,
+    'H1: an INSERT that grants a trial must be stamped, or the slot is consumed invisibly';
+
+  SELECT granted INTO v_after FROM public.elite_trial_cap_status();
+  ASSERT v_after = v_before + 1,
+    format('H1: an inserted trial must consume exactly one slot (%s → %s)', v_before, v_after);
+
+  DELETE FROM public.merchants WHERE id = v_id;
+
+  -- H2: at the cap, a direct INSERT with a trial is refused.
+  SELECT value INTO v_saved FROM public.app_config WHERE key = 'elite_trial_merchant_cap';
+  UPDATE public.app_config SET value = '0' WHERE key = 'elite_trial_merchant_cap';
+
+  v_sfx := left(replace(gen_random_uuid()::text, '-', ''), 10);
+  BEGIN
+    INSERT INTO public.merchants (
+      merchant_name, what3words_address, phone, node, status,
+      tier, elite_trial_active, trial_ends_at
+    )
+    VALUES (
+      '__test_etc_ins2_'||v_sfx, 'test.etc.j.'||v_sfx, '+254'||left(v_sfx,9),
+      'BBS Mall', 'active', 'elite', TRUE, NOW() + INTERVAL '30 days'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_raised := true;
+    ASSERT SQLERRM LIKE '%ELITE_TRIAL_CAP_REACHED%',
+      format('H2: expected ELITE_TRIAL_CAP_REACHED on INSERT, got %s', SQLERRM);
+  END;
+
+  ASSERT v_raised, 'H2: an INSERT granting a trial past the cap must raise, not slip through';
+
+  UPDATE public.app_config SET value = v_saved WHERE key = 'elite_trial_merchant_cap';
+  RAISE NOTICE 'Scenario H passed: the INSERT path is stamped under the cap and refused at it';
+END $$;
 
 DROP FUNCTION public.__test_etc_merchant(text, boolean);
 DROP FUNCTION public.__test_etc_admin();
 
+-- Closing check: the cap is exactly what it was when this file started.
+--
+-- Deliberately NOT `UPDATE ... SET value = '100'`. Forcing 100 here would rewrite
+-- an intentionally different deployed cap and make this assertion tautological —
+-- it would pass because we just wrote the value we then check.
+--
+-- No unconditional restore is needed either: psql runs each statement in its own
+-- transaction, so a DO block whose assertion fails has all of its own changes
+-- rolled back, including its cap mutation. Verified by experiment, not assumed —
+-- a scenario cannot leak `elite_trial_merchant_cap = 0` into a later suite.
 DO $$
-DECLARE v_cap int;
+DECLARE v_cap text;
 BEGIN
-  SELECT value::int INTO v_cap FROM public.app_config WHERE key = 'elite_trial_merchant_cap';
-  ASSERT v_cap = 100, format('cleanup: cap must be restored to 100, got %s', v_cap);
-  RAISE NOTICE 'ALL Elite trial launch-offer cap scenarios passed.';
+  SELECT value INTO v_cap FROM public.app_config WHERE key = 'elite_trial_merchant_cap';
+  ASSERT v_cap = current_setting('maanta.test_cap_at_start', true),
+    format('cleanup: cap leaked — started at %s, ended at %s',
+           current_setting('maanta.test_cap_at_start', true), v_cap);
+  RAISE NOTICE 'ALL Elite trial launch-offer cap scenarios passed (cap intact at %).', v_cap;
 END $$;

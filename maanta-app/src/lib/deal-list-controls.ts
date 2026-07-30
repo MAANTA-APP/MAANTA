@@ -56,6 +56,45 @@ export const DEAL_FILTER_OPTIONS = [
   { value: "standard", label: "Standard" },
 ] as const;
 
+/**
+ * Resolve a raw `?sort=` value to a supported sort, falling back when it is not
+ * one of them.
+ *
+ * A cast is not enough. `(searchParams.sort as DealListSort) ?? fallback` only
+ * catches null/undefined, so `?sort=bogus` — or an empty `?sort=`, a stale link,
+ * a crawler, a typo — arrives as a truthy string, skips the fallback, and then
+ * falls through `sortDealRows` to the distance branch. On the feed that silently
+ * re-sorts all three rails by mall centroid, which is exactly the D1 regression
+ * this module exists to prevent. Anything unrecognised must mean the default.
+ *
+ * `allowed` is the surface's own option list, so the feed accepts `featured` and
+ * Browse does not.
+ */
+export function parseDealListSort(
+  raw: string | string[] | undefined,
+  fallback: DealListSort,
+  allowed: readonly { value: string }[]
+): DealListSort {
+  if (typeof raw !== "string") return fallback;
+  return allowed.some((o) => o.value === raw) ? (raw as DealListSort) : fallback;
+}
+
+/**
+ * Resolve a raw `?filter=` value to a supported rail filter.
+ *
+ * Same class of bug with a different symptom: an unrecognised filter is not
+ * `"all"`, so every rail gets emptied and the feed renders "No deals live right
+ * now" on a mall that has deals. A bad URL must not look like an empty market.
+ */
+export function parseDealListFilter(
+  raw: string | string[] | undefined
+): DealListFilter {
+  if (typeof raw !== "string") return "all";
+  return DEAL_FILTER_OPTIONS.some((o) => o.value === raw)
+    ? (raw as DealListFilter)
+    : "all";
+}
+
 function distanceValue(
   d: DealRow,
   origin: { lat: number; lng: number } | null
@@ -67,9 +106,23 @@ function distanceValue(
   return distanceMeters(origin, { lat, lng });
 }
 
-/** Newest-first by start time; the tie-break for every locked order below. */
+const millis = (iso: string | null | undefined, fallback: number): number => {
+  if (!iso) return fallback;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? fallback : t;
+};
+
+/**
+ * Newest-first by start time; the tie-break for every locked order below.
+ *
+ * Goes through `millis` rather than parsing directly: a malformed `starts_at`
+ * would otherwise make this return NaN. Inside the locked orders NaN is falsy
+ * and falls through to `byId`, but `sortDealRows` uses this comparator on its
+ * own, where NaN makes it inconsistent and the resulting order becomes
+ * implementation-defined.
+ */
 function byNewest(a: DealRow, b: DealRow): number {
-  return new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime();
+  return millis(b.starts_at, -Infinity) - millis(a.starts_at, -Infinity);
 }
 
 /**
@@ -80,12 +133,6 @@ function byNewest(a: DealRow, b: DealRow): number {
 function byId(a: DealRow, b: DealRow): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
-
-const millis = (iso: string | null | undefined, fallback: number): number => {
-  if (!iso) return fallback;
-  const t = new Date(iso).getTime();
-  return Number.isNaN(t) ? fallback : t;
-};
 
 /**
  * Locked rail 1 — Flash: soonest expiry first.

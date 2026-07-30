@@ -17,8 +17,10 @@
 --    silently recycled and far more than 100 merchants could receive the offer
 --    over time. A consumed slot stays consumed.
 --
--- 2. A TRIGGER, not just the RPC. The cap is enforced wherever a trial is
---    granted, so the admin plans route cannot bypass it. Enforcing only inside
+-- 2. A TRIGGER on INSERT **and** UPDATE, not just the RPC. The cap is enforced
+--    wherever a trial is granted, so the admin plans route cannot bypass it, and
+--    neither can a row inserted with `elite_trial_active = TRUE` (which
+--    `supabase/seed/node0_rehearsal_seed.sql` really does). Enforcing only inside
 --    `activate_merchant` would leave the documented bypass open while letting us
 --    claim the cap was enforced.
 --
@@ -44,6 +46,7 @@
 --   DROP TRIGGER trg_enforce_elite_trial_cap ON public.merchants;
 --   DROP FUNCTION public.enforce_elite_trial_cap();
 --   DROP FUNCTION public.elite_trial_slot_available(uuid);
+--   DROP FUNCTION public.elite_trial_slot_available_for(text, boolean, timestamptz);
 --   DROP FUNCTION public.elite_trial_cap_status();
 --   -- then re-apply activate_merchant from 20260720120000_security_hardening.sql
 --   -- (leave elite_trial_granted_at in place: dropping it destroys the record of
@@ -116,8 +119,57 @@ COMMENT ON FUNCTION public.elite_trial_cap_status IS
   'Launch-offer Elite trial slots: (cap, granted, remaining) for the launch node. Counts merchants.elite_trial_granted_at (durable — a consumed slot is never freed), excluding demo rows. Single source of the count for elite_trial_slot_available and enforce_elite_trial_cap.';
 
 -- ---------------------------------------------------------------------------
--- 4) Is this specific merchant allowed a trial right now?
+-- 4) Eligibility.
+--
+-- Two entry points over one rule. The values-based form exists because the gate
+-- has to work on BEFORE INSERT, where the row is not yet visible to a SELECT —
+-- an id-based check would hit NOT FOUND and reject every insert that carries a
+-- trial. The id-based form is the convenience wrapper for callers that already
+-- have a persisted merchant (activate_merchant).
 -- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.elite_trial_slot_available_for(
+  p_node        TEXT,
+  p_is_demo     BOOLEAN,
+  p_granted_at  TIMESTAMPTZ
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_launch_node TEXT;
+  v_status      RECORD;
+BEGIN
+  -- Already consumed a slot: re-granting to the SAME merchant is always allowed
+  -- and costs nothing extra. Without this, a merchant whose trial was ended and
+  -- restarted would burn a second slot.
+  IF p_granted_at IS NOT NULL THEN
+    RETURN TRUE;
+  END IF;
+
+  -- Rehearsal data is not the launch offer and is not capped by it.
+  IF COALESCE(p_is_demo, FALSE) THEN
+    RETURN TRUE;
+  END IF;
+
+  -- The cap is scoped to the launch node by the frozen rule ("first 100 BBS Mall
+  -- merchants"). A merchant at another node is outside the offer, so the offer's
+  -- cap has no claim on them; product scope is single-mall, so this is currently
+  -- theoretical but must not silently mean "capped at 0".
+  SELECT value INTO v_launch_node FROM public.app_config WHERE key = 'node0_launch_node';
+  IF p_node IS DISTINCT FROM COALESCE(v_launch_node, 'BBS Mall') THEN
+    RETURN TRUE;
+  END IF;
+
+  SELECT * INTO v_status FROM public.elite_trial_cap_status();
+  RETURN v_status.remaining > 0;
+END;
+$$;
+
+COMMENT ON FUNCTION public.elite_trial_slot_available_for IS
+  'Launch-offer eligibility from values rather than an id, so the gate also works on BEFORE INSERT where the row is not yet visible to a SELECT. TRUE when: already carries a granted-at stamp (re-grant, no new slot), or is a demo row, or is off the launch node, or the launch node still has slots left.';
+
 CREATE OR REPLACE FUNCTION public.elite_trial_slot_available(p_merchant_id uuid)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -128,8 +180,6 @@ DECLARE
   v_node        TEXT;
   v_granted_at  TIMESTAMPTZ;
   v_is_demo     BOOLEAN;
-  v_launch_node TEXT;
-  v_status      RECORD;
 BEGIN
   SELECT node, elite_trial_granted_at, is_demo
     INTO v_node, v_granted_at, v_is_demo
@@ -139,34 +189,12 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- Already consumed a slot: re-granting to the SAME merchant is always allowed
-  -- and costs nothing extra. Without this, a merchant whose trial was ended and
-  -- restarted would burn a second slot.
-  IF v_granted_at IS NOT NULL THEN
-    RETURN TRUE;
-  END IF;
-
-  -- Rehearsal data is not the launch offer and is not capped by it.
-  IF v_is_demo THEN
-    RETURN TRUE;
-  END IF;
-
-  -- The cap is scoped to the launch node by the frozen rule ("first 100 BBS Mall
-  -- merchants"). A merchant at another node is outside the offer, so the offer's
-  -- cap has no claim on them; product scope is single-mall, so this is currently
-  -- theoretical but must not silently mean "capped at 0".
-  SELECT value INTO v_launch_node FROM public.app_config WHERE key = 'node0_launch_node';
-  IF v_node IS DISTINCT FROM COALESCE(v_launch_node, 'BBS Mall') THEN
-    RETURN TRUE;
-  END IF;
-
-  SELECT * INTO v_status FROM public.elite_trial_cap_status();
-  RETURN v_status.remaining > 0;
+  RETURN public.elite_trial_slot_available_for(v_node, v_is_demo, v_granted_at);
 END;
 $$;
 
 COMMENT ON FUNCTION public.elite_trial_slot_available IS
-  'TRUE when this merchant may be granted an Elite trial: already has a granted-at stamp (re-grant, no new slot), or is a demo row, or is off the launch node, or the launch node still has slots left. Read by activate_merchant before offering the trial and by enforce_elite_trial_cap as the gate.';
+  'TRUE when this persisted merchant may be granted an Elite trial. Thin wrapper over elite_trial_slot_available_for; read by activate_merchant before offering the trial. FALSE for an unknown id.';
 
 -- ---------------------------------------------------------------------------
 -- 5) The gate. Stamps the slot on the way through; raises when the offer is out.
@@ -178,9 +206,21 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  -- Only a transition INTO an active trial consumes a slot. Ending, converting or
-  -- otherwise updating a merchant must pass straight through.
-  IF NOT (COALESCE(OLD.elite_trial_active, FALSE) = FALSE AND NEW.elite_trial_active = TRUE) THEN
+  -- INSERT and UPDATE both grant trials, so both are gated.
+  --
+  -- An INSERT carrying elite_trial_active = TRUE is not hypothetical:
+  -- supabase/seed/node0_rehearsal_seed.sql creates one such merchant at the launch
+  -- node. Left ungated it would consume a real slot with no
+  -- `elite_trial_granted_at` stamp, so `elite_trial_cap_status()` would
+  -- under-count permanently — the exact recycled-slot failure the durable marker
+  -- exists to prevent, just arriving through a different door.
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.elite_trial_active IS DISTINCT FROM TRUE THEN
+      RETURN NEW;
+    END IF;
+  -- On UPDATE, only a transition INTO an active trial consumes a slot. Ending,
+  -- converting or otherwise updating a merchant passes straight through.
+  ELSIF NOT (COALESCE(OLD.elite_trial_active, FALSE) = FALSE AND NEW.elite_trial_active = TRUE) THEN
     RETURN NEW;
   END IF;
 
@@ -189,7 +229,11 @@ BEGIN
   -- caller may hold this lock already.
   PERFORM pg_advisory_xact_lock(hashtext('elite_trial_cap'));
 
-  IF NOT public.elite_trial_slot_available(NEW.id) THEN
+  -- Evaluated from NEW, not by id: on BEFORE INSERT the row is not yet visible,
+  -- so an id lookup would return NOT FOUND and reject every seeded trial.
+  IF NOT public.elite_trial_slot_available_for(
+       NEW.node, NEW.is_demo, NEW.elite_trial_granted_at
+     ) THEN
     RAISE EXCEPTION 'ELITE_TRIAL_CAP_REACHED'
       USING ERRCODE = 'P0001',
             DETAIL  = 'The launch offer (30-day Elite trial) is capped at app_config.elite_trial_merchant_cap merchants at the launch node, and every slot has been used.',
@@ -207,11 +251,11 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.enforce_elite_trial_cap IS
-  'Enforces the frozen launch offer cap ("first 100 BBS Mall merchants get a 30-day Elite trial") on EVERY path that switches elite_trial_active FALSE→TRUE, including direct UPDATEs from /api/admin/plans/[id] which bypass activate_merchant. Stamps merchants.elite_trial_granted_at (durable, never cleared) and raises ELITE_TRIAL_CAP_REACHED when the offer is exhausted. activate_merchant checks elite_trial_slot_available first and skips the trial rather than tripping this, so a full offer never blocks a merchant going live. Trigger-only — EXECUTE revoked.';
+  'Enforces the frozen launch offer cap ("first 100 BBS Mall merchants get a 30-day Elite trial") on EVERY path that grants a trial: an INSERT carrying elite_trial_active = TRUE (seed/rehearsal scripts, any future create-with-trial path) and any UPDATE switching it FALSE→TRUE, including the direct UPDATEs from /api/admin/plans/[id] that bypass activate_merchant. Stamps merchants.elite_trial_granted_at (durable, never cleared) and raises ELITE_TRIAL_CAP_REACHED when the offer is exhausted. Eligibility is evaluated from NEW via elite_trial_slot_available_for, because on BEFORE INSERT the row is not yet visible to an id lookup. activate_merchant checks availability first and skips the trial rather than tripping this, so a full offer never blocks a merchant going live. Trigger-only — EXECUTE revoked.';
 
 DROP TRIGGER IF EXISTS trg_enforce_elite_trial_cap ON public.merchants;
 CREATE TRIGGER trg_enforce_elite_trial_cap
-  BEFORE UPDATE ON public.merchants
+  BEFORE INSERT OR UPDATE ON public.merchants
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_elite_trial_cap();
 
@@ -353,3 +397,8 @@ GRANT EXECUTE ON FUNCTION public.elite_trial_cap_status() TO service_role;
 
 REVOKE ALL ON FUNCTION public.elite_trial_slot_available(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.elite_trial_slot_available(uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.elite_trial_slot_available_for(text, boolean, timestamptz)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.elite_trial_slot_available_for(text, boolean, timestamptz)
+  TO service_role;

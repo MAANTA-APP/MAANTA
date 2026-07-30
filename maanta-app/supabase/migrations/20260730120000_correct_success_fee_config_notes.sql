@@ -2,9 +2,17 @@
 --
 -- METADATA ONLY. This migration changes no value, no function, no policy and no
 -- behaviour — only the human-readable `notes` string on one config row, plus the
--- matching COMMENT on the guardrail function that seeded it. The fee itself
--- stays 30.00 and is deliberately re-asserted rather than assumed, so applying
--- this against a drifted database is still safe.
+-- matching COMMENT on the guardrail function that seeded it.
+--
+-- The `ON CONFLICT` clause updates `notes` and nothing else, so on any database
+-- where the row already exists the existing fee value is left **untouched** —
+-- deliberately. The `'30.00'` in the VALUES list below only applies if the row is
+-- somehow absent entirely. This migration is not a fee correction and must not
+-- become one: silently forcing a money value from a metadata migration is exactly
+-- the kind of unannounced change the audit that produced it argues against. If
+-- the live value has drifted from 30.00, that is a finding to raise, not
+-- something to overwrite here — `supabase/tests/frozen_commercial_config_test.sql`
+-- asserts the value independently.
 --
 -- Two errors in the text seeded by 20260702094145_harden_success_fee_amount.sql:
 --
