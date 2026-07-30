@@ -1,6 +1,8 @@
 # Skills: Role & permissions
 
-Last updated: 2026-07-26 · Status: **shipped in code**.
+Last updated: 2026-07-29 · Status: **shipped in code**.
+
+Full persona walkthrough: `docs/skills/role-functionality-review-2026-07-29.md`.
 
 ## Role source of truth
 
@@ -13,12 +15,23 @@ Provisioning: `ensureAppUser()` in `src/lib/auth.ts` creates new users as `custo
 | Role | DB value | Shopper UI | Merchant UI | Admin | Founder | Agent |
 |---|---|---|---|---|---|---|
 | Shopper | `customer` | ✅ | — | — | — | — |
-| Merchant owner | `merchant_admin` | ✅ (if also shops) | ✅ | — | — | — |
+| Merchant owner | `merchant_admin` | ✅ (URL reachable) | ✅ | — | — | — |
 | Merchant staff | `merchant_staff` | — | ✅ (scoped) | — | — | — |
-| Field agent | `agent` | — | — | partial | — | ✅ |
-| Admin / founder | `admin` | ✅ | — | ✅ | ✅ | ✅ |
+| Field agent | `agent` | — | — | — | — | ✅ |
+| Admin / founder / co-founder | `admin` | ✅ (URL) | — | ✅ | ✅ | ✅ |
 
-**Founder/co-founder:** Launch uses the `admin` role. The `/founder` dashboard is a read-focused executive view; destructive ops remain in `/admin/*`. A separate `founder` enum value is deferred until co-founder access needs to be narrower than full admin.
+**Founder/co-founder:** Launch uses the `admin` role. The `/founder` dashboard is a read-focused executive view; destructive ops remain in `/admin/*`. A separate `founder` enum value is deferred until co-founder access needs to be narrower than full admin. Post-login bootstrap sends `admin` → `/admin` (Founder is linked from the admin sidebar).
+
+## Merchant staff permissions
+
+| Flag | DB default | Owner | Page / API |
+|---|---|---|---|
+| `can_verify` | `true` | always | `/merchant/redeem`, verify/preflight/reject APIs |
+| `can_deals` | `false` | always | create/edit/archive/repost deal APIs + wizard |
+| `can_topup` | `false` | always | `/merchant/topup` page + STK/Stripe APIs; wallet CTA hidden when false |
+| `can_purchase` | `false` | always | boost create/move APIs |
+
+Staff roster (`/merchant/staff`, `/api/staff`) is **owner-only**. Invite UI defaults match DB (verify-only).
 
 ## Page guards
 
@@ -27,7 +40,8 @@ Provisioning: `ensureAppUser()` in `src/lib/auth.ts` creates new users as `custo
 | `requireAdminPage` / `requireAdminApi` | `src/lib/admin.ts` | `admin` |
 | `requireFounderPage` / `requireFounderApi` | `src/lib/founder.ts` | `admin` |
 | `getMerchantContext` | `src/lib/merchant.ts` | `merchant_admin`, `merchant_staff` |
-| Agent pages | inline in `agent/layout.tsx` | `agent`, `admin` |
+| `requireMerchant(permission)` | `src/lib/merchant-api.ts` | merchant ctx + staff flag |
+| `requireAgentPage` / `requireActiveAgentApi` | `src/lib/agent.ts` | `agent` or `admin` (+ active `agents` row for writes) |
 | Claim gate | `currentUserHasVerifiedPhone()` | any signed-in user with verified phone |
 
 ## RLS bridge
@@ -42,7 +56,8 @@ Self-role escalation is blocked by trigger `prevent_self_role_escalation` unless
 /founder          — executive dashboard (admin only)
 /admin/*          — ops console (admin only)
 /agent/*          — field leads (agent + admin)
-/merchant/(app)/* — merchant console
+/merchant/(app)/* — merchant console (owner + staff)
+/(shopper)/*      — shopper surfaces (default customer)
 ```
 
 ## Provisioning founders
@@ -51,4 +66,4 @@ Self-role escalation is blocked by trigger `prevent_self_role_escalation` unless
 UPDATE public.users SET role = 'admin' WHERE email = 'founder@example.com';
 ```
 
-Or use the rehearsal seed accounts documented in `/demo` and `supabase/seed/node0_rehearsal_seed.sql`.
+Or use the rehearsal seed accounts documented in `/demo` and `docs/ops/test-accounts.md`.

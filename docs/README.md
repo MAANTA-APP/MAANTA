@@ -3,7 +3,8 @@
 Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
-2026-07-09 from the launch-handoff and operating-system doc packs.
+2026-07-09 from the launch-handoff and operating-system doc packs; index
+updated 2026-07-28 with comprehensive audit links.
 
 ## Orientation
 
@@ -33,6 +34,13 @@ the source of truth for anything describing code behavior). Consolidated
 | `maanta-merchant-email-sequence.md` | Merchant welcome/nurture copy draft |
 | `maanta-mall-operator-email-sequence.md` | Mall-operator outreach copy draft |
 
+## Company readiness audit (2026-07-28)
+
+| File | Purpose |
+|---|---|
+| `ops/maanta-comprehensive-audit-2026-07.md` | **Primary:** full company-readiness audit — product, engineering, data, ops, legal, seed + Nairobi Takeover + 100k + Oracle partner readiness |
+| `skills/maanta-audit-100k.md` | Short pointer to the comprehensive audit |
+
 ## Ops
 
 | File | Purpose |
@@ -42,14 +50,25 @@ the source of truth for anything describing code behavior). Consolidated
 | `ops/auth-strategies.md` | Clerk (launch) vs Supabase email OTP (dev/test) toggle |
 | `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
+| `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
+| `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
+| `ops/nodes-nairobi-2026-07.md` | 3-node Nairobi rehearsal registry (BBS + CBD + Westlands) |
+| `ops/role-tasks-nairobi-150-2026-07.md` | Per-role UI verification for Nairobi 150 seed |
+| `ops/test-accounts-seed-2026-07.md` | `@maanta.app` test accounts for Supabase email OTP |
+| `ops/browse-filters-2026-07.md` | Browse filter chips behavior |
 
 ## Durable skills (for future sessions/contractors)
 
 | File | Purpose |
 |---|---|
+| `skills/maanta-audit-100k.md` | Pointer to comprehensive company-readiness audit (seed / 100k / partner) |
 | `skills/tech-stack-100k.md` | Pointer to the ops deep dive (stack + path to ~100k users) |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
 | `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
+| `skills/launch-audit-2026-07-24.md` | Repo-vs-prod readiness audit (July 24) |
+| `skills/clerk-auth.md` | Clerk + Supabase third-party auth wiring |
+| `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
+| `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |

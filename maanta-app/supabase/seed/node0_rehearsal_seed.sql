@@ -31,8 +31,9 @@
 --
 -- Rehearsal state this creates:
 --   · Nuur wallet: +600 top-up, two KES 30 fees charged → balance 540
---   · Bilan wallet: KES 20 → below the KES 30 fee → keypad shows the
---     "balance too low" gate (10m) until topped up
+--   · Bilan wallet: KES 20 → below the KES 30 fee → keypad discloses
+--     arrears path (verify-anyway); fees record as owing until top-up.
+--     New deals stay blocked at zero balance — not till verify.
 --   · One unresolved merchant_override fraud event + dispute_review task
 --     → visible in /admin/redemptions and admin support queue
 --   · One pending OTP ticket (431977) on Nuur's abaya deal → merchant
