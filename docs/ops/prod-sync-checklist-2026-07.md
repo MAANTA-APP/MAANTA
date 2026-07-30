@@ -41,9 +41,11 @@ migration file.
 | 1.7 | Verification SQL §5 | `docs/ops/supabase-migrations.md` | ⬜ |
 | 1.8 | Confirm latest migrations present | See local file list via `make db-migration-checklist` | ⬜ |
 
-**Confirmed in repo (2026-07-28):** 67 migration files. Rollout plan (2026-07-24)
-documented 12+ pending toward prod at that time — **current pending count must
-be re-checked with `make db-list`**. Do not trust stale counts.
+**Confirmed in repo (2026-07-28 hardening + main merge):** migration files live in
+`maanta-app/supabase/migrations/`. Main's ops status note (2026-07-28) reports
+prod was **fully aligned** with the then-current 67 local files — **but new
+migrations have landed on `main` since** (demo mode, trial cron, etc.). Always
+re-check with `make db-list` before assuming sync. Do not trust stale counts.
 
 **Dashboard-made drift:** If `supabase migration list` shows a REMOTE version
 with no LOCAL file, capture it into the repo (back-fill) before further pushes —

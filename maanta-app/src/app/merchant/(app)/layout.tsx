@@ -3,6 +3,7 @@ import { getMerchantContext } from "@/lib/merchant";
 import { MerchantTopBar } from "@/components/nav/merchant-top-bar";
 import { MerchantBottomBar } from "@/components/nav/bottom-bars";
 import { OfflineBanner } from "@/components/ui/states";
+import { DemoModeBanner } from "@/components/demo-mode-banner";
 import { MerchantLifecycleBanner } from "@/components/merchant/merchant-lifecycle-banner";
 import { getSuccessFee } from "@/lib/data";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -30,6 +31,7 @@ export default async function MerchantAppLayout({
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-white lg:max-w-3xl">
+      <DemoModeBanner />
       <OfflineBanner />
       <MerchantTopBar
         merchantName={merchant.merchant_name}

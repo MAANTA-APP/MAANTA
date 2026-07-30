@@ -208,6 +208,24 @@ echo/run the CLI above — **review before running against prod**:
   no path to production.
 - `make db-migration-checklist` prints the human-run steps without touching prod.
 
+## Status note (2026-07-28)
+
+Production `axrrslqssmbngbataejg` was verified **fully aligned** with the 67
+local migration files (`supabase db push --dry-run` → “Remote database is up
+to date”). The “minimum hardening set” and lat/lng / preferred_language
+migrations are present. Do not re-push unless `migration list` shows a local
+version missing remotely.
+
+**IPv6 / pooler:** `db.<ref>.supabase.co` may be IPv6-only. Agents or hosts
+without IPv6 should use the session pooler URI
+(`postgres.<ref>@aws-0-eu-west-1.pooler.supabase.com:5432`) for `psql` /
+`db push --db-url`. See `docs/ops/backend-prod-setup-status-2026-07.md`.
+
+**Seed beyond §4:** For multi-node rehearsal also apply
+`nairobi_nodes_150_merchants.sql` then `test_accounts_maanta_2026_07.sql`
+(`make db-seed-nairobi-150` / `make db-seed-test-accounts`). The 100-deal seed
+alone is the Discover/Browse density floor for BBS Mall.
+
 ## Related launch docs (2026-07 hardening)
 
 | Doc | Purpose |

@@ -5,15 +5,22 @@ import { FilterDropdown } from "@/components/ui/claude";
 import {
   DEAL_FILTER_OPTIONS,
   DEAL_SORT_OPTIONS,
+  DEFAULT_BROWSE_SORT,
   type DealListFilter,
   type DealListSort,
 } from "@/lib/deal-list-controls";
 
-/** Browse sort + filter dropdowns (URL-driven, same keys as /feed). */
+/**
+ * Browse sort + filter dropdowns (URL-driven, same keys as /feed).
+ *
+ * Browse offers `DEAL_SORT_OPTIONS`, not the feed's — it renders one flat list,
+ * so "Featured" (the locked per-rail order) has nothing to mean here and its
+ * default stays distance.
+ */
 export function BrowseControls() {
   const router = useRouter();
   const params = useSearchParams();
-  const sort = (params.get("sort") as DealListSort) ?? "nearest";
+  const sort = (params.get("sort") as DealListSort) ?? DEFAULT_BROWSE_SORT;
   const filter = (params.get("filter") as DealListFilter) ?? "all";
 
   function update(key: "sort" | "filter", value: string) {
@@ -21,7 +28,7 @@ export function BrowseControls() {
     if (key === "filter" && value !== "all") {
       next.delete("chip");
     }
-    if (value === (key === "sort" ? "nearest" : "all")) {
+    if (value === (key === "sort" ? DEFAULT_BROWSE_SORT : "all")) {
       next.delete(key);
     } else {
       next.set(key, value);

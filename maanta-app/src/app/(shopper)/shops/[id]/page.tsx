@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, getVerifiedCounts, withPublicMerchantRows } from "@/lib/data";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { W3wChip, CountdownChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconCheck, IconChevronRight, IconImage } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
@@ -17,6 +18,8 @@ export default async function ShopProfilePage({
   params: { id: string };
 }) {
   const service = createServiceClient();
+  // Synthetic rows are excluded unless demo mode is explicitly on.
+  const includeDemo = await isDemoModeEnabled();
   // Public storefront: only render for a publicly-visible, active merchant
   // (status='active' AND is_visible AND NOT is_shadow_banned). Filtering in the
   // query means the row simply isn't returned for a pending/suspended shop.
@@ -26,7 +29,8 @@ export default async function ShopProfilePage({
       .select(
         "id, merchant_name, floor, unit_number, what3words_address, mall_name, node"
       )
-      .eq("id", params.id)
+      .eq("id", params.id),
+    { includeDemo }
   ).maybeSingle();
 
   if (!shop) notFound();
@@ -43,14 +47,20 @@ export default async function ShopProfilePage({
     isFav = !!fav;
   }
 
+  // The merchant gate above already makes a demo shop unreachable in launch
+  // mode, so this second filter is belt-and-braces: it keeps the rule "no
+  // synthetic row renders unless demo mode is on" true per-row rather than
+  // relying on demo deals only ever hanging off demo merchants.
+  let dealsQuery = service
+    .from("deals")
+    .select("id, title, image_url, expires_at, deal_type")
+    .eq("merchant_id", shop.id)
+    .eq("is_active", true)
+    .gt("expires_at", new Date().toISOString());
+  if (!includeDemo) dealsQuery = dealsQuery.eq("is_demo", false);
+
   const [{ data: deals }, verified] = await Promise.all([
-    service
-      .from("deals")
-      .select("id, title, image_url, expires_at, deal_type")
-      .eq("merchant_id", shop.id)
-      .eq("is_active", true)
-      .gt("expires_at", new Date().toISOString())
-      .order("expires_at", { ascending: true }),
+    dealsQuery.order("expires_at", { ascending: true }),
     getVerifiedCounts([shop.id]),
   ]);
 

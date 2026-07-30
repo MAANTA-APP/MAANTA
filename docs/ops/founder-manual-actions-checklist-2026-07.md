@@ -6,7 +6,7 @@
 
 | Item | Why it matters | Owner | Can Cursor do it? | Status | Exact action required | Blocking / dependency | Gate |
 |---|---|---|---|---|---|---|---|
-| Apply prod migrations | Code depends on Guardian, fee_reversals, admin_ops_log, etc. | Engineer / founder | **No** (repo-prep: runbooks + `make db-*`) | ⬜ | Follow `docs/ops/supabase-migrations.md` + `prod-sync-checklist-2026-07.md`: `make db-list` → `db-push-dry` → `db-push` → §5 SQL | Supabase DB password; confirm Vercel URL ref `axrrslqssmbngbataejg` | **Before pilot** |
+| Apply prod migrations | Code depends on Guardian, fee_reversals, admin_ops_log, demo-mode, trial cron, etc. | Engineer / founder | **No** (repo-prep: runbooks + `make db-*`) | ⬜ re-verify | Follow `docs/ops/supabase-migrations.md` + `prod-sync-checklist-2026-07.md`: `make db-list` → `db-push-dry` → `db-push` if pending. Main (2026-07-28) reported 67-file alignment — **re-check** after later merges | Supabase DB password; confirm Vercel URL ref `axrrslqssmbngbataejg` | **Before pilot** |
 | Confirm / fix Vercel Production env | Wrong/missing env → auth/feed/money failures | Founder + engineer | **No** (repo-prep: `vercel-production-env-checklist.md` + `src/lib/env.ts`) | ⬜ | Set all critical vars; strategy pair `clerk`/`clerk`; Clerk prod keys matched | Vercel access | **Before pilot** |
 | Redeploy after `NEXT_PUBLIC_*` changes | Public env inlined at build time | Founder / engineer | **No** | ⬜ | Vercel → Redeploy Production after env edits | Env changes done | **Before pilot** |
 | Verify `/api/healthz?ready=1` | Proves core rails present | Founder | **No** | ⬜ | `curl https://www.maanta.app/api/healthz?ready=1` → `"ready"` | Deploy + env | **Before pilot** |

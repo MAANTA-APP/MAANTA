@@ -12,7 +12,8 @@ APP_DIR := maanta-app
 
 .PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify \
         db-seed-nairobi-150 db-seed-test-accounts db-migration-checklist \
-        test test-e2e
+        test test-e2e \
+        demo-on demo-off demo-status demo-seed demo-reseed demo-wipe
 
 help:
 	@echo "MAANTA make targets:"
@@ -26,6 +27,17 @@ help:
 	@echo "  db-seed-nairobi-150  Apply 150-merchant Nairobi 3-node seed (needs DATABASE_URL or local stack)"
 	@echo "  db-seed-test-accounts  Apply @maanta.app role test accounts (run after nairobi-150 seed)"
 	@echo "  test         vitest suite (unit)"
+	@echo ""
+	@echo "Demo mode (see docs/ops/demo-mode.md):"
+	@echo "  demo-status  show demo/real row counts and whether demo mode is on"
+	@echo "  demo-on      enable demo mode (synthetic data becomes visible)"
+	@echo "  demo-off     disable demo mode (data stays, becomes invisible)"
+	@echo "  demo-seed    seed demo activity history"
+	@echo "  demo-reseed  force a flash-deal top-up now"
+	@echo "  demo-wipe    DELETE demo rows (prompts; refuses while demo mode is on)"
+	@echo "               Agents/users a surviving real row still references are"
+	@echo "               RETAINED and reported — a non-zero count is expected,"
+	@echo "               not a partial failure. Do not re-run to 'finish' it."
 	@echo "  test-e2e     Playwright golden path (needs E2E_BASE_URL + storage; see docs/ops/e2e-golden-path.md)"
 	@echo ""
 	@echo "db-link/db-list/db-push* target PRODUCTION ($(SUPABASE_PROJECT_REF)) and are HUMAN-RUN."
@@ -78,6 +90,54 @@ db-seed-test-accounts:
 	@db_url="$${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"; \
 	  echo "Applying test_accounts_maanta_2026_07.sql to $$db_url"; \
 	  psql "$$db_url" -v ON_ERROR_STOP=1 -f $(APP_DIR)/supabase/seed/test_accounts_maanta_2026_07.sql
+
+# ---------------------------------------------------------------------------
+# Demo mode. Targets read and write only rows where is_demo — with one
+# deliberate exception: demo-on and demo-off update the control flag itself,
+# public.app_config.demo_mode_enabled, which is not a demo row.
+# See docs/ops/demo-mode.md.
+#
+# DB_URL resolution matches the seed targets above: DATABASE_URL if set,
+# otherwise the local stack.
+# ---------------------------------------------------------------------------
+DEMO_PSQL = psql "$${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}" -v ON_ERROR_STOP=1
+
+demo-status:
+	@$(DEMO_PSQL) -c "SELECT public.is_demo_mode() AS demo_mode_on;" \
+	              -c "SELECT * FROM public.demo_data_census;"
+
+demo-on:
+	@$(DEMO_PSQL) -c "UPDATE public.app_config SET value='true' WHERE key='demo_mode_enabled';" \
+	              -c "SELECT public.is_demo_mode() AS demo_mode_on;"
+	@echo "Demo mode ON. Also set MAANTA_DEMO_MODE=true in the app environment so analytics events are tagged."
+
+demo-off:
+	@$(DEMO_PSQL) -c "UPDATE public.app_config SET value='false' WHERE key='demo_mode_enabled';" \
+	              -c "SELECT public.is_demo_mode() AS demo_mode_on;"
+	@echo "Demo mode OFF. Synthetic rows are now hidden but still present — run demo-wipe to remove them."
+
+demo-seed:
+	@$(DEMO_PSQL) -f $(APP_DIR)/supabase/seed/demo_activity_seed.sql
+
+demo-reseed:
+	@$(DEMO_PSQL) -c "SELECT public.reseed_demo_flash_deals() AS deals_created;"
+
+# Destructive. Refuses while demo mode is on, shows the dry run, then requires
+# an explicit yes. The precondition is enforced, not just documented: wiping
+# while the public site is still serving demo data empties it under live eyes.
+demo-wipe:
+	@on="$$($(DEMO_PSQL) -Atc 'SELECT public.is_demo_mode();')"; \
+	  if [ "$$on" = "t" ]; then \
+	    echo "Refusing: demo mode is ON. Run 'make demo-off' first, then retry."; \
+	    exit 1; \
+	  fi
+	@echo "Dry run — rows that WOULD be deleted:"
+	@$(DEMO_PSQL) -c "SELECT * FROM public.wipe_demo_data();"
+	@printf "Type 'wipe' to delete all demo data: "; read ans; \
+	  if [ "$$ans" = "wipe" ]; then \
+	    $(DEMO_PSQL) -c "SELECT * FROM public.wipe_demo_data(TRUE);"; \
+	    echo "Demo data removed. Verify with: make demo-status"; \
+	  else echo "Aborted — nothing deleted."; fi
 
 test:
 	cd $(APP_DIR) && npm test
