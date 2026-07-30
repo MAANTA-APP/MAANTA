@@ -59,11 +59,11 @@ row as the pilot merchant. Those are rehearsal fixtures.
 
 Do these from `docs/ops/live-pilot-day-one-prep-2026-07-30.md` — summary:
 
-1. Merge required PRs (#139, #140, this pilot-readiness PR).
+1. Merge required PRs (#139 and #140 are already on `main`; merge this pilot-readiness PR).
 2. `supabase db push` on production; run `SELECT * FROM elite_trial_cap_status();`.
 3. Confirm `demo_mode_enabled = true` (do **not** flip).
-4. Confirm `/admin/billing` shows remaining Elite slots (expect room for slot 1
-   unless backfill already counted rehearsal merchants — see prep note).
+4. Confirm `/admin/billing` shows remaining Elite slots (expect room for the pilot
+   grant unless backfill already counted rehearsal merchants — see prep note).
 5. Confirm auth works on real phones (email/SMS OTP for the chosen strategy).
 
 ---

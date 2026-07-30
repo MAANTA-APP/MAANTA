@@ -20,14 +20,16 @@ Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.
 
 ## 1. PRs that must be merged before pilot day
 
-| PR | Why | CI (as of prep) |
+| PR | Why | Status |
 |---|---|---|
-| **#139** `fix(db): stop a missing launch sentinel from silently disabling trial expiry` | `handle_trial_expiry` must not freeze new expiries if `node0_launch_period_ends_at` is missing | Green (ci + db-tests) |
-| **#140** `fix(db): scope demo-wipe audit deletes by subject, not actor` | Option C — real-merchant audit trails survive demo wipe | Green (ci + db-tests) |
-| **This branch** `cursor/live-pilot-readiness-3667` | Admin Elite-cap surface, approve notice when trial skipped, pilot runbook + this prep note | Open with this PR |
+| **#139** trial-expiry launch sentinel | `handle_trial_expiry` must not freeze new expiries if `node0_launch_period_ends_at` is missing | **Merged** 2026-07-30 — still needs **`db push`** |
+| **#140** Option C demo-wipe retention | Real-merchant audit trails survive demo wipe | **Merged** 2026-07-30 — still needs **`db push`** |
+| **This branch** `#141` live-pilot-readiness | Admin Elite-cap surface, approve notice, pilot runbook + this prep note | Open — merge then deploy app |
 
-Already on `main` (do not re-merge): Elite cap migration
-`20260730130000_enforce_elite_trial_first_100_cap.sql` via #135.
+Already on `main` earlier: Elite cap migration
+`20260730130000_enforce_elite_trial_first_100_cap.sql` via #135 (also still
+needs **`db push`** if not yet applied on production — check
+`elite_trial_cap_status()`).
 
 ### Do **not** merge/apply for pilot day
 
@@ -59,8 +61,8 @@ supabase db push                 # apply in order
 |---|---|---|
 | `20260730120000` | #135 (main) | Correct success-fee config notes (metadata) |
 | `20260730130000` | #135 (main) | Elite trial first-100 cap + `elite_trial_cap_status()` |
-| `20260730140000` | **#139** | Trial-expiry launch-sentinel NULL guard |
-| `20260730150000` | **#140** | Demo-wipe Option C audit retention |
+| `20260730140000` | #139 (merged) | Trial-expiry launch-sentinel NULL guard |
+| `20260730150000` | #140 (merged) | Demo-wipe Option C audit retention |
 
 ### Immediately after push
 

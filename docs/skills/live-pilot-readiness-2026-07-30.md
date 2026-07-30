@@ -9,8 +9,9 @@ Claude’s open work that day-one depends on:
 | PR | Status at prep | Role |
 |---|---|---|
 | #135 (Elite cap / truth audit) | Merged | Cap enforcement + approve outcome logging |
-| #139 (trial-expiry sentinel) | Open, CI green | Must merge + push before pilot |
-| #140 (Option C demo-wipe retention) | Open, CI green | Must merge + push before pilot |
+| #139 (trial-expiry sentinel) | **Merged** 2026-07-30 — push pending | Sentinel NULL guard for `handle_trial_expiry` |
+| #140 (Option C demo-wipe retention) | **Merged** 2026-07-30 — push pending | Subject-based audit retention |
+| #141 (this session) | Open | Cap admin UI + pilot runbook / prep |
 
 Intent (do not redefine):
 
@@ -31,8 +32,8 @@ Intent (do not redefine):
 
 ## Operator next steps (human only)
 
-1. Merge #139, #140, and the live-pilot-readiness PR.
-2. `supabase db push` on `axrrslqssmbngbataejg`.
+1. Merge #141 (admin cap UI + runbooks). #139 and #140 are already on `main`.
+2. `supabase db push` on `axrrslqssmbngbataejg` (versions `…120000`–`…150000`).
 3. `SELECT * FROM elite_trial_cap_status();` before granting the pilot trial.
 4. Keep `demo_mode_enabled = true` until public launch.
 5. Do **not** apply PR #112’s `elite_merchants_100.sql` to production.
