@@ -1,5 +1,7 @@
 import { isDealClaimable } from "@/lib/deal-expiry";
 
+/** Shopper-visible deals = still open for new claims (live, not grace-only). */
+
 /** Days after onboarding when the "new merchant" banner still shows. */
 export const ONBOARDING_WINDOW_DAYS = 14;
 
@@ -33,7 +35,10 @@ function daysBetween(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
 }
 
-/** Count deals that are still visible to shoppers (live or in grace). */
+/**
+ * Count deals still visible to shoppers for new claims.
+ * Grace-only deals stay redeemable at the till but are off the feed.
+ */
 export function countLiveDeals(deals: DealExpiryRow[], now = new Date()): number {
   return deals.filter(
     (d) => d.is_active !== false && (!d.expires_at || isDealClaimable(d.expires_at, now))

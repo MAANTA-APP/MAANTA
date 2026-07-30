@@ -60,7 +60,7 @@ export default async function LeadDetailPage({
         .select("id, merchant_name, status")
         .eq("onboarded_by", agentId)
         .order("created_at", { ascending: false })
-        .limit(50),
+        .limit(200),
       service
         .from("leads")
         .select("converted_to")

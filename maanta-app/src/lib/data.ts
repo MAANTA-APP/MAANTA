@@ -7,8 +7,13 @@ import {
   type PostgrestLikeError,
 } from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
-import type { AppRole } from "@/lib/roles";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import {
+  lockedBoostedOrder,
+  lockedFlashOrder,
+  lockedStandardOrder,
+} from "@/lib/deal-list-controls";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 
@@ -28,7 +33,7 @@ export type AppUser = {
   phone: string | null;
   email: string | null;
   full_name: string | null;
-  role: AppRole;
+  role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin";
 };
 
 /** The signed-in Clerk user's public.users row (null when signed out). */
@@ -46,6 +51,7 @@ export type MerchantRow = {
   status: string;
   elite_trial_active: boolean;
   trial_ends_at: string | null;
+  grace_period_ends_at: string | null;
   node: string;
   what3words_address: string;
   lat: number | null;
@@ -67,7 +73,7 @@ export async function getMerchantForUser(userId: string): Promise<MerchantRow | 
   const { data } = await service
     .from("merchants")
     .select(
-      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
+      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -83,7 +89,7 @@ export async function getSuccessFee(): Promise<number> {
     .eq("key", "success_fee_kes")
     .maybeSingle();
   const n = data ? parseFloat(data.value) : NaN;
-  return isNaN(n) ? 30 : n;
+  return isNaN(n) ? SUCCESS_FEE_KES : n;
 }
 
 /** Boost price from app_config, falling back to the wireframe default KES 500 / 24h. */
@@ -108,6 +114,8 @@ export type DealRow = {
   deal_type: "standard" | "flash";
   flash_duration_hours: number;
   is_active: boolean;
+  /** When true, deal is hidden from shopper feed/browse/map and new claims fail. */
+  is_paused: boolean;
   max_claims: number | null;
   claims_count: number;
   success_fee: number;
@@ -132,10 +140,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;
@@ -273,11 +281,15 @@ async function selectLiveDealBucket(
   const service = createServiceClient();
   const nowIso = new Date().toISOString();
   return selectDealsWithMerchants(async (select) => {
+    // Wireframe 10ab / claim_deal: paused deals are hidden from the feed and
+    // reject new claims. Mirror that filter here so shopper surfaces never
+    // advertise a CTA the backend will refuse.
     let query = withPublicMerchant(
       service
         .from("deals")
         .select(select)
         .eq("is_active", true)
+        .eq("is_paused", false)
         .gt("expires_at", nowIso),
       { includeDemo }
     ).order("created_at", { ascending: false });
@@ -296,7 +308,55 @@ async function selectLiveDealBucket(
   });
 }
 
-/** Live deals for the shopper feed, ranked by verified redemptions within groups. */
+/**
+ * `starts_at` of the active boost on each of the given deals, for the locked
+ * "most recently boosted first" order.
+ *
+ * A separate query rather than an embedded select on purpose: `boost_flags` is a
+ * one-to-many from `deals`, so embedding it would change the shape of every
+ * `DealRow` and of the lat/lng-less fallback select too, for a field only the
+ * boosted rail needs. The bucket is capped at LIVE_DEAL_BOOSTED_LIMIT, so this
+ * is one small indexed read (`idx_boost_deal`).
+ *
+ * A failure here degrades rather than breaks: an empty map means the boosted
+ * rail falls back to newest-first instead of the feed erroring. Losing the exact
+ * order of a paid rail for one render is recoverable; a blank feed is not.
+ */
+async function getBoostStartTimes(dealIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (dealIds.length === 0) return map;
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("boost_flags")
+    .select("deal_id, starts_at")
+    .eq("is_active", true)
+    .in("deal_id", dealIds);
+  if (error) {
+    console.error("boost start times unavailable, boosted rail falls back:", error);
+    return map;
+  }
+  for (const row of (data ?? []) as { deal_id: string; starts_at: string }[]) {
+    // Keep the most recent flag per deal if a deal somehow carries two.
+    const seen = map.get(row.deal_id);
+    if (!seen || new Date(row.starts_at) > new Date(seen)) {
+      map.set(row.deal_id, row.starts_at);
+    }
+  }
+  return map;
+}
+
+/**
+ * Live deals for the shopper feed, in the locked feed order.
+ *
+ * The three rails are ordered HERE, not in the page, because the locked order is
+ * a property of the feed structure rather than of one render: it is decided once,
+ * server-side, and lands in the 30s cache already ordered. The page re-sorts only
+ * when the shopper explicitly picks a different sort.
+ *
+ * Note the ordering must happen before the `unstable_cache` boundary anyway —
+ * cached values are serialized, so the `Map`s the locked orders depend on do not
+ * survive the trip to the caller.
+ */
 async function getLiveDealsUncached(
   node: string,
   includeDemo: boolean
@@ -321,13 +381,20 @@ async function getLiveDealsUncached(
     ...boosted.map((d) => d.merchant_id),
     ...standard.map((d) => d.merchant_id),
   ];
-  const verifiedByMerchant = await getVerifiedCounts(merchantIds);
+  const [verifiedByMerchant, boostStartedAt] = await Promise.all([
+    getVerifiedCounts(merchantIds),
+    getBoostStartTimes(boosted.map((d) => d.id)),
+  ]);
 
-  // `nearMe` is the standard, non-boosted bucket. It is returned in query order
-  // and ordered for display by `orderNearMeDeals` (proximity-led, D-01) — this
-  // used to pre-sort by verified-redemption count, which the feed then threw
-  // away by re-sorting, so the sort was dead and misleading.
-  return { flash, boosted, nearMe: standard, verifiedByMerchant };
+  // The frozen feed structure (Notion "Frozen Scope & Rules"): flash by soonest
+  // expiry, boosted by most recently boosted, standard by all-time verified
+  // redemptions descending.
+  return {
+    flash: lockedFlashOrder(flash),
+    boosted: lockedBoostedOrder(boosted, boostStartedAt),
+    nearMe: lockedStandardOrder(standard, verifiedByMerchant),
+    verifiedByMerchant,
+  };
 }
 
 /** Short-lived cache for hot Feed/Browse reads (30s per node). */

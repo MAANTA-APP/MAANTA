@@ -10,6 +10,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { getSuccessFee } from "@/lib/data";
 import { creditedRedemptions, getLaunchCreditOffer } from "@/lib/launch-credit";
 import { formatKes } from "@/lib/ui";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
 
 // The KES 30 here is deliberate and is the one number on this page still
 // written by hand: `metadata` is static, and the success fee is frozen and
@@ -18,13 +19,22 @@ import { formatKes } from "@/lib/ui";
 // this becomes a `generateMetadata` that awaits getSuccessFee().
 export const metadata: Metadata = {
   title: "For merchants — pay only for verified redemptions | Maanta",
-  description:
-    "Publish deals to shoppers at BBS Mall and pay KES 30 only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.",
+  // Fee derived, not written: search and social previews are public fee copy too,
+  // and this string is the one place a stale KES amount could outlive a fee change.
+  description: `Publish deals to shoppers at BBS Mall and pay ${formatKes(
+    SUCCESS_FEE_KES
+  )} only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.`,
 };
 
 // Reads app_config (success fee + the Node 0 launch-credit gate), so this page
 // cannot be prerendered at build time.
 export const dynamic = "force-dynamic";
+
+/**
+ * The frozen success fee. Charged once, at merchant verification.
+ * Imported, not re-declared — see `SUCCESS_FEE_KES` for why one literal.
+ */
+const SUCCESS_FEE = SUCCESS_FEE_KES;
 
 /** Worked example — a mid-range BBS deal, not a special case. */
 const EXAMPLE_BEFORE = 500;
@@ -260,7 +270,7 @@ export default async function ForMerchantsPage() {
                 {[
                   "Two active deals, plus flash deals",
                   "Boost a deal to the top of the feed",
-                  "30-day trial, then a 7-day grace period, then moves to Standard with no monthly fee if you don't convert",
+                  "First 100 BBS Mall merchants: 30-day trial, then a 7-day grace period, then back to Standard if you don't convert",
                 ].map((line) => (
                   <li
                     key={line}

@@ -3,83 +3,85 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AmountField, TextField } from "@/components/ui/inputs";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatKes } from "@/lib/ui";
-import {
-  initialStageFromStripeReturn,
-  settlementOutcome,
-  type TopupStage,
-} from "@/lib/topup-settlement";
 import posthog from "posthog-js";
 
+type Stage =
+  | { kind: "form" }
+  | { kind: "waiting" }
+  | { kind: "success"; added: number; newBalance: number }
+  | { kind: "failed"; message: string };
+
+const WAIT_LIMIT_MS = 120_000;
+
 /**
- * 9i Top up with 10s/10t result screens.
- *
- * Two rails, and which one leads is CURRENT REALITY, not preference:
- * card (Stripe Checkout) is the Phase 1 rail that actually works, and M-Pesa
- * STK (IntaSend) is planned/blocked on credentials. When `mpesaEnabled` is
- * false the M-Pesa form is not rendered at all — offering a "Send STK push"
- * button that can only 503 is a dead end, and showing it implies a live rail
- * MAANTA does not have.
+ * Wallet top-up. Shipped Phase 1 rail is Stripe Checkout (card).
+ * M-Pesa STK is offered only when IntaSend is configured — never as the
+ * default primary CTA, so a founder E2E session is not misled into treating
+ * STK as live.
  */
 export function TopupFlow({
   balance,
   merchantPhone,
   initialAmount,
   stripeResult,
-  mpesaEnabled = true,
+  mpesaAvailable = false,
 }: {
   balance: number;
   merchantPhone: string;
   initialAmount: number;
   stripeResult: string | null;
-  mpesaEnabled?: boolean;
+  /** True only when IntaSend API keys are present on the server. */
+  mpesaAvailable?: boolean;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(initialAmount);
   const [phone, setPhone] = useState(merchantPhone);
-  // R-STRIPE-PHASE-1: a Stripe `?stripe=success` return means the CHECKOUT
-  // completed, not that the wallet was credited — so it starts `confirming` and
-  // the effect below polls until the webhook lands. This used to render the
-  // green success takeover immediately, with `added: 0` and the pre-payment
-  // balance, which claimed a credit that had not happened.
-  const [stage, setStage] = useState<TopupStage>(() =>
-    initialStageFromStripeReturn(stripeResult)
+  const [stage, setStage] = useState<Stage>(() =>
+    stripeResult === "cancelled"
+      ? { kind: "failed", message: "The card payment was cancelled. No money left your account." }
+      : stripeResult === "success"
+        ? { kind: "success", added: 0, newBalance: balance }
+        : { kind: "form" }
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startBalance = useRef(balance);
   const waitStart = useRef(0);
 
-  // Poll the wallet until the webhook credits it — for BOTH rails. The card
-  // rail previously never polled, so its `credited` state could not render at
-  // all; a merchant had to leave and come back to see their own top-up.
-  const rail = stage.kind === "confirming" ? stage.rail : null;
+  // While waiting on the STK push, poll the wallet until the webhook credits it.
   useEffect(() => {
-    if (!rail) return;
-    if (!waitStart.current) waitStart.current = Date.now();
+    if (stage.kind !== "waiting") return;
     const t = setInterval(async () => {
-      let balanceNow: number | null = null;
       try {
         const res = await fetch("/api/wallet");
-        if (res.ok) balanceNow = (await res.json()).balance ?? null;
+        if (res.ok) {
+          const body = await res.json();
+          if (body.balance > startBalance.current) {
+            setStage({
+              kind: "success",
+              added: body.balance - startBalance.current,
+              newBalance: body.balance,
+            });
+            router.refresh();
+            return;
+          }
+        }
       } catch {
-        /* treat as no reading and keep polling */
+        /* keep polling */
       }
-      const next = settlementOutcome({
-        rail,
-        startBalance: startBalance.current,
-        balanceNow,
-        elapsedMs: Date.now() - waitStart.current,
-      });
-      if (next) {
-        setStage(next);
-        if (next.kind === "credited") router.refresh();
+      if (Date.now() - waitStart.current > WAIT_LIMIT_MS) {
+        setStage({
+          kind: "failed",
+          message: "The STK push was cancelled or timed out. No money left your account.",
+        });
       }
     }, 4000);
     return () => clearInterval(t);
-  }, [rail, router]);
+  }, [stage.kind, router]);
 
   async function sendStk() {
     setBusy(true);
@@ -98,7 +100,7 @@ export function TopupFlow({
         return;
       }
       waitStart.current = Date.now();
-      setStage({ kind: "confirming", rail: "mpesa" });
+      setStage({ kind: "waiting" });
     } catch {
       setBusy(false);
       setError("Network error — try again.");
@@ -128,38 +130,23 @@ export function TopupFlow({
     }
   }
 
-  if (stage.kind === "confirming") {
-    return (
-      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <span
-          aria-hidden
-          className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-ink"
-        />
-        <h1 className="mt-5 text-2xl font-bold text-ink">
-          {stage.rail === "card" ? "Confirming your payment" : "Waiting for M-Pesa"}
-        </h1>
-        <p className="mt-2 text-sm text-secondary" aria-live="polite">
-          {stage.rail === "card"
-            ? "Your card payment went through. We're waiting for it to land in your wallet — this usually takes a few seconds."
-            : "Approve the STK push on your phone. Your balance updates as soon as it clears."}
-        </p>
-      </main>
-    );
-  }
-
-  if (stage.kind === "credited") {
+  if (stage.kind === "success") {
     return (
       <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-verified-tint">
           <IconCheck className="h-8 w-8 text-verified" />
         </span>
-        {/* The amount shown is the OBSERVED balance delta, never the amount the
-            merchant typed — so this figure is always the money that arrived. */}
         <h1 className="mt-5 text-2xl font-bold text-ink">
-          {formatKes(stage.added)} added
+          {stage.added > 0 ? `${formatKes(stage.added)} added` : "Top-up received"}
         </h1>
         <p className="mt-2 text-sm text-muted">
-          New balance: <b className="text-ink">{formatKes(stage.newBalance)}</b>
+          {stage.added > 0 ? (
+            <>
+              New balance: <b className="text-ink">{formatKes(stage.newBalance)}</b>
+            </>
+          ) : (
+            "Your balance updates as soon as the payment is confirmed."
+          )}
         </p>
         <Button
           full
@@ -171,21 +158,6 @@ export function TopupFlow({
         >
           Done
         </Button>
-      </main>
-    );
-  }
-
-  // Card payment taken but not yet credited. Deliberately NOT the failure
-  // screen: the money moved, so a red "not completed" would be false and would
-  // invite a second payment. Rust (warning), and no retry CTA.
-  if (stage.kind === "unsettled") {
-    return (
-      <main className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <h1 className="text-2xl font-bold text-ink">Payment received</h1>
-        <p className="mt-2 text-sm text-secondary">{stage.message}</p>
-        <ButtonLink href="/merchant/wallet" full className="mt-8">
-          Open wallet
-        </ButtonLink>
       </main>
     );
   }
@@ -212,13 +184,36 @@ export function TopupFlow({
     <main className="px-5 pt-6">
       <h1 className="text-center text-lg font-bold text-ink">Top up</h1>
 
+      <InlineAlert
+        variant="warning"
+        title="Card top-up is the live Phase 1 rail."
+        className="mt-4"
+      >
+        Stripe Checkout credits your wallet after payment. M-Pesa STK is available
+        only when configured — do not assume it is live for every environment.
+      </InlineAlert>
+
       <div className="mt-6">
         <AmountField value={amount} onChange={setAmount} />
       </div>
 
-      {mpesaEnabled ? (
+      {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+
+      <Button
+        full
+        className="mt-6"
+        onClick={payWithCard}
+        loading={busy && stage.kind === "form"}
+        disabled={!amount || amount <= 0}
+        data-testid="topup-card-primary"
+      >
+        Pay with card
+      </Button>
+
+      {mpesaAvailable ? (
         <>
-          <div className="mt-5">
+          <p className="my-4 text-center text-xs text-faint">or M-Pesa</p>
+          <div className="mt-1">
             <TextField
               label="M-Pesa number"
               type="tel"
@@ -227,51 +222,31 @@ export function TopupFlow({
               placeholder="+254 7XX XXX XXX"
             />
           </div>
-
-          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
-
-          <Button
-            full
-            className="mt-6"
-            onClick={sendStk}
-            loading={busy}
-            disabled={!amount || amount <= 0 || !phone.trim()}
-          >
-            Send STK push
-          </Button>
-
-          <p className="my-4 text-center text-xs text-faint">or</p>
-
           <Button
             variant="ghost"
             full
-            onClick={payWithCard}
-            loading={busy && stage.kind === "form"}
+            className="mt-4"
+            onClick={sendStk}
+            loading={busy}
+            disabled={!amount || amount <= 0 || !phone.trim()}
+            data-testid="topup-stk-secondary"
           >
-            Pay with card
+            Send STK push
           </Button>
+          {stage.kind === "waiting" ? (
+            <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
+              <span
+                aria-hidden
+                className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
+              />
+              Waiting for M-Pesa confirmation…
+            </div>
+          ) : null}
         </>
       ) : (
-        <>
-          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
-
-          <Button
-            full
-            className="mt-6"
-            onClick={payWithCard}
-            loading={busy}
-            disabled={!amount || amount <= 0}
-          >
-            Pay with card
-          </Button>
-
-          {/* Honest about the rail that isn't live yet — no M-Pesa form, no
-              button that can only fail. Rust (warning), never red. */}
-          <p className="mt-4 text-center text-xs text-muted">
-            M-Pesa top-up is coming. For now, card payment is the way to add
-            funds — your balance updates as soon as the payment clears.
-          </p>
-        </>
+        <p className="mt-4 text-center text-xs text-muted" data-testid="topup-mpesa-unavailable">
+          M-Pesa STK is not configured in this environment.
+        </p>
       )}
     </main>
   );

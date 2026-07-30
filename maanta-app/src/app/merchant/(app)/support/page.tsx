@@ -13,7 +13,7 @@ function faqs(fee: number) {
     },
     {
       q: "My redemption was rejected — why?",
-      a: "Codes are rejected when they've expired past the 15-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes.",
+      a: "Codes are rejected when they've expired past the 15-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes. If you Confirm on a location mismatch instead (verify-anyway), the redemption still succeeds, the fee is taken, and admin reviews the dispute afterward.",
     },
   ];
 }

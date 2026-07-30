@@ -2,6 +2,8 @@
 
 Last updated: 2026-07-29 · Status: **shipped in code**.
 
+Full persona walkthrough: `docs/skills/role-functionality-review-2026-07-29.md`.
+
 ## Role source of truth
 
 Roles live in **`public.users.role`** (Postgres CHECK constraint). Clerk provides authentication only — there is **no** Clerk `publicMetadata.role`.

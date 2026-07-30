@@ -17,8 +17,7 @@ export default function AddStaffPage() {
   const [name, setName] = useState("");
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
-  // Verify-only by default — least privilege, and the same default /api/staff
-  // applies when a field is omitted. The owner opts each extra power in.
+  // Defaults match merchant_staff DB columns (verify-only until owner opts in).
   const [perms, setPerms] = useState({
     canVerify: true,
     canDeals: false,

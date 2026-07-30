@@ -16,10 +16,12 @@ import { FeedControls } from "./feed-controls";
 import { nodeCoords, nodeLabel } from "@/lib/nodes";
 import { dealExpiryLabel } from "@/lib/browse";
 import {
+  DEFAULT_FEED_SORT,
+  FEED_SORT_OPTIONS,
   filterDealRowsByRail,
+  parseDealListFilter,
+  parseDealListSort,
   sortDealRows,
-  type DealListFilter,
-  type DealListSort,
 } from "@/lib/deal-list-controls";
 import { distanceMeters, formatDistanceMeters } from "@/lib/what3words";
 import {
@@ -76,14 +78,20 @@ export default async function FeedPage({
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
-  const sort = (searchParams?.sort as DealListSort) ?? "nearest";
-  const filter = (searchParams?.filter as DealListFilter) ?? "all";
+  // Validated, not cast: an unrecognised ?sort= would otherwise reach the
+  // distance branch and undo the locked order, and an unrecognised ?filter=
+  // would empty every rail and claim there are no deals.
+  const sort = parseDealListSort(searchParams?.sort, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS);
+  const filter = parseDealListFilter(searchParams?.filter);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);
 
+  // `getLiveDeals` already returns each rail in its locked order, so the default
+  // path leaves them alone — `sortDealRows` is a pass-through for "featured".
+  // Only an explicit shopper choice re-sorts, and then it applies to all rails.
   let flashDeals = sortDealRows(flash, sort, origin);
   let boostedDeals = sortDealRows(boosted, sort, origin);
   // D-01: Deals Near Me is proximity-led by definition, so it is ordered by

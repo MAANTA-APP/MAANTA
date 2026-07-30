@@ -94,4 +94,19 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
       expiresAt: "2026-07-24T12:00:00Z",
     });
   });
+
+  it("maps deal_paused to a 409 with a clear shopper message", async () => {
+    hasPhoneMock.mockResolvedValue(true);
+    rpcSingleMock.mockResolvedValue({
+      data: null,
+      error: { message: "deal_paused" },
+    });
+
+    const res = await POST(req({ dealId: "deal-1" }));
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      error: "This deal is paused — no new claims right now.",
+    });
+  });
 });

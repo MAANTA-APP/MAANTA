@@ -85,6 +85,7 @@ describe("Shopper UI polish", () => {
       deal_type: "flash",
       flash_duration_hours: 6,
       is_active: true,
+      is_paused: false,
       max_claims: null,
       claims_count: 0,
       success_fee: 30,

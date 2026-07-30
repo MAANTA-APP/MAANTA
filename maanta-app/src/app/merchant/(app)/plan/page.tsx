@@ -3,6 +3,7 @@ import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { ButtonLink } from "@/components/ui/button";
 import { SettingsRow } from "@/components/ui/cards";
 import { timeLeftLabel } from "@/lib/ui";
+import { formatAdminTrialStatus } from "@/lib/elite-trial";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +15,11 @@ export default async function PlanPage() {
   const canPurchase = canUseMerchantSurface("plan", permissions);
 
   const isElite = merchant.tier === "elite";
-  const trialDaysLeft =
-    merchant.elite_trial_active && merchant.trial_ends_at
-      ? Math.max(
-          0,
-          Math.ceil(
-            (new Date(merchant.trial_ends_at).getTime() - Date.now()) / (24 * 3600_000)
-          )
-        )
-      : null;
+  const trialLabel = formatAdminTrialStatus({
+    eliteTrialActive: merchant.elite_trial_active,
+    trialEndsAt: merchant.trial_ends_at,
+    gracePeriodEndsAt: merchant.grace_period_ends_at,
+  });
 
   return (
     <main className="px-4 pt-5">
@@ -35,10 +32,15 @@ export default async function PlanPage() {
             ? "2 active deals · flash deals · boosts"
             : "1 active deal · 24h fixed schedule"}
         </p>
-        {trialDaysLeft != null ? (
+        {trialLabel ? (
           <p className="mt-2 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
-            Elite trial · {trialDaysLeft} day{trialDaysLeft === 1 ? "" : "s"} left
-            {merchant.trial_ends_at ? ` (${timeLeftLabel(merchant.trial_ends_at)})` : ""}
+            {trialLabel}
+            {merchant.grace_period_ends_at &&
+            new Date(merchant.grace_period_ends_at).getTime() > Date.now()
+              ? ` (${timeLeftLabel(merchant.grace_period_ends_at)})`
+              : merchant.trial_ends_at
+                ? ` (${timeLeftLabel(merchant.trial_ends_at)})`
+                : ""}
           </p>
         ) : null}
       </div>

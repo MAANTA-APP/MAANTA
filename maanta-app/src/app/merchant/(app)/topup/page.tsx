@@ -1,12 +1,10 @@
 import { getMerchantContext } from "@/lib/merchant";
-import { canUseMerchantSurface } from "@/lib/merchant-nav";
-import { isMpesaTopupConfigured } from "@/lib/intasend";
-import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
+import { isIntasendConfigured } from "@/lib/intasend";
 import { TopupFlow } from "./topup-flow";
 
 export const dynamic = "force-dynamic";
 
-/** 9i Wallet top-up + 10s success / 10t failed. */
+/** Wallet top-up — Stripe Checkout is Phase 1; STK only when IntaSend is set. */
 export default async function TopupPage({
   searchParams,
 }: {
@@ -16,10 +14,15 @@ export default async function TopupPage({
   if (res.status !== "ok") return null;
   const { merchant, permissions } = res.ctx;
 
-  // /api/topup and /api/topup/stripe both require `can_topup`, so rendering the
-  // amount picker for staff without it is a dead end — say so instead.
-  if (!canUseMerchantSurface("topup", permissions)) {
-    return <MerchantPermissionDenied action="top up the wallet" />;
+  if (!permissions.can_topup) {
+    return (
+      <main className="px-6 py-24 text-center">
+        <p className="text-sm font-semibold text-ink">
+          You don&apos;t have permission to top up the wallet.
+        </p>
+        <p className="mt-1 text-xs text-muted">Ask the shop owner to enable it in Staff.</p>
+      </main>
+    );
   }
 
   const suggested = parseInt(searchParams.suggested ?? "", 10);
@@ -30,9 +33,7 @@ export default async function TopupPage({
       merchantPhone={merchant.phone}
       initialAmount={isNaN(suggested) ? 3000 : suggested}
       stripeResult={searchParams.stripe ?? null}
-      // Phase 1 reality: card (Stripe) is the shipped rail; M-Pesa appears only
-      // where IntaSend credentials actually exist.
-      mpesaEnabled={isMpesaTopupConfigured()}
+      mpesaAvailable={isIntasendConfigured()}
     />
   );
 }
