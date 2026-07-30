@@ -308,7 +308,19 @@ wrong, not just the magnitude.
   `fraud_events` and `admin_ops_log` rows are deleted when the *actor* is a demo user,
   even when the action targeted a real merchant. Decide whether to keep and tombstone
   instead.
-- **`handle_trial_expiry()` NULL trap**: if `app_config.node0_launch_period_ends_at`
-  went missing, both phases of trial expiry silently stop. No effect today; wants its
-  own change.
+- ~~**`handle_trial_expiry()` NULL trap**~~ **Fixed 2026-07-30** — migration
+  `20260730140000`. The earlier description here was too broad: a missing
+  `app_config.node0_launch_period_ends_at` made `NOW() <= NULL` evaluate to NULL,
+  which killed the grace-period/agent-task phase and the post-launch immediate
+  downgrade, but **not** the grace-expiry downgrade, whose condition never reads the
+  sentinel. A partial failure, which is worse than a total one: merchants already in
+  grace kept downgrading on schedule while newly-expiring trials froze in Elite with
+  no grace row and no error, and the `tier_flags` note silently switched to
+  post-launch wording. Now `COALESCE(..., TRUE)` — missing means "launch period
+  still open", matching how `activate_merchant` reads the same key, and chosen
+  because defaulting the other way would downgrade merchants with **no grace at
+  all**, breaching the frozen trial rule on an operator slip. Raises a WARNING so
+  the cause is visible in the cron log instead of silent. New suite
+  `supabase/tests/trial_expiry_launch_sentinel_test.sql` (4 scenarios); scenario C
+  was confirmed to fail against the pre-fix function.
 - **Drop the backup table** once the reseed is accepted.
