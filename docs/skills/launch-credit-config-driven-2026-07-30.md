@@ -219,3 +219,46 @@ Postgres 16 with a Supabase shim (roles, `auth`/`storage`/`cron` schemas, the
 `auth.jwt/role/uid` helpers, postgis, and `search_path = public, extensions`),
 every migration applied in order from a clean database. They also run in CI
 `db-tests` against a real `supabase start`.
+
+## Applied to prod — 2026-07-30
+
+Project `axrrslqssmbngbataejg` (eu-west-1).
+
+**Pre-flight, before touching anything.** Confirmed prod carried the pre-fix
+definition (global lock, no join) and read the live promo state:
+
+| Check | Value |
+|---|---|
+| `node0_launch_node` | BBS Mall |
+| Credit / cap / window | 300 / 100 / 2026-12-15 |
+| **Opening credits granted so far** | **0** |
+| Distinct merchant nodes | 3 — BBS Mall, CBD Galleria, Westlands Hub |
+
+Zero credits granted made this an unusually safe window: with the count at 0 the
+change is **behaviour-identical on the day**, scoped or global. There was nothing
+to repair or backfill. And because prod already carries all three nodes, the fix
+landed before the bug could bite anything real.
+
+**Post-apply verification** (read-only, `pg_proc`): node-scoped count present,
+per-node lock present, old global lock gone, and every guard intact — admin gate,
+pending-only guard, `SECURITY DEFINER`, pinned `search_path = public, pg_temp`,
+and the merchant-keyed idempotency anchor. One overload only; grants unchanged
+(`authenticated`, `service_role`, `postgres`); frozen config values unchanged;
+the cap key's notes now say per-node. `get_advisors` shows nothing new — the
+`activate_merchant` `authenticated`-executable warning is pre-existing and by
+design (the admin gate lives inside the function), and the three
+`security_definer_view` errors are the documented 2026-07-23 trade-off.
+
+**The SQL test suite was deliberately NOT run against prod** — its scenarios
+insert merchants and mutate `app_config`. Prod verification is read-only
+inspection; behaviour is proven on the local shim.
+
+**Migration-history repair.** `apply_migration` stamped its own version
+(`20260730011416`) rather than the repo filename's `20260730120000`. Every other
+row in prod's history matches its repo filename exactly, and leaving the mismatch
+would make a later `supabase db push` treat the file as un-applied and re-run it.
+The row's version was updated to `20260730120000` — the same thing
+`supabase migration repair` does. Re-application would have been harmless
+(`CREATE OR REPLACE` plus an idempotent `UPDATE`), but the repo is the
+authoritative record of DB behaviour and prod's history should stay auditable
+against it.
