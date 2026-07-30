@@ -63,7 +63,8 @@ Run from `maanta-app/`:
 - `docs/maanta-drift-register.md` — open/closed record of every known gap between
   what MAANTA claims and what is true. Schema and evidence rules are enforced by
   `maanta-app/src/lib/__tests__/drift-register.test.ts`, so a row cannot be closed
-  without naming a guard.
+  without either naming a guard — a test, a migration, or a decisions-log entry —
+  or stating `no guard: <reason>` for drift that genuinely cannot be guarded.
 
 ## Frozen business rules (change only via a new decisions-log entry)
 

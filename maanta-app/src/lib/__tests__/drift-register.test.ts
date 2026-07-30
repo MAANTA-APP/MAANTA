@@ -55,6 +55,17 @@ type Row = {
 
 const raw = existsSync(REGISTER) ? readFileSync(REGISTER, "utf8") : "";
 
+/**
+ * Rows that could not be parsed. Surfaced as a test failure rather than skipped.
+ *
+ * Silently dropping a malformed row would let it bypass every check below — a row
+ * missing its Owner cell would never reach the owner assertion, so the weakest
+ * rows would be the ones that escape. That is the same shape as the evidence hole
+ * this suite already had: a check that only inspects what it manages to parse is
+ * not a check.
+ */
+const parseProblems: string[] = [];
+
 /** Parse the one table whose header starts with `| ID |`. */
 function parseRows(): Row[] {
   const lines = raw.split("\n");
@@ -68,14 +79,26 @@ function parseRows(): Row[] {
       return;
     }
     if (!inTable) return;
-    // Separator row, or the first non-table line ends the table.
+    // Alignment row.
     if (/^\|[\s:|-]+\|$/.test(trimmed)) return;
-    if (!trimmed.startsWith("|")) {
+    // A blank line inside the table is tolerated; a horizontal rule ends it.
+    if (!trimmed) return;
+    if (/^-{3,}$/.test(trimmed)) {
       inTable = false;
       return;
     }
+    // Anything else while still in the table must be a well-formed row.
+    if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
+      parseProblems.push(`line ${i + 1}: not a table row — did the table end without a --- rule?`);
+      return;
+    }
     const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
-    if (cells.length < 8) return;
+    if (cells.length !== 8) {
+      parseProblems.push(
+        `line ${i + 1}: expected 8 cells, got ${cells.length} — a short row would skip every check`
+      );
+      return;
+    }
     rows.push({
       id: cells[0],
       status: cells[1],
@@ -118,7 +141,16 @@ function isProofPath(p: string): boolean {
  */
 const NO_GUARD = /no guard:\s*\S/i;
 
-/** Backticked tokens that look like repo-root-relative paths. */
+/**
+ * Backticked tokens that look like repo-root-relative paths.
+ *
+ * Known limit, stated rather than discovered: the file-extension requirement means
+ * a citation without one — a bare directory like `docs/ops/`, say — is not treated
+ * as a path and so is never resolved. That is deliberate, because the evidence
+ * column also contains prose and SQL snippets in backticks, and treating those as
+ * paths would produce noise. It errs toward under-validating, never toward passing
+ * a path that does not exist. Cite a file, not a folder.
+ */
 function citedPaths(evidence: string): string[] {
   const out: string[] = [];
   for (const m of Array.from(evidence.matchAll(/`([^`]+)`/g))) {
@@ -137,6 +169,11 @@ const rows = parseRows();
 describe("drift register schema", () => {
   it("exists and is parseable", () => {
     expect(existsSync(REGISTER), `${REGISTER} is missing`).toBe(true);
+    expect(
+      parseProblems,
+      "malformed register rows. A row that fails to parse is a row that skips every\n" +
+        "check below, so it fails here instead of being dropped"
+    ).toEqual([]);
     expect(rows.length, "no drift rows parsed — did the table header change?").toBeGreaterThan(0);
   });
 
@@ -150,7 +187,38 @@ describe("drift register schema", () => {
       if (seen.has(r.id)) dupes.push(`${r.id} (lines ${seen.get(r.id)} and ${r.lineNumber})`);
       else seen.set(r.id, r.lineNumber);
     }
-    expect(dupes, "IDs must be unique and never reused — close rows, don't recycle them").toEqual([]);
+    expect(dupes, "IDs must be unique within the register").toEqual([]);
+  });
+
+  /**
+   * The append-only rule needs more than within-file uniqueness: deleting D7 and
+   * later reusing the number would pass a uniqueness check, and the deletion is
+   * the thing that loses history.
+   *
+   * Contiguity catches it without consulting git — a removed row leaves a hole.
+   * Deliberately not implemented by diffing the base branch: CI checks out at
+   * `fetch-depth: 1`, so previous revisions are not reliably available and the
+   * guard would pass for the wrong reason.
+   */
+  it("keeps D-numbers contiguous, so a deleted row leaves a detectable hole", () => {
+    const numbers = rows
+      .filter((r) => /^D-?\d+$/.test(r.id))
+      .map((r) => Number(r.id.replace(/^D-?/, "")))
+      .sort((a, b) => a - b);
+    if (numbers.length === 0) return;
+
+    expect(numbers[0], "D-numbering starts at 1").toBe(1);
+    const gaps: string[] = [];
+    for (let i = 1; i < numbers.length; i++) {
+      if (numbers[i] !== numbers[i - 1] + 1) {
+        gaps.push(`between D${numbers[i - 1]} and D${numbers[i]}`);
+      }
+    }
+    expect(
+      gaps,
+      "gap in the D sequence — a row was deleted or renumbered. Rows are append-only:\n" +
+        "close them instead, because the record of what was once wrong is the point"
+    ).toEqual([]);
   });
 
   it("uses only known statuses and categories", () => {
@@ -195,11 +263,21 @@ describe("drift rows close only when backed by evidence", () => {
     ).toEqual([]);
   });
 
-  it("resolves every cited repo path", () => {
+  it("resolves every cited repo path, and only inside this repo", () => {
     const missing: string[] = [];
     for (const r of rows) {
       for (const p of citedPaths(r.evidence)) {
-        if (!existsSync(path.join(REPO_ROOT, p))) missing.push(`${r.id} cites missing ${p}`);
+        // Resolve before testing existence: `path.join` happily accepts `../`, so
+        // a citation could point outside the repo and still "exist". Evidence has
+        // to live somewhere a reader of this repo can actually open.
+        const resolved = path.resolve(REPO_ROOT, p);
+        const inside =
+          resolved === REPO_ROOT || resolved.startsWith(REPO_ROOT + path.sep);
+        if (!inside) {
+          missing.push(`${r.id} cites ${p}, which escapes the repo root`);
+          continue;
+        }
+        if (!existsSync(resolved)) missing.push(`${r.id} cites missing ${p}`);
       }
     }
     expect(
