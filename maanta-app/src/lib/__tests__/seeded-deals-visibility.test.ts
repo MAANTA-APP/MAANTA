@@ -1,23 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  LIVE_DEAL_BOOSTED_LIMIT,
-  LIVE_DEAL_FLASH_LIMIT,
-  LIVE_DEAL_STANDARD_LIMIT,
-} from "@/lib/data";
 
 const root = join(process.cwd(), "src");
 
-describe("seeded deals visibility (post-login surfaces)", () => {
-  it("live-deal rail caps fit elite seed (100 flash + 100 standard) plus node0 inventory", () => {
-    // elite_merchants_100.sql: 1 flash + 1 standard per merchant (pending merchants excluded by RLS-style filters)
-    expect(LIVE_DEAL_FLASH_LIMIT).toBeGreaterThanOrEqual(100);
-    expect(LIVE_DEAL_STANDARD_LIMIT).toBeGreaterThanOrEqual(100);
-    // node0_100_deals_seed also contributes boosted rails
-    expect(LIVE_DEAL_BOOSTED_LIMIT).toBeGreaterThanOrEqual(20);
-  });
-
+describe("Browse/Map separation (post-login surfaces)", () => {
   it("Browse page does not import or render the map component", () => {
     const browsePage = readFileSync(
       join(root, "app/(shopper)/browse/page.tsx"),

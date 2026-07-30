@@ -20,7 +20,7 @@ Once a persona lands via `/app-bootstrap` (shopper → `/feed`, merchant →
 
 | Surface | Expectation |
 |---------|-------------|
-| Shopper Feed / Browse / Map | Live deals from `getLiveDeals` for the selected node (`maanta_node`, default BBS Mall) — caps sized for elite seed (100 flash + 100 standard) plus node0 inventory |
+| Shopper Feed / Browse / Map | Live deals from `getLiveDeals` for the selected node (`maanta_node`, default BBS Mall) — per-rail caps match `main` (`20` flash / `20` boosted / `40` standard) |
 | Merchant dashboard / deals | Rows for that merchant’s `merchant_id` (test Merchant A/B + any owned seed shops) |
 | Admin merchants / billing | Directory limits ≥ 300 so 100 elite + rehearsal merchants appear |
 | Admin deals | Flagged-moderation list only (unchanged IA) |

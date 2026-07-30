@@ -265,16 +265,10 @@ export async function getFavouriteMerchantIds(
   return set;
 }
 
-/**
- * Per-rail caps so flash/boosted are not crowded out of a single global limit.
- * Sized to surface the full Node-0 seed inventory (node0_100_deals + elite
- * 100 merchants × 2 deals) without silently truncating active/public rows.
- * Lifecycle filters (active merchant, is_visible, not shadow-banned, unexpired)
- * still apply via withPublicMerchant + expires_at.
- */
-export const LIVE_DEAL_FLASH_LIMIT = 150;
-export const LIVE_DEAL_BOOSTED_LIMIT = 50;
-export const LIVE_DEAL_STANDARD_LIMIT = 250;
+/** Per-rail caps so flash/boosted are not crowded out of a single global limit. */
+const LIVE_DEAL_FLASH_LIMIT = 20;
+const LIVE_DEAL_BOOSTED_LIMIT = 20;
+const LIVE_DEAL_STANDARD_LIMIT = 40;
 
 type LiveDealBucket = "flash" | "boosted" | "standard";
 
