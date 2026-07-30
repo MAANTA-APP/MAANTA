@@ -5,10 +5,15 @@
 --
 -- Self-contained and self-cleaning. Run against a database that has the
 -- migrations applied, e.g.:
---   psql "$DATABASE_URL" -f supabase/tests/trial_expiry_launch_sentinel_test.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/trial_expiry_launch_sentinel_test.sql
 --
--- Each scenario runs inside a DO block. ASSERT raises (aborting the whole run)
--- on failure; on success the block deletes the rows it made. Test merchants use
+-- Each scenario runs inside a DO block. ASSERT aborts its block — but psql only
+-- aborts the RUN, and exits non-zero, when ON_ERROR_STOP is set. The header
+-- originally documented the command without it, which would have reported a
+-- failed scenario as a green run. CI passes the flag; the \set below means the
+-- file is safe even when someone forgets it.
+\set ON_ERROR_STOP on
+-- On success each block deletes the rows it made. Test merchants use
 -- user_id = NULL and a recognizable name prefix.
 --
 -- IMPORTANT: handle_trial_expiry() is global — it sweeps every merchant, not a
@@ -221,7 +226,14 @@ BEGIN
   RAISE NOTICE 'D ok: grace expiry downgrades, with grace-expiry wording';
 END $$;
 
--- Scenario E: demo merchants are never managed, in either phase.
+-- Scenario E: demo merchants are never managed. E1 covers the Phase 1 guard
+-- (grace + agent task), E2 the Phase 2 guard (downgrade + tier flag).
+--
+-- E1 alone was not enough, and the comment here used to claim "either phase"
+-- while testing one. With a future sentinel and no expired grace, the Phase 2
+-- loop never selects the fixture at all — so removing Phase 2's `AND NOT is_demo`
+-- would have left E1 passing. E2 gives the merchant an EXPIRED grace period,
+-- which is the Phase 2 arm that fires inside the launch period.
 --
 -- Not hypothetical, and not really about the sentinel. The first cut of migration
 -- 20260730140000 was written on top of 20260701111223 — the migration whose
@@ -267,7 +279,46 @@ BEGIN
   DELETE FROM public.merchants   WHERE id = v_mid;
   UPDATE public.app_config SET value = v_saved WHERE key = 'node0_launch_period_ends_at';
 
-  RAISE NOTICE 'E ok: demo merchants untouched in both phases';
+  RAISE NOTICE 'E1 ok: demo merchant gets no grace period and no agent task (Phase 1 guard)';
+END $$;
+
+-- E2: the Phase 2 guard. An EXPIRED grace period is the arm that fires inside the
+-- launch period, so this reaches the downgrade loop that E1 cannot.
+DO $$
+DECLARE
+  v_mid   UUID;
+  v_saved TEXT;
+  v_m     RECORD;
+BEGIN
+  SELECT value INTO v_saved FROM public.app_config WHERE key = 'node0_launch_period_ends_at';
+  UPDATE public.app_config SET value = (NOW() + INTERVAL '30 days')::TEXT
+    WHERE key = 'node0_launch_period_ends_at';
+
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status,
+    tier, elite_trial_active, trial_ends_at, grace_period_ends_at, is_demo
+  )
+  VALUES (
+    '__test_trial_sentinel_E2', 'test.trial.e2', '+254700009006', 'BBS Mall', 'active',
+    'elite', TRUE, NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 hour', TRUE
+  )
+  RETURNING id INTO v_mid;
+
+  PERFORM public.handle_trial_expiry();
+
+  SELECT * INTO v_m FROM public.merchants WHERE id = v_mid;
+  ASSERT v_m.tier = 'elite',
+    format('E2: demo merchant downgraded to %s — the Phase 2 AND NOT is_demo guard is gone', v_m.tier);
+  ASSERT v_m.elite_trial_active,
+    'E2: demo merchant had elite_trial_active cleared — the Phase 2 guard is gone';
+  ASSERT NOT EXISTS (SELECT 1 FROM public.tier_flags WHERE merchant_id = v_mid),
+    'E2: tier_flags row written for a demo merchant';
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants  WHERE id = v_mid;
+  UPDATE public.app_config SET value = v_saved WHERE key = 'node0_launch_period_ends_at';
+
+  RAISE NOTICE 'E2 ok: demo merchant with expired grace is not downgraded (Phase 2 guard)';
 END $$;
 
 DO $$
