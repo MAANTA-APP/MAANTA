@@ -39,7 +39,7 @@ described as unresolved in code. See follow-up FU-1.
 | # | Domain | Contract claimed | Code/DB showed | Verdict | Action |
 |---|---|---|---|---|---|
 | F1 | Pricing | Notion frozen rule: launch offer = "First 100 BBS Mall merchants get 30-day free Elite trial"; Product Brief adds "KES 30 success fee still applies" | `/pricing` promised "Launch offer: first month of Elite free" — no cap, no node scope, no fee caveat | **Code was the outlier** (copy overstated a frozen, bounded promo) | Rewrote `/pricing` and the `/for-merchants` Elite bullet to state cap + node + fee caveat |
-| F2 | Pricing | Elite price review = **Feb 2027** (founder ruling 2026-07-20), decisions log at `docs/maanta-decisions-log.md` | Live `app_config.success_fee_kes.notes` said "**Oct 2026** review" and pointed at `PROJECT_RULES.md` / `DECISIONS_LOG.md`, **neither of which exists** | **DB metadata was stale** | Migration `20260730120000_correct_success_fee_config_notes.sql` (metadata only) |
+| F2 | Pricing | Elite price review = **Feb 2027** (founder ruling 2026-07-20), decisions log at `docs/maanta-decisions-log.md` | Live `app_config.success_fee_kes.notes` said "**Oct 2026** review" and pointed at `PROJECT_RULES.md` / `DECISIONS_LOG.md`, **neither of which exists** | **DB metadata was stale** | Migration `20260730160000_correct_success_fee_config_notes.sql` (metadata only; renumbered from `20260730120000` on 2026-07-30 to match the version production recorded — see `docs/maanta-pilot-sequencing-plan-2026-07-30.md` F1) |
 | F3 | Pricing | Plan names are Standard and Elite, "never Free"; forbidden term "free plan" | `/pricing` and `/for-merchants` printed **"Free"** as Standard's headline price | **Code was the outlier** | Both now read "No monthly fee" |
 | F4 | Trials | 30-day Elite trial is frozen; the 2026-07-29 full-state audit already ruled wireframe 11j's "14 days" stale | `approve/route.ts` still carried "wireframe 11j says 14 days — flagged as an **open** spec/DB conflict" | **Comment was stale** | Comment rewritten to record the resolution |
 | F5 | Pricing | Success fee must never be hardcoded (`getSuccessFee()` is canonical) | `30` was an independent literal in `/for-merchants` (`SUCCESS_FEE = 30`), `/pricing` (twice), and `data.ts`'s fallback | **Drift risk, no live mismatch** | Single-sourced as `SUCCESS_FEE_KES` in `src/lib/pricing.ts`; all three now import it |
@@ -290,12 +290,18 @@ fail when the thing they guard is removed.
   F6 were re-discoverable. Either adopt a `docs/drift-register.md` with
   open/closed rows and evidence links, or make each audit doc explicitly close
   the prior audit's rows by ID.
-- **FU-2 (operator, human only).** Two migrations need pushing to
-  `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
-  not run migrations — a human operator must.
-  - `20260730120000_correct_success_fee_config_notes.sql` — metadata only, safe to
-    batch with anything.
-  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
+- **FU-2 (operator, human only) — CLOSED 2026-07-30.** Both migrations below are
+  **applied to production**, verified against `supabase_migrations.schema_migrations`
+  during the sequencing session. The notes migration was applied under version
+  `20260730160000`, not the `20260730120000` it originally carried in the repo;
+  the repo file has since been renumbered to match. See
+  `docs/maanta-pilot-sequencing-plan-2026-07-30.md` F1 — and note F2 there, which
+  found that `20260730130000` silently reverted a separate opening-credit fix.
+  Per `docs/ops/supabase-migrations.md` Claude Code does not run migrations — a
+  human operator must.
+  - `20260730160000_correct_success_fee_config_notes.sql` — metadata only, safe to
+    batch with anything. **Applied.**
+  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **applied. Behavioural, read
     the note before pushing.** It adds a column, backfills it, and starts
     enforcing the cap. **Check the backfill result before announcing the offer:**
     run `SELECT * FROM public.elite_trial_cap_status();` straight after the push.
@@ -303,7 +309,10 @@ fail when the thing they guard is removed.
     If `granted` looks higher than expected, the backfill counted merchants whose
     trial was granted before the cap existed — which is correct, but it is a
     number the founder should see rather than discover when the offer runs out
-    early.
+    early. **Result, read from production 2026-07-30:** `cap 100, granted 0,
+    remaining 100`. The 101 merchants carrying `elite_trial_granted_at` are all
+    `is_demo` and are correctly excluded — the offer is intact and the pilot
+    merchant gets slot 1.
 - **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
   (correct for rehearsal; its own notes say "must be false at launch"). The
   paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from

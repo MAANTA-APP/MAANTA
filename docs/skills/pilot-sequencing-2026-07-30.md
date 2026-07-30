@@ -43,23 +43,58 @@ function silently reverts it.
 
 ---
 
-## F1 — Migration version `20260730120000` means different things in repo and prod
+## F1 — Migration version `20260730120000` meant different things in repo and prod — **fixed**
 
-| Where | `20260730120000` is |
+| Where | `20260730120000` was |
 |---|---|
 | `main` | `correct_success_fee_config_notes` |
 | Production | `node_scoped_opening_credit_cap` |
 | PR #131 | `node_scoped_opening_credit_cap` |
 
 Production additionally records `20260730160000 correct_success_fee_config_notes`,
-a version no repo file uses.
+a version no repo file used.
 
-Consequences: `db push` from `main` reports divergence and wants
-`migration repair`; merging #131 creates two files at one version, which the CLI
-rejects. Remedy: renumber the repo's notes migration to `20260730160000` to match
-what production recorded. It is metadata-only (`ON CONFLICT` touches `notes`
-alone), so renumbering is risk-free. Never `db push --include-all`, never edit
-`schema_migrations` by hand.
+Consequences: `db push` from `main` reported divergence and wanted
+`migration repair`; merging #131 would have created two files at one version,
+which the CLI rejects.
+
+**Remedy applied 2026-07-30:** the repo's notes migration was renumbered to
+`20260730160000_correct_success_fee_config_notes.sql` (`git mv`, so history shows
+a rename) to match what production recorded. #131's file stays at `20260730120000`.
+
+Two checks worth repeating before any future migration rename:
+
+1. **Is the migration content-inert to reordering?** This one is: two statements,
+   an `ON CONFLICT DO UPDATE SET notes` and a `COMMENT ON FUNCTION`. Confirmed
+   that nothing in `20260730130000`–`150000` touches `app_config.success_fee_kes`
+   or `enforce_deal_success_fee()`, so moving it after them changes nothing on a
+   fresh DB. A rename that moves a migration across one that recreates the same
+   object is **not** safe — check first.
+2. **Does a test pin the outcome independently of the filename?**
+   `supabase/tests/frozen_commercial_config_test.sql` asserts the notes text, so
+   the rename is protected by CI rather than by hope.
+
+**`make db-verify` does not work from a Claude Code remote session.** Attempted,
+and blocked twice by the sandbox's egress policy: `supabase start` fails fetching
+`cheerful-sailfish-3.clerk.accounts.dev/.well-known/openid-configuration` (the
+`[auth.third_party.clerk]` block in `supabase/config.toml`), and with that
+disabled locally it then fails pulling `supabase/postgres` image layers (403 from
+the Docker registry CDN). Docker itself is fine — `sudo dockerd` starts and
+`npx supabase@2.109.1` installs. So **migration-ordering changes are validated by
+the CI `db-tests` job, not locally from these sessions**; `supabase start` there
+applies `supabase/migrations/` in filename order and then runs every
+`supabase/tests/*.sql`. Verify migration reordering by inspection locally, and
+let CI be the gate.
+
+**The trap left behind.** With `main` now lacking a file at `20260730120000`
+while production still records one, `supabase db push` suggests:
+
+> `supabase migration repair --status reverted 20260730120000`
+
+**Never run that here.** The migration genuinely ran; marking it reverted
+misrepresents the ledger and sets it up to re-run. The file arrives when #131
+merges — that, not a repair, is what restores parity. Never
+`db push --include-all`, never edit `schema_migrations` by hand.
 
 **Lesson for future sessions:** applying a migration to production via a path
 that assigns its own version (e.g. an MCP `apply_migration` call) puts the repo

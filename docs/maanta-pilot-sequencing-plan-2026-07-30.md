@@ -23,18 +23,23 @@ migrations, `app_config`, live function bodies, row censuses and `cron.job`.
 Read these before executing anything. Two are blockers on the migration path;
 one is good news that removes a feared blocker.
 
-### F1 — BLOCKER: repo and production disagree on migration version `20260730120000`
+### F1 — repo and production disagreed on migration version `20260730120000` — **remedied on this branch**
 
-| Where | Version `20260730120000` is… |
+**Status: renumber applied.** `20260730120000_correct_success_fee_config_notes.sql`
+is now `20260730160000_correct_success_fee_config_notes.sql`, matching the version
+production actually recorded. The rest of this section is the original finding,
+kept because it explains why the file moved and what is still outstanding.
+
+| Where | Version `20260730120000` was… |
 |---|---|
 | `main` (repo) | `20260730120000_correct_success_fee_config_notes.sql` |
 | **Production** | `node_scoped_opening_credit_cap` |
 | PR **#131** (open) | `20260730120000_node_scoped_opening_credit_cap.sql` |
 
 Production also records `20260730160000 correct_success_fee_config_notes` — a
-version that exists in **no** repo file. So the notes migration was applied to
+version that existed in **no** repo file. So the notes migration was applied to
 production under a renumbered version, and #131's migration was applied under
-the version `main` now uses for something else.
+the version `main` used for something else.
 
 Two consequences, both of which bite a human running the documented commands:
 
@@ -49,16 +54,30 @@ Two consequences, both of which bite a human running the documented commands:
    folder.** That is a duplicate version the CLI rejects outright. #131 cannot
    merge until this is renumbered.
 
-**Recommended remedy (founder should eyeball this before it is executed):**
-renumber the repo's notes migration to `20260730160000_correct_success_fee_config_notes.sql`
-— matching the version production actually recorded — and leave #131's file at
-`20260730120000`. Repo and production then agree exactly, and no migration is
-re-run. The notes migration is metadata-only (it changes one `notes` string and
-one `COMMENT`, and its `ON CONFLICT` touches `notes` alone), so renumbering it
-carries no money-path risk.
+**Remedy, as applied:** the repo's notes migration is renumbered to
+`20260730160000_correct_success_fee_config_notes.sql` — matching the version
+production recorded — and #131's file stays at `20260730120000`. No migration
+re-runs. Safe because the migration is metadata-only: two statements, an
+`ON CONFLICT DO UPDATE SET notes` on `app_config.success_fee_kes` and a
+`COMMENT ON FUNCTION public.enforce_deal_success_fee()`. Verified before renaming
+that nothing in `20260730130000`–`150000` touches either object, so running it
+after them instead of before is behaviourally inert on a fresh database, and
+`supabase/tests/frozen_commercial_config_test.sql` still asserts the resulting
+notes text independently.
 
-**Do not** "fix" this by deleting rows from `supabase_migrations.schema_migrations`
-by hand, and do not run `db push --include-all`.
+**Still outstanding, and it needs #131 — not a repair.** With the rename done,
+`main` has no file at `20260730120000` while production still records one (the
+node-scoped migration, which lives only on #131). `supabase migration list` will
+therefore show one remote-only version until #131 merges, and
+`supabase db push` will suggest exactly the wrong fix:
+
+> `supabase migration repair --status reverted 20260730120000`
+
+**Do not run that.** That migration genuinely ran in production; marking it
+reverted misrepresents the ledger and sets it up to re-run. The file is coming
+from #131 — merging #131 restores full parity. Likewise, do not delete rows from
+`supabase_migrations.schema_migrations` by hand, and do not run
+`db push --include-all`.
 
 ### F2 — BLOCKER: the node-scoped opening-credit fix is silently reverted, in production, right now
 
@@ -117,7 +136,7 @@ carries is present **by content**; only the tail versioning diverges (F1).
 
 | Repo file on `main` | Production record | Status |
 |---|---|---|
-| `20260730120000_correct_success_fee_config_notes.sql` | `20260730160000 correct_success_fee_config_notes` | Applied, **renumbered** |
+| `20260730160000_correct_success_fee_config_notes.sql` | `20260730160000 correct_success_fee_config_notes` | Applied; repo file **renumbered to match** (F1) |
 | *(PR #131 only)* `20260730120000_node_scoped_opening_credit_cap.sql` | `20260730120000 node_scoped_opening_credit_cap` | Applied, then **clobbered** by `130000` (F2) |
 | `20260730130000_enforce_elite_trial_first_100_cap.sql` | `20260730130000` | Applied |
 | `20260730140000_trial_expiry_launch_sentinel_null_guard.sql` | `20260730140000` | Applied |
@@ -181,7 +200,7 @@ see §5): #135, #136, #138, #139, #140.
 
 | PR | Migration added | Problem | Verdict |
 |---|---|---|---|
-| **#131** | `20260730120000_node_scoped_opening_credit_cap.sql` | Version collides with `main` (F1); body gets clobbered by `130000` (F2) | Renumber + re-land above `130000` before merge |
+| **#131** | `20260730120000_node_scoped_opening_credit_cap.sql` | Version collision with `main` **resolved** by the F1 rename — its file can stay at `20260730120000`. Its *body* is still clobbered by `130000` (F2). | Re-land the node-scoped body above `130000` before merge. No renumber needed. |
 | **#108** | `20260727010000_cofounder_role.sql` | Version sorts **before 15 already-applied** production versions — out-of-order push | Renumber to `> 20260730160000` before merge |
 | **#94** | `20260726190000_avatars_storage_and_columns.sql` | Same out-of-order problem | Renumber to `> 20260730160000` before merge |
 
@@ -242,16 +261,20 @@ Five chains. Everything else in the backlog hangs off one of them.
 ### Chain A — Migration ledger repair *(blocks every future `db push`)*
 
 ```
-Renumber notes migration → 20260730160000   [code, human review]
-   → `supabase migration list` shows local == remote, nothing pending
-   → THEN, and only then, #131 / #108 / #94 can be sequenced
+Renumber notes migration → 20260730160000        [DONE on this branch]
+   → merge this branch                            [unblocks #131's merge]
+   → merge #131 (see Chain C first)               [restores full list parity]
+   → `make db-list` shows local == remote, nothing pending
+   → THEN #108 / #94 can be renumbered and sequenced
 ```
 
-- Depends on: nothing.
+- Depends on: nothing. The rename is done.
 - Blocks: **all three** migration-carrying PRs, and any future `db push`.
-- Safe in isolation: yes — it is a filename change matching what production
-  already recorded; no migration re-runs.
-- Human step: yes — renumber, then run `make db-list` and confirm parity.
+- Safe in isolation: yes — a filename change matching what production already
+  recorded; no migration re-runs.
+- Remaining human step: merge this branch, then #131. Until #131 lands,
+  `db-list` shows one remote-only version (`20260730120000`) — expected, and
+  **not** something to `migration repair --status reverted`. See F1.
 
 ### Chain B — Pilot day one *(the critical path, and it is short)*
 
@@ -275,14 +298,15 @@ Renumber notes migration → 20260730160000   [code, human review]
 ### Chain C — Node-scoped opening credit *(after pilot; needed before Node 1)*
 
 ```
-#131: renumber its migration + re-land the node-scoped activate_merchant
-      body as a NEW version > 20260730130000
+#131: keep its migration at 20260730120000 (F1 rename freed that version)
+      + re-land the node-scoped activate_merchant body as a NEW
+        migration with version > 20260730130000
    → merge #131 (rebase first — 32 behind)
    → db push → verify the live function body contains the node join
    → correct app_config notes if they still overstate behaviour
 ```
 
-- Depends on: Chain A; ideally after the pilot, since it rewrites
+- Depends on: Chain A (done); ideally after the pilot, since it rewrites
   `activate_merchant` — the exact function the pilot exercises.
 - Blocks: opening a second node. Not needed for Node 0's 100 merchants.
 - Safe in isolation: yes, once re-landed above `130000` — otherwise it is a
@@ -366,8 +390,8 @@ Merge only after the pilot has taught you something, in this order:
 1. **#137** (drift register, 11 behind) — cheapest merge, and it is the doc that
    should record F1/F2 as open drift entries. Land it early so the findings have
    a durable home.
-2. **Chain A** — the migration renumber. Land before any migration-carrying PR.
-3. **#131** — rebase, renumber, re-land the node-scoped body above `130000`,
+2. **Chain A** — done on this branch; merge it before any migration-carrying PR.
+3. **#131** — rebase, then re-land the node-scoped body above `130000`,
    then merge and push. Do this **after** the pilot, because it rewrites
    `activate_merchant`.
 4. **#132** and **#130** (32 behind) — rebase and re-review; UI/role fixes that
@@ -428,13 +452,15 @@ Chain C is required before a **second** node, not for the first 100.
 
 ### Chain A — migration ledger repair
 
-- 🟢 **Green light when:** you have read F1, and a human is at a terminal that
-  can run `make db-list` against production.
-- 🔴 **Do NOT run if:** you are tempted to reach for `db push --include-all`, or
-  to delete rows from `schema_migrations`. Both convert a naming problem into
-  data loss.
-- 👁 **Check with your own eyes:** `make db-list` output before and after — local
-  and remote version lists must match exactly, with nothing pending.
+- 🟢 **Green light when:** you have read F1. The rename itself is already done;
+  what remains is merging this branch and then #131.
+- 🔴 **Do NOT run if:** you are tempted by `supabase migration repair --status
+  reverted 20260730120000` (which is what the CLI will suggest, and which is
+  wrong — that migration really ran), `db push --include-all`, or hand-deleting
+  rows from `schema_migrations`. All three convert a naming problem into data loss.
+- 👁 **Check with your own eyes:** `make db-list`. Expect exactly one remote-only
+  version, `20260730120000`, until #131 merges — and nothing pending to apply.
+  Any *other* divergence is new and worth stopping for.
 
 ### Chain B — pilot day one
 
@@ -453,8 +479,9 @@ Chain C is required before a **second** node, not for the first 100.
 ### Chain C — node-scoped opening credit
 
 - 🟢 **Green light when:** the pilot is finished and written up; Chain A is done;
-  #131 is rebased, its migration renumbered **above `20260730130000`**, and the
-  node join verified present in the function the migration installs.
+  #131 is rebased, the node-scoped body re-landed as a migration **above
+  `20260730130000`**, and the node join verified present in the function that
+  migration installs.
 - 🔴 **Do NOT run if:** the migration still sits at `20260730120000` — it will
   never re-run and you will believe a fix shipped when it did not (F2). Do not
   push it during the pilot window: it rewrites `activate_merchant`.
@@ -492,8 +519,8 @@ Legend: **Code** = PR merge · **DB** = migration/SQL against production ·
 | # | Step | What changes | Type |
 |---|---|---|---|
 | 1 | Read F1/F2/F3 above | Nothing — but changes what you do next | — |
-| 2 | Renumber the notes migration to `20260730160000` (Chain A) | Repo matches production's ledger | Code |
-| 3 | `make db-list` — confirm local == remote, nothing pending | Nothing | DB (read-only) |
+| 2 | ~~Renumber the notes migration to `20260730160000`~~ — **done on this branch** | Repo matches production's ledger | Code ✅ |
+| 3 | `make db-list` — expect one remote-only version (`20260730120000`, arrives with #131) and **nothing pending to apply**. Do not `migration repair`. | Nothing | DB (read-only) 👁 |
 | 4 | Merge **#141** | Elite cap admin surface + pilot runbooks | Code |
 | 5 | Confirm Vercel deployed the merge commit | Production serves the cap UI | Ops |
 | 6 | Verify `SENTRY_DSN` + PostHog keys are set in Vercel Production | Pilot becomes observable | Config 👁 |
@@ -522,7 +549,7 @@ any demo-mode flip; any wipe; any auth-strategy change; any cap change.
 
 | # | Step | What changes | Type |
 |---|---|---|---|
-| 19 | Rebase **#131**, renumber its migration **above `20260730130000`**, re-land the node-scoped body | Fix actually takes effect | Code |
+| 19 | Rebase **#131**, re-land the node-scoped body as a migration **above `20260730130000`** (its existing file can stay at `20260730120000`) | Fix actually takes effect | Code |
 | 20 | Merge #131, then `db push` | `activate_merchant` counts credits per node | DB 👁 |
 | 21 | Verify the live function body contains the node join | Confirms F2 is closed | DB (read-only) 👁 |
 | 22 | Rebase + re-review **#132**, **#130** | UI/role fixes informed by the pilot | Code |
@@ -545,16 +572,27 @@ any demo-mode flip; any wipe; any auth-strategy change; any cap change.
 
 ---
 
-## 6. What this session deliberately did not do
+## 6. Scope boundaries
 
-- **Did not renumber any migration.** F1's remedy touches the migration ledger
-  of a production database; it should be executed by a human who has read F1,
-  not landed as a side effect of a planning session.
-- **Did not write to production.** Every query run was read-only.
+**Done on this branch:**
+
+- **Renumbered one migration** — `20260730120000_correct_success_fee_config_notes.sql`
+  → `20260730160000_…` (F1), via `git mv` so history records a rename. Content
+  untouched; ordering verified inert; covered by an existing DB test.
+
+**Deliberately not done:**
+
+- **No writes to production.** Every query run was read-only. The rename changes
+  a repo filename only — the ledger in `axrrslqssmbngbataejg` was not touched,
+  and nothing needs applying as a result.
 - **Did not merge, rebase, or close any PR.**
-- **Did not modify PR #131.** Its migration needs both a renumber and a
-  re-land above `130000` (F2) — that is a change to someone else's open branch
-  and a money-path function, and it belongs to whoever owns #131.
+- **Did not modify PR #131.** Its body still needs re-landing above `130000`
+  (F2) — a change to someone else's open branch and to a money-path function,
+  so it belongs to whoever owns #131. The F1 rename does clear its merge
+  blocker.
+- **Did not renumber #108's or #94's migrations.** Both sort before applied
+  versions and need fixing before merge, but neither is on the pilot path, and
+  both are other people's branches.
 - **Could not read Vercel env vars or confirm which commit production serves.**
   Every step depending on that is marked 👁 for founder verification.
 
