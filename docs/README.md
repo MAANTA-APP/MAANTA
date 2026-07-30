@@ -51,6 +51,7 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
+| `ops/founder-parity-handoff-2026-07-30.md` | Elite trial vs D-12 free-month — what copy is allowed |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
 | `ops/nodes-nairobi-2026-07.md` | 3-node Nairobi rehearsal registry (BBS + CBD + Westlands) |
@@ -80,3 +81,5 @@ updated 2026-07-28 with comprehensive audit links.
 | `skills/clerk-auth.md` | Clerk + Supabase third-party auth wiring |
 | `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
 | `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |
+| `skills/notification-prefs-canonical-2026-07-30.md` | Canonical prefs at `/you/notifications`; inbox is alerts-only |
+| `skills/repo-branch-audit-2026-07-30.md` | Branch audit + consolidation (pause-gate renumber, deletion list) |

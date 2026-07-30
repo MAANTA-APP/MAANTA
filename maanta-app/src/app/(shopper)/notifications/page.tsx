@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { NotificationRow } from "@/components/ui/cards";
@@ -16,8 +17,8 @@ export const dynamic = "force-dynamic";
 type Item = { title: string; body: string; at: string; unread: boolean };
 
 /**
- * 8o Notifications list — derived from the shopper's own activity
- * (no notifications table exists yet; push delivery is separate).
+ * Notifications inbox (alerts only).
+ * Preference toggles live at the wireframe canonical `/you/notifications`.
  */
 export default async function NotificationsPage() {
   const user = await getAppUser();
@@ -103,9 +104,17 @@ export default async function NotificationsPage() {
         <BackToYouLink />
         <HeadingLg className="mt-4">Notifications</HeadingLg>
         <Body className="mt-1">Deal alerts and code reminders.</Body>
+        <p className="mt-2 text-sm">
+          <Link
+            href="/you/notifications"
+            className="font-semibold text-ink underline-offset-2 hover:underline"
+          >
+            Manage alert preferences
+          </Link>
+        </p>
       </div>
 
-      <Section className="mt-6">
+      <Section title="Alerts" className="mt-6">
         {items.length === 0 ? (
           <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
         ) : (
