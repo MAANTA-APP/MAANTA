@@ -30,11 +30,6 @@ export const metadata: Metadata = {
 // cannot be prerendered at build time.
 export const dynamic = "force-dynamic";
 
-/**
- * The frozen success fee. Charged once, at merchant verification.
- * Imported, not re-declared — see `SUCCESS_FEE_KES` for why one literal.
- */
-const SUCCESS_FEE = SUCCESS_FEE_KES;
 
 /** Worked example — a mid-range BBS deal, not a special case. */
 const EXAMPLE_BEFORE = 500;

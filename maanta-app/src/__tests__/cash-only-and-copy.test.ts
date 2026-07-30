@@ -122,14 +122,11 @@ describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
 
   it("carries no ungoverned launch-offer promise on any public page", () => {
     // Founder decision 2026-07-29 (drift D-12): the "first month of Elite free"
-    // line was withdrawn because nothing backed it — no decisions-log entry and
-    // no app_config key, so nothing reconciled the promise against what an Elite
-    // trial actually grants. A future offer must be config/policy-backed before
-    // it is re-advertised, and this test is what makes re-adding one deliberate.
-    //
-    // Comments are stripped first, so the explanatory comment left at the
-    // removal site does not satisfy or trip this check.
-    const PROMISE = /launch offer|first month[^.]{0,30}free|month of elite free|free month/i;
+    // line was withdrawn because nothing backed it. The first-100 BBS Elite
+    // trial on /pricing is separately governed by elite_trial_cap_status() +
+    // decisions-log (truth audit / #119 era) — that specific offer is allowed.
+    // This test still blocks the ungoverned "free month" wording.
+    const UNGOVERNED = /first month[^.]{0,30}free|month of elite free|free month/i;
     for (const path of [
       "src/app/(public)/pricing/page.tsx",
       "src/app/(public)/for-merchants/page.tsx",
@@ -138,8 +135,8 @@ describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
       const withoutComments = read(path)
         .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "")
         .replace(/^\s*\/\/.*$/gm, "");
-      expect(withoutComments, `${path} advertises an ungoverned offer`).not.toMatch(
-        PROMISE
+      expect(withoutComments, `${path} advertises an ungoverned free-month offer`).not.toMatch(
+        UNGOVERNED
       );
     }
   });
