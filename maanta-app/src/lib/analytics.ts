@@ -292,21 +292,64 @@ export function captureTopupCompletedStripe(args: {
   });
 }
 
+/**
+ * Where a server event's `distinct_id` came from. Emitted as a property so per-user
+ * analysis can tell whether it is standing on a real identity or a placeholder,
+ * instead of discovering that the hard way.
+ *
+ *   clerk          — a signed-in user id; the same id posthog.identify() uses,
+ *                    so client and server events land on one person.
+ *   posthog_cookie — the browser's own anonymous distinct id, read from the
+ *                    posthog-js cookie. Stitches to the client's person, and to
+ *                    the signed-in person later via identify()'s aliasing.
+ *   none           — nothing to attribute to. Lands in UNATTRIBUTED_DISTINCT_ID.
+ */
+export type DistinctIdSource = "clerk" | "posthog_cookie" | "none";
+
+/**
+ * Where unattributable views land. Every one shares a single PostHog person, so
+ * **exclude `distinct_id_source = 'none'` from any per-user metric** — unique
+ * viewers, repeat rate, funnels. Volume is still sound.
+ *
+ * Kept as the literal "anonymous" on purpose. Every server event before
+ * 2026-07-30 used it unconditionally, so the pre-fix data and this residual
+ * bucket share one identifiable person and everything trustworthy sits outside
+ * it. A random id per view would look better and quietly inflate person counts
+ * instead — the opposite trade to the one worth making.
+ */
+export const UNATTRIBUTED_DISTINCT_ID = "anonymous";
+
 /** Shopper views a deal detail page (top of the claim funnel). */
 export function captureDealViewed(args: {
   clerkUserId: string | null;
+  /**
+   * The browser's PostHog distinct id, for signed-out shoppers — from
+   * `serverPosthogDistinctId()` in lib/analytics-identity.ts. Without it, every
+   * signed-out view collapses onto one person and the claim funnel cannot join.
+   */
+  posthogDistinctId?: string | null;
   dealId: string;
   merchantId: string;
   dealType: string;
   priceKes: number | null;
   node?: string | null;
 }): Promise<void> {
-  const distinctId = args.clerkUserId ?? "anonymous";
+  // Clerk id first: it is what identify() sets, so a signed-in shopper's server
+  // and client events agree even if the cookie still holds a pre-signup id.
+  const source: DistinctIdSource = args.clerkUserId
+    ? "clerk"
+    : args.posthogDistinctId
+      ? "posthog_cookie"
+      : "none";
+  const distinctId =
+    args.clerkUserId ?? args.posthogDistinctId ?? UNATTRIBUTED_DISTINCT_ID;
+
   return captureServerEvent("deal_viewed", distinctId, {
     deal_id: args.dealId,
     merchant_id: args.merchantId,
     deal_type: args.dealType,
     price_kes: args.priceKes,
     node: resolveNode(args.node),
+    distinct_id_source: source,
   });
 }

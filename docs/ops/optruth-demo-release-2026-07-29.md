@@ -195,6 +195,51 @@ deployments are ever used for rehearsal traffic rather than one-off checks, set
 preview activity lands in the stream indistinguishable from real production
 activity, which is the failure the tagging exists to prevent.
 
+### Signed-out views all shared one person — found 2026-07-30, fixed
+
+Reading the first correctly-delivered production event surfaced the next problem in
+the same area. `captureDealViewed` attributed signed-out shoppers to the literal
+string `"anonymous"`:
+
+```ts
+const distinctId = args.clerkUserId ?? "anonymous";
+```
+
+Browsing the feed does not require an account, so **most of the top of the funnel
+collapsed onto a single PostHog person** (`3b0220f8-5943-5a0c-b064-30790cc857b2`).
+Two consequences, both silent:
+
+- `uniq(person_id)` on `deal_viewed` returns **1** for all signed-out traffic,
+  however many people it really was.
+- A `deal_viewed` → `deal_claimed` funnel **cannot join** for signed-out users: the
+  view belongs to `"anonymous"` while the claim belongs to a real Clerk id.
+
+Same failure *shape* as the degenerate demo seed (many rows, one actor, per-user
+analysis meaningless), but in live product code against real traffic. It stayed
+hidden because the events were not arriving at all.
+
+**Fix.** The server now reuses the id the browser is already using, read from the
+posthog-js cookie (`ph_<token>_posthog`) — so server and client events land on one
+person, and `posthog.identify()` aliases those pre-signup views onto the real user
+at sign-in. Verified against the installed posthog-js: default persistence is
+`localStorage+cookie`, no `persistence_name` override, and `defaults: "2026-01-30"`
+is below the `2026-05-30` cutoff where `split_storage` would move `distinct_id` out
+of that cookie. If any of those change the fix degrades to the fallback bucket
+rather than breaking.
+
+**New property: `distinct_id_source`** — `clerk`, `posthog_cookie`, or `none`.
+
+| How to read `deal_viewed` | Rule |
+|---|---|
+| Per-user metrics (unique viewers, repeat rate, funnels) | Filter to `distinct_id_source IN ('clerk','posthog_cookie')` |
+| Volume / counts | All sources are fine |
+| Anything before the fix deploys | **No per-user metric is valid.** Every signed-out view is one person; treat it like the pre-fix redemption seed |
+
+`none` is the residual bucket — first-ever view before posthog-js has run, cookies
+blocked, bots. It keeps the literal `"anonymous"`, deliberately: the pre-fix data
+already sits in that person, so all the untrustworthy attribution stays in one
+identifiable place instead of a random id per view quietly inflating person counts.
+
 ### Real data untouched
 
 `redemptions WHERE NOT is_demo` = 0 · `merchants WHERE NOT is_demo` = 0 ·
@@ -240,6 +285,15 @@ wrong, not just the magnitude.
   regardless: the dropped events are gone for good, and any server-side funnel or
   conversion rate computed over data from before that deploy is a floor, not a
   measurement.
+- **The signed-out attribution fix depends on posthog-js client config.** If anyone
+  raises `defaults` in `components/posthog-provider.tsx` to `2026-05-30` or later,
+  `split_storage` turns on and moves `distinct_id` out of the cookie the server
+  reads — signed-out views would silently fall back to the `none` bucket and the
+  funnel would break again. Same if `persistence` or `persistence_name` is set.
+  The server cannot distinguish that from a normal first-ever view, so there is no
+  runtime warning to catch it; the guard is the comment in
+  `lib/analytics-identity.ts` and this note. Re-verify attribution after any
+  posthog-js config or major-version change. *Caution, not blocking.*
 - **`MAANTA_DEMO_MODE` is not set on the Preview environment.** Harmless while
   previews are only used for one-off checks — it cost exactly one untagged event
   during the verification above. Set it if previews are ever used to show anybody
