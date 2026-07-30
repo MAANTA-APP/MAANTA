@@ -89,6 +89,9 @@ export async function POST(request: Request) {
     ) {
       status = 404;
       userMessage = "This deal is no longer available.";
+    } else if (message.includes("deal_paused")) {
+      status = 409;
+      userMessage = "This deal is paused — no new claims right now.";
     } else if (message.includes("deal_expired")) {
       status = 410;
       userMessage = "This deal has expired.";
