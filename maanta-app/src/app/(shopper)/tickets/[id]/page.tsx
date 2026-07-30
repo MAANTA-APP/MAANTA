@@ -182,8 +182,8 @@ export default async function TicketPage({
 
       {ticket.deals?.is_paused === true ? (
         <p className="mt-3 w-full rounded-card border border-line bg-cream px-3 py-2.5 text-center text-xs text-muted">
-          Deal paused by merchant — your ticket stays valid until{" "}
-          {hhmm(ticket.expires_at)}. Show this code at the till as usual.
+          Your ticket is still valid until {hhmm(ticket.expires_at)}. The
+          merchant paused new claims — show this code at the till as usual.
         </p>
       ) : null}
 
