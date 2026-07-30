@@ -106,8 +106,22 @@ export default async function LeadDetailPage({
         </p>
       )}
 
-      {/* Lead details */}
-      <div className="mt-4 space-y-2.5">
+      {/* Lead details — the rows had no heading, so a screen reader hit an
+          unlabelled run of name/value pairs after the shop name. */}
+      <h2 className="mt-5 text-base font-bold text-ink">Lead details</h2>
+
+      {/* R-AGENT-NO-SUBMIT: an agent never fills in the shop's form. The owner
+          authenticates and submits onboarding themselves; the agent's job ends at
+          handing over the link. Stated here because it is the one rule this
+          screen could quietly break. TODO(D-14): the frames record a "Send
+          onboarding link" action, but no send path or lead→merchant attribution
+          wiring exists in the repo — do not build it without a ruling. */}
+      <p className="mt-2 text-xs text-muted">
+        Send the owner to Maanta to sign up. They sign in and submit onboarding
+        themselves — you can&apos;t submit it for them.
+      </p>
+
+      <div className="mt-3 space-y-2.5">
         <DetailRow label="Owner" value={lead.owner_name} />
         <DetailRow label="Phone" value={lead.phone ? maskPhone(lead.phone) : null} />
         <DetailRow label="Floor / unit" value={lead.unit_number} />

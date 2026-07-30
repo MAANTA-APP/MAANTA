@@ -76,6 +76,14 @@ export default async function TicketPage({
     ticket.status === "failed" ||
     (ticket.status === "pending" && new Date(ticket.expires_at) <= new Date());
   const justClaimed = searchParams.claimed === "1";
+  // Grace period: the deal itself has ended, but the code is live until
+  // redemptions.expires_at (deal end + 15 minutes). Rendered as its own state so
+  // the shopper is never left guessing whether a counter will still honour it.
+  const inGrace =
+    !expired &&
+    ticket.status === "pending" &&
+    !!ticket.deals?.expires_at &&
+    new Date(ticket.deals.expires_at) <= new Date();
   const w3wHref = `https://what3words.com/${m.what3words_address.replace(/^\/+/, "")}`;
 
   // YOU PAY: prefer the amount snapshotted at claim; fall back to the live deal
@@ -184,8 +192,22 @@ export default async function TicketPage({
       </div>
 
       <div className="mt-4 w-full">
-        <ClaimedCode code={ticket.otp_code} expiresAt={ticket.expires_at} />
+        <ClaimedCode
+          code={ticket.otp_code}
+          expiresAt={ticket.expires_at}
+          dealEndsAt={ticket.deals?.expires_at ?? null}
+        />
       </div>
+
+      {/* Grace period — the deal has ended but the code is still honourable.
+          Persistent inline alert (never a toast), rust not red, icon + word. */}
+      {inGrace ? (
+        <InlineAlert variant="warning" title="Grace period." className="mt-4 w-full">
+          The deal has ended. This code is still valid until{" "}
+          <span className="tnum font-semibold">{hhmm(ticket.expires_at)}</span> — show it
+          now.
+        </InlineAlert>
+      ) : null}
 
       <div className="mt-4 w-full">
         <h1 className="text-xl font-bold leading-tight text-ink">{m.merchant_name}</h1>
@@ -195,6 +217,11 @@ export default async function TicketPage({
         {ticket.deals?.title ? (
           <p className="mt-1.5 text-sm text-ink">{ticket.deals.title}</p>
         ) : null}
+        {/* R-GRACE: validity is always stated as deal expiry plus the grace
+            period — never as a fixed span counted from the moment of claim. */}
+        <p className="mt-1 text-sm text-secondary">
+          Valid until the deal expires, plus a 15-minute grace period.
+        </p>
         <p className="tnum mt-0.5 text-sm text-secondary">
           {ticket.deals?.expires_at ? `Deal ends ${hhmm(ticket.deals.expires_at)} · ` : ""}
           code valid until {hhmm(ticket.expires_at)} today

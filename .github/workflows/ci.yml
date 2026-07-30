@@ -31,6 +31,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Layer 1 of the design-truth contract (design/current-reality/README.md).
+      # Pure and filesystem-only, so it runs on every PR: it fails when a frame
+      # points at a route or file that no longer exists, when a runtime rule or
+      # drift id does not resolve, or when the smoke spec stops being generated
+      # from the contract. Run before the full suite so a lying mirror is the
+      # first thing a reviewer sees, not a needle in 300 passing tests.
+      # Layer 2 (npm run test:design-truth:smoke) needs a seeded non-prod env
+      # and runs from e2e.yml, not here.
+      - name: Design-truth contract (Layer 1)
+        run: npm run test:design-truth
+
       - name: Test
         run: npm run test
 

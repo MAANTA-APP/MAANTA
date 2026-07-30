@@ -33,6 +33,7 @@ export default function PricingPage() {
           <p className="mt-1 text-xs text-faint">
             you pay {fee} only when a redemption is verified
           </p>
+
         </div>
         <div className="rounded-card border-[3px] border-ink bg-ink p-6">
           <h2 className="text-lg font-bold text-brand">Elite</h2>

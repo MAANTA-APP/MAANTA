@@ -9,8 +9,8 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { RedemptionResult } from "@/components/ui/redemption-result";
 import { WalletBalance } from "@/components/ui/wallet-balance";
 import { WalletHeader } from "@/components/ui/wallet-header";
-import { IconCheck, IconX } from "@/components/ui/icons";
-import { cn, formatKes } from "@/lib/ui";
+import { IconCheck, IconLock, IconX } from "@/components/ui/icons";
+import { cn, formatKes, maskPhone } from "@/lib/ui";
 import Link from "next/link";
 
 /**
@@ -51,10 +51,16 @@ export function RedeemKeypad({
   balance: initialBalance,
   fee,
   canVerify,
+  shopName,
+  ownerPhone,
 }: {
   balance: number;
   fee: number;
   canVerify: boolean;
+  /** Shop name, so the permission gate can name who to ask. */
+  shopName?: string | null;
+  /** Shop contact number — the owner's route to switching verify on. */
+  ownerPhone?: string | null;
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -206,13 +212,39 @@ export function RedeemKeypad({
     reset();
   }
 
+  // R-VERIFY-PERMISSION — staff without verify permission are told plainly why
+  // they cannot verify AND who can fix it. Without the owner's contact this
+  // screen is a dead end at the counter, with a customer waiting.
   if (!canVerify) {
+    const tel = ownerPhone?.replace(/[^\d+]/g, "");
     return (
-      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <p className="text-sm font-semibold text-ink">
+      <main className="mx-auto flex max-w-mobile flex-col items-center px-6 py-20 text-center">
+        <span className="flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] border-line bg-white">
+          <IconLock className="h-6 w-6 text-ink" />
+        </span>
+        <h1 className="mt-5 text-lg font-bold text-ink">
           You don&apos;t have permission to verify codes.
+        </h1>
+        <p className="mt-2 text-sm text-secondary">
+          Only staff with verify permission can enter customer codes.
+          {shopName ? ` The owner of ${shopName} can` : " The shop owner can"} switch it
+          on under Staff.
         </p>
-        <p className="mt-1 text-xs text-muted">Ask the shop owner to enable it in Staff.</p>
+
+        {/* Owner contact — the fix, not just the reason. */}
+        {tel ? (
+          <a
+            href={`tel:${tel}`}
+            className="mt-6 flex h-12 w-full max-w-xs items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-soft"
+          >
+            Contact the owner
+          </a>
+        ) : null}
+        <p className="mt-3 text-xs text-muted">
+          {ownerPhone
+            ? `Shop contact ${maskPhone(ownerPhone)}`
+            : "No shop contact number on file — ask the owner in person."}
+        </p>
       </main>
     );
   }
@@ -395,6 +427,13 @@ export function RedeemKeypad({
             to avoid interruption.
           </InlineAlert>
         ) : null}
+
+        {/* The till screen is the merchant's home surface and had no page
+            heading — nothing for a screen reader (or a contract smoke test) to
+            anchor on. Visually hidden: the keypad already reads as "Redeem" to
+            a sighted cashier, and a visible title would compete with the code
+            cells for the one thing this screen is for. */}
+        <h1 className="sr-only">Redeem</h1>
 
         <p className="mt-2 text-center text-xs font-medium text-muted">
           Enter the customer&apos;s 6-digit code

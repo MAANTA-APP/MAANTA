@@ -5,6 +5,20 @@ import { isValidOtpCode } from "@/lib/otp";
 import { maskPhone } from "@/lib/phone-mask";
 import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
 
+/**
+ * Merchant-facing mismatch warning threshold.
+ *
+ * TODO(D-07): this does NOT match Guardian's geofence bands, which are
+ * live-tunable in `app_config.guardian_thresholds` (`warn_m` 250 m → flag +
+ * fee applies; `hard_m` 2000 m → declined, no fee). Between 150 m and 250 m the
+ * cashier is warned but Guardian returns `clear`, so nothing is flagged and no
+ * dispute trail exists; and retuning `warn_m` live silently desynchronises the
+ * two, because this constant is compiled in.
+ *
+ * Left as-is deliberately — aligning it, or keeping the earlier warning on
+ * purpose, is a founder ruling (decisions log, Pending decisions → D-07).
+ * Do not "fix" this by editing the number without closing D-07.
+ */
 const GEOFENCE_WARN_METERS = 150;
 
 /**

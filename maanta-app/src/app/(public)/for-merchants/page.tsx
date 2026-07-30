@@ -207,7 +207,14 @@ export default function ForMerchantsPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-card border border-line bg-stone p-5">
               <HeadingMd as="h3">Standard</HeadingMd>
-              <p className="mt-1 text-2xl font-black text-ink">No monthly fee</p>
+              {/* R-PLAN-NAMES: the plans are Standard and Elite. Standard has no
+                  monthly fee — the bullet below says so — but the plan is never
+                  priced as "Free", because the success fee is the price and
+                  "Free" hides it. */}
+              <p className="tnum mt-1 text-2xl font-black text-ink">
+                {formatKes(0)}
+                <span className="text-sm font-normal text-muted"> /month</span>
+              </p>
               <ul className="mt-4 space-y-2">
                 {["One active deal", `${formatKes(SUCCESS_FEE)} per verified redemption`, "No monthly fee, ever"].map(
                   (line) => (

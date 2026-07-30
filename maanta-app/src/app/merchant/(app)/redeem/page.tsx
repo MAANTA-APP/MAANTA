@@ -16,6 +16,8 @@ export default async function MerchantRedeemPage() {
       balance={merchant.account_balance}
       fee={fee}
       canVerify={permissions.can_verify}
+      shopName={merchant.merchant_name}
+      ownerPhone={merchant.phone}
     />
   );
 }

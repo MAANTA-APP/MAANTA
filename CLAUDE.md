@@ -30,6 +30,7 @@ silently pick one.
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push |
 | `maanta-app/src/lib/` | Shared libs: currency/FX, Stripe, IntaSend, merchant ledger, web push |
 | `maanta-app/supabase/migrations/` | Version-controlled migration history — the authoritative record of DB behavior |
+| `maanta-app/design/current-reality/` | Audited current-state design contract (`frames.json` + schema), validated by `src/lib/design-truth/` on every PR |
 | `maanta-app/legal/` | DRAFT legal docs (not published, not lawyer-reviewed) |
 | `docs/` | Operating docs (see below) |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
@@ -56,6 +57,8 @@ Run from `maanta-app/`:
 - `docs/skills/payments-rails.md`
 - `docs/skills/redemption-disputes.md`
 - `docs/skills/frozen-ui-overall-handoff.md`
+- `docs/skills/design-truth-contract.md` — the audited current-reality frames
+  (`maanta-app/design/current-reality/`) and the three layers that validate them
 - `docs/skills/prod-auth-deals-recovery.md`
 - `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`

@@ -33,6 +33,8 @@ function browseEmptyState(opts: {
   chip: BrowseChipFilter;
   isSignedIn: boolean;
   favouritesCount: number;
+  /** True when the node has no live deals at all, filters aside. */
+  nothingNearby: boolean;
 }): { title: string; sub: string; actionLabel?: string; actionHref?: string } {
   if (opts.chip === "favourites") {
     if (!opts.isSignedIn) {
@@ -54,6 +56,18 @@ function browseEmptyState(opts: {
     return {
       title: "No deals from saved shops",
       sub: "Your saved merchants have no live deals in this node right now.",
+    };
+  }
+
+  // Nothing-nearby is its own state: no filter change will help, so the copy
+  // must not send the shopper back to the filters they just set. Checked after
+  // the favourites cases, which are narrower and have their own fix.
+  if (opts.nothingNearby) {
+    return {
+      title: "Nothing nearby right now",
+      sub: "No shops at this mall have a live deal. Merchants drop new deals through the day.",
+      actionLabel: "Switch mall",
+      actionHref: "/select-mall",
     };
   }
 
@@ -107,14 +121,21 @@ export function BrowseClient({
     return sortDealRows(applySearch(base), sort, origin);
   }, [deals, filter, chip, favSet, sort, origin, applySearch]);
 
+  // Nothing live in this node at all — distinct from "your filters excluded
+  // everything", which is the shopper's own doing and is fixable here.
+  const nothingNearby = deals.length === 0;
+
   const empty = browseEmptyState({
     chip,
     isSignedIn,
     favouritesCount: favourites.length,
+    nothingNearby,
   });
 
   const subtitle =
-    listDeals.length === 0
+    nothingNearby && chip !== "favourites"
+      ? "No live deals at this mall right now."
+      : listDeals.length === 0
       ? "0 deals match your filters here · try adjusting filters or switching node."
       : listDeals.length === 1
         ? "1 deal matches your filters"
