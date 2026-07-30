@@ -33,7 +33,7 @@ export default async function AdminBillingPage({
     .select("id, merchant_name, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, status")
     .neq("status", "churned")
     .order("merchant_name")
-    .limit(100);
+    .limit(300);
   if (q) query = query.ilike("merchant_name", `%${q}%`);
   if (filter === "elite") query = query.eq("tier", "elite").eq("elite_trial_active", false);
   if (filter === "trial") query = query.eq("elite_trial_active", true);
