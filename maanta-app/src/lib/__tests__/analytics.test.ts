@@ -201,6 +201,8 @@ describe("analytics", () => {
     it.each([
       ["omitted", undefined],
       ["null", null],
+      ["blank", ""],
+      ["whitespace", "   "],
     ])(
       "marks the event unattributed when the cookie id is %s, rather than passing it off as a person",
       async (_label, posthogDistinctId) => {
@@ -215,6 +217,56 @@ describe("analytics", () => {
         expect(props.distinct_id_source).toBe("none");
       }
     );
+
+    // The two values used to be derived independently — `source` on truthiness,
+    // `distinct_id` on `??` — so a blank id was falsy but not nullish and went out
+    // as distinct_id: "" while source said otherwise. These pin that they agree.
+    it.each([
+      ["blank", ""],
+      ["whitespace", "   "],
+    ])("treats a %s Clerk id as absent and falls through to the cookie id", async (
+      _label,
+      clerkUserId
+    ) => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("browser-person-1");
+      expect(props.distinct_id_source).toBe("posthog_cookie");
+    });
+
+    it("never emits a blank distinct_id, whatever the inputs", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "", posthogDistinctId: "  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+      expect(distinctId).not.toBe("");
+      expect(props.distinct_id_source).toBe("none");
+    });
+
+    it("trims a padded identity rather than sending it through as-is", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "  user_123  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("user_123");
+      expect(props.distinct_id_source).toBe("clerk");
+    });
 
     it("still carries the deal dimensions and the demo tag", async () => {
       process.env[KEY] = "phc_test";

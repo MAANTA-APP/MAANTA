@@ -334,15 +334,24 @@ export function captureDealViewed(args: {
   priceKes: number | null;
   node?: string | null;
 }): Promise<void> {
+  // Normalise once, then derive both values from the same pair. Deriving them
+  // independently let them disagree: a blank id is falsy (so `source` became
+  // "none") but not nullish (so `??` kept it, and distinct_id went out as ""),
+  // producing an event that contradicted itself and an empty distinct_id, which
+  // is worse than the honest fallback. Not reachable through today's only caller
+  // — Clerk hands back a real id or null, and the cookie parser already rejects
+  // blanks — but this is an exported function whose types permit "".
+  const clerkId = args.clerkUserId?.trim() || null;
+  const cookieId = args.posthogDistinctId?.trim() || null;
+
   // Clerk id first: it is what identify() sets, so a signed-in shopper's server
   // and client events agree even if the cookie still holds a pre-signup id.
-  const source: DistinctIdSource = args.clerkUserId
+  const source: DistinctIdSource = clerkId
     ? "clerk"
-    : args.posthogDistinctId
+    : cookieId
       ? "posthog_cookie"
       : "none";
-  const distinctId =
-    args.clerkUserId ?? args.posthogDistinctId ?? UNATTRIBUTED_DISTINCT_ID;
+  const distinctId = clerkId ?? cookieId ?? UNATTRIBUTED_DISTINCT_ID;
 
   return captureServerEvent("deal_viewed", distinctId, {
     deal_id: args.dealId,
