@@ -304,10 +304,36 @@ wrong, not just the magnitude.
   values are 311 total demo deals (248 live) and 354 redemptions, and the hourly
   reseed keeps moving them. Prefer the queries in
   `docs/ops/demo-mode-review-checklist.md` over any written number.
-- **Audit-trail retention on wipe** (from PR #128 review): `guardian_events`,
-  `fraud_events` and `admin_ops_log` rows are deleted when the *actor* is a demo user,
-  even when the action targeted a real merchant. Decide whether to keep and tombstone
-  instead.
+- ~~**Audit-trail retention on wipe**~~ (from PR #128 review). **Founder decision
+  2026-07-30: Option C (retention-aware); fixed in migration `20260730150000`.**
+  `guardian_events`, `fraud_events` and `admin_ops_log` were deleted when the *actor*
+  was a demo user, even where the action targeted a real merchant — so a demo shopper
+  at a real counter, or a demo admin acting on a real merchant, cost that real
+  merchant its record.
+
+  Audit-row survival is now decided by the **subject** (merchant / deal / redemption /
+  ops target), never the actor; the actor is then retained and reported on the
+  `RETAINED` lines. No schema change, no relaxing `NOT NULL` on `admin_ops_log`, no
+  nulling of actor references.
+
+  Worth knowing why it is not literally "make the deletes respect user retention":
+  that is circular — "delete the row iff its actor is deleted" and "keep the actor iff
+  a row survives" are mutually defined. It would also have **aborted the wipe**:
+  `demo_agent_is_retained()` judged `fraud_events` survival by `NOT EXISTS (demo
+  user)`, so a row surviving on a demo-but-retained user would have left its agent
+  disposable, and `fraud_events.agent_id` is `REFERENCES agents(id)` with no
+  `ON DELETE` action. That helper's fraud arm moved to the same subject-based rule, so
+  all three definitions of "does this row survive" now agree.
+
+  Two FKs shape the outcome: `guardian_events.redemption_id` is `NOT NULL … ON DELETE
+  CASCADE`, so a guardian row on a *demo* redemption dies with the cascade regardless
+  of retention — retention only bites on real redemptions. And an `admin_ops_log`
+  target that no longer resolves is deliberately **not** treated as provably demo,
+  because an admin action against a since-deleted subject is still a real record.
+
+  Consequence to expect: the wipe now **retains more demo users than before**. That is
+  the point, and the `users RETAINED (still referenced)` line is what keeps it honest —
+  "wipe" has never meant "every synthetic row is gone".
 - **`handle_trial_expiry()` NULL trap**: if `app_config.node0_launch_period_ends_at`
   went missing, both phases of trial expiry silently stop. No effect today; wants its
   own change.
