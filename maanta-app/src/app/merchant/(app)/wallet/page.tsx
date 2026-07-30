@@ -34,10 +34,11 @@ export default async function WalletPage({
 }) {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
   const fee = await getSuccessFee();
   const balance = merchant.account_balance;
   const arrears = merchant.outstanding_arrears;
+  const canTopup = permissions.can_topup;
 
   const filter = FILTERS.find((f) => f.value === searchParams.filter) ?? FILTERS[0];
 
@@ -116,12 +117,18 @@ export default async function WalletPage({
         </InlineAlert>
       ) : null}
 
-      {/* The one amber action. */}
-      <div className="mt-4">
-        <ButtonLink href="/merchant/topup" full>
-          Top up wallet
-        </ButtonLink>
-      </div>
+      {/* The one amber action — owners always; staff only with can_topup. */}
+      {canTopup ? (
+        <div className="mt-4">
+          <ButtonLink href="/merchant/topup" full>
+            Top up wallet
+          </ButtonLink>
+        </div>
+      ) : (
+        <p className="mt-4 text-center text-xs text-muted">
+          Ask the shop owner if you need to top up the wallet.
+        </p>
+      )}
 
       <div className="mt-6 flex gap-2">
         {FILTERS.map((f) => (

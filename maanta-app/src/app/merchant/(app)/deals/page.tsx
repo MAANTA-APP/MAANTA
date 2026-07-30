@@ -6,7 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { formatKes } from "@/lib/ui";
 import { IconPlus } from "@/components/ui/icons";
-import { isDealClaimable } from "@/lib/deal-expiry";
+import { isDealInRedemptionWindow } from "@/lib/deal-expiry";
 import {
   getMerchantLifecycleInfo,
   getMerchantLifecycleStats,
@@ -50,8 +50,9 @@ export default async function MerchantDealsPage() {
     getMerchantLifecycleStats(allDealRows)
   );
 
+  // Merchant list keeps grace-window deals so till codes can still be managed.
   const live = (deals ?? []).filter(
-    (d) => !d.expires_at || isDealClaimable(d.expires_at)
+    (d) => !d.expires_at || isDealInRedemptionWindow(d.expires_at)
   );
   const limit = merchant.tier === "elite" ? 2 : 1;
 

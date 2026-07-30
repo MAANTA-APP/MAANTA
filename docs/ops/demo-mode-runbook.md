@@ -43,21 +43,36 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 > Start at **section 3** to run a demo, or **section 4** to wipe before launch.
 
 > ## ✅ Checkpoint (2026-07-29) — demo mode enabled and seeded
+>
 > `demo_mode_enabled = true`. **251 deals and 210 merchants are publicly
 > visible**, including **20 live flash deals** across 12 different expiry hours.
 > Activity history: **339 successful redemptions across 145 merchants**.
 >
-> **Still outstanding — a human must do this:** set `MAANTA_DEMO_MODE=true` in
-> Vercel (Production) and redeploy, so analytics events are tagged. Data
-> visibility does not need it (that reads `app_config` at request time), but
-> until it is set, rehearsal traffic is recorded as `is_demo:false` and mixes
-> into real PostHog insights.
+> ## ✅ Checkpoint (2026-07-30 01:19 UTC) — both switches on, both verified live
 >
-> **Also unverified:** the demo banner on the live site. The sandbox cannot
-> reach www.maanta.app, so nobody has yet confirmed the disclosure renders.
-> **Load the site and check the amber banner is showing before demoing to
-> anyone** — synthetic data visible without it is the one outcome this whole
-> feature exists to prevent.
+> The two items left open above are now closed on production:
+>
+> - **`MAANTA_DEMO_MODE=true` is set in Vercel Production and deployed**
+>   (`dpl_FRtgWTHJtKb82ct4fiPjHB8GUVxt`). Proved by reading the stream, not by
+>   trusting the setting: two `deal_viewed` events at 01:19:44–45Z carry
+>   `is_demo: true` and `environment: "demo"`. Everything before 01:19Z on
+>   2026-07-30 is untagged and must be excluded from any demo/real split.
+> - **The disclosure banner renders on the live site** — `role="status"` with the
+>   full "sample data for rehearsal" text in the served HTML on `www.maanta.app`,
+>   under `cache-control: no-store`.
+>
+> Still check the banner with your own eyes before demoing to anyone. It is the
+> one thing this feature exists for, and it costs five seconds.
+>
+> **A defect this check surfaced, since fixed:** server-side capture was dropping
+> events. Four deal pages were rendered here and two events arrived —
+> `captureServerEvent` was called unawaited with no `waitUntil`, so an in-flight
+> ping died when the Vercel instance froze. Now registered with `waitUntil`, and
+> verified on a preview deployment: a single isolated deal-page request delivered
+> its event, which is the exact case that dropped twice out of twice beforehand.
+> Tagging was always correct; delivery was not. The lost events are not
+> recoverable, so treat any server-side count from before that deploy as a floor.
+> See `optruth-demo-release-2026-07-29.md` → "Server-side capture dropped events".
 
 > ## A fourth migration was needed
 > `20260729150000_demo_reseed_respect_deal_limits.sql`. The first reseed run

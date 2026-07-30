@@ -1,14 +1,7 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { type NextFetchEvent, type NextRequest } from "next/server";
+import { authStrategy } from "@/lib/auth/strategy";
 import { updateSession } from "@/lib/supabase/middleware";
-
-function middlewareStrategy(): string {
-  return (
-    process.env.MAANTA_AUTH_STRATEGY?.trim() ||
-    process.env.NEXT_PUBLIC_MAANTA_AUTH_STRATEGY?.trim() ||
-    "clerk"
-  );
-}
 
 const clerkHandler = clerkMiddleware();
 
@@ -18,7 +11,8 @@ export default async function middleware(
   request: NextRequest,
   event: NextFetchEvent
 ) {
-  if (middlewareStrategy() === "supabase" || middlewareStrategy() === "authjs") {
+  const strategy = authStrategy();
+  if (strategy === "supabase" || strategy === "authjs") {
     return updateSession(request);
   }
   return clerkHandler(request, event);

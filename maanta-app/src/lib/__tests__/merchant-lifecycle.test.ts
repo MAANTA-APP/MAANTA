@@ -13,10 +13,15 @@ import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 const NOW = new Date("2026-07-26T12:00:00.000Z");
 
 describe("merchant-lifecycle", () => {
-  it("counts live deals including grace window", () => {
-    const graceEnd = new Date(NOW.getTime() - 5 * 60_000);
-    const deals = [{ expires_at: graceEnd.toISOString(), is_active: true }];
-    expect(countLiveDeals(deals, NOW)).toBe(1);
+  it("counts live deals only (grace is till-only, not shopper-visible)", () => {
+    const stillLive = new Date(NOW.getTime() + 60 * 60_000);
+    const inGrace = new Date(NOW.getTime() - 5 * 60_000);
+    expect(
+      countLiveDeals([{ expires_at: stillLive.toISOString(), is_active: true }], NOW)
+    ).toBe(1);
+    expect(
+      countLiveDeals([{ expires_at: inGrace.toISOString(), is_active: true }], NOW)
+    ).toBe(0);
   });
 
   it("excludes deals past grace", () => {

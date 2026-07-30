@@ -1,6 +1,6 @@
 -- ============================================================
 -- Test: demo mode — tagging, isolation, reseed, wipe
---   (migrations 20260729140000 / 141000 / 142000 / 150000 / 160000 / 170000 / 180000 / 190000)
+--   (migrations 20260729140000 / 141000 / 142000 / 150000 / 160000 / 170000 / 180000 / 190000 / 20260730010000)
 --
 -- Self-contained and self-cleaning. Run against a database that has the
 -- migrations applied, e.g.:
@@ -523,6 +523,76 @@ BEGIN
   DELETE FROM public.merchants   WHERE id = v_real_m;
   DELETE FROM public.users       WHERE id = v_demo_u;
   RAISE NOTICE 'I ok — non-agent references hold a demo user through the wipe';
+END $$;
+
+-- Scenario J: the daily seed refresh reopens expiry windows without trampling
+--   the things it must not touch.
+--   The fixed seed batches all expire together roughly a day after seeding, which
+--   took production from 248 live demo deals to 25 overnight. refresh_demo_seed_deals()
+--   reopens them. Three things it must get right, and only the first is obvious.
+--   (migration 20260730010000)
+DO $$
+DECLARE
+  v_seed_m   UUID := '9d9d9d9d-0000-4000-a000-000000000060';
+  v_reseed_m UUID := '9d9d9d9d-0000-4000-a000-000000000061';
+  -- nairobi_150's deliberate empty-state fixture. This exact id is the only way
+  -- to test the exclusion, since its merchant row is indistinguishable from any
+  -- other active visible standard merchant. Removed in cleanup below.
+  v_dark_m   UUID := 'c2000000-0000-4000-a000-000000000059';
+  v_seed_d   UUID := '9d9d9d9d-1111-4000-a000-000000000060';
+  v_dark_d   UUID := '9d9d9d9d-1111-4000-a000-000000000061';
+  v_reseed_d UUID := '9d9d9d9d-1111-4000-a000-000000000062';
+  v_n INT;
+BEGIN
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, status,
+                                is_demo, is_visible, tier, account_balance)
+  VALUES (v_seed_m,   'ZZ Seed Shop',   'zz.refresh.seed',   '+254700099060', 'active', TRUE, TRUE, 'elite',    500),
+         (v_reseed_m, 'ZZ Reseed Shop', 'zz.refresh.reseed', '+254700099061', 'active', TRUE, TRUE, 'elite',    500),
+         (v_dark_m,   'ZZ Dark Shop',   'zz.refresh.dark',   '+254700099062', 'active', TRUE, TRUE, 'standard', 500);
+
+  -- All three start expired, which is the state the bug leaves behind.
+  INSERT INTO public.deals (id, merchant_id, title, image_url, deal_type, is_active, is_paused,
+                            starts_at, expires_at, is_demo, demo_source)
+  VALUES (v_seed_d,   v_seed_m,   'ZZ seed standard', '/x.png', 'standard', TRUE,  FALSE,
+          NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', TRUE, 'nairobi_150'),
+         (v_dark_d,   v_dark_m,   'ZZ dark deal',     '/x.png', 'standard', FALSE, FALSE,
+          NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', TRUE, 'nairobi_150'),
+         (v_reseed_d, v_reseed_m, 'ZZ autoreseed',    '/x.png', 'flash',    TRUE,  FALSE,
+          NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', TRUE, 'autoreseed');
+
+  -- Off mode: must not resurrect anything. An operator letting demo data lapse
+  -- before a cutover cannot have a cron undo it overnight.
+  UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled';
+  ASSERT public.refresh_demo_seed_deals() = 0,
+    'J1: refresh must no-op entirely when demo mode is off';
+  SELECT count(*) INTO v_n FROM public.deals
+   WHERE id = v_seed_d AND expires_at > NOW();
+  ASSERT v_n = 0, 'J2: nothing may be refreshed while demo mode is off';
+
+  UPDATE public.app_config SET value = 'true' WHERE key = 'demo_mode_enabled';
+  ASSERT public.refresh_demo_seed_deals() = 1,
+    'J3: exactly the one eligible seed deal must be refreshed';
+
+  SELECT count(*) INTO v_n FROM public.deals
+   WHERE id = v_seed_d AND is_active AND NOT is_paused AND expires_at > NOW();
+  ASSERT v_n = 1, 'J4: an expired seed deal must come back live';
+
+  -- The two dark fixtures exist so the empty-state and suspended-shop surfaces
+  -- have something to render. Blanket-activating would delete those test cases.
+  SELECT count(*) INTO v_n FROM public.deals WHERE id = v_dark_d AND is_active;
+  ASSERT v_n = 0, 'J5: the deliberately-dark fixture shop must stay dark';
+
+  -- reseed_demo_flash_deals() owns autoreseed rows; two jobs extending the same
+  -- windows would fight over them.
+  SELECT count(*) INTO v_n FROM public.deals
+   WHERE id = v_reseed_d AND expires_at > NOW();
+  ASSERT v_n = 0, 'J6: autoreseed rows belong to the reseed, not the refresh';
+
+  UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled';
+  DELETE FROM public.archive_history WHERE merchant_id IN (v_seed_m, v_reseed_m, v_dark_m);
+  DELETE FROM public.deals     WHERE id IN (v_seed_d, v_dark_d, v_reseed_d);
+  DELETE FROM public.merchants WHERE id IN (v_seed_m, v_reseed_m, v_dark_m);
+  RAISE NOTICE 'J ok — seed refresh reopens windows, spares dark fixtures and autoreseed';
 END $$;
 
 -- Restore the operator's original demo-mode setting.

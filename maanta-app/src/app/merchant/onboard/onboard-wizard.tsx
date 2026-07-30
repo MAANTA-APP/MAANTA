@@ -25,9 +25,12 @@ const STEPS: { n: number; label: string }[] = [
 export function OnboardWizard({
   successFee,
   agents = [],
+  initialShopName = "",
 }: {
   successFee: number;
   agents?: OnboardAgent[];
+  /** Prefill from `/merchants` → `/login?next=/merchant/onboard?shop=…`. */
+  initialShopName?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("intro");
@@ -44,8 +47,8 @@ export function OnboardWizard({
   const attributionAnswered =
     !hasAgents || assistedByAgent === false || (assistedByAgent === true && !!selectedAgentId);
 
-  // business details (9e)
-  const [shopName, setShopName] = useState("");
+  // business details (9e) — shop name may arrive from the public lead form.
+  const [shopName, setShopName] = useState(initialShopName);
   const [shopWhatsapp, setShopWhatsapp] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerCc, setOwnerCc] = useState("+254");

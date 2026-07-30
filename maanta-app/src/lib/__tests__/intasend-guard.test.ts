@@ -64,3 +64,25 @@ describe("initiateMpesaStkPush env guard", () => {
     expect(String(url)).toContain("sandbox.intasend.com");
   });
 });
+
+describe("isIntasendConfigured", () => {
+  const savedEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it("is false when either key is missing", async () => {
+    delete process.env.INTASEND_API_KEY;
+    delete process.env.INTASEND_SECRET;
+    const { isIntasendConfigured } = await freshIntasend();
+    expect(isIntasendConfigured()).toBe(false);
+  });
+
+  it("is true when both keys are present", async () => {
+    process.env.INTASEND_API_KEY = "ISPubKey_test_abc";
+    process.env.INTASEND_SECRET = "ISSecretKey_test_abc";
+    const { isIntasendConfigured } = await freshIntasend();
+    expect(isIntasendConfigured()).toBe(true);
+  });
+});
