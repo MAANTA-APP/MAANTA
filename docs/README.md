@@ -4,7 +4,8 @@ Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
 2026-07-09 from the launch-handoff and operating-system doc packs; index
-updated 2026-07-28 with comprehensive audit links.
+updated 2026-07-30 with the drift register and the 2026-07-30 operating
+documents (previously 2026-07-28, comprehensive audit links).
 
 ## Orientation
 
@@ -13,6 +14,7 @@ updated 2026-07-28 with comprehensive audit links.
 | `maanta-project-overview.md` | What MAANTA is, actors, commercial model, technical state, workstreams |
 | `maanta-claude-operating-system.md` | The operating playbook: tracks, cadences, doc rules |
 | `maanta-decisions-log.md` | Repo mirror of load-bearing decisions and where they bite in code |
+| `maanta-drift-register.md` | Open/closed record of known claim-vs-reality gaps. Rows close only when they name a guard, or say `no guard: <reason>` — enforced in CI |
 
 ## Launch execution
 
@@ -51,6 +53,7 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
+| `ops/founder-parity-handoff-2026-07-30.md` | Elite trial vs D-12 free-month — what copy is allowed |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
 | `ops/nodes-nairobi-2026-07.md` | 3-node Nairobi rehearsal registry (BBS + CBD + Westlands) |
@@ -71,4 +74,5 @@ updated 2026-07-28 with comprehensive audit links.
 | `skills/clerk-auth.md` | Clerk + Supabase third-party auth wiring |
 | `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
 | `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |
-| `skills/repo-branch-audit-2026-07-30.md` | 2026-07-30 main health + active-branch sync + deletion list |
+| `skills/notification-prefs-canonical-2026-07-30.md` | Canonical prefs at `/you/notifications`; inbox is alerts-only |
+| `skills/repo-branch-audit-2026-07-30.md` | Main health, active-branch sync, consolidation (pause-gate renumber) and deletion list |

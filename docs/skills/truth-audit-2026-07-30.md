@@ -13,10 +13,20 @@ After the D1 fix (founder ruling, same day): **47 files / 326 tests**.
 ## 0. A structural note about this repo's "design-truth mirror"
 
 The audit prompt assumed a mirror made of `frames.json`, rule records (`R-xxxx`)
-and drift rows (`D-xx`). **None of those exist in this repository** — there is no
-frames file, no rule registry and no drift table, and nothing references them.
+and drift rows (`D-xx`). **None of those existed in this repository when this
+audit ran** — there was no frames file, no rule registry and no drift table, and
+nothing referenced them.
 
-What plays that role here instead:
+> **Superseded in part, same day.** Two of the three now exist. This audit created
+> the drift table (`docs/maanta-drift-register.md`), and #146 added
+> `maanta-app/design/current-reality/frames.json` — a 29-surface route inventory,
+> not pixel truth. Only the rule registry is still absent. The consequence is
+> tracked as **D26**: the frames guardrail this audit skipped *because* no frames
+> file existed is now buildable, and still unbuilt. The table below is left as
+> written, because it records what was true when the mapping was made — but read
+> the `frames.json` row as historical.
+
+What played that role at the time:
 
 | Prompt's artifact | This repo's equivalent |
 |---|---|
@@ -286,34 +296,71 @@ fail when the thing they guard is removed.
 
 ## 5. Follow-ups
 
-- **FU-1 (process).** There is no persistent drift register, which is why F4 and
-  F6 were re-discoverable. Either adopt a `docs/drift-register.md` with
-  open/closed rows and evidence links, or make each audit doc explicitly close
-  the prior audit's rows by ID.
-- **FU-2 (operator, human only).** Two migrations need pushing to
-  `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
-  not run migrations — a human operator must.
-  - `20260730120000_correct_success_fee_config_notes.sql` — metadata only, safe to
-    batch with anything.
-  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
-    the note before pushing.** It adds a column, backfills it, and starts
-    enforcing the cap. **Check the backfill result before announcing the offer:**
-    run `SELECT * FROM public.elite_trial_cap_status();` straight after the push.
-    That tells you how many of the 100 slots existing merchants already consumed.
-    If `granted` looks higher than expected, the backfill counted merchants whose
-    trial was granted before the cap existed — which is correct, but it is a
-    number the founder should see rather than discover when the offer runs out
-    early.
+- ~~**FU-1 (process).**~~ **DONE 2026-07-30.** `docs/maanta-drift-register.md` now
+  holds open/closed state per row with evidence links, seeded with 16 rows from
+  this audit and the ones before it. `CLAUDE.md` requires sessions to record drift
+  there before writing the narrative, and to close prior rows by ID.
+
+  The register is itself guarded by `maanta-app/src/lib/__tests__/drift-register.test.ts`
+  (11 tests) — because a tracker nobody validates is a slower version of the same
+  problem. It enforces unique never-reused IDs, a closed status vocabulary, and the
+  invariant the original audit brief asked for and no artifact existed to carry:
+  **a row closes only when its evidence names a guard** — a test, a migration, or a
+  decisions-log entry — with an explicit `no guard: <reason>` escape for drift that
+  genuinely cannot be guarded (a misleading comment, or behaviour needing test
+  infrastructure this repo lacks).
+
+  Two things found while building it, both worth keeping:
+  - **The first version of the guardrail was too weak.** Flipping an open row to
+    `closed` passed the suite, because the row happened to cite a background doc
+    and the check only required *a path that exists*. Requiring a *guard* rather
+    than a path is what closed it — found by trying the regression, not by reading
+    the code.
+  - **Two rows were `pending-deploy`, not `closed`.** D2 and D9 were merged while
+    their migrations were unapplied, so the cap and the corrected config notes were
+    not yet true in production. "Merged" is exactly where tracking normally stops,
+    so the register refused to call it done until the push landed and was read
+    back. Both closed on 2026-07-30 with the live numbers, along with D10 — and
+    the read-back is what exposed D24 and D25, which a merge-is-done register
+    would have missed entirely.
+
+  No test was added for the brief's "design-ahead frames reference open drift rows"
+  — at the time this repo had no frames artifact, and a test for a file that does
+  not exist would have been its own false claim. **That reason expired the same
+  day**: #146 added `maanta-app/design/current-reality/frames.json`. The check is
+  now buildable and still unbuilt, tracked as **D26**. It would fail as written —
+  the file's single `design-ahead` surface (`/contact`) cites no drift row, and
+  the file contains no drift reference at all. `/contact` itself turned out to be
+  real drift (**D28**): it renders success without sending anything.
+- ~~**FU-2 (operator, human only).**~~ **DONE 2026-07-30** — both migrations are
+  live on `axrrslqssmbngbataejg`, pushed by a human operator per
+  `docs/ops/supabase-migrations.md`. Verified read-only from this session:
+  `SELECT * FROM public.elite_trial_cap_status()` returns `cap 100, granted 0,
+  remaining 100`, and the corrected `success_fee_kes` notes are live. Register
+  rows **D2**, **D9** and **D10** closed on that evidence.
+
+  The push did not land the way this document assumed, and the difference is
+  tracked rather than smoothed over: production's migration ledger assigned
+  *different version numbers* than the repo files carry, which silently blocks a
+  later migration from ever applying (**D24**, **D25**).
   - **UI follow-up (2026-07-30 E2E readiness):** the migration comment claiming
     “The admin UI reads `elite_trial_cap_status()`” was false at ship time. Closed
     on branch `cursor/e2e-readiness-1539` — cap line on admin merchant approve +
     `/admin/billing`, and approve outcome notices are rendered. See
-    `docs/skills/e2e-readiness-2026-07-30.md`.
-- **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
-  (correct for rehearsal; its own notes say "must be false at launch"). The
-  paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from
-  the DB switch — remains unverified from this environment, as already flagged in
-  `docs/ops/optruth-demo-release-2026-07-29.md`.
+    `docs/skills/e2e-readiness-2026-07-30.md`. Tracked as **D23**: it is the fifth
+    time in this audit that a comment I wrote outran what the code actually did.
+- **FU-3.** Now tracked as register rows **D14** and **D17**–**D20**, which is
+  where the live state belongs. `app_config.demo_mode_enabled` is still `true` on
+  production (D14 — correct for rehearsal, must be `false` at launch; re-verified
+  2026-07-30). `MAANTA_DEMO_MODE` was **verified and closed** on 2026-07-30 from
+  the event stream, not from the property schema (D17). Proving it surfaced three
+  further gaps: the two switches can be flipped independently and `make demo-off`
+  touches only one, so turning demo off while the env var stays `true` tags
+  **real** events as demo (D18); Preview has no `MAANTA_DEMO_MODE`, so preview
+  traffic is indistinguishable from production in PostHog (D19); and every
+  server-side capture was silently dropping events until `waitUntil` was added,
+  which means any server-side funnel over older data is a floor rather than a
+  measurement (D20).
 - **FU-4.** `/pricing` hardcodes KES 3,500 with no `app_config` key behind it
   (unlike the success fee and boost fee). If the Feb 2027 review changes the
   price, the UI is the only place to edit. Consider an `elite_subscription_kes`

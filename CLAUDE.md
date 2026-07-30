@@ -60,6 +60,11 @@ Run from `maanta-app/`:
 - `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`
 - `docs/maanta-staged-readiness-now-launch-10k-100k.md` — now / launch / 10k / 100k readiness
+- `docs/maanta-drift-register.md` — open/closed record of every known gap between
+  what MAANTA claims and what is true. Schema and evidence rules are enforced by
+  `maanta-app/src/lib/__tests__/drift-register.test.ts`, so a row cannot be closed
+  without either naming a guard — a test, a migration, or a decisions-log entry —
+  or stating `no guard: <reason>` for drift that genuinely cannot be guarded.
 
 ## Frozen business rules (change only via a new decisions-log entry)
 
@@ -84,6 +89,13 @@ See `docs/maanta-decisions-log.md` for the full log and dates.
 Every MAANTA session must leave behind at least one durable artifact:
 a `docs/skills/*.md` update, a tracker update, a marketing/ops brief, or an
 exported approved markdown document. Do not let work end in chat history only.
+
+**If a session finds drift** — any gap between what a doc, a frozen rule, or a
+comment claims and what the code, migrations or live config actually do — record
+it in `docs/maanta-drift-register.md` **before** writing the narrative, and close
+prior rows by ID rather than re-describing them. An audit document is a story; the
+register is the state. Skipping it is how the same finding gets discovered twice,
+which has already happened (rows D3, D5, D6, D9).
 
 ## Claude role system
 
