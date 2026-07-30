@@ -95,7 +95,68 @@ its old wording — one targeted failure.
   unless `STRIPE_ENV=live`, so today's top-ups are sandbox. 13i stays
   `status: blocked` for that reason, and its `captureReadinessReason` now names it.
 - **IntaSend credentials are still absent**, so no environment shows M-Pesa yet.
-  Nothing further is needed in code — provision the keys and the rail appears.
+  Provision the keys and the rail appears — but see the follow-up below, because
+  "provisioned" has a stricter meaning than it used to.
 - **Settlement is polled, not pushed.** The screen polls `/api/wallet` every 4s
   for up to 2 minutes. A webhook that lands later still credits the wallet; the
   merchant just sees it on the wallet screen instead of the takeover.
+
+## Follow-up, 2026-07-30: "configured" now means usable, not present
+
+Found in review on PR #131. `isMpesaTopupConfigured()` checked only that both
+keys existed — but a pair that disagrees with `INTASEND_ENV` is **refused on the
+money path**:
+
+```
+initiateMpesaStkPush()
+  → assertKeyMatchesEnv()   // throws, and it throws BEFORE the try block
+```
+
+So a staging environment handed live keys, or live keys with `INTASEND_ENV`
+unset, would have **offered M-Pesa as the primary action and then thrown** —
+`initiateMpesaStkPush` raises rather than returning `null`, so the merchant meets
+a broken primary action instead of the card rail that works. Worst at exactly the
+moment credentials are first provisioned, which is when a typo is most likely.
+
+The fix is not a new flag. The refusal rule is extracted to `keyEnvMismatch()`
+and **both** the capability check and the assert consult it, so they cannot
+disagree. `assertKeyMatchesEnv` is unchanged in behaviour and stays as the
+money-path backstop for direct API calls — the capability check hides the rail,
+it does not replace the guard.
+
+### Why this is not a readiness flag
+
+A separate `MPESA_READY`-style flag was **declined** on PR #131. A flag can
+disagree with reality in both directions — off with working credentials, on
+without them — which is the "fake rail" failure mode the capability check exists
+to prevent, and it would reopen the D-06 ruling that rail order is derived from
+provisioning rather than declared. Deriving from the keys, and now from whether
+those keys are *usable*, keeps one source of truth.
+
+### What each audience sees
+
+| Audience | On a mismatch |
+|---|---|
+| Merchant | No M-Pesa option; card leads. `/api/topup` returns the same honest 503 and points at card. |
+| Operator | `[intasend] M-Pesa top-up is hidden: <reason>` — **warned once per process**, since this runs on every render and every POST. |
+
+Deliberate split: the merchant gets advice they can act on, not configuration
+detail; the operator gets the actual reason, because silence here would look
+identical to "no credentials" and send them hunting the wrong thing.
+
+### The invariant, and how it is held
+
+`src/lib/__tests__/intasend-guard.test.ts` (18 tests) asserts parity across a
+seven-config matrix — test/live keys × sandbox/live env, both mixed pairs, and
+unmarked keys: **the capability answer equals what the money path accepts**,
+every time. Either direction of disagreement is a defect — stricter hides a
+working rail, looser offers a broken one — which is why the test asserts equality
+rather than one-way implication.
+
+Unmarked keys (neither `_test_` nor `_live_`) stay **allowed**, because
+`assertKeyMatchesEnv` allows them. Parity with the money path is the property;
+tightening only one side would have recreated the bug facing the other way.
+
+Negative-tested by reverting the check to present-only: four config rows plus
+four targeted tests fail, naming the direction — *"offered=true but the money
+path refuses this config"*.
