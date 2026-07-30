@@ -21,10 +21,17 @@ git fetch origin 'refs/pull/*/head:refs/remotes/pr/*'
 # Open PR numbers come from mcp__github__list_pull_requests (state: open).
 # `gh` is NOT available in a Claude Code remote session — do not reach for it.
 for pr in 141 137 132 131 130 121 120 119 117 113 112 108 102 99 97 96 95 94 89 86; do
-  echo "PR#$pr $(git diff --name-only --diff-filter=A origin/main...pr/$pr \
+  echo "PR#$pr $(git diff -M --name-status --diff-filter=ACMR origin/main...pr/$pr \
     -- maanta-app/supabase/migrations/ | tr '\n' ' ')"
 done
 ```
+
+`-M --diff-filter=ACMR`, not `--diff-filter=A`. Additions-only is the obvious
+choice and it is wrong: a migration **renumbered** with `git mv` is a rename, not
+an addition, so it vanishes from the list. That is not hypothetical — F1 below was
+exactly that, and an additions-only sweep would have reported this very PR as
+carrying no DB step. `--name-status` keeps the `R100 old → new` visible so a
+renumber is distinguishable from a new migration at a glance.
 
 Use `origin/main...pr/N` (three dots, merge-base) — a two-dot diff against a
 stale local `main` reports every shared migration as "added" and produces a

@@ -1,8 +1,9 @@
 # Demo mode
 
-**Status:** implemented 2026-07-29; migrations **applied to production** the
-same day and demo mode **enabled** there. The app-side code that acts on the
-flag is not deployed until this branch merges — see "Risks and caveats".
+**Status:** implemented 2026-07-29; all migrations **applied to production** and
+demo mode **enabled** there. The app-side code that acts on the flag is merged to
+`main` (verified 2026-07-30) — but `main` is not production, so confirm the
+deployed commit before trusting the switch. See "Risks and caveats".
 **Owner:** founder
 **Switch:** `app_config.demo_mode_enabled` (default `false`)
 
@@ -217,21 +218,26 @@ doesn't need the migration again.
 
 ## Risks and caveats
 
-**The database is ahead of the app.** All five demo-mode migrations were applied
-to production on 2026-07-29 and `demo_mode_enabled` is `true` there, but
-production serves `main`, which contains none of the app-side filtering, the
-disclosure banner, or the analytics tagging. Until this branch merges and
-deploys:
+**Corrected 2026-07-30.** This section previously said the database was ahead of
+the app, and that `20260729170000` and `20260729180000` were not yet applied.
+Both statements are now out of date and were verified so against
+`supabase_migrations.schema_migrations`:
 
-- the SQL browse views already gate synthetic rows, so the DB is honest;
-- but nothing in the deployed bundle reads the flag, so `make demo-off` does
-  **not** change what the live site renders — it changes what the views return;
-- and the disclosure banner is not on any deployed page.
+- **Every demo-mode migration is applied to production**, including
+  `20260729170000` and `20260729180000`, and `demo_mode_enabled` is `true`.
+- **The app-side code is on `main`** — `src/lib/demo-mode.ts`, the filtering and
+  the disclosure banner all merged.
 
-Verify against the deployed site, not against view counts. Two further
-migrations (`20260729170000`, `20260729180000`) ship with this branch and are
-**not yet applied** — `make db-push` is human-run against `axrrslqssmbngbataejg`
-by design.
+What survives from the original warning, because it is about deployment rather
+than about these migrations: **`main` is not production.** The app-side code only
+acts on the flag once a Vercel Production deployment of that commit is live, so
+before trusting `make demo-off` to change what visitors see, confirm which commit
+production is actually serving.
+
+**Verify against the deployed site, not against view counts.** The SQL browse
+views gate synthetic rows regardless of what is deployed, so a query can look
+correct while the rendered page does not. That distinction is the reason this
+caveat exists and it has not changed.
 
 **The backfill asserts an audit that may have aged.** It tags exactly the three
 UUID prefixes measured on 2026-07-29 and raises a `NOTICE` listing any merchant

@@ -175,14 +175,23 @@ DECLARE
   v_a UUID; v_b UUID;
   v_bal_a NUMERIC; v_bal_b NUMERIC;
   v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
-  v_saved_node TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
-  v_saved_cap  TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_node   TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap    TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_window TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_period_ends_at');
   v_node_a TEXT := '__test_node_E_first';
   v_node_b TEXT := '__test_node_E_next';
 BEGIN
   -- A cap of 1 makes the boundary observable in two activations.
   UPDATE public.app_config SET value = '1'      WHERE key = 'node0_opening_credit_merchant_cap';
   UPDATE public.app_config SET value = v_node_a WHERE key = 'node0_launch_node';
+  -- Hold the launch window open. Seeded at 2026-12-15; without this, every
+  -- assertion here starts failing on 2026-12-16 because activate_merchant
+  -- correctly skips the credit — a green-to-red transition with no code change,
+  -- which reads as a regression in the cap and is not one. Scenario C owns the
+  -- after-window behaviour; E and F must not depend on the calendar.
+  UPDATE public.app_config
+     SET value = (CURRENT_TIMESTAMP + INTERVAL '1 year')::TEXT
+   WHERE key = 'node0_launch_period_ends_at';
 
   -- Fill the first node's single slot.
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
@@ -203,8 +212,9 @@ BEGIN
   ASSERT v_bal_b = v_credit,
     format('E: new node expected %s, got %s — a filled node is exhausting the next node''s cap', v_credit, v_bal_b);
 
-  UPDATE public.app_config SET value = v_saved_node WHERE key = 'node0_launch_node';
-  UPDATE public.app_config SET value = v_saved_cap  WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_node   WHERE key = 'node0_launch_node';
+  UPDATE public.app_config SET value = v_saved_cap    WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_window WHERE key = 'node0_launch_period_ends_at';
   DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_a, v_b);
   DELETE FROM public.merchants WHERE id IN (v_a, v_b);
   RAISE NOTICE 'Scenario E passed: each node gets its own first-N allowance';
@@ -217,12 +227,17 @@ DECLARE
   v_first UUID; v_second UUID;
   v_bal_first NUMERIC; v_bal_second NUMERIC; v_count INT;
   v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
-  v_saved_node TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
-  v_saved_cap  TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_node   TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap    TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_window TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_period_ends_at');
   v_node TEXT := '__test_node_F';
 BEGIN
   UPDATE public.app_config SET value = '1'    WHERE key = 'node0_opening_credit_merchant_cap';
   UPDATE public.app_config SET value = v_node WHERE key = 'node0_launch_node';
+  -- Same calendar independence as scenario E.
+  UPDATE public.app_config
+     SET value = (CURRENT_TIMESTAMP + INTERVAL '1 year')::TEXT
+   WHERE key = 'node0_launch_period_ends_at';
 
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
   VALUES ('__test_node0_credit_F_1', 'test.same.node.1', '+254700000007', v_node, 'pending', 0)
@@ -246,8 +261,9 @@ BEGIN
 
   ASSERT (SELECT status FROM public.merchants WHERE id = v_second) = 'active', 'F: merchant not activated';
 
-  UPDATE public.app_config SET value = v_saved_node WHERE key = 'node0_launch_node';
-  UPDATE public.app_config SET value = v_saved_cap  WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_node   WHERE key = 'node0_launch_node';
+  UPDATE public.app_config SET value = v_saved_cap    WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_window WHERE key = 'node0_launch_period_ends_at';
   DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_first, v_second);
   DELETE FROM public.merchants WHERE id IN (v_first, v_second);
   RAISE NOTICE 'Scenario F passed: the per-node cap still binds within a node';

@@ -28,7 +28,8 @@ Forensic detail behind the F1/F2/F3 findings referenced below lives in
 | Founder | Ops | **Yes** | Confirm Vercel built and promoted the merge commit to Production | Vercel deployment for that exact SHA is `Ready` and aliased to `www.maanta.app` |
 | Founder | Config | No | Confirm `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` are set on Vercel Production | Sentry shows an event from production |
 | Founder | Config | No | Confirm `POSTHOG_PROJECT_KEY` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are set | PostHog live events view shows a pageview |
-| Claude | Code | No | Correct §2 of `docs/ops/live-pilot-day-one-prep-2026-07-30.md` (says these migrations still need `db push`) and the stale caveats in `docs/ops/demo-mode.md` | Runbooks no longer describe DB state that is already applied |
+| Claude | Code | No | ~~Correct the stale caveats in `docs/ops/demo-mode.md`~~ **done** — it claimed `20260729170000`/`180000` were unapplied and the app code unmerged; both are wrong | Doc now describes applied state, and keeps the `main` ≠ production distinction |
+| Founder | Code | No | Correct §2 of `docs/ops/live-pilot-day-one-prep-2026-07-30.md` — it lists these migrations as still needing `db push`. **Lives on #141, not `main`**, so it must be fixed on that branch or as a follow-up once #141 merges | Runbook no longer instructs a `db push` that would hit F1 |
 | Founder | Ops | No | Merge **#137** (drift register) so F1/F2 have a durable home | Register lists both findings |
 
 **Do not do in this phase:** any `db push`, any `migration repair`, any config
