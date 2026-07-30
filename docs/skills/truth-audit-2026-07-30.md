@@ -306,39 +306,46 @@ fail when the thing they guard is removed.
     and the check only required *a path that exists*. Requiring a *guard* rather
     than a path is what closed it — found by trying the regression, not by reading
     the code.
-  - **Two rows are `pending-deploy`, not `closed`.** D2 and D9 are merged but their
-    migrations are unapplied, so the cap and the corrected config notes are not yet
-    true in production. "Merged" is exactly where tracking normally stops, so the
-    register refuses to call it done (D10 tracks the push).
+  - **Two rows were `pending-deploy`, not `closed`.** D2 and D9 were merged while
+    their migrations were unapplied, so the cap and the corrected config notes were
+    not yet true in production. "Merged" is exactly where tracking normally stops,
+    so the register refused to call it done until the push landed and was read
+    back. Both closed on 2026-07-30 with the live numbers, along with D10 — and
+    the read-back is what exposed D24 and D25, which a merge-is-done register
+    would have missed entirely.
 
   No test was added for the brief's "design-ahead frames reference open drift rows"
   — this repo has no frames artifact, and a test for a file that does not exist
   would be its own false claim.
-- **FU-2 (operator, human only).** Two migrations need pushing to
-  `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
-  not run migrations — a human operator must.
-  - `20260730120000_correct_success_fee_config_notes.sql` — metadata only, safe to
-    batch with anything.
-  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
-    the note before pushing.** It adds a column, backfills it, and starts
-    enforcing the cap. **Check the backfill result before announcing the offer:**
-    run `SELECT * FROM public.elite_trial_cap_status();` straight after the push.
-    That tells you how many of the 100 slots existing merchants already consumed.
-    If `granted` looks higher than expected, the backfill counted merchants whose
-    trial was granted before the cap existed — which is correct, but it is a
-    number the founder should see rather than discover when the offer runs out
-    early.
+- ~~**FU-2 (operator, human only).**~~ **DONE 2026-07-30** — both migrations are
+  live on `axrrslqssmbngbataejg`, pushed by a human operator per
+  `docs/ops/supabase-migrations.md`. Verified read-only from this session:
+  `SELECT * FROM public.elite_trial_cap_status()` returns `cap 100, granted 0,
+  remaining 100`, and the corrected `success_fee_kes` notes are live. Register
+  rows **D2**, **D9** and **D10** closed on that evidence.
+
+  The push did not land the way this document assumed, and the difference is
+  tracked rather than smoothed over: production's migration ledger assigned
+  *different version numbers* than the repo files carry, which silently blocks a
+  later migration from ever applying (**D24**, **D25**).
+  - **UI follow-up (2026-07-30 E2E readiness):** the migration comment claiming
+    “The admin UI reads `elite_trial_cap_status()`” was false at ship time. Closed
+    on branch `cursor/e2e-readiness-1539` — cap line on admin merchant approve +
+    `/admin/billing`, and approve outcome notices are rendered. See
+    `docs/skills/e2e-readiness-2026-07-30.md`. Tracked as **D23**: it is the fifth
+    time in this audit that a comment I wrote outran what the code actually did.
 - **FU-3.** Now tracked as register rows **D14** and **D17**–**D20**, which is
   where the live state belongs. `app_config.demo_mode_enabled` is still `true` on
-  production (D14 — correct for rehearsal, must be `false` at launch).
-  `MAANTA_DEMO_MODE` was **verified and closed** on 2026-07-30 from the event
-  stream, not from the property schema (D17). Proving it surfaced three further
-  gaps: the two switches can be flipped independently and `make demo-off` touches
-  only one, so turning demo off while the env var stays `true` tags **real** events
-  as demo (D18); Preview has no `MAANTA_DEMO_MODE`, so preview traffic is
-  indistinguishable from production in PostHog (D19); and every server-side capture
-  was silently dropping events until `waitUntil` was added, which means any
-  server-side funnel over older data is a floor rather than a measurement (D20).
+  production (D14 — correct for rehearsal, must be `false` at launch; re-verified
+  2026-07-30). `MAANTA_DEMO_MODE` was **verified and closed** on 2026-07-30 from
+  the event stream, not from the property schema (D17). Proving it surfaced three
+  further gaps: the two switches can be flipped independently and `make demo-off`
+  touches only one, so turning demo off while the env var stays `true` tags
+  **real** events as demo (D18); Preview has no `MAANTA_DEMO_MODE`, so preview
+  traffic is indistinguishable from production in PostHog (D19); and every
+  server-side capture was silently dropping events until `waitUntil` was added,
+  which means any server-side funnel over older data is a floor rather than a
+  measurement (D20).
 - **FU-4.** `/pricing` hardcodes KES 3,500 with no `app_config` key behind it
   (unlike the success fee and boost fee). If the Feb 2027 review changes the
   price, the UI is the only place to edit. Consider an `elite_subscription_kes`

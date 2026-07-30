@@ -25,6 +25,15 @@ function assertKeyMatchesEnv(publicKey: string, secretKey: string): void {
   }
 }
 
+/**
+ * Phase-1 honesty: M-Pesa STK is only offered when IntaSend keys exist.
+ * Stripe Checkout remains the default top-up rail (sandbox during testing).
+ * Do not treat STK as live just because the UI page exists.
+ */
+export function isIntasendConfigured(): boolean {
+  return Boolean(process.env.INTASEND_API_KEY && process.env.INTASEND_SECRET);
+}
+
 export async function initiateMpesaStkPush(params: {
   amount: number;
   phoneNumber: string;
