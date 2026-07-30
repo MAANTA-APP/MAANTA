@@ -286,10 +286,34 @@ fail when the thing they guard is removed.
 
 ## 5. Follow-ups
 
-- **FU-1 (process).** There is no persistent drift register, which is why F4 and
-  F6 were re-discoverable. Either adopt a `docs/drift-register.md` with
-  open/closed rows and evidence links, or make each audit doc explicitly close
-  the prior audit's rows by ID.
+- ~~**FU-1 (process).**~~ **DONE 2026-07-30.** `docs/maanta-drift-register.md` now
+  holds open/closed state per row with evidence links, seeded with 16 rows from
+  this audit and the ones before it. `CLAUDE.md` requires sessions to record drift
+  there before writing the narrative, and to close prior rows by ID.
+
+  The register is itself guarded by `maanta-app/src/lib/__tests__/drift-register.test.ts`
+  (11 tests) — because a tracker nobody validates is a slower version of the same
+  problem. It enforces unique never-reused IDs, a closed status vocabulary, and the
+  invariant the original audit brief asked for and no artifact existed to carry:
+  **a row closes only when its evidence names a guard** — a test, a migration, or a
+  decisions-log entry — with an explicit `no guard: <reason>` escape for drift that
+  genuinely cannot be guarded (a misleading comment, or behaviour needing test
+  infrastructure this repo lacks).
+
+  Two things found while building it, both worth keeping:
+  - **The first version of the guardrail was too weak.** Flipping an open row to
+    `closed` passed the suite, because the row happened to cite a background doc
+    and the check only required *a path that exists*. Requiring a *guard* rather
+    than a path is what closed it — found by trying the regression, not by reading
+    the code.
+  - **Two rows are `pending-deploy`, not `closed`.** D2 and D9 are merged but their
+    migrations are unapplied, so the cap and the corrected config notes are not yet
+    true in production. "Merged" is exactly where tracking normally stops, so the
+    register refuses to call it done (D10 tracks the push).
+
+  No test was added for the brief's "design-ahead frames reference open drift rows"
+  — this repo has no frames artifact, and a test for a file that does not exist
+  would be its own false claim.
 - **FU-2 (operator, human only).** Two migrations need pushing to
   `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
   not run migrations — a human operator must.

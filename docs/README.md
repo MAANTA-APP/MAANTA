@@ -12,6 +12,7 @@ the source of truth for anything describing code behavior). Consolidated
 | `maanta-project-overview.md` | What MAANTA is, actors, commercial model, technical state, workstreams |
 | `maanta-claude-operating-system.md` | The operating playbook: tracks, cadences, doc rules |
 | `maanta-decisions-log.md` | Repo mirror of load-bearing decisions and where they bite in code |
+| `maanta-drift-register.md` | Open/closed record of known claim-vs-reality gaps. Rows close only when they name a guard — enforced in CI |
 
 ## Launch execution
 
