@@ -273,8 +273,10 @@ BEGIN
   RETURNING id INTO v_real_m;
   INSERT INTO public.users (id, phone, role, is_demo)
   VALUES (v_demo_u, '+254700008402', 'agent', TRUE);
-  INSERT INTO public.agents (user_id, agent_name, phone)
-  VALUES (v_demo_u, 'ZZ demo agent D', '+254700008403')
+  -- public.agents is (id, user_id, weekly_target, is_active, created_at) — no name
+  -- or phone column; the agent's identity lives on the users row.
+  INSERT INTO public.agents (user_id)
+  VALUES (v_demo_u)
   RETURNING id INTO v_agent;
 
   INSERT INTO public.fraud_events (merchant_id, user_id, agent_id, event_type, severity)
