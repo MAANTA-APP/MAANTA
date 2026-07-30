@@ -132,15 +132,90 @@ Both guard assertions were negative-tested by reintroducing the hardcode — the
 constant and the literal string each fail the test on their own, not just
 together.
 
-## Still open
+## Follow-up, closed the same day: the cap was counted globally
 
-`OPENING_CREDIT_CAP` is gone from the page, but the **cap is still enforced by a
-global count** in SQL: `activate_merchant` counts every
-`node0_opening_credit:%` ledger row regardless of node. That is correct today
-(Node 0 is the only node) and becomes wrong the moment a second node runs its own
-launch promo. Not touched here — it is a migration-level concern, not copy.
+Flagged above as out of scope for the copy fix, then fixed — because it is not a
+cosmetic issue. `activate_merchant` counted **every** `node0_opening_credit:%`
+ledger row regardless of node:
+
+```sql
+SELECT COUNT(*) INTO v_credited_count
+  FROM public.merchant_transactions
+ WHERE transaction_type = 'topup' AND payment_provider = 'manual'
+   AND provider_reference LIKE 'node0_opening_credit:%';
+```
+
+That is correct while exactly one node has ever run the promo, and wrong the
+moment a second one does. The concrete failure: once Node 0's 100 merchants are
+credited and ops points `node0_launch_node` at the next mall, **the new node's
+promo is dead on arrival.** Every activation there grants nothing while
+`/for-merchants` advertises the credit — and it fails silently on both sides. No
+error is raised; the merchant is simply activated with a zero balance, at the one
+moment the product has their full attention.
+
+**Reproduced before fixing.** With the cap forced to 1, one credit granted at the
+launch node, and `node0_launch_node` then moved, the new node's merchant was
+activated with balance `0.00` instead of the credit.
+
+### The fix
+
+Migration `20260730120000_node_scoped_opening_credit_cap.sql` scopes the count to
+the launch node by joining `merchants`, so each node gets its own first-N
+allowance. The advisory lock is scoped the same way
+(`hashtext('node0_opening_credit:' || v_launch_node)`) — two nodes counting
+concurrently is correct, because they count disjoint sets, while activations
+within a node still serialise, which is what makes the cap atomic.
+
+Everything else is byte-for-byte the prior definition: the frozen amount and cap,
+all four gate conditions, the pending-only guard, and the ledger row's shape. The
+idempotency anchor `provider_reference = 'node0_opening_credit:<merchant_id>'`
+stays merchant-keyed and therefore stays UNIQUE — **changing its format would let
+an already-credited merchant be credited again under a new reference**, which is
+why the node is not encoded there.
+
+### The same bug existed on the read side
+
+`getLaunchCreditOffer` counted globally too, so the public page would have hidden
+a live promo at a new node. It now filters through a PostgREST inner join
+(`merchants!inner(node)` + `.eq("merchants.node", …)`), using the same
+`effectiveLaunchNode()` default as the rule, so the page and the grant agree.
+
+### Known limit, deliberately not solved
+
+The count attributes each credit to the merchant's **current** node, because the
+ledger row has nowhere to snapshot the node at grant time. Nothing in the app
+mutates `merchants.node` — onboarding sets it once and `authenticated` writes to
+core tables are revoked — so the two are identical today. If node changes ever
+become a real operation, the count must move to a snapshot taken at grant time
+rather than a live join. Adding a parallel grant-audit table purely to remember a
+node would have duplicated the ledger, which is already the money record.
+
+Also still **one node at a time**: `node0_launch_node` is a single value, so only
+one node qualifies at any moment. This fix makes *sequential* nodes work (Node 0,
+then Node 1). Running two nodes' promos simultaneously needs a per-node config
+shape — a product decision, not a bug fix.
+
+### Guards
+
+`supabase/tests/node0_opening_credit_test.sql` gains two scenarios:
+
+- **E** — a filled node must not exhaust the next node's allowance.
+- **F** — the cap still binds *within* a node. This is the guard against
+  "fixing" E by quietly not enforcing the cap at all, and it is the reason E is
+  safe to trust.
+
+Scenario E was negative-tested by restoring only the old function body (extracted
+from the security-hardening migration, since that file is not idempotent against
+an already-migrated database) and confirming E fails with *"new node expected
+300, got 0.00"* while A–D still pass.
 
 ## Verification
 
-`npm run lint` · `npm run typecheck` clean · `npm test` **539 passing**
+`npm run lint` · `npm run typecheck` clean · `npm test` **542 passing**
 (53 files) · `npm run build` green, `ƒ /for-merchants`.
+
+SQL: all **17** suites in `supabase/tests/` pass, validated locally against
+Postgres 16 with a Supabase shim (roles, `auth`/`storage`/`cron` schemas, the
+`auth.jwt/role/uid` helpers, postgis, and `search_path = public, extensions`),
+every migration applied in order from a clean database. They also run in CI
+`db-tests` against a real `supabase start`.

@@ -147,7 +147,10 @@ let creditedCount: number | null = 0;
 let countError: unknown = null;
 let throwOnClient = false;
 
-function stubQuery(result: unknown) {
+/** Every call made on the count query, so the node scoping can be asserted. */
+let countCalls: { method: string; args: unknown[] }[] = [];
+
+function stubQuery(result: unknown, record = false) {
   const q: unknown = new Proxy(
     {},
     {
@@ -156,7 +159,10 @@ function stubQuery(result: unknown) {
           return (resolve: (v: unknown) => unknown) =>
             Promise.resolve(result).then(resolve);
         }
-        return () => q;
+        return (...args: unknown[]) => {
+          if (record) countCalls.push({ method: String(prop), args });
+          return q;
+        };
       },
     }
   );
@@ -170,7 +176,7 @@ vi.mock("@/lib/supabase/service", () => ({
       from: (table: string) =>
         table === "app_config"
           ? stubQuery({ data: configRows, error: configError })
-          : stubQuery({ count: creditedCount, error: countError }),
+          : stubQuery({ count: creditedCount, error: countError }, true),
     };
   },
 }));
@@ -187,6 +193,34 @@ describe("getLaunchCreditOffer — fails closed", () => {
     creditedCount = 12;
     countError = null;
     throwOnClient = false;
+    countCalls = [];
+  });
+
+  // The cap is per node (migration 20260730120000). A global count would hide
+  // the promo at a new node the instant a previous node filled its allowance.
+  it("counts credited merchants scoped to the launch node, not globally", async () => {
+    await getLaunchCreditOffer(NOW);
+    const eqs = countCalls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqs).toContainEqual(["merchants.node", "BBS Mall"]);
+    // The scoping has to come from a join, or the filter silently matches nothing.
+    const select = countCalls.find((c) => c.method === "select");
+    expect(String(select?.args[0])).toContain("merchants!inner");
+  });
+
+  it("scopes the count to whichever node config names", async () => {
+    configRows = configRows.map((r) =>
+      r.key === "node0_launch_node" ? { ...r, value: "CBD Galleria" } : r
+    );
+    await getLaunchCreditOffer(NOW);
+    const eqs = countCalls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqs).toContainEqual(["merchants.node", "CBD Galleria"]);
+  });
+
+  it("falls back to the default node when config omits it", async () => {
+    configRows = configRows.filter((r) => r.key !== "node0_launch_node");
+    await getLaunchCreditOffer(NOW);
+    const eqs = countCalls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqs).toContainEqual(["merchants.node", "BBS Mall"]);
   });
 
   it("reads the live config and reports a live offer", async () => {

@@ -63,7 +63,12 @@ export type LaunchCreditOffer =
   | { live: false; reason: LaunchCreditUnavailableReason };
 
 /** The SQL's `COALESCE(v_launch_node, 'BBS Mall')`, kept in one place. */
-const DEFAULT_LAUNCH_NODE = "BBS Mall";
+export const DEFAULT_LAUNCH_NODE = "BBS Mall";
+
+/** The node the promo applies to, with the same default the SQL gate uses. */
+export function effectiveLaunchNode(config: LaunchCreditConfig): string {
+  return config.launchNode ?? DEFAULT_LAUNCH_NODE;
+}
 
 /**
  * The gate, as a pure function. Mirrors the `IF` block in `activate_merchant`:
@@ -150,14 +155,20 @@ export async function getLaunchCreditOffer(
     };
 
     // Only worth counting when a cap exists and the promo is otherwise on.
+    //
+    // The count is scoped to the launch node via an inner join, matching the SQL
+    // gate (migration 20260730120000). Counting globally would hide the promo at
+    // a new node the moment a previous node had filled its allowance — the read
+    // side of exactly the bug that migration fixed.
     let creditedCount = 0;
     if (config.merchantCap !== null) {
       const { count, error: countError } = await service
         .from("merchant_transactions")
-        .select("id", { count: "exact", head: true })
+        .select("id, merchants!inner(node)", { count: "exact", head: true })
         .eq("transaction_type", "topup")
         .eq("payment_provider", "manual")
-        .like("provider_reference", "node0_opening_credit:%");
+        .like("provider_reference", "node0_opening_credit:%")
+        .eq("merchants.node", effectiveLaunchNode(config));
       // A cap we cannot measure is a cap we must assume is full.
       if (countError) return { live: false, reason: "unavailable" };
       creditedCount = count ?? 0;
