@@ -8,6 +8,7 @@ import {
 } from "@/lib/data";
 import { parseBrowseChip } from "@/lib/browse";
 import {
+  DEFAULT_BROWSE_SORT,
   type DealListFilter,
   type DealListSort,
 } from "@/lib/deal-list-controls";
@@ -39,7 +40,7 @@ export default async function BrowsePage({
 
   const node = getSelectedNode();
   const origin = nodeCoords(node) ?? nodeCoords(DEFAULT_NODE)!;
-  const sort = (searchParams?.sort as DealListSort) ?? "nearest";
+  const sort = (searchParams?.sort as DealListSort) ?? DEFAULT_BROWSE_SORT;
   const filter = (searchParams?.filter as DealListFilter) ?? "all";
   const chip = parseBrowseChip(searchParams?.chip);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([

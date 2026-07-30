@@ -5,7 +5,8 @@ flows, critical flows, feature flags. Reality-first — the code, migrations and
 live `app_config` were read before any doc was trusted.
 
 Baseline before changes: 45 test files / 301 tests passing.
-After changes: 46 test files / 307 tests passing.
+After the audit corrections: 46 files / 307 tests.
+After the D1 fix (founder ruling, same day): **47 files / 326 tests**.
 
 ---
 
@@ -72,12 +73,9 @@ Checked against migrations and live `app_config`, all three sources agree:
   disclosed on the same screen. `LocationPill` shows the selected mall, not a
   claimed GPS fix.
 
-## 3. Open decisions — NOT actioned, founder call required
+## 3. D1 — RESOLVED 2026-07-30 (founder ruling: option (a))
 
-These touch money paths and paid entitlements, so per the audit's own rules they
-are surfaced rather than silently changed.
-
-### D1 — The feed's default sort overrides the locked feed structure
+### What was wrong
 
 Notion **Frozen Scope & Rules → Feed structure (locked)** specifies:
 
@@ -87,24 +85,55 @@ Notion **Frozen Scope & Rules → Feed structure (locked)** specifies:
 | 2 Priority Placements (boosted) | most recently boosted first |
 | 3 All Active Deals | all-time verified redemptions descending |
 
-`src/app/(shopper)/feed/page.tsx:73` defaults `sort` to `"nearest"`, and
-`sortDealRows()` then re-sorts **all three rails** by distance. `getLiveDeals()`
-does compute the verified-redemption ordering for section 3 — and it is then
-discarded by the re-sort.
+`src/app/(shopper)/feed/page.tsx` defaulted `sort` to `"nearest"`, and
+`sortDealRows()` then re-sorted **all three rails** by distance. `getLiveDeals()`
+did compute the verified-redemption ordering for section 3 — and it was then
+discarded by the re-sort. The distance origin is `nodeCoords(node)`, the **mall
+centroid**, not the shopper, so within a single mall the displaced order carried
+little signal. Most seriously, **boost is a paid entitlement** (KES 500 / 24h):
+Elite merchants were buying a placement the feed did not deliver.
 
-Why this is a decision and not a bug fix:
+### The fix
 
-- **Boost is a paid entitlement** (KES 500 / 24h). An Elite merchant buying
-  placement is buying an ordering the feed does not currently deliver.
-- The distance origin is `nodeCoords(node)` — the **mall centroid**, not the
-  shopper. Within a single mall the resulting order is close to arbitrary, so
-  the locked sorts are being displaced by something that carries little signal.
-- Ranking by all-time verified redemptions is the stated merchant incentive in
-  the Notion overview ("merchants are ranked by all-time verified redemptions").
+Option (a): the locked structure is the default, distance becomes an opt-in.
 
-Options: (a) default the feed to the locked sorts and keep "Nearest" as an
-explicit opt-in; (b) amend the frozen feed rule to record that shopper-chosen
-sort outranks it. Either way it needs a decisions-log entry.
+- **New sort value `featured`** = the locked structure. `DEFAULT_FEED_SORT` is
+  `featured`; `Nearest` / `Newest` / `Ending soon` remain as explicit overrides
+  (and still apply to all rails when chosen — an explicit shopper choice
+  outranks the default, which is the point of a control).
+- **Ordering moved into the data layer.** `getLiveDeals` returns each rail
+  already in locked order via `lockedFlashOrder` / `lockedBoostedOrder` /
+  `lockedStandardOrder`. Two reasons: the order is a property of the feed
+  structure rather than of one render, and it *has* to happen before the
+  `unstable_cache` boundary anyway — cached values are serialized, so the `Map`s
+  the locked orders depend on do not survive the trip to the caller.
+- **`sortDealRows("featured", …)` is a pass-through.** The pre-audit bug was not
+  a wrong comparator, it was a correct one being discarded downstream; making
+  `featured` a no-op in the flat sorter is what stops that recurring.
+- **Boost order reads `boost_flags.starts_at`** (`getBoostStartTimes`), a
+  separate small indexed query rather than an embed, so `DealRow` and the
+  lat/lng-less fallback select are untouched. `move_boost` updates `deal_id`
+  only, keeping the original `starts_at`, so a moved boost holds its purchased
+  position instead of jumping to the front — the 24h window it paid for stays
+  continuous.
+- **Degrades, never breaks.** If the boost-times query fails the rail falls back
+  to newest-first and the feed still renders; a wrong paid-rail order for one
+  render beats a blank feed. Missing timestamps sort *last*, so a malformed row
+  or a missing join can never win free top placement.
+- **Browse unchanged.** It renders one flat list, so `featured` has nothing to
+  mean there; `DEFAULT_BROWSE_SORT` stays `nearest` and Browse's dropdown keeps
+  the three options. The two defaults are now named constants rather than
+  repeated `"nearest"` literals across four files.
+
+Guardrails: `src/lib/__tests__/locked-feed-order.test.ts` (15 tests) pins each
+rail's order, the tie-breaks, the degraded paths and the default; four cases in
+`get-live-deals.test.ts` assert the order end-to-end through `getLiveDeals`.
+Verified as a ratchet: reverting the default to `nearest` and removing the
+`featured` pass-through fails 2 tests.
+
+**One Notion edit is now outstanding** — see FU-6.
+
+## 3b. Open decisions — NOT actioned, founder call required
 
 ### D2 — The first-100 cap on the Elite trial is unenforced
 
@@ -135,8 +164,27 @@ reverting `/pricing` to its pre-audit content fails 3 of the 6.
 | Any page mentioning the Elite trial carries cap + node + fee caveat | An unbounded reading of a bounded promo |
 | Named unbounded phrasings ("first month of Elite free", …) are banned | The exact regression this audit fixed |
 
+`src/lib/__tests__/locked-feed-order.test.ts` (15 tests), from the D1 fix.
+Verified as a ratchet: reverting the feed default to `nearest` and removing the
+`featured` pass-through fails 2 of the 15.
+
+| Invariant | Prevents |
+|---|---|
+| `DEFAULT_FEED_SORT` is `featured`; `DEFAULT_BROWSE_SORT` is `nearest` | The feed silently drifting back to a distance default |
+| `sortDealRows(…, "featured", …)` is a pass-through | A flat comparator discarding the locked per-rail order again |
+| `featured` is offered on the feed and **not** on Browse | A per-rail order appearing where there are no rails |
+| Each rail's locked order, with newest→id tie-breaks | Position jitter between a cached and a live read |
+| Missing expiry / boost-start / verified-count sorts **last** | A malformed row or missing join winning free top placement |
+| Boost-times query failure degrades to newest-first | A broken paid rail taking the whole feed down |
+
+Four further cases in `get-live-deals.test.ts` assert the locked order
+end-to-end through `getLiveDeals`, not just at the comparator level — the
+pre-audit bug was a correct comparator being discarded downstream, which a
+unit-level test alone would not have caught.
+
 Existing `frozen-ui-rules.test.ts` was left as-is; it covers design tokens and
-the `free plan` term, and the new file covers the commercial claims.
+the `free plan` term, and the new files cover the commercial claims and the
+locked feed structure.
 
 ## 5. Follow-ups
 
@@ -159,14 +207,30 @@ the `free plan` term, and the new file covers the commercial claims.
   key when subscription billing is wired to a processor.
 - **FU-5 (Notion).** Notion was **read, not written** in this pass — every
   discrepancy resolved in Notion's favour, so nothing there needed correcting.
-  The two Notion-side edits that D1/D2 would require are deliberately deferred
-  until the founder rules on them.
+  The Notion-side edit that D2 would require is deferred until the founder rules
+  on it.
+- **FU-6 (Notion, from the D1 fix).** The "Current state (as of 2026-07-21)"
+  callout on **Frozen Scope & Rules** claims the fee, plan names, zero-balance
+  gate, boost-Elite-only, image requirement "**and feed structure**" all "remain
+  unchanged and **enforced in code** (`src/lib/__tests__/frozen-ui-rules.test.ts`;
+  guardrail migrations)". For the feed structure that was **not true** —
+  `frozen-ui-rules.test.ts` never covered it, and the default sort actively
+  contradicted it. It is true as of 2026-07-30, so that line should now also cite
+  `src/lib/__tests__/locked-feed-order.test.ts`. Not edited here: writing to the
+  shared workspace needs the founder's go-ahead.
 
 ## 6. Sign-off
 
 - Code, repo mirror and Notion now agree on: the success fee, plan names and
   entitlements, deal limits, boost, expiry, archive, roles, the zero-balance
-  gate, verify-anyway, and the launch offer's stated terms.
-- Two mismatches remain, both explicitly tagged product decisions (D1, D2).
-- No behavioural code change was made: the edits are public copy, one shared
-  constant, one comment, one metadata migration, and new tests.
+  gate, verify-anyway, the launch offer's stated terms, and — after the D1 fix —
+  the locked feed structure.
+- **One mismatch remains: D2**, tagged as a product decision. D1 was ruled on and
+  fixed the same day.
+- The audit pass itself made no behavioural change (public copy, one shared
+  constant, one comment, one metadata migration, tests). **The D1 fix is a
+  deliberate behavioural change**, made on an explicit founder ruling and
+  recorded in the decisions log: the feed's default rail order changed, so the
+  boosted rail now delivers the placement Elite merchants pay for.
+- Outstanding: FU-2 (a human must push the metadata migration) and FU-6 (one
+  Notion line now understates enforcement rather than overstating it).

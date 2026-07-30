@@ -16,6 +16,7 @@ import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
 import { dealExpiryLabel } from "@/lib/browse";
 import {
+  DEFAULT_FEED_SORT,
   filterDealRowsByRail,
   sortDealRows,
   type DealListFilter,
@@ -70,7 +71,7 @@ export default async function FeedPage({
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
-  const sort = (searchParams?.sort as DealListSort) ?? "nearest";
+  const sort = (searchParams?.sort as DealListSort) ?? DEFAULT_FEED_SORT;
   const filter = (searchParams?.filter as DealListFilter) ?? "all";
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
@@ -78,6 +79,9 @@ export default async function FeedPage({
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);
 
+  // `getLiveDeals` already returns each rail in its locked order, so the default
+  // path leaves them alone — `sortDealRows` is a pass-through for "featured".
+  // Only an explicit shopper choice re-sorts, and then it applies to all rails.
   let flashDeals = sortDealRows(flash, sort, origin);
   let boostedDeals = sortDealRows(boosted, sort, origin);
   let nearDeals = sortDealRows(nearMe, sort, origin);
