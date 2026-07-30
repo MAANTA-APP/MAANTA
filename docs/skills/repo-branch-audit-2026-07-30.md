@@ -6,12 +6,12 @@ Last updated: 2026-07-30 (consolidation follow-up) · Status: **complete** (no d
 
 | Check | Result |
 |---|---|
-| `origin/main` tip | `4f418755` — Browse/Map separation, seeded deals visible post-login (#113) |
+| `origin/main` tip | `4f418755` at audit time — Browse/Map separation, seeded deals visible post-login (#113). Now `7f97afc` (#147, this audit itself). A recorded tip is a timestamp, not a live value; re-read it rather than trusting this line |
 | Production Vercel | Same SHA (`maanta-nuia` production READY) |
 | `npm run build` | Pass (Next 14.2.35); Edge Runtime warning from `@supabase/ssr` in middleware only |
 | `npm run typecheck` | Pass |
 | `npm run lint` | Pass |
-| Code fixes on main (first pass) | **None required** |
+| Code fixes on main (first pass) | **None required** — main was already healthy |
 | Consolidation follow-up | Pause-gate renumber + prefs canonicalization land via `cursor/branch-audit-consolidation-4b4b` |
 
 No production tag exists; production tracks `main` via Vercel.
@@ -131,3 +131,10 @@ Repo convention is merge commits (`Merge origin/main into …`), not rebase.
 3. Delete the fully-merged list above.
 4. Close stale open PRs in the abandoned table.
 5. Do **not** force-push rebased history onto shared Claude/Cursor branches without owner OK.
+
+### Flagged product tensions (do not silently overwrite)
+
+1. **Migration ledger collision on main:** `20260730160000_restore_claim_deal_pause_gate.sql` on main collides with production's ledger entry for success-fee notes at the same version (see #137 / #143). Both the pilot branch and the truth-audit branch now use `180000` for the pause gate — truth-audit briefly used `170000`, which is reserved for the `node_scoped_opening_credit_cap` reland. Landing either still needs the renumber to reach `main`. Tracked as **D24**/**D25**.
+2. **Avatars vs `/you`:** Avatar profile UI now loads on `/you`; `/profile` stays a redirect. Nested prefs remain on `/notifications` while wireframe prefs also live at `/you/notifications`.
+3. **Role-hardening D-12 vs main launch offer:** Branch withdrew ungoverned "Elite free month"; main advertises first-100 Elite trial (DB-backed). Sync kept main's trial copy and narrowed the guardrail test.
+

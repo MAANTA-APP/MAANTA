@@ -75,4 +75,4 @@ documents (previously 2026-07-28, comprehensive audit links).
 | `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
 | `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |
 | `skills/notification-prefs-canonical-2026-07-30.md` | Canonical prefs at `/you/notifications`; inbox is alerts-only |
-| `skills/repo-branch-audit-2026-07-30.md` | Branch audit + consolidation (pause-gate renumber, deletion list) |
+| `skills/repo-branch-audit-2026-07-30.md` | Main health, active-branch sync, consolidation (pause-gate renumber) and deletion list |
