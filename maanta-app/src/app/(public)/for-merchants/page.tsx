@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/claude";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "For merchants — pay only for verified redemptions | Maanta",
@@ -15,8 +16,11 @@ export const metadata: Metadata = {
     "Publish deals to shoppers at BBS Mall and pay KES 30 only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.",
 };
 
-/** The frozen success fee. Charged once, at merchant verification. */
-const SUCCESS_FEE = 30;
+/**
+ * The frozen success fee. Charged once, at merchant verification.
+ * Imported, not re-declared — see `SUCCESS_FEE_KES` for why one literal.
+ */
+const SUCCESS_FEE = SUCCESS_FEE_KES;
 /** Worked example — a mid-range BBS deal, not a special case. */
 const EXAMPLE_BEFORE = 500;
 const EXAMPLE_AFTER = 400;
@@ -200,7 +204,7 @@ export default function ForMerchantsPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-card border border-line bg-stone p-5">
               <HeadingMd as="h3">Standard</HeadingMd>
-              <p className="mt-1 text-2xl font-black text-ink">Free</p>
+              <p className="mt-1 text-2xl font-black text-ink">No monthly fee</p>
               <ul className="mt-4 space-y-2">
                 {["One active deal", `${formatKes(SUCCESS_FEE)} per verified redemption`, "No monthly fee, ever"].map(
                   (line) => (
@@ -225,7 +229,7 @@ export default function ForMerchantsPage() {
                 {[
                   "Two active deals, plus flash deals",
                   "Boost a deal to the top of the feed",
-                  "30-day trial, then a 7-day grace period, then stays free on Standard if you don't convert",
+                  "First 100 BBS Mall merchants: 30-day trial, then a 7-day grace period, then back to Standard if you don't convert",
                 ].map((line) => (
                   <li
                     key={line}

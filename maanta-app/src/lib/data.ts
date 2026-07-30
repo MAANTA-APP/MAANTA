@@ -8,6 +8,7 @@ import {
 } from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 
@@ -82,7 +83,7 @@ export async function getSuccessFee(): Promise<number> {
     .eq("key", "success_fee_kes")
     .maybeSingle();
   const n = data ? parseFloat(data.value) : NaN;
-  return isNaN(n) ? 30 : n;
+  return isNaN(n) ? SUCCESS_FEE_KES : n;
 }
 
 /** Boost price from app_config, falling back to the wireframe default KES 500 / 24h. */

@@ -18,8 +18,18 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const grantEliteTrial = body?.grantEliteTrial === true;
 
-  // activate_merchant grants a 30-day Elite trial when requested (DB behavior;
-  // wireframe 11j says 14 days — flagged as an open spec/DB conflict).
+  // activate_merchant grants a 30-day Elite trial when requested.
+  //
+  // 30 days is the frozen rule (Notion "Frozen Scope & Rules"; CLAUDE.md;
+  // docs/maanta-decisions-log.md). Wireframe 11j's "14 days" was stale and was
+  // resolved against the DB in the 2026-07-29 full-state audit — no longer an
+  // open conflict.
+  //
+  // Note the grant is opt-in per approval, not automatic: the frozen launch
+  // offer ("first 100 BBS Mall merchants") has no cap or node check anywhere in
+  // code or app_config, so honouring the cap is currently an admin discipline
+  // question, not an enforced invariant. Open decision D2 in
+  // docs/skills/truth-audit-2026-07-30.md.
   const { error } = await service.rpc("activate_merchant", {
     p_merchant_id: params.id,
     p_admin_user_id: appUser.id,
