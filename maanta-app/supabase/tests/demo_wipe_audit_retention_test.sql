@@ -279,8 +279,11 @@ BEGIN
   VALUES (v_demo_u)
   RETURNING id INTO v_agent;
 
+  -- event_type is CHECK-constrained to
+  -- (collusion, device_blacklist, geofence, otp_abuse, velocity); 'collusion' is
+  -- the one that implicates an agent.
   INSERT INTO public.fraud_events (merchant_id, user_id, agent_id, event_type, severity)
-  VALUES (v_real_m, NULL, v_agent, 'agent_pattern', 'medium')
+  VALUES (v_real_m, NULL, v_agent, 'collusion', 'medium')
   RETURNING id INTO v_f;
 
   ASSERT public.demo_agent_is_retained(v_agent),
