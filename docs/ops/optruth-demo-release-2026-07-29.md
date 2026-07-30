@@ -268,6 +268,53 @@ wrong, not just the magnitude.
 
 ---
 
+## Production deployment, 2026-07-30
+
+Merging is not deploying in this repo: `.github/workflows/` holds only `ci.yml` and
+`e2e.yml`, so nothing pushes migrations. They are applied by hand.
+
+Both of the fixes below were merged (#139, #140) and then applied to the production
+project `axrrslqssmbngbataejg`:
+
+| Migration | Function(s) replaced |
+|---|---|
+| `20260730140000_trial_expiry_launch_sentinel_null_guard` | `handle_trial_expiry()` |
+| `20260730150000_demo_wipe_audit_trail_retention` | `demo_admin_ops_target_is_demo()` (new), `demo_agent_is_retained()`, `demo_user_is_retained()`, `wipe_demo_data()` |
+
+Verified live, not assumed: the `COALESCE(..., TRUE)` guard and the `RAISE WARNING`
+are present; **both** `AND NOT is_demo` guards survived the replacement (the
+regression that CI caught during #139); `demo_user_is_retained()` carries all three
+audit arms; the `fraud_events` arm of `demo_agent_is_retained()` is subject-based;
+and `admin_ops_log` is deleted **before** `guardian_events` in `wipe_demo_data()`.
+
+`wipe_demo_data()` was then run as a **dry run** (`applied = false`, nothing deleted)
+because plpgsql does not validate the SQL inside a function body at `CREATE` time —
+executing it is what proves every query in the new body runs against the real schema.
+It returned cleanly. Both `RETAINED` lines read **0**, which is correct rather than
+suspicious: production has 0 real merchants, 0 real deals and 0 real redemptions, so
+there is no real subject for a synthetic actor to be anchored to yet. Retention will
+start showing non-zero counts once real merchants exist — that is when this fix
+begins to matter.
+
+### Migration versions have to be pinned by hand
+
+`apply_migration` derives the recorded version from the wall clock, not from the
+filename. These two first landed as `20260730115309` and `20260730115433` — **below**
+their repo filenames — which would have left `supabase db push` treating both as
+unapplied. Both rows were corrected in `supabase_migrations.schema_migrations` to
+`20260730140000` and `20260730150000`.
+
+**Open drift, not caused by this deployment.** Production records version
+`20260730120000` as `node_scoped_opening_credit_cap`, applied by hand and never
+committed — there is no such file anywhere in git history. The repo's file at that
+same version is `20260730120000_correct_success_fee_config_notes.sql`. Because
+Supabase matches on version alone, `db push` treats `20260730120000` as done and
+will **silently skip** the success-fee metadata correction, which is therefore
+probably not live. Needs a founder call: renumber the repo file, or repair the remote
+history. Untouched here.
+
+---
+
 ## Follow-ups
 
 - **Only 3 demo customers exist** (`users WHERE is_demo AND role='customer'`), so 354
