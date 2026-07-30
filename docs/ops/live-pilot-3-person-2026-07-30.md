@@ -34,11 +34,15 @@ sessions don't evict each other.
 | `demo_mode_enabled` | **true** | Feed shows demo **+** real deals; the volunteer's deal appears among ~210 demo shops |
 | Node 0 opening credit | **0 / 100 used** | The volunteer merchant **will** get the KES 300 credit at approval — demo merchants were seeded directly, not via the activation RPC, so no slots were burned |
 | Success fee | KES 30 | Debited at merchant verification |
+| Elite trial slots | **0 / 100 used** | Cap enforced in prod as of 2026-07-30 (pre-flight 3); a trial granted in the run costs slot 1 |
 | `/founder` gate | `role === 'admin'` | `admin@maanta.app` passes |
 
-## Pre-flight (do these before the volunteers arrive)
+## Pre-flight
 
-### 1. Pick one admin Clerk identity — BLOCKER for a clean audit trail
+Items 1–3 were **settled on 2026-07-30** by founder ruling; item 4 is a per-session
+choice. What was actually done is recorded inline under each.
+
+### 1. One admin Clerk identity — DECIDED
 
 `admin@maanta.app` has **two** Clerk-linked rows in `public.users`, both
 `role = 'admin'`:
@@ -50,11 +54,16 @@ sessions don't evict each other.
 
 Either one gets you into `/founder` and `/admin/*`, so this does not block the
 run — but every approval, dispute ruling and fee reversal is stamped with
-whichever row you happened to sign in as. Decide which one is *the* founder
-account, sign in as that one for the whole session, and have the other retired
-afterwards. (Long-standing item: `docs/skills/full-state-audit-2026-07-29.md` §6.)
+whichever row you happened to sign in as.
 
-### 2. Agent writes will fail for you — BLOCKER if you want to act as agent
+**Ruling 2026-07-30: `user_3Gnt64ilh3nQMquyDqgWdcfgFL9` ("Mohamed Elmi",
+`users.id 16cb15b5-…cd8f`) is the founder account.** Sign in as that one for the
+whole session. The `user_3H1aBdhhq…` / "Mo Elmi" row is still present and still
+`role = admin` — it is **not** yet retired, so signing in with the wrong Clerk
+identity will still work and will still split the audit trail. Retiring it is
+open follow-up work (`docs/skills/full-state-audit-2026-07-29.md` §6).
+
+### 2. Agent writes — DONE
 
 `/agent/*` **pages** allow `role ∈ {agent, admin}`, so you can browse them. But
 every agent **write** (`/agent/leads/new`, visit logging) goes through
@@ -67,19 +76,41 @@ returns 404 "No active agent profile."** The merchant onboarding wizard's "Were
 you helped by a Maanta agent?" picker will also offer only **"Agent Demo"**, not
 you.
 
-Fix: create an active `public.agents` row for the `admin@maanta.app` row you
-chose in step 1. Then the picker shows your name and the volunteer merchant can
-attribute their onboarding to you — which is the thing worth testing.
+**Fixed 2026-07-30:** an active `public.agents` row
+(`d8ae654c-cbb3-4e7f-aba8-0a12f7e18a66`, `weekly_target` 15, default) now exists for
+`users.id 16cb15b5-…cd8f`. Agent writes work, and the onboarding wizard's picker
+offers **"Mohamed Elmi"** alongside "Agent Demo" — have the volunteer pick you.
 
-### 3. Apply the pending migration
+Side effect worth knowing: `activate_merchant` sets `onboarded_by` to
+`(SELECT id FROM agents WHERE user_id = p_admin_user_id)`, so from now on
+approvals you perform are attributed to this agent row. That is the intended
+behaviour — it is how field attribution is meant to work — but it starts now, not
+at launch.
 
-Prod is at `20260730120000`. The repo has one unapplied migration:
-`20260730130000_enforce_elite_trial_first_100_cap.sql` (merged in #135 earlier
-today). Until it is applied, `elite_trial_cap_status()` does not exist in prod and
-the **first-100 Elite trial cap is not enforced** — if you grant the volunteer an
-Elite trial during the run, nothing counts it.
+### 3. Pending migration — APPLIED
 
-### 4. Decide the demo-data posture
+`20260730130000_enforce_elite_trial_first_100_cap.sql` (merged in #135) had not
+reached prod: prod sat at `20260730120000`, `elite_trial_cap_status()` did not
+exist, and the first-100 cap `/pricing` advertises was unenforced.
+
+**Applied to prod 2026-07-30** (via MCP, in sections — no Supabase CLI in the
+session container — then `supabase_migrations.schema_migrations` was stamped with
+version `20260730130000` so prod and the repo agree). Verified afterwards:
+
+- `elite_trial_cap_status()` → **cap 100, granted 0, remaining 100**
+- the backfill stamped **101** merchants with `elite_trial_granted_at`, **all of
+  them demo**, so they are correctly excluded from the count
+- `trg_enforce_elite_trial_cap` present on `public.merchants`
+
+So the volunteer merchant, if granted an Elite trial, will consume **slot 1 of 100**
+and be counted.
+
+Unrelated drift noticed while stamping: prod records version `20260730120000` under
+the name `node_scoped_opening_credit_cap`, while the repo file at that version is
+`correct_success_fee_config_notes.sql`. Same version, different name — pre-existing,
+not introduced here, worth reconciling separately.
+
+### 4. Demo-data posture — LEAVING DEMO MODE ON (ruling 2026-07-30)
 
 Demo mode is **on**, so the shopper's feed will show the volunteer's real deal
 mixed into ~210 demo shops with a disclosure banner. Two options:
@@ -90,8 +121,15 @@ mixed into ~210 demo shops with a disclosure banner. Two options:
 - **Turn it off** for the run (`demo_mode_enabled = false` in `app_config`) — the
   feed shows only the volunteer's real deal. Clean signal, empty-looking feed.
 
-Recommendation: leave it on for the shopper's first impression, and read the
-money assertions from the DB where demo rows are filtered out anyway.
+**Decision: leave it on** for the shopper's first impression. Read the money
+assertions from the DB, where demo rows are filtered out anyway. Nothing to change
+before the run — `demo_mode_enabled` is already `true`.
+
+One consequence to expect at the counter: the daily demo reseed cron
+(`20260730010000_demo_seed_deal_refresh`) will keep refreshing demo deals during
+and after the session. It only touches `is_demo = true` rows, so the volunteer's
+deal and claim are untouched — but the feed will not look identical from one hour
+to the next, which is worth knowing before you read anything into a changed rail.
 
 ## The run
 
@@ -118,7 +156,11 @@ the last.
    - status → `active`
    - wallet → **KES 300** (Node 0 opening credit, first-100 offer, ledger row
      tagged `node0_opening_credit`)
-6. Optionally grant the Elite trial (30 days). Only meaningful after pre-flight 3.
+6. Optionally grant the Elite trial (30 days). The cap is now enforced in prod, so
+   this consumes **slot 1 of 100** and stamps `elite_trial_granted_at` — a slot
+   that is never freed, including if the trial is later ended or converted.
+   Elite also unlocks flash deals and more than one active deal, which makes Act 3
+   richer; decide whether that is worth one launch slot.
 
 ### Act 3 — Merchant creates a deal (volunteer 1)
 
