@@ -20,6 +20,7 @@ the source of truth for anything describing code behavior). Consolidated
 | `maanta-launch-readiness-tracker.md` | Single view of launch gates, owners, status |
 | `maanta-launch-ops-runbook.md` | Testing model, QA smoke checklist, support/dispute paths, launch-week rhythm |
 | `maanta-technical-handoff.md` | Engineering handoff: architecture, RPCs, env, known gaps |
+| `maanta-pilot-sequencing-plan-2026-07-30.md` | What lands when: PR merges, `db push` steps, config flips and pilot actions, with green/red gates — verified against production |
 
 ## Growth / waitlist campaign
 
@@ -52,3 +53,4 @@ the source of truth for anything describing code behavior). Consolidated
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
 | `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
+| `skills/pilot-sequencing-2026-07-30.md` | How to verify repo-vs-production state, and the migration-ledger drift it uncovered |
