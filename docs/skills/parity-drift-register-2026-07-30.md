@@ -8,9 +8,9 @@ Buckets required by the parity audit brief. Each item: evidence → consequence 
 
 ### M1 — Paused deals advertised while claim rejected *(fixed)*
 
-- **Evidence:** `selectLiveDealBucket` filtered `is_active` + `expires_at` only; merchant UI promised “hidden from the feed”; `claim_deal` raises `deal_paused` (`20260730180000`).
-- **Consequence:** Shoppers saw Claim → 409; feed lied relative to till pause.
-- **Action (done):** `.eq("is_paused", false)` in live selects; detail “Deal paused”; `is_paused` on `DealRow`; test in `get-live-deals.test.ts`.
+- **Evidence:** `selectLiveDealBucket` filtered `is_active` + `expires_at` only; merchant UI promised “hidden from the feed”; `claim_deal` raises `deal_paused` (`20260730180000`). `deals_public_browse` also omitted the pause filter until `20260730190000`.
+- **Consequence:** Shoppers saw Claim → 409; feed lied relative to till pause; SQL browse view could still list paused rows.
+- **Action (done):** `.eq("is_paused", false)` in live selects; detail “Deal paused by merchant”; `is_paused` on `DealRow`; browse view `is_paused IS NOT TRUE`; tests in `get-live-deals.test.ts` + `claim_deal_pause_gate_test.sql`. Canonical write-up: `docs/skills/paused-deal-semantics.md`. Closes against **D25** (RPC deploy) / **D32** (browse view).
 
 ### M2 — New-claim CTA during grace *(fixed)*
 

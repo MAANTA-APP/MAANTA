@@ -107,6 +107,7 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toEqual({
       error: "This deal is paused — no new claims right now.",
+      code: "deal_paused",
     });
   });
 });

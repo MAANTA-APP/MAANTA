@@ -87,4 +87,36 @@ BEGIN
   RAISE NOTICE 'Scenario C passed: browse views hide pending/shadow-banned merchants';
 END $$;
 
+-- Scenario D: paused deals are excluded from deals_public_browse
+-- (20260730190000_paused_deals_discovery_filter.sql).
+DO $$
+DECLARE
+  v_mid UUID;
+  v_active UUID;
+  v_paused UUID;
+  v_n INT;
+BEGIN
+  -- Elite so two active deals are allowed (standard cap is 1).
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_browse_pause', 'test.browse.pause', '+254700000404', 'BBS Mall', 'active', TRUE, 999, 'elite')
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, is_paused, expires_at, price_kes)
+    VALUES (v_mid, '__test active browse', 'x', TRUE, FALSE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_active;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, is_paused, expires_at, price_kes)
+    VALUES (v_mid, '__test paused browse', 'x', TRUE, TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_paused;
+
+  SELECT COUNT(*) INTO v_n FROM public.deals_public_browse WHERE id = v_active;
+  ASSERT v_n = 1, format('D: active deal should appear in browse view, got %s', v_n);
+  SELECT COUNT(*) INTO v_n FROM public.deals_public_browse WHERE id = v_paused;
+  ASSERT v_n = 0, format('D: paused deal must be excluded from browse view, got %s', v_n);
+
+  DELETE FROM public.deals WHERE id IN (v_active, v_paused);
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario D passed: paused deals excluded from deals_public_browse';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL browse_views scenarios passed.'; END $$;

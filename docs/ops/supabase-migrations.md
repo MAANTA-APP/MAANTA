@@ -225,6 +225,7 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
 | `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
 | `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
+| `20260730190000` | `paused_deals_discovery_filter` | `deals_public_browse` excludes `is_paused` (SQL mirror of app rails) |
 
 When adding a new 07-30 (or later) migration, pick a version **strictly after**
 the highest row above that is already on `main` *and* confirm with

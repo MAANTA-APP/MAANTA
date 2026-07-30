@@ -12,15 +12,15 @@ Design frame IDs reference `design/claim-and-till/` / PDF where known; else
 | Shopper | `/otp` | S2 | `otp/page` alias | → `/verify-phone` | — | Alias | Redirect | — | Route naming (fixed) | Deferrable | Synced |
 | Shopper | `/verify-phone` | S2 | `verify-phone` | Clerk SMS; claim 403 | — | Verify phone | `phoneOtpEnabled` / `phone_required` | success dwell; rehearsal skip | Auth-mode | Critical | Synced / Rehearsal |
 | Shopper | `/feed` | S1 | `feed/page` | `getLiveDeals` | deals, boost, RPC | Open deal | Featured locked order; no paused | empty / error / rails | Copy vs locked names | Critical | Synced (behavior) / Needs product decision (titles) |
-| Shopper | `/browse` | Browse list | `browse/page` | `getLiveDeals` | deals | Filter list | `DEFAULT_BROWSE_SORT=nearest` | chips / favourites gate | — | Critical | Synced |
-| Shopper | `/map` | — | `map/page` | `getLiveDeals` | lat/lng | Map pins | Separate from feed | list link → browse | Product: map vs Notion do-not-build | Supporting | Synced / Needs product decision |
-| Shopper | `/deals/[id]` | 8g/8ae/8h | deals/[id], claim-flow | `POST /api/redemptions` | `claim_deal`, `you_pay_kes` | Claim | Live + not paused + phone | paused / ended / fully claimed / YOU PAY | Pause+grace fixed | Critical | Synced |
+| Shopper | `/browse` | Browse list | `browse/page` | `getLiveDeals` | deals + `deals_public_browse` | Filter list | `DEFAULT_BROWSE_SORT=nearest`; pause excluded in app + SQL view | chips / favourites gate | — | Critical | Synced |
+| Shopper | `/map` | — | `map/page` | `getLiveDeals` | lat/lng | Map pins | Separate from feed; no paused | list link → browse | Product: map vs Notion do-not-build | Supporting | Synced / Needs product decision |
+| Shopper | `/deals/[id]` | 8g/8ae/8h | deals/[id], claim-flow | `POST /api/redemptions` | `claim_deal`, `you_pay_kes` | Claim | Live + not paused + phone; own ticket CTA if claimed | paused / ended / fully claimed / YOU PAY / own ticket | Pause+grace fixed | Critical | Synced |
 | Shopper | `/tickets` | — | tickets → my-deals | redirect | — | List | Alias | — | Naming | Supporting | Synced |
-| Shopper | `/my-deals` | — | my-deals | redemptions read | redemptions | Open ticket | Auth | active / expired | List timer vs grace nuance | Supporting | Synced (minor list-timer lag OK after pilot) |
-| Shopper | `/tickets/[id]` | 8i/8j | tickets/[id] | redemptions | +15m grace | Show code | Timer on `expires_at` | live / expired / redeemed | — | Critical | Synced |
+| Shopper | `/my-deals` | — | my-deals | redemptions read | redemptions | Open ticket | Auth; pause-agnostic list | active / expired | List timer vs grace nuance | Supporting | Synced (minor list-timer lag OK after pilot) |
+| Shopper | `/tickets/[id]` | 8i/8j | tickets/[id] | redemptions | +15m grace | Show code | Timer on `expires_at`; valid if claimed while active | live / expired / redeemed / deal paused note | — | Critical | Synced |
 | Merchant | `/merchant/onboarding` | — | alias | → onboard | — | Alias | Query preserved | — | Naming | — | Synced |
 | Merchant | `/merchant/onboard` | Onboard | onboard | onboarding | merchants | Submit shop | Pending until admin | `?shop=` | — | Critical | Synced |
-| Merchant | `/merchant/redeem` | 9k/9t/9l/9m | redeem-keypad | preflight+verify | `verify_redemption` | Confirm | Fee after confirm; verify-anyway | staff gate / mismatch / arrears | — | Critical | Synced |
+| Merchant | `/merchant/redeem` | 9k/9t/9l/9m | redeem-keypad | preflight+verify | `verify_redemption` | Confirm | Fee after confirm; verify-anyway; pause does not block existing tickets | staff gate / mismatch / arrears / paused-deals banner | — | Critical | Synced |
 | Merchant | `/merchant/deals` | 10b/10ab | deals | deals | limits, pause | Manage | Grace kept for till | paused chip | — | Critical | Synced |
 | Merchant | `/merchant/deals/new` | Wizard | new-deal-wizard | `POST /api/deals` | zero-balance, limits | Create | 402 at zero | top-up CTA | Publish still clickable (API enforces) | Critical | Synced / Frontend leads slightly |
 | Merchant | `/merchant/wallet` | Wallet | wallet | ledger | arrears | View | Arrears settle on top-up | low / owing | — | Critical | Synced |

@@ -22,6 +22,21 @@ describe("parity sync ratchets (2026-07-30)", () => {
     expect(data).toMatch(/\.eq\(\s*"is_paused"\s*,\s*false\s*\)/);
   });
 
+  it("SQL browse view migration excludes paused deals", () => {
+    const mig = readApp(
+      "supabase/migrations/20260730190000_paused_deals_discovery_filter.sql"
+    );
+    expect(mig).toMatch(/is_paused\s+IS\s+NOT\s+TRUE/i);
+    expect(mig).toMatch(/deals_public_browse/);
+  });
+
+  it("deal detail disables claim when paused and surfaces deal_paused API code", () => {
+    const detail = readApp("src/app/(shopper)/deals/[id]/page.tsx");
+    expect(detail).toMatch(/Deal paused by merchant/);
+    const api = readApp("src/app/api/redemptions/route.ts");
+    expect(api).toMatch(/code:\s*"deal_paused"/);
+  });
+
   it("new claims are live-only; grace is till redemption window", () => {
     const now = new Date("2026-07-26T12:00:00Z");
     expect(isDealClaimable("2026-07-26T11:50:00Z", now)).toBe(false);
