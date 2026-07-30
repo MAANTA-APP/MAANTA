@@ -304,6 +304,11 @@ fail when the thing they guard is removed.
     trial was granted before the cap existed — which is correct, but it is a
     number the founder should see rather than discover when the offer runs out
     early.
+  - **UI follow-up (2026-07-30 E2E readiness):** the migration comment claiming
+    “The admin UI reads `elite_trial_cap_status()`” was false at ship time. Closed
+    on branch `cursor/e2e-readiness-1539` — cap line on admin merchant approve +
+    `/admin/billing`, and approve outcome notices are rendered. See
+    `docs/skills/e2e-readiness-2026-07-30.md`.
 - **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
   (correct for rehearsal; its own notes say "must be false at launch"). The
   paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from
