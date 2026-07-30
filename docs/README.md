@@ -71,3 +71,4 @@ updated 2026-07-28 with comprehensive audit links.
 | `skills/clerk-auth.md` | Clerk + Supabase third-party auth wiring |
 | `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
 | `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |
+| `skills/repo-branch-audit-2026-07-30.md` | 2026-07-30 main health + active-branch sync + deletion list |
