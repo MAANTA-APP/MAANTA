@@ -6,6 +6,7 @@ import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { serverPosthogDistinctId } from "@/lib/analytics-identity";
 import { isDealClaimable } from "@/lib/deal-expiry";
+import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
 import { IconCheck, IconPin } from "@/components/ui/icons";
@@ -15,7 +16,7 @@ import { ClaimFlow } from "./claim-flow";
 
 export const dynamic = "force-dynamic";
 
-/** 8g Deal detail (+ 8ae fully-claimed state). */
+/** 8g Deal detail (+ 8ae fully-claimed state + paused / own-ticket states). */
 export default async function DealDetailPage({
   params,
 }: {
@@ -29,6 +30,24 @@ export default async function DealDetailPage({
     getAppUser(),
     currentClerkUserId(),
   ]);
+
+  // If this shopper already holds a live ticket, surface it — especially when
+  // the merchant has since paused the deal (ticket stays valid until expiry).
+  let existingTicketId: string | null = null;
+  if (user) {
+    const service = createServiceClient();
+    const { data: existing } = await service
+      .from("redemptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("deal_id", deal.id)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingTicketId = existing?.id ?? null;
+  }
 
   void captureDealViewed({
     clerkUserId,
@@ -47,6 +66,7 @@ export default async function DealDetailPage({
 
   const paused = deal.is_paused === true;
   const claimable =
+    !existingTicketId &&
     deal.is_active &&
     !paused &&
     isDealClaimable(deal.expires_at) &&
@@ -201,6 +221,22 @@ export default async function DealDetailPage({
           node={m.mall_name ?? deal.node}
           signedIn={!!user}
         />
+      ) : existingTicketId ? (
+        <StickyCtaBar>
+          <div className="space-y-2.5">
+            {paused ? (
+              <p className="text-center text-xs text-muted">
+                Deal paused by merchant — your ticket stays valid until expiry.
+              </p>
+            ) : null}
+            <ButtonLink href={`/tickets/${existingTicketId}`} full>
+              View your ticket
+            </ButtonLink>
+            <ButtonLink href="/my-deals" variant="ghost" full>
+              My deals
+            </ButtonLink>
+          </div>
+        </StickyCtaBar>
       ) : (
         <StickyCtaBar>
           <div className="space-y-2.5">
@@ -208,9 +244,15 @@ export default async function DealDetailPage({
               {fullyClaimed
                 ? "Fully claimed"
                 : paused
-                  ? "Deal paused"
+                  ? "Deal paused by merchant"
                   : "Deal ended"}
             </div>
+            {paused ? (
+              <p className="text-center text-xs text-muted">
+                No new claims while paused. Already-claimed tickets remain in My
+                deals until expiry.
+              </p>
+            ) : null}
             <ButtonLink href="/feed" variant="ghost" full>
               See similar deals
             </ButtonLink>

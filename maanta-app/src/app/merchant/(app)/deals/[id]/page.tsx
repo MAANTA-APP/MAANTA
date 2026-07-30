@@ -86,8 +86,9 @@ export default async function MerchantDealDetailPage({
             Deal paused — hidden from the feed
           </p>
           <p className="mt-1 text-xs text-muted">
-            No new claims while paused. Codes already claimed stay valid until the deal
-            expires, plus a 15-minute grace period.
+            Paused for new claims; existing claimed tickets remain redeemable
+            until expiry (deal end plus a 15-minute grace). Resume to put the
+            deal back in feed, browse, and map.
           </p>
         </div>
       ) : null}

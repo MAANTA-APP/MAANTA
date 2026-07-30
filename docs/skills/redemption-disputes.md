@@ -9,14 +9,17 @@ when it goes wrong. Update after any meaningful change to these flows.
    caller must equal the shopper unless service role). Creates a pending
    redemption with an OTP code. Ticket expiry = deal `expires_at` **+ 15 minutes**
    (frozen, decisions log 2026-06-30). Pending claims are excluded from the
-   merchant trust metric.
+   merchant trust metric. **Paused deals:** new claims raise `deal_paused`
+   (mapped to HTTP 409 + `code: "deal_paused"`). Tickets claimed while the deal
+   was active stay valid — see `docs/skills/paused-deal-semantics.md`.
 2. **Verify** — merchant enters the OTP at `/merchant/redeem` →
    `POST /api/redemptions/verify` → the **`verify_redemption` RPC**. This is
    self-authorizing and atomic: locks the pending redemption `FOR UPDATE`, flips
    it to success, increments the deal's `claims_count`, and calls
    `deduct_success_fee_or_record_arrears` to debit the KES 30 fee (or record
    arrears). ⚠️ A previous hand-rolled version never debited the fee — do not
-   bypass the RPC.
+   bypass the RPC. Pause does **not** block verification of already-claimed
+   tickets.
 3. **Fee outcome** — the RPC returns `fee_charge_status`:
    - `charged` — wallet debited.
    - `owed` — insufficient balance; arrears recorded. Redemption still succeeds.

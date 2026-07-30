@@ -44,7 +44,7 @@ hypotheses only; every claim was re-checked in code/SQL.
 
 | ID | Drift | Fix |
 |---|---|---|
-| P1 | Merchant copy “paused — hidden from the feed” but `getLiveDeals` did not filter `is_paused`; detail Claim ignored pause | Feed/browse/map filter `is_paused=false`; detail CTA “Deal paused”; `is_paused` on `DealRow` |
+| P1 | Merchant copy “paused — hidden from the feed” but `getLiveDeals` did not filter `is_paused`; detail Claim ignored pause; `deals_public_browse` also omitted pause | Feed/browse/map filter `is_paused=false`; SQL view `is_paused IS NOT TRUE` (`190000`); detail CTA “Deal paused by merchant”; claim API `code: deal_paused` |
 | P2 | `isDealClaimable` true during grace; SQL `claim_deal` rejects new claims after deal end | Claimable = **live only**; `isDealInRedemptionWindow` for merchant till list |
 | P3 | Alerts “Top up to verify” / “N can be verified” contradicted verify-anyway | Alerts copy discloses arrears path + new-deal gate only |
 | P4 | Admin deals reason pills (`misleading`/`prohibited`) did not filter | Removed cosmetic filters; honest “report-reason filters not live” note |
