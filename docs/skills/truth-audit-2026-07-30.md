@@ -205,19 +205,27 @@ locked feed structure.
   (unlike the success fee and boost fee). If the Feb 2027 review changes the
   price, the UI is the only place to edit. Consider an `elite_subscription_kes`
   key when subscription billing is wired to a processor.
-- **FU-5 (Notion).** Notion was **read, not written** in this pass — every
-  discrepancy resolved in Notion's favour, so nothing there needed correcting.
-  The Notion-side edit that D2 would require is deferred until the founder rules
-  on it.
-- **FU-6 (Notion, from the D1 fix).** The "Current state (as of 2026-07-21)"
-  callout on **Frozen Scope & Rules** claims the fee, plan names, zero-balance
-  gate, boost-Elite-only, image requirement "**and feed structure**" all "remain
-  unchanged and **enforced in code** (`src/lib/__tests__/frozen-ui-rules.test.ts`;
-  guardrail migrations)". For the feed structure that was **not true** —
-  `frozen-ui-rules.test.ts` never covered it, and the default sort actively
-  contradicted it. It is true as of 2026-07-30, so that line should now also cite
-  `src/lib/__tests__/locked-feed-order.test.ts`. Not edited here: writing to the
-  shared workspace needs the founder's go-ahead.
+- **FU-5 (Notion).** Every *rule* discrepancy resolved in Notion's favour, so no
+  rule text needed correcting. One **enforcement claim** did — see FU-6. The
+  Notion-side edit that D2 would require is deferred until the founder rules on
+  it.
+- ~~**FU-6 (Notion, from the D1 fix).**~~ **DONE 2026-07-30.** The "Current state
+  (as of 2026-07-21)" bullet on **Frozen Scope & Rules** claimed the fee, plan
+  names, zero-balance gate, boost-Elite-only, image requirement "**and feed
+  structure**" all "remain unchanged and **enforced in code**", citing only
+  `frozen-ui-rules.test.ts`. For the feed structure that was **not true** — that
+  file never covered it, and the default sort actively contradicted it. Updated
+  on the founder's go-ahead to cite `frozen-ui-rules.test.ts`,
+  `pricing-copy.test.ts` and `locked-feed-order.test.ts`, with a dated
+  sub-bullet recording that the feed-structure claim was inaccurate until
+  2026-07-30 — rather than quietly back-dating the enforcement, which would make
+  the page's own history unreliable. Verified by re-fetching the page.
+
+  **This is the only Notion write in the whole audit.** Worth noting what kind of
+  error it was: the *rules* in Notion were right and the code was wrong, but
+  Notion also asserted that code *enforced* those rules, and that meta-claim was
+  the thing that let the drift survive. A "synced from the repo" note is itself a
+  claim that needs auditing, not evidence that the audit already happened.
 
 ## 6. Sign-off
 
@@ -232,5 +240,7 @@ locked feed structure.
   deliberate behavioural change**, made on an explicit founder ruling and
   recorded in the decisions log: the feed's default rail order changed, so the
   boosted rail now delivers the placement Elite merchants pay for.
-- Outstanding: FU-2 (a human must push the metadata migration) and FU-6 (one
-  Notion line now understates enforcement rather than overstating it).
+- Outstanding: **FU-2 only** — a human operator must push the metadata migration
+  (`docs/ops/supabase-migrations.md` reserves that to humans). FU-6 is done: the
+  one inaccurate Notion enforcement claim was corrected on 2026-07-30 and
+  verified by re-fetch.
