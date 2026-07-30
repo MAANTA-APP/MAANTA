@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -25,13 +25,14 @@ import path from "node:path";
  * Two limits, stated rather than left to be discovered — the point of this file
  * is that an unenforced claim is worse than an absent one:
  *
- *  - **ID reuse is only caught when it leaves a gap.** Deleting D7 and reusing
- *    the number fails contiguity. Deliberately renumbering the whole tail
- *    (delete D7, shift D8..Dn down by one) does not, because detecting it needs
- *    history and CI checks out at `fetch-depth: 1` — a base-branch guard would
- *    find nothing to compare against and pass silently, which is enforcement-
- *    shaped and enforces nothing. The append-only rule is carried by the
- *    register's prose for that case.
+ *  - **Contiguity detects numeric holes, nothing more.** Deleting D7 outright
+ *    fails, because D6→D8 is a gap. Two things it does NOT catch: rewriting D7's
+ *    content in place while keeping the ID, and renumbering the whole tail
+ *    (delete D7, shift D8..Dn down by one). Both leave D1..Dn contiguous.
+ *    Detecting either needs history, and CI checks out at `fetch-depth: 1` — a
+ *    base-branch guard would find nothing to compare against and pass silently,
+ *    which is enforcement-shaped and enforces nothing. The append-only rule is
+ *    carried by the register's prose for those cases, not by this file.
  *  - **No check for "design-ahead frames reference open drift rows."** The
  *    original brief asked for it, but this repo has no frames artifact (see §0 of
  *    docs/skills/truth-audit-2026-07-30.md). Asserting against a file that does
@@ -278,17 +279,27 @@ describe("drift rows close only when backed by evidence", () => {
     const missing: string[] = [];
     for (const r of rows) {
       for (const p of citedPaths(r.evidence)) {
-        // Resolve before testing existence: `path.join` happily accepts `../`, so
-        // a citation could point outside the repo and still "exist". Evidence has
-        // to live somewhere a reader of this repo can actually open.
+        // `path.join`/`path.resolve` accept `../`, so a citation could point
+        // outside the repo and still "exist". Evidence has to be something a
+        // reader of this repo can actually open.
         const resolved = path.resolve(REPO_ROOT, p);
-        const inside =
-          resolved === REPO_ROOT || resolved.startsWith(REPO_ROOT + path.sep);
-        if (!inside) {
-          missing.push(`${r.id} cites ${p}, which escapes the repo root`);
+        if (!existsSync(resolved)) {
+          missing.push(`${r.id} cites missing ${p}`);
           continue;
         }
-        if (!existsSync(resolved)) missing.push(`${r.id} cites missing ${p}`);
+        // Canonicalize both sides before comparing. `path.resolve` is purely
+        // lexical, so a repo-local symlink pointing outside the tree would pass a
+        // string-prefix check — and the repo root itself may sit under a symlink,
+        // which would fail one. realpath on both is the only comparison that means
+        // what it says. Done after the existence check so a missing path reports
+        // as missing rather than throwing ENOENT here.
+        const realRoot = realpathSync(REPO_ROOT);
+        const realCited = realpathSync(resolved);
+        const inside =
+          realCited === realRoot || realCited.startsWith(realRoot + path.sep);
+        if (!inside) {
+          missing.push(`${r.id} cites ${p}, which resolves outside the repo root`);
+        }
       }
     }
     expect(
