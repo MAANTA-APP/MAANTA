@@ -1,28 +1,82 @@
-# Design sync checklist (procedure)
+# Design sync checklist
 
-This is a **sync procedure**, not runtime truth. Runtime truth is:
+Paste into the PR description of any change that touches routes, user-visible
+labels, runtime rules, or role/permission visibility. Rules:
+`docs/design-truth-protocol.md`.
 
-1. Notion / product decisions  
-2. Repo implementation (Next.js + SQL)  
-3. `maanta-app/design/current-reality/` (`frames.json`)
+```markdown
+## Design sync
 
-## Before claiming a screen is “synced”
+- [ ] Checked `maanta-app/design/current-reality/frames.json` for the frames this touches
+- [ ] `frames.json` updated (`route` / `sourceFiles` / `expectedHeading` / `runtimeRule` / `status` / `stateCoverage`) — or N/A, and why:
+- [ ] Any mirror correction recorded under `landedInRepo.corrections` with its evidence
+- [ ] Every drift claim in this PR names its evidence (file:line, migration, or doc)
+- [ ] No `design-ahead` frame was implemented without a decision linked here
+- [ ] Server-side guard is still the authority; UI hiding is clarity only
+- [ ] Frozen business rules untouched, or a decisions-log entry is linked
+- [ ] If this adds/changes a role entry screen or guarded route, the frame has `smoke: true` + `requiredRole` + `authState` + an anchor
+- [ ] Any new page anchor is a real heading (visible or `sr-only`), not a `data-testid`
+- [ ] `npm run test:design-truth` passes (contract, routes, sourceFiles, anchors)
+- [ ] `captureReadiness` still correct — founder/admin stay `internal-only`
+```
 
-1. Open the route in `frames.json` — note `status`.
-2. Open the frontend file(s) listed.
-3. Trace the primary action to API/server action/SQL.
-4. Confirm important refusal states are surfaced (not silent success).
-5. If the wireframe shows more than code, mark **design-ahead** — do not
-   “fix” by inventing backend.
-6. If code has state the UI hides, either surface it or document **backend leads**.
+## Reviewer prompts
 
-## After a parity pass
+Cheap questions that catch most design-sync regressions:
 
-- Update `frames.json` classifications.
-- Record drift in `docs/skills/parity-drift-register-*.md` (open buckets).
-- Leave a narrative in `docs/skills/*parity*audit*.md`.
-- Founder-facing note under `docs/ops/`.
+1. **Does a hidden control have a matching server guard?** UI hiding is never
+   the enforcement. Look for the `requireMerchant("can_*")` / `require*Api()`
+   on the other side.
+2. **Does a shown control actually work for this role?** The opposite failure —
+   a button that only 403s. Both are drift.
+3. **Does a label promise something the query doesn't deliver?** ("Deals near
+   me" over a rail that isn't distance-filtered.)
+4. **Is a rail/tab/CTA reachable state representable in its own filter UI?**
+   (A See-all link landing on a filter value the sheet can't show.)
+5. **Does a runtime rule surface before the user invests effort,** or only as an
+   error at submit? Plan limits and balance gates belong up front.
+6. **Is a planned-but-unprovisioned rail presented as live?** Payment rails are
+   the recurring case — card is Phase 1; M-Pesa is blocked on credentials.
+7. **If the PR cites an audit, is that audit in the repo?** If not, the claim is
+   unverified and must say so.
 
-## Latest pass
+## When frames.json needs a new row
 
-`docs/skills/backend-frontend-parity-audit-2026-07-30.md`
+Adding a route means adding a frame. Minimum shape:
+
+```json
+{
+  "id": "13x",
+  "name": "Human name of the screen",
+  "role": "merchant",
+  "route": "/merchant/something",
+  "status": "live",
+  "job": "What the user is here to get done.",
+  "primaryAction": "The single obvious thing to do",
+  "runtimeRule": "R-ARREARS",
+  "states": ["default", "empty"],
+  "stateCoverage": { "covered": ["default"], "missing": ["empty"] },
+  "prototypeStatus": "current-not-clickable",
+  "prototypeBlockedReason": "Why there is no clickable prototype screen yet.",
+  "captureReadiness": "internal-only",
+  "captureReadinessReason": "Why it is not safe-now.",
+  "evidenceSource": "repo",
+  "sourceFiles": ["src/app/merchant/(app)/something/page.tsx"],
+  "smoke": false
+}
+```
+
+`role` ∈ `shopper | merchant | agent | founder | admin | public`.
+`runtimeRule` is a single id that must already exist in `runtimeRules` — add the
+definition there first if the rule is new. The schema enforces the seven
+anti-fake-sync rules listed in `maanta-app/design/current-reality/README.md`, so
+an incomplete frame will not parse.
+
+If the frame is a role entry screen, a contract-bearing redirect, or guarded,
+add a `smoke` block too — see `docs/design-truth-protocol.md` §4 for when it is
+required and which anchor to add. No test file needs editing;
+`e2e/design-truth-smoke.spec.ts` generates a test per contracted frame.
+
+```json
+"smoke": true, "requiredRole": "merchant", "authState": "role-session", "expectedHeading": "Wallet"
+```

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { hasAgentConsoleAccess } from "@/lib/roles";
 import { KpiCard } from "@/components/ui/cards";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function AgentDashboardPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!hasAgentConsoleAccess(user)) redirect("/");
 
   const service = createServiceClient();
   const { data: agent } = await service

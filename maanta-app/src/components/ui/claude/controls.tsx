@@ -307,8 +307,6 @@ export function BackToYouLink({ className }: { className?: string }) {
   return <BackButton fallback="/you" className={className} />;
 }
 
-/** @deprecated Use BackToYouLink — kept for gradual migration. */
-export const BackToProfileLink = BackToYouLink;
 
 /** Current location pill — Discover / Browse top bar. */
 export function LocationPill({

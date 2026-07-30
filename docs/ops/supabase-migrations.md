@@ -207,6 +207,30 @@ echo/run the CLI above — **review before running against prod**:
 - `make db-verify` is safe to run anytime in dev/CI (local stack only); it has
   no path to production.
 
+## Versioning rule — never reuse a production ledger number
+
+`supabase db push` matches on the **version string alone**. If production's
+`schema_migrations` already holds version `N` for migration A, shipping a
+different file also named `N_….sql` in the repo will be **silently skipped**.
+
+### Canonical `20260730*` map (consolidation 2026-07-30)
+
+| Version | File / intent | Notes |
+|---|---|---|
+| `20260730010000` | `demo_seed_deal_refresh` | Demo cron |
+| `20260730120000` | `correct_success_fee_config_notes` | Repo filename. **Production applied the same notes content under `20260730160000`** — do not put a second logical migration at `160000`. |
+| `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap |
+| `20260730140000` | `trial_expiry_launch_sentinel_null_guard` | Trial expiry |
+| `20260730150000` | `demo_wipe_audit_trail_retention` | Demo wipe |
+| `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
+| `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
+| `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
+
+When adding a new 07-30 (or later) migration, pick a version **strictly after**
+the highest row above that is already on `main` *and* confirm with
+`supabase migration list` that production does not already hold that number
+under a different name.
+
 ## Status note (2026-07-28)
 
 Production `axrrslqssmbngbataejg` was verified **fully aligned** with the 67

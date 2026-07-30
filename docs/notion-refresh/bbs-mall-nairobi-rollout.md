@@ -1,5 +1,9 @@
 # BBS Mall / Nairobi Rollout
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Audience:** founder, ops, agents, partners  
 **Repo:** `docs/ops/nodes-nairobi-2026-07.md`, `docs/skills/node0-seed-bbs-mall.md`, agent rotation Notion pages
@@ -23,12 +27,10 @@ Explain Node 0 (BBS Mall) vs Nairobi density strategy vs synthetic rehearsal nod
 
 ## Rollout framing
 
-| Phase | Geography | Inventory | Goal |
-|---|---|---|---|
-| Now | BBS Mall | Seed and/or early real merchants | Prove claim→redeem→fee loop |
-| Launch | BBS Mall | Real activated merchants | Habitual footfall redemption |
-| Density | More Eastleigh / Nairobi malls (deliberate) | Real merchants only | Same playbook, new node string |
-| Scale | Kenya+ | — | After Node 0 economics work |
+- **Phase:** Now · **Geography:** BBS Mall · **Inventory:** Seed and/or early real merchants · **Goal:** Prove claim→redeem→fee loop
+- **Phase:** Launch · **Geography:** BBS Mall · **Inventory:** Real activated merchants · **Goal:** Habitual footfall redemption
+- **Phase:** Density · **Geography:** More Eastleigh / Nairobi malls (deliberate) · **Inventory:** Real merchants only · **Goal:** Same playbook, new node string
+- **Phase:** Scale · **Geography:** Kenya+ · **Inventory:** — · **Goal:** After Node 0 economics work
 
 ## Merchant readiness at BBS
 

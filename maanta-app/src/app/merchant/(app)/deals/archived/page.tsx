@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
 import { CoverImage } from "@/components/ui/cards";
 import { StatusChip } from "@/components/ui/chips";
 import { EmptyState } from "@/components/ui/states";
@@ -11,7 +12,11 @@ export const dynamic = "force-dynamic";
 export default async function ArchivedDealsPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, permissions } = res.ctx;
+  // Repost publishes a deal and Delete drops an archive row — both are
+  // `can_deals` writes server-side (/api/deals/repost, /api/archive/[id]), so
+  // staff without it get the read-only history rather than buttons that 403.
+  const canDeals = canUseMerchantSurface("deals", permissions);
 
   const service = createServiceClient();
   const { data: entries } = await service
@@ -56,7 +61,9 @@ export default async function ArchivedDealsPage() {
                 </div>
                 <StatusChip status="ended" label={r.reposted ? "Reposted" : "Ended"} />
               </div>
-              <ArchivedActions archiveId={r.id} reposted={r.reposted} />
+              {canDeals ? (
+                <ArchivedActions archiveId={r.id} reposted={r.reposted} />
+              ) : null}
             </div>
           ))}
         </div>

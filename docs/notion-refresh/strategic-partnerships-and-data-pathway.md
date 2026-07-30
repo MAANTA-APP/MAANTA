@@ -1,5 +1,9 @@
 # Strategic Partnerships and Data Pathway
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Audience:** founder, mall partners, advisors  
 **Important:** Analytics/Oracle-style products are a **future strategic path**, not a present capability.
@@ -12,13 +16,11 @@ Clarify partner types, what MAANTA can offer now, and how a data pathway might e
 
 ### Partner types
 
-| Partner | Now | Not now |
-|---|---|---|
-| BBS Mall management | Pilot relationship framing; monthly health reports promised in product brief; MoU/term sheet **drafts unsigned** | Live automated mall-operator dashboard |
-| Merchants | Onboarding, Elite trial, opening credit rules, verified redemptions | Fee waivers |
-| Marketing agency | Brief + email sequences exist | Fully running campaign (gates open) |
-| Payment processors | Stripe sandbox; IntaSend prepared | Assumed M-Pesa availability |
-| Data counterparties / “Oracle” | None live | Any exclusive data feed narrative |
+- **Partner:** BBS Mall management · **Now:** Pilot relationship framing; monthly health reports promised in product brief; MoU/term sheet **drafts unsigned** · **Not now:** Live automated mall-operator dashboard
+- **Partner:** Merchants · **Now:** Onboarding, Elite trial, opening credit rules, verified redemptions · **Not now:** Fee waivers
+- **Partner:** Marketing agency · **Now:** Brief + email sequences exist · **Not now:** Fully running campaign (gates open)
+- **Partner:** Payment processors · **Now:** Stripe sandbox; IntaSend prepared · **Not now:** Assumed M-Pesa availability
+- **Partner:** Data counterparties / “Oracle” · **Now:** None live · **Not now:** Any exclusive data feed narrative
 
 ### What partners can truthfully be told
 

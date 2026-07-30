@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isClerkAuth, isSupabaseAuth, phoneOtpEnabled } from "@/lib/auth/strategy";
+import type { AppRole } from "@/lib/roles";
 import {
   currentSupabaseAuthEmail,
   currentSupabaseAuthUserId,
@@ -14,12 +15,9 @@ import {
  * Supabase Auth: JWT `sub` (UUID) → public.users.auth_uid (legacy path).
  */
 
-export type AppRole =
-  | "customer"
-  | "merchant_admin"
-  | "merchant_staff"
-  | "agent"
-  | "admin";
+// Single definition lives in @/lib/roles alongside the role predicates; kept
+// re-exported here because callers already import AppRole from this module.
+export type { AppRole };
 
 /** External auth subject for the current request, or null when signed out. */
 export async function currentAuthSubjectId(): Promise<string | null> {

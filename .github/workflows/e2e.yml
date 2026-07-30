@@ -18,6 +18,11 @@ name: E2E (golden path)
 #        - Variable  E2E_BASE_URL            = https://<deployed NON-PROD app>
 #        - Env secrets (on the `e2e` environment) E2E_SHOPPER_STORAGE,
 #          E2E_MERCHANT_STORAGE                = Playwright storageState JSON
+#        - Optional role secrets that unlock the permission suite
+#          (e2e/role-access.spec.ts): E2E_STAFF_VERIFY_STORAGE,
+#          E2E_STAFF_DEALS_STORAGE, E2E_AGENT_STORAGE, E2E_ADMIN_STORAGE.
+#          Each block skips on its own when its secret is absent, so partial
+#          provisioning gives partial — but honest — coverage.
 #   3. Without E2E_BASE_URL the job is a no-op (the `if` below is false), so it
 #      never runs prematurely.
 
@@ -109,8 +114,13 @@ jobs:
             exit 1
           fi
 
-      - name: Run golden-path E2E
+      - name: Run golden-path + role-access E2E
         env:
           E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
           E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
+          # Optional — each unlocks one describe block in role-access.spec.ts.
+          E2E_STAFF_VERIFY_STORAGE: ${{ secrets.E2E_STAFF_VERIFY_STORAGE }}
+          E2E_STAFF_DEALS_STORAGE: ${{ secrets.E2E_STAFF_DEALS_STORAGE }}
+          E2E_AGENT_STORAGE: ${{ secrets.E2E_AGENT_STORAGE }}
+          E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
         run: npm run test:e2e

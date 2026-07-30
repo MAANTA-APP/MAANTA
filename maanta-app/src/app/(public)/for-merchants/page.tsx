@@ -7,9 +7,16 @@ import {
   PrimaryButtonLink,
 } from "@/components/ui/claude";
 import { IconCheck } from "@/components/ui/icons";
+import { getSuccessFee } from "@/lib/data";
+import { creditedRedemptions, getLaunchCreditOffer } from "@/lib/launch-credit";
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
 
+// The KES 30 here is deliberate and is the one number on this page still
+// written by hand: `metadata` is static, and the success fee is frozen and
+// explicitly not under review (docs/maanta-decisions-log.md). Everything the
+// page body renders reads from app_config below. If the fee ever does change,
+// this becomes a `generateMetadata` that awaits getSuccessFee().
 export const metadata: Metadata = {
   title: "For merchants — pay only for verified redemptions | Maanta",
   // Fee derived, not written: search and social previews are public fee copy too,
@@ -19,40 +26,51 @@ export const metadata: Metadata = {
   )} only when a customer's code is verified at your counter. No listing fee, no percentage cut, no monthly minimum.`,
 };
 
-/**
- * The frozen success fee. Charged once, at merchant verification.
- * Imported, not re-declared — see `SUCCESS_FEE_KES` for why one literal.
- */
-const SUCCESS_FEE = SUCCESS_FEE_KES;
+// Reads app_config (success fee + the Node 0 launch-credit gate), so this page
+// cannot be prerendered at build time.
+export const dynamic = "force-dynamic";
+
+
 /** Worked example — a mid-range BBS deal, not a special case. */
 const EXAMPLE_BEFORE = 500;
 const EXAMPLE_AFTER = 400;
 
-/**
- * Node 0 launch promo. Frozen at KES 300 for the first 100 merchants
- * (app_config `node0_opening_credit_kes` / `node0_opening_credit_merchant_cap`),
- * granted by `activate_merchant` at activation — not at signup — and only
- * inside the launch window (`node0_launch_period_ends_at`).
- *
- * This copy is live-dependent: pull it once the window closes or the cap
- * fills, or a merchant reads a promise the product will not keep.
- */
-const OPENING_CREDIT = 300;
-const OPENING_CREDIT_CAP = 100;
-const CREDITED_REDEMPTIONS = Math.floor(OPENING_CREDIT / SUCCESS_FEE);
-
-const STEPS: [string, string][] = [
-  ["Post a deal", "Two minutes on your phone. One standard deal is free."],
+const steps = (successFee: number): [string, string][] => [
+  ["Post a deal", "Two minutes on your phone. Posting a standard deal costs nothing."],
   ["A shopper claims it", "They get a 6-digit code. Nothing has cost you anything yet."],
   ["Verify at your counter", "Type the code in. It either verifies or it doesn't."],
   [
-    `Pay ${formatKes(SUCCESS_FEE)}`,
+    `Pay ${formatKes(successFee)}`,
     "Only on a verified code. Expired and rejected codes cost nothing.",
   ],
 ];
 
-/** 12d For merchants — the sell. Signup itself lives at /merchants. */
-export default function ForMerchantsPage() {
+/**
+ * 12d For merchants — the sell. Signup itself lives at /merchants.
+ *
+ * Both money figures come from `app_config`, not from constants here:
+ *
+ * - the success fee via `getSuccessFee()` (frozen at KES 30, but canonical in
+ *   config — the same helper every merchant-facing surface uses); and
+ * - the Node 0 opening credit via `getLaunchCreditOffer()`, which mirrors the
+ *   gate inside `activate_merchant`. The promo blocks render **only** when that
+ *   gate would actually grant the credit, so the page stops advertising it the
+ *   moment the window closes, the 100-merchant cap fills, ops sets the amount
+ *   to 0, or the config cannot be read at all. Previously the amount and cap
+ *   were hardcoded here and the promise outlived all four.
+ */
+export default async function ForMerchantsPage() {
+  const [successFee, offer] = await Promise.all([
+    getSuccessFee(),
+    getLaunchCreditOffer(),
+  ]);
+
+  // Only computed for a live offer, so it can never render "your first 0".
+  const covered = offer.live
+    ? creditedRedemptions(offer.amountKes, successFee)
+    : 0;
+  const showCredit = offer.live && covered > 0;
+
   return (
     <main className="bg-stone">
       {/* Hero — risk reversal. A Nairobi shopkeeper's first question is what
@@ -70,7 +88,7 @@ export default function ForMerchantsPage() {
             You only pay when a customer walks in.
           </HeadingLg>
           <Body className="mt-4 max-w-md !text-white/75">
-            {formatKes(SUCCESS_FEE)} per verified redemption. No listing fee, no
+            {formatKes(successFee)} per verified redemption. No listing fee, no
             percentage cut, no monthly minimum.
           </Body>
           <div className="mt-8">
@@ -81,14 +99,20 @@ export default function ForMerchantsPage() {
           <p className="mt-4 text-[13px] text-white/60">
             Free to list · takes about two minutes
           </p>
-          <p className="mt-6 inline-flex items-center gap-2 rounded-pill border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white/90">
-            <span
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
-              aria-hidden
-            />
-            First {OPENING_CREDIT_CAP} shops start with{" "}
-            {formatKes(OPENING_CREDIT)} credit
-          </p>
+          {/* Rendered only while the launch-credit gate would actually grant it.
+              An uncapped promo drops the "first N" claim rather than inventing a
+              number. */}
+          {offer.live && (
+            <p className="mt-6 inline-flex items-center gap-2 rounded-pill border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white/90">
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
+                aria-hidden
+              />
+              {offer.merchantCap === null
+                ? `New shops start with ${formatKes(offer.amountKes)} credit`
+                : `First ${offer.merchantCap} shops start with ${formatKes(offer.amountKes)} credit`}
+            </p>
+          )}
         </div>
       </section>
 
@@ -121,40 +145,49 @@ export default function ForMerchantsPage() {
             <div className="flex items-baseline justify-between text-sm">
               <dt className="text-secondary">Maanta success fee</dt>
               <dd className="tnum font-semibold text-ink">
-                −{formatKes(SUCCESS_FEE)}
+                −{formatKes(successFee)}
               </dd>
             </div>
             <div className="flex items-baseline justify-between border-t border-line pt-2 text-sm">
               <dt className="font-semibold text-ink">You keep</dt>
               <dd className="tnum font-bold text-ink">
-                {formatKes(EXAMPLE_AFTER - SUCCESS_FEE)}
+                {formatKes(EXAMPLE_AFTER - successFee)}
               </dd>
             </div>
           </dl>
         </div>
 
         <p className="mt-4 text-sm text-muted">
-          The same {formatKes(SUCCESS_FEE)} applies whether the deal is worth{" "}
+          The same {formatKes(successFee)} applies whether the deal is worth{" "}
           {formatKes(200)} or {formatKes(5000)}.
         </p>
 
-        {/* Launch promo — see OPENING_CREDIT above. Stating the cap is both
-            honest and the reason to act now. */}
-        <div className="mt-6 rounded-card border-[1.5px] border-ink bg-brand-tint p-5">
-          <HeadingMd as="h3">
-            Your first {CREDITED_REDEMPTIONS} are on us
-          </HeadingMd>
-          <Body className="mt-2 max-w-xl !text-ink">
-            The first {OPENING_CREDIT_CAP} shops we activate at BBS Mall start
-            with {formatKes(OPENING_CREDIT)} of opening credit — enough to cover{" "}
-            {CREDITED_REDEMPTIONS} verified redemptions before you top up a
-            shilling.
-          </Body>
-          <p className="mt-3 text-xs text-muted">
-            Credit is added when we activate your shop, during the BBS Mall
-            launch period.
-          </p>
-        </div>
+        {/* Launch promo. Every number here is read from the same app_config keys
+            the SQL gate reads, and the whole block disappears once that gate
+            stops granting — see src/lib/launch-credit.ts. Stating the cap is
+            both honest and the reason to act now. */}
+        {offer.live && (
+          <div className="mt-6 rounded-card border-[1.5px] border-ink bg-brand-tint p-5">
+            <HeadingMd as="h3">
+              {showCredit
+                ? `Your first ${covered} are on us`
+                : "Your shop starts with credit"}
+            </HeadingMd>
+            <Body className="mt-2 max-w-xl !text-ink">
+              {offer.merchantCap === null
+                ? `Shops we activate at ${offer.launchNode} start with `
+                : `The first ${offer.merchantCap} shops we activate at ${offer.launchNode} start with `}
+              {formatKes(offer.amountKes)} of opening credit
+              {showCredit
+                ? ` — enough to cover ${covered} verified redemptions before you top up a shilling.`
+                : " towards your verified redemptions, before you top up a shilling."}
+            </Body>
+            <p className="mt-3 text-xs text-muted">
+              Credit is added when we activate your shop, during the{" "}
+              {offer.launchNode} launch period.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="border-y border-line bg-white">
@@ -163,7 +196,7 @@ export default function ForMerchantsPage() {
             How it works at your counter
           </HeadingMd>
           <ol className="mt-6 space-y-4">
-            {STEPS.map(([title, sub], i) => (
+            {steps(successFee).map(([title, sub], i) => (
               <li
                 key={title}
                 className="flex gap-4 rounded-card border border-line bg-stone p-4"
@@ -189,7 +222,7 @@ export default function ForMerchantsPage() {
         </HeadingMd>
         <Body className="mt-3 max-w-xl">
           If your wallet can&apos;t cover the fee, the redemption still goes
-          through. The {formatKes(SUCCESS_FEE)} is recorded as arrears and
+          through. The {formatKes(successFee)} is recorded as arrears and
           settles from your next top-up — the customer standing at your counter
           never sees a problem.
         </Body>
@@ -209,7 +242,7 @@ export default function ForMerchantsPage() {
               <HeadingMd as="h3">Standard</HeadingMd>
               <p className="mt-1 text-2xl font-black text-ink">No monthly fee</p>
               <ul className="mt-4 space-y-2">
-                {["One active deal", `${formatKes(SUCCESS_FEE)} per verified redemption`, "No monthly fee, ever"].map(
+                {["One active deal", `${formatKes(successFee)} per verified redemption`, "No monthly fee, ever"].map(
                   (line) => (
                     <li
                       key={line}
@@ -246,7 +279,7 @@ export default function ForMerchantsPage() {
             </div>
           </div>
           <p className="mt-4 text-sm text-muted">
-            The {formatKes(SUCCESS_FEE)} success fee is the same on both plans.{" "}
+            The {formatKes(successFee)} success fee is the same on both plans.{" "}
             <Link href="/pricing" className="font-semibold text-ink underline underline-offset-4">
               Full pricing
             </Link>

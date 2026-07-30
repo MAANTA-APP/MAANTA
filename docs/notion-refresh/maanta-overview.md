@@ -1,5 +1,9 @@
 # MAANTA Overview
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28 · **Audience:** everyone  
 **Repo mirrors:** `docs/maanta-project-overview.md`, `CLAUDE.md`
 
@@ -17,24 +21,20 @@ MAANTA is an **in-mall deals platform**. Merchants publish time-limited deals. S
 
 ## What MAANTA is (and is not)
 
-| Is | Is not |
-|---|---|
-| In-person claim → redeem with verified OTP | A delivery / logistics marketplace |
-| Merchant-paid success fee + optional Elite subscription | An in-app shopper payment rail |
-| Prepaid merchant wallet (Stripe sandbox today; M-Pesa STK prepared) | Instant settlement of shopper card payments |
-| Multi-role PWA (shopper, merchant, agent, admin, founder dashboards) | Native iOS/Android apps (locked out of MVP) |
-| Node-scoped feed (cookie `maanta_node`, default BBS Mall) | A multi-city live network today |
+- **Is:** In-person claim → redeem with verified OTP · **Is not:** A delivery / logistics marketplace
+- **Is:** Merchant-paid success fee + optional Elite subscription · **Is not:** An in-app shopper payment rail
+- **Is:** Prepaid merchant wallet (Stripe sandbox today; M-Pesa STK prepared) · **Is not:** Instant settlement of shopper card payments
+- **Is:** Multi-role PWA (shopper, merchant, agent, admin, founder dashboards) · **Is not:** Native iOS/Android apps (locked out of MVP)
+- **Is:** Node-scoped feed (cookie `maanta_node`, default BBS Mall) · **Is not:** A multi-city live network today
 
 ## Actors and surfaces
 
-| Actor | Surface | Core job |
-|---|---|---|
-| Shopper | `/feed`, `/browse`, deals, tickets | Browse → claim → show OTP → pay merchant **in cash off-app** |
-| Merchant | `/merchant/*` | Onboard → wallet → create deals → verify OTP |
-| Agent | `/agent/*` | Capture leads; attribution on merchant onboard |
-| Admin | `/admin/*` | Approve merchants, disputes, Guardian holds, fee reversal |
-| Founder | `/founder` | Executive KPIs (admin-role gated) |
-| Public | `/waitlist` | Segmented waitlist → Resend (stateless proxy) |
+- **Actor:** Shopper · **Surface:** `/feed`, `/browse`, deals, tickets · **Core job:** Browse → claim → show OTP → pay merchant **in cash off-app**
+- **Actor:** Merchant · **Surface:** `/merchant/*` · **Core job:** Onboard → wallet → create deals → verify OTP
+- **Actor:** Agent · **Surface:** `/agent/*` · **Core job:** Capture leads; attribution on merchant onboard
+- **Actor:** Admin · **Surface:** `/admin/*` · **Core job:** Approve merchants, disputes, Guardian holds, fee reversal
+- **Actor:** Founder · **Surface:** `/founder` · **Core job:** Executive KPIs (admin-role gated)
+- **Actor:** Public · **Surface:** `/waitlist` · **Core job:** Segmented waitlist → Resend (stateless proxy)
 
 ## Commercial model (frozen)
 

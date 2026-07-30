@@ -39,6 +39,7 @@ export function ReleaseActions({ redemptionId }: { redemptionId: string }) {
 
   return (
     <div className="space-y-2">
+      <h2 className="text-sm font-bold text-ink">Release hold</h2>
       <div className="flex gap-2">
         <Button size="sm" loading={busy === "release"} onClick={() => act(true)}>
           Release &amp; charge fee

@@ -76,7 +76,10 @@ describe("key user-facing copy is locked", () => {
 
   it("verify-phone heading, success line, and resend cooldown", () => {
     const src = read("src/app/verify-phone/page.tsx");
-    expect(src).toContain("Add your phone to claim");
+    // Contract frame 13f (design/current-reality/frames.json) declares this
+    // heading, and the design-truth smoke suite asserts it by ARIA role. Both
+    // must move together — see docs/design-truth-protocol.md.
+    expect(src).toContain("Verify your phone");
     expect(src).toContain("Phone verified");
     expect(src).toMatch(/Resend code in \$\{resendIn\}s/);
   });
@@ -85,5 +88,87 @@ describe("key user-facing copy is locked", () => {
     const src = read("src/app/merchant/(app)/redeem/redeem-keypad.tsx");
     expect(src).toContain("Cancel — charges nothing");
     expect(src).toContain("Code valid");
+  });
+});
+
+/**
+ * R-PLAN-NAMES (frozen): plans are **Standard** and **Elite**, never "Free".
+ *
+ * Both public plan cards used to render the Standard plan's PRICE as "Free",
+ * which brushes the frozen rule and, worse, misstates the model — Standard
+ * carries the KES 30 success fee, which is the entire business. "No monthly fee"
+ * is accurate and is the phrasing the for-merchants bullet list already used.
+ *
+ * Contract: design/current-reality/frames.json → frame 12e, runtimeRule
+ * R-PLAN-NAMES.
+ */
+describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
+  const PLAN_PAGES = [
+    "src/app/(public)/pricing/page.tsx",
+    "src/app/(public)/for-merchants/page.tsx",
+  ];
+
+  it.each(PLAN_PAGES)("%s names both plans", (path) => {
+    const src = read(path);
+    expect(src).toContain("Standard");
+    expect(src).toContain("Elite");
+  });
+
+  it.each(PLAN_PAGES)("%s never prices a plan as 'Free'", (path) => {
+    const src = read(path);
+    // Matches a price/heading rendering of the bare word, e.g. `>Free<`.
+    expect(src).not.toMatch(/>\s*Free\s*</);
+  });
+
+  it("carries no ungoverned launch-offer promise on any public page", () => {
+    // Founder decision 2026-07-29 (drift D-12): the "first month of Elite free"
+    // line was withdrawn because nothing backed it. The first-100 BBS Elite
+    // trial on /pricing is separately governed by elite_trial_cap_status() +
+    // decisions-log (truth audit / #119 era) — that specific offer is allowed.
+    // This test still blocks the ungoverned "free month" wording.
+    const UNGOVERNED = /first month[^.]{0,30}free|month of elite free|free month/i;
+    for (const path of [
+      "src/app/(public)/pricing/page.tsx",
+      "src/app/(public)/for-merchants/page.tsx",
+      "src/app/(public)/page.tsx",
+    ]) {
+      const withoutComments = read(path)
+        .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      expect(withoutComments, `${path} advertises an ungoverned free-month offer`).not.toMatch(
+        UNGOVERNED
+      );
+    }
+  });
+
+  it("never describes the Standard plan itself as free", () => {
+    // "stays free on Standard" was the last instance: Standard carries the
+    // KES 30 success fee, so no copy may call the plan free.
+    for (const path of PLAN_PAGES) {
+      expect(read(path), path).not.toMatch(/free on Standard|Standard[^.]{0,20}\bis free\b/i);
+    }
+  });
+
+  it("reads the launch credit from config instead of hardcoding the promise", () => {
+    // The Node 0 opening credit is gated live by activate_merchant on four
+    // app_config keys. The page used to hardcode the amount and the cap, so the
+    // promise outlived every one of those gates. Both promo blocks must now be
+    // conditional on the gate, and the numbers must come from it.
+    const src = read("src/app/(public)/for-merchants/page.tsx");
+    expect(src).toContain("getLaunchCreditOffer");
+    expect(src).not.toMatch(/const OPENING_CREDIT/);
+    expect(src).not.toMatch(/First 100 shops|KES 300/);
+    // Hero pill and the promo card — neither may render unconditionally.
+    expect(src.match(/offer\.live/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps the frozen numbers on the pricing page", () => {
+    const src = read("src/app/(public)/pricing/page.tsx");
+    expect(src).toContain("KES 30");
+    expect(src).toContain("KES 3,500");
+    // The success fee must stay visible next to the Standard plan, so "no
+    // monthly fee" can never read as "costs nothing".
+    expect(src).toMatch(/No monthly fee/);
+    expect(src).toMatch(/success fee per verified redemption/);
   });
 });

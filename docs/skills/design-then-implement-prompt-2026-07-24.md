@@ -1,5 +1,10 @@
 # Claude Design → Claude Code prompt (organize wireframes, then emit an implement prompt)
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 **Created:** 2026-07-24 · **Mode:** Builder · **Status:** durable handoff.
 An optimised, repo-grounded rewrite of a two-part Claude Design prompt: Part 1
 organizes/annotates the existing MAANTA wireframes (S1/S2/S3/M3/M4); Part 2 has

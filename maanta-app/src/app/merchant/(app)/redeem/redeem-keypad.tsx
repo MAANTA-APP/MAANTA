@@ -10,6 +10,7 @@ import { RedemptionResult } from "@/components/ui/redemption-result";
 import { WalletBalance } from "@/components/ui/wallet-balance";
 import { WalletHeader } from "@/components/ui/wallet-header";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
 import { cn, formatKes } from "@/lib/ui";
 import Link from "next/link";
 
@@ -207,14 +208,7 @@ export function RedeemKeypad({
   }
 
   if (!canVerify) {
-    return (
-      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <p className="text-sm font-semibold text-ink">
-          You don&apos;t have permission to verify codes.
-        </p>
-        <p className="mt-1 text-xs text-muted">Ask the shop owner to enable it in Staff.</p>
-      </main>
-    );
+    return <MerchantPermissionDenied action="verify codes" />;
   }
 
   // Verify-anyway (frozen rule, G1): a low or empty wallet NEVER blocks
@@ -367,6 +361,10 @@ export function RedeemKeypad({
   const checking = screen.kind === "checking";
   return (
     <main className="px-5 pt-4 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:px-8 lg:pt-8">
+      {/* The till screen leads with the keypad, not a title — so the h1 is
+          visually hidden. It gives the page a document outline for screen
+          readers and is the stable anchor for frames.json → M-redeem. */}
+      <h1 className="sr-only">Redeem a code</h1>
       {/* LEFT — keypad + code entry (the focus). Type does not shrink; boxes grow. */}
       <div className="mx-auto w-full max-w-[420px] lg:mx-0">
         {/* Persistent wallet balance + chevron. Phone-only: the tablet layout

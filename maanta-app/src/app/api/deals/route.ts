@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { parseCharges, type DealCharge } from "@/lib/pricing";
+import { dealLimitReachedMessage } from "@/lib/deal-limits";
 import {
   contentTypeForImage,
   detectImageType,
@@ -140,7 +141,10 @@ export async function POST(request: Request) {
       userMessage = "Flash deals are only available on the Elite plan.";
     } else if (message.includes("Deal limit reached")) {
       status = 409;
-      userMessage = message;
+      // Product copy, not the raw trigger text ("Deal limit reached. standard
+      // plan allows 1 active deal(s)."). Same sentence the wizard shows when it
+      // blocks up front, so the merchant never sees two phrasings of one rule.
+      userMessage = dealLimitReachedMessage(merchant.tier);
     } else if (message.includes("INSUFFICIENT_BALANCE_FOR_NEW_DEAL")) {
       status = 402;
       userMessage = "Your wallet balance is too low — top up before publishing a deal.";

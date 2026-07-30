@@ -1,5 +1,10 @@
 # Skills: frozen UI — overall handoff
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 Last updated: 2026-07-26 · Status: **repo-side seed — reconcile with the Notion
 original on next documentation session.** This repo copy inventories the UI as
 it exists in code; the Notion handoff holds the design intent and screenshots.
@@ -17,7 +22,7 @@ reachable from Browse. Merchant `lat`/`lng` added (migration
 
 Shared primitives in `src/components/ui/claude/` (`Page`, `Section`, typography,
 `LocationPill`, `FilterChip`, `DealCard`). Discover rails retitled Top picks /
-Neighbourhood favourites / Deals near me / Favourites; Browse map chrome + profile + landing
+Priority placements / Deals Near Me / Favourites (rail names settled by D-01, 2026-07-29); Browse map chrome + profile + landing
 hero restyled. DM Sans for UI; Frozen money/CTA/vocab rules unchanged. See
 `docs/skills/claude-design-system.md`.
 

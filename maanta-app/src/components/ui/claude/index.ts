@@ -21,7 +21,6 @@ export {
   LocationPill,
   SegmentedLinks,
   BackToYouLink,
-  BackToProfileLink,
 } from "@/components/ui/claude/controls";
 export { DealCard, DiscoverDealCard } from "@/components/ui/claude/deal-card";
 export type { DealRailBadge } from "@/components/ui/claude/deal-card";

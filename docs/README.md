@@ -51,12 +51,22 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
+| `ops/founder-parity-handoff-2026-07-30.md` | Elite trial vs D-12 free-month — what copy is allowed |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
 | `ops/nodes-nairobi-2026-07.md` | 3-node Nairobi rehearsal registry (BBS + CBD + Westlands) |
 | `ops/role-tasks-nairobi-150-2026-07.md` | Per-role UI verification for Nairobi 150 seed |
 | `ops/test-accounts-seed-2026-07.md` | `@maanta.app` test accounts for Supabase email OTP |
 | `ops/browse-filters-2026-07.md` | Browse filter chips behavior |
+
+## Design truth
+
+| File | Purpose |
+|---|---|
+| `design-truth-protocol.md` | **Start here for design/code questions.** Truth order, status labels, what to update when routes/labels/rules change, and the evidence rule |
+| `../maanta-app/design/current-reality/` | **Canonical** current-state screens, routes, roles and runtime rules (`frames.json`, CI-checked) |
+| `../maanta-app/design/README.md` | Index of all design artifacts and what each one is authoritative for |
+| `skills/design-sync-checklist.md` | PR checklist for changes that touch routes, labels, rules or permissions |
 
 ## Durable skills (for future sessions/contractors)
 
@@ -66,8 +76,10 @@ updated 2026-07-28 with comprehensive audit links.
 | `skills/tech-stack-100k.md` | Pointer to the ops deep dive (stack + path to ~100k users) |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
-| `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it |
+| `skills/frozen-ui-overall-handoff.md` | The frozen wireframe system and how the UI maps to it (design intent; current-state truth lives in `design/current-reality/`) |
 | `skills/launch-audit-2026-07-24.md` | Repo-vs-prod readiness audit (July 24) |
 | `skills/clerk-auth.md` | Clerk + Supabase third-party auth wiring |
 | `skills/prod-auth-deals-recovery.md` | Prod feed/deals empty diagnosis |
 | `skills/node0-seed-bbs-mall.md` | 100-deal BBS Mall seed apply/verify |
+| `skills/notification-prefs-canonical-2026-07-30.md` | Canonical prefs at `/you/notifications`; inbox is alerts-only |
+| `skills/repo-branch-audit-2026-07-30.md` | Branch audit + consolidation (pause-gate renumber, deletion list) |

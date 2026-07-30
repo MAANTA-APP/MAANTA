@@ -1,6 +1,6 @@
 -- ============================================================
 -- Test: claim_deal rejects paused deals (deal_paused).
--- Restored by 20260730160000_restore_claim_deal_pause_gate.sql after the
+-- Restored by 20260730180000_restore_claim_deal_pause_gate.sql after the
 -- security-hardening rewrite dropped the check.
 --   psql "$DATABASE_URL" -f supabase/tests/claim_deal_pause_gate_test.sql
 -- ============================================================

@@ -1,5 +1,10 @@
 # Claude Design wireframe-update prompt (post PRs #68/#70/#71)
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 **Created:** 2026-07-24 · **Author:** Claude (Builder mode) · **Status:** durable
 handoff. This file is the exact prompt to paste into **Claude Design** to bring
 MAANTA's wireframes into line with the product now on `main`. It is grounded in

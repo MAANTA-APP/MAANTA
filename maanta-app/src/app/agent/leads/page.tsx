@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { hasAgentConsoleAccess } from "@/lib/roles";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft } from "@/components/ui/icons";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function MyLeadsPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent/leads");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!hasAgentConsoleAccess(user)) redirect("/");
 
   const service = createServiceClient();
   const { data: agent } = await service

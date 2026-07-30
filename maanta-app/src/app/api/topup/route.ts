@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireMerchant } from "@/lib/merchant-api";
 import { currentClerkUserId } from "@/lib/auth";
-import { initiateMpesaStkPush } from "@/lib/intasend";
+import { initiateMpesaStkPush, isMpesaTopupConfigured } from "@/lib/intasend";
 import { isValidTopupAmount, MIN_TOPUP_AMOUNT, MAX_TOPUP_AMOUNT } from "@/lib/currency";
 import { isValidKenyanPhone } from "@/lib/phone";
 import { captureTopupInitiated } from "@/lib/analytics";
@@ -16,6 +16,22 @@ export async function POST(request: Request) {
   const auth = await requireMerchant("can_topup");
   if ("error" in auth) return auth.error;
   const { merchant, user: appUser } = auth.ctx;
+
+  // M-Pesa is a planned rail blocked on IntaSend credentials. Without keys the
+  // STK push can only fail — say so honestly (503, "not available yet") rather
+  // than returning a generic 502 "please try again" that implies a transient
+  // glitch and invites the merchant to retry a rail that does not exist here.
+  if (!isMpesaTopupConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          "M-Pesa top-up isn't available yet. Use the card option to top up your wallet.",
+        rail: "mpesa",
+        available: false,
+      },
+      { status: 503 }
+    );
+  }
 
   const { amount, phoneNumber } = await request.json();
   if (!isValidTopupAmount(amount) || typeof phoneNumber !== "string" || !phoneNumber) {

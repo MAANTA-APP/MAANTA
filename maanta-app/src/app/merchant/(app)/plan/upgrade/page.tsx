@@ -1,4 +1,7 @@
 import { getSuccessFee } from "@/lib/data";
+import { getMerchantContext } from "@/lib/merchant";
+import { canUseMerchantSurface } from "@/lib/merchant-nav";
+import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
 import { ButtonLink } from "@/components/ui/button";
 import { IconBolt, IconCheck } from "@/components/ui/icons";
 
@@ -10,6 +13,13 @@ export const dynamic = "force-dynamic";
  * "Grant trial" in 11f), so the CTA routes to support.
  */
 export default async function UpgradePage() {
+  const res = await getMerchantContext();
+  if (res.status !== "ok") return null; // layout guards
+  // Plan changes spend money on the shop's behalf — same gate as boosts.
+  if (!canUseMerchantSurface("plan", res.ctx.permissions)) {
+    return <MerchantPermissionDenied action="change the plan" />;
+  }
+
   const fee = await getSuccessFee();
   return (
     <main className="px-5 pt-6">

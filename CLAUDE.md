@@ -33,6 +33,7 @@ silently pick one.
 | `maanta-app/legal/` | DRAFT legal docs (not published, not lawyer-reviewed) |
 | `docs/` | Operating docs (see below) |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
+| `maanta-app/design/current-reality/` | **Canonical current-state design truth** (`frames.json`); see `docs/design-truth-protocol.md` |
 
 ## Commands
 
@@ -55,6 +56,8 @@ Run from `maanta-app/`:
 - `docs/maanta-launch-ops-runbook.md`
 - `docs/skills/payments-rails.md`
 - `docs/skills/redemption-disputes.md`
+- `docs/design-truth-protocol.md` — design/code truth order and update rules
+- `maanta-app/design/current-reality/frames.json` — canonical current-state frames
 - `docs/skills/frozen-ui-overall-handoff.md`
 - `docs/skills/prod-auth-deals-recovery.md`
 - `docs/skills/supabase-prod-email-auth.md`

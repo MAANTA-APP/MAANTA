@@ -1,5 +1,10 @@
 # Claude Design design-sync prompt — align artefacts to backend (2026-07-24)
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 **Created:** 2026-07-24 · **Mode:** Builder · **Status:** durable handoff.
 Paste the fenced block below into **Claude Design** to bring MAANTA's boards /
 wireframes / specs into line with the backend now on `main` (after

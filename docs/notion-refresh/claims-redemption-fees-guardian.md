@@ -1,5 +1,9 @@
 # Claims, Redemption, Fees, and Guardian
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Repo:** `docs/skills/payments-rails.md`, `docs/skills/redemption-disputes.md`, `docs/skills/fee-reversals.md`, `docs/maanta-guardian-v1.md`
 
@@ -35,12 +39,10 @@ Single page for the money-and-trust loop: claim, verify, KES 30 fee, arrears, di
 
 Runs after OTP match, before money finalise:
 
-| Recommendation | Effect |
-|---|---|
-| `clear` | Normal success + fee path |
-| `flag` | Success + fee; suspicious event logged (verify-anyway preserved) |
-| `soft_block` | Held (`flagged`); **no fee**; admin `admin_release_redemption` |
-| `hard_block` | Declined (`failed`); **no fee**; admin appeal path can approve→complete with fee or uphold |
+- **Recommendation:** `clear` · **Effect:** Normal success + fee path
+- **Recommendation:** `flag` · **Effect:** Success + fee; suspicious event logged (verify-anyway preserved)
+- **Recommendation:** `soft_block` · **Effect:** Held (`flagged`); **no fee**; admin `admin_release_redemption`
+- **Recommendation:** `hard_block` · **Effect:** Declined (`failed`); **no fee**; admin appeal path can approve→complete with fee or uphold
 
 Thresholds live in `app_config.guardian_thresholds` with fail-safe defaults. Scope: Node 0 redemption-time checks — **not** a global risk engine.
 

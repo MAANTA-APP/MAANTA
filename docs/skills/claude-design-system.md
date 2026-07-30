@@ -1,5 +1,10 @@
 # Skills: Claude-inspired shopper design system
 
+> **Design truth:** for *current-state* screens, routes and runtime rules the
+> canonical source is `maanta-app/design/current-reality/` (see
+> `docs/design-truth-protocol.md`). This document is a dated handoff — treat it
+> as provenance and design intent, not as current-state authority.
+
 Last updated: 2026-07-26 · Status: **shipped in code**.
 
 ## Intent
@@ -27,7 +32,7 @@ amber CTA + black label, closed vocabulary).
 
 ## Surfaces updated
 
-- `/feed` — LocationPill, dropdown sort/filter, rails: Top picks / Neighbourhood favourites / Deals near me / Your favourites. Map header → `/map`. Heart → saved shops (`/my-deals?tab=shops`).
+- `/feed` — LocationPill, dropdown sort/filter, rails: Flash deals / Priority placements / Deals Near Me / Your favourites (order frozen by R-FEED-ORDER; names settled by D-01). Map header → `/map`. Heart → saved shops (`/my-deals?tab=shops`).
 - `/map` — full-screen map between Browse and Deals in bottom nav (raised globe icon).
 - `/browse` — **list first** (“Deals around you” + search + sort/filter dropdowns + time FilterChips), map
   below with recenter; filters affect list + pins. Map links → `/map`. Header heart → saved shops.

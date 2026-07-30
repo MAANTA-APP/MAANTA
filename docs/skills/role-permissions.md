@@ -15,23 +15,26 @@ Provisioning: `ensureAppUser()` in `src/lib/auth.ts` creates new users as `custo
 | Role | DB value | Shopper UI | Merchant UI | Admin | Founder | Agent |
 |---|---|---|---|---|---|---|
 | Shopper | `customer` | ✅ | — | — | — | — |
-| Merchant owner | `merchant_admin` | ✅ (URL reachable) | ✅ | — | — | — |
+| Merchant owner | `merchant_admin` | ✅ (if also shops) | ✅ | — | — | — |
 | Merchant staff | `merchant_staff` | — | ✅ (scoped) | — | — | — |
-| Field agent | `agent` | — | — | — | — | ✅ |
-| Admin / founder / co-founder | `admin` | ✅ (URL) | — | ✅ | ✅ | ✅ |
+| Field agent | `agent` | — | — | partial | — | ✅ |
+| Admin / founder | `admin` | ✅ | — | ✅ | ✅ | ✅ |
 
-**Founder/co-founder:** Launch uses the `admin` role. The `/founder` dashboard is a read-focused executive view; destructive ops remain in `/admin/*`. A separate `founder` enum value is deferred until co-founder access needs to be narrower than full admin. Post-login bootstrap sends `admin` → `/admin` (Founder is linked from the admin sidebar).
+**Founder/co-founder:** Launch uses the `admin` role. The `/founder` dashboard is a read-focused executive view; destructive ops remain in `/admin/*`. A separate `founder` enum value is deferred until co-founder access needs to be narrower than full admin — the full audit of what founders inherit today, and the step-by-step extraction path, is in **`docs/skills/founder-role-split.md`**.
 
-## Merchant staff permissions
+## Role predicates (single source)
 
-| Flag | DB default | Owner | Page / API |
-|---|---|---|---|
-| `can_verify` | `true` | always | `/merchant/redeem`, verify/preflight/reject APIs |
-| `can_deals` | `false` | always | create/edit/archive/repost deal APIs + wizard |
-| `can_topup` | `false` | always | `/merchant/topup` page + STK/Stripe APIs; wallet CTA hidden when false |
-| `can_purchase` | `false` | always | boost create/move APIs |
+All guards resolve roles through **`src/lib/roles.ts`** — no guard open-codes a
+`role !== "admin"` comparison any more:
 
-Staff roster (`/merchant/staff`, `/api/staff`) is **owner-only**. Invite UI defaults match DB (verify-only).
+| Predicate | Roles today | Used by |
+|---|---|---|
+| `isOperator` (`OPERATOR_ROLES`) | `admin` | `/admin/*` pages + APIs |
+| `hasFounderAccess` (`FOUNDER_ROLES`) | `admin` | `/founder` |
+| `hasAgentConsoleAccess` (`AGENT_CONSOLE_ROLES`) | `agent`, `admin` | `/agent/*`, `/api/leads` |
+
+`FOUNDER_ROLES` and `OPERATOR_ROLES` hold the same value today but stay separate
+constants deliberately: narrowing founder access is a one-file change.
 
 ## Page guards
 
@@ -40,9 +43,28 @@ Staff roster (`/merchant/staff`, `/api/staff`) is **owner-only**. Invite UI defa
 | `requireAdminPage` / `requireAdminApi` | `src/lib/admin.ts` | `admin` |
 | `requireFounderPage` / `requireFounderApi` | `src/lib/founder.ts` | `admin` |
 | `getMerchantContext` | `src/lib/merchant.ts` | `merchant_admin`, `merchant_staff` |
-| `requireMerchant(permission)` | `src/lib/merchant-api.ts` | merchant ctx + staff flag |
-| `requireAgentPage` / `requireActiveAgentApi` | `src/lib/agent.ts` | `agent` or `admin` (+ active `agents` row for writes) |
+| Agent pages | `requireAgentPage` in `src/lib/agent.ts` (`agent/layout.tsx`) | `agent`, `admin` |
 | Claim gate | `currentUserHasVerifiedPhone()` | any signed-in user with verified phone |
+
+## Merchant staff permissions → UI
+
+`merchant_staff` rows carry four booleans (`can_verify`, `can_deals`,
+`can_topup`, `can_purchase`); owners implicitly hold all four
+(`OWNER_PERMISSIONS` in `src/lib/merchant.ts`). **`src/lib/merchant-nav.ts`** is
+the single mapping from those booleans to visible entry points:
+
+| Surface | Permission | Hidden when absent |
+|---|---|---|
+| Redeem tab | `can_verify` | bottom-nav tab, dashboard quick action |
+| Deals tab | `can_deals` | bottom-nav tab, "New deal" CTAs, dashboard quick action |
+| Wallet tab + top-up | `can_topup` | bottom-nav tab, "Top up wallet" CTA, top-bar wallet link, dashboard quick action |
+| Plan & billing | `can_purchase` | More row, Settings row, "Upgrade to Elite" CTA |
+| Staff roster | owner only | More row, Settings row |
+
+New invites default to **verify-only** in both the API (`/api/staff`) and the
+invite wizard. Hiding is for clarity only — `requireMerchant("can_*")` in
+`src/lib/merchant-api.ts` remains the authority on every write, and deep links
+into a gated surface render a permission notice rather than a dead-end form.
 
 ## RLS bridge
 
@@ -56,8 +78,7 @@ Self-role escalation is blocked by trigger `prevent_self_role_escalation` unless
 /founder          — executive dashboard (admin only)
 /admin/*          — ops console (admin only)
 /agent/*          — field leads (agent + admin)
-/merchant/(app)/* — merchant console (owner + staff)
-/(shopper)/*      — shopper surfaces (default customer)
+/merchant/(app)/* — merchant console
 ```
 
 ## Provisioning founders
@@ -66,4 +87,10 @@ Self-role escalation is blocked by trigger `prevent_self_role_escalation` unless
 UPDATE public.users SET role = 'admin' WHERE email = 'founder@example.com';
 ```
 
-Or use the rehearsal seed accounts documented in `/demo` and `docs/ops/test-accounts.md`.
+Or use the rehearsal seed accounts documented in `/demo` and `supabase/seed/node0_rehearsal_seed.sql`.
+
+## Update — 2026-07-29: archived-deals actions
+
+`/merchant/deals/archived` renders Repost / Delete only with `can_deals`. Both
+writes (`POST /api/deals/repost`, `DELETE /api/archive/[id]`) were already
+`requireMerchant("can_deals")`; the UI now agrees with them.

@@ -7,6 +7,13 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/components/ui/icons";
 import { PlanChip } from "@/components/ui/chips";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { MerchantPermissionDenied } from "@/components/merchant/permission-denied";
+import {
+  dealLimitLabel,
+  dealLimitReachedMessage,
+  type DealLimitState,
+} from "@/lib/deal-limits";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 
@@ -19,12 +26,16 @@ export function NewDealWizard({
   tier,
   fee,
   canDeals,
+  canPurchase,
   balance,
+  limitState,
 }: {
   tier: "standard" | "elite";
   fee: number;
   canDeals: boolean;
+  canPurchase: boolean;
   balance: number;
+  limitState: DealLimitState;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("type");
@@ -86,12 +97,45 @@ export function NewDealWizard({
   }
 
   if (!canDeals) {
+    return <MerchantPermissionDenied action="create deals" />;
+  }
+
+  // Plan deal limit (frozen rule, enforced by `enforce_deal_limit`). Blocking
+  // here is the point: the previous behaviour let a merchant complete every
+  // step and upload a cover, only to meet a raw trigger message at Publish.
+  if (limitState.atLimit) {
     return (
-      <main className="px-6 py-24 text-center">
-        <p className="text-sm font-semibold text-ink">
-          You don&apos;t have permission to create deals.
+      <main className="px-5 pt-6">
+        <div className="mb-6 flex items-center gap-3">
+          <Link href="/merchant/deals" aria-label="Back" className="p-1">
+            <IconArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="flex-1 text-center text-lg font-bold text-ink">New deal</h1>
+          <span className="w-7" />
+        </div>
+
+        <InlineAlert variant="warning" title="You're at your plan's deal limit.">
+          {dealLimitReachedMessage(tier)}
+        </InlineAlert>
+
+        <p className="mt-4 text-xs text-muted">
+          {dealLimitLabel(tier)} · {limitState.activeCount} active now. Deals free up
+          their slot when they end or you archive them.
         </p>
-        <p className="mt-1 text-xs text-muted">Ask the shop owner to enable it in Staff.</p>
+
+        <ButtonLink href="/merchant/deals" full className="mt-6">
+          Manage active deals
+        </ButtonLink>
+        {!isElite && canPurchase ? (
+          <ButtonLink
+            href="/merchant/plan/upgrade"
+            variant="ghost"
+            full
+            className="mt-3"
+          >
+            Upgrade to Elite — 2 active deals
+          </ButtonLink>
+        ) : null}
       </main>
     );
   }

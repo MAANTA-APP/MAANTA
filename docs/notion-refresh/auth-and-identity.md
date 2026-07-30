@@ -1,5 +1,9 @@
 # Auth and Identity
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Repo:** `docs/ops/auth-strategies.md`, `docs/skills/clerk-auth.md`, `docs/skills/supabase-prod-email-auth.md`, `docs/skills/prod-auth-deals-recovery.md`
 
@@ -9,10 +13,8 @@ State the **actual** auth model: dual strategy, role model, claim phone gate, an
 
 ## Current reality
 
-| Phase | `MAANTA_AUTH_STRATEGY` + `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` | Sign-in | Phone OTP |
-|---|---|---|---|
-| Dev / staging / rehearsal | `supabase` | Email OTP via Supabase Auth | Disabled (no Clerk SMS cost); claim phone gate relaxed |
-| Production launch target | `clerk` | Clerk email + phone | Enabled; claim requires verified phone (`/verify-phone`) |
+- **Phase:** Dev / staging / rehearsal · **`MAANTA_AUTH_STRATEGY` + `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY`:** `supabase` · **Sign-in:** Email OTP via Supabase Auth · **Phone OTP:** Disabled (no Clerk SMS cost); claim phone gate relaxed
+- **Phase:** Production launch target · **`MAANTA_AUTH_STRATEGY` + `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY`:** `clerk` · **Sign-in:** Clerk email + phone · **Phone OTP:** Enabled; claim requires verified phone (`/verify-phone`)
 
 Flip by env + redeploy. Implementation: `src/lib/auth/strategy.ts`.
 
