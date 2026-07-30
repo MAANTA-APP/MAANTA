@@ -1,0 +1,146 @@
+# Skills: the Node 0 opening credit is config-driven copy
+
+Date: 2026-07-30 · Session mode: **Builder** · Branch: `claude/maanta-role-hardening-62ut64`
+
+## What was wrong
+
+Closing drift D-12 established the rule: **a public offer must be backed by
+config or policy before it is advertised.** The Elite launch offer failed that
+test outright — nothing backed it — so it was withdrawn.
+
+The Node 0 opening credit is the opposite case, and that is what made it easy to
+miss. It *is* fully governed: an `app_config` key, a decisions-log entry, and a
+grant written inline in `activate_merchant`. **Only the copy was ungoverned.**
+
+`activate_merchant` grants the credit only when four gates pass
+(`20260716084804_node0_opening_credit_on_activation.sql`):
+
+| Gate | Key |
+|---|---|
+| A positive amount | `node0_opening_credit_kes` |
+| Inside the launch window | `node0_launch_period_ends_at` |
+| Under the merchant cap | `node0_opening_credit_merchant_cap` |
+| The merchant is at the launch node | `node0_launch_node` |
+
+`/for-merchants` hardcoded two of those values:
+
+```ts
+const OPENING_CREDIT = 300;
+const OPENING_CREDIT_CAP = 100;
+const CREDITED_REDEMPTIONS = Math.floor(OPENING_CREDIT / SUCCESS_FEE);
+```
+
+So the page kept promising **"First 100 shops start with KES 300 credit"** —
+
+- after ops retuned the amount or the cap (the gate is live; the copy was not);
+- after `node0_launch_period_ends_at` passed;
+- after the 100th merchant was credited; and
+- even with the promo switched off by setting the amount to 0, which the
+  migration explicitly documents as the kill switch.
+
+The previous comment in the file *named* this risk — *"pull it once the window
+closes or the cap fills, or a merchant reads a promise the product will not
+keep"* — and left it as a manual chore nobody was assigned. A merchant walking in
+on the promise of KES 300 and being activated with a zero balance is a trust
+failure at the worst possible moment.
+
+## What changed
+
+`src/lib/launch-credit.ts` is the single home for the rule, split the way
+`feed-sections.ts` and `topup-settlement.ts` are: a **pure** decision function
+plus a thin server read.
+
+```ts
+launchCreditOffer(config, creditedCount, now)
+  → { live: true, amountKes, merchantCap, launchNode, windowEndsAt }
+  | { live: false, reason: "disabled" | "window-closed" | "cap-filled" | "unavailable" }
+```
+
+It mirrors the SQL `IF` block condition for condition, including the boundary:
+the SQL is `NOW() < v_launch_end`, so the offer closes **at** the timestamp, not
+after it. `getLaunchCreditOffer()` reads the four keys in one query, counts
+credited merchants only when a cap exists, and hands both to the pure rule.
+
+The page is now an async server component that renders **from** the offer. Both
+promo blocks — the hero pill and the "your first N are on us" card — are behind
+`offer.live`, so they vanish together the moment the gate stops granting.
+
+### Fail closed, always
+
+Every uncertain path resolves to **showing nothing**:
+
+| Situation | Result |
+|---|---|
+| Config read errors | `unavailable` — no promo |
+| Cap set but uncountable | `unavailable` — a cap we can't measure is assumed full |
+| `node0_launch_period_ends_at` unparseable | `unavailable` — junk is not a licence to advertise forever |
+| Amount missing or junk | `disabled` — never falls back to the frozen 300 |
+| Service client unavailable (no env) | `unavailable`, and the page still renders |
+
+That last row matters: the read is wrapped so a config outage costs a marketing
+line, never the whole public page. The asymmetry is deliberate — **failing to
+show a real offer costs a conversion; showing a withdrawn one costs trust.**
+
+Two copy edge cases fall out of the same principle:
+
+- **Uncapped promo** (`merchantCap: null`) drops the "first N" claim — *"New
+  shops start with KES 300 credit"* — rather than inventing a cap.
+- **A credit too small to cover one redemption** (say KES 20 at a KES 30 fee)
+  keeps the card but drops the derived headline, because *"your first 0 are on
+  us"* is worse than saying nothing. `creditedRedemptions` floors, so a partial
+  redemption is never counted as one.
+
+The one gate the page **cannot** evaluate is `merchants.node = node0_launch_node`
+— a visitor has no merchant row yet. So the copy names the launch node from
+config (*"the first 100 shops we activate at BBS Mall"*) rather than implying
+every shop anywhere qualifies.
+
+### The success fee came along
+
+`SUCCESS_FEE = 30` was hardcoded on the same page, and
+`CREDITED_REDEMPTIONS = credit / fee` derives from it — so fixing the credit
+without the fee would still have produced a wrong number. The page now reads
+canonical `getSuccessFee()`, the same helper `/merchant/plan/success-fee` and the
+onboarding wizard use (`src/lib/data.ts:77` — *"never hardcode KES 30"*).
+
+**One hand-written number is left, deliberately:** the `KES 30` in the static
+`<head>` description. `metadata` is a static export, the fee is frozen and
+explicitly not under review, and turning it into an async `generateMetadata` for
+a number that cannot change would be ceremony. It is commented at the site with
+what to do if that ever stops being true.
+
+### Rendering cost
+
+Reading `app_config` means the page can no longer be prerendered, so it carries
+`export const dynamic = "force-dynamic"` — the repo's existing convention for
+config-reading pages. Build output confirms `ƒ /for-merchants`. ISR was the
+tempting alternative but it would need database access **at build time**, which
+CI does not have.
+
+## Guards
+
+- `src/lib/__tests__/launch-credit.test.ts` — 29 tests: the window boundary in
+  both directions, the cap boundary (99 live / 100 closed / 137 closed),
+  uncapped, disabled-by-zero, missing-amount, the launch-node COALESCE, a renamed
+  node, `creditedRedemptions` flooring, and every fail-closed path in the read.
+- `src/__tests__/cash-only-and-copy.test.ts` — a copy guard asserting the page
+  imports `getLaunchCreditOffer`, declares no `OPENING_CREDIT` constant, contains
+  no literal `First 100 shops` or `KES 300`, and gates **at least two** blocks on
+  `offer.live`.
+
+Both guard assertions were negative-tested by reintroducing the hardcode — the
+constant and the literal string each fail the test on their own, not just
+together.
+
+## Still open
+
+`OPENING_CREDIT_CAP` is gone from the page, but the **cap is still enforced by a
+global count** in SQL: `activate_merchant` counts every
+`node0_opening_credit:%` ledger row regardless of node. That is correct today
+(Node 0 is the only node) and becomes wrong the moment a second node runs its own
+launch promo. Not touched here — it is a migration-level concern, not copy.
+
+## Verification
+
+`npm run lint` · `npm run typecheck` clean · `npm test` **539 passing**
+(53 files) · `npm run build` green, `ƒ /for-merchants`.

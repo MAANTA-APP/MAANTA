@@ -152,6 +152,19 @@ describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
     }
   });
 
+  it("reads the launch credit from config instead of hardcoding the promise", () => {
+    // The Node 0 opening credit is gated live by activate_merchant on four
+    // app_config keys. The page used to hardcode the amount and the cap, so the
+    // promise outlived every one of those gates. Both promo blocks must now be
+    // conditional on the gate, and the numbers must come from it.
+    const src = read("src/app/(public)/for-merchants/page.tsx");
+    expect(src).toContain("getLaunchCreditOffer");
+    expect(src).not.toMatch(/const OPENING_CREDIT/);
+    expect(src).not.toMatch(/First 100 shops|KES 300/);
+    // Hero pill and the promo card — neither may render unconditionally.
+    expect(src.match(/offer\.live/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
   it("keeps the frozen numbers on the pricing page", () => {
     const src = read("src/app/(public)/pricing/page.tsx");
     expect(src).toContain("KES 30");

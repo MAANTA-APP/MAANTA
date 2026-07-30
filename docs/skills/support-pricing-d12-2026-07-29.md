@@ -125,11 +125,16 @@ future Elite launch offer needs both halves before it is re-advertised:
 
 Recorded in `docs/maanta-decisions-log.md` (2026-07-29, D-12).
 
-**A related weakness is still open and was not fixed here:** `OPENING_CREDIT =
-300` is hardcoded in `for-merchants/page.tsx:33` even though the server reads it
-from `app_config`. Same class of problem — public copy that no config can pull —
-but it is a live, governed promise with a decisions-log entry behind it, so it
-is a follow-up, not part of this row.
+**A related weakness was flagged here and closed the next day.** `OPENING_CREDIT
+= 300` was hardcoded in `for-merchants/page.tsx` even though the server reads it
+from `app_config` — the same class of problem, public copy that no config can
+pull. It differed from the withdrawn Elite offer in one respect that made it a
+follow-up rather than part of this row: it *is* a governed promise, with an
+`app_config` key and a decisions-log entry behind it. Only the copy was
+ungoverned. Fixed 2026-07-30 — the page now reads the same four keys the SQL
+grant reads and both promo blocks disappear when the gate stops granting. See
+`docs/skills/launch-credit-config-driven-2026-07-30.md` and the 2026-07-30
+decisions-log entry.
 
 ### Copy that was tightened on the way
 
