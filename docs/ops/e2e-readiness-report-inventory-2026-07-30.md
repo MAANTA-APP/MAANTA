@@ -51,7 +51,7 @@ Companion artifacts:
 |---|---|
 | Top-up UI led with M-Pesa STK while Phase 1 truth is Stripe | Stripe primary + STK only when IntaSend configured + honesty notice |
 | Inventory path drift (`/merchant/onboarding`, `/tickets` list) | Alias redirects to canonical routes |
-| Paused-deal claim footgun (UI said no claims; RPC allowed) | Migration `20260730160000` + API 409 mapping |
+| Paused-deal claim footgun (UI said no claims; RPC allowed) | Migration `20260730180000` + API 409 mapping |
 | Location-mismatch FAQ implied Reject-only | Support FAQ clarifies Confirm = verify-anyway + fee + dispute |
 
 ### B. Before pilot, not before first E2E
@@ -103,7 +103,7 @@ These are environment/ops, not product defects:
 
 1. Interactive Clerk needs real publishable **and** secret keys (placeholder → Invalid host).
 2. Playwright golden path needs `E2E_*` secrets against a **non-prod** deploy.
-3. Prod must apply migration `20260730160000` (and any earlier 07-30 files still pending).
+3. Prod must apply migration `20260730180000` (and any earlier 07-30 files still pending).
 
 The **product critical path is E2E-ready** once those env prerequisites are met.
 
@@ -120,4 +120,4 @@ cd maanta-app && npm run typecheck
 ```
 
 SQL: `supabase/tests/claim_deal_pause_gate_test.sql` — **PASS** on local
-`supabase start` after applying `20260730160000`.
+`supabase start` after applying `20260730180000`.

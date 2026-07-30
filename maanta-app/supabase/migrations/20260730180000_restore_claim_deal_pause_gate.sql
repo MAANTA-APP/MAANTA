@@ -1,8 +1,12 @@
--- Version note (repo branch audit 2026-07-30):
--- On main this file was 20260730160000, which collides with production's ledger
--- entry for correct_success_fee_config_notes (and with this branch's renumber of
--- that notes migration to 20260730160000). Renumbered to 20260730180000 so
--- supabase db push cannot silently skip it. Do not tidy this gap closed.
+-- Version note (repo-branch-audit consolidation 2026-07-30):
+-- Previously shipped in-repo as 20260730160000. Production's migration ledger
+-- already holds version 20260730160000 for the success-fee *notes* migration
+-- (repo file 20260730120000_correct_success_fee_config_notes.sql). Matching on
+-- version string alone made `supabase db push` silently skip the pause gate.
+-- Renumbered to 20260730180000 — past demo wipe (150000) and reserved slots:
+--   170000 = node_scoped_opening_credit_cap_reland (#143, when landed)
+--   180000 = this pause-gate restore
+-- Do not tidy this gap closed; closing it re-breaks the silent-skip fix.
 --
 -- E2E readiness: restore the paused-deal claim gate.
 --
