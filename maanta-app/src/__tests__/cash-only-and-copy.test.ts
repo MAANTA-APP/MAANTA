@@ -90,3 +90,43 @@ describe("key user-facing copy is locked", () => {
     expect(src).toContain("Code valid");
   });
 });
+
+/**
+ * R-PLAN-NAMES (frozen): plans are **Standard** and **Elite**, never "Free".
+ *
+ * Both public plan cards used to render the Standard plan's PRICE as "Free",
+ * which brushes the frozen rule and, worse, misstates the model — Standard
+ * carries the KES 30 success fee, which is the entire business. "No monthly fee"
+ * is accurate and is the phrasing the for-merchants bullet list already used.
+ *
+ * Contract: design/current-reality/frames.json → frame 12e, runtimeRule
+ * R-PLAN-NAMES.
+ */
+describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
+  const PLAN_PAGES = [
+    "src/app/(public)/pricing/page.tsx",
+    "src/app/(public)/for-merchants/page.tsx",
+  ];
+
+  it.each(PLAN_PAGES)("%s names both plans", (path) => {
+    const src = read(path);
+    expect(src).toContain("Standard");
+    expect(src).toContain("Elite");
+  });
+
+  it.each(PLAN_PAGES)("%s never prices a plan as 'Free'", (path) => {
+    const src = read(path);
+    // Matches a price/heading rendering of the bare word, e.g. `>Free<`.
+    expect(src).not.toMatch(/>\s*Free\s*</);
+  });
+
+  it("keeps the frozen numbers on the pricing page", () => {
+    const src = read("src/app/(public)/pricing/page.tsx");
+    expect(src).toContain("KES 30");
+    expect(src).toContain("KES 3,500");
+    // The success fee must stay visible next to the Standard plan, so "no
+    // monthly fee" can never read as "costs nothing".
+    expect(src).toMatch(/No monthly fee/);
+    expect(src).toMatch(/success fee per verified redemption/);
+  });
+});

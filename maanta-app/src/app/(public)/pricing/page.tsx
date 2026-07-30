@@ -9,7 +9,7 @@ export default function PricingPage() {
           <p className="mt-2 text-sm text-muted">
             1 standard deal · KES 30 success fee per verified redemption
           </p>
-          <p className="mt-6 text-3xl font-black text-ink">Free</p>
+          <p className="mt-6 text-3xl font-black text-ink">No monthly fee</p>
           <p className="mt-1 text-xs text-faint">pay only when a redemption is verified</p>
         </div>
         <div className="rounded-card border-[3px] border-ink bg-ink p-6">

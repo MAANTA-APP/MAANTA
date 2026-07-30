@@ -750,11 +750,11 @@
         "resolved"
       ],
       "stateCoverage": {
-        "covered": [],
-        "missing": [
+        "covered": [
           "open",
           "resolved"
-        ]
+        ],
+        "missing": []
       },
       "prototypeStatus": "current-not-clickable",
       "prototypeBlockedReason": "Desktop ops surface, intentionally outside the phone prototype.",
@@ -764,8 +764,12 @@
         "src/app/admin/support/page.tsx"
       ],
       "canvasRef": "11e,11o",
-      "smoke": false,
-      "captureReadinessReason": "Ops tooling with manual overrides."
+      "smoke": true,
+      "captureReadinessReason": "Ops tooling with manual overrides.",
+      "expectedHeading": "Open issues",
+      "requiredRole": "admin",
+      "authState": "role-session",
+      "notes": "Both states ship: `view` switches on ?view=resolved, each state has its own heading and empty state, and the override action renders only on open. Smoke asserts the default 'Open issues' heading (substring \u2014 the heading carries a live count). prototypeStatus stays current-not-clickable: it is a desktop ops surface deliberately outside the phone prototype, which is a scope decision, not a gap."
     },
     {
       "id": "12a",
@@ -816,12 +820,12 @@
         "comparison"
       ],
       "stateCoverage": {
-        "covered": [],
-        "missing": [
+        "covered": [
           "standard",
           "elite",
           "comparison"
-        ]
+        ],
+        "missing": []
       },
       "prototypeStatus": "current-not-clickable",
       "prototypeBlockedReason": "Launch-offer copy is unresolved; building it would bake in a number that may change.",
@@ -831,8 +835,12 @@
         "src/app/(public)/pricing/page.tsx"
       ],
       "canvasRef": "12e",
-      "smoke": false,
-      "captureReadinessReason": "Launch-offer copy is unresolved."
+      "smoke": true,
+      "captureReadinessReason": "The launch-offer line ('first month of Elite free') is shipped but commercially unconfirmed \u2014 see drift D-12. Everything else on the page is frozen and accurate.",
+      "expectedHeading": "Simple pricing",
+      "requiredRole": "public",
+      "authState": "anonymous",
+      "notes": "All three states ship as two side-by-side plan cards (the comparison). R-PLAN-NAMES was being violated: both this page and /for-merchants priced Standard as 'Free', which also misstated the model because Standard carries the KES 30 success fee. Both now read 'No monthly fee', locked by src/__tests__/cash-only-and-copy.test.ts. The launch-offer line is untouched pending a founder call."
     }
   ],
   "superseded": [
@@ -956,11 +964,11 @@
     },
     {
       "id": "D-12",
-      "classification": "blocked-on-prototype",
-      "blockedOn": "prototype",
-      "what": "Two current surfaces remain documentation-only",
-      "detail": "Admin support (11e) and public pricing (12e) are current but intentionally not clickable: 11e is a desktop ops surface outside the phone prototype, 12e is blocked on unresolved launch-offer copy.",
-      "where": "11e, 12e"
+      "classification": "current-mismatch",
+      "blockedOn": "product-decision",
+      "what": "NARROWED 2026-07-29 \u2014 the launch-offer line is shipped but commercially unconfirmed",
+      "detail": "Originally bundled two surfaces with two different blockers. The 11e half is SETTLED and was never drift: admin support is a desktop ops surface deliberately outside the phone prototype, and its two states both ship. The 12e half is a REAL open question, and the opposite of what the row said: the mirror recorded the launch-offer copy as unresolved and therefore unbuilt, but '/pricing' already ships the line 'Launch offer: first month of Elite free' to the public. Whether MAANTA makes that offer is a commercial decision, so it was left in place rather than deleted \u2014 removing a live offer is as consequential as keeping it. Needs a founder call: confirm the offer, change it, or remove it. Separately fixed while here: both plan cards priced Standard as 'Free', violating R-PLAN-NAMES and misstating the model.",
+      "where": "12e, src/app/(public)/pricing/page.tsx:24-26"
     }
   ],
   "landedInRepo": {
@@ -1114,6 +1122,27 @@
         "was": "{\"stateCoverage\": {\"covered\": [\"amount\", \"pending\"], \"missing\": [\"card-checkout\", \"credited\"]}, \"smoke\": false, \"notes\": \"Not smoke-eligible until the payment provider order is resolved; asserting an anchor now would lock in the wrong primary method.\", \"captureReadinessReason\": \"Payment provider order unresolved (D-06).\", \"sourceFiles\": [\"src/app/merchant/(app)/topup/page.tsx\"]}",
         "now": "all four states covered; smoke:true on the stable heading 'Top up'",
         "evidence": "the confirming screen polls both rails (topup-flow.tsx) and credited shows the observed delta; src/lib/__tests__/topup-settlement.test.ts"
+      },
+      {
+        "frame": "11e",
+        "field": "stateCoverage/smoke",
+        "was": "{\"stateCoverage\": {\"covered\": [], \"missing\": [\"open\", \"resolved\"]}, \"smoke\": false}",
+        "now": "both states covered; smoke:true on 'Open issues'",
+        "evidence": "src/app/admin/support/page.tsx:17 view switch, :28-29 per-state heading, :50 per-state empty state, :71 override on open only"
+      },
+      {
+        "frame": "12e",
+        "field": "stateCoverage/smoke/notes",
+        "was": "{\"stateCoverage\": {\"covered\": [], \"missing\": [\"standard\", \"elite\", \"comparison\"]}, \"smoke\": false, \"captureReadinessReason\": \"Launch-offer copy is unresolved.\"}",
+        "now": "all three states covered; smoke:true on 'Simple pricing'; R-PLAN-NAMES violation fixed",
+        "evidence": "src/app/(public)/pricing/page.tsx:8,16 plan cards in a 2-col grid; 'Free' -> 'No monthly fee' at :12 and for-merchants:203"
+      },
+      {
+        "frame": "D-12",
+        "field": "classification/blockedOn",
+        "was": "blocked-on-prototype / blocked on prototype",
+        "now": "current-mismatch / product-decision \u2014 narrowed to the 12e launch offer, NOT closed",
+        "evidence": "src/app/(public)/pricing/page.tsx:24-26 ships the launch-offer line; the 11e half is a settled scope decision"
       }
     ]
   }
