@@ -8,10 +8,21 @@ redeem → audit — and in what order do I clear it?
 Not a roadmap. Anything that does not block starting E2E is listed at the bottom
 under **Not required for E2E** and should be ignored until the run is done.
 
-**The headline:** E2E is gated on a **deploy**, not a `db push`. Migrations
-`20260730120000`–`160000` are already applied to production (verified against
-`supabase_migrations.schema_migrations`, not inferred from the repo). Any runbook
-telling you to `db push` before pilot day is stale.
+**The headline — CHANGED 2026-07-30 (afternoon).** This board originally said E2E
+was gated on a deploy, not a `db push`. That was true when written and is **no
+longer true**: `main` has since taken #113, #119, #120, #130, #141, #144, #145 and
+#146, and two migrations are now genuinely pending.
+
+**E2E now needs a deploy AND one `db push`.**
+
+| Pending version | What it does | E2E-relevant? |
+|---|---|---|
+| `20260730160000` | Success-fee notes (metadata) | No — production already recorded this version, so `db push` skips it |
+| `20260730170000` | Per-node opening-credit count (F2) | No — 0 credits granted, one node. Matters at Node 1 |
+| `20260730180000` | Restores the paused-deal claim gate | **Yes.** `claim_deal` stopped raising `deal_paused`, so a paused deal still accepts claims while the merchant UI says "No new claims while paused" — a shopper-facing bug squarely in the E2E claim path |
+
+Everything `20260730120000`–`150000` remains applied to production (verified
+against `supabase_migrations.schema_migrations`, not inferred from the repo).
 
 Forensic detail behind the F1/F2/F3 findings referenced below lives in
 `docs/skills/pilot-sequencing-2026-07-30.md`.
@@ -24,16 +35,17 @@ Forensic detail behind the F1/F2/F3 findings referenced below lives in
 |---|---|---:|---|---|
 | Claude | Code | No | ~~F1: renumber `20260730120000_correct_success_fee_config_notes.sql` → `20260730160000_…`~~ **done** | `git log` shows the rename; repo version now matches the version production recorded |
 | Claude | Code | No | ~~F2: re-land the per-node opening-credit count as `20260730170000_node_scoped_opening_credit_cap_reland.sql`, above `130000`~~ **done, unmerged** | File exists on `claude/maanta-pilot-sequencing-uz6ac1`; `node0_opening_credit_test.sql` scenarios E + F added |
-| Founder | Ops | **Yes** | Merge **#141** — the only open PR that matters for E2E. Adds the Elite cap panel, the pending-merchant cap line, and the approve skip notice | PR shows merged; CI green |
+| Founder | Ops | **Yes** | ~~Merge **#141**~~ **done** — merged, along with #113, #119, #120, #130, #144, #145, #146. Adds the Elite cap panel, the pending-merchant cap line, and the approve skip notice | PR shows merged; CI green |
 | Founder | Ops | **Yes** | Confirm Vercel built and promoted the merge commit to Production | Vercel deployment for that exact SHA is `Ready` and aliased to `www.maanta.app` |
 | Founder | Config | No | Confirm `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` are set on Vercel Production | Sentry shows an event from production |
 | Founder | Config | No | Confirm `POSTHOG_PROJECT_KEY` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are set | PostHog live events view shows a pageview |
 | Claude | Code | No | ~~Correct the stale caveats in `docs/ops/demo-mode.md`~~ **done** — it claimed `20260729170000`/`180000` were unapplied and the app code unmerged; both are wrong | Doc now describes applied state, and keeps the `main` ≠ production distinction |
-| Founder | Code | No | Correct §2 of `docs/ops/live-pilot-day-one-prep-2026-07-30.md` — it lists these migrations as still needing `db push`. **Lives on #141, not `main`**, so it must be fixed on that branch or as a follow-up once #141 merges | Runbook no longer instructs a `db push` that would hit F1 |
+| Claude | Code | No | ~~Correct §2 of `docs/ops/live-pilot-day-one-prep-2026-07-30.md`~~ **done** — #141 merged, so the file reached `main` and is fixed here. It listed `20260730120000` as the notes migration and told operators to push four already-applied versions | Runbook now names the two genuinely pending migrations and no longer walks into F1 |
 | Founder | Ops | No | Merge **#137** (drift register) so F1/F2 have a durable home | Register lists both findings |
 
-**Do not do in this phase:** any `db push`, any `migration repair`, any config
-flip, any seed against production.
+**Do not do in this phase:** any `migration repair`, any config flip, any seed
+against production. The one `db push` that *is* now required is sequenced below,
+after this branch merges — not here.
 
 ---
 
@@ -44,6 +56,7 @@ travelling to the mall.
 
 | Owner | Type | Blocking? | Action | Proof / outcome |
 |---|---|---:|---|---|
+| Founder | DB | **Yes** | **Merge this PR (#143), then `db push`.** From `maanta-app/`: `make db-list` → `make db-push-dry` → `make db-push`. Applies `20260730170000` and `20260730180000`; `20260730160000` is skipped as already recorded | `make db-list` shows local == remote. Then confirm the gate is live: pause a deal and attempt a claim — it must fail with `deal_paused` |
 | Founder | Ops | **Yes** | **Which commit is production actually serving?** Compare the Vercel Production deployment SHA against `origin/main` tip | The two match. If production is behind, nothing else on this board is trustworthy |
 | Founder | Ops | **Yes** | **Is #141 merged AND deployed?** Merged is not deployed — check both | `/admin/billing` renders the "Elite trial launch offer" panel on `www.maanta.app`, not just locally |
 | Founder | Config | **Yes** | **Vercel Production env vars correct.** Read back the non-secret ones: `NEXT_PUBLIC_SUPABASE_URL` → the `axrrslqssmbngbataejg` project, `NEXT_PUBLIC_APP_URL` → `https://www.maanta.app`, and `MAANTA_AUTH_STRATEGY` **equal to** `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` | Values match in the Vercel dashboard. `NEXT_PUBLIC_*` is baked into the bundle — if you change one, redeploy before proceeding |
@@ -58,7 +71,8 @@ travelling to the mall.
 
 ### Explicitly NOT required before E2E
 
-- No `supabase db push`. Everything the run needs is applied.
+- ~~No `supabase db push`.~~ **Superseded** — see the headline. `20260730180000`
+  (paused-deal claim gate) is E2E-relevant and must be pushed first.
 - The F2 re-land (`20260730170000`) does **not** need to be merged or pushed
   first. Zero opening credits have been granted and only one node exists, so the
   global-vs-per-node count is indistinguishable today. The pilot merchant gets
@@ -101,7 +115,7 @@ travelling to the mall.
 | Owner | Type | Blocking? | Action | Proof / outcome |
 |---|---|---:|---|---|
 | Founder | Ops | No | Merge this branch, then merge **#131** (rebase first — 32 behind) | `20260730170000` reaches `main`. Note #131 needs **no renumber** — the F1 rename freed `20260730120000` |
-| Founder | DB | No | `make db-list`, then `make db-push-dry`, then `make db-push` | Only `20260730170000` pending. After push, `make db-list` shows local == remote |
+| Founder | DB | No | `make db-list`, then `make db-push-dry`, then `make db-push` | `20260730170000` and `20260730180000` apply; `20260730160000` is skipped as already recorded. After push, `make db-list` shows local == remote |
 | Founder | DB | No | Verify the F2 fix actually took: read the live `activate_merchant` body | The credit count `JOIN`s `merchants` and filters `m.node = v_launch_node`. If it does not, `130000` clobbered it again |
 | Cursor/Claude | Code | No | Renumber **#108**'s `20260727010000_cofounder_role.sql` and **#94**'s `20260726190000_avatars_storage_and_columns.sql` above `20260730170000` | Both sort after every applied version; `db push --dry-run` shows them as the only pending items |
 | Founder | Ops | No | Decide the auth strategy from what the pilot phones actually did, then land exactly one of **#119 / #117 / #108** | One settled login path before recruiting merchant #2 |
