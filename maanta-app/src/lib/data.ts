@@ -8,6 +8,12 @@ import {
 } from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import {
+  lockedBoostedOrder,
+  lockedFlashOrder,
+  lockedStandardOrder,
+} from "@/lib/deal-list-controls";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 
@@ -82,7 +88,7 @@ export async function getSuccessFee(): Promise<number> {
     .eq("key", "success_fee_kes")
     .maybeSingle();
   const n = data ? parseFloat(data.value) : NaN;
-  return isNaN(n) ? 30 : n;
+  return isNaN(n) ? SUCCESS_FEE_KES : n;
 }
 
 /** Boost price from app_config, falling back to the wireframe default KES 500 / 24h. */
@@ -295,7 +301,55 @@ async function selectLiveDealBucket(
   });
 }
 
-/** Live deals for the shopper feed, ranked by verified redemptions within groups. */
+/**
+ * `starts_at` of the active boost on each of the given deals, for the locked
+ * "most recently boosted first" order.
+ *
+ * A separate query rather than an embedded select on purpose: `boost_flags` is a
+ * one-to-many from `deals`, so embedding it would change the shape of every
+ * `DealRow` and of the lat/lng-less fallback select too, for a field only the
+ * boosted rail needs. The bucket is capped at LIVE_DEAL_BOOSTED_LIMIT, so this
+ * is one small indexed read (`idx_boost_deal`).
+ *
+ * A failure here degrades rather than breaks: an empty map means the boosted
+ * rail falls back to newest-first instead of the feed erroring. Losing the exact
+ * order of a paid rail for one render is recoverable; a blank feed is not.
+ */
+async function getBoostStartTimes(dealIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (dealIds.length === 0) return map;
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("boost_flags")
+    .select("deal_id, starts_at")
+    .eq("is_active", true)
+    .in("deal_id", dealIds);
+  if (error) {
+    console.error("boost start times unavailable, boosted rail falls back:", error);
+    return map;
+  }
+  for (const row of (data ?? []) as { deal_id: string; starts_at: string }[]) {
+    // Keep the most recent flag per deal if a deal somehow carries two.
+    const seen = map.get(row.deal_id);
+    if (!seen || new Date(row.starts_at) > new Date(seen)) {
+      map.set(row.deal_id, row.starts_at);
+    }
+  }
+  return map;
+}
+
+/**
+ * Live deals for the shopper feed, in the locked feed order.
+ *
+ * The three rails are ordered HERE, not in the page, because the locked order is
+ * a property of the feed structure rather than of one render: it is decided once,
+ * server-side, and lands in the 30s cache already ordered. The page re-sorts only
+ * when the shopper explicitly picks a different sort.
+ *
+ * Note the ordering must happen before the `unstable_cache` boundary anyway —
+ * cached values are serialized, so the `Map`s the locked orders depend on do not
+ * survive the trip to the caller.
+ */
 async function getLiveDealsUncached(
   node: string,
   includeDemo: boolean
@@ -320,14 +374,20 @@ async function getLiveDealsUncached(
     ...boosted.map((d) => d.merchant_id),
     ...standard.map((d) => d.merchant_id),
   ];
-  const verifiedByMerchant = await getVerifiedCounts(merchantIds);
+  const [verifiedByMerchant, boostStartedAt] = await Promise.all([
+    getVerifiedCounts(merchantIds),
+    getBoostStartTimes(boosted.map((d) => d.id)),
+  ]);
 
-  const nearMe = [...standard].sort(
-    (a, b) =>
-      (verifiedByMerchant.get(b.merchant_id) ?? 0) -
-      (verifiedByMerchant.get(a.merchant_id) ?? 0)
-  );
-  return { flash, boosted, nearMe, verifiedByMerchant };
+  // The frozen feed structure (Notion "Frozen Scope & Rules"): flash by soonest
+  // expiry, boosted by most recently boosted, standard by all-time verified
+  // redemptions descending.
+  return {
+    flash: lockedFlashOrder(flash),
+    boosted: lockedBoostedOrder(boosted, boostStartedAt),
+    nearMe: lockedStandardOrder(standard, verifiedByMerchant),
+    verifiedByMerchant,
+  };
 }
 
 /** Short-lived cache for hot Feed/Browse reads (30s per node). */
