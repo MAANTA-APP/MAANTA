@@ -4,7 +4,10 @@
 **Do not** run production-only writes from Cursor agents — this note is the
 checklist a human executes.
 
-Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.
+Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.  
+Go / no-go + PR landing order: `docs/ops/node0-pilot-readiness-2026-07-30.md`
+(merge **#148** first, then **#137 / #143 / #94 / #131**, then human `db push`
+for `170000` / `180000`).
 
 ---
 

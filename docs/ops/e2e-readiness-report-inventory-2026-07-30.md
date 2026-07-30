@@ -107,6 +107,8 @@ These are environment/ops, not product defects:
 
 The **product critical path is E2E-ready** once those env prerequisites are met.
 
+Operator go / no-go: `docs/ops/node0-pilot-readiness-2026-07-30.md`.
+
 ---
 
 ## 5. Verification of this branch
