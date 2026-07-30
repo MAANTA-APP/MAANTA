@@ -115,7 +115,7 @@ describe("reportCriticalEnv", () => {
 
 describe("warnMissingCriticalEnv", () => {
   it("warns once when critical env is missing", () => {
-    process.env.NODE_ENV = "development";
+    vi.stubEnv("NODE_ENV", "development");
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     warnMissingCriticalEnv("supabase");
