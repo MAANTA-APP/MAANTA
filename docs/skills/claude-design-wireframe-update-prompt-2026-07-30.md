@@ -11,6 +11,12 @@ a set of evidence corrections, **the repo won every disagreement** — the code 
 right and the frames described something else. All 12 drift rows are now closed
 on the repo side; the canvas has not been redrawn to match.
 
+One item below (**12d For merchants**) is not a drift row. It came out of applying
+D-12's governance rule to the one live promise that was still hardcoded, and it
+landed as a code change plus a production migration on 2026-07-30. It is in this
+prompt because the *design* consequence is real: a promise that used to be
+permanent page furniture is now a conditional block with states to draw.
+
 Everything below is a *design-side* change. No code change is requested, and none
 should be implied. Copy the prompt between the rules verbatim.
 
@@ -55,6 +61,71 @@ governed launch offer exists.**
 - `captureReadiness` → `safe-now`; drop the `captureReadinessReason`.
   `prototypeStatus` stays `current-not-clickable` — it is simply not in the phone
   prototype, which is a scope decision, not a blocker.
+
+### 12d For merchants — the launch credit is a conditional block, per node
+
+**Read this immediately after 12e, because the two are easy to confuse and the
+mistake is expensive in both directions.** Two different launch promises were
+audited. One was withdrawn; the other stays. The difference is governance, not
+generosity:
+
+| | Elite launch offer (12e) | Node 0 opening credit (12d) |
+|---|---|---|
+| Backed by config? | No | Yes — `node0_opening_credit_kes` |
+| In the decisions log? | No | Yes (2026-07-16) |
+| Granted by code? | Nothing granted it | `activate_merchant`, at activation |
+| Outcome | **Withdrawn — do not draw** | **Stays — but conditional** |
+
+So do **not** delete the KES 300 opening credit while removing the Elite offer.
+And do not draw the opening credit as permanent furniture either, which is what
+the page used to do.
+
+**What changed in the code (2026-07-30):** `/for-merchants` hardcoded the amount
+(300) and the cap (100), so it kept advertising the credit after ops retuned
+either number, after the launch window closed, after the cap filled, and even
+with the promo switched off. Both promo blocks — the hero pill and the "your
+first N are on us" card — now render **only** when the grant would actually
+happen, and every number comes from the same `app_config` keys the grant reads.
+
+**States the frame needs.** This is the substance of the change for design:
+
+1. **Promo live** — hero pill *"First 100 shops start with KES 300 credit"* plus
+   the card *"Your first 10 are on us."* The 10 is **derived** (credit ÷ success
+   fee), not typed.
+2. **Promo absent** — both blocks gone, the rest of the page unchanged. This is a
+   real, reachable state with four causes: the window closed, the cap filled, ops
+   set the amount to 0, or the config could not be read. **The page must not look
+   broken or empty without them** — that is the state to design for, and the one
+   the old wireframe never had.
+3. **Uncapped variant** — when no cap is configured the copy drops the "first N"
+   claim entirely (*"New shops start with KES 300 credit"*) rather than inventing
+   a number.
+4. **Credit smaller than one redemption** — the card keeps its body but drops the
+   derived headline, because *"your first 0 are on us"* is worse than saying
+   nothing.
+
+**The node is a variable, not a label.** The cap is enforced **per node** as of
+migration `20260730120000`: each node gets its own first-N allowance, so the
+promo can be live at CBD Galleria after BBS Mall has filled. The promo copy
+therefore names the launch node **from config** — *"the first 100 shops we
+activate at {launch node}"* — and must not hardcode BBS Mall. Note the contrast:
+the hero and closing sections legitimately say "BBS Mall, Eastleigh" because
+those state Node 0's identity, which is a frozen decision. Only the **promo**
+sentence is node-variable.
+
+Two limits to draw honestly rather than around:
+
+- **One node at a time.** `node0_launch_node` is a single value, so exactly one
+  node's promo is live at any moment. Do not draw a multi-node promo comparison.
+- **The credit lands at activation, not signup.** The existing "Credit is added
+  when we activate your shop" line is correct and load-bearing — keep it.
+
+**Contract note:** `frames.json` currently has no `12d` row (the 21 frames do not
+include it), though the repo page is commented as frame 12d. If the canvas
+carries the screen, add a proper row for it with the states above rather than
+leaving the repo's most promise-heavy public page outside the contract. If the
+canvas deliberately excludes it, say so explicitly in the changelog — either
+answer is fine, silence is not.
 
 ### 8f Deal feed — the third rail is "Deals Near Me" (founder decision, closes D-01)
 
@@ -179,6 +250,13 @@ Update both fields.
   current-reality frame. If you believe something *should* change in the product,
   file it as a **new** drift row with `blockedOn` set — do not draw it as current.
 - **Do not draw M-Pesa as the primary rail today.** Draw the capability rule.
+- **Never draw a config-gated promise as unconditional.** This is the general form
+  of both the 13i rail order and the 12d launch credit: where the product reads a
+  live value to decide whether something happens, the frame must show the
+  **absent** state as well as the present one, and must show the value as a
+  variable rather than baking today's number into the copy. A number drawn as
+  permanent furniture is how a page ends up advertising a promise the product has
+  stopped keeping.
 - **Do not reopen the four founder rulings** (D-07, D-01, D-06, D-12). If new
   evidence genuinely contradicts one, say so explicitly and stop — do not redraw
   around it.
@@ -209,6 +287,8 @@ Update both fields.
    refreshed.
 3. A short changelog: **frame → what changed → which ruling or evidence drove
    it.** One line each. This is what the next code session diffs against.
+4. For 12d specifically: an explicit answer on whether the canvas carries the
+   screen, and therefore whether the contract gains a `12d` row.
 
 ---
 
@@ -216,6 +296,7 @@ Update both fields.
 
 - Contract: `maanta-app/design/current-reality/{frames.json, frames.schema.json, README.md}`
 - Protocol and update rules: `docs/design-truth-protocol.md`
-- Rulings: `docs/maanta-decisions-log.md` (2026-07-29 entries for D-07, D-01, D-06, D-12)
+- Rulings: `docs/maanta-decisions-log.md` (2026-07-29 entries for D-07, D-01, D-06, D-12; 2026-07-30 entries for the config-driven launch credit and its per-node cap)
 - Per-row session notes: `docs/skills/{design-truth-contract-landing,feed-deals-near-me,topup-rails-d06,support-pricing-d12}-2026-07-29.md`
-- Enforcement: `src/lib/design-truth/design-truth.contract.test.ts` (Layer 1, 130 assertions, every PR) · `e2e/design-truth-smoke.spec.ts` (Layer 2, seeded non-prod env)
+- 12d launch credit: `docs/skills/launch-credit-config-driven-2026-07-30.md` · the rule lives in `src/lib/launch-credit.ts` · the grant is `activate_merchant`, per-node cap since migration `20260730120000_node_scoped_opening_credit_cap.sql` (applied to prod 2026-07-30)
+- Enforcement: `src/lib/design-truth/design-truth.contract.test.ts` (Layer 1, 130 assertions, every PR) · `e2e/design-truth-smoke.spec.ts` (Layer 2, seeded non-prod env) · `src/__tests__/cash-only-and-copy.test.ts` (public copy governance: plan names, no ungoverned offers, no hardcoded launch-credit numbers)
