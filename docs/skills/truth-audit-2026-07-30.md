@@ -328,11 +328,17 @@ fail when the thing they guard is removed.
     trial was granted before the cap existed — which is correct, but it is a
     number the founder should see rather than discover when the offer runs out
     early.
-- **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
-  (correct for rehearsal; its own notes say "must be false at launch"). The
-  paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from
-  the DB switch — remains unverified from this environment, as already flagged in
-  `docs/ops/optruth-demo-release-2026-07-29.md`.
+- **FU-3.** Now tracked as register rows **D14** and **D17**–**D20**, which is
+  where the live state belongs. `app_config.demo_mode_enabled` is still `true` on
+  production (D14 — correct for rehearsal, must be `false` at launch).
+  `MAANTA_DEMO_MODE` was **verified and closed** on 2026-07-30 from the event
+  stream, not from the property schema (D17). Proving it surfaced three further
+  gaps: the two switches can be flipped independently and `make demo-off` touches
+  only one, so turning demo off while the env var stays `true` tags **real** events
+  as demo (D18); Preview has no `MAANTA_DEMO_MODE`, so preview traffic is
+  indistinguishable from production in PostHog (D19); and every server-side capture
+  was silently dropping events until `waitUntil` was added, which means any
+  server-side funnel over older data is a floor rather than a measurement (D20).
 - **FU-4.** `/pricing` hardcodes KES 3,500 with no `app_config` key behind it
   (unlike the success fee and boost fee). If the Feb 2027 review changes the
   price, the UI is the only place to edit. Consider an `elite_subscription_kes`
