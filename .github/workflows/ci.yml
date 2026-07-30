@@ -46,10 +46,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder
           STRIPE_SECRET_KEY: sk_test_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_placeholder
-          # Clerk wraps every page via <ClerkProvider>, which needs a
-          # well-formed publishable key even to prerender the marketing pages.
-          # This dummy decodes to "placeholder.clerk.accounts.dev$" — no real
-          # instance is contacted at build time.
+          # Default auth strategy is supabase; Clerk keys only needed for clerk launch builds.
+          MAANTA_AUTH_STRATEGY: supabase
+          NEXT_PUBLIC_MAANTA_AUTH_STRATEGY: supabase
+          # Clerk wraps pages when strategy=clerk; placeholder key for prerender safety.
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_cGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
           CLERK_SECRET_KEY: sk_test_placeholder
 

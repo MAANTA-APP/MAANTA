@@ -305,7 +305,8 @@ wrong, not just the magnitude.
   reseed keeps moving them. Prefer the queries in
   `docs/ops/demo-mode-review-checklist.md` over any written number.
 - ~~**Audit-trail retention on wipe**~~ (from PR #128 review). **Founder decision
-  2026-07-30: Option C (retention-aware); fixed in migration `20260730150000`.**
+  2026-07-30: Option C (retention-aware); fixed in migration `20260730150000`
+  (merged via #140).**
   `guardian_events`, `fraud_events` and `admin_ops_log` were deleted when the *actor*
   was a demo user, even where the action targeted a real merchant — so a demo shopper
   at a real counter, or a demo admin acting on a real merchant, cost that real
@@ -333,9 +334,10 @@ wrong, not just the magnitude.
 
   Consequence to expect: the wipe now **retains more demo users than before**. That is
   the point, and the `users RETAINED (still referenced)` line is what keeps it honest —
-  "wipe" has never meant "every synthetic row is gone".
+  "wipe" has never meant "every synthetic row is gone". **Still needs `db push` on
+  production** before relying on wipe around real pilot data.
 - ~~**`handle_trial_expiry()` NULL trap**~~ **Fixed 2026-07-30** — migration
-  `20260730140000`. The earlier description here was too broad: a missing
+  `20260730140000` (merged via #139). The earlier description here was too broad: a missing
   `app_config.node0_launch_period_ends_at` made `NOW() <= NULL` evaluate to NULL,
   which killed the grace-period/agent-task phase and the post-launch immediate
   downgrade, but **not** the grace-expiry downgrade, whose condition never reads the
@@ -348,5 +350,9 @@ wrong, not just the magnitude.
   all**, breaching the frozen trial rule on an operator slip. Raises a WARNING so
   the cause is visible in the cron log instead of silent. New suite
   `supabase/tests/trial_expiry_launch_sentinel_test.sql` (4 scenarios); scenario C
-  was confirmed to fail against the pre-fix function.
+  was confirmed to fail against the pre-fix function. **Still needs `db push` on
+  production.**
+- **Live 3-person pilot prep** — see `docs/ops/live-pilot-day-one-prep-2026-07-30.md`
+  and `docs/ops/live-pilot-3-person-2026-07-30.md`. Keep `demo_mode_enabled = true`
+  until public launch.
 - **Drop the backup table** once the reseed is accepted.

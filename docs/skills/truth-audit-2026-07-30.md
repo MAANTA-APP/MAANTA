@@ -309,6 +309,9 @@ fail when the thing they guard is removed.
     carrying `elite_trial_granted_at` are all `is_demo` and correctly excluded,
     so the launch offer is intact and the pilot merchant gets slot 1. No further
     action; re-run the query on pilot day as a live check, not as this follow-up.
+  - **UI follow-up (closed on main via #144):** admin merchant approve +
+    `/admin/billing` now surface `elite_trial_cap_status()` and approve outcome
+    notices. See `docs/skills/e2e-readiness-2026-07-30.md`.
 - **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
   (correct for rehearsal; its own notes say "must be false at launch"). The
   paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from

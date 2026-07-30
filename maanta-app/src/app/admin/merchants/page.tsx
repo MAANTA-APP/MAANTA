@@ -23,11 +23,12 @@ export default async function AdminMerchantsPage({
 
   const q = (searchParams.q ?? "").trim();
   const service = createServiceClient();
+  // Cap high enough for Node-0 elite seed (100) + rehearsal/demo merchants.
   let query = service
     .from("merchants")
     .select("id, merchant_name, status, tier, floor, account_balance, is_featured, is_shadow_banned")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(300);
   if (q) query = query.ilike("merchant_name", `%${q}%`);
   const { data: merchants } = await query;
 

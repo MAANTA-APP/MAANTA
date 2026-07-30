@@ -4,6 +4,11 @@ import { requireAdminPage } from "@/lib/admin";
 import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
+import {
+  formatAdminTrialStatus,
+  parseEliteTrialCapStatus,
+  type EliteTrialCapStatus,
+} from "@/lib/elite-trial";
 import { MerchantAdminActions } from "./merchant-admin-actions";
 import { MerchantLocationForm } from "./merchant-location-form";
 
@@ -18,14 +23,25 @@ export default async function AdminMerchantDetailPage({
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: m } = await service
-    .from("merchants")
-    .select(
-      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
-    )
-    .eq("id", params.id)
-    .maybeSingle();
+  const [{ data: m }, { data: capRows }] = await Promise.all([
+    service
+      .from("merchants")
+      .select(
+        "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, elite_trial_granted_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
+      )
+      .eq("id", params.id)
+      .maybeSingle(),
+    service.rpc("elite_trial_cap_status"),
+  ]);
   if (!m) notFound();
+
+  const trialCap: EliteTrialCapStatus | null = parseEliteTrialCapStatus(capRows);
+
+  const trialStatus = formatAdminTrialStatus({
+    eliteTrialActive: m.elite_trial_active === true,
+    trialEndsAt: m.trial_ends_at,
+    gracePeriodEndsAt: m.grace_period_ends_at,
+  });
 
   return (
     <main className="max-w-3xl">
@@ -45,6 +61,26 @@ export default async function AdminMerchantDetailPage({
         <span className="tnum font-semibold text-ink">{formatKes(m.account_balance)}</span> ·
         Trust <span className="tnum">{Number(m.trust_metric).toFixed(2)}</span>
       </p>
+      {trialStatus ? (
+        <p className="mt-2 text-sm font-semibold text-ink" data-testid="admin-trial-status">
+          {trialStatus}
+          {m.trial_ends_at ? (
+            <span className="ml-2 font-normal text-muted">
+              trial ends {new Date(m.trial_ends_at).toLocaleDateString()}
+            </span>
+          ) : null}
+          {m.grace_period_ends_at ? (
+            <span className="ml-2 font-normal text-muted">
+              · grace ends {new Date(m.grace_period_ends_at).toLocaleDateString()}
+            </span>
+          ) : null}
+        </p>
+      ) : m.elite_trial_granted_at ? (
+        <p className="mt-2 text-xs text-muted" data-testid="admin-trial-slot-consumed">
+          Launch-offer trial slot consumed{" "}
+          {new Date(m.elite_trial_granted_at).toLocaleDateString()} (not currently on trial)
+        </p>
+      ) : null}
 
       <div className="mt-4 inline-flex items-center gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">
         <IconCheck className="h-4 w-4 text-verified" />
@@ -61,6 +97,7 @@ export default async function AdminMerchantDetailPage({
         floorUnit={[m.floor, m.unit_number].filter(Boolean).join(", ")}
         isFeatured={m.is_featured}
         isShadowBanned={m.is_shadow_banned}
+        trialCap={trialCap}
       />
 
       <MerchantLocationForm

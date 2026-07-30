@@ -17,6 +17,8 @@ type DealFixture = {
   boost_active: boolean;
   /** Omitted means a real deal. Set true to assert demo rows are excluded. */
   is_demo?: boolean;
+  /** Omitted means not paused (feed default). Set true to assert pause filter. */
+  is_paused?: boolean;
   /** Only needed by the locked-order tests; other fixtures leave them unset. */
   expires_at?: string | null;
   starts_at?: string;
@@ -66,6 +68,8 @@ function makeDealsQuery() {
               // is_demo=false predicate is exercised rather than ignored: a
               // fixture with is_demo:true must genuinely be filtered out.
               is_demo: "is_demo" in r ? r.is_demo : false,
+              // Same for pause: live feed excludes is_paused=true.
+              is_paused: "is_paused" in r ? r.is_paused : false,
               merchants: {
                 ...r.merchants,
                 lat: "lat" in r.merchants ? r.merchants.lat : null,
@@ -316,6 +320,23 @@ describe("getLiveDeals — error vs empty", () => {
     expect(res.flash.map((d) => d.id)).toEqual(["d1"]);
     expect(res.boosted.map((d) => d.id)).toEqual(["d2"]);
     expect(res.nearMe.map((d) => d.id)).toEqual(["d3"]);
+  });
+
+  it("excludes paused deals from every rail (parity with claim_deal + merchant copy)", async () => {
+    const merchants = { id: "m1", merchant_name: "Shop", is_visible: true };
+    dealsFixture = [
+      { id: "live", merchant_id: "m1", deal_type: "standard", boost_active: false, merchants },
+      {
+        id: "paused",
+        merchant_id: "m1",
+        deal_type: "standard",
+        boost_active: false,
+        is_paused: true,
+        merchants,
+      },
+    ];
+    const res = await getLiveDeals("BBS Mall");
+    expect(res.nearMe.map((d) => d.id)).toEqual(["live"]);
   });
 });
 

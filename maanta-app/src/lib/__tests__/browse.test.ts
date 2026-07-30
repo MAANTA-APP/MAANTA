@@ -20,6 +20,7 @@ function deal(partial: Partial<DealRow> & { id: string }): DealRow {
     deal_type: "standard",
     flash_duration_hours: 6,
     is_active: true,
+    is_paused: false,
     max_claims: null,
     claims_count: 0,
     success_fee: 30,
