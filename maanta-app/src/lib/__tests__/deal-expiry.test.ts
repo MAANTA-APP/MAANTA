@@ -4,6 +4,7 @@ import {
   dealExpiryLabel,
   getDealExpiryState,
   isDealClaimable,
+  isDealInRedemptionWindow,
 } from "@/lib/deal-expiry";
 
 describe("deal-expiry", () => {
@@ -34,9 +35,15 @@ describe("deal-expiry", () => {
     expect(dealExpiryLabel("2026-07-26T14:00:00Z", now)).toBe("Expires in 2h 0m");
   });
 
-  it("isDealClaimable is true during live and grace", () => {
+  it("isDealClaimable is live-only (grace is for claimed tickets, not new claims)", () => {
     expect(isDealClaimable("2026-07-26T14:00:00Z", now)).toBe(true);
-    expect(isDealClaimable("2026-07-26T11:50:00Z", now)).toBe(true);
+    expect(isDealClaimable("2026-07-26T11:50:00Z", now)).toBe(false);
     expect(isDealClaimable("2026-07-26T11:30:00Z", now)).toBe(false);
+  });
+
+  it("isDealInRedemptionWindow covers live and grace", () => {
+    expect(isDealInRedemptionWindow("2026-07-26T14:00:00Z", now)).toBe(true);
+    expect(isDealInRedemptionWindow("2026-07-26T11:50:00Z", now)).toBe(true);
+    expect(isDealInRedemptionWindow("2026-07-26T11:30:00Z", now)).toBe(false);
   });
 });
