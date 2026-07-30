@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
+import { EliteTrialCapStatus } from "@/components/admin/elite-trial-cap-status";
 import { SearchField } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
 import { PlanActions } from "./plan-actions";
@@ -47,6 +48,8 @@ export default async function AdminBillingPage({
   return (
     <main className="max-w-4xl">
       <h1 className="text-2xl font-bold text-ink">Plans &amp; trials</h1>
+
+      <EliteTrialCapStatus className="mt-5" />
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <form action="/admin/billing" className="w-full max-w-md">

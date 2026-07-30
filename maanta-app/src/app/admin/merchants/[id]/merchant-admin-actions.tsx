@@ -33,19 +33,30 @@ export function MerchantAdminActions({
   const [grantTrial, setGrantTrial] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function approve() {
     setBusy("approve");
     setError(null);
+    setNotice(null);
     const res = await fetch(`/api/admin/merchants/${merchantId}/approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ grantEliteTrial: grantTrial }),
     });
     setBusy(null);
+    const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Could not approve.");
+      return;
+    }
+    // Cap-skip / unknown-outcome notices come from the approve route — show
+    // them before closing so the admin does not tell the merchant they got a
+    // trial that was never granted.
+    if (typeof body.notice === "string" && body.notice.length > 0) {
+      setNotice(body.notice);
+      setModalOpen(false);
+      router.refresh();
       return;
     }
     setModalOpen(false);
@@ -72,6 +83,7 @@ export function MerchantAdminActions({
   return (
     <div className="mt-6">
       {error ? <p className="mb-3 text-sm font-medium text-ink">{error}</p> : null}
+      {notice ? <p className="mb-3 text-sm font-medium text-ink">{notice}</p> : null}
 
       {status === "pending" ? (
         <div className="flex flex-wrap items-center gap-3">

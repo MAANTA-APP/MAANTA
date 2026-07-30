@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
+import { EliteTrialCapStatus } from "@/components/admin/elite-trial-cap-status";
 import { W3wChip, StatusChip, PlanChip } from "@/components/ui/chips";
 import { IconCheck } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
@@ -21,7 +22,7 @@ export default async function AdminMerchantDetailPage({
   const { data: m } = await service
     .from("merchants")
     .select(
-      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
+      "id, merchant_name, status, tier, elite_trial_active, trial_ends_at, elite_trial_granted_at, phone, email, whatsapp, floor, unit_number, entrance_notes, what3words_address, lat, lng, mall_name, node, account_balance, is_featured, is_shadow_banned, trust_metric"
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -45,12 +46,32 @@ export default async function AdminMerchantDetailPage({
         <span className="tnum font-semibold text-ink">{formatKes(m.account_balance)}</span> ·
         Trust <span className="tnum">{Number(m.trust_metric).toFixed(2)}</span>
       </p>
+      {m.elite_trial_active && m.trial_ends_at ? (
+        <p className="mt-1 text-xs text-muted">
+          Elite trial active · ends{" "}
+          <span className="tnum text-ink">
+            {new Date(m.trial_ends_at).toISOString().slice(0, 10)}
+          </span>
+        </p>
+      ) : m.elite_trial_granted_at ? (
+        <p className="mt-1 text-xs text-muted">
+          Elite trial slot consumed{" "}
+          <span className="tnum">
+            {new Date(m.elite_trial_granted_at).toISOString().slice(0, 10)}
+          </span>
+          {" "}(durable — not freed on downgrade)
+        </p>
+      ) : null}
 
       <div className="mt-4 inline-flex items-center gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">
         <IconCheck className="h-4 w-4 text-verified" />
         w3w resolved: <W3wChip address={m.what3words_address} />
         {m.entrance_notes ? <span className="text-muted">— {m.entrance_notes}</span> : null}
       </div>
+
+      {m.status === "pending" ? (
+        <EliteTrialCapStatus className="mt-4" compact />
+      ) : null}
 
       <MerchantAdminActions
         merchantId={m.id}
