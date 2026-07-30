@@ -70,6 +70,10 @@ function FlyTo({
   return null;
 }
 
+/**
+ * Leaflet map used by the dedicated `/map` shopper route.
+ * Browse (`/browse`) is list/grid only — do not embed this in Browse.
+ */
 export function BrowseMap({
   pins,
   center,
