@@ -10,7 +10,12 @@
 -- plus D, the foreign-key hazard that makes this more than a predicate tweak.
 --
 -- Run against a throwaway database that has the migrations applied:
---   psql "$DATABASE_URL" -f supabase/tests/demo_wipe_audit_retention_test.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/demo_wipe_audit_retention_test.sql
+--
+-- ASSERT aborts its DO block, but psql only aborts the RUN — and exits non-zero —
+-- when ON_ERROR_STOP is set, so without it a failed scenario reports green. Set
+-- in-file too, so the suite is safe even when the flag is omitted.
+\set ON_ERROR_STOP on
 --
 -- ------------------------------------------------------------------
 -- THROWAWAY-DATABASE GUARD — read this before removing it.
@@ -61,8 +66,10 @@ DECLARE
   v_g       UUID;
   v_f       UUID;
 BEGIN
-  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_demo)
-  VALUES ('ZZ real merchant A', 'test.real.a', '+254700008101', 'BBS Mall', 'active', FALSE)
+  -- account_balance > 0: the frozen zero-balance gate is a BEFORE INSERT trigger
+  -- on deals (enforce_zero_balance_gate), so a merchant at 0 cannot be given one.
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance, is_demo)
+  VALUES ('ZZ real merchant A', 'test.real.a', '+254700008101', 'BBS Mall', 'active', 500, FALSE)
   RETURNING id INTO v_real_m;
 
   -- redemptions.deal_id is NOT NULL, so the real redemption needs a real deal.
@@ -125,8 +132,8 @@ DECLARE
   v_g      UUID;
   v_f      UUID;
 BEGIN
-  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, node, status, is_demo)
-  VALUES (v_demo_m, 'ZZ demo merchant B', 'test.demo.b', '+254700008201', 'BBS Mall', 'active', TRUE);
+  INSERT INTO public.merchants (id, merchant_name, what3words_address, phone, node, status, account_balance, is_demo)
+  VALUES (v_demo_m, 'ZZ demo merchant B', 'test.demo.b', '+254700008201', 'BBS Mall', 'active', 500, TRUE);
   INSERT INTO public.deals (id, merchant_id, title, image_url, price_kes, is_demo)
   VALUES (v_demo_d, v_demo_m, 'ZZ demo deal B', 'https://example.test/b.png', 100, TRUE);
   INSERT INTO public.users (id, phone, role, is_demo)
