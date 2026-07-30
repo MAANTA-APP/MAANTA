@@ -1,249 +1,290 @@
 # Live 3-person pilot — BBS Mall (Node 0)
 
-Created 2026-07-30. **Audience:** founder running the session, plus the engineer
-doing pre-flight. This is a **live run on production** (`https://maanta.app`,
-Supabase `axrrslqssmbngbataejg`, Clerk auth) with **real people on real phones** —
-not the seeded rehearsal. For the seeded single-operator walkthrough see
-`docs/maanta-node0-rehearsal-checklist.md`; that document's `aragagency+*`
-accounts do **not** apply here.
+Created 2026-07-30, revised same day (Elite baseline). **Audience:** the founder
+running the session. This is a **live run on production** (`https://maanta.app`,
+Supabase `axrrslqssmbngbataejg`, Clerk auth) with **real people on real phones**.
 
-## Cast
+For the seeded single-operator walkthrough see
+`docs/maanta-node0-rehearsal-checklist.md`; its `aragagency+*` accounts do **not**
+apply here. Fill in `docs/ops/live-pilot-founder-summary.md` as you go — it is the
+deliverable this session leaves behind.
 
-| Role | Who | Account | Needs |
-|---|---|---|---|
-| Founder / admin / agent | You | `admin@maanta.app` (Clerk) | `/founder`, `/admin/*`, `/agent/*` |
-| Merchant | Volunteer 1 | Their **own** email + phone | Signs up, self-onboards a shop |
-| Shopper | Volunteer 2 | Their **own** email + phone | Signs up, verifies phone, claims |
+> **Read once before the session, then run off §5 (the act checklists) alone.**
+> Everything you need is repeated there so you never have to come back to code.
 
-**The volunteers must use their own real email and real phone.** Production runs
-Clerk, and every seeded `@maanta.app` test account (`merchant.a.owner@`,
-`shopper.everyday@`, `agent@`, `founder@`, the 150 `seed.nairobi*`) has **no
-`clerk_user_id`** — none of them can sign in on maanta.app. Only
-`admin@maanta.app` is Clerk-linked. Phone verification is **required to claim**
-(`/verify-phone`, S2 ruling), so the shopper needs a phone that can receive SMS.
+---
 
-Use three separate devices (or one normal + two incognito windows) so the
-sessions don't evict each other.
+## 1. Founder decisions in force
 
-## Verified production state (2026-07-30)
-
-| Fact | Value | Why it matters |
+| # | Decision | Consequence |
 |---|---|---|
-| Merchants | **213, all `is_demo = true`** (210 active, 3 pending) | Your volunteer's shop will be the **first real merchant** in prod |
-| Real deals | **0** | Your volunteer's deal will be the first real deal |
-| `demo_mode_enabled` | **true** | Feed shows demo **+** real deals; the volunteer's deal appears among ~210 demo shops |
-| Node 0 opening credit | **0 / 100 used** | The volunteer merchant **will** get the KES 300 credit at approval — demo merchants were seeded directly, not via the activation RPC, so no slots were burned |
-| Success fee | KES 30 | Debited at merchant verification |
-| Elite trial slots | **0 / 100 used** | Cap enforced in prod as of 2026-07-30 (pre-flight 3); a trial granted in the run costs slot 1 |
-| `/founder` gate | `role === 'admin'` | `admin@maanta.app` passes |
+| D-a | **Grant Elite to the pilot merchant** | Consumes **slot 1 of 100**, treated as a real slot. Trial ends ~**2026-08-29**, then 7-day grace, then auto-downgrade |
+| D-b | **Canonical admin = the agent-linked "Mohamed Elmi" user** | Clerk `user_3Gnt64ilh3nQMquyDqgWdcfgFL9`, `users.id 16cb15b5-…cd8f`, `role = admin` + active `agents` row `d8ae654c-…8a66` |
+| D-c | The older **"Mo Elmi"** admin row is legacy | Still `role = admin` and still usable — **not** retired. Do not sign in with it. Retire after the pilot |
+| D-d | Volunteers use **their own emails + real SMS-capable phones** | No seeded account can sign in (see §3) |
+| D-e | **Demo mode stays on** | Feed shows the real deal among ~210 demo shops, with the disclosure banner |
 
-## Pre-flight
+## 2. What Elite actually buys — measured, not assumed
 
-Items 1–3 were **settled on 2026-07-30** by founder ruling; item 4 is a per-session
-choice. What was actually done is recorded inline under each.
+Worth calibrating before you promise your friend anything:
 
-### 1. One admin Clerk identity — DECIDED
-
-`admin@maanta.app` has **two** Clerk-linked rows in `public.users`, both
-`role = 'admin'`:
-
-| `users.id` | Clerk user | Name | Created |
+| Capability | Standard | Elite | Enforced by |
 |---|---|---|---|
-| `16cb15b5-…cd8f` | `user_3Gnt64ilh3nQMquyDqgWdcfgFL9` | Mohamed Elmi | 2026-07-22 |
-| `d8c1aa1e-…1409` | `user_3H1aBdhhqgLzMgXUsVYDqGYWlg7` | Mo Elmi | 2026-07-26 |
+| Active deals | **1** | **2** | `enforce_deal_limit` trigger, `BEFORE INSERT ON deals` |
+| Flash deals | ❌ raises *"Flash deals are only available on the Elite plan."* + a `tier_flags` row | ✅ | same trigger |
+| `flash` feed rail | — | ✅ when `deal_type='flash'` and no active boost | `vw_*` feed view: `deal_type='flash' AND tier='elite'` |
+| `priority` feed rail | — | ✅ **but only with a paid boost** | needs a `boost_flags` row **and** `tier='elite'` |
 
-Either one gets you into `/founder` and `/admin/*`, so this does not block the
-run — but every approval, dispute ruling and fee reversal is stamped with
-whichever row you happened to sign in as.
+Two things this means for the pilot:
 
-**Ruling 2026-07-30: `user_3Gnt64ilh3nQMquyDqgWdcfgFL9` ("Mohamed Elmi",
-`users.id 16cb15b5-…cd8f`) is the founder account.** Sign in as that one for the
-whole session. The `user_3H1aBdhhq…` / "Mo Elmi" row is still present and still
-`role = admin` — it is **not** yet retired, so signing in with the wrong Clerk
-identity will still work and will still split the audit trail. Retiring it is
-open follow-up work (`docs/skills/full-state-audit-2026-07-29.md` §6).
+- **Elite is 2 active deals, not "multiple".** A third deal raises `Deal limit reached.`
+- **The priority rail is out of reach in this session.** A boost costs **KES 500**
+  (`app_config.boost_fee_kes`), `purchase_boost` **hard-fails** with
+  `insufficient_balance` below that — it does *not* fall back to arrears the way
+  the success fee does — and the merchant's wallet after the opening credit is
+  **KES 300**. To demo the priority rail you must first top up (Stripe sandbox,
+  `4242 4242 4242 4242`). Decide in advance whether that is part of the test.
 
-### 2. Agent writes — DONE
+## 3. The three actors
 
-`/agent/*` **pages** allow `role ∈ {agent, admin}`, so you can browse them. But
-every agent **write** (`/agent/leads/new`, visit logging) goes through
-`requireActiveAgentApi()`, which requires an **active row in `public.agents`
-linked to your `users.id`**. The only agent row in prod belongs to
-`agent@maanta.app` — a non-Clerk account you cannot sign in as.
+### Admin / founder / agent — you
 
-Result as things stand: you can open `/agent` and read, and **lead capture
-returns 404 "No active agent profile."** The merchant onboarding wizard's "Were
-you helped by a Maanta agent?" picker will also offer only **"Agent Demo"**, not
-you.
+- **Sign in as:** `admin@maanta.app`, choosing the Clerk identity whose profile
+  name is **"Mohamed Elmi"** (D-b). If the app greets you as "Mo Elmi", sign out —
+  you are on the legacy row and the audit trail will split.
+- **Roles:** `role = admin` (gates `/founder`, `/admin/*`, and read access to
+  `/agent/*`) **plus** an active `public.agents` row, which is what makes agent
+  *writes* work.
+- **Where your attribution lands:**
+  - `activate_merchant` stamps `merchants.onboarded_by` with your **agent id**
+    (`d8ae654c-…8a66`) on approval.
+  - Every admin action writes an audit row via `logAdminOp` as
+    `merchant.<action>` against your **user id**.
+  - If the merchant picks you in the onboarding wizard's "were you helped by a
+    Maanta agent?" step, that is captured as onboarding attribution.
 
-**Fixed 2026-07-30:** an active `public.agents` row
-(`d8ae654c-cbb3-4e7f-aba8-0a12f7e18a66`, `weekly_target` 15, default) now exists for
-`users.id 16cb15b5-…cd8f`. Agent writes work, and the onboarding wizard's picker
-offers **"Mohamed Elmi"** alongside "Agent Demo" — have the volunteer pick you.
+### Shopper — your cousin (tech-savvy)
 
-Side effect worth knowing: `activate_merchant` sets `onboarded_by` to
-`(SELECT id FROM agents WHERE user_id = p_admin_user_id)`, so from now on
-approvals you perform are attributed to this agent row. That is the intended
-behaviour — it is how field attribution is meant to work — but it starts now, not
-at launch.
+- **Sign-up:** `/sign-up`, own email, Clerk email code.
+- **Then:** pick **BBS Mall** → lands on `/feed`, whose main section is titled
+  **"Deals near me"**, with the flash rail above it.
+- **What to have them try:** browse `/feed`, open a deal, **claim** it (they will be
+  bounced through `/verify-phone` for an SMS code first), find the code again under
+  `/tickets`, then try claiming the same deal twice.
+- **They will never pay in the app.** There is no shopper payment or top-up surface
+  in MAANTA, by design — the shopper pays the merchant in cash at the counter. If
+  your cousin goes looking for a checkout, that is a finding about the copy, not a
+  missing feature.
 
-### 3. Pending migration — APPLIED
+### Merchant — your friend
 
-`20260730130000_enforce_elite_trial_first_100_cap.sql` (merged in #135) had not
-reached prod: prod sat at `20260730120000`, `elite_trial_cap_status()` did not
-exist, and the first-100 cap `/pricing` advertises was unenforced.
+- **Sign-up:** `/sign-up`, own email, Clerk email code.
+- **Onboard:** `/merchant/onboard` — shop name, floor, unit, **what3words address**,
+  phone, WhatsApp, entrance notes, agent attribution. Use the shop's **real
+  ///address**; a placeholder makes every geofence check meaningless.
+- **Then:** receives Elite at approval, creates deals (incl. a flash deal), works
+  the till at `/merchant/redeem`, watches `/merchant/wallet`.
 
-**Applied to prod 2026-07-30** (via MCP, in sections — no Supabase CLI in the
-session container — then `supabase_migrations.schema_migrations` was stamped with
-version `20260730130000` so prod and the repo agree). Verified afterwards:
+---
 
-- `elite_trial_cap_status()` → **cap 100, granted 0, remaining 100**
-- the backfill stamped **101** merchants with `elite_trial_granted_at`, **all of
-  them demo**, so they are correctly excluded from the count
-- `trg_enforce_elite_trial_cap` present on `public.merchants`
+## 4. The Elite grant path — exactly how it works
 
-So the volunteer merchant, if granted an Elite trial, will consume **slot 1 of 100**
-and be counted.
+There are **two** paths that grant a trial. Both are gated by the same DB trigger.
 
-Unrelated drift noticed while stamping: prod records version `20260730120000` under
-the name `node_scoped_opening_credit_cap`, while the repo file at that version is
-`correct_success_fee_config_notes.sql`. Same version, different name — pre-existing,
-not introduced here, worth reconciling separately.
+### Path A — at approval (use this one)
 
-### 4. Demo-data posture — LEAVING DEMO MODE ON (ruling 2026-07-30)
+`/admin/merchants/[id]`, while the shop is `pending`:
 
-Demo mode is **on**, so the shopper's feed will show the volunteer's real deal
-mixed into ~210 demo shops with a disclosure banner. Two options:
+1. Tick the checkbox **"Grant Elite trial (30 days)"** — it sits next to the
+   Approve/Reject buttons.
+2. Click **Approve** → confirmation modal → confirm.
 
-- **Leave it on** — the feed looks alive, which is the honest test of what a real
-  shopper sees at launch-minus-demo-data. Real rows stay distinguishable by
-  `is_demo = false`.
-- **Turn it off** for the run (`demo_mode_enabled = false` in `app_config`) — the
-  feed shows only the volunteer's real deal. Clean signal, empty-looking feed.
+Under the hood: `activate_merchant(p_merchant_id, p_admin_user_id,
+p_grant_elite_trial := true)`. In one transaction it flips `status → active`,
+stamps `onboarded_by`/`onboarded_at`, takes an advisory lock, checks
+`elite_trial_slot_available()`, and if a slot is free sets
+`tier='elite'`, `elite_trial_active=true`, `trial_ends_at = NOW() + 30 days`. The
+`trg_enforce_elite_trial_cap` trigger then stamps **`elite_trial_granted_at`** —
+the durable slot marker, never cleared. The **KES 300 opening credit** is written in
+the same transaction.
 
-**Decision: leave it on** for the shopper's first impression. Read the money
-assertions from the DB, where demo rows are filtered out anyway. Nothing to change
-before the run — `demo_mode_enabled` is already `true`.
+> ⚠️ **Ticking the box is not a guarantee.** If the offer were exhausted,
+> `activate_merchant` deliberately activates the shop on **Standard and says
+> nothing** — a promo running out must not block a merchant going live. And
+> `elite_trial_cap_status()` is **not read anywhere in the app** (verified by grep),
+> so the admin UI cannot warn you either — despite a code comment in the migration
+> claiming it does. Today there are 100 free slots so this will work; **verify after
+> approving** rather than assuming (§5, Act 2).
 
-One consequence to expect at the counter: the daily demo reseed cron
-(`20260730010000_demo_seed_deal_refresh`) will keep refreshing demo deals during
-and after the session. It only touches `is_demo = true` rows, so the volunteer's
-deal and claim are untouched — but the feed will not look identical from one hour
-to the next, which is worth knowing before you read anything into a changed rail.
+### Path B — after the fact (fallback)
 
-## The run
+`/admin/billing` → **Grant trial** → `POST /api/admin/plans/[id]`
+`{action:'grant-trial'}`. This writes the trial columns directly; the trigger
+enforces the cap and the route surfaces exhaustion as a **409** with plain copy.
+Use this only if you forget to tick the box in Path A.
 
-Roughly 45–60 minutes with three people. Do the acts in order — each depends on
-the last.
+`downgrade` on that same screen does **not** free the slot — by design.
 
-### Act 1 — Merchant signs up and onboards (volunteer 1)
+### Verification query (run right after approval)
 
-1. `/sign-up` with their own email → Clerk OTP.
-2. `/merchant/onboard` — the wizard asks for shop name, floor, unit,
-   **what3words address**, phone, WhatsApp, entrance notes, and "were you helped
-   by a Maanta agent?".
-   - Use the shop's **real ///what3words address**, standing in the shop if you
-     can. A placeholder makes every later geofence check meaningless.
-   - Pick **you** in the agent picker (requires pre-flight 2).
-3. Expected: submission succeeds, shop lands as **`pending`**, merchant sees a
-   "waiting for approval" state.
+```sql
+select * from public.elite_trial_cap_status();
+-- expect: cap 100 | granted 1 | remaining 99
 
-### Act 2 — Founder approves (you)
+select merchant_name, status, tier, elite_trial_active,
+       elite_trial_granted_at, trial_ends_at, account_balance
+  from public.merchants where is_demo = false;
+-- expect: active | elite | true | <today> | ~2026-08-29 | 300.00
+```
 
-4. `/founder` → **Merchant approvals** (or `/admin/merchants`) → find the shop.
-   It is the only non-demo one; the 3 pending demo shops are named "(Demo …)".
-5. Approve. Expected, in one transaction:
-   - status → `active`
-   - wallet → **KES 300** (Node 0 opening credit, first-100 offer, ledger row
-     tagged `node0_opening_credit`)
-6. Optionally grant the Elite trial (30 days). The cap is now enforced in prod, so
-   this consumes **slot 1 of 100** and stamps `elite_trial_granted_at` — a slot
-   that is never freed, including if the trial is later ended or converted.
-   Elite also unlocks flash deals and more than one active deal, which makes Act 3
-   richer; decide whether that is worth one launch slot.
+---
 
-### Act 3 — Merchant creates a deal (volunteer 1)
+## 5. The six acts — run off this
 
-7. `/merchant/dashboard` → create a deal. Standard plan = 1 active deal, no
-   flash; Elite = more, plus flash.
-8. Expected: the deal saves and the wallet balance is untouched (KES 300 — nothing
-   is charged at deal creation). The zero-balance gate is enforced in the DB, so
-   this step is exactly what the KES 300 credit exists to unblock.
+Roughly 45–60 minutes. Each act depends on the last.
 
-### Act 4 — Shopper claims (volunteer 2)
+### Act 1 · Merchant signs up and onboards — *merchant*
 
-9. `/sign-up` with their own email → pick **BBS Mall** → `/feed`.
-10. Open the volunteer merchant's deal → **Claim**. Expected: an email-only
-    session is bounced to **`/verify-phone`** first (phone SMS OTP), then back to
-    the claim.
-11. Expected after claiming: a **6-digit code** ticket, also under `/tickets`. A
-    second claim on the same deal is blocked with "already have an active claim".
+Screens: `/sign-up` → `/merchant/onboard`
 
-### Act 5 — Redemption at the counter (both volunteers, in person)
+- [ ] Signs up with own email, Clerk email code arrives first try
+- [ ] Completes the wizard with the shop's **real ///what3words address**
+- [ ] Picks **"Mohamed Elmi"** in the agent-attribution step
+- [ ] Shop lands as **`pending`**; merchant sees a waiting-for-approval state
 
-12. Merchant: `/merchant/redeem` → type the shopper's 6-digit code.
-13. Expected on the **resolve** screen — nothing charged yet:
-    - the fee disclosure (KES 30)
-    - **"Collect from shopper KES N"** — the shopper's YOU PAY price, display-only.
-      The shopper pays the merchant **in cash, directly**; MAANTA never charges
-      the shopper in-app.
-    - a **masked** shopper phone (`+254 7xx xxx 678`) as a sanity check
-    - the persistent "Wallet KES 300" header
-14. Tap **Confirm redemption**. Expected:
-    - success screen, KES 30 fee, copyable reference ID, **"Redeemed at HH:MM"**
-    - wallet **300 → 270**
-    - a `success_fee` ledger row under `/merchant/wallet` carrying that same
-      reference
+**Money:** nothing moves. No wallet exists yet.
+**Audit:** `merchants` row created with `status='pending'`, agent attribution stored.
 
-### Act 6 — Founder reads the money (you)
+### Act 2 · Founder approves **with Elite** — *you*
 
-15. `/founder`: **Verified (7d)** = 1, **Fee revenue (7d)** = KES 30, **Live deals
-    now** includes the real deal, **Merchant accounts** +1.
-16. `/admin/redemptions`: the redemption is listed as success with the Guardian
-    signals it fired (a real GPS + real ///address pair is what makes the geofence
-    check meaningful — this is the part only an on-site run can produce).
-17. `/admin/reports`: the 14-day chart picks up the redemption.
+Screens: `/founder` → **Merchant approvals** → `/admin/merchants/[id]`
 
-### Optional Act 7 — Arrears (the frozen G1 rule)
+- [ ] Find the shop — it is the **only** non-demo one (the 3 pending demo shops are named "(Demo …)")
+- [ ] **Tick "Grant Elite trial (30 days)"** ← the decision, do not skip
+- [ ] **Approve** → confirm in the modal
+- [ ] Status flips to **active**, tier shows **Elite**, wallet shows **KES 300**
+- [ ] Run the §4 verification query → **granted 1, remaining 99**
 
-Worth doing if the volunteers have time, because it is the rule most likely to be
-misunderstood at a real counter. Have the merchant redeem a **second** claim after
-their wallet drops below KES 30 (or set their balance low first). Expected: the
-keypad **never** blocks — verification still succeeds, and the KES 30 is recorded
-as **arrears** (`success_fee_arrears` row + `outstanding_arrears` on the merchant),
-settled at the next top-up. Top-up is Stripe **sandbox**: card
-`4242 4242 4242 4242`, any future expiry/CVC.
+**Money:** +KES 300 exactly once — a `topup` / `manual` ledger row with
+`provider_reference = node0_opening_credit:<merchant_id>` (UNIQUE, so it can never
+double-credit). Nothing else moves.
+**Audit:** `logAdminOp` row `merchant.approve`; `onboarded_by = d8ae654c-…8a66`;
+`elite_trial_granted_at` stamped.
 
-## Capture while you run
+### Act 3 · Merchant creates deals — *merchant*
 
-Per act, note: what the person expected, what they did, where they hesitated, and
-the exact screen text if something read wrong. The two highest-value observations
-are (a) whether the shopper understood that they pay the merchant in cash and
-MAANTA never charges them, and (b) whether the merchant understood the KES 30 fee
-before tapping Confirm.
+Screens: `/merchant/dashboard` → deal creation
 
-Also record: real ///what3words address used, the reference ID from Act 5, and
-whether every SMS/email OTP landed on the first try (Clerk + Resend
-deliverability is still an open tracker item).
+- [ ] Create a **standard** deal → saves
+- [ ] Create a **flash** deal → saves (this is the Elite capability made visible)
+- [ ] Attempt a **third** active deal → expect `Deal limit reached. elite plan allows 2 active deal(s).`
+- [ ] Wallet still **KES 300** — deal creation is free
 
-## After the run
+**Money:** nothing moves. The zero-balance gate is what the KES 300 unblocked.
+**Audit:** a `tier_flags` row appears on the rejected third deal (`deal_limit_exceeded`).
 
-- The volunteer rows are **real data** (`is_demo = false`) in production. Either
-  keep them as your first genuine Node 0 records, or delete them deliberately —
-  do not let a demo wipe be the thing that removes them, because the demo tooling
-  only touches `is_demo = true` rows.
-- The KES 300 credit and any Elite trial slot the volunteer consumed are **durably
-  spent** — `elite_trial_granted_at` is never cleared and the opening credit is
-  idempotent per merchant. Budget for it: this run costs 1 of 100 launch slots.
-- File the observations, and open decisions-log entries for anything that
-  contradicts a frozen rule.
+> Optional, only if you decided to spend it: top up via Stripe sandbox, then buy a
+> **KES 500** boost to light up the `priority` rail. Skip and the rail stays untested.
 
-## Known latent issue found during pre-flight
+### Act 4 · Shopper claims — *shopper*
 
-`node0_opening_credit_on_activation` counts consumed slots as
-`COUNT(*) FROM merchant_transactions WHERE provider_reference LIKE
-'node0_opening_credit:%'` — with **no `is_demo` exclusion**, unlike the Elite trial
-cap, which explicitly excludes demo rows. Today the count is 0, so nothing is
-wrong in practice. But if demo merchants are ever activated through the RPC rather
-than seeded directly, synthetic shops will silently eat real launch-offer slots.
-Fix alongside the next opening-credit change.
+Screens: `/sign-up` → mall picker → `/feed` → deal detail → `/verify-phone` → `/tickets`
+
+- [ ] Signs up with own email; lands on `/feed` after picking BBS Mall
+- [ ] **"Deals near me"** shows the real deal; the **flash rail** sits above it
+- [ ] Opens the deal → **Claim** → is bounced to `/verify-phone` for an SMS code → back to the claim
+- [ ] Gets a **6-digit code**; the same code is under `/tickets`
+- [ ] Second claim on the same deal is refused — *"already have an active claim"*
+
+**Money:** nothing moves. **The shopper is never charged in-app.**
+**Audit:** a `redemptions` row in claimed state, tied to shopper + deal.
+
+### Act 5 · Redemption at the counter — *both, in person*
+
+Screens: `/merchant/redeem`
+
+- [ ] Merchant types the shopper's 6-digit code → **resolve** screen appears
+- [ ] Resolve screen shows: KES 30 fee disclosure · **"Collect from shopper KES N"**
+      (the YOU PAY price, display-only, cash) · a **masked** shopper phone
+      (`+254 7xx xxx 678`) · persistent **"Wallet KES 300"** header
+- [ ] **Nothing has been charged yet** — confirm this is legible to the merchant
+- [ ] Tap **Confirm redemption**
+- [ ] Success: KES 30 fee, copyable **reference ID**, **"Redeemed at HH:MM"**
+- [ ] Wallet **300 → 270**
+- [ ] `/merchant/wallet` shows a `success_fee` row carrying that same reference
+
+**Money:** −KES 30 from the wallet, once, at merchant confirmation. The shopper's
+cash payment happens outside MAANTA and is never recorded as a platform charge.
+**Audit:** `redemptions.status='success'`, `redeemed_at` server-stamped, ledger row
+reference-matched to the success screen.
+
+### Act 6 · Founder reads the money — *you*
+
+Screens: `/founder` → `/admin/redemptions` → `/admin/reports`
+
+- [ ] `/founder`: **Verified (7d)** = 1 · **Fee revenue (7d)** = **KES 30** ·
+      **Merchant accounts** +1 · **Live deals now** includes the real deals
+- [ ] `/admin/redemptions`: the redemption listed as success, with whatever Guardian
+      signals fired (real GPS + a real ///address is what makes the geofence check
+      meaningful — only an on-site run produces this)
+- [ ] `/admin/reports`: the 14-day chart picks up the redemption
+
+**Money:** read-only. Fee revenue must equal exactly KES 30 — more means a
+double-charge, less means the fee did not land.
+
+### Optional Act 7 · Arrears — the frozen G1 rule
+
+The rule most likely to be misread at a real counter.
+
+- [ ] Drop the wallet below KES 30, then redeem a second claim
+- [ ] The keypad **never blocks** — verification still succeeds
+- [ ] KES 30 is recorded as **arrears** (`success_fee_arrears` row +
+      `outstanding_arrears` on the merchant), settled at the next top-up
+
+---
+
+## 6. What to capture
+
+Per act: what the person expected, what they did, where they hesitated, and the
+exact on-screen wording if something read wrong. The two highest-value observations:
+
+1. Did the **shopper** understand they pay the merchant in cash and MAANTA never
+   charges them?
+2. Did the **merchant** understand the KES 30 fee *before* tapping Confirm?
+
+Also record: the real ///address used · the Act 5 reference ID · whether every
+email/SMS code landed first try (Clerk + Resend deliverability is still an open
+tracker item) · the `elite_trial_cap_status()` output after Act 2.
+
+## 7. After the run
+
+- The volunteer rows are **real data** (`is_demo = false`). Keep them as your first
+  genuine Node 0 records or delete them deliberately — the demo tooling only touches
+  `is_demo = true` rows, so a demo wipe will **not** clean them up.
+- **Slot 1 of 100 is spent for good.** `elite_trial_granted_at` is never cleared, so
+  ending or converting the trial does not give the slot back.
+- Diary the trial dates: trial ends ~**2026-08-29**, then a 7-day grace, then
+  auto-downgrade to Standard. See §8 for the edge case that lands with it.
+- Fill in `docs/ops/live-pilot-founder-summary.md` and open decisions-log entries for
+  anything that contradicts a frozen rule.
+
+## 8. Known issues found while preparing this
+
+1. **Cap status is invisible in the app.** `elite_trial_cap_status()` is not read by
+   any admin surface, so nobody can see remaining slots without SQL — and if the cap
+   were full, Path A would silently activate on Standard with no warning. The
+   `activate_merchant` comment asserting "the admin UI reads elite_trial_cap_status()
+   before ticking the box" describes behaviour that does not exist.
+2. **Downgrade does not reconcile existing deals.** `enforce_deal_limit` is
+   `BEFORE INSERT` only. When this pilot merchant auto-downgrades to Standard after
+   the trial, their **2 active deals and any live flash deal keep running** until
+   they expire, even though Standard allows 1 and no flash. Watch for this around
+   2026-09-05.
+3. **Opening-credit counter ignores `is_demo`.** It counts
+   `provider_reference LIKE 'node0_opening_credit:%'` with no demo exclusion, unlike
+   the Elite trial cap which explicitly excludes demo rows. Currently harmless (0
+   used before this pilot), but demo merchants activated through the RPC would eat
+   real launch slots.
+4. **Migration history drift at `20260730120000`.** Prod records that version as
+   `node_scoped_opening_credit_cap`; the repo file at that version is
+   `correct_success_fee_config_notes.sql`. Pre-existing, unreconciled.
