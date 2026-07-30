@@ -1,6 +1,17 @@
 # Skills: admin support + public pricing — drift D-12
 
 Date: 2026-07-29 · Session mode: **Builder** · Branch: `claude/maanta-role-hardening-62ut64`
+Updated: 2026-07-30 — clarify governed first-100 Elite trial vs withdrawn free-month copy.
+
+## Current commercial rule (read this first)
+
+| Copy | Status |
+|---|---|
+| “First 100 BBS Mall merchants get a **30-day Elite trial** (KES 30 still applies)” | **Governed and allowed** — DB-backed via `elite_trial_cap_status()`; on `/pricing` |
+| “Launch offer: first month of Elite **free**” | **Withdrawn (D-12)** — no cap, no node, implied fee waiver |
+
+See `docs/ops/founder-parity-handoff-2026-07-30.md`. Cash-only CI blocks only the
+ungoverned free-month phrasing.
 
 ## D-12 is CLOSED (founder ruling, same day)
 
