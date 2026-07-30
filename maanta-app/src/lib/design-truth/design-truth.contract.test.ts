@@ -16,6 +16,7 @@ import {
   PROTOTYPE_STATUSES,
   ROLES,
   STATUSES,
+  contractSchema,
 } from "./schema";
 
 /**
@@ -68,6 +69,59 @@ describe("contract parses", () => {
       contract.mirror.frameCount,
       "mirror.frameCount is missing or disagrees with frames.length"
     ).toBe(frames.length);
+  });
+
+  it("declares the same top-level keys in the JSON schema and the Zod mirror", () => {
+    // frames.json points `$schema` at frames.schema.json, whose root closes
+    // additionalProperties — so a key modelled only in Zod makes the contract fail
+    // validation against the schema it advertises, while every repo test passes.
+    // That happened with `landedInRepo`. Comparing the two key sets is cheap and
+    // catches the whole class without a JSON-Schema validator dependency.
+    const jsonSchema = JSON.parse(
+      readFileSync(
+        path.join(process.cwd(), "design/current-reality/frames.schema.json"),
+        "utf8"
+      )
+    ) as { properties: Record<string, unknown> };
+    const jsonKeys = Object.keys(jsonSchema.properties);
+    const zodKeys = Object.keys(contractSchema.shape);
+
+    const missingFromJson = zodKeys.filter((k) => !jsonKeys.includes(k));
+    const missingFromZod = jsonKeys.filter((k) => !zodKeys.includes(k));
+    expect(
+      missingFromJson,
+      `modelled in Zod but not in frames.schema.json, so frames.json would fail its own $schema: ${missingFromJson.join(", ")}`
+    ).toEqual([]);
+    expect(
+      missingFromZod,
+      `declared in frames.schema.json but not in the Zod mirror: ${missingFromZod.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("resolves every landing-record reference", () => {
+    // The landing record is repo-authored and unchecked by the schema beyond id
+    // shape, so a correction naming a deleted frame — or a closesDrift id absent
+    // from drift[] — would otherwise pass both layers.
+    const landing = contract.landedInRepo;
+    if (!landing) return;
+    const driftIds = new Set(contract.drift.map((d) => d.id));
+    const frameIds = new Set(frames.map((f) => f.id));
+    for (const id of landing.closesDrift) {
+      expect(driftIds, `landedInRepo.closesDrift names unknown drift ${id}`).toContain(id);
+    }
+    // A correction's `frame` field also names non-frame parts of the contract.
+    // Enumerated rather than pattern-matched loosely, so a genuine typo in a frame
+    // id still fails instead of being waved through as "probably a section".
+    const NON_FRAME_TARGETS = ["mirror"];
+    for (const c of landing.corrections) {
+      const isRule = c.frame.startsWith("runtimeRules.");
+      const isDrift = /^D-\d{2}$/.test(c.frame);
+      if (isRule || isDrift || NON_FRAME_TARGETS.includes(c.frame)) continue;
+      expect(
+        frameIds,
+        `landedInRepo.corrections names unknown frame ${c.frame}`
+      ).toContain(c.frame);
+    }
   });
 
   it("discloses any frame that did not come from the canvas", () => {
@@ -192,7 +246,7 @@ describe("smoke eligibility is complete and honest", () => {
 
   it("covers every role that has a smoke-eligible surface", () => {
     const roles = new Set(smoke.map((f) => f.role));
-    for (const role of ["shopper", "merchant", "agent", "founder", "admin", "public"]) {
+    for (const role of ROLES) {
       expect(roles, `no smoke frame for role ${role}`).toContain(role);
     }
   });
@@ -236,7 +290,14 @@ describe("smoke eligibility is complete and honest", () => {
       // sees `can't`. Normalise before comparing, or every anchor containing an
       // apostrophe would fail here while passing in the browser.
       const normalise = (s: string) =>
-        s.replace(/&apos;|&#39;|&rsquo;/g, "'").replace(/&amp;/g, "&");
+        s
+          .replace(/&apos;|&#39;|&rsquo;|&lsquo;/g, "'")
+          .replace(/&ldquo;|&rdquo;|&quot;/g, '"')
+          .replace(/&amp;/g, "&")
+          // Typographic characters written literally in either the source or the
+          // contract, which the DOM renders identically to their ASCII forms.
+          .replace(/[\u2018\u2019]/g, "'")
+          .replace(/[\u201C\u201D]/g, '"');
       const haystack = normalise([...sources, ...local].join("\n"));
       expect(
         haystack.includes(normalise(anchor)),
@@ -257,6 +318,12 @@ describe("settled rulings stay settled", () => {
     expect(rule).toBeTruthy();
     expect(rule).not.toMatch(/DISPUTED|Unresolved|D-07/i);
     expect(rule).toMatch(/still redeems/i);
+    // "Still redeems" alone would survive dropping the fee or the note
+    // requirement — both of which the ruling settled explicitly. A mismatched
+    // redemption IS verified, so the KES 30 applies, and undoing it is a separate
+    // note-required admin action (R-REVERSAL-NOTE), never an automatic waiver.
+    expect(rule).toMatch(/KES 30 fee applies/i);
+    expect(rule).toMatch(/note-required admin action/i);
   });
 
   it("keeps the location-mismatch state declared and covered on frame 10a", () => {
@@ -332,6 +399,8 @@ describe("settled rulings stay settled", () => {
   it("records D-07 as resolved, not as blocked on a product decision", () => {
     const d07 = contract.drift.find((d) => d.id === "D-07")!;
     expect(d07.blockedOn).toBe("none");
+    // blockedOn alone would still allow a revert to current-mismatch.
+    expect(d07.classification).toBe("historical");
     expect(d07.detail).toMatch(/still redeems/i);
   });
 

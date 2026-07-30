@@ -78,7 +78,11 @@ test.describe("design truth: contract smoke", () => {
         await page.goto(resolveRoute(frame.route));
 
         if (frame.redirectTarget) {
-          await expect(page).toHaveURL(new RegExp(escapeRe(frame.redirectTarget)));
+          // Anchor on a path boundary: an unanchored /merchant also matches
+          // /merchant-settings, so a misroute would pass silently.
+          await expect(page).toHaveURL(
+            new RegExp(`${escapeRe(frame.redirectTarget)}(?:$|[/?#])`)
+          );
         }
 
         await expect(anchorFor(page, frame)).toBeVisible();

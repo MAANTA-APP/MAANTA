@@ -24,8 +24,8 @@
       "CBD Galleria",
       "Westlands Hub"
     ],
-    "knownRepoDesignMirror": "maanta-app/design/claim-and-till/ \u2014 mirrors a DIFFERENT Claude Design project. There is no maanta-app/design/current-reality/ on main as of this date.",
-    "location": "handoff/current-reality/ in the Claude Design project. NOT committed to the app repo \u2014 see drift D-08.",
+    "knownRepoDesignMirror": "maanta-app/design/claim-and-till/ \u2014 mirrors a DIFFERENT Claude Design project. This artifact now lives alongside it at maanta-app/design/current-reality/.",
+    "location": "handoff/current-reality/ in the Claude Design project, and committed into the app repo at maanta-app/design/current-reality/ since 2026-07-29 (drift D-08 closed \u2014 see landedInRepo). The Claude Design copy remains the authoring source; the repo copy is the enforced one.",
     "humanReadableView": "Maanta Current Reality.dc.html (project root). There is no index.html in this folder.",
     "frameCount": 22
   },
@@ -1204,6 +1204,13 @@
         "was": "absent \u2014 the 21 frames had no row for /for-merchants, though the page itself is commented \u201c12d For merchants\u201d",
         "now": "added repo-side by the code session, with evidenceSource repo, no canvasRef, and the canvas/prototype linkage still owed by Claude Design",
         "evidence": "src/app/(public)/for-merchants/page.tsx ships all four launch-credit states from src/lib/launch-credit.ts; the h1 \u201cYou only pay when a customer walks in.\u201d is the smoke anchor. Requested explicitly 2026-07-30 after the config-driven launch-credit and per-node cap changes; prompt docs/skills/claude-design-wireframe-update-prompt-2026-07-30.md"
+      },
+      {
+        "frame": "mirror",
+        "field": "location + knownRepoDesignMirror",
+        "was": "handoff/current-reality/ in the Claude Design project. NOT committed to the app repo \u2014 see drift D-08. || maanta-app/design/claim-and-till/ \u2014 mirrors a DIFFERENT Claude Design project. There is no maanta-app/design/current-reality/ on main as of this date.",
+        "now": "both corrected to state that the contract IS committed at maanta-app/design/current-reality/",
+        "evidence": "D-08 is closed and listed in landedInRepo.closesDrift, and this file sits at that path \u2014 the old text denied its own location. Flagged by review on PR #131."
       }
     ]
   }

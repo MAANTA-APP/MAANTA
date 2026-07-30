@@ -18,15 +18,18 @@ no `index.html` in this folder.** The contract is `frames.json` (21 frames) plus
 If you were told this folder is already in the repo, or that it carries 45 frames, or that it
 ships an `index.html`, none of that is true — see drift D-08 and D-11.
 
-Two facts that were checked, not assumed:
+### Provenance as of the audit date (pre-landing, kept as history)
 
-- There is **no `maanta-app/design/current-reality/`** on `main`. A search across all
-  579 files matched `frames.json`, `current-reality`, and `design-truth` **zero times**.
-  If you were told that folder, a protocol doc, and `design-truth.test.ts` already exist,
-  that is not true of `main` as of the date above.
-- The repo's only design folder is **`maanta-app/design/claim-and-till/`**, which mirrors a
-  *different* Claude Design project and takes its screen map from
-  `design/Maanta_Wireframe_System.pdf`. Useful, but not this artifact.
+Both of these were **true when the contract was audited and are no longer true** — this
+folder is the thing whose absence they record. Drift **D-08** tracked exactly that gap and
+is now closed; see `landedInRepo` in `frames.json`.
+
+- At audit time there was **no `maanta-app/design/current-reality/`** on `main`: a search
+  across all 579 files matched `frames.json`, `current-reality` and `design-truth` **zero
+  times**. That is why the contract had to be carried in by hand rather than diffed.
+- The repo's only design folder was **`maanta-app/design/claim-and-till/`**, which mirrors
+  a *different* Claude Design project and takes its screen map from
+  `design/Maanta_Wireframe_System.pdf`. Still useful, still not this artifact.
 
 **Truth order, fixed:** Notion (product / current state) → repo (implementation) →
 design system (visual, may describe an ideal ahead of shipped). A frame never overrules
@@ -34,7 +37,7 @@ the first two. The schema enforces this order in `mirror.truthOrder`.
 
 ## What the contract carries
 
-21 frames, each with: `id`, `name`, `role`, `route`, `status`, `job`, `primaryAction`,
+22 frames, each with: `id`, `name`, `role`, `route`, `status`, `job`, `primaryAction`,
 `runtimeRule` (an id into `runtimeRules`, never inline prose), `states`, `stateCoverage`,
 `prototypeStatus`, `prototypeRef`, `captureReadiness`, `captureReadinessReason`,
 `evidenceSource`, `sourceFiles`.
@@ -96,9 +99,15 @@ Accessible locators only — `getByRole`, `getByLabel`, visible text. No CSS or
 `data-testid` unless a screen genuinely offers no user-facing anchor, and then prefer
 adding a real heading or `aria-label` to the app over adding a test hook.
 
-12 of 21 frames are `smoke: true`: 13f, 8f, 8g, 8j, 10a, 13j, 13h, 10b, 13a, 13b, 13d,
-11a, 13e, 12a. They cover every role and the whole money path (claim → code → verify →
-wallet). The rest are deliberately route-only — see *Still route-only* below.
+**18 of 22** frames are `smoke: true`: 13f, 8f, 8g, 8j, 10a, 13j, 13h, 13i, 10b, 13a, 13b,
+13d, 11a, 13e, 11e, 12a, 12d, 12e. They cover every role and the whole money path
+(claim → code → verify → wallet). The rest are deliberately route-only — see *Still
+route-only* below.
+
+Do not hand-maintain this number against the list: `mirror.frameCount` is asserted equal
+to `frames.length` in Layer 1, and the generated-test count is asserted equal to the
+`smoke: true` count. An earlier version of this paragraph claimed 12 while listing 14 ids,
+which is what prompted both assertions.
 
 ### Layer 3 — process integration
 
@@ -158,20 +167,22 @@ For marketing and documentation. Follows current demo-data reality, not future p
 | `after-data` | Correct, but marketplace density is seeded during Node 0 rehearsal. |
 | `internal-only` | Shows money owed, lead contact details, or ops tooling. Never public. |
 
-Every label except `safe-now` carries a `captureReadinessReason`. Only three frames are
-`safe-now` today: 13f verify-phone, 10a redeem, 12a landing. Both founder and all admin
+Every label except `safe-now` carries a `captureReadinessReason`. Four frames are
+`safe-now` today: 13f verify-phone, 10a redeem, 12a landing, 12e pricing (its copy became
+governed when the launch offer was withdrawn). Both founder and all admin
 frames are `internal-only` by schema rule, so no ops surface can leak into marketing.
 
 ## Prototype coverage
 
-18 of 21 frames are `clickable` and name a `prototypeRef`. Three are not, each with a
-written reason:
+18 of 22 frames are `clickable` and name a `prototypeRef`. Four are not, each with a
+written reason (schema rule 2 requires one):
 
 | Frame | Status | Why |
 |---|---|---|
-| M8 Create deal | `blocked-code` | The repo create flow has no charge-disclosure step, so parity cannot be verified against shipped behaviour. |
+| M8 Create deal | `current-not-clickable` | Not in the phone prototype. The earlier reason — "the repo create flow has no charge-disclosure step" — was **factually wrong**: the step ships and is unskippable. |
 | 11e Support | `current-not-clickable` | Desktop ops surface, intentionally outside the phone prototype. |
-| 12e Pricing | `current-not-clickable` | Launch-offer copy unresolved; building it would bake in a number that may change. |
+| 12d For merchants | `current-not-clickable` | Public marketing page; no `prototypeRef` confirmed. Row added repo-side — see `landedInRepo`. |
+| 12e Pricing | `current-not-clickable` | Not built in the phone prototype. The earlier reason — unresolved launch-offer copy — no longer applies: the offer was withdrawn 2026-07-29. |
 
 Founder and guardian surfaces are desktop in production and are rendered compact in the
 phone prototype. That is a deliberate compromise, noted rather than hidden.

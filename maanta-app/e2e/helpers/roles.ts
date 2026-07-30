@@ -193,7 +193,14 @@ export async function claimFirstDeal(page: Page): Promise<string> {
 
 /** Type a 6-digit code into the merchant redeem keypad. */
 export async function enterCode(page: Page, code: string): Promise<void> {
-  for (const digit of code.slice(0, 6)) {
+  // The claimed code renders as "123 456", and claimFirstDeal's capture regex
+  // allows that space — so slicing the first six raw characters dropped the last
+  // digit and then tried to click a button named " ". Extract digits instead.
+  const digits = code.replace(/\D/g, "");
+  if (digits.length !== 6) {
+    throw new Error(`expected a 6-digit code, got "${code}" (${digits.length} digits)`);
+  }
+  for (const digit of digits) {
     await page.getByRole("button", { name: digit, exact: true }).click();
   }
 }

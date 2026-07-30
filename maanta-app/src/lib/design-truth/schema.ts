@@ -46,6 +46,24 @@ export const CAPTURE_READINESS = [
 
 export const EVIDENCE_SOURCES = ["repo", "repo+notion", "repo-partial"] as const;
 
+/**
+ * Valid `requiredRole` values: the six product roles plus the test-only personas
+ * the E2E helper can resolve to a stored session. A free-form string let a typo
+ * ("merchant-staff-noverify") pass Layer 1 and only fail at Layer 2 — which is
+ * skipped wherever that role has no provisioned account, so the typo could reach
+ * main unnoticed. Keep in step with `Role` in e2e/helpers/roles.ts.
+ */
+export const REQUIRED_ROLES = [
+  "shopper",
+  "shopper-unverified-phone",
+  "merchant",
+  "merchant-staff-no-verify",
+  "agent",
+  "founder",
+  "admin",
+  "public",
+] as const;
+
 export const AUTH_STATES = [
   "anonymous",
   "authenticated",
@@ -101,7 +119,7 @@ const frameBase = z
     expectedHeading: z.string().min(2).optional(),
     expectedAnchor: z.string().min(2).optional(),
     redirectTarget: z.string().regex(/^\//).optional(),
-    requiredRole: z.string().min(3).optional(),
+    requiredRole: z.enum(REQUIRED_ROLES).optional(),
     authState: z.enum(AUTH_STATES).optional(),
   })
   .strict();
@@ -255,14 +273,28 @@ export type Frame = z.infer<typeof frameSchema>;
 export type Contract = z.infer<typeof contractSchema>;
 export type Role = (typeof ROLES)[number];
 export type AuthState = (typeof AUTH_STATES)[number];
+export type RequiredRole = (typeof REQUIRED_ROLES)[number];
 
-/** A frame that opted into behavioural smoke coverage. */
-export type SmokeFrame = Frame & {
+/**
+ * A frame that opted into behavioural smoke coverage.
+ *
+ * The union encodes anti-fake-sync rule 1: a smoke frame carries an anchor. That
+ * keeps Layer 2 from reaching for `!` on `expectedAnchor` — the guard proves the
+ * anchor exists rather than the caller asserting it.
+ */
+type SmokeCore = Frame & {
   smoke: true;
-  requiredRole: string;
+  requiredRole: RequiredRole;
   authState: AuthState;
 };
+export type SmokeFrame = SmokeCore &
+  ({ expectedHeading: string } | { expectedAnchor: string });
 
 export function isSmokeFrame(f: Frame): f is SmokeFrame {
-  return f.smoke && Boolean(f.requiredRole) && Boolean(f.authState);
+  return (
+    f.smoke &&
+    Boolean(f.requiredRole) &&
+    Boolean(f.authState) &&
+    Boolean(f.expectedHeading ?? f.expectedAnchor)
+  );
 }

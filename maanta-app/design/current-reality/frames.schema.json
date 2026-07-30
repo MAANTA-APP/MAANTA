@@ -94,6 +94,34 @@
           "where": { "type": "string" }
         }
       }
+    },
+    "landedInRepo": {
+      "$comment": "Repo-side half of the handshake, written by the code session rather than in Claude Design: what landed, which drift rows it closed, and every correction with file:line evidence. Declared here because the root closes additionalProperties — without it, frames.json fails validation against the schema it points at, even though the Zod mirror accepts it.",
+      "type": "object",
+      "required": ["date", "closesDrift", "corrections"],
+      "additionalProperties": false,
+      "properties": {
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "closesDrift": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^D-\\d{2}$" }
+        },
+        "corrections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["frame", "field", "was", "now", "evidence"],
+            "additionalProperties": false,
+            "properties": {
+              "frame": { "type": "string" },
+              "field": { "type": "string" },
+              "was": { "type": "string" },
+              "now": { "type": "string" },
+              "evidence": { "type": "string" }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -148,7 +176,19 @@
         "expectedHeading": { "type": "string", "minLength": 2 },
         "expectedAnchor": { "type": "string", "minLength": 2 },
         "redirectTarget": { "type": "string", "pattern": "^/" },
-        "requiredRole": { "type": "string", "minLength": 3 },
+        "requiredRole": {
+          "$comment": "Closed enum, not a free string: a typo used to pass here and only fail at Layer 2, which is skipped wherever that role has no provisioned account. Values are the CONTRACT_ROLE_MAP keys in e2e/helpers/roles.ts plus `public`.",
+          "enum": [
+            "shopper",
+            "shopper-unverified-phone",
+            "merchant",
+            "merchant-staff-no-verify",
+            "agent",
+            "founder",
+            "admin",
+            "public"
+          ]
+        },
         "authState": { "enum": ["anonymous", "authenticated", "authenticated-unverified-phone", "role-session"] }
       },
       "allOf": [
