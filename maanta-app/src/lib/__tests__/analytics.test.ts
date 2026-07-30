@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { analyticsEnabled, captureGuardianOutcome, captureServerEvent } from "@/lib/analytics";
+import {
+  analyticsEnabled,
+  captureDealViewed,
+  captureGuardianOutcome,
+  captureServerEvent,
+  UNATTRIBUTED_DISTINCT_ID,
+} from "@/lib/analytics";
 
 // These tests pin the two guarantees the verify (counter) path relies on:
 //   1. With no POSTHOG_PROJECT_KEY, capture is a hard no-op (no network, no
@@ -16,18 +22,21 @@ import { analyticsEnabled, captureGuardianOutcome, captureServerEvent } from "@/
 const KEY = "POSTHOG_PROJECT_KEY";
 const HOST = "POSTHOG_HOST";
 const VERCEL = "VERCEL";
+const DEMO = "MAANTA_DEMO_MODE";
 
 describe("analytics", () => {
   const orig = {
     key: process.env[KEY],
     host: process.env[HOST],
     vercel: process.env[VERCEL],
+    demo: process.env[DEMO],
   };
 
   beforeEach(() => {
     delete process.env[KEY];
     delete process.env[HOST];
     delete process.env[VERCEL];
+    delete process.env[DEMO];
   });
   afterEach(() => {
     // Restore by deleting when it was unset: `process.env.X = undefined` stores
@@ -36,6 +45,7 @@ describe("analytics", () => {
     restoreEnv(KEY, orig.key);
     restoreEnv(HOST, orig.host);
     restoreEnv(VERCEL, orig.vercel);
+    restoreEnv(DEMO, orig.demo);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -134,6 +144,154 @@ describe("analytics", () => {
     process.env[KEY] = "phc_test";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
     await expect(captureServerEvent("guardian_outcome", "m1")).resolves.toBeUndefined();
+  });
+
+  describe("deal_viewed attribution", () => {
+    // Before this, every signed-out view was sent as the literal "anonymous", so
+    // all of them shared one PostHog person: uniq(person_id) read 1 regardless of
+    // real traffic, and a deal_viewed → deal_claimed funnel could never join.
+    const DEAL = {
+      dealId: "d1",
+      merchantId: "m1",
+      dealType: "flash",
+      priceKes: 480,
+      node: "BBS Mall",
+    };
+
+    /** The (distinct_id, properties) actually sent. */
+    function sent(fetchMock: ReturnType<typeof vi.fn>) {
+      const body = JSON.parse(
+        String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)
+      );
+      return { distinctId: body.distinct_id, props: body.properties };
+    }
+
+    it("uses the browser's posthog distinct id when the shopper is signed out", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: null,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("browser-person-1");
+      expect(props.distinct_id_source).toBe("posthog_cookie");
+    });
+
+    it("prefers the Clerk id when signed in, since that is what identify() sets", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: "user_123",
+        posthogDistinctId: "stale-pre-signup-id",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("user_123");
+      expect(props.distinct_id_source).toBe("clerk");
+    });
+
+    it.each([
+      ["omitted", undefined],
+      ["null", null],
+      ["blank", ""],
+      ["whitespace", "   "],
+    ])(
+      "marks the event unattributed when the cookie id is %s, rather than passing it off as a person",
+      async (_label, posthogDistinctId) => {
+        process.env[KEY] = "phc_test";
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await captureDealViewed({ clerkUserId: null, posthogDistinctId, ...DEAL });
+
+        const { distinctId, props } = sent(fetchMock);
+        expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+        expect(props.distinct_id_source).toBe("none");
+      }
+    );
+
+    // The two values used to be derived independently — `source` on truthiness,
+    // `distinct_id` on `??` — so a blank id was falsy but not nullish and went out
+    // as distinct_id: "" while source said otherwise. These pin that they agree.
+    it.each([
+      ["blank", ""],
+      ["whitespace", "   "],
+    ])("treats a %s Clerk id as absent and falls through to the cookie id", async (
+      _label,
+      clerkUserId
+    ) => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("browser-person-1");
+      expect(props.distinct_id_source).toBe("posthog_cookie");
+    });
+
+    it("never emits a blank distinct_id, whatever the inputs", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "", posthogDistinctId: "  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+      expect(distinctId).not.toBe("");
+      expect(props.distinct_id_source).toBe("none");
+    });
+
+    it("trims a padded identity rather than sending it through as-is", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "  user_123  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("user_123");
+      expect(props.distinct_id_source).toBe("clerk");
+    });
+
+    it("still carries the deal dimensions and the demo tag", async () => {
+      process.env[KEY] = "phc_test";
+      process.env[DEMO] = "true";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: null,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { props } = sent(fetchMock);
+      expect(props).toMatchObject({
+        deal_id: "d1",
+        merchant_id: "m1",
+        deal_type: "flash",
+        price_kes: 480,
+        node: "BBS Mall",
+        is_demo: true,
+        environment: "demo",
+        distinct_id_source: "posthog_cookie",
+      });
+    });
   });
 
   describe("delivery on a freezable instance", () => {
