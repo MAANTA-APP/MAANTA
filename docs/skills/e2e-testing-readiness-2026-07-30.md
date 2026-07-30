@@ -34,7 +34,7 @@ wrong inventory paths, or paused deals that still accepted claims.
 ## How to continue
 
 1. Founder runs updated `docs/ops/founder-e2e-checklist-2026-07-30.md`.
-2. Apply `20260730160000_restore_claim_deal_pause_gate.sql` on target DB.
+2. Apply `20260730170000_restore_claim_deal_pause_gate.sql` on target DB.
 3. Leave Bucket C design-ahead work alone until after first E2E.
 
 ## Artifacts

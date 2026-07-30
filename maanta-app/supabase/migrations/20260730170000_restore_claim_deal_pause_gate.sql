@@ -7,6 +7,17 @@
 --
 -- Surgical restore: keep the current claim_deal body, re-select is_paused, and
 -- raise deal_paused after the active check.
+--
+-- Numbered 170000, not 160000, and the gap is deliberate — do not "tidy" it.
+-- Production's migration ledger already holds version 20260730160000, recorded
+-- against a different migration (correct_success_fee_config_notes; the repo
+-- carries that one as 20260730120000, which prod in turn assigned to a
+-- migration that has no file here at all). `supabase db push` matches on the
+-- version string alone, so while this file was numbered 160000 it was treated
+-- as already applied and skipped silently — merged, and never live. Renumbering
+-- past the ledger is what makes it applicable. See D24 and D25 in
+-- docs/maanta-drift-register.md; D24 tracks the underlying ledger divergence,
+-- which this file does not fix.
 
 CREATE OR REPLACE FUNCTION public.claim_deal(
   p_user_id uuid,
