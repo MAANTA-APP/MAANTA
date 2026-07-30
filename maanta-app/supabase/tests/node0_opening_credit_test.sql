@@ -158,5 +158,122 @@ BEGIN
   RAISE NOTICE 'Scenario D passed: at-cap activation received no credit';
 END $$;
 
+-- Scenario E: the cap is PER NODE (migration 20260730170000, originally #131's
+-- 20260730120000 before 20260730130000 overwrote it).
+-- One node filling its allowance must not exhaust the next node's. With a global
+-- count, moving node0_launch_node to a new mall after the first node filled up
+-- left the new node's promo dead on arrival — activations there silently granted
+-- nothing while /for-merchants still advertised the credit.
+--
+-- Both E and F run against TEST-OWNED launch nodes, never the configured one.
+-- With a cap of 1, any pre-existing opening-credit row at the real launch node
+-- would deny the first activation its credit and the scenario would fail on
+-- fixture state rather than on the migration under test. A node no fixture can
+-- have touched makes the count provably zero at entry.
+DO $$
+DECLARE
+  v_a UUID; v_b UUID;
+  v_bal_a NUMERIC; v_bal_b NUMERIC;
+  v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
+  v_saved_node   TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap    TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_window TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_period_ends_at');
+  v_node_a TEXT := '__test_node_E_first';
+  v_node_b TEXT := '__test_node_E_next';
+BEGIN
+  -- A cap of 1 makes the boundary observable in two activations.
+  UPDATE public.app_config SET value = '1'      WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_node_a WHERE key = 'node0_launch_node';
+  -- Hold the launch window open. Seeded at 2026-12-15; without this, every
+  -- assertion here starts failing on 2026-12-16 because activate_merchant
+  -- correctly skips the credit — a green-to-red transition with no code change,
+  -- which reads as a regression in the cap and is not one. Scenario C owns the
+  -- after-window behaviour; E and F must not depend on the calendar.
+  UPDATE public.app_config
+     SET value = (CURRENT_TIMESTAMP + INTERVAL '1 year')::TEXT
+   WHERE key = 'node0_launch_period_ends_at';
+
+  -- Fill the first node's single slot.
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_E_a', 'test.per.node.a', '+254700000005', v_node_a, 'pending', 0)
+  RETURNING id INTO v_a;
+  PERFORM public.activate_merchant(v_a, gen_random_uuid(), FALSE);
+  SELECT account_balance INTO v_bal_a FROM public.merchants WHERE id = v_a;
+  ASSERT v_bal_a = v_credit, format('E: first node expected %s, got %s', v_credit, v_bal_a);
+
+  -- Ops opens the promo at the next node. Its own slot is untouched.
+  UPDATE public.app_config SET value = v_node_b WHERE key = 'node0_launch_node';
+
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_E_b', 'test.per.node.b', '+254700000006', v_node_b, 'pending', 0)
+  RETURNING id INTO v_b;
+  PERFORM public.activate_merchant(v_b, gen_random_uuid(), FALSE);
+  SELECT account_balance INTO v_bal_b FROM public.merchants WHERE id = v_b;
+  ASSERT v_bal_b = v_credit,
+    format('E: new node expected %s, got %s — a filled node is exhausting the next node''s cap', v_credit, v_bal_b);
+
+  UPDATE public.app_config SET value = v_saved_node   WHERE key = 'node0_launch_node';
+  UPDATE public.app_config SET value = v_saved_cap    WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_window WHERE key = 'node0_launch_period_ends_at';
+  DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_a, v_b);
+  DELETE FROM public.merchants WHERE id IN (v_a, v_b);
+  RAISE NOTICE 'Scenario E passed: each node gets its own first-N allowance';
+END $$;
+
+-- Scenario F: the cap STILL binds inside a node.
+-- The guard against "fixing" scenario E by simply not enforcing the cap.
+DO $$
+DECLARE
+  v_first UUID; v_second UUID;
+  v_bal_first NUMERIC; v_bal_second NUMERIC; v_count INT;
+  v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
+  v_saved_node   TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap    TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+  v_saved_window TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_launch_period_ends_at');
+  v_node TEXT := '__test_node_F';
+BEGIN
+  UPDATE public.app_config SET value = '1'    WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_node WHERE key = 'node0_launch_node';
+  -- Same calendar independence as scenario E.
+  UPDATE public.app_config
+     SET value = (CURRENT_TIMESTAMP + INTERVAL '1 year')::TEXT
+   WHERE key = 'node0_launch_period_ends_at';
+
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_F_1', 'test.same.node.1', '+254700000007', v_node, 'pending', 0)
+  RETURNING id INTO v_first;
+  PERFORM public.activate_merchant(v_first, gen_random_uuid(), FALSE);
+  SELECT account_balance INTO v_bal_first FROM public.merchants WHERE id = v_first;
+  ASSERT v_bal_first = v_credit, format('F: first expected %s, got %s', v_credit, v_bal_first);
+
+  -- Second merchant at the SAME node, cap already filled → no credit.
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_F_2', 'test.same.node.2', '+254700000008', v_node, 'pending', 0)
+  RETURNING id INTO v_second;
+  PERFORM public.activate_merchant(v_second, gen_random_uuid(), FALSE);
+  SELECT account_balance INTO v_bal_second FROM public.merchants WHERE id = v_second;
+  ASSERT v_bal_second = 0,
+    format('F: second merchant at a filled node got %s — the per-node cap is not binding', v_bal_second);
+
+  SELECT COUNT(*) INTO v_count FROM public.merchant_transactions
+    WHERE merchant_id = v_second AND provider_reference LIKE 'node0_opening_credit:%';
+  ASSERT v_count = 0, 'F: ledger row written past the per-node cap';
+
+  ASSERT (SELECT status FROM public.merchants WHERE id = v_second) = 'active', 'F: merchant not activated';
+
+  UPDATE public.app_config SET value = v_saved_node   WHERE key = 'node0_launch_node';
+  UPDATE public.app_config SET value = v_saved_cap    WHERE key = 'node0_opening_credit_merchant_cap';
+  UPDATE public.app_config SET value = v_saved_window WHERE key = 'node0_launch_period_ends_at';
+  DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_first, v_second);
+  DELETE FROM public.merchants WHERE id IN (v_first, v_second);
+  RAISE NOTICE 'Scenario F passed: the per-node cap still binds within a node';
+END $$;
+
+-- NOTE on the Elite-cap side of activate_merchant: this migration recreates the
+-- whole function, so it could in principle revert the first-100 Elite trial cap
+-- from 20260730130000. That regression is already covered — elite_trial_cap_test.sql
+-- scenarios B and C drive activate_merchant directly and assert both the grant
+-- and the at-cap skip. Both suites must pass together; neither alone is enough.
+
 -- If we got here, every ASSERT held.
 DO $$ BEGIN RAISE NOTICE 'ALL node0_opening_credit scenarios passed.'; END $$;
