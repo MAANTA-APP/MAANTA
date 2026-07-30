@@ -78,7 +78,7 @@ deleted.
 | Disclosure banner on `/` | **Rendering** | `role="status"` + full disclosure text in served HTML |
 | `noStore()` / caching | **Working** | `cache-control: private, no-cache, no-store, must-revalidate`; `x-vercel-cache: MISS` |
 | Landing redesign live | **Yes** | single hero CTA, trust pill, How-it-works above features, merchant band, segment picker with `role="group"` |
-| `MAANTA_DEMO_MODE` (Vercel Production) | **NOT VERIFIED** | Cannot be read from this environment — **manual check required** |
+| `MAANTA_DEMO_MODE` (Vercel Production) | **`true`, verified from the event stream** | See "Analytics tagging" below |
 
 ### Toggle test — passed
 
@@ -89,6 +89,111 @@ deleted.
 
 The flag governs both the data and the disclosure, in both directions, without a
 deploy. `make demo-off` is a working kill switch with roughly a 30-second lag.
+
+### Analytics tagging — verified 2026-07-30 01:19 UTC
+
+`MAANTA_DEMO_MODE=true` was set on Vercel Production and the project redeployed
+(`dpl_FRtgWTHJtKb82ct4fiPjHB8GUVxt`, target `production`, 01:07 UTC — a redeploy of
+the #133 merge). The env var can only be proved by a server-side event, so two
+deal detail pages were requested on `www.maanta.app` and the resulting events read
+back out of PostHog:
+
+| event | timestamp | `is_demo` | `environment` |
+|---|---|---|---|
+| `deal_viewed` | 2026-07-30 01:19:45Z | `true` | `demo` |
+| `deal_viewed` | 2026-07-30 01:19:44Z | `true` | `demo` |
+
+Both tags are present, so synthetic rehearsal traffic is now separable in PostHog
+and cannot silently inflate real numbers. Neither property existed in the project's
+event taxonomy before this — the only prior server events (59 `deal_viewed`,
+2026-07-27 09:40–09:41Z) predate PR #128 and are therefore untagged. **Exclude
+anything before 2026-07-30 01:19Z from any demo/real split.**
+
+Verification query (`is_demo` / `environment` are not in the taxonomy UI, so read
+them from the stream directly):
+
+```sql
+SELECT event, timestamp, properties.is_demo, properties.environment
+FROM events
+WHERE timestamp >= now() - INTERVAL 1 HOUR
+  AND properties.$lib = 'maanta-server'
+ORDER BY timestamp DESC
+```
+
+### Server-side capture dropped events — found during this check, now fixed
+
+> **Fixed 2026-07-30** in `src/lib/analytics.ts`: the capture promise is handed to
+> Vercel's `waitUntil`, so the instance stays alive until the ping is actually
+> sent. One change at the single choke point (`captureServerEvent`) — no call site
+> changed, and no call site can opt out. Eight tests pin it: four were confirmed
+> to fail with the fix removed, and one more — "registers while the ping is still
+> in flight" — fails if the registration is merely moved *after* the capture
+> awaits its own fetch, which is the version that looks right and still drops
+> everything. **Undelivered events are not recoverable**; everything below still
+> applies to anything served before the deploy carrying this change.
+>
+> It also warns once per cold start if it is ever running on Vercel *without* a
+> request context, because the original failure was completely silent — nothing in
+> the app could tell that its own events were evaporating. If that line ever shows
+> up in the Vercel logs, server-side counts are undercounting again.
+
+Four deal pages were rendered; **two** events arrived. The two that landed were
+requested concurrently; the two that were dropped (01:16:05Z, 01:16:49Z) were
+isolated requests roughly 40 seconds apart. `captureDealViewed` is invoked as
+`void captureDealViewed(...)` in `src/app/(shopper)/deals/[id]/page.tsx:32` — it is
+deliberately not awaited, so the pending `fetch` in `captureServerEvent` has no
+`waitUntil` keeping the function alive. On Vercel the instance can freeze once the
+response is sent, discarding the in-flight request. That matches the shape of the
+history: the only other server events in the project arrived as one 67-second
+burst of 59 under rapid sequential load, and nothing in the three days since.
+
+Consequence, before anyone reads a server-side funnel: **`deal_viewed`,
+`guardian_outcome`, `deal_claimed`, `deal_published`, `merchant_onboarded` and the
+two `topup_completed_*` events undercount by an unknown amount for every request
+served before the fix deploys.** The tagging was correct; the delivery was not.
+Not a demo-mode regression — it predates PR #128 and affected real events
+identically.
+
+Why `waitUntil` rather than awaiting the capture: awaiting would put a network
+round trip in front of the response, and the verify path is one of the callers —
+the frozen rule is that a metrics ping never delays the counter. `waitUntil`
+extends the *invocation* after the response is already sent, so the shopper is
+unaffected and the ping still lands. Off Vercel it is a no-op, which is why
+`captureServerEvent` also awaits its own delivery promise: that covers dev, CI and
+any non-Vercel host, where the process outlives the request anyway.
+
+Why the primitive is inlined instead of imported from `@vercel/functions`: that
+package's whole implementation is two lines reading a `Symbol.for` key off
+`globalThis`, but it depends on `@vercel/oidc` → `@vercel/cli-config` +
+`@vercel/cli-exec` → `execa`, `zod`, `xdg-app-paths`. Those land in *production*
+dependencies, including a package that spawns child processes. Not a trade worth
+making for two lines in a payments app, so the symbol is read directly and the
+try/catch plus the warning cover the case where that contract changes.
+
+**Verified end to end on the render path, 2026-07-30 01:46:47Z.** `waitUntil` is
+the documented primitive for route handlers, which covers 7 of the 8 callers, but
+`deal_viewed` fires during a React Server Component render and whether the request
+context survives into that async scope could only be settled against a real
+deployment. Tested on the preview build of this branch
+(`dpl_FS682Nx1aoFnVAttWBqJ8chNWsUC`): **one** deal page request, and the
+`deal_viewed` event arrived, timestamped in the same second as the request.
+
+A single trial is enough here because the confound is absent by construction. The
+deployment was brand new, this was its first ever request, it is auth-gated and
+`noindex` so nothing else was hitting it, and no second invocation existed in the
+two minutes before the stream was read — so nothing could have thawed the instance
+and flushed a leftover ping, which is the mechanism that made two of four
+production requests appear to succeed before the fix. The same isolated-request
+scenario dropped the event 2 out of 2 times on production beforehand.
+
+**One untagged event exists as a result.** Preview does not carry
+`MAANTA_DEMO_MODE`, so that test event is `is_demo: false` / no `environment` while
+describing a demo deal (`27e0b2c1-d8c6-4921-b1f2-7640fb757341`, "Kids uniform
+bundle"). Exclude it: `deal_viewed` at `2026-07-30 01:46:47.934Z`. If preview
+deployments are ever used for rehearsal traffic rather than one-off checks, set
+`MAANTA_DEMO_MODE=true` on the Preview environment too — otherwise synthetic
+preview activity lands in the stream indistinguishable from real production
+activity, which is the failure the tagging exists to prevent.
 
 ### Real data untouched
 
@@ -124,10 +229,21 @@ wrong, not just the magnitude.
   redemptions divide across 3 shoppers — about **118 each**. The seed is now correct;
   the shopper pool is the constraint. Seed more demo customers before any demo that
   shows per-user data. *Caution, not blocking.*
-- **`MAANTA_DEMO_MODE` in Vercel Production is unverified.** It drives analytics
-  tagging only, is read from the server bundle, and needs a **redeploy** to take
-  effect. Flag on + env unset means synthetic activity lands in PostHog untagged and
-  inflates real numbers.
+- ~~**`MAANTA_DEMO_MODE` in Vercel Production is unverified.**~~ **Closed
+  2026-07-30**: set, redeployed, and confirmed from the event stream — see
+  "Analytics tagging" above. Note it still needs a redeploy on every future change,
+  and `make demo-off` does **not** touch it: turning demo mode off in `app_config`
+  while the env var stays `true` would tag real events as demo. Flip both.
+- ~~**Server-side capture drops events**~~ (found while verifying the above).
+  **Fixed 2026-07-30** — `waitUntil` in `captureServerEvent`, verified end to end on
+  a preview deployment including the RSC render path. Two things remain true
+  regardless: the dropped events are gone for good, and any server-side funnel or
+  conversion rate computed over data from before that deploy is a floor, not a
+  measurement.
+- **`MAANTA_DEMO_MODE` is not set on the Preview environment.** Harmless while
+  previews are only used for one-off checks — it cost exactly one untagged event
+  during the verification above. Set it if previews are ever used to show anybody
+  the rehearsal dataset. *Caution, not blocking.*
 - **Production verification used a Vercel share token.** Repeat the banner check in a
   private browser window for a truly anonymous confirmation.
 - **Doc figures drift.** Several docs still cite 291 deals / 339 redemptions; live
