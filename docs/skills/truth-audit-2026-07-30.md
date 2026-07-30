@@ -13,10 +13,20 @@ After the D1 fix (founder ruling, same day): **47 files / 326 tests**.
 ## 0. A structural note about this repo's "design-truth mirror"
 
 The audit prompt assumed a mirror made of `frames.json`, rule records (`R-xxxx`)
-and drift rows (`D-xx`). **None of those exist in this repository** — there is no
-frames file, no rule registry and no drift table, and nothing references them.
+and drift rows (`D-xx`). **None of those existed in this repository when this
+audit ran** — there was no frames file, no rule registry and no drift table, and
+nothing referenced them.
 
-What plays that role here instead:
+> **Superseded in part, same day.** Two of the three now exist. This audit created
+> the drift table (`docs/maanta-drift-register.md`), and #146 added
+> `maanta-app/design/current-reality/frames.json` — a 29-surface route inventory,
+> not pixel truth. Only the rule registry is still absent. The consequence is
+> tracked as **D26**: the frames guardrail this audit skipped *because* no frames
+> file existed is now buildable, and still unbuilt. The table below is left as
+> written, because it records what was true when the mapping was made — but read
+> the `frames.json` row as historical.
+
+What played that role at the time:
 
 | Prompt's artifact | This repo's equivalent |
 |---|---|
@@ -315,8 +325,13 @@ fail when the thing they guard is removed.
     would have missed entirely.
 
   No test was added for the brief's "design-ahead frames reference open drift rows"
-  — this repo has no frames artifact, and a test for a file that does not exist
-  would be its own false claim.
+  — at the time this repo had no frames artifact, and a test for a file that does
+  not exist would have been its own false claim. **That reason expired the same
+  day**: #146 added `maanta-app/design/current-reality/frames.json`. The check is
+  now buildable and still unbuilt, tracked as **D26**. It would fail as written —
+  the file's single `design-ahead` surface (`/contact`) cites no drift row, and
+  the file contains no drift reference at all. `/contact` itself turned out to be
+  real drift (**D28**): it renders success without sending anything.
 - ~~**FU-2 (operator, human only).**~~ **DONE 2026-07-30** — both migrations are
   live on `axrrslqssmbngbataejg`, pushed by a human operator per
   `docs/ops/supabase-migrations.md`. Verified read-only from this session:
