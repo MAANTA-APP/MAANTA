@@ -37,7 +37,7 @@
 --
 --   1. Defaulting to FALSE would mean a missing config key **downgrades
 --      merchants with no grace period at all** — directly violating the frozen
---      rule (30-day trial → 7-day grace → auto-downgrade) on nothing more than
+--      rule (30-day trial -> 7-day grace -> auto-downgrade) on nothing more than
 --      an operator slip. Defaulting to TRUE only delays a downgrade by 7 days.
 --      Between "acts wrongly on money" and "acts late", late wins.
 --   2. It matches how `activate_merchant` already reads the same key:
@@ -52,10 +52,27 @@
 -- grace-expiry downgrades that are still correct, trading a partial silent
 -- failure for a total loud one. Degrade safely, say so loudly.
 --
--- No behaviour change while the key is present and valid, which is every
--- environment today. This is purely about the failure mode.
+-- Based on the CURRENT definition, which is the whole story of this file
+-- ---------------------------------------------------------------------
+-- The first cut of this migration was written on top of
+-- 20260701111223_handle_trial_expiry_phase2.sql, because that is the migration
+-- whose header documents the two-phase logic. But the function had been
+-- redefined since, by 20260729141000_demo_mode_isolation.sql, which added
+-- `AND NOT is_demo` to BOTH merchant loops — demo mode never manages synthetic
+-- merchants. Rebasing on the older body silently reverted that, and demo
+-- merchants started getting grace periods and downgrades again.
 --
--- Rollback: re-apply 20260701111223_handle_trial_expiry_phase2.sql.
+-- CI caught it (demo_mode_test.sql scenario D1, "demo merchant must NOT be given
+-- a grace period"). A local harness could not: it applied this migration to a
+-- bare schema, so there was no previous definition to diverge from.
+--
+-- The two `AND NOT is_demo` guards below are therefore load-bearing, and this
+-- body is the current one with the sentinel handling patched in — not a retyped
+-- reconstruction. `CREATE OR REPLACE` silently replaces whatever is live, so the
+-- only safe basis is the newest definition, found by enumerating every migration
+-- that defines the function rather than the one that best describes it.
+--
+-- Rollback: re-apply 20260729141000_demo_mode_isolation.sql.
 -- ============================================================================
 
 BEGIN;
@@ -102,6 +119,7 @@ BEGIN
         AND trial_ends_at IS NOT NULL
         AND trial_ends_at < NOW()
         AND grace_period_ends_at IS NULL  -- grace not yet started
+        AND NOT is_demo                   -- demo mode: never manage synthetic merchants
     LOOP
       v_grace_ends := v_merchant.trial_ends_at + INTERVAL '7 days';
 
@@ -140,6 +158,7 @@ BEGIN
     FROM public.merchants
     WHERE elite_trial_active = TRUE
       AND tier = 'elite'
+      AND NOT is_demo                     -- demo mode: never downgrade synthetic merchants
       AND (
         -- Phase 1: grace period has now expired
         (grace_period_ends_at IS NOT NULL AND grace_period_ends_at < NOW())
@@ -179,6 +198,6 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.handle_trial_expiry() IS
-  'Nightly trial lifecycle: opens the 7-day grace period and an agent conversion task during the Node 0 launch period, downgrades on grace expiry, and downgrades immediately once the launch period has ended. A missing or NULL app_config.node0_launch_period_ends_at is treated as "launch period still open" and raises a WARNING — never as post-launch, which would downgrade merchants with no grace and breach the frozen trial rule.';
+  'Nightly trial lifecycle for REAL merchants only (both loops carry AND NOT is_demo): opens the 7-day grace period and an agent conversion task during the Node 0 launch period, downgrades on grace expiry, and downgrades immediately once the launch period has ended. A missing or NULL app_config.node0_launch_period_ends_at is treated as "launch period still open" and raises a WARNING — never as post-launch, which would downgrade merchants with no grace and breach the frozen trial rule.';
 
 COMMIT;

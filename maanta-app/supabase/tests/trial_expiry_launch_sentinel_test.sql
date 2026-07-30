@@ -221,6 +221,55 @@ BEGIN
   RAISE NOTICE 'D ok: grace expiry downgrades, with grace-expiry wording';
 END $$;
 
+-- Scenario E: demo merchants are never managed, in either phase.
+--
+-- Not hypothetical, and not really about the sentinel. The first cut of migration
+-- 20260730140000 was written on top of 20260701111223 — the migration whose
+-- header documents the two-phase logic — but the function had since been
+-- redefined by 20260729141000, which added `AND NOT is_demo` to BOTH loops.
+-- Rebasing on the older body silently reverted that, and demo merchants started
+-- getting grace periods and downgrades again. CI caught it via
+-- demo_mode_test.sql scenario D1; a bare-schema harness could not, because there
+-- was no previous definition to diverge from. Pinned here too, since this is the
+-- file someone opens when they touch this function.
+DO $$
+DECLARE
+  v_mid   UUID;
+  v_saved TEXT;
+  v_m     RECORD;
+BEGIN
+  SELECT value INTO v_saved FROM public.app_config WHERE key = 'node0_launch_period_ends_at';
+  UPDATE public.app_config SET value = (NOW() + INTERVAL '30 days')::TEXT
+    WHERE key = 'node0_launch_period_ends_at';
+
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status,
+    tier, elite_trial_active, trial_ends_at, grace_period_ends_at, is_demo
+  )
+  VALUES (
+    '__test_trial_sentinel_E', 'test.trial.e', '+254700009005', 'BBS Mall', 'active',
+    'elite', TRUE, NOW() - INTERVAL '1 hour', NULL, TRUE
+  )
+  RETURNING id INTO v_mid;
+
+  PERFORM public.handle_trial_expiry();
+
+  SELECT * INTO v_m FROM public.merchants WHERE id = v_mid;
+  ASSERT v_m.grace_period_ends_at IS NULL,
+    'E: demo merchant was given a grace period — the AND NOT is_demo guard is gone';
+  ASSERT v_m.tier = 'elite' AND v_m.elite_trial_active,
+    'E: demo merchant was downgraded — the AND NOT is_demo guard is gone';
+  ASSERT NOT EXISTS (SELECT 1 FROM public.agent_tasks WHERE merchant_id = v_mid),
+    'E: agent conversion task created for a demo merchant';
+
+  DELETE FROM public.agent_tasks WHERE merchant_id = v_mid;
+  DELETE FROM public.tier_flags  WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants   WHERE id = v_mid;
+  UPDATE public.app_config SET value = v_saved WHERE key = 'node0_launch_period_ends_at';
+
+  RAISE NOTICE 'E ok: demo merchants untouched in both phases';
+END $$;
+
 DO $$
 BEGIN
   ASSERT NOT EXISTS (
