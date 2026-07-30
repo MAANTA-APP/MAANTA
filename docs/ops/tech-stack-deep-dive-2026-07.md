@@ -302,4 +302,5 @@ How advisors should use this stack map:
 | `docs/ops/auth-strategies.md` | Clerk vs supabase strategy toggle |
 | `docs/skills/architecture-audit-now-fixes-2026-07-26.md` | Shipped read-path correctness fixes to keep |
 | `docs/maanta-launch-readiness-tracker.md` | Human-owned gates (trial cron, env wiring) that unblock scale |
+| `docs/maanta-staged-readiness-now-launch-10k-100k.md` | Now / launch / 10k / 100k checklists and readiness matrices |
 | `docs/maanta-production-rollout-plan.md` | Promote-to-live process; not replaced by this assessment |
