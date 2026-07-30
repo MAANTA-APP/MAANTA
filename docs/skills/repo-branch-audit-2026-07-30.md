@@ -125,7 +125,8 @@ Repo convention is merge commits (`Merge origin/main into …`), not rebase.
 ## Operator follow-ups (human)
 
 1. Merge consolidation branch (pause-gate `180000` + prefs canonicalization) to `main` first.
-2. Rebase/merge #137/#143/#94 against that tip; delete duplicate pause-gate files if any.
+2. **Merge** `origin/main` into #137/#143/#94 (merge commits, not rebase — see
+   the convention above, and note 5 below); delete duplicate pause-gate files if any.
 3. Delete the fully-merged list above.
 4. Close stale open PRs in the abandoned table.
 5. Do **not** force-push rebased history onto shared Claude/Cursor branches without owner OK.

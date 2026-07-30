@@ -218,18 +218,23 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | Version | File / intent | Notes |
 |---|---|---|
 | `20260730010000` | `demo_seed_deal_refresh` | Demo cron |
-| `20260730120000` | `correct_success_fee_config_notes` | Repo filename. **Production applied the same notes content under `20260730160000`** — do not put a second logical migration at `160000`. |
-| `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap |
+| `20260730120000` | **BURNED** — `node_scoped_opening_credit_cap` in production | Historical. Production's ledger holds this version for the hand-applied node-scoped credit migration, whose effect `130000` later overwrote. **No repo file uses it.** Never assign it. |
+| `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap. Recreates `activate_merchant` in full |
 | `20260730140000` | `trial_expiry_launch_sentinel_null_guard` | Trial expiry |
 | `20260730150000` | `demo_wipe_audit_trail_retention` | Demo wipe |
-| `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
-| `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
-| `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
+| `20260730160000` | `correct_success_fee_config_notes` | **The repo file lives here**, renumbered from `120000` to match the version production actually recorded. Metadata only |
+| `20260730170000` | `node_scoped_opening_credit_cap_reland` | Re-lands the per-node credit count **above** `130000`, which had overwritten it. Assigned by #143 — not free |
+| `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000`, which was already taken by the notes migration) |
 
-When adding a new 07-30 (or later) migration, pick a version **strictly after**
-the highest row above that is already on `main` *and* confirm with
-`supabase migration list` that production does not already hold that number
+When adding a new migration, pick a version **strictly greater than the highest
+assigned or reserved row above** — currently `20260730180000` — and then confirm
+with `supabase migration list` that production does not already hold that number
 under a different name.
+
+"Already on `main`" is **not** the right bar: `170000` is assigned by an open PR
+and `120000` is burned in production with no repo file at all, so both look free
+from `main` alone and neither is. Read this table and the remote ledger, not the
+`main` file listing.
 
 ## Status note (2026-07-28)
 
