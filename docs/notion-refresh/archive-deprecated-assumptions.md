@@ -1,5 +1,9 @@
 # Archive / Deprecated Assumptions
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical index · **Last verified:** 2026-07-28  
 **Audience:** anyone editing Notion
 
@@ -9,22 +13,20 @@ Landing zone for retired claims. **Do not delete history** — mark deprecated a
 
 ## Deprecated assumptions (do not reuse in active pages)
 
-| Old claim | Why wrong now | Canonical replacement |
-|---|---|---|
-| Auth is exclusively Clerk / Twilio Verify | Dual strategy (`supabase` rehearsal, `clerk` launch); Twilio Verify decommissioned | Auth and Identity |
-| Core loop lives in Supabase Edge Functions | Money path is Postgres RPCs + Next route handlers | Claims/Fees + Architecture |
-| Schema Reference v3 (2026-06-29) is live schema | Dozens of migrations since | Repo `supabase/migrations` |
-| “No Swahili / multi-language forever” as product law | `preferred_language` exists; SW UI “coming soon” — still not full i18n | Product Flows / Overview |
-| Parallel launch-audit branches (#69 / hn5qne) are active | PR #70 merged; branches retired | Launch Readiness / Build OS history note |
-| Abandoned Supabase project `vcrfqsevompqjazbwzyh` is prod | Live project is `axrrslqssmbngbataejg` | Launch Readiness |
-| Waitlist lives in Supabase tables | Resend is system of record; stateless proxy only | Waitlist & Email page |
-| IntaSend is the live Kenya payment fact | Prepared, not assumed | Payments sections / Launch Readiness |
-| Guardian velocity/geofence/collusion “proposed only” | Guardian v1 implemented 2026-07-21+ | Claims, Redemption, Fees, and Guardian |
-| Top-ups credit balance without settling arrears | Settles arrears first (2026-07-21) | Claims/Fees |
-| Analytics/Oracle is a current product | Future strategic path only | Strategic Partnerships and Data Pathway |
-| Multi-node Nairobi seeds = live expansion | Synthetic rehearsal nodes | BBS Mall / Nairobi Rollout |
-| Repo CI green = prod hardened | Explicitly false per launch audit | Observability + Launch Readiness |
-| Shopper pays MAANTA digitally for deals | Cash to merchant off-app | Overview / Product Flows |
+- **Old claim:** Auth is exclusively Clerk / Twilio Verify · **Why wrong now:** Dual strategy (`supabase` rehearsal, `clerk` launch); Twilio Verify decommissioned · **Canonical replacement:** Auth and Identity
+- **Old claim:** Core loop lives in Supabase Edge Functions · **Why wrong now:** Money path is Postgres RPCs + Next route handlers · **Canonical replacement:** Claims/Fees + Architecture
+- **Old claim:** Schema Reference v3 (2026-06-29) is live schema · **Why wrong now:** Dozens of migrations since · **Canonical replacement:** Repo `supabase/migrations`
+- **Old claim:** “No Swahili / multi-language forever” as product law · **Why wrong now:** `preferred_language` exists; SW UI “coming soon” — still not full i18n · **Canonical replacement:** Product Flows / Overview
+- **Old claim:** Parallel launch-audit branches (#69 / hn5qne) are active · **Why wrong now:** PR #70 merged; branches retired · **Canonical replacement:** Launch Readiness / Build OS history note
+- **Old claim:** Abandoned Supabase project `vcrfqsevompqjazbwzyh` is prod · **Why wrong now:** Live project is `axrrslqssmbngbataejg` · **Canonical replacement:** Launch Readiness
+- **Old claim:** Waitlist lives in Supabase tables · **Why wrong now:** Resend is system of record; stateless proxy only · **Canonical replacement:** Waitlist & Email page
+- **Old claim:** IntaSend is the live Kenya payment fact · **Why wrong now:** Prepared, not assumed · **Canonical replacement:** Payments sections / Launch Readiness
+- **Old claim:** Guardian velocity/geofence/collusion “proposed only” · **Why wrong now:** Guardian v1 implemented 2026-07-21+ · **Canonical replacement:** Claims, Redemption, Fees, and Guardian
+- **Old claim:** Top-ups credit balance without settling arrears · **Why wrong now:** Settles arrears first (2026-07-21) · **Canonical replacement:** Claims/Fees
+- **Old claim:** Analytics/Oracle is a current product · **Why wrong now:** Future strategic path only · **Canonical replacement:** Strategic Partnerships and Data Pathway
+- **Old claim:** Multi-node Nairobi seeds = live expansion · **Why wrong now:** Synthetic rehearsal nodes · **Canonical replacement:** BBS Mall / Nairobi Rollout
+- **Old claim:** Repo CI green = prod hardened · **Why wrong now:** Explicitly false per launch audit · **Canonical replacement:** Observability + Launch Readiness
+- **Old claim:** Shopper pays MAANTA digitally for deals · **Why wrong now:** Cash to merchant off-app · **Canonical replacement:** Overview / Product Flows
 
 ## Pages to archive (process)
 

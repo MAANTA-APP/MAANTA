@@ -1,5 +1,9 @@
 # Risks and Hard Truths
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Audience:** founder, advisors, serious partners/investors
 
@@ -22,16 +26,14 @@ Name the uncomfortable truths so Notion stays credible.
 
 ## Risk register (short)
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| Prod/schema drift | High | Migration runbook + healthz + Launch Readiness counts |
-| Empty or misleading feed | High | Seed policy + node cookie discipline |
-| Payment rail gap at launch | High | Explicit Stripe-live and/or IntaSend plan |
-| Fraud / collusion | Medium | Guardian v1 + admin queues + threshold tuning |
-| SMS / auth friction killing claims | High | Phone gate UX + rehearsal on supabase strategy; validate Clerk SMS before launch |
-| Privacy/regulatory | High | Counsel; DPA basis for eu-west-1 |
-| Overclaiming in fundraising | High | Real vs Staged page mandatory |
-| Key-person burnout | Medium | Agent rota; narrow weekly objectives per Claude OS |
+- **Risk:** Prod/schema drift · **Severity:** High · **Mitigation:** Migration runbook + healthz + Launch Readiness counts
+- **Risk:** Empty or misleading feed · **Severity:** High · **Mitigation:** Seed policy + node cookie discipline
+- **Risk:** Payment rail gap at launch · **Severity:** High · **Mitigation:** Explicit Stripe-live and/or IntaSend plan
+- **Risk:** Fraud / collusion · **Severity:** Medium · **Mitigation:** Guardian v1 + admin queues + threshold tuning
+- **Risk:** SMS / auth friction killing claims · **Severity:** High · **Mitigation:** Phone gate UX + rehearsal on supabase strategy; validate Clerk SMS before launch
+- **Risk:** Privacy/regulatory · **Severity:** High · **Mitigation:** Counsel; DPA basis for eu-west-1
+- **Risk:** Overclaiming in fundraising · **Severity:** High · **Mitigation:** Real vs Staged page mandatory
+- **Risk:** Key-person burnout · **Severity:** Medium · **Mitigation:** Agent rota; narrow weekly objectives per Claude OS
 
 ## What is working
 

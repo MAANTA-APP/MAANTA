@@ -1,5 +1,9 @@
 # Investor Readiness
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Audience:** founder, advisors, prospective investors  
 **Rule:** Prefer under-claiming. Link **What Is Real vs Staged vs Planned** in every packet.
@@ -37,15 +41,13 @@ It is **not** yet a live multi-mall network, a payments app for consumers, or a 
 
 ## Diligence folder (minimum)
 
-| Artifact | Status |
-|---|---|
-| Overview + Real vs Staged | This refresh |
-| Decisions / frozen rules | Decisions Log + Frozen Scope |
-| Launch tracker | Launch Readiness |
-| Architecture / stack | Architecture + tech deep dive (repo) |
-| Security / money tests | CI SQL suites summary |
-| Legal drafts | Repo `maanta-app/legal/` — drafts only |
-| Cap table / equity note | Build OS founder note (75% / 15% reserved / 10% pool) — keep accurate |
+- **Artifact:** Overview + Real vs Staged · **Status:** This refresh
+- **Artifact:** Decisions / frozen rules · **Status:** Decisions Log + Frozen Scope
+- **Artifact:** Launch tracker · **Status:** Launch Readiness
+- **Artifact:** Architecture / stack · **Status:** Architecture + tech deep dive (repo)
+- **Artifact:** Security / money tests · **Status:** CI SQL suites summary
+- **Artifact:** Legal drafts · **Status:** Repo `maanta-app/legal/` — drafts only
+- **Artifact:** Cap table / equity note · **Status:** Build OS founder note (75% / 15% reserved / 10% pool) — keep accurate
 
 ## What is working for diligence
 

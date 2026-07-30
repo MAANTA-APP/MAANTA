@@ -1,5 +1,9 @@
 # Current State of MAANTA
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical snapshot · **Last verified:** 2026-07-28 · **Audience:** founder, operator, engineer, advisor  
 **Evidence bases:** `docs/maanta-launch-readiness-tracker.md`, Build OS Notion status (through 2026-07-27), `docs/skills/launch-audit-2026-07-24.md`, `docs/ops/auth-strategies.md`, `docs/skills/supabase-prod-email-auth.md`
 
@@ -13,33 +17,27 @@ MAANTA is in **pre-launch / Node 0 rehearsal**. The product loop (browse → cla
 
 ## Stage label
 
-| Label | Meaning now |
-|---|---|
-| Stage | **Build — Node 0 repo-complete for pre-10k design**; BBS rehearsal gated on prod apply + device smoke; public shopper launch gated on money rails, legal/DPA, ops SLAs |
-| Launch node | BBS Mall only (expansion is deliberate, not automatic) |
-| Primary app | Next.js PWA at maanta.app / www.maanta.app |
+- **Label:** Stage · **Meaning now:** **Build — Node 0 repo-complete for pre-10k design**; BBS rehearsal gated on prod apply + device smoke; public shopper launch gated on money rails, legal/DPA, ops SLAs
+- **Label:** Launch node · **Meaning now:** BBS Mall only (expansion is deliberate, not automatic)
+- **Label:** Primary app · **Meaning now:** Next.js PWA at maanta.app / www.maanta.app
 
 ## What is working (repo / CI)
 
-| Area | Evidence |
-|---|---|
-| Claim → verify → fee/arrears | SQL suites: `golden_path`, `verify_redemption_money_path`, `topup_settles_arrears` |
-| Guardian v1 | Migrations + `guardian_*` SQL tests; admin hold/release/appeal UI |
-| Fee reversal | `reverse_success_fee` + note required; admin UI |
-| Shopper UX | Feed rails, Browse map/list, YOU PAY pricing, Claude design system work on `main` |
-| Security hardening | Rate limits, service_role money RPCs, capture_lead atomicity — CI covered |
-| Waitlist | `/waitlist` + Resend proxy (prod signup QA still a gate) |
-| Health | `GET /api/healthz` (+ ready/probe variants for operators) |
+- **Area:** Claim → verify → fee/arrears · **Evidence:** SQL suites: `golden_path`, `verify_redemption_money_path`, `topup_settles_arrears`
+- **Area:** Guardian v1 · **Evidence:** Migrations + `guardian_*` SQL tests; admin hold/release/appeal UI
+- **Area:** Fee reversal · **Evidence:** `reverse_success_fee` + note required; admin UI
+- **Area:** Shopper UX · **Evidence:** Feed rails, Browse map/list, YOU PAY pricing, Claude design system work on `main`
+- **Area:** Security hardening · **Evidence:** Rate limits, service_role money RPCs, capture_lead atomicity — CI covered
+- **Area:** Waitlist · **Evidence:** `/waitlist` + Resend proxy (prod signup QA still a gate)
+- **Area:** Health · **Evidence:** `GET /api/healthz` (+ ready/probe variants for operators)
 
 ## What is working (production — confirmed / partial)
 
-| Item | Status | Notes |
-|---|---|---|
-| Vercel deploy from `main` | Working | Domain Cloudflare → Vercel |
-| Sentry + PostHog env on Vercel | Confirmed 2026-07-27 | Instrumentation no-ops without keys; keys reported wired |
-| Resend waitlist delivery | Partially verified historically | Tracker E7 still requires ongoing prod signup confirmation |
-| Auth | **Strategy-dependent** | Launch target = Clerk; rehearsal may use Supabase email OTP (`MAANTA_AUTH_STRATEGY`) — see Auth page |
-| Live deal inventory | Uncertain without operator check | 100-deal seed may or may not be applied on prod |
+- **Item:** Vercel deploy from `main` · **Status:** Working · **Notes:** Domain Cloudflare → Vercel
+- **Item:** Sentry + PostHog env on Vercel · **Status:** Confirmed 2026-07-27 · **Notes:** Instrumentation no-ops without keys; keys reported wired
+- **Item:** Resend waitlist delivery · **Status:** Partially verified historically · **Notes:** Tracker E7 still requires ongoing prod signup confirmation
+- **Item:** Auth · **Status:** **Strategy-dependent** · **Notes:** Launch target = Clerk; rehearsal may use Supabase email OTP (`MAANTA_AUTH_STRATEGY`) — see Auth page
+- **Item:** Live deal inventory · **Status:** Uncertain without operator check · **Notes:** 100-deal seed may or may not be applied on prod
 
 ## What is not yet ready
 
@@ -52,17 +50,15 @@ MAANTA is in **pre-launch / Node 0 rehearsal**. The product loop (browse → cla
 
 ## Lenses (short)
 
-| Lens | Verdict |
-|---|---|
-| Product reality | Core loop real in code; density may be staged |
-| Technical readiness | Strong pre-10k repo posture; prod apply incomplete |
-| Operational readiness | Agent rota + templates exist; support SLAs partially defined |
-| GTM readiness | Waitlist/agency campaign not fully live |
-| Merchant readiness | Onboarding/wallet/verify built; live top-up rails incomplete |
-| Launch readiness | Not launch-ready for open shoppers |
-| Investor readiness | Credible if staged vs real is explicit |
-| Partnership readiness | MoU/term sheet drafts exist; unsigned |
-| Data governance | Draft privacy only; DPA decision open |
+- **Lens:** Product reality · **Verdict:** Core loop real in code; density may be staged
+- **Lens:** Technical readiness · **Verdict:** Strong pre-10k repo posture; prod apply incomplete
+- **Lens:** Operational readiness · **Verdict:** Agent rota + templates exist; support SLAs partially defined
+- **Lens:** GTM readiness · **Verdict:** Waitlist/agency campaign not fully live
+- **Lens:** Merchant readiness · **Verdict:** Onboarding/wallet/verify built; live top-up rails incomplete
+- **Lens:** Launch readiness · **Verdict:** Not launch-ready for open shoppers
+- **Lens:** Investor readiness · **Verdict:** Credible if staged vs real is explicit
+- **Lens:** Partnership readiness · **Verdict:** MoU/term sheet drafts exist; unsigned
+- **Lens:** Data governance · **Verdict:** Draft privacy only; DPA decision open
 
 ## Risks
 

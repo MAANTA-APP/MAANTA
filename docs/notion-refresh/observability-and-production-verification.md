@@ -1,5 +1,9 @@
 # Observability and Production Verification
 
+<!-- Paste format: bullet lines, not tables — the live Notion pages store rows
+     as `- **Col:** value · **Col:** value`, and table pastes mangle. See
+     docs/notion-refresh/README.md § "Paste format". Do not convert back. -->
+
 **Status:** Canonical · **Last verified:** 2026-07-28  
 **Repo:** `docs/skills/sentry-monitoring.md`, `docs/skills/launch-audit-2026-07-24.md`, `docs/skills/prod-auth-deals-recovery.md`, healthz routes
 
@@ -9,16 +13,14 @@ Separate **tests that passed** from **production that was verified**. Define how
 
 ## Current reality
 
-| Layer | What exists | Gap |
-|---|---|---|
-| Unit/integration (vitest) | Broad API/lib coverage on `main` | Does not prove prod env |
-| SQL money/security suites | Run in CI `db-tests` against real local Supabase | Not a substitute for hosted apply |
-| Playwright golden path | Self-skipping without `E2E_BASE_URL` | Needs secrets to gate CI |
-| Healthz | `GET /api/healthz` (+ ready/probe admin detail) | Must be checked after deploys |
-| Sentry | Env reported wired on Vercel (2026-07-27) | Confirm issues stream for real errors |
-| PostHog | Env reported wired; client+server capture code | Confirm events (incl. `guardian_outcome`) arrive |
-| Auth logs | `[maanta-auth]` staged logs | Need log access discipline |
-| Manual device QA | Checklist-based | Still the launch gate |
+- **Layer:** Unit/integration (vitest) · **What exists:** Broad API/lib coverage on `main` · **Gap:** Does not prove prod env
+- **Layer:** SQL money/security suites · **What exists:** Run in CI `db-tests` against real local Supabase · **Gap:** Not a substitute for hosted apply
+- **Layer:** Playwright golden path · **What exists:** Self-skipping without `E2E_BASE_URL` · **Gap:** Needs secrets to gate CI
+- **Layer:** Healthz · **What exists:** `GET /api/healthz` (+ ready/probe admin detail) · **Gap:** Must be checked after deploys
+- **Layer:** Sentry · **What exists:** Env reported wired on Vercel (2026-07-27) · **Gap:** Confirm issues stream for real errors
+- **Layer:** PostHog · **What exists:** Env reported wired; client+server capture code · **Gap:** Confirm events (incl. `guardian_outcome`) arrive
+- **Layer:** Auth logs · **What exists:** `[maanta-auth]` staged logs · **Gap:** Need log access discipline
+- **Layer:** Manual device QA · **What exists:** Checklist-based · **Gap:** Still the launch gate
 
 ## Verification ladder (use in order)
 

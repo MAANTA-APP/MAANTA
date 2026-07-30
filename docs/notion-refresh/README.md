@@ -25,22 +25,21 @@ untouched. Two things to know before syncing any page here:
   still misbehaves, paste one `##` section at a time — section boundaries never split
   a row.
 
-`launch-readiness.md` is converted and carries an inline note not to "tidy" it back
-into tables. **The other page bodies in this directory still use tables** (see the
-counts below) and are likely to hit the same problem on their next sync — convert
-each one when you next touch it, rather than in a single sweep nobody can review:
+**All page bodies are converted** (2026-07-30 sweep) and each carries an inline note
+not to "tidy" it back into tables:
 
-| File | Table rows |
-|---|---|
-| `notion-page-map.md` | 62 |
-| `current-state-of-maanta.md` | 32 |
-| `what-is-real-vs-staged-vs-planned.md` | 31 |
-| `notion-information-architecture.md` | 18 |
-| `archive-deprecated-assumptions.md` | 16 |
-| `maanta-overview.md` | 15 |
-| others | ≤10 each |
+- `archive-deprecated-assumptions.md`, `auth-and-identity.md`,
+  `bbs-mall-nairobi-rollout.md`, `claims-redemption-fees-guardian.md`,
+  `current-state-of-maanta.md`, `investor-readiness.md`, `launch-readiness.md`,
+  `maanta-overview.md`, `observability-and-production-verification.md`,
+  `risks-and-hard-truths.md`, `strategic-partnerships-and-data-pathway.md`,
+  `what-is-real-vs-staged-vs-planned.md`
+- `product-flows.md` and `roadmap-now-launch-10k-100k.md` had no tables to begin with.
 
-(`notion-api-change-log.md` is a log, not a page body — it does not get pasted.)
+**The working docs deliberately keep their tables** — they are never pasted into a
+Notion page body, and tables read better in the repo: `notion-page-map.md`,
+`notion-information-architecture.md`, `manual-update-checklist.md`,
+`notion-api-change-log.md`, and this README.
 
 **Also worth knowing:** the Notion MCP **write** path requires interactive approval,
 so a non-interactive Claude session can read and diff these pages but cannot apply
