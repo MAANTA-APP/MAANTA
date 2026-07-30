@@ -49,6 +49,7 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/auth-strategies.md` | Clerk (launch) vs Supabase email OTP (dev/test) toggle |
 | `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
+| `ops/optruth-verification-2026-07-30.md` | OpTruth claims checked against main, Vercel prod, and the production migration ledger |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
