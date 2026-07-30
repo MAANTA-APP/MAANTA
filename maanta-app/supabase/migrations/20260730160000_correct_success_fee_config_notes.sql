@@ -1,5 +1,16 @@
 -- Truth audit 2026-07-30: correct the stale metadata on app_config.success_fee_kes.
 --
+-- RENUMBERED 2026-07-30, from 20260730120000. Production already had a different
+-- migration recorded at 20260730120000 — `node_scoped_opening_credit_cap`, applied
+-- by hand and never committed, so no file for it exists in this repo. Supabase
+-- matches migration history on the version string alone, so while this file kept
+-- that number `supabase db push` considered it already applied and skipped it
+-- silently: the correction below never reached the live database.
+--
+-- 160000 rather than a gap-filling number because the version must sort AFTER
+-- everything already applied (the newest is 20260730150000), or the CLI reports the
+-- local history as diverged from the remote.
+--
 -- METADATA ONLY. This migration changes no value, no function, no policy and no
 -- behaviour — only the human-readable `notes` string on one config row, plus the
 -- matching COMMENT on the guardrail function that seeded it.

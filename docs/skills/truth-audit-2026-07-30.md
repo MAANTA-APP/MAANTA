@@ -39,7 +39,7 @@ described as unresolved in code. See follow-up FU-1.
 | # | Domain | Contract claimed | Code/DB showed | Verdict | Action |
 |---|---|---|---|---|---|
 | F1 | Pricing | Notion frozen rule: launch offer = "First 100 BBS Mall merchants get 30-day free Elite trial"; Product Brief adds "KES 30 success fee still applies" | `/pricing` promised "Launch offer: first month of Elite free" — no cap, no node scope, no fee caveat | **Code was the outlier** (copy overstated a frozen, bounded promo) | Rewrote `/pricing` and the `/for-merchants` Elite bullet to state cap + node + fee caveat |
-| F2 | Pricing | Elite price review = **Feb 2027** (founder ruling 2026-07-20), decisions log at `docs/maanta-decisions-log.md` | Live `app_config.success_fee_kes.notes` said "**Oct 2026** review" and pointed at `PROJECT_RULES.md` / `DECISIONS_LOG.md`, **neither of which exists** | **DB metadata was stale** | Migration `20260730120000_correct_success_fee_config_notes.sql` (metadata only) |
+| F2 | Pricing | Elite price review = **Feb 2027** (founder ruling 2026-07-20), decisions log at `docs/maanta-decisions-log.md` | Live `app_config.success_fee_kes.notes` said "**Oct 2026** review" and pointed at `PROJECT_RULES.md` / `DECISIONS_LOG.md`, **neither of which exists** | **DB metadata was stale** | Migration `20260730160000_correct_success_fee_config_notes.sql` (metadata only; renumbered from `20260730120000` on 2026-07-30 — see below) |
 | F3 | Pricing | Plan names are Standard and Elite, "never Free"; forbidden term "free plan" | `/pricing` and `/for-merchants` printed **"Free"** as Standard's headline price | **Code was the outlier** | Both now read "No monthly fee" |
 | F4 | Trials | 30-day Elite trial is frozen; the 2026-07-29 full-state audit already ruled wireframe 11j's "14 days" stale | `approve/route.ts` still carried "wireframe 11j says 14 days — flagged as an **open** spec/DB conflict" | **Comment was stale** | Comment rewritten to record the resolution |
 | F5 | Pricing | Success fee must never be hardcoded (`getSuccessFee()` is canonical) | `30` was an independent literal in `/for-merchants` (`SUCCESS_FEE = 30`), `/pricing` (twice), and `data.ts`'s fallback | **Drift risk, no live mismatch** | Single-sourced as `SUCCESS_FEE_KES` in `src/lib/pricing.ts`; all three now import it |
@@ -293,8 +293,15 @@ fail when the thing they guard is removed.
 - **FU-2 (operator, human only).** Two migrations need pushing to
   `axrrslqssmbngbataejg`. Per `docs/ops/supabase-migrations.md` Claude Code does
   not run migrations — a human operator must.
-  - `20260730120000_correct_success_fee_config_notes.sql` — metadata only, safe to
-    batch with anything.
+  - `20260730160000_correct_success_fee_config_notes.sql` — metadata only, safe to
+    batch with anything. **Renumbered from `20260730120000` on 2026-07-30**, and
+    still not applied. Production already had a *different* migration recorded at
+    `20260730120000` (`node_scoped_opening_credit_cap`, applied by hand, never
+    committed), and Supabase matches history on the version string alone — so
+    while this file kept that number, `db push` treated it as already applied and
+    skipped it silently. If you have read the live
+    `app_config.success_fee_kes.notes` since 2026-07-30 and it still said
+    "Oct 2026", that is why.
   - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **behavioural, read
     the note before pushing.** It adds a column, backfills it, and starts
     enforcing the cap. **Check the backfill result before announcing the offer:**

@@ -304,14 +304,26 @@ their repo filenames — which would have left `supabase db push` treating both 
 unapplied. Both rows were corrected in `supabase_migrations.schema_migrations` to
 `20260730140000` and `20260730150000`.
 
-**Open drift, not caused by this deployment.** Production records version
+**A version collision, found while doing the above.** Production records version
 `20260730120000` as `node_scoped_opening_credit_cap`, applied by hand and never
 committed — there is no such file anywhere in git history. The repo's file at that
-same version is `20260730120000_correct_success_fee_config_notes.sql`. Because
-Supabase matches on version alone, `db push` treats `20260730120000` as done and
-will **silently skip** the success-fee metadata correction, which is therefore
-probably not live. Needs a founder call: renumber the repo file, or repair the remote
-history. Untouched here.
+same version was `20260730120000_correct_success_fee_config_notes.sql`. Because
+Supabase matches on version alone, `db push` treated `20260730120000` as done and
+**silently skipped** the success-fee metadata correction, so it never reached the
+live database.
+
+**Resolved by renumbering the repo file** to
+`20260730160000_correct_success_fee_config_notes.sql` — after the newest applied
+version (`20260730150000`), because a local migration older than the remote head
+makes the CLI report the histories as diverged. The remote history was left alone.
+The correction is metadata-only (`ON CONFLICT DO UPDATE` on `notes`, so it cannot
+touch the KES 30 value) and is **still unapplied** — it goes in on the next manual
+push.
+
+**Still outstanding:** `node_scoped_opening_credit_cap` is applied to production but
+has no file in this repo, so a fresh database built from `supabase/migrations/` will
+not have it. Its SQL is recoverable from `supabase_migrations.schema_migrations`
+(the `statements` column), which is what a fix would commit.
 
 ---
 
