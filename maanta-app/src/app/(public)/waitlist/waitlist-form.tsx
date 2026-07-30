@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import {
@@ -83,7 +84,9 @@ export function WaitlistForm({
         setError(body?.error ?? "Something went wrong. Please try again.");
         return;
       }
-      setDone({ alreadyJoined: Boolean(body?.alreadyJoined) });
+      const alreadyJoined = Boolean(body?.alreadyJoined);
+      posthog.capture("waitlist_joined", { segment, already_joined: alreadyJoined });
+      setDone({ alreadyJoined });
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
     } finally {

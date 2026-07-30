@@ -12,6 +12,7 @@ import { WalletHeader } from "@/components/ui/wallet-header";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 /**
  * Merchant redeem — strict two-step resolve-then-charge (brief §8, L10):
@@ -158,6 +159,11 @@ export function RedeemKeypad({
         setScreen({ kind: "rejected", reason: body.error ?? "Could not verify", noFee: true });
         return;
       }
+      posthog.capture("redemption_confirmed", {
+        fee_charge_status: body.feeChargeStatus,
+        fee_amount: body.feeAmount,
+        location_override: Boolean(override),
+      });
       if (typeof body.newBalance === "number") setBalance(body.newBalance);
       // Format the SERVER-issued verify timestamp (UTC ISO) in the mall's fixed
       // timezone (Africa/Nairobi / EAT), NOT the device's — so the counter shows
@@ -198,6 +204,7 @@ export function RedeemKeypad({
   }
 
   async function reject(otpCode: string) {
+    posthog.capture("redemption_rejected");
     await fetch("/api/redemptions/reject", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

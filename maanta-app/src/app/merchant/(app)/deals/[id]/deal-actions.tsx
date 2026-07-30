@@ -102,7 +102,11 @@ export function DealActions({
                   variant="ghost"
                   className="flex-1"
                   loading={busy && sheet === "none"}
-                  onClick={() => patch({ action: status === "paused" ? "resume" : "pause" })}
+                  onClick={() =>
+                    patch({ action: status === "paused" ? "resume" : "pause" }).then((ok) => {
+                      if (ok) posthog.capture(status === "paused" ? "deal_resumed" : "deal_paused", { deal_id: dealId });
+                    })
+                  }
                 >
                   {status === "paused" ? "Resume deal" : "Pause"}
                 </Button>
@@ -240,7 +244,11 @@ export function DealActions({
           className="mt-5"
           loading={busy}
           disabled={!title.trim()}
-          onClick={() => patch({ action: "edit", title, description })}
+          onClick={() =>
+            patch({ action: "edit", title, description }).then((ok) => {
+              if (ok) posthog.capture("deal_edited", { deal_id: dealId });
+            })
+          }
         >
           Save changes
         </Button>
