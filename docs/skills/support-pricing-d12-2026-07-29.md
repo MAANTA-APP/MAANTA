@@ -2,10 +2,15 @@
 
 Date: 2026-07-29 · Session mode: **Builder** · Branch: `claude/maanta-role-hardening-62ut64`
 
-## D-12 is narrowed, not closed
+## D-12 is CLOSED (founder ruling, same day)
 
-The row bundled **two surfaces with two different blockers**, and only one was
-settleable from the repo.
+This doc records two passes. The first narrowed the row to one commercial
+question; the founder answered it the same day and the row is now closed. Read
+[the ruling](#the-ruling--offer-withdrawn-row-closed) at the end for the
+settled state; the sections before it are the reasoning that produced it.
+
+The row originally bundled **two surfaces with two different blockers**, and only
+one was settleable from the repo.
 
 > "Admin support (11e) and public pricing (12e) are current but intentionally not
 > clickable: 11e is a desktop ops surface outside the phone prototype, 12e is
@@ -83,8 +88,84 @@ prototype gap for 11e is intentional, and 12e's blocker is commercial.
 untracked anywhere else — no decisions-log entry, no `app_config` key — so
 nothing currently reconciles it against what Elite trials actually grant.
 
+## The ruling — offer withdrawn, row closed
+
+Founder decision, 2026-07-29:
+
+> Treat the "Launch offer: first month of Elite free" line as **withdrawn** until
+> a governed launch offer exists.
+
+So the line is gone from `/pricing`, and there was no duplicate to remove
+elsewhere — the grep across `/pricing`, `/for-merchants` and the landing page
+found the one instance. Everything else in the pricing copy is untouched.
+
+Two things were deliberate at the removal site:
+
+1. **An explanatory comment replaces the line** (`pricing/page.tsx:24-29`). A
+   blank space invites the next person to fill it; a comment saying *why* it is
+   blank does not.
+2. **A test makes re-adding one deliberate.**
+   `cash-only-and-copy.test.ts` → *"carries no ungoverned launch-offer promise on
+   any public page"* scans all three public pages for
+   `/launch offer|first month[^.]{0,30}free|month of elite free|free month/i`.
+   It **strips comments first**, so the explanatory comment neither satisfies the
+   test nor trips it — the guard tracks what ships to a shopper, not what a
+   developer reads.
+
+### What "governed" has to mean before any future offer ships
+
+The line's real defect was not the words, it was that nothing owned them. A
+future Elite launch offer needs both halves before it is re-advertised:
+
+- an **`app_config` key** — the same pattern as `node0_opening_credit_kes` and
+  `guardian_thresholds`, so the offer has a live value and an end date the copy
+  can be reconciled against and pulled from when the window closes; and
+- a **decisions-log entry** stating what it grants and how it interacts with the
+  30-day trial → 7-day grace → auto-downgrade ladder in `handle_trial_expiry`.
+
+Recorded in `docs/maanta-decisions-log.md` (2026-07-29, D-12).
+
+**A related weakness is still open and was not fixed here:** `OPENING_CREDIT =
+300` is hardcoded in `for-merchants/page.tsx:33` even though the server reads it
+from `app_config`. Same class of problem — public copy that no config can pull —
+but it is a live, governed promise with a decisions-log entry behind it, so it
+is a follow-up, not part of this row.
+
+### Copy that was tightened on the way
+
+Writing the "Standard is never described as free" guard immediately failed on
+copy I had left alone, which is the guard working:
+
+| Was | Now | Why |
+|---|---|---|
+| "…then stays **free on Standard** if you don't convert" | "…then moves to Standard with **no monthly fee** if you don't convert" | Standard carries the KES 30 fee; it is not free |
+| "One standard deal **is free**." | "**Posting** a standard deal **costs nothing**." | The posting is free; the redemption is not |
+
+`Free to list` (`for-merchants:75`) stayed — listing genuinely is free and it is
+not a plan name.
+
+### Closing conditions, each verified
+
+| Condition | Evidence |
+|---|---|
+| R-PLAN-NAMES satisfied | Both plans named Standard/Elite on both pages — `it.each(PLAN_PAGES)("%s names both plans")` |
+| Standard never labelled "Free" | Price renders "No monthly fee" — `pricing:12`, `for-merchants:203`; `>Free<` asserted absent |
+| Success fee visible beside Standard | `pricing:10` — "1 standard deal · KES 30 success fee per verified redemption" |
+| No ungoverned launch-offer promises | The comment-stripped scan above, across all three public pages |
+
+Contract: frame `12e` → `captureReadiness: safe-now` (its
+`captureReadinessReason` removed, `prototypeBlockedReason` rewritten); drift
+`D-12` → `historical` / `blockedOn: none`, the four conditions recorded in its
+`detail`, and added to `landedInRepo.closesDrift`. A D-12 block in
+`design-truth.contract.test.ts` keeps the ruling from being quietly reopened —
+the generic invariant means reopening the row while 12e claims `safe-now` fails
+Layer 1.
+
+**All 12 drift rows are now `blockedOn: none`.**
+
 ## Verification
 
-`npm run lint` · `npm run typecheck` · `npm test` (**506 passing**) ·
-`npm run build` — all green. Contract smoke coverage is now **17 frames** (11e
-and 12e added).
+First pass: `npm test` **506 passing**. After the ruling: `npm run lint` ·
+`npm run typecheck` clean; `npm run test:design-truth` **130 assertions**;
+`npm test` **509 passing**; `npm run build` green. Contract smoke coverage is
+**17 frames** (11e and 12e added).

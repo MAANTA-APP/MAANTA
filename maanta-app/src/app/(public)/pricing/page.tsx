@@ -21,9 +21,12 @@ export default function PricingPage() {
           <p className="mt-1 text-xs text-white/50">per month</p>
         </div>
       </div>
-      <p className="mt-8 rounded-full bg-brand-tint px-5 py-3 text-center text-sm font-semibold text-ink">
-        Launch offer: first month of Elite free
-      </p>
+      {/* No launch-offer line here by decision (2026-07-29, drift D-12): the
+          "first month of Elite free" promise was withdrawn because nothing
+          backed it — no decisions-log entry and no app_config key, so nothing
+          reconciled it against what an Elite trial actually grants. A future
+          Elite launch offer must be config/policy-backed before it is
+          re-advertised. Guarded by src/__tests__/cash-only-and-copy.test.ts. */}
     </main>
   );
 }

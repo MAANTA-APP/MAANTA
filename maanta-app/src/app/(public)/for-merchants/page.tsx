@@ -35,7 +35,7 @@ const OPENING_CREDIT_CAP = 100;
 const CREDITED_REDEMPTIONS = Math.floor(OPENING_CREDIT / SUCCESS_FEE);
 
 const STEPS: [string, string][] = [
-  ["Post a deal", "Two minutes on your phone. One standard deal is free."],
+  ["Post a deal", "Two minutes on your phone. Posting a standard deal costs nothing."],
   ["A shopper claims it", "They get a 6-digit code. Nothing has cost you anything yet."],
   ["Verify at your counter", "Type the code in. It either verifies or it doesn't."],
   [
@@ -225,7 +225,7 @@ export default function ForMerchantsPage() {
                 {[
                   "Two active deals, plus flash deals",
                   "Boost a deal to the top of the feed",
-                  "30-day trial, then a 7-day grace period, then stays free on Standard if you don't convert",
+                  "30-day trial, then a 7-day grace period, then moves to Standard with no monthly fee if you don't convert",
                 ].map((line) => (
                   <li
                     key={line}

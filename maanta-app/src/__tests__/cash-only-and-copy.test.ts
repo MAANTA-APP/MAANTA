@@ -120,6 +120,38 @@ describe("R-PLAN-NAMES — plan naming and pricing copy", () => {
     expect(src).not.toMatch(/>\s*Free\s*</);
   });
 
+  it("carries no ungoverned launch-offer promise on any public page", () => {
+    // Founder decision 2026-07-29 (drift D-12): the "first month of Elite free"
+    // line was withdrawn because nothing backed it — no decisions-log entry and
+    // no app_config key, so nothing reconciled the promise against what an Elite
+    // trial actually grants. A future offer must be config/policy-backed before
+    // it is re-advertised, and this test is what makes re-adding one deliberate.
+    //
+    // Comments are stripped first, so the explanatory comment left at the
+    // removal site does not satisfy or trip this check.
+    const PROMISE = /launch offer|first month[^.]{0,30}free|month of elite free|free month/i;
+    for (const path of [
+      "src/app/(public)/pricing/page.tsx",
+      "src/app/(public)/for-merchants/page.tsx",
+      "src/app/(public)/page.tsx",
+    ]) {
+      const withoutComments = read(path)
+        .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      expect(withoutComments, `${path} advertises an ungoverned offer`).not.toMatch(
+        PROMISE
+      );
+    }
+  });
+
+  it("never describes the Standard plan itself as free", () => {
+    // "stays free on Standard" was the last instance: Standard carries the
+    // KES 30 success fee, so no copy may call the plan free.
+    for (const path of PLAN_PAGES) {
+      expect(read(path), path).not.toMatch(/free on Standard|Standard[^.]{0,20}\bis free\b/i);
+    }
+  });
+
   it("keeps the frozen numbers on the pricing page", () => {
     const src = read("src/app/(public)/pricing/page.tsx");
     expect(src).toContain("KES 30");

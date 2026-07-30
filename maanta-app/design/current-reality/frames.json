@@ -828,19 +828,18 @@
         "missing": []
       },
       "prototypeStatus": "current-not-clickable",
-      "prototypeBlockedReason": "Launch-offer copy is unresolved; building it would bake in a number that may change.",
-      "captureReadiness": "after-copy",
+      "prototypeBlockedReason": "Not built in the phone prototype. The previous reason \u2014 unresolved launch-offer copy \u2014 no longer applies: the offer was withdrawn by founder decision 2026-07-29 and the page now carries only frozen, governed copy.",
+      "captureReadiness": "safe-now",
       "evidenceSource": "repo",
       "sourceFiles": [
         "src/app/(public)/pricing/page.tsx"
       ],
       "canvasRef": "12e",
       "smoke": true,
-      "captureReadinessReason": "The launch-offer line ('first month of Elite free') is shipped but commercially unconfirmed \u2014 see drift D-12. Everything else on the page is frozen and accurate.",
       "expectedHeading": "Simple pricing",
       "requiredRole": "public",
       "authState": "anonymous",
-      "notes": "All three states ship as two side-by-side plan cards (the comparison). R-PLAN-NAMES was being violated: both this page and /for-merchants priced Standard as 'Free', which also misstated the model because Standard carries the KES 30 success fee. Both now read 'No monthly fee', locked by src/__tests__/cash-only-and-copy.test.ts. The launch-offer line is untouched pending a founder call."
+      "notes": "All three states ship as two side-by-side plan cards (the comparison). Copy is governed: no launch offer, the Standard plan is never labelled 'Free' (it reads 'No monthly fee'), and the KES 30 success fee sits beside the Standard card so 'no monthly fee' cannot read as 'costs nothing'. A future Elite launch offer must be config/policy-backed before it is re-advertised \u2014 see docs/maanta-decisions-log.md 2026-07-29. Locked by src/__tests__/cash-only-and-copy.test.ts."
     }
   ],
   "superseded": [
@@ -964,11 +963,11 @@
     },
     {
       "id": "D-12",
-      "classification": "current-mismatch",
-      "blockedOn": "product-decision",
-      "what": "NARROWED 2026-07-29 \u2014 the launch-offer line is shipped but commercially unconfirmed",
-      "detail": "Originally bundled two surfaces with two different blockers. The 11e half is SETTLED and was never drift: admin support is a desktop ops surface deliberately outside the phone prototype, and its two states both ship. The 12e half is a REAL open question, and the opposite of what the row said: the mirror recorded the launch-offer copy as unresolved and therefore unbuilt, but '/pricing' already ships the line 'Launch offer: first month of Elite free' to the public. Whether MAANTA makes that offer is a commercial decision, so it was left in place rather than deleted \u2014 removing a live offer is as consequential as keeping it. Needs a founder call: confirm the offer, change it, or remove it. Separately fixed while here: both plan cards priced Standard as 'Free', violating R-PLAN-NAMES and misstating the model.",
-      "where": "12e, src/app/(public)/pricing/page.tsx:24-26"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 pricing copy is governed; the launch offer is withdrawn",
+      "detail": "Founder decision: treat 'Launch offer: first month of Elite free' as WITHDRAWN until a governed launch offer exists. The line is removed from /pricing and no duplicate surface carries it. The four closing conditions all hold: R-PLAN-NAMES is satisfied, the Standard plan is never labelled 'Free' (it reads 'No monthly fee'), the KES 30 success fee is visible beside the Standard card, and no ungoverned launch-offer promise remains \u2014 asserted by src/__tests__/cash-only-and-copy.test.ts. The 11e half of this row was never drift: admin support is a desktop ops surface deliberately outside the phone prototype, and both its states ship. A future Elite launch offer must be backed by config/policy before it is re-advertised.",
+      "where": "12e, src/app/(public)/pricing/page.tsx, src/app/(public)/for-merchants/page.tsx, src/__tests__/cash-only-and-copy.test.ts"
     }
   ],
   "landedInRepo": {
@@ -980,7 +979,8 @@
       "D-04",
       "D-05",
       "D-06",
-      "D-08"
+      "D-08",
+      "D-12"
     ],
     "corrections": [
       {
@@ -1143,6 +1143,20 @@
         "was": "blocked-on-prototype / blocked on prototype",
         "now": "current-mismatch / product-decision \u2014 narrowed to the 12e launch offer, NOT closed",
         "evidence": "src/app/(public)/pricing/page.tsx:24-26 ships the launch-offer line; the 11e half is a settled scope decision"
+      },
+      {
+        "frame": "12e",
+        "field": "captureReadiness/prototypeBlockedReason/notes",
+        "was": "{\"captureReadiness\": \"after-copy\", \"captureReadinessReason\": \"The launch-offer line ('first month of Elite free') is shipped but commercially unconfirmed \\u2014 see drift D-12. Everything else on the page is frozen and accurate.\", \"prototypeStatus\": \"current-not-clickable\", \"prototypeBlockedReason\": \"Launch-offer copy is unresolved; building it would bake in a number that may change.\", \"notes\": \"All three states ship as two side-by-side plan cards (the comparison). R-PLAN-NAMES was being violated: both this page and /for-merchants priced Standard as 'Free', which also misstated the model because Standard carries the KES 30 success fee. Both now read 'No monthly fee', locked by src/__tests__/cash-only-and-copy.test.ts. The launch-offer line is untouched pending a founder call.\"}",
+        "now": "safe-now; content no longer lists a launch offer",
+        "evidence": "founder decision 2026-07-29; src/app/(public)/pricing/page.tsx no longer renders the offer line"
+      },
+      {
+        "frame": "D-12",
+        "field": "classification/blockedOn",
+        "was": "current-mismatch / blocked on product-decision",
+        "now": "historical / none \u2014 closed by founder decision",
+        "evidence": "offer removed; four closing conditions asserted in src/__tests__/cash-only-and-copy.test.ts"
       }
     ]
   }

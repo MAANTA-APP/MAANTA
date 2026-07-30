@@ -272,6 +272,19 @@ describe("settled rulings stay settled", () => {
     expect(rule).toMatch(/unsettled/i);
   });
 
+  it("keeps D-12 closed: pricing copy is governed and the launch offer stays withdrawn", () => {
+    const row = contract.drift.find((dr) => dr.id === "D-12")!;
+    expect(row.blockedOn).toBe("none");
+    expect(row.detail).toMatch(/withdrawn/i);
+    // 12e's own content must not describe a launch offer again — the copy guard
+    // in src/__tests__/cash-only-and-copy.test.ts covers the rendered page; this
+    // covers the contract's description of it.
+    const f = frames.find((x) => x.id === "12e")!;
+    const text = `${f.job} ${f.notes ?? ""} ${f.captureReadinessReason ?? ""}`;
+    expect(text).not.toMatch(/launch offer:/i);
+    expect(text).not.toMatch(/first month[^.]{0,30}free/i);
+  });
+
   it.each([
     ["D-02", /see-all/i],
     ["D-03", /archive/i],
