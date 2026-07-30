@@ -87,7 +87,7 @@ travelling to the mall.
 | Flip `demo_mode_enabled` to `false` | Still rehearsal; and with ~0 real deals it empties the shopper feed |
 | Run `make demo-wipe` / `wipe_demo_data(TRUE)` | Irreversible, and not a pilot step |
 | Apply `elite_merchants_100.sql` (PR #112's seed) to production | Inserts 100 BBS Mall merchants with `elite_trial_active` and **no `is_demo`** → burns all 100 durable Elite slots. Slots are never freed |
-| Grant Elite to a demo merchant "to test the counter" | Wastes a durable slot |
+| Grant Elite to a demo merchant "to test the counter" | It proves nothing. `elite_trial_slot_available_for()` returns `TRUE` unconditionally for `is_demo` rows and `elite_trial_cap_status()` excludes them, so the counter will not move — you would be reading a rehearsal grant as evidence about the real offer. Use the real pilot merchant, once |
 | `supabase migration repair --status reverted 20260730120000` | The CLI will suggest this. It is a lie about production history — that migration really ran. The missing local file arrives with #131 |
 | `db push --include-all`, or hand-editing `schema_migrations` | Turns a naming problem into data loss |
 | Any auth-strategy or env change mid-session | Ends the run |

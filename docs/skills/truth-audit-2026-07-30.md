@@ -301,18 +301,14 @@ fail when the thing they guard is removed.
   human operator must.
   - `20260730160000_correct_success_fee_config_notes.sql` — metadata only, safe to
     batch with anything. **Applied.**
-  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **applied. Behavioural, read
-    the note before pushing.** It adds a column, backfills it, and starts
-    enforcing the cap. **Check the backfill result before announcing the offer:**
-    run `SELECT * FROM public.elite_trial_cap_status();` straight after the push.
-    That tells you how many of the 100 slots existing merchants already consumed.
-    If `granted` looks higher than expected, the backfill counted merchants whose
-    trial was granted before the cap existed — which is correct, but it is a
-    number the founder should see rather than discover when the offer runs out
-    early. **Result, read from production 2026-07-30:** `cap 100, granted 0,
-    remaining 100`. The 101 merchants carrying `elite_trial_granted_at` are all
-    `is_demo` and are correctly excluded — the offer is intact and the pilot
-    merchant gets slot 1.
+  - `20260730130000_enforce_elite_trial_first_100_cap.sql` — **applied.**
+    Behavioural: it added a column, backfilled it, and began enforcing the cap.
+    The backfill check this entry originally called for **has been performed** —
+    `SELECT * FROM public.elite_trial_cap_status();` read from production on
+    2026-07-30 returned `cap 100, granted 0, remaining 100`. The 101 merchants
+    carrying `elite_trial_granted_at` are all `is_demo` and correctly excluded,
+    so the launch offer is intact and the pilot merchant gets slot 1. No further
+    action; re-run the query on pilot day as a live check, not as this follow-up.
 - **FU-3.** `app_config.demo_mode_enabled` is **`true` on production right now**
   (correct for rehearsal; its own notes say "must be false at launch"). The
   paired `MAANTA_DEMO_MODE` Vercel var — which tags analytics and can drift from

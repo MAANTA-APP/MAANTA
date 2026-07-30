@@ -18,8 +18,11 @@ git log --oneline -5 && ls maanta-app/supabase/migrations/ | tail -10
 
 # 2. Which open PRs carry a DB step? (only these need sequencing)
 git fetch origin 'refs/pull/*/head:refs/remotes/pr/*'
-for pr in $(...); do
-  git diff --name-only --diff-filter=A origin/main...pr/$pr -- maanta-app/supabase/migrations/
+# Open PR numbers come from mcp__github__list_pull_requests (state: open).
+# `gh` is NOT available in a Claude Code remote session — do not reach for it.
+for pr in 141 137 132 131 130 121 120 119 117 113 112 108 102 99 97 96 95 94 89 86; do
+  echo "PR#$pr $(git diff --name-only --diff-filter=A origin/main...pr/$pr \
+    -- maanta-app/supabase/migrations/ | tr '\n' ' ')"
 done
 ```
 
