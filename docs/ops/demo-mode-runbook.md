@@ -43,11 +43,13 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 > Start at **section 3** to run a demo, or **section 4** to wipe before launch.
 
 > ## ✅ Checkpoint (2026-07-29) — demo mode enabled and seeded
+>
 > `demo_mode_enabled = true`. **251 deals and 210 merchants are publicly
 > visible**, including **20 live flash deals** across 12 different expiry hours.
 > Activity history: **339 successful redemptions across 145 merchants**.
 >
 > ## ✅ Checkpoint (2026-07-30 01:19 UTC) — both switches on, both verified live
+>
 > The two items left open above are now closed on production:
 >
 > - **`MAANTA_DEMO_MODE=true` is set in Vercel Production and deployed**

@@ -179,7 +179,7 @@ deployment. Tested on the preview build of this branch
 `deal_viewed` event arrived, timestamped in the same second as the request.
 
 A single trial is enough here because the confound is absent by construction. The
-deployment was brand new, this was its first ever request, it is auth-gated and
+deployment was brand new, this was its first-ever request, it is auth-gated and
 `noindex` so nothing else was hitting it, and no second invocation existed in the
 two minutes before the stream was read — so nothing could have thawed the instance
 and flushed a leftover ping, which is the mechanism that made two of four
