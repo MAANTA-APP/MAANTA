@@ -32,6 +32,8 @@ Use it before seed fundraising, Nairobi Takeover planning, Oracle-style data-par
 | `docs/system-design-pre10k.md` | Pre-10k launch baseline |
 | `docs/skills/tech-stack-100k.md` | Older pointer to deep dive |
 | `docs/skills/launch-audit-2026-07-24.md` | Repo-vs-prod separation (July 24) |
+| `docs/skills/prod-hardening-2026-07.md` | 2026-07 hardening pass (bootstrap fix + founder checklists) |
+| `docs/ops/founder-manual-actions-checklist-2026-07.md` | Human-only operator tasks |
 | `docs/maanta-launch-readiness-tracker.md` | Gate tracker with owners |
 | `docs/maanta-production-rollout-plan.md` | Prod apply procedure |
 

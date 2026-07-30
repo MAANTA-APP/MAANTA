@@ -13,8 +13,9 @@ export const dynamic = "force-dynamic";
  *
  *  - Default (no query): public liveness only. No auth, no DB, no secrets — safe
  *    for an uptime probe to poll.
- *  - `?ready=1`: public readiness — core Supabase + Clerk env present (booleans
- *    only). Returns HTTP 503 when core rails are missing. No admin auth.
+ *  - `?ready=1`: public readiness — core env for the **active auth strategy**
+ *    (clerk → Supabase + Clerk; supabase/authjs → Supabase only). Booleans
+ *    only. Returns HTTP 503 when core rails are missing. No admin auth.
  *  - `?detail=1` (or `?env=1`): additionally returns a boolean-only env-presence
  *    map, gated behind an admin session. Booleans only — never any secret value.
  *  - `?probe=1`: admin-gated Supabase connectivity + merchants.lat/lng schema

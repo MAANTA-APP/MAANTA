@@ -11,7 +11,8 @@ SUPABASE_PROJECT_REF := axrrslqssmbngbataejg
 APP_DIR := maanta-app
 
 .PHONY: help db-link db-list db-push-dry db-push db-prod-fixup db-verify \
-        db-seed-nairobi-150 db-seed-test-accounts test test-e2e \
+        db-seed-nairobi-150 db-seed-test-accounts db-migration-checklist \
+        test test-e2e \
         demo-on demo-off demo-status demo-seed demo-reseed demo-wipe
 
 help:
@@ -22,6 +23,7 @@ help:
 	@echo "  db-push      supabase db push (applies migrations; prompts)"
 	@echo "  db-prod-fixup  migrations + 100-deal seed + verify (needs DATABASE_URL)"
 	@echo "  db-verify    LOCAL ONLY: boot a throwaway local Supabase + run supabase/tests/*.sql (mirrors CI db-tests)"
+	@echo "  db-migration-checklist  Print human-run prod migration steps (no network)"
 	@echo "  db-seed-nairobi-150  Apply 150-merchant Nairobi 3-node seed (needs DATABASE_URL or local stack)"
 	@echo "  db-seed-test-accounts  Apply @maanta.app role test accounts (run after nairobi-150 seed)"
 	@echo "  test         vitest suite (unit)"
@@ -52,6 +54,10 @@ db-push-dry:
 
 db-push:
 	cd $(APP_DIR) && supabase db push
+
+# Print human-run production migration steps (no credentials / no network).
+db-migration-checklist:
+	cd $(APP_DIR) && ./scripts/print-prod-migration-checklist.sh
 
 # Requires DATABASE_URL = Postgres URI for axrrslqssmbngbataejg (see docs/skills/node0-seed-bbs-mall.md).
 db-prod-fixup:

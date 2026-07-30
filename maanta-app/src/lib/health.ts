@@ -18,6 +18,8 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
+import { authStrategy } from "@/lib/auth/strategy";
+import { reportCriticalEnv } from "@/lib/env";
 
 /** True when an env var is set to a non-blank value (whitespace-only = unset). */
 function present(name: string): boolean {
@@ -36,6 +38,8 @@ export type EnvPresence = {
     SUPABASE_SERVICE_ROLE_KEY: boolean;
   };
   auth: {
+    MAANTA_AUTH_STRATEGY: boolean;
+    NEXT_PUBLIC_MAANTA_AUTH_STRATEGY: boolean;
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: boolean;
     CLERK_SECRET_KEY: boolean;
   };
@@ -74,6 +78,10 @@ export function envPresence(): EnvPresence {
       SUPABASE_SERVICE_ROLE_KEY: present("SUPABASE_SERVICE_ROLE_KEY"),
     },
     auth: {
+      MAANTA_AUTH_STRATEGY: present("MAANTA_AUTH_STRATEGY"),
+      NEXT_PUBLIC_MAANTA_AUTH_STRATEGY: present(
+        "NEXT_PUBLIC_MAANTA_AUTH_STRATEGY"
+      ),
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: present("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
       CLERK_SECRET_KEY: present("CLERK_SECRET_KEY"),
     },
@@ -133,32 +141,43 @@ export function liveness(): Liveness {
 }
 
 /**
- * Public readiness: core env required for the app to serve authenticated traffic.
- * Booleans only — never secret values. Missing core rails → not ready (HTTP 503).
- * Payment / email / push rails are reported but not required for readiness
- * (IntaSend may be unavailable; waitlist is optional).
+ * Public readiness: core env required for the app to serve authenticated traffic
+ * under the **active auth strategy**. Booleans only — never secret values.
+ * Missing core rails → not ready (HTTP 503).
+ *
+ * - `clerk` strategy: Supabase + Clerk keys required.
+ * - `supabase` / `authjs` strategy: Supabase keys only (Clerk optional for rehearsal).
+ *
+ * Payment / email / push rails are reported via `envPresence()` but not required
+ * for readiness (IntaSend may be unavailable; waitlist is optional).
  */
 export type Readiness = {
   status: "ready" | "not_ready";
-  core: {
-    NEXT_PUBLIC_SUPABASE_URL: boolean;
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: boolean;
-    SUPABASE_SERVICE_ROLE_KEY: boolean;
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: boolean;
-    CLERK_SECRET_KEY: boolean;
-  };
+  strategy: string;
+  core: Record<string, boolean>;
+  missing: string[];
 };
 
 export function readiness(): Readiness {
-  const core = {
+  const strategy = authStrategy();
+  const report = reportCriticalEnv(strategy);
+  const core: Record<string, boolean> = {
     NEXT_PUBLIC_SUPABASE_URL: present("NEXT_PUBLIC_SUPABASE_URL"),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: present("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     SUPABASE_SERVICE_ROLE_KEY: present("SUPABASE_SERVICE_ROLE_KEY"),
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: present("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
-    CLERK_SECRET_KEY: present("CLERK_SECRET_KEY"),
   };
-  const ready = Object.values(core).every(Boolean);
-  return { status: ready ? "ready" : "not_ready", core };
+  if (strategy === "clerk") {
+    core.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = present(
+      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+    );
+    core.CLERK_SECRET_KEY = present("CLERK_SECRET_KEY");
+  }
+  return {
+    status: report.ok ? "ready" : "not_ready",
+    strategy,
+    core,
+    missing: report.missing,
+  };
 }
 
 /**

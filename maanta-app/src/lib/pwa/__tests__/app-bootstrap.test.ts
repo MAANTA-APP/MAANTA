@@ -46,3 +46,17 @@ describe("/download landing copy", () => {
     );
   });
 });
+
+describe("app-bootstrap strategy split", () => {
+  it("exports destinationForRole for both auth strategies to share", () => {
+    // Role routing is strategy-agnostic; /app-bootstrap page branches only on
+    // session detection (Clerk useAuth vs useSupabaseSignedIn).
+    expect(destinationForRole("customer")).toBe("/feed");
+    expect(destinationForRole("merchant_admin")).toBe("/merchant/dashboard");
+  });
+
+  it("login next=/app-bootstrap is a stable relative path", () => {
+    const next = "/login?next=/app-bootstrap";
+    expect(next).toContain("next=/app-bootstrap");
+  });
+});

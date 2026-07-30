@@ -4,7 +4,8 @@ Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
 2026-07-09 from the launch-handoff and operating-system doc packs; index
-updated 2026-07-28 with comprehensive audit links.
+updated 2026-07-28 with comprehensive audit links and production-hardening
+runbooks.
 
 ## Orientation
 
@@ -40,6 +41,18 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/maanta-comprehensive-audit-2026-07.md` | **Primary:** full company-readiness audit — product, engineering, data, ops, legal, seed + Nairobi Takeover + 100k + Oracle partner readiness |
 | `skills/maanta-audit-100k.md` | Short pointer to the comprehensive audit |
 
+## Production hardening & launch (2026-07-28)
+
+| File | Purpose |
+|---|---|
+| `ops/launch-runbook-2026-07.md` | **Start here on launch day** — pre-deploy → DB → env → deploy → smoke → watch |
+| `ops/founder-manual-actions-checklist-2026-07.md` | **Founder-only tasks** Cursor cannot do (migrations, Vercel, legal, M-Pesa, partners) |
+| `ops/prod-sync-checklist-2026-07.md` | Schema + env + monitoring + smoke alignment |
+| `ops/vercel-production-env-checklist.md` | Env vars by environment; `NEXT_PUBLIC_*` redeploy rules |
+| `ops/monitoring-launch-checklist.md` | Sentry + PostHog activation + alert recommendations |
+| `ops/production-smoke-test.md` | Device smoke test with expected outcomes |
+| `ops/data-governance-gaps-2026-07.md` | Honest gaps for legal / partner diligence (no fake compliance) |
+
 ## Ops
 
 | File | Purpose |
@@ -63,6 +76,7 @@ updated 2026-07-28 with comprehensive audit links.
 | File | Purpose |
 |---|---|
 | `skills/maanta-audit-100k.md` | Pointer to comprehensive company-readiness audit (seed / 100k / partner) |
+| `skills/prod-hardening-2026-07.md` | Pointer to production-hardening pass + founder checklists |
 | `skills/tech-stack-100k.md` | Pointer to the ops deep dive (stack + path to ~100k users) |
 | `skills/payments-rails.md` | How money moves: ledger RPC, idempotency, refund/dispute handling |
 | `skills/redemption-disputes.md` | Verify-anyway, fraud review, dispute resolution paths |
