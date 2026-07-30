@@ -1,16 +1,20 @@
 # Skill — Avatars + Notifications (shopper/merchant)
 
-**Status:** shipped in code 2026-07-26.  
-**Related:** `docs/skills/claude-design-system.md`, `docs/skills/node0-seed-bbs-mall.md`.
+**Status:** shipped in code 2026-07-26; prefs route canonicalized 2026-07-30.  
+**Related:** `docs/skills/notification-prefs-canonical-2026-07-30.md`,
+`docs/skills/claude-design-system.md`, `docs/skills/node0-seed-bbs-mall.md`.
 
 ## Notifications UX
 
-- **Single home:** `/notifications` — inbox alerts + preference toggles.
-- Profile Settings keeps **Notifications** and **Help & support** only (no
-  separate “Notification preferences” row).
-- `/notifications/preferences` redirects to `/notifications`.
-- Prefs are device-local (`localStorage` key `maanta_notification_prefs`) until
-  a server prefs column ships: Flash near me · Saved shops · Code expiry.
+| Route | Role |
+|---|---|
+| `/you/notifications` | **Canonical** preference toggles |
+| `/you` | Avatar + profile; Settings → Notifications |
+| `/notifications` | Inbox / alerts only (link to prefs) |
+| `/notifications/preferences` | Redirect → `/you/notifications` |
+
+Prefs are device-local (`localStorage` key `maanta_notification_prefs`) until
+a server prefs column ships: Flash near me · Saved shops · Code expiry.
 
 ## Avatars
 
@@ -30,7 +34,7 @@ Migration `20260726190000_avatars_storage_and_columns.sql`:
 
 | Surface | Component / route |
 |---|---|
-| Shopper Profile | `AvatarUpload` → `POST /api/profile/avatar` |
+| Shopper You (`/you`) | `AvatarUpload` → `POST /api/profile/avatar` |
 | Merchant Settings | `AvatarUpload` → `POST /api/merchant/avatar` (owners only) |
 | UI | `src/components/ui/claude/avatar-upload.tsx` |
 
