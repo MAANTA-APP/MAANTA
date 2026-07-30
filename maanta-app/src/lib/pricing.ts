@@ -12,6 +12,22 @@
  * lying about a price).
  */
 
+/**
+ * The frozen MAANTA success fee, in KES, charged once per verified redemption on
+ * ALL plans (Standard and Elite).
+ *
+ * The authoritative value lives in `app_config.success_fee_kes` and is read at
+ * runtime by `getSuccessFee()`; this is the fallback and the single literal that
+ * static/public copy is allowed to render. Public marketing pages cannot await a
+ * database read, so they import this instead of writing `30` inline — that way
+ * one frozen number cannot appear as three independently-drifting literals
+ * across `/pricing`, `/for-merchants` and the config table.
+ *
+ * Changing this requires a new `docs/maanta-decisions-log.md` entry AND an
+ * `app_config` update; `success-fee-copy.test.ts` fails if the two disagree.
+ */
+export const SUCCESS_FEE_KES = 30;
+
 export type DealChargeType = "fixed" | "percent";
 
 export type DealCharge = {

@@ -3,6 +3,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
+import {
+  formatAdminTrialStatus,
+  formatEliteTrialCapLine,
+  parseEliteTrialCapStatus,
+} from "@/lib/elite-trial";
 import { PlanActions } from "./plan-actions";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +30,7 @@ export default async function AdminBillingPage({
   const service = createServiceClient();
   let query = service
     .from("merchants")
-    .select("id, merchant_name, tier, elite_trial_active, trial_ends_at, status")
+    .select("id, merchant_name, tier, elite_trial_active, trial_ends_at, grace_period_ends_at, status")
     .neq("status", "churned")
     .order("merchant_name")
     .limit(300);
@@ -33,20 +38,21 @@ export default async function AdminBillingPage({
   if (filter === "elite") query = query.eq("tier", "elite").eq("elite_trial_active", false);
   if (filter === "trial") query = query.eq("elite_trial_active", true);
   if (filter === "standard") query = query.eq("tier", "standard");
-  const { data: merchants } = await query;
+  const [{ data: merchants }, { data: capRows }] = await Promise.all([
+    query,
+    service.rpc("elite_trial_cap_status"),
+  ]);
 
-  const trialLabel = (m: { elite_trial_active: boolean; trial_ends_at: string | null }) => {
-    if (!m.elite_trial_active || !m.trial_ends_at) return null;
-    const days = Math.max(
-      0,
-      Math.ceil((new Date(m.trial_ends_at).getTime() - Date.now()) / (24 * 3600_000))
-    );
-    return `Elite trial · ${days} day${days === 1 ? "" : "s"} left`;
-  };
+  const trialCap = parseEliteTrialCapStatus(capRows);
 
   return (
     <main className="max-w-4xl">
       <h1 className="text-2xl font-bold text-ink">Plans &amp; trials</h1>
+      {trialCap ? (
+        <p className="mt-2 text-sm text-muted" data-testid="elite-trial-cap-line">
+          {formatEliteTrialCapLine(trialCap)}
+        </p>
+      ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <form action="/admin/billing" className="w-full max-w-md">
@@ -84,7 +90,11 @@ export default async function AdminBillingPage({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold text-ink">{m.merchant_name}</p>
                 <p className="mt-0.5 text-xs text-muted">
-                  {trialLabel(m) ?? (m.tier === "elite" ? "Elite" : "Standard")}
+                  {formatAdminTrialStatus({
+                    eliteTrialActive: m.elite_trial_active,
+                    trialEndsAt: m.trial_ends_at,
+                    gracePeriodEndsAt: m.grace_period_ends_at,
+                  }) ?? (m.tier === "elite" ? "Elite" : "Standard")}
                 </p>
               </div>
               <PlanActions

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { analyticsEnabled, captureGuardianOutcome, captureServerEvent } from "@/lib/analytics";
+import {
+  analyticsEnabled,
+  captureDealViewed,
+  captureGuardianOutcome,
+  captureServerEvent,
+  UNATTRIBUTED_DISTINCT_ID,
+} from "@/lib/analytics";
 
 // These tests pin the two guarantees the verify (counter) path relies on:
 //   1. With no POSTHOG_PROJECT_KEY, capture is a hard no-op (no network, no
@@ -7,23 +13,47 @@ import { analyticsEnabled, captureGuardianOutcome, captureServerEvent } from "@/
 //   2. When configured, it POSTs the right event to PostHog's capture endpoint
 //      and NEVER rejects, even when the network fails — analytics can't break
 //      or delay a redemption.
+//   3. The capture is registered with the platform's waitUntil, so the ping is
+//      not lost when a serverless instance freezes after sending the response.
+//      This is the regression the events themselves proved: server events were
+//      being dropped whenever a request did not happen to be followed by
+//      another one on the same instance.
 
 const KEY = "POSTHOG_PROJECT_KEY";
 const HOST = "POSTHOG_HOST";
+const VERCEL = "VERCEL";
+const DEMO = "MAANTA_DEMO_MODE";
 
 describe("analytics", () => {
-  const orig = { key: process.env[KEY], host: process.env[HOST] };
+  const orig = {
+    key: process.env[KEY],
+    host: process.env[HOST],
+    vercel: process.env[VERCEL],
+    demo: process.env[DEMO],
+  };
 
   beforeEach(() => {
     delete process.env[KEY];
     delete process.env[HOST];
+    delete process.env[VERCEL];
+    delete process.env[DEMO];
   });
   afterEach(() => {
-    process.env[KEY] = orig.key;
-    process.env[HOST] = orig.host;
+    // Restore by deleting when it was unset: `process.env.X = undefined` stores
+    // the *string* "undefined", which is truthy — and VERCEL being truthy makes
+    // the capture warn about a missing request context.
+    restoreEnv(KEY, orig.key);
+    restoreEnv(HOST, orig.host);
+    restoreEnv(VERCEL, orig.vercel);
+    restoreEnv(DEMO, orig.demo);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
+
+  function restoreEnv(name: string, value: string | undefined) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
 
   it("is disabled and no-ops when no project key is set", async () => {
     const fetchMock = vi.fn();
@@ -114,5 +144,292 @@ describe("analytics", () => {
     process.env[KEY] = "phc_test";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
     await expect(captureServerEvent("guardian_outcome", "m1")).resolves.toBeUndefined();
+  });
+
+  describe("deal_viewed attribution", () => {
+    // Before this, every signed-out view was sent as the literal "anonymous", so
+    // all of them shared one PostHog person: uniq(person_id) read 1 regardless of
+    // real traffic, and a deal_viewed → deal_claimed funnel could never join.
+    const DEAL = {
+      dealId: "d1",
+      merchantId: "m1",
+      dealType: "flash",
+      priceKes: 480,
+      node: "BBS Mall",
+    };
+
+    /** The (distinct_id, properties) actually sent. */
+    function sent(fetchMock: ReturnType<typeof vi.fn>) {
+      const body = JSON.parse(
+        String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)
+      );
+      return { distinctId: body.distinct_id, props: body.properties };
+    }
+
+    it("uses the browser's posthog distinct id when the shopper is signed out", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: null,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("browser-person-1");
+      expect(props.distinct_id_source).toBe("posthog_cookie");
+    });
+
+    it("prefers the Clerk id when signed in, since that is what identify() sets", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: "user_123",
+        posthogDistinctId: "stale-pre-signup-id",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("user_123");
+      expect(props.distinct_id_source).toBe("clerk");
+    });
+
+    it.each([
+      ["omitted", undefined],
+      ["null", null],
+      ["blank", ""],
+      ["whitespace", "   "],
+    ])(
+      "marks the event unattributed when the cookie id is %s, rather than passing it off as a person",
+      async (_label, posthogDistinctId) => {
+        process.env[KEY] = "phc_test";
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await captureDealViewed({ clerkUserId: null, posthogDistinctId, ...DEAL });
+
+        const { distinctId, props } = sent(fetchMock);
+        expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+        expect(props.distinct_id_source).toBe("none");
+      }
+    );
+
+    // The two values used to be derived independently — `source` on truthiness,
+    // `distinct_id` on `??` — so a blank id was falsy but not nullish and went out
+    // as distinct_id: "" while source said otherwise. These pin that they agree.
+    it.each([
+      ["blank", ""],
+      ["whitespace", "   "],
+    ])("treats a %s Clerk id as absent and falls through to the cookie id", async (
+      _label,
+      clerkUserId
+    ) => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("browser-person-1");
+      expect(props.distinct_id_source).toBe("posthog_cookie");
+    });
+
+    it("never emits a blank distinct_id, whatever the inputs", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "", posthogDistinctId: "  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+      expect(distinctId).not.toBe("");
+      expect(props.distinct_id_source).toBe("none");
+    });
+
+    it("trims a padded identity rather than sending it through as-is", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({ clerkUserId: "  user_123  ", ...DEAL });
+
+      const { distinctId, props } = sent(fetchMock);
+      expect(distinctId).toBe("user_123");
+      expect(props.distinct_id_source).toBe("clerk");
+    });
+
+    it("still carries the deal dimensions and the demo tag", async () => {
+      process.env[KEY] = "phc_test";
+      process.env[DEMO] = "true";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await captureDealViewed({
+        clerkUserId: null,
+        posthogDistinctId: "browser-person-1",
+        ...DEAL,
+      });
+
+      const { props } = sent(fetchMock);
+      expect(props).toMatchObject({
+        deal_id: "d1",
+        merchant_id: "m1",
+        deal_type: "flash",
+        price_kes: 480,
+        node: "BBS Mall",
+        is_demo: true,
+        environment: "demo",
+        distinct_id_source: "posthog_cookie",
+      });
+    });
+  });
+
+  describe("delivery on a freezable instance", () => {
+    // Exercised by planting the real request context the code reads, not by
+    // mocking an internal helper — the thing worth pinning is the integration
+    // with the platform primitive, since that going quiet is what dropped the
+    // events in the first place.
+    const REQ_CONTEXT = Symbol.for("@vercel/request-context");
+
+    /** Stand in for Vercel's per-invocation context. */
+    function stubRequestContext() {
+      const waitUntil = vi.fn();
+      vi.stubGlobal(REQ_CONTEXT, { get: () => ({ waitUntil }) });
+      return waitUntil;
+    }
+
+    it("registers the capture with waitUntil so a frozen instance cannot drop it", async () => {
+      process.env[KEY] = "phc_test";
+      const waitUntil = stubRequestContext();
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+
+      await captureServerEvent("deal_viewed", "anonymous", { deal_id: "d1" });
+
+      expect(waitUntil).toHaveBeenCalledOnce();
+      const registered = waitUntil.mock.calls[0][0] as Promise<void>;
+      expect(typeof registered?.then).toBe("function");
+    });
+
+    it("registers while the ping is still in flight, not after it lands", async () => {
+      // The whole point: registration has to happen before the response is sent,
+      // otherwise there is nothing left alive to register. A capture that only
+      // called waitUntil after awaiting its own fetch would pass every other
+      // test here and still drop events in production.
+      process.env[KEY] = "phc_test";
+      const waitUntil = stubRequestContext();
+      let settle: (() => void) | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockReturnValue(
+          new Promise<{ ok: boolean }>((resolve) => {
+            settle = () => resolve({ ok: true });
+          })
+        )
+      );
+
+      const pending = captureServerEvent("deal_viewed", "anonymous");
+      await Promise.resolve(); // drain microtasks; the fetch is still unresolved
+
+      expect(waitUntil).toHaveBeenCalledOnce();
+
+      settle?.();
+      await expect(pending).resolves.toBeUndefined();
+    });
+
+    it("hands waitUntil a promise that resolves even when the ping fails", async () => {
+      // A rejected promise passed to waitUntil becomes an unhandled rejection in
+      // the platform instead of a swallowed metrics error, so the promise has to
+      // be neutralised before it is registered.
+      process.env[KEY] = "phc_test";
+      const waitUntil = stubRequestContext();
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+      await captureServerEvent("deal_viewed", "anonymous");
+
+      await expect(waitUntil.mock.calls[0][0] as Promise<void>).resolves.toBeUndefined();
+    });
+
+    it("does not register anything, or throw, when the key is absent", async () => {
+      const waitUntil = stubRequestContext();
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(captureServerEvent("deal_viewed", "anonymous")).resolves.toBeUndefined();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(waitUntil).not.toHaveBeenCalled();
+    });
+
+    it("still delivers with no request context at all (dev, CI, another host)", async () => {
+      process.env[KEY] = "phc_test";
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(captureServerEvent("deal_viewed", "anonymous")).resolves.toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it("survives a request context whose shape has changed", async () => {
+      // If the platform primitive is ever replaced, the capture must degrade to
+      // the old best-effort behaviour, never throw into the caller.
+      process.env[KEY] = "phc_test";
+      vi.stubGlobal(REQ_CONTEXT, {
+        get: () => {
+          throw new Error("contract changed");
+        },
+      });
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(captureServerEvent("deal_viewed", "anonymous")).resolves.toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    // The warning is suppressed after the first time per cold start, so these two
+    // load a fresh copy of the module rather than sharing the file-level import —
+    // otherwise the assertions would depend on test ordering.
+    async function freshCapture() {
+      vi.resetModules();
+      return (await import("@/lib/analytics")).captureServerEvent;
+    }
+
+    it("warns when running on Vercel with no request context", async () => {
+      // The bug was invisible from inside the process. On Vercel a missing
+      // context means events are being dropped, so it has to be audible.
+      process.env[KEY] = "phc_test";
+      process.env[VERCEL] = "1";
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+      const capture = await freshCapture();
+
+      await capture("deal_viewed", "anonymous");
+      await capture("deal_viewed", "anonymous");
+
+      // Twice through the drop path, one warning — loud, not spammy.
+      expect(warn).toHaveBeenCalledOnce();
+      expect(String(warn.mock.calls[0][0])).toContain("no Vercel request context");
+    });
+
+    it("stays silent when the context is present", async () => {
+      process.env[KEY] = "phc_test";
+      process.env[VERCEL] = "1";
+      stubRequestContext();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+      const capture = await freshCapture();
+
+      await capture("deal_viewed", "anonymous");
+
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 });

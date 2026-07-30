@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AmountField, TextField } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconX } from "@/components/ui/icons";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatKes } from "@/lib/ui";
 import posthog from "posthog-js";
 
@@ -16,17 +17,25 @@ type Stage =
 
 const WAIT_LIMIT_MS = 120_000;
 
-/** 9i Top up (M-Pesa STK + card) with 10s/10t result screens. */
+/**
+ * Wallet top-up. Shipped Phase 1 rail is Stripe Checkout (card).
+ * M-Pesa STK is offered only when IntaSend is configured — never as the
+ * default primary CTA, so a founder E2E session is not misled into treating
+ * STK as live.
+ */
 export function TopupFlow({
   balance,
   merchantPhone,
   initialAmount,
   stripeResult,
+  mpesaAvailable = false,
 }: {
   balance: number;
   merchantPhone: string;
   initialAmount: number;
   stripeResult: string | null;
+  /** True only when IntaSend API keys are present on the server. */
+  mpesaAvailable?: boolean;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(initialAmount);
@@ -175,18 +184,17 @@ export function TopupFlow({
     <main className="px-5 pt-6">
       <h1 className="text-center text-lg font-bold text-ink">Top up</h1>
 
+      <InlineAlert
+        variant="warning"
+        title="Card top-up is the live Phase 1 rail."
+        className="mt-4"
+      >
+        Stripe Checkout credits your wallet after payment. M-Pesa STK is available
+        only when configured — do not assume it is live for every environment.
+      </InlineAlert>
+
       <div className="mt-6">
         <AmountField value={amount} onChange={setAmount} />
-      </div>
-
-      <div className="mt-5">
-        <TextField
-          label="M-Pesa number"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+254 7XX XXX XXX"
-        />
       </div>
 
       {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
@@ -194,28 +202,52 @@ export function TopupFlow({
       <Button
         full
         className="mt-6"
-        onClick={sendStk}
-        loading={busy}
-        disabled={!amount || amount <= 0 || !phone.trim()}
+        onClick={payWithCard}
+        loading={busy && stage.kind === "form"}
+        disabled={!amount || amount <= 0}
+        data-testid="topup-card-primary"
       >
-        Send STK push
-      </Button>
-
-      {stage.kind === "waiting" ? (
-        <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
-          <span
-            aria-hidden
-            className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
-          />
-          Waiting for M-Pesa confirmation…
-        </div>
-      ) : null}
-
-      <p className="my-4 text-center text-xs text-faint">or</p>
-
-      <Button variant="ghost" full onClick={payWithCard} loading={busy && stage.kind === "form"}>
         Pay with card
       </Button>
+
+      {mpesaAvailable ? (
+        <>
+          <p className="my-4 text-center text-xs text-faint">or M-Pesa</p>
+          <div className="mt-1">
+            <TextField
+              label="M-Pesa number"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+254 7XX XXX XXX"
+            />
+          </div>
+          <Button
+            variant="ghost"
+            full
+            className="mt-4"
+            onClick={sendStk}
+            loading={busy}
+            disabled={!amount || amount <= 0 || !phone.trim()}
+            data-testid="topup-stk-secondary"
+          >
+            Send STK push
+          </Button>
+          {stage.kind === "waiting" ? (
+            <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
+              <span
+                aria-hidden
+                className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
+              />
+              Waiting for M-Pesa confirmation…
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-4 text-center text-xs text-muted" data-testid="topup-mpesa-unavailable">
+          M-Pesa STK is not configured in this environment.
+        </p>
+      )}
     </main>
   );
 }

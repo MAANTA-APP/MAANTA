@@ -8,9 +8,18 @@ export const dynamic = "force-dynamic";
  * and the roster of active field agents, and hands both to the client wizard.
  * The success fee drives the wallet-step copy; the agent roster powers the G1
  * "Were you helped by a Maanta agent?" attribution picker. The merchant remains
- * the authenticated submitter — the agent is captured as attribution only. */
-export default async function MerchantOnboardPage() {
+ * the authenticated submitter — the agent is captured as attribution only.
+ *
+ * `?shop=` comes from `/merchants` signup handoff (`/login?next=/merchant/onboard?shop=…`).
+ * Prefilling it is the only durable use of that query param — without it the lead
+ * form silently discarded the shop name after login. */
+export default async function MerchantOnboardPage({
+  searchParams,
+}: {
+  searchParams?: { shop?: string };
+}) {
   const successFee = await getSuccessFee();
+  const initialShopName = (searchParams?.shop ?? "").trim().slice(0, 120);
 
   // Active agents only, id + display name. Read with the service client (the
   // signed-in caller is a not-yet-merchant customer with no rights to the
@@ -28,5 +37,11 @@ export default async function MerchantOnboardPage() {
     return { id: a.id, name: u?.full_name?.trim() || "Maanta agent" };
   });
 
-  return <OnboardWizard successFee={successFee} agents={agents} />;
+  return (
+    <OnboardWizard
+      successFee={successFee}
+      agents={agents}
+      initialShopName={initialShopName}
+    />
+  );
 }

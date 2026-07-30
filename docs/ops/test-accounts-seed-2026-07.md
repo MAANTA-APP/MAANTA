@@ -9,11 +9,21 @@ Apply seeds in order:
 1. `make db-seed-nairobi-150` — 150 merchants + deals
 2. `make db-seed-test-accounts` — this file (`test_accounts_maanta_2026_07.sql`)
 
+### Clerk-safe / idempotent behaviour (2026-07-28)
+
+The seed now:
+
+- Skips `public.users` / `auth.users` insert when the **email** (or phone / fixed UUID) already exists — so an existing Clerk `admin@maanta.app` is not duplicated.
+- Promotes intended `role` on existing email rows under a `service_role` JWT claim (required by `prevent_self_role_escalation`).
+- Only inserts `auth.identities` when the matching `auth.users` row exists.
+
 After Clerk sign-in in production rehearsal, link `clerk_user_id` if a new Clerk user is provisioned instead of the seeded row:
 
 ```sql
 UPDATE public.users SET clerk_user_id = '<clerk_sub>' WHERE email = '<account email>';
 ```
+
+**Prod note:** There may already be duplicate `admin@maanta.app` Clerk-linked rows; both can be promoted to `admin`. Prefer one account and clean up the other.
 
 ## Ops personas
 

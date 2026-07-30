@@ -16,9 +16,16 @@
 --   shopper.occasional@maanta.app   customer
 --
 -- Sign in with email OTP at /login (MAANTA_AUTH_STRATEGY=supabase).
+-- For Clerk production: if an email already exists (e.g. admin@maanta.app signed
+-- up via Clerk), this seed promotes role on the existing row and skips creating a
+-- duplicate auth.users email (unique). Link clerk_user_id after first Clerk login
+-- when using the fixed seed UUID rows.
 -- ============================================================================
 
 BEGIN;
+
+-- Role promotions below need service_role JWT claim (prevent_self_role_escalation).
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 -- Fixed IDs (b0000000 …010–018 app users, a0000000 …010–018 auth)
 -- Merchant A = c2000000-…001 (Eastleigh Spices, BBS elite, flash+boost)
@@ -26,6 +33,8 @@ BEGIN;
 
 -- ----------------------------------------------------------------------------
 -- 1. App users
+--    Skip insert when the fixed UUID OR the email already exists (Clerk may
+--    have created customer rows for the same address without our seed IDs).
 -- ----------------------------------------------------------------------------
 INSERT INTO public.users (id, auth_uid, phone, email, full_name, role)
 SELECT v.id::uuid, v.auth_uid::uuid, v.phone, v.email, v.full_name, v.role
@@ -40,10 +49,30 @@ FROM (VALUES
   ('b0000000-0000-4000-a000-000000000017', 'a0000000-0000-4000-a000-000000000017', '+254720000017', 'shopper.everyday@maanta.app',   'Shopper Everyday',   'customer'),
   ('b0000000-0000-4000-a000-000000000018', 'a0000000-0000-4000-a000-000000000018', '+254720000018', 'shopper.occasional@maanta.app', 'Shopper Occasional', 'customer')
 ) AS v(id, auth_uid, phone, email, full_name, role)
-WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = v.id::uuid);
+WHERE NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = v.id::uuid)
+  AND NOT EXISTS (SELECT 1 FROM public.users u WHERE lower(u.email) = lower(v.email))
+  AND NOT EXISTS (SELECT 1 FROM public.users u WHERE u.phone = v.phone);
+
+-- Promote intended roles on any pre-existing rows for these emails (Clerk signups).
+UPDATE public.users u
+SET role = v.role
+FROM (VALUES
+  ('founder@maanta.app',            'admin'),
+  ('admin@maanta.app',              'admin'),
+  ('agent@maanta.app',              'agent'),
+  ('merchant.a.owner@maanta.app',   'merchant_admin'),
+  ('merchant.a.staff@maanta.app',   'merchant_staff'),
+  ('merchant.b.owner@maanta.app',   'merchant_admin'),
+  ('merchant.b.staff@maanta.app',   'merchant_staff'),
+  ('shopper.everyday@maanta.app',   'customer'),
+  ('shopper.occasional@maanta.app', 'customer')
+) AS v(email, role)
+WHERE lower(u.email) = lower(v.email)
+  AND u.role IS DISTINCT FROM v.role;
 
 -- ----------------------------------------------------------------------------
 -- 2. Supabase Auth users + identities (email OTP)
+--    Also skip when email already exists (Clerk-linked or prior signup).
 -- ----------------------------------------------------------------------------
 INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -66,7 +95,8 @@ FROM (VALUES
   ('a0000000-0000-4000-a000-000000000017', 'shopper.everyday@maanta.app'),
   ('a0000000-0000-4000-a000-000000000018', 'shopper.occasional@maanta.app')
 ) AS v(id, email)
-WHERE NOT EXISTS (SELECT 1 FROM auth.users au WHERE au.id = v.id::uuid);
+WHERE NOT EXISTS (SELECT 1 FROM auth.users au WHERE au.id = v.id::uuid)
+  AND NOT EXISTS (SELECT 1 FROM auth.users au WHERE lower(au.email) = lower(v.email));
 
 INSERT INTO auth.identities (
   id, user_id, identity_data, provider, provider_id,
@@ -87,9 +117,10 @@ FROM (VALUES
   ('a0000000-0000-4000-a000-000000000017', 'shopper.everyday@maanta.app'),
   ('a0000000-0000-4000-a000-000000000018', 'shopper.occasional@maanta.app')
 ) AS v(id, email)
-WHERE NOT EXISTS (
-  SELECT 1 FROM auth.identities i WHERE i.provider = 'email' AND i.provider_id = v.id
-);
+WHERE EXISTS (SELECT 1 FROM auth.users au WHERE au.id = v.id::uuid)
+  AND NOT EXISTS (
+    SELECT 1 FROM auth.identities i WHERE i.provider = 'email' AND i.provider_id = v.id
+  );
 
 -- ----------------------------------------------------------------------------
 -- 3. Agent profile (BBS Mall field agent)
@@ -185,9 +216,19 @@ WHERE NOT EXISTS (
 
 COMMIT;
 
--- Verify wiring
+-- Verify wiring (role personas only — not every seed.nairobi* merchant user)
 SELECT u.email, u.role, m.merchant_name, m.node, m.tier
 FROM public.users u
 LEFT JOIN public.merchants m ON m.user_id = u.id
-WHERE u.email LIKE '%@maanta.app'
+WHERE u.email IN (
+  'founder@maanta.app',
+  'admin@maanta.app',
+  'agent@maanta.app',
+  'merchant.a.owner@maanta.app',
+  'merchant.a.staff@maanta.app',
+  'merchant.b.owner@maanta.app',
+  'merchant.b.staff@maanta.app',
+  'shopper.everyday@maanta.app',
+  'shopper.occasional@maanta.app'
+)
 ORDER BY u.email;
