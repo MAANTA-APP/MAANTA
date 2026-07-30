@@ -62,11 +62,13 @@ you should see. **Stop conditions are marked 🛑 — do not continue past one.*
 > Still check the banner with your own eyes before demoing to anyone. It is the
 > one thing this feature exists for, and it costs five seconds.
 >
-> **Known gap, not a demo-mode bug:** server-side capture drops events. Four deal
-> pages were rendered during this check and two events arrived — `captureServerEvent`
-> is called unawaited with no `waitUntil`, so an in-flight ping dies when the Vercel
-> instance freezes. Tagging is correct; delivery undercounts. See
-> `optruth-demo-release-2026-07-29.md` → "Server-side capture drops events".
+> **A defect this check surfaced, since fixed:** server-side capture was dropping
+> events. Four deal pages were rendered here and two events arrived —
+> `captureServerEvent` was called unawaited with no `waitUntil`, so an in-flight
+> ping died when the Vercel instance froze. Now registered with `waitUntil`.
+> Tagging was always correct; delivery was not. The lost events are not
+> recoverable, so treat any server-side count from before that deploy as a floor.
+> See `optruth-demo-release-2026-07-29.md` → "Server-side capture dropped events".
 
 > ## A fourth migration was needed
 > `20260729150000_demo_reseed_respect_deal_limits.sql`. The first reseed run

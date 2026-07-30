@@ -8,6 +8,9 @@
  *    error and bounds itself with a short timeout, so analytics can never
  *    delay or break the request that triggered it — the counter (verify) path
  *    must never wait on a metrics ping (frozen "never block the shopper").
+ *  - DELIVERED ANYWAY: `void` alone loses the ping. A serverless instance can
+ *    be frozen the moment the response is sent, taking any in-flight fetch with
+ *    it, so the capture is registered with `waitUntil` — see captureServerEvent.
  *
  * Env is read at call time (not module load) so it resolves correctly in
  * serverless runtimes and is trivially overridable in tests.
@@ -18,6 +21,23 @@ import { DEFAULT_NODE } from "@/lib/nodes";
 const DEFAULT_HOST = "https://eu.i.posthog.com";
 const CAPTURE_TIMEOUT_MS = 2000;
 
+/**
+ * Vercel's per-invocation request context, exposed on globalThis under a
+ * well-known symbol. This is the integration point framework and library code is
+ * expected to use, and it is all `waitUntil` from `@vercel/functions` reads:
+ *
+ *   const getContext = () => globalThis[SYMBOL_FOR_REQ_CONTEXT]?.get?.() ?? {};
+ *   const waitUntil  = (p) => getContext().waitUntil?.(p);
+ *
+ * Inlined rather than depended on: `@vercel/functions` pulls `@vercel/oidc` →
+ * `@vercel/cli-config` + `@vercel/cli-exec` → `execa`, `zod`, `xdg-app-paths`
+ * into *production* dependencies. That is a lot of supply-chain surface, and a
+ * package that spawns child processes, in exchange for the two lines above.
+ */
+const SYMBOL_FOR_REQ_CONTEXT = Symbol.for("@vercel/request-context");
+
+type VercelRequestContext = { waitUntil?: (promise: Promise<unknown>) => void };
+
 function resolveNode(node: string | null | undefined): string {
   const trimmed = node?.trim();
   return trimmed || DEFAULT_NODE;
@@ -26,6 +46,50 @@ function resolveNode(node: string | null | undefined): string {
 /** True when server-side analytics is configured (a project key is present). */
 export function analyticsEnabled(): boolean {
   return Boolean(process.env.POSTHOG_PROJECT_KEY);
+}
+
+/** Set once per cold start, so a broken platform contract is loud but not spammy. */
+let warnedNoRequestContext = false;
+
+/**
+ * Hand a promise to the platform so the serverless instance is kept alive until
+ * it settles.
+ *
+ * Off Vercel — local dev, vitest, any other host — there is no context and this
+ * is a no-op. Nothing is lost there: a process that outlives the request
+ * finishes a pending fetch by itself, and `captureServerEvent` awaits its own
+ * delivery promise regardless.
+ *
+ * ON Vercel, a missing context means events are being dropped again, which is
+ * precisely the failure that went unnoticed for three days because it is
+ * invisible from the inside. So say so, once, rather than degrading quietly.
+ */
+function keepAlive(promise: Promise<void>): void {
+  let accepted = false;
+  try {
+    const store = (
+      globalThis as typeof globalThis & {
+        [SYMBOL_FOR_REQ_CONTEXT]?: { get?: () => VercelRequestContext | undefined };
+      }
+    )[SYMBOL_FOR_REQ_CONTEXT];
+    const waitUntil = store?.get?.()?.waitUntil;
+    if (waitUntil) {
+      waitUntil(promise);
+      accepted = true;
+    }
+  } catch {
+    // The primitive changed shape. Fall through to the warning: this module's
+    // contract is that a metrics failure never surfaces to the caller, and that
+    // has to hold even when the platform moves underneath it.
+  }
+
+  if (!accepted && process.env.VERCEL && !warnedNoRequestContext) {
+    warnedNoRequestContext = true;
+    console.warn(
+      "[analytics] no Vercel request context — captures are not being kept alive " +
+        "and will be dropped when the instance freezes. See src/lib/analytics.ts."
+    );
+  }
 }
 
 /**
@@ -52,30 +116,53 @@ export async function captureServerEvent(
   // which is the same state as today rather than a regression.
   const isDemo = process.env.MAANTA_DEMO_MODE === "true";
 
-  try {
-    await fetch(`${host}/capture/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: key,
-        event,
-        distinct_id: distinctId,
-        properties: {
-          ...properties,
-          $lib: "maanta-server",
-          is_demo: isDemo,
-          // Separate the event stream entirely, so a dashboard built on real
-          // data cannot pick up rehearsal traffic even if a filter is missed.
-          ...(isDemo ? { environment: "demo" } : {}),
-        },
-        timestamp: new Date().toISOString(),
-      }),
-      signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch {
-    // Best-effort: a metrics failure must never surface to the caller.
-  }
+  // Start the request, and neutralise rejection immediately: `delivery` must be
+  // settled-or-resolving and never throwing before it is handed to keepAlive,
+  // because a rejected promise given to waitUntil becomes an unhandled rejection
+  // in the platform rather than a swallowed metrics error.
+  const delivery = (async () => {
+    try {
+      await fetch(`${host}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: key,
+          event,
+          distinct_id: distinctId,
+          properties: {
+            ...properties,
+            $lib: "maanta-server",
+            is_demo: isDemo,
+            // Separate the event stream entirely, so a dashboard built on real
+            // data cannot pick up rehearsal traffic even if a filter is missed.
+            ...(isDemo ? { environment: "demo" } : {}),
+          },
+          timestamp: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+        cache: "no-store",
+      });
+    } catch {
+      // Best-effort: a metrics failure must never surface to the caller.
+    }
+  })();
+
+  // Every caller invokes this as `void captureX(...)`, which is what keeps the
+  // shopper unblocked — and is also exactly why the ping used to vanish. On
+  // Vercel the instance can be frozen as soon as the response is sent, and an
+  // unawaited fetch dies with it. Measured on production 2026-07-30: four deal
+  // pages rendered, two events arrived. The two that landed were concurrent
+  // requests (a later invocation thawed the instance and flushed the earlier
+  // ping); the two isolated ones were lost. Same shape as the only other server
+  // events this project has ever recorded — one 67-second burst of 59 under
+  // rapid sequential load, then nothing for three days.
+  //
+  // waitUntil extends the INVOCATION, not the response: the shopper already has
+  // their bytes, so the frozen "never block the shopper" rule is untouched. The
+  // ping stays bounded by CAPTURE_TIMEOUT_MS either way.
+  keepAlive(delivery);
+
+  await delivery;
 }
 
 /**

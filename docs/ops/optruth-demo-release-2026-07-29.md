@@ -120,7 +120,22 @@ WHERE timestamp >= now() - INTERVAL 1 HOUR
 ORDER BY timestamp DESC
 ```
 
-### Server-side capture drops events — separate defect, found during this check
+### Server-side capture dropped events — found during this check, now fixed
+
+> **Fixed 2026-07-30** in `src/lib/analytics.ts`: the capture promise is handed to
+> Vercel's `waitUntil`, so the instance stays alive until the ping is actually
+> sent. One change at the single choke point (`captureServerEvent`) — no call site
+> changed, and no call site can opt out. Eight tests pin it: four were confirmed
+> to fail with the fix removed, and one more — "registers while the ping is still
+> in flight" — fails if the registration is merely moved *after* the capture
+> awaits its own fetch, which is the version that looks right and still drops
+> everything. **Undelivered events are not recoverable**; everything below still
+> applies to anything served before the deploy carrying this change.
+>
+> It also warns once per cold start if it is ever running on Vercel *without* a
+> request context, because the original failure was completely silent — nothing in
+> the app could tell that its own events were evaporating. If that line ever shows
+> up in the Vercel logs, server-side counts are undercounting again.
 
 Four deal pages were rendered; **two** events arrived. The two that landed were
 requested concurrently; the two that were dropped (01:16:05Z, 01:16:49Z) were
@@ -134,10 +149,32 @@ burst of 59 under rapid sequential load, and nothing in the three days since.
 
 Consequence, before anyone reads a server-side funnel: **`deal_viewed`,
 `guardian_outcome`, `deal_claimed`, `deal_published`, `merchant_onboarded` and the
-two `topup_completed_*` events undercount by an unknown amount under normal
-traffic.** The tagging is correct; the delivery is not. Not a demo-mode
-regression — it predates PR #128 and affects real events identically. Wants its
-own change (`waitUntil`, or awaiting the capture where the path can afford it).
+two `topup_completed_*` events undercount by an unknown amount for every request
+served before the fix deploys.** The tagging was correct; the delivery was not.
+Not a demo-mode regression — it predates PR #128 and affected real events
+identically.
+
+Why `waitUntil` rather than awaiting the capture: awaiting would put a network
+round trip in front of the response, and the verify path is one of the callers —
+the frozen rule is that a metrics ping never delays the counter. `waitUntil`
+extends the *invocation* after the response is already sent, so the shopper is
+unaffected and the ping still lands. Off Vercel it is a no-op, which is why
+`captureServerEvent` also awaits its own delivery promise: that covers dev, CI and
+any non-Vercel host, where the process outlives the request anyway.
+
+Why the primitive is inlined instead of imported from `@vercel/functions`: that
+package's whole implementation is two lines reading a `Symbol.for` key off
+`globalThis`, but it depends on `@vercel/oidc` → `@vercel/cli-config` +
+`@vercel/cli-exec` → `execa`, `zod`, `xdg-app-paths`. Those land in *production*
+dependencies, including a package that spawns child processes. Not a trade worth
+making for two lines in a payments app, so the symbol is read directly and the
+try/catch plus the warning cover the case where that contract changes.
+
+**Known limit on the evidence.** The mechanism is proved by tests, and it is the
+documented primitive for route handlers — 7 of the 8 callers. `deal_viewed` is the
+exception: it fires during a React Server Component render, and whether the request
+context is still in async scope there could only be confirmed against a real
+deployment. See the verification note at the end of this section once it lands.
 
 ### Real data untouched
 
@@ -178,10 +215,11 @@ wrong, not just the magnitude.
   "Analytics tagging" above. Note it still needs a redeploy on every future change,
   and `make demo-off` does **not** touch it: turning demo mode off in `app_config`
   while the env var stays `true` would tag real events as demo. Flip both.
-- **Server-side capture drops events** (found while verifying the above). Unawaited
-  `void captureServerEvent(...)` calls are lost when the Vercel instance freezes;
-  measured 2 of 4 delivered. Affects every server event, demo and real alike.
-  Details above. *Caution, not blocking — analytics only, never the shopper path.*
+- ~~**Server-side capture drops events**~~ (found while verifying the above).
+  **Fixed 2026-07-30** — `waitUntil` in `captureServerEvent`. Two things remain
+  true regardless: the dropped events are gone for good, and any server-side
+  funnel or conversion rate computed over data from before that deploy is a floor,
+  not a measurement.
 - **Production verification used a Vercel share token.** Repeat the banner check in a
   private browser window for a truly anonymous confirmation.
 - **Doc figures drift.** Several docs still cite 291 deals / 339 redemptions; live
