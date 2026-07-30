@@ -5,42 +5,192 @@ Shoppers claim deals and redeem them in person with an OTP code; merchants pay a
 KES 30 success fee per verified redemption from a prepaid wallet; admins approve
 merchants and handle fraud/dispute review.
 
+**Who uses it:** shoppers (claim + redeem at the counter), merchants (create deals,
+top up a prepaid wallet, verify codes), on-ground agents (merchant acquisition and
+dispute handling), admins/founder (approval, billing, fraud review).
+
+**Current stage:** pre-launch pilot. Production is live and schema-aligned
+(Supabase `axrrslqssmbngbataejg`, Vercel deploying from `main`), but the data is
+seed/rehearsal and demo mode is still on. The live gate being worked is the
+3-person friends-and-family pilot at Node 0 — see
+`docs/maanta-launch-readiness-tracker.md` and
+`docs/ops/live-pilot-3-person-2026-07-30.md`. Treat the readiness tracker as the
+gate-status truth, not this paragraph.
+
 This file orients any Claude session (or human contractor) working in this repo.
 The full playbook is `docs/maanta-claude-operating-system.md` — read it before
-running a planning, growth, ops, or documentation session.
+running a planning, growth, ops, or documentation session. Build/run mechanics for
+coding agents (local DB, Clerk keys, seeding, known gotchas) live in `AGENTS.md`.
 
-## Source-of-truth hierarchy
+## Source-of-truth rules
 
-1. **Notion** — operating source of truth (decisions, plans, ops docs).
-2. **This repo** — source of truth for code and implementation. `docs/` holds
-   repo-side mirrors of the approved operating docs.
-3. **Drive** — approved export archive.
-4. **Obsidian** — long-term mirrored knowledge base.
+1. **Notion** — operating/product source of truth (decisions, plans, ops docs).
+2. **This repo** — source of truth for implementation. Within it, the
+   **migrations and RPCs** win over any prose about how the product behaves.
+3. **`maanta-app/design/current-reality/`** — design-side truth: `frames.json`
+   classifies each surface as `live` / `gated` / `rehearsal` / `design-ahead` /
+   `blocked` / `superseded`. A wireframe or PDF is intent, not shipped state.
+4. **Drive** — approved export archive. **Obsidian** — long-term mirror.
 
-When a `docs/` file and Notion disagree, Notion wins for operations; the code and
-its migrations win for how the product actually behaves. Flag the drift, don't
-silently pick one.
+**On conflict: name it, don't resolve it silently.** Notion wins for operations;
+code and migrations win for behavior. If a doc, a comment, a wireframe and the
+code disagree, say so explicitly in your summary and add a row to
+`docs/maanta-drift-register.md`. Never invent a rule to paper over the gap.
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `maanta-app/` | Next.js (App Router) + Supabase application |
-| `maanta-app/src/app/` | UI pages: shopper (`/`, `/deals`), merchant (`/merchant/*`), admin (`/admin`), login |
-| `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push |
-| `maanta-app/src/lib/` | Shared libs: currency/FX, Stripe, IntaSend, merchant ledger, web push |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — the authoritative record of DB behavior |
+| `maanta-app/` | The only runnable product: Next.js 14 (App Router) + Supabase Postgres/RLS, Clerk auth, Tailwind, Stripe/IntaSend, Sentry + PostHog |
+| `maanta-app/src/app/` | Route groups: `(public)/*` marketing + legal, `(shopper)/*` (`/feed`, `/browse`, `/map`, `/my-deals`, `/you`), `merchant/*`, `admin/*`, `agent/*`, `founder/*`, auth (`/login`, `/sign-up`, `/verify-phone`) |
+| `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
+| `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
+| `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (caveat: prod's ledger and this repo currently disagree on two version numbers — drift row **D24**) |
+| `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
+| `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/legal/` | DRAFT legal docs (not published, not lawyer-reviewed) |
 | `docs/` | Operating docs (see below) |
+| `docs/ops/` | Runbooks and dated operational reports: auth strategies, demo mode, migrations, e2e/pilot readiness, UI polish |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
 
-## Commands
+**Auth, in one line:** `src/middleware.ts` runs `clerkMiddleware()` on every path.
+Clerk is the launch strategy; `MAANTA_AUTH_STRATEGY=supabase` swaps in Supabase
+email OTP for rehearsal/CI. See `docs/ops/auth-strategies.md` and
+`docs/skills/clerk-auth.md`.
+
+## Orientation map — where to look before you edit
+
+| Question | Read this first |
+|---|---|
+| Is this shipped, or design-ahead? | `maanta-app/design/current-reality/frames.json` |
+| Is this a known gap already? | `docs/maanta-drift-register.md` (search before you re-report) |
+| Is this rule frozen? | Frozen business rules below → `docs/maanta-decisions-log.md` |
+| What is gating launch? | `docs/maanta-launch-readiness-tracker.md` |
+| How does money actually move? | `docs/skills/payments-rails.md`, `docs/skills/money-trust-engineering-guardrails.md`, the `claim_deal` / `verify_redemption` migrations |
+| What are the UI hard rules? | `docs/skills/frozen-ui-locked-rules-audit.md`, `docs/skills/claude-design-system.md` |
+| How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
+
+## Working style
+
+- **Verify first.** Read the code, the migration, the doc and the current design
+  state before editing. Do not answer from the prompt's description of the repo —
+  the repo wins.
+- **Small, high-confidence diffs.** Extend the existing pattern rather than
+  introducing a second one; a second place to enforce a rule is a second place to
+  drift.
+- **Direct and operational output.** No preamble, no restating what you're about
+  to do at length. Don't over-explain unless asked.
+- **Close every task with a summary**: files changed, what you ran and what it
+  said, drift found, and any decision left for a human.
+- **Never claim green you didn't see.** If a check didn't run, say it didn't run.
+
+## Execution format for meaningful tasks
+
+1. Restate the task in one or two lines.
+2. Inspect the relevant files (code, migration, doc, `frames.json`).
+3. Separate truth from drift — state which sources disagree, if any.
+4. Propose the smallest safe implementation.
+5. Implement it.
+6. Run the relevant checks (below).
+7. Summarize: files changed · what was verified · open human decisions.
+
+Skip steps 1–4 only for genuinely trivial edits (a typo, a broken link).
+
+## Commands and what CI gates
 
 Run from `maanta-app/`:
 
-- `npm run dev` — local dev server
-- `npm test` — vitest suite (also runs in GitHub Actions CI)
+- `npm run dev` — local dev server (Turbo)
+- `npm run lint` — `next lint`
+- `npm run typecheck` — `tsc --noEmit`
+- `npm test` — vitest suite
 - `npm run build` — production build
+- `npm run test:e2e` — Playwright golden path (needs `E2E_BASE_URL` + storage;
+  see `docs/ops/e2e-golden-path.md`)
+
+Root `Makefile` (see `make help`): `make db-verify` (local-only — boots a
+throwaway Supabase, applies migrations, runs `supabase/tests/*.sql`, mirrors CI),
+`make demo-status|demo-on|demo-off`, the seed targets. `db-link` / `db-push*`
+target **production** and are human-run — Claude must not apply migrations.
+
+**CI (`.github/workflows/ci.yml`) blocks on all of:** `lint`, `typecheck`,
+`test`, `build`, and the `db-tests` job. A change that only passes `npm test` is
+not verified. If you touch SQL under `supabase/migrations/`, the corresponding
+check is `make db-verify` (or the `db-tests` job), not vitest.
+
+## UI/UX quality bar
+
+MAANTA handles other people's money at a physical counter. The interface has to
+earn that. The bar is: **premium, trustworthy, investor-grade, merchant-safe,
+shopper-clear** — a product a VC-funded team shipped, not a template.
+
+**What that means concretely**
+
+- Hierarchy, spacing, typography and calm colour do the work. One clear primary
+  action per screen; everything else recedes.
+- Prefer an honest flow over a decorative one. If a state is empty, blocked, or
+  pending, say so plainly with a next step — don't dress it up.
+- Every state is designed: loading, empty, error, offline, expired, denied. A
+  half-built state is what makes a product look unfinished.
+- Copy is short, literal, and in the product's closed vocabulary (claim, redeem,
+  deal, wallet, top up, success fee). No marketing voice inside the app.
+
+**Per surface**
+
+- **Shopper** — simple and safe. The shopper should always know what they will
+  pay, what they claimed, and how long they have.
+- **Merchant** — competent and sober. Money in, money out, fee before the action.
+  Never a surprise debit.
+- **Admin / agent / founder** — operational, dense where density helps, auditable.
+  Boring is correct here.
+
+**Do not**
+
+- generic AI gradients, purple-blue meshes, random glassmorphism
+- over-animation, parallax, confetti, celebratory motion (and **never** on a
+  money surface)
+- decorative hero sections that say nothing, or template-looking feature grids
+- emoji on money, error, or loading surfaces
+- colour as the only carrier of state
+
+**Frozen UI rules — enforced in code, not taste** (audited in
+`docs/skills/frozen-ui-locked-rules-audit.md`, ratcheted by
+`maanta-app/src/lib/__tests__/frozen-ui-rules.test.ts`):
+
+1. ≤1 amber action per screen; amber is fill/border only, never money text.
+2. CTA = amber fill + **black** label; disabled is never amber.
+3. Money is never coloured, never in a toast, never celebrated.
+4. State = icon + word, readable in greyscale. Failure is dark `#141414`;
+   error is borders and icons only, body text stays `#111`.
+5. Warning is rust `#9A4A0C` — never red or yellow.
+6. The 6-digit code is the only bare numeral; no price inside the code card.
+7. YOU PAY is identical on tile, detail and claimed code; the itemised
+   breakdown appears only on deal detail.
+
+Use tokens from `tailwind.config.ts` and primitives from
+`src/components/ui/claude/`. Never raw hex in components.
+
+## Product guardrails
+
+- **Never invent a product rule.** If the answer isn't in the decisions log, the
+  readiness tracker, the drift register or a migration, it is an open question —
+  surface it, don't decide it.
+- **Backend is the source of truth for money and trust.** A UI-only change does
+  not close a money, access-control or fraud gap. `claim_deal` and
+  `verify_redemption` are the enforcement points; an app-layer filter narrows
+  exposure but never replaces the RPC (see drift row D25 for exactly this).
+- **Before changing operational behavior**, check: the readiness tracker, the
+  drift register, the relevant parity/e2e docs under `docs/ops/`, and the
+  migration that owns the behavior.
+- **Never hardcode a fee or price.** `getSuccessFee()` / `getBoostFee()` read
+  `app_config`; `SUCCESS_FEE_KES` in `src/lib/pricing.ts` is the single copy
+  constant. YOU PAY is computed only in `src/lib/pricing.ts`.
+- **Claude does not run migrations against production.** Write the migration,
+  add the SQL test, verify locally, and hand the apply step to a human
+  (`docs/ops/supabase-migrations.md`).
+- **When a critical flow changes**, update the docs, the tests, and the drift
+  register in the same change — not "next session".
 
 ## Required master docs (must always exist and stay updated)
 
@@ -54,6 +204,8 @@ Run from `maanta-app/`:
 - `docs/maanta-marketing-agency-brief.md`
 - `docs/maanta-launch-ops-runbook.md`
 - `docs/skills/payments-rails.md`
+- `docs/skills/money-trust-engineering-guardrails.md` — the checklist for any diff
+  that shows a price, moves money, or gates a role
 - `docs/skills/redemption-disputes.md`
 - `docs/skills/frozen-ui-overall-handoff.md`
 - `docs/skills/prod-auth-deals-recovery.md`
@@ -102,3 +254,6 @@ which has already happened (rows D3, D5, D6, D9).
 Use one narrow mode per session — Planner, Builder, Reviewer, or Operator — with
 one objective and one deliverable family. Prompt templates for each track live in
 `docs/maanta-claude-operating-system.md` under "Prompt pack".
+
+Recommended skills/tooling for Claude sessions on this repo, plus a copy-paste
+session bootstrap prompt: `docs/ops/claude-stack-setup.md`.
