@@ -84,6 +84,29 @@ Run from `maanta-app/`:
 
 See `docs/maanta-decisions-log.md` for the full log and dates.
 
+## Paused deals
+
+Source of truth for pause / claim / resume / redeem: **PR #150**,
+`docs/skills/paused-deal-semantics.md`, and drift **D25** (plus closed **D32**
+for the SQL browse-view filter).
+
+- Claimed while the deal was **active** → ticket stays in My deals / Tickets and
+  remains verifiable until normal ticket expiry (`verify_redemption` ignores
+  `is_paused`).
+- Pausing a deal **immediately** removes it from shopper discovery (feed,
+  browse, map) and from `deals_public_browse`; new claims are blocked.
+- Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
+  layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
+- Resume (while the deal is otherwise valid) restores discovery and claimability.
+- **Deploy status:** repo is complete (#150: migrations `180000` + `190000`,
+  tests, UI). **D25 remains `pending-deploy`** until a human `supabase db push`
+  and `pg_get_functiondef` for `claim_deal` shows `deal_paused`. Not fully live
+  on production until that read-back.
+- Any future change to claim / pause / resume / redeem must: read
+  `docs/skills/paused-deal-semantics.md` first; check the latest drift register
+  and migrations; keep RPC, UI, and discovery surfaces aligned; and record
+  behavior changes in the drift register and this file.
+
 ## Mandatory session rule
 
 Every MAANTA session must leave behind at least one durable artifact:

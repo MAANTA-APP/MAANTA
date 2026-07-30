@@ -37,6 +37,13 @@ describe("parity sync ratchets (2026-07-30)", () => {
     expect(api).toMatch(/code:\s*"deal_paused"/);
   });
 
+  it("ticket view leads with validity when the deal is paused", () => {
+    const ticket = readApp("src/app/(shopper)/tickets/[id]/page.tsx");
+    expect(ticket).toMatch(/Your ticket is still valid until/);
+    expect(ticket).toMatch(/merchant paused new claims/);
+    expect(ticket).toMatch(/show this code at the till/i);
+  });
+
   it("new claims are live-only; grace is till redemption window", () => {
     const now = new Date("2026-07-26T12:00:00Z");
     expect(isDealClaimable("2026-07-26T11:50:00Z", now)).toBe(false);

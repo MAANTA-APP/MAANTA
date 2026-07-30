@@ -25,7 +25,7 @@ only in UI hiding.
 | `deals_public_browse` | SQL discovery view excludes `is_paused` (`20260730190000_paused_deals_discovery_filter.sql`). |
 | App rails | `getLiveDeals` → `.eq("is_paused", false)` for feed, browse, map. |
 | Deal detail | Unclaimed + paused → “Deal paused by merchant”, claim disabled. Own live ticket → “View your ticket” (still valid). |
-| My deals / tickets | Redemptions list is pause-agnostic; ticket page notes pause if the deal is paused. |
+| My deals / tickets | Redemptions list is pause-agnostic; ticket page leads with “still valid until …”, then notes the merchant paused new claims. |
 | Merchant UI | Pause/resume on `/merchant/deals/[id]`; redeem banner when any deal is paused. |
 | Claim API | `POST /api/redemptions` maps `deal_paused` → HTTP 409 + `{ code: "deal_paused" }`. |
 

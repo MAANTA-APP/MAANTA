@@ -44,6 +44,27 @@ supabase db push --dry-run
 Prefer a **low-traffic window** — the hardening migrations are grant/view/table
 changes and can take brief locks.
 
+### Paused-deal claim gate deploy (D25)
+
+Parked checklist — run when ready to touch production. Do **not** treat pause as
+live enforcement on prod until the verify step passes. Canonical semantics:
+`docs/skills/paused-deal-semantics.md` / `CLAUDE.md` (Paused deals).
+
+- **Pre-check:** confirm PR #150 merged and CI tests green.
+- **Run:** `supabase link --project-ref axrrslqssmbngbataejg` if needed, then
+  `supabase db push` from `maanta-app/` (prefer `--dry-run` first). Applies
+  `20260730180000` (claim gate) and `20260730190000` (browse-view pause filter).
+- **Verify on prod:**
+  ```sql
+  SELECT pg_get_functiondef(
+    'public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure
+  );
+  -- must contain: RAISE EXCEPTION 'deal_paused'
+  ```
+- **Close:** mark **D25** as `closed` in `docs/maanta-drift-register.md` and
+  update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
+  **live on production**.
+
 ### The #48–#61 hardening set (must be present after push)
 
 From `docs/skills/prod-handoff-security-audit-2026-07-23.md`, apply in filename

@@ -223,6 +223,22 @@ Every MAANTA session should leave behind one of:
 - a brief for marketing/ops,
 - an exported approved markdown document.
 
+### When working on deal pause, claimability, discovery, or redemption
+
+Treat PR #150 and `docs/skills/paused-deal-semantics.md` as the source of truth
+for paused-deal behavior. Drift status: **D25** = implemented in repo,
+**pending-deploy** (not fully live on production until `db push` +
+`pg_get_functiondef` read-back); **D32** = browse-view filter closed in-repo
+via #150.
+
+- Read the paused-deal semantics doc first.
+- Confirm current behavior via tests (`claim_deal_pause_gate_test.sql`, related
+  Vitest) and the latest migrations (`180000`, `190000`, and anything after).
+- Prefer small diffs over re-designing the flow; keep RPC, UI, and discovery
+  surfaces aligned.
+- Summarize any behavior changes in `docs/maanta-drift-register.md` and
+  `CLAUDE.md` (Paused deals section).
+
 ## Waitlist operating system
 
 MAANTA should run one audience database with a required `segment_type` field and three role-based segments: shopper, merchant, and mall operator. This is the foundation for both campaign targeting and email automation, and role-based segmentation is a standard best practice because different audiences need different messages and CTAs.
