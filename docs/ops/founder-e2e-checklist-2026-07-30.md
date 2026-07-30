@@ -2,7 +2,13 @@
 
 Use this for a **disciplined** end-to-end session of the critical pilot journey.
 This is **not** a public-launch checklist. Seed/rehearsal data and demo mode may
-still be on. Companion: `docs/ops/e2e-readiness-report-2026-07-30.md`.
+still be on.
+
+Companions:
+
+- Inventory report: `docs/ops/e2e-readiness-report-inventory-2026-07-30.md`
+- Route table: `docs/ops/e2e-route-readiness-2026-07-30.md`
+- Prior trial-honesty report: `docs/ops/e2e-readiness-report-2026-07-30.md`
 
 App: **https://www.maanta.app** (unless you intentionally use a non-prod deploy).  
 Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
@@ -17,6 +23,7 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
   - `20260730130000_enforce_elite_trial_first_100_cap`
   - `20260730140000_trial_expiry_launch_sentinel_null_guard`
   - `20260730150000_demo_wipe_audit_trail_retention`
+  - `20260730160000_restore_claim_deal_pause_gate` ← pause must block new claims
   - (safe metadata) `20260730120000_correct_success_fee_config_notes`
 - [ ] **Cap status:** run `SELECT * FROM public.elite_trial_cap_status();`  
   Note `cap / granted / remaining`. If `granted` looks high after first apply,
@@ -26,8 +33,11 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 - [ ] **Auth:** Clerk works for admin + merchant + shopper (real publishable **and**
   secret). Phone verified on the shopper (claim gate).
 - [ ] **W3W:** `W3W_API_KEY` set if you will complete onboard location validation.
-- [ ] **Accounts:** use the rehearsal set in `docs/maanta-node0-rehearsal-checklist.md`
-  **or** create a fresh pending merchant for the acquisition→approve leg.
+- [ ] **Top-up rail:** Stripe sandbox keys for `/merchant/topup`. Treat **Pay with
+  card** as the Phase 1 path. M-Pesa STK only if IntaSend is configured (UI says so).
+- [ ] **Accounts:** use the rehearsal set in `docs/ops/test-accounts.md` /
+  `docs/maanta-node0-rehearsal-checklist.md` **or** create a fresh pending merchant
+  for the acquisition→approve leg.
 - [ ] **Sessions:** one normal window + incognito (or two phones) so roles do not
   evict each other.
 - [ ] **Node cookie:** feed scoped to **BBS Mall** (`maanta_node`).
@@ -45,7 +55,8 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
    **Success:** lands on login with `next=/merchant/onboard?shop=…`.
 3. Sign in as a **new** merchant user → onboard wizard.  
    **Success:** shop name is **prefilled** from `?shop=`. Complete business →
-   w3w → floor → wallet → review → submit. Status becomes **pending**.
+   w3w → floor → wallet → review → submit. Status becomes **pending**.  
+   (Alias `/merchant/onboarding` also works.)
 
 ### B. Admin approval + Elite trial
 
@@ -66,20 +77,27 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 
 ### C. First deal → shopper claim → verify
 
-8. Merchant → create a deal (image required; Standard = 1 active).  
+8. Merchant → create a deal at `/merchant/deals/new` (image required;
+   Standard = 1 active, Elite = 2).  
    **Success:** deal live on BBS feed. Zero balance blocks **new** deals only.
-9. Shopper (phone verified) → `/feed` → claim → 6-digit ticket.  
-   **Success:** ticket under `/tickets`; second claim on same deal blocked.
+   Do **not** pause the deal mid-claim test — paused deals correctly reject new claims.
+9. Shopper (phone verified) → `/feed` → open deal → claim → 6-digit ticket.  
+   **Success:** ticket under `/tickets/[id]` (list is **Deals** → `/my-deals`
+   or alias `/tickets`). Second claim on same deal blocked.
 10. Merchant → `/merchant/redeem` → enter code → read fee disclosure →
     **Confirm redemption**.  
-    **Success:** “Verified” + **Collect from shopper KES N** + wallet −30
-    (or arrears if balance &lt; 30). Ledger row under `/merchant/wallet`.
+    **Success:** “Verified” / “Redeemed” + **Collect from shopper KES N** + wallet −30
+    (or arrears if balance &lt; 30). Ledger row under `/merchant/wallet`.  
+    Location mismatch: **Confirm** = verify-anyway (fee taken, dispute to admin);
+    **Reject** = no fee.
 
 ### D. Operator observability
 
 11. Admin → `/admin/redemptions` (and detail) — redemption visible.  
 12. Admin → `/admin/billing` — merchant appears under trial/elite/standard as
     expected; cap line still honest.
+13. Optional top-up rehearsal: `/merchant/topup` → **Pay with card** (Stripe
+    sandbox). Do not treat STK as required.
 
 ---
 
@@ -91,9 +109,11 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 | No opening credit | Already active? Off BBS? Cap / launch window exhausted? Ledger `node0_opening_credit` |
 | Onboard shop name empty | URL must keep `?shop=` through login `next=` |
 | Claim blocked | Shopper phone verification; deal paused/expired; wrong mall cookie |
-| Verify fails | Wrong OTP; already verified; merchant not owner/staff |
+| Claim on paused deal succeeds | Migration `20260730160000` missing on target DB |
+| Verify fails | Wrong OTP; already verified; merchant not owner/staff / `can_verify` |
 | Fee not debited | Check arrears path (wallet &lt; 30); `success_fee_charged` must be 30 |
 | Empty feed | `maanta_node` cookie; demo filter; service_role grants on local only |
+| STK top-up fails | Expected if IntaSend unset — use **Pay with card** |
 
 ---
 
@@ -105,6 +125,7 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 - IntaSend may be unconfigured — do not treat STK as required for this E2E.
 - Playwright `E2E_BASE_URL` must **never** point at production (charges real KES 30).
 - Elite trial cap backfill may already count historical trials — that is correct.
+- Agent / founder reports / contact form are **out of scope** for the first run.
 
 ---
 
@@ -118,6 +139,8 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 | Opening credit (if eligible) | | |
 | Deal create | | |
 | Claim → verify → fee/arrears | | |
+| Location mismatch Confirm vs Reject understood | | |
+| Top-up uses card Phase 1 (if exercised) | | |
 | Admin can see redemption + plan | | |
 
 **Session date:** ________  
