@@ -170,11 +170,30 @@ dependencies, including a package that spawns child processes. Not a trade worth
 making for two lines in a payments app, so the symbol is read directly and the
 try/catch plus the warning cover the case where that contract changes.
 
-**Known limit on the evidence.** The mechanism is proved by tests, and it is the
-documented primitive for route handlers — 7 of the 8 callers. `deal_viewed` is the
-exception: it fires during a React Server Component render, and whether the request
-context is still in async scope there could only be confirmed against a real
-deployment. See the verification note at the end of this section once it lands.
+**Verified end to end on the render path, 2026-07-30 01:46:47Z.** `waitUntil` is
+the documented primitive for route handlers, which covers 7 of the 8 callers, but
+`deal_viewed` fires during a React Server Component render and whether the request
+context survives into that async scope could only be settled against a real
+deployment. Tested on the preview build of this branch
+(`dpl_FS682Nx1aoFnVAttWBqJ8chNWsUC`): **one** deal page request, and the
+`deal_viewed` event arrived, timestamped in the same second as the request.
+
+A single trial is enough here because the confound is absent by construction. The
+deployment was brand new, this was its first ever request, it is auth-gated and
+`noindex` so nothing else was hitting it, and no second invocation existed in the
+two minutes before the stream was read — so nothing could have thawed the instance
+and flushed a leftover ping, which is the mechanism that made two of four
+production requests appear to succeed before the fix. The same isolated-request
+scenario dropped the event 2 out of 2 times on production beforehand.
+
+**One untagged event exists as a result.** Preview does not carry
+`MAANTA_DEMO_MODE`, so that test event is `is_demo: false` / no `environment` while
+describing a demo deal (`27e0b2c1-d8c6-4921-b1f2-7640fb757341`, "Kids uniform
+bundle"). Exclude it: `deal_viewed` at `2026-07-30 01:46:47.934Z`. If preview
+deployments are ever used for rehearsal traffic rather than one-off checks, set
+`MAANTA_DEMO_MODE=true` on the Preview environment too — otherwise synthetic
+preview activity lands in the stream indistinguishable from real production
+activity, which is the failure the tagging exists to prevent.
 
 ### Real data untouched
 
@@ -216,10 +235,15 @@ wrong, not just the magnitude.
   and `make demo-off` does **not** touch it: turning demo mode off in `app_config`
   while the env var stays `true` would tag real events as demo. Flip both.
 - ~~**Server-side capture drops events**~~ (found while verifying the above).
-  **Fixed 2026-07-30** — `waitUntil` in `captureServerEvent`. Two things remain
-  true regardless: the dropped events are gone for good, and any server-side
-  funnel or conversion rate computed over data from before that deploy is a floor,
-  not a measurement.
+  **Fixed 2026-07-30** — `waitUntil` in `captureServerEvent`, verified end to end on
+  a preview deployment including the RSC render path. Two things remain true
+  regardless: the dropped events are gone for good, and any server-side funnel or
+  conversion rate computed over data from before that deploy is a floor, not a
+  measurement.
+- **`MAANTA_DEMO_MODE` is not set on the Preview environment.** Harmless while
+  previews are only used for one-off checks — it cost exactly one untagged event
+  during the verification above. Set it if previews are ever used to show anybody
+  the rehearsal dataset. *Caution, not blocking.*
 - **Production verification used a Vercel share token.** Repeat the banner check in a
   private browser window for a truly anonymous confirmation.
 - **Doc figures drift.** Several docs still cite 291 deals / 339 redemptions; live
