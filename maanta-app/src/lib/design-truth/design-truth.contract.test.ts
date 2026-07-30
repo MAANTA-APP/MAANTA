@@ -257,6 +257,21 @@ describe("settled rulings stay settled", () => {
     expect(rule).not.toMatch(/all active deals/i);
   });
 
+  it("keeps D-06 closed: capability-driven rails, and pending never means credited", () => {
+    const row = contract.drift.find((dr) => dr.id === "D-06")!;
+    expect(row.blockedOn).toBe("none");
+
+    const rule = contract.runtimeRules["R-STRIPE-PHASE-1"];
+    // The order must stay described as capability-driven, not as a fixed
+    // preference for either provider — that is what makes M-Pesa going live an
+    // ops event rather than a code change.
+    expect(rule).toMatch(/capability-driven/i);
+    expect(rule).toMatch(/pending never means credited/i);
+    // And the unsettled-vs-failed distinction must not be dropped: a charged
+    // card that has not credited is not a failure.
+    expect(rule).toMatch(/unsettled/i);
+  });
+
   it.each([
     ["D-02", /see-all/i],
     ["D-03", /archive/i],

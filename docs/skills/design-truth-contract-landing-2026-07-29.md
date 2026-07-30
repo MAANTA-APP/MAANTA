@@ -151,7 +151,7 @@ reopening D-04 produced exactly two targeted failures.
 | Row | Blocked on | Why it stays open |
 |---|---|---|
 | ~~D-01~~ | ~~product-decision~~ | **Closed 2026-07-29** — founder decided: Deals Near Me, proximity-led standard deals. |
-| D-06 | code | M-Pesa-primary vs Stripe Phase 1 — blocked on IntaSend credentials, not engineering. |
+| ~~D-06~~ | ~~code~~ | **Closed 2026-07-29** — rail order is capability-driven, and the card rail no longer reports pending as credited. See `docs/skills/topup-rails-d06-2026-07-29.md`. |
 | D-12 | prototype | Admin support (11e) and public pricing (12e) are intentionally documentation-only. |
 
 The README's "12 of 21 frames are `smoke: true`" is also a miscount — the list it

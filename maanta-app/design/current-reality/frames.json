@@ -42,7 +42,7 @@
     "R-LEAD-LOCK": "A lead is locked to one agent for a fixed attribution window.",
     "R-AGENT-NO-SUBMIT": "The agent sends an onboarding link. The merchant authenticates and submits onboarding themselves.",
     "R-VERIFY-PERMISSION": "Staff need verify permission to enter codes; the owner grants it in Staff.",
-    "R-STRIPE-PHASE-1": "Shipped top-up is Stripe Checkout (Phase 1). M-Pesa STK is pending live IntaSend credentials, so pending never means credited.",
+    "R-STRIPE-PHASE-1": "Top-up rail order is CAPABILITY-DRIVEN, not a preference: M-Pesa STK leads wherever IntaSend credentials exist, and card (Stripe Checkout) leads wherever they do not \u2014 which is every environment today, so card is the Phase 1 rail. An unprovisioned rail is never rendered as an option. And pending never means credited: a Stripe return means the checkout completed, not that the wallet moved, so the screen confirms against the real balance before it claims a credit. A card payment that has not credited yet is 'unsettled', never 'failed' \u2014 the money left the merchant's account.",
     "R-LIVE-NODES-ONLY": "Only nodes flagged live are counted in founder metrics.",
     "R-VERIFIED-REDEMPTIONS": "The merchant trust and ranking signal is verified redemptions. Never stars or ratings.",
     "R-ONE-PRICE": "One summed YOU PAY number, identical on tile, detail and claimed code. Extra charges are declared up front and cannot be added at the counter.",
@@ -407,24 +407,28 @@
       "stateCoverage": {
         "covered": [
           "amount",
-          "pending"
-        ],
-        "missing": [
           "card-checkout",
+          "pending",
           "credited"
-        ]
+        ],
+        "missing": []
       },
       "prototypeStatus": "clickable",
       "captureReadiness": "after-copy",
       "evidenceSource": "repo",
       "sourceFiles": [
-        "src/app/merchant/(app)/topup/page.tsx"
+        "src/app/merchant/(app)/topup/page.tsx",
+        "src/app/merchant/(app)/topup/topup-flow.tsx",
+        "src/lib/topup-settlement.ts"
       ],
       "canvasRef": "13i",
-      "smoke": false,
-      "notes": "Not smoke-eligible until the payment provider order is resolved; asserting an anchor now would lock in the wrong primary method.",
+      "smoke": true,
+      "notes": "Rail order is capability-driven (R-STRIPE-PHASE-1), so the screen is now smoke-eligible on its heading: 'Top up' is stable whichever rail leads, and asserting it locks in no primary method. States: `amount` is the form; `card-checkout` is Stripe-hosted, so the app owns the hand-off and both returns rather than the page itself; `pending` is the `confirming` screen, which polls for BOTH rails; `credited` renders the observed balance delta. A charged card that has not credited lands on `unsettled` \u2014 'Payment received', never the failure screen.",
       "prototypeRef": "merchant/topup",
-      "captureReadinessReason": "Payment provider order unresolved (D-06)."
+      "captureReadinessReason": "Live payment credentials are still pending for both rails, so amounts are sandbox.",
+      "expectedHeading": "Top up",
+      "requiredRole": "merchant",
+      "authState": "role-session"
     },
     {
       "id": "13k",
@@ -928,11 +932,11 @@
     },
     {
       "id": "D-06",
-      "classification": "current-mismatch",
-      "blockedOn": "code",
-      "what": "M-Pesa listed first",
-      "detail": "Design system says M-Pesa is always primary. Shipped code runs Stripe as Phase 1.",
-      "where": "13i, src/lib/intasend"
+      "classification": "historical",
+      "blockedOn": "none",
+      "what": "CLOSED 2026-07-29 \u2014 rail order is capability-driven, and pending no longer reads as credited",
+      "detail": "The mirror recorded a mismatch between the design system (M-Pesa always primary) and shipped code (Stripe Phase 1). There is no longer a code question: isMpesaTopupConfigured() reads the real INTASEND_API_KEY / INTASEND_SECRET, so M-Pesa leads the moment credentials exist and card leads until then, and an unprovisioned rail is not rendered at all. Closing the row surfaced the real defect behind it: the card rail rendered the green success takeover on Stripe's redirect with added: 0 and the pre-payment balance, claiming a credit the webhook had not made, and it never polled \u2014 so its 'credited' state could not render. Both are fixed. What remains is live payment credentials, which is an ops task needing no code.",
+      "where": "13i, src/lib/intasend.ts, src/lib/topup-settlement.ts, src/app/merchant/(app)/topup/topup-flow.tsx"
     },
     {
       "id": "D-10",
@@ -967,6 +971,7 @@
       "D-03",
       "D-04",
       "D-05",
+      "D-06",
       "D-08"
     ],
     "corrections": [
@@ -1088,6 +1093,27 @@
         "was": "{\"job\": \"Find a live deal worth walking to, ranked so the urgent ones surface first.\", \"sourceFiles\": [\"src/app/(shopper)/feed/page.tsx\"]}",
         "now": "job names the three rails; sourceFiles adds src/lib/feed-sections.ts",
         "evidence": "labels and ordering now live in src/lib/feed-sections.ts"
+      },
+      {
+        "frame": "runtimeRules.R-STRIPE-PHASE-1",
+        "field": "rule text",
+        "was": "Shipped top-up is Stripe Checkout (Phase 1). M-Pesa STK is pending live IntaSend credentials, so pending never means credited.",
+        "now": "Top-up rail order is CAPABILITY-DRIVEN, not a preference: M-Pesa STK leads wherever IntaSend credentials exist, and card (Stripe Checkout) leads wherever they do not \u2014 which is every environment today, so card is the Phase 1 rail. An unprovisioned rail is never rendered as an option. And pending never means credited: a Stripe return means the checkout completed, not that the wallet moved, so the screen confirms against the real balance before it claims a credit. A card payment that has not credited yet is 'unsettled', never 'failed' \u2014 the money left the merchant's account.",
+        "evidence": "src/lib/intasend.ts isMpesaTopupConfigured; src/lib/topup-settlement.ts"
+      },
+      {
+        "frame": "D-06",
+        "field": "classification",
+        "was": "current-mismatch / blocked on code",
+        "now": "historical / none \u2014 capability-driven order; remaining blocker is credentials, not code",
+        "evidence": "src/lib/intasend.ts:isMpesaTopupConfigured; topup-flow.tsx confirming/credited/unsettled stages"
+      },
+      {
+        "frame": "13i",
+        "field": "stateCoverage/smoke/notes/sourceFiles",
+        "was": "{\"stateCoverage\": {\"covered\": [\"amount\", \"pending\"], \"missing\": [\"card-checkout\", \"credited\"]}, \"smoke\": false, \"notes\": \"Not smoke-eligible until the payment provider order is resolved; asserting an anchor now would lock in the wrong primary method.\", \"captureReadinessReason\": \"Payment provider order unresolved (D-06).\", \"sourceFiles\": [\"src/app/merchant/(app)/topup/page.tsx\"]}",
+        "now": "all four states covered; smoke:true on the stable heading 'Top up'",
+        "evidence": "the confirming screen polls both rails (topup-flow.tsx) and credited shows the observed delta; src/lib/__tests__/topup-settlement.test.ts"
       }
     ]
   }

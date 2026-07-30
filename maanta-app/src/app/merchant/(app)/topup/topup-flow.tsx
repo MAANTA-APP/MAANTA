@@ -3,18 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AmountField, TextField } from "@/components/ui/inputs";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { formatKes } from "@/lib/ui";
+import {
+  initialStageFromStripeReturn,
+  settlementOutcome,
+  type TopupStage,
+} from "@/lib/topup-settlement";
 import posthog from "posthog-js";
-
-type Stage =
-  | { kind: "form" }
-  | { kind: "waiting" }
-  | { kind: "success"; added: number; newBalance: number }
-  | { kind: "failed"; message: string };
-
-const WAIT_LIMIT_MS = 120_000;
 
 /**
  * 9i Top up with 10s/10t result screens.
@@ -42,48 +39,47 @@ export function TopupFlow({
   const router = useRouter();
   const [amount, setAmount] = useState(initialAmount);
   const [phone, setPhone] = useState(merchantPhone);
-  const [stage, setStage] = useState<Stage>(() =>
-    stripeResult === "cancelled"
-      ? { kind: "failed", message: "The card payment was cancelled. No money left your account." }
-      : stripeResult === "success"
-        ? { kind: "success", added: 0, newBalance: balance }
-        : { kind: "form" }
+  // R-STRIPE-PHASE-1: a Stripe `?stripe=success` return means the CHECKOUT
+  // completed, not that the wallet was credited — so it starts `confirming` and
+  // the effect below polls until the webhook lands. This used to render the
+  // green success takeover immediately, with `added: 0` and the pre-payment
+  // balance, which claimed a credit that had not happened.
+  const [stage, setStage] = useState<TopupStage>(() =>
+    initialStageFromStripeReturn(stripeResult)
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startBalance = useRef(balance);
   const waitStart = useRef(0);
 
-  // While waiting on the STK push, poll the wallet until the webhook credits it.
+  // Poll the wallet until the webhook credits it — for BOTH rails. The card
+  // rail previously never polled, so its `credited` state could not render at
+  // all; a merchant had to leave and come back to see their own top-up.
+  const rail = stage.kind === "confirming" ? stage.rail : null;
   useEffect(() => {
-    if (stage.kind !== "waiting") return;
+    if (!rail) return;
+    if (!waitStart.current) waitStart.current = Date.now();
     const t = setInterval(async () => {
+      let balanceNow: number | null = null;
       try {
         const res = await fetch("/api/wallet");
-        if (res.ok) {
-          const body = await res.json();
-          if (body.balance > startBalance.current) {
-            setStage({
-              kind: "success",
-              added: body.balance - startBalance.current,
-              newBalance: body.balance,
-            });
-            router.refresh();
-            return;
-          }
-        }
+        if (res.ok) balanceNow = (await res.json()).balance ?? null;
       } catch {
-        /* keep polling */
+        /* treat as no reading and keep polling */
       }
-      if (Date.now() - waitStart.current > WAIT_LIMIT_MS) {
-        setStage({
-          kind: "failed",
-          message: "The STK push was cancelled or timed out. No money left your account.",
-        });
+      const next = settlementOutcome({
+        rail,
+        startBalance: startBalance.current,
+        balanceNow,
+        elapsedMs: Date.now() - waitStart.current,
+      });
+      if (next) {
+        setStage(next);
+        if (next.kind === "credited") router.refresh();
       }
     }, 4000);
     return () => clearInterval(t);
-  }, [stage.kind, router]);
+  }, [rail, router]);
 
   async function sendStk() {
     setBusy(true);
@@ -102,7 +98,7 @@ export function TopupFlow({
         return;
       }
       waitStart.current = Date.now();
-      setStage({ kind: "waiting" });
+      setStage({ kind: "confirming", rail: "mpesa" });
     } catch {
       setBusy(false);
       setError("Network error — try again.");
@@ -132,23 +128,38 @@ export function TopupFlow({
     }
   }
 
-  if (stage.kind === "success") {
+  if (stage.kind === "confirming") {
+    return (
+      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
+        <span
+          aria-hidden
+          className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-ink"
+        />
+        <h1 className="mt-5 text-2xl font-bold text-ink">
+          {stage.rail === "card" ? "Confirming your payment" : "Waiting for M-Pesa"}
+        </h1>
+        <p className="mt-2 text-sm text-secondary" aria-live="polite">
+          {stage.rail === "card"
+            ? "Your card payment went through. We're waiting for it to land in your wallet — this usually takes a few seconds."
+            : "Approve the STK push on your phone. Your balance updates as soon as it clears."}
+        </p>
+      </main>
+    );
+  }
+
+  if (stage.kind === "credited") {
     return (
       <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-verified-tint">
           <IconCheck className="h-8 w-8 text-verified" />
         </span>
+        {/* The amount shown is the OBSERVED balance delta, never the amount the
+            merchant typed — so this figure is always the money that arrived. */}
         <h1 className="mt-5 text-2xl font-bold text-ink">
-          {stage.added > 0 ? `${formatKes(stage.added)} added` : "Top-up received"}
+          {formatKes(stage.added)} added
         </h1>
         <p className="mt-2 text-sm text-muted">
-          {stage.added > 0 ? (
-            <>
-              New balance: <b className="text-ink">{formatKes(stage.newBalance)}</b>
-            </>
-          ) : (
-            "Your balance updates as soon as the payment is confirmed."
-          )}
+          New balance: <b className="text-ink">{formatKes(stage.newBalance)}</b>
         </p>
         <Button
           full
@@ -160,6 +171,21 @@ export function TopupFlow({
         >
           Done
         </Button>
+      </main>
+    );
+  }
+
+  // Card payment taken but not yet credited. Deliberately NOT the failure
+  // screen: the money moved, so a red "not completed" would be false and would
+  // invite a second payment. Rust (warning), and no retry CTA.
+  if (stage.kind === "unsettled") {
+    return (
+      <main className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <h1 className="text-2xl font-bold text-ink">Payment received</h1>
+        <p className="mt-2 text-sm text-secondary">{stage.message}</p>
+        <ButtonLink href="/merchant/wallet" full className="mt-8">
+          Open wallet
+        </ButtonLink>
       </main>
     );
   }
@@ -213,16 +239,6 @@ export function TopupFlow({
           >
             Send STK push
           </Button>
-
-          {stage.kind === "waiting" ? (
-            <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
-              <span
-                aria-hidden
-                className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
-              />
-              Waiting for M-Pesa confirmation…
-            </div>
-          ) : null}
 
           <p className="my-4 text-center text-xs text-faint">or</p>
 
