@@ -20,7 +20,7 @@ the source of truth for anything describing code behavior). Consolidated
 | `maanta-launch-readiness-tracker.md` | Single view of launch gates, owners, status |
 | `maanta-launch-ops-runbook.md` | Testing model, QA smoke checklist, support/dispute paths, launch-week rhythm |
 | `maanta-technical-handoff.md` | Engineering handoff: architecture, RPCs, env, known gaps |
-| `maanta-pilot-sequencing-plan-2026-07-30.md` | What lands when: PR merges, `db push` steps, config flips and pilot actions, with green/red gates — verified against production |
+| `maanta-pilot-sequencing-plan-2026-07-30.md` | E2E start board: what still blocks the first real end-to-end run, as four phases with owner/type/blocking per row — verified against production |
 
 ## Growth / waitlist campaign
 

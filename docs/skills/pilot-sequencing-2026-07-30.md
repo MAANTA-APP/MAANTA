@@ -119,10 +119,47 @@ per-node behaviour.
   never re-run. The body must be re-landed as a **new** migration above
   `20260730130000`.
 
-**Lesson:** when a migration does `CREATE OR REPLACE FUNCTION` on a function
-another open PR also rewrites, the higher version wins regardless of merge
-order. Full-body recreations of money-path functions need a "does an open PR
-also touch this function?" check before merge.
+**Fixed 2026-07-30** by `20260730170000_node_scoped_opening_credit_cap_reland.sql`.
+
+### The trap in fixing F2, which is the actually instructive part
+
+The obvious fix — renumber #131's migration above `130000` — is **wrong**, and
+wrong in exactly the same way as the original bug. #131's `activate_merchant` was
+authored against `20260720120000_security_hardening.sql` §10, where the trial was
+granted unconditionally:
+
+```sql
+IF p_grant_elite_trial THEN
+  UPDATE public.merchants SET tier = 'elite', ...   -- no cap check
+```
+
+Moving that body above `130000` would revert the first-100 Elite launch-offer cap.
+**Neither branch's version of the function is correct on its own.** The re-land had
+to be a merge of the two:
+
+- from `130000`: the advisory-locked `elite_trial_slot_available()` check, the
+  skip-not-fail behaviour when the offer is exhausted, `trg_enforce_elite_trial_cap`;
+- from `120000` (#131): the per-node advisory lock key and the `merchants`-joined
+  count.
+
+**Lesson, generalised.** When a migration does `CREATE OR REPLACE FUNCTION`, the
+highest version wins regardless of merge order or authoring order — so a
+full-body recreation silently reverts every earlier change to that function that
+it was not written on top of. Before landing one, ask: *which other open PRs
+recreate this same function, and which base was each written against?* For
+money-path functions, treat a full-body recreation as a merge conflict even
+though git reports none, because git diffs files and this conflict lives in the
+database.
+
+**How the two directions are guarded now.** Both suites must pass together;
+neither alone is sufficient:
+
+- `node0_opening_credit_test.sql` E — a filled node must not exhaust the next
+  node's allowance (catches a reverted per-node count).
+- `node0_opening_credit_test.sql` F — the cap must still bind *within* a node
+  (catches "fixing" E by not enforcing the cap at all).
+- `elite_trial_cap_test.sql` B and C — drive `activate_merchant` directly and
+  assert both the grant and the at-cap skip (catches a reverted Elite cap).
 
 ---
 
