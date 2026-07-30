@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-07-28 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-07-29 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
@@ -10,11 +10,20 @@ to `maanta-decisions-log.md`, not this file.
 > for CTO/ops checklists and scale matrices. This tracker remains the gate
 > status source of truth.
 
-> **2026-07-24 repo audit:** full repo-vs-prod readiness audit in
-> `docs/skills/launch-audit-2026-07-24.md`. Repo is green (128 vitest + 15 SQL
-> suites; typecheck + lint clean). All prod-apply steps (migrations →
-> `axrrslqssmbngbataejg`, Vercel/Clerk/monitoring config, money rails) remain
-> human-owned — see that audit's §4.
+> **2026-07-29 full-state audit:** repo × production × Notion reconciliation in
+> `docs/skills/full-state-audit-2026-07-29.md`. Repo green: **293 vitest tests
+> (45 files) + 16 SQL suites**, lint + typecheck clean. Production is **live and
+> schema-aligned** — Supabase `axrrslqssmbngbataejg` ACTIVE_HEALTHY with 67
+> migrations applied (this session adds + applies a 68th — the trial-expiry cron fix
+> `20260729092118`, **applied to prod 2026-07-29**, see E11), Vercel prod deploying from `main` (100%
+> READY), Sentry + PostHog ingesting. Data is **seed/rehearsal** (291 deals but 5
+> redemptions). Remaining gates are verification-at-volume + money rails + legal,
+> **not** deployment. Key fix from that audit: the trial-expiry cron job was
+> never registered on prod (see E11) — corrective migration `20260729120000` added.
+>
+> **2026-07-24 repo audit:** earlier full repo-vs-prod readiness audit in
+> `docs/skills/launch-audit-2026-07-24.md` (superseded by the 07-29 audit above
+> for prod status; retained for its §4 prod-apply breakdown).
 >
 > **2026-07-24 Builder follow-up (same branch):** closed the audit's repo gaps —
 > (1) **"Collect from shopper KES N"** now renders on the redeem success takeover
@@ -59,13 +68,13 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | E7 | Waitlist live: `/waitlist` form → Resend audience (platform decided 2026-07-10: Resend) | Founder + engineer + AI lead | 🟡 in progress | GATE (marketing) | Built + end-to-end tested 2026-07-10 (real contact in Waitlist audience, confirmation email delivered; domain verified; properties created). **2026-07-23 prod debug:** confirmation emails weren't arriving; DB evidence (a live `claim:` rate-limit bucket but **zero** `waitlist:` buckets) strongly indicated every prod submission was failing *before* the rate-limit/Resend steps (so not env/limiter/service-role) — most likely the honeypot, the only pre-rate-limit step that returns a success-looking response. Hardened the honeypot against browser autofill (renamed `website`→`hp_url`, kept `display:none` + added password-manager ignore attrs) so a real signup can't be silently dropped, and added `GET /api/waitlist?healthz=1` (booleans only) to confirm the 3 Resend env vars are present on the running deployment. Remaining: deploy, read healthz, verify first production signup lands in the Waitlist segment |
 | E8 | Campaign-source capture (UTM → `source_campaign` property on every signup, in Resend) | Agency + AI lead | 🟡 in progress | GATE (marketing) | Form captures `utm_source/medium/campaign` → contact properties; verify end-to-end once Resend is configured |
 | E9 | FX provider replaced with SLA-backed source | Engineer | 🟡 repo-complete, prod-ops pending | GATE if non-KES live charges | **Repo (PR #70, on `main`):** FX **abstraction** landed — `src/lib/fx/**` (`kesPerUnit` resolver + static fallback), `currency.ts` `toKes` delegates, behaviour preserved + unit-tested, so swapping the source is now a config-level change (`docs/skills/fx-provider.md`). **Prod-ops pending (human):** choose + wire an SLA-backed provider and set prod FX rules/margin disclosure. Free tier today; fine to defer while launch is KES-only |
-| E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | ⬜ not started | GATE | Verify `STRIPE_ENV` guard behavior on deploy |
-| E11 | Trial-expiry job scheduling confirmed in production Supabase | Engineer | ⬜ not started | GATE | `handle_trial_expiry` must actually run on schedule |
+| E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | 🟡 in progress | GATE | **Deploy is live and schema-aligned** (2026-07-29 audit): Supabase `axrrslqssmbngbataejg` at 67/67 migrations, Vercel prod READY from `main`, seeds applied. Remaining founder-owned: confirm the **required-now** env values on Vercel Production (values not machine-readable) + `W3W_API_KEY`, per `docs/ops/backend-prod-setup-status-2026-07.md` + `founder-backend-prod-checklist-2026-07.md` |
+| E11 | Trial-expiry job scheduling confirmed in production Supabase | Engineer | 🟡 in progress | GATE | **2026-07-29 audit found the job was never registered:** pg_cron is installed on prod but `cron.job` had **zero rows** — the old migrations' direct `INSERT INTO cron.job` (with `EXCEPTION … NULL`) silently failed, so `handle_trial_expiry` never ran (101 merchants on Elite trial, none would ever grace/downgrade). Corrective migration `20260729092118_schedule_trial_expiry_cron.sql` uses the supported `cron.schedule()` API. **Applied to prod 2026-07-29** — job `maanta_handle_trial_expiry` is registered and `active` (`0 2 * * *`), function smoke-run clean (0 trials past-due). Remaining: confirm the first real nightly run in `cron.job_run_details` |
 | E12 | Money-path + golden-path automated tests (ENGINEERING_NOTES §8.3/§8.4) | Engineer | ✅ done | — | Merged PR #32 (2026-07-21). `supabase/tests/{golden_path,verify_redemption_money_path,topup_settles_arrears}_test.sql` run in CI `db-tests` against a real Supabase: one-winner double-verify / no double charge, owed@low-balance, unknown → fraud task, settle-first, ledger reconciliation |
 | E13 | Frozen-rule enforcement ratchet + Locked-Rules audit (§8.5) | Engineer | ✅ done | — | Merged PR #32. `src/lib/__tests__/frozen-ui-rules.test.ts` fails CI on money-in-amber, banned vocabulary, red failure surfaces, or red error body text; audit in `docs/skills/frozen-ui-locked-rules-audit.md`. R1 (≤1 amber/screen) stays a manual PASS-2 item |
 | E14 | Browser golden-path E2E (Playwright: `/demo` → claim → verify → wallet) | Engineer | 🟡 repo-complete, prod-ops pending | — | **Repo (PR #70, on `main`):** self-skipping Playwright golden path landed — `maanta-app/playwright.config.ts` + `maanta-app/e2e/golden-path.spec.ts` (browse → claim → verify, asserts the collect line) + opt-in `.github/workflows/e2e.yml`; skips without `E2E_BASE_URL`, `@playwright/test` not installed by default, so never false coverage; `docs/ops/e2e-golden-path.md`. The E12 RPC golden path already proves the money invariants. **Prod-ops pending (human):** provision a live Supabase + Clerk test env, set `E2E_BASE_URL` + storage-state secrets, then flip `e2e.yml` to gate CI. Supersedes the older standalone PR #35 |
 | E15 | Pre-traffic security hardening | Engineer | ✅ done | GATE | Internal money RPCs locked to service_role, rate limits on claim/onboard/top-up, image magic-byte validation, atomic `capture_lead` (PRs #48/#50). CI `db-tests` now includes `security_hardening` + `capture_lead` suites; 11 SQL suites total on `main` |
-| E16 | Product analytics (PostHog) instrumented | Engineer | 🟡 in progress | — | Client + funnel instrumentation merged (PRs #45, #47) — deal/claim/top-up/onboard/webhook events, EU cloud project 211805. **No-op until the 4 PostHog env vars are set on Vercel** (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`); safe (emits nothing) until then |
+| E16 | Product analytics (PostHog) instrumented | Engineer | ✅ done (events flowing) | — | Client + funnel instrumentation merged (PRs #45, #47), EU cloud project 211805. **Confirmed live 2026-07-29:** PostHog is ingesting (2,757 events / 217 persons over the prior 6 days; `deal_viewed` + `deal_claim_started` custom events firing), so the env vars (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`) are set on Vercel. Remaining: redemption/`guardian_outcome`/purchase events unverified (only 5 prod redemptions so far) — reconfirm once real volume exists |
 
 ## Marketing & growth gates
 

@@ -11,13 +11,11 @@ import {
   inputClass,
 } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
-import { WAITLIST_CONSENT_TEXT, type WaitlistSegment } from "@/lib/waitlist";
-
-const SEGMENT_OPTIONS: { value: WaitlistSegment; label: string }[] = [
-  { value: "shopper", label: "Shopper" },
-  { value: "merchant", label: "Merchant" },
-  { value: "mall_operator", label: "Mall operator" },
-];
+import {
+  WAITLIST_CONSENT_TEXT,
+  WAITLIST_SEGMENT_OPTIONS,
+  type WaitlistSegment,
+} from "@/lib/waitlist";
 
 const SEGMENT_BLURB: Record<WaitlistSegment, string> = {
   shopper: "Get early access and day-one deals at BBS Mall.",
@@ -117,7 +115,7 @@ export function WaitlistForm({
           I&apos;m joining as a
         </span>
         <SegmentedControl
-          options={SEGMENT_OPTIONS}
+          options={WAITLIST_SEGMENT_OPTIONS}
           value={segment}
           onChange={setSegment}
         />

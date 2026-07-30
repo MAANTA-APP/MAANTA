@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400" role="img" aria-label="Sample deal image — demo data">
+  <title>Sample deal image (demo data)</title>
+
+  <!--
+    Cover art for reseeded demo deals (migration 20260729142000).
+
+    Rendered through CoverImage with object-cover in two containers — h-44 on
+    the feed card and h-28 on the horizontal list card — so the artwork is
+    cropped to fill. Everything that must stay legible lives in the middle
+    band; the corners are deliberately empty because the card overlays the
+    rail badge (top-left), the favourite button (top-right) and the countdown
+    chip (bottom-left) on top of this image.
+
+    It says SAMPLE on purpose. Demo mode already shows a banner, but a card
+    screenshotted on its own leaves the banner behind — the disclosure has to
+    survive the crop, so it lives in the artwork itself.
+
+    Palette is the frozen tokens: stone.soft #EDEAE3 ground, line #E5E2DA
+    texture, muted #5C5C5C mark (5.2:1 on the ground), one brand #FDBF2D
+    accent. Presentation attributes only, no <style> or external refs, so it
+    renders identically inside an <img>.
+  -->
+
+  <rect width="800" height="400" fill="#EDEAE3"/>
+
+  <!-- Low-contrast texture so the ground reads as intentional, not as a
+       failed image load. Same cross motif as the landing hero. -->
+  <defs>
+    <pattern id="weave" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M20 14v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z" fill="#E5E2DA"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="400" fill="url(#weave)"/>
+
+  <!-- Centred safe zone: survives cropping to either card aspect.
+       At the narrow h-28 crop only the middle ~430 of the 800 width is
+       visible, so nothing here extends beyond roughly x = +/-200. -->
+  <g transform="translate(400 200)">
+    <!-- Price tag, not a photo glyph: these are deals. Drawn on a 24x24 grid
+         and scaled, so the geometry stays a tag rather than the diamond a
+         rotated rectangle collapses into. -->
+    <g transform="translate(0 -34) scale(5) translate(-12 -12)"
+       stroke="#5C5C5C" stroke-width="1.4" fill="none"
+       stroke-linejoin="round" stroke-linecap="round">
+      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+    </g>
+    <!-- The tag's hole, carrying the single brand accent. -->
+    <circle cx="-32" cy="-66" r="7.5" fill="#FDBF2D"/>
+
+    <text x="0" y="62"
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+          font-size="30" font-weight="700" letter-spacing="8"
+          fill="#5C5C5C" text-anchor="middle">SAMPLE</text>
+
+    <text x="0" y="92"
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+          font-size="16" font-weight="500" letter-spacing="1.5"
+          fill="#5C5C5C" fill-opacity="0.75" text-anchor="middle">demo data</text>
+  </g>
+</svg>
