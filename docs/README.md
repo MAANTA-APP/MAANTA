@@ -50,6 +50,7 @@ updated 2026-07-28 with comprehensive audit links.
 | `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
 | `ops/node0-pilot-readiness-2026-07-30.md` | **Go / no-go:** main + DB + env for Node 0 pilot |
+| `ops/notion-optruth-node0-pilot-2026-07-30.md` | Notion OpTruth page URL + summary paste (2026-07-30) |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
 | `ops/founder-parity-handoff-2026-07-30.md` | Money path, Elite vs D-12, concrete env actions |
