@@ -8,7 +8,7 @@ Buckets required by the parity audit brief. Each item: evidence → consequence 
 
 ### M1 — Paused deals advertised while claim rejected *(fixed)*
 
-- **Evidence:** `selectLiveDealBucket` filtered `is_active` + `expires_at` only; merchant UI promised “hidden from the feed”; `claim_deal` raises `deal_paused` (`20260730160000`).
+- **Evidence:** `selectLiveDealBucket` filtered `is_active` + `expires_at` only; merchant UI promised “hidden from the feed”; `claim_deal` raises `deal_paused` (`20260730180000`).
 - **Consequence:** Shoppers saw Claim → 409; feed lied relative to till pause.
 - **Action (done):** `.eq("is_paused", false)` in live selects; detail “Deal paused”; `is_paused` on `DealRow`; test in `get-live-deals.test.ts`.
 
