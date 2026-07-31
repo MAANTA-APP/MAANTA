@@ -163,16 +163,3 @@ If we change this policy we will update the date at the top. If a change materia
 MAANTA APP
 BBS Mall, Eastleigh, Nairobi, Kenya
 admin@maanta.app
-
----
-
-## Questions for counsel
-
-1. **Is registration with the ODPC required, and has it happened?** The exemption needs turnover below KES 5m *and* fewer than 10 employees, and does not apply to some sectors regardless of size. Section 1 should not name a registration number that does not exist.
-2. **Confirm the breach notification period** in section 11 against s.43 and current ODPC guidance.
-3. **Cross-border transfer basis** in section 12. Production hosting is in the United States and analytics in the EU — this is not a theoretical transfer.
-4. **Consent architecture for analytics** — section 7 cannot be finalised until it is decided whether PostHog is gated or made cookieless.
-5. **Children's data** — sign-up collects only a phone number, so there is no age check. Is that acceptable under s.33, or is a declaration needed?
-6. **Retention periods** — sections 8's blanks should be set by what the business and tax rules actually require, not by a round number.
-7. **Controller relationship with merchants.** A shop that adds staff and sees redemption activity may be an independent controller for its own records. Confirm whether the merchant relationship needs a data-sharing clause in the Merchant Terms.
-8. **Do processor agreements exist** with each provider in section 6?

@@ -83,31 +83,3 @@ If we add or remove a provider, we will update this notice and the date at the t
 ## 8. Questions
 
 admin@maanta.app
-
----
-
-## Questions for counsel
-
-1. **Confirm the layered basis in the table above** — strictly necessary, legitimate interest for error monitoring, and the consent split for analytics at sign-in. Is that defensible under the DPA and the ODPC consent guidelines?
-2. **Consent records.** The ODPC guidelines call for a register of consent declarations. What must MAANTA log, and for how long, to evidence consent for anonymous analytics?
-3. **Legitimate interest assessment** for Sentry and for post-sign-in analytics — should a documented balancing test be produced and kept on file?
-4. **Cross-border** — PostHog is EU-hosted and Vercel US-hosted. Confirm this notice and Privacy Policy s.12 state the transfer basis consistently.
-5. **Withdrawal mechanics** — is an in-product setting sufficient, or is a persistent link required on every page?
-
----
-
-## Build dependencies
-
-This notice cannot publish until these exist in the product:
-
-- [ ] Consent mechanism for anonymous analytics — banner or cookieless configuration
-- [ ] A working analytics opt-out in account settings
-- [ ] Consent logging, if consent is the chosen basis
-- [ ] Sentry configured to scrub personal data from error payloads
-- [ ] Confirmed cookie lifetimes for the table in section 5
-- [ ] Confirmed processing regions for every provider
-
----
-
-**Sources consulted for the regulatory framing:**
-[ODPC consent guidelines commentary](https://blog.africadataprotection.org/en/2024/01/31/kenya-a-look-back-at-the-odpc-consent-guidelines/) · [Data Protection Act, 2019 — Kenya Law](https://new.kenyalaw.org/akn/ke/act/2019/24/eng@2022-12-31) · [Data Protection (General) Regulations, 2021 — Kenya Law](https://new.kenyalaw.org/akn/ke/act/ln/2021/263/eng@2022-01-14)

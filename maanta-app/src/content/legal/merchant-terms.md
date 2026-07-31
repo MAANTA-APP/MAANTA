@@ -182,28 +182,3 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 MAANTA APP
 BBS Mall, Eastleigh, Nairobi, Kenya
 admin@maanta.app
-
----
-
-## Questions for counsel — ordered by consequence
-
-1. **Does the prepaid wallet require CBK authorisation?** See the note at the top. Consider whether structuring the funds to be held by IntaSend, as an already-licensed PSP, removes the question. **Resolve before launch.**
-2. **Refundability and expiry of balances** (7.6, 7.7) — the answer follows from question 1, and also has consumer-protection implications.
-3. **Is the liability cap in 13.3 enforceable** in Kenya at the level proposed?
-4. **Controller relationship with merchants** (14.4), which also affects the Privacy Policy.
-5. **Loss allocation on disputed redemptions** (8.4) — commercial decision, must match how support behaves in practice.
-6. **VAT treatment** of the success fee, the Elite subscription and boosts (7.9).
-7. **Is 4.3, the obligation to honour a verified code, enforceable** as drafted, and is the 15-minute grace period workable where a deal is withdrawn early under 4.5?
-8. **Consumer protection**: does the Consumer Protection Act 2012 impose obligations on MAANTA as an intermediary, notwithstanding clause 1.2?
-9. **Prohibited categories** (4.4) — a real list is needed, informed by what shops at BBS actually sell and by any licensing regimes that apply.
-
----
-
-## Copy alignment required
-
-These terms and the marketing copy must not contradict each other. Two known conflicts:
-
-| Marketing claim | Where | Conflict |
-|---|---|---|
-| "Anything left in your balance stays yours" | `copy/merchants.md`, `#faq` | Depends entirely on 7.6, which is unresolved. **Remove the line until the clause is settled.** |
-| "There is no notice period, no contract length and no exit fee" | `copy/merchants.md`, `#faq` | Consistent with 12.1 as drafted. Keep them in sync if 12.1 changes. |

@@ -131,26 +131,3 @@ We may suspend or close an account that does any of these.
 MAANTA APP
 BBS Mall, Eastleigh, Nairobi, Kenya
 admin@maanta.app
-
----
-
-## Questions for counsel
-
-1. **Does the Consumer Protection Act 2012 impose obligations on MAANTA as an intermediary**, despite clause 2.1? This is the same question as Merchant Terms q8 and should be answered once, for both documents.
-2. **Liability cap for a free service** (11.3) — what is enforceable where the user pays nothing?
-3. **Age** (3.4) — is a declaration at sign-up required under s.33 of the Data Protection Act, 2019, given that sign-up collects only a phone number?
-4. **Clause 6.3** — how strong an enforcement commitment can MAANTA make without creating an obligation it cannot meet?
-5. **Bulk-claiming limits** (4.4) — is a suspension power on these grounds fair and enforceable?
-6. **Is the phone number alone sufficient** as an account credential from a liability standpoint, given that anyone holding the phone can see the codes (3.3)?
-7. **Language.** These terms will be read by many people whose first language is not English. Is an English-only version adequate, or is a Swahili translation advisable? If translated, confirm which version governs.
-
----
-
-## Copy alignment required
-
-| Marketing claim | Where | Status |
-|---|---|---|
-| "A shop that does not honour its own deals does not stay on MAANTA" | `copy/shoppers.md`, `#faq` | Depends on 6.3. Do not publish the marketing line until the clause is written. |
-| "Claiming a deal is not buying it" | `copy/shoppers.md`, `#cost` | Consistent with 4.1. Keep in sync. |
-| "If it does not work, you owe nothing" | `copy/shoppers.md`, `#counter` | Consistent with 5.4. |
-| "Free. No card." | `copy/shoppers.md`, `copy/home.md` | Consistent with 1.2. |
