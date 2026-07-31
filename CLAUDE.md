@@ -60,6 +60,8 @@ Run from `maanta-app/`:
 - `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`
 - `docs/maanta-staged-readiness-now-launch-10k-100k.md` — now / launch / 10k / 100k readiness
+- `docs/ops/IMPLEMENTATION-REPORT.md` — what the marketing-site build shipped,
+  its 17 recorded deviations, and what it deliberately did not implement
 - `docs/maanta-drift-register.md` — open/closed record of every known gap between
   what MAANTA claims and what is true. Schema and evidence rules are enforced by
   `maanta-app/src/lib/__tests__/drift-register.test.ts`, so a row cannot be closed
@@ -119,6 +121,34 @@ it in `docs/maanta-drift-register.md` **before** writing the narrative, and clos
 prior rows by ID rather than re-describing them. An audit document is a story; the
 register is the state. Skipping it is how the same finding gets discovered twice,
 which has already happened (rows D3, D5, D6, D9).
+
+## Marketing site
+
+Six-page marketing site under `maanta-app/src/app/(marketing)/` (renamed from
+`(public)`; route groups are URL-invisible, so no path moved). Source of truth for
+what shipped and why: **`docs/ops/IMPLEMENTATION-REPORT.md`**, then the 16 planning
+documents in `docs/ops/` and `docs/legal/`.
+
+Four rules that are enforced, not conventions:
+
+- **The demo-data banner never renders on a marketing route.** It stays on
+  `(shopper)/layout.tsx` and `merchant/(app)/layout.tsx`, where synthetic deal rows
+  actually render. Guarded by `marketing-shell.test.ts` in both directions — it
+  fails if the banner returns to marketing *and* if either app shell drops it.
+  Note the switch is the database row `app_config.demo_mode_enabled`, not an env
+  var, so it cannot be checked by reading `.env`.
+- **Every number renders from `lib/marketing/facts.ts`.** It re-exports
+  `SUCCESS_FEE_KES` rather than redeclaring it; `pricing-copy.test.ts` fails on a
+  second declaration of the frozen fee.
+- **Modelled figures render only through `<ScenarioStat>` inside
+  `<ScenarioNotice>`**, which is a wrapper providing context — a stat without it
+  throws in dev. Production is `NEXT_PUBLIC_SCENARIO_MODE` unset, which renders
+  honest fallbacks and makes no claim that BBS Mall is a signed partner.
+- **No `{{TOKEN}}` may reach rendered output.** `npm run build` runs
+  `scripts/check-tokens.mjs` over the build output and fails if one survives.
+
+Held claims (`website-handoff.md` §9) must not ship; `held-claims.test.ts` scans
+both page source and `src/content/legal/*.md` for each one.
 
 ## Claude role system
 
