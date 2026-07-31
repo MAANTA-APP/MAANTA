@@ -237,7 +237,7 @@ All verified returning 200 against a production build (`next start`, port 3100).
 | **PostHog events on doors / CTAs / form submits** | **Done** — see §13 | Initially deferred on consent grounds; that reasoning was wrong and is corrected in §13. |
 | **OG images** | **Done** — see §13 | Six generated per-route images via `next/og`. |
 | **Cookie-consent mechanism** | Not built | Product + counsel decision (handoff §7 item 15). `/cookies` describes categories; the consent architecture is unresolved and the notice does not claim an opt-out that does not exist. |
-| **Lighthouse ≥ 90 verification** | **Not measured** | No Lighthouse run in this environment. Structural work was done and verified in a real browser (§7). Treat the ≥ 90 target as unverified. |
+| **Lighthouse ≥ 90 verification** | **Measured — see §15** | Five of six pages meet the performance bar; `/` is 87. Accessibility, best practices and SEO are 100 on all six. |
 | **Live PostHog event verification** | **Not possible here** | A placeholder project token makes posthog-js fail remote config and disable capture entirely, so a browser probe reports "no events" whether the wiring is right or not. Verified by unit test with a mocked transport instead (§13). Confirm one real event in the PostHog UI after deploy. |
 | **`/help` marketing variant** | Not done (R9) | Footer points at `/faq` instead, which the footer plan offers as the sanctioned interim. `/help` still renders in the app shell. |
 | **A/B variants** | Not done | Home and Shoppers decks suggest keeping current H1s as variant B. No experiment framework was added. |
@@ -605,3 +605,67 @@ If the founder does have direct Eastleigh experience — family there, time spen
 there, a specific shop — that is a stronger sentence than the one written, and it
 should replace this. What is on the page is the strongest honest version of what
 was actually supplied.
+
+---
+
+## 15. Lighthouse, measured
+
+Run 2026-07-31 against a local production build (`next start`), Chromium headless,
+**mobile emulation at 360×800** — the viewport the copy decks specify.
+
+| Route | Performance | Accessibility | Best practices | SEO |
+|---|---|---|---|---|
+| `/` | **87** | 100 | 100 | 100 |
+| `/shoppers` | 93 | 100 | 100 | 100 |
+| `/merchants` | 94 | 100 | 100 | 100 |
+| `/mall-operators` | 95 | 100 | 100 | 100 |
+| `/about` | 94 | 100 | 100 | 100 |
+| `/contact` | 91 | 100 | 100 | 100 |
+| **Average** | **92** | **100** | **100** | **100** |
+
+**Accessibility, best practices and SEO are 100 on every page.** The Phase 5 work
+— skip link, single `main` landmark, ink focus ring, per-page metadata, table
+overflow containers — shows up here as a clean sweep.
+
+### `/` misses the bar at 87
+
+The definition of done asks for ≥ 90 on performance across all six. Home is the
+only page below it. The failing audits are the same on every page, worst on Home:
+largest-contentful-paint, total-blocking-time, and unused-javascript.
+
+The cause is not the marketing code. Page-specific JavaScript is **1.3–3.4 kB**;
+first-load JS is **248–262 kB**. Essentially all of it is the shared bundle the
+root layout pulls in for every route — Clerk, Supabase and PostHog — and **no
+marketing page uses Clerk at all** (verified: no `@clerk` import, no `useUser`, no
+`useAuth` anywhere under `(marketing)` or `components/marketing`).
+
+### These numbers are optimistic for production
+
+Measured with `MAANTA_AUTH_STRATEGY=supabase`, under which `AuthProviders` returns
+children unwrapped and `ClerkProvider` never renders. The Clerk client code is
+still in the bundle — the import is static — but the provider does no work.
+
+**Production runs the Clerk strategy**, so `ClerkProvider` will wrap every
+marketing page and initialise on each one. Confirmed structurally rather than
+guessed: building with `MAANTA_AUTH_STRATEGY=clerk` and a placeholder key fails
+prerendering on **every static marketing page**, which is only possible because
+Clerk wraps them.
+
+So treat 87/92 as an upper bound for Home and the average. Real production also
+differs the other way — Vercel's CDN should improve LCP relative to a cold local
+server — so the net is genuinely unknown until it is measured on `www.maanta.app`.
+
+### The fix, and why it was not done here
+
+Scope `AuthProviders` out of the root layout and into the route groups that
+actually authenticate — `(shopper)`, `merchant`, `admin`, `agent`, `founder`,
+`login`, `sign-up`, `onboarding`, `otp`, `select-mall`, `verify-phone`,
+`app-bootstrap`, `demo`. Marketing pages would then ship none of it, which is the
+single largest performance win available and would very likely take Home past 90.
+
+**Not attempted in this pass.** It is a restructuring of authentication wiring on
+the money path, several of those routes have no `layout.tsx` to wrap, and missing
+one breaks login rather than degrading it. It deserves its own change with its own
+review, not a tail-end commit on a branch already waiting for audit.
+
+Re-measure on production after deploy before deciding whether it is worth doing.
