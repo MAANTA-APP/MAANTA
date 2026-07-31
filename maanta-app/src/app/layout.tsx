@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
-import { AuthProviders } from "@/components/auth/auth-providers";
 import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
@@ -63,7 +62,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <AuthProviders>
+    /*
+      No auth provider here, deliberately.
+      Clerk is mounted per authenticated shell via `AppProviders`, so a marketing
+      visitor never downloads the auth SDK for a page that has no login on it.
+      `PostHogClientProvider` stays — anonymous analytics runs everywhere and
+      carries no Clerk dependency.
+    */
+    <>
       <html lang="en">
         <body
           className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
@@ -71,6 +77,6 @@ export default function RootLayout({
           <PostHogClientProvider>{children}</PostHogClientProvider>
         </body>
       </html>
-    </AuthProviders>
+    </>
   );
 }

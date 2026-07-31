@@ -655,17 +655,85 @@ So treat 87/92 as an upper bound for Home and the average. Real production also
 differs the other way — Vercel's CDN should improve LCP relative to a cold local
 server — so the net is genuinely unknown until it is measured on `www.maanta.app`.
 
-### The fix, and why it was not done here
+### The fix — done, see §16
 
-Scope `AuthProviders` out of the root layout and into the route groups that
-actually authenticate — `(shopper)`, `merchant`, `admin`, `agent`, `founder`,
-`login`, `sign-up`, `onboarding`, `otp`, `select-mall`, `verify-phone`,
-`app-bootstrap`, `demo`. Marketing pages would then ship none of it, which is the
-single largest performance win available and would very likely take Home past 90.
+---
 
-**Not attempted in this pass.** It is a restructuring of authentication wiring on
-the money path, several of those routes have no `layout.tsx` to wrap, and missing
-one breaks login rather than degrading it. It deserves its own change with its own
-review, not a tail-end commit on a branch already waiting for audit.
+## 16. Auth provider scoping
 
-Re-measure on production after deploy before deciding whether it is worth doing.
+`AuthProviders` moved out of the root layout into the fourteen shells that
+actually authenticate, so Clerk is no longer shipped to marketing pages.
+
+### The coupling that made this non-trivial
+
+`PostHogClientProvider` rendered `ClerkPostHogUserSync`, which calls `useUser()`
+— and `useUser()` throws outside a `ClerkProvider`. That single dependency is why
+the root layout had to wrap everything: analytics sat in the root, analytics
+needed Clerk, so Clerk went in the root, and every marketing visitor paid for it.
+
+Moving auth down without splitting that would have thrown on every marketing page.
+
+The split is also the more correct shape. `PostHogClientProvider` keeps anonymous
+analytics on every route; a new `PostHogIdentitySync` mounts inside `AppProviders`
+on authenticated shells only. An anonymous visitor has no identity to sync, which
+is exactly what the 2026-07-31 cookieless decision already said.
+
+`AppProviders` bundles the two together on purpose: a shell cannot mount analytics
+identity without the provider it depends on.
+
+### What changed
+
+- **Root layout** — no auth provider; `PostHogClientProvider` stays.
+- **`AppProviders`** — new, `AuthProviders` + `PostHogIdentitySync`.
+- **14 shells mount it** — `(shopper)`, `merchant`, `admin`, `agent`, `founder`,
+  `login`, `sign-up`, `verify-phone`, `app-bootstrap`, `onboarding`, `otp`,
+  `select-mall`, `demo`, `auth`. Ten of those had no layout and gained one.
+- **`auth-nav-controls.tsx` deleted** — it imported Clerk and nothing imported it.
+  Dead code, and a landmine for exactly this refactor.
+
+### Proof it worked
+
+Not inferred from bundle sizes — demonstrated. Building with
+`MAANTA_AUTH_STRATEGY=clerk` and a placeholder key fails prerendering on any page
+Clerk wraps, which makes it a decisive test:
+
+| | Marketing pages failing prerender |
+|---|---|
+| Before | **all of them** — `/`, `/shoppers`, `/merchants`, `/pricing`, `/privacy`, `/terms`, `/waitlist` |
+| After | **none** |
+
+The only remaining failures are the authenticated shells, which fail solely
+because the key is fake. Clerk no longer wraps a single marketing route.
+
+### The performance gain is real but was not measurable here
+
+**It would be easy to claim Home went 87 → 95. That would be reading noise.**
+
+Three Lighthouse runs, the middle and last on identical post-change code:
+
+| Run | `/` | `/shoppers` | `/merchants` | `/mall-operators` | `/about` | `/contact` | Avg |
+|---|---|---|---|---|---|---|---|
+| 1 — before | 87 | 93 | 94 | 95 | 94 | 91 | 92 |
+| 2 — after | 94 | 95 | 95 | 88 | 88 | 89 | 92 |
+| 3 — after | 95 | 93 | 95 | 96 | 97 | 94 | 95 |
+
+Per-page swings reach ±9 between runs of the same build, and runs 1 and 2 average
+identically. This container cannot resolve a change of this size.
+
+There is a more fundamental reason it cannot: all three runs used
+`MAANTA_AUTH_STRATEGY=supabase`, under which `ClerkProvider` never rendered
+*before* the change either. The measurement was blind to the fix by construction.
+Marketing first-load JS is unchanged at 248–262 kB for the same reason.
+
+**Production runs the Clerk strategy, which is where the gain lands.** Measure it
+on `www.maanta.app` after deploy. Accessibility, best practices and SEO stayed at
+100 across all six pages in every run.
+
+### Guarded
+
+`src/lib/__tests__/auth-provider-scoping.test.ts` asserts both directions: no auth
+provider in the root layout, anonymous analytics still there, no Clerk dependency
+inside `PostHogClientProvider`, `AppProviders` present on all fourteen shells, and
+no `@clerk/` import anywhere under `(marketing)`. The last is the backstop — a
+missing shell throws at runtime for a signed-in user, which no build or type check
+catches.

@@ -84,11 +84,30 @@ function SupabasePostHogUserSync() {
   return null;
 }
 
+/**
+ * Analytics for every route, including marketing.
+ *
+ * **Carries no identity sync.** `ClerkPostHogUserSync` calls `useUser()`, which
+ * throws outside a `ClerkProvider` — so while this component owned the sync, the
+ * root layout had to wrap the whole app in Clerk, and every marketing visitor
+ * downloaded and initialised the Clerk SDK to read a page that never
+ * authenticates. Splitting identity out is what makes it possible to scope Clerk
+ * to the routes that actually sign people in.
+ *
+ * The split is also the more correct shape. An anonymous visitor on `/shoppers`
+ * has no identity to sync, and the 2026-07-31 analytics decision is explicit that
+ * anonymous tracking is cookieless and in-memory with `identify()` beginning only
+ * after sign-in. Identity now mounts exactly where identity exists.
+ */
 export function PostHogClientProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <PostHogProvider client={posthog}>
-      {isClerkAuthClient() ? <ClerkPostHogUserSync /> : <SupabasePostHogUserSync />}
-      {children}
-    </PostHogProvider>
-  );
+  return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
+}
+
+/**
+ * Ties the analytics session to the signed-in user. Mounted by `AppProviders`
+ * inside authenticated shells only — never on a marketing route, where it would
+ * have nothing to identify and would drag Clerk in behind it.
+ */
+export function PostHogIdentitySync() {
+  return isClerkAuthClient() ? <ClerkPostHogUserSync /> : <SupabasePostHogUserSync />;
 }
