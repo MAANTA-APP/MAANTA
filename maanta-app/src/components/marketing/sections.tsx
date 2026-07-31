@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TrackedFaqItem, TrackedLink } from "./tracked";
 
 /**
  * Marketing page primitives.
@@ -87,18 +87,26 @@ export function CtaPrimary({
   href,
   children,
   className = "",
+  name = "primary",
+  location = "unknown",
 }: {
   href: string;
   children: React.ReactNode;
   className?: string;
+  /** Analytics identity. Defaults are deliberately vague so an unlabelled CTA
+   *  shows up as "unknown" in the dashboard rather than silently vanishing. */
+  name?: string;
+  location?: string;
 }) {
   return (
-    <Link
+    <TrackedLink
       href={href}
+      name={name}
+      location={location}
       className={`inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft transition hover:brightness-95 ${className}`}
     >
       {children}
-    </Link>
+    </TrackedLink>
   );
 }
 
@@ -108,23 +116,29 @@ export function CtaSecondary({
   children,
   tone = "dark",
   className = "",
+  name = "secondary",
+  location = "unknown",
 }: {
   href: string;
   children: React.ReactNode;
   tone?: "dark" | "light";
   className?: string;
+  name?: string;
+  location?: string;
 }) {
   const styles =
     tone === "light"
       ? "border-white/30 text-white hover:bg-white/10"
       : "border-line text-ink hover:bg-paper";
   return (
-    <Link
+    <TrackedLink
       href={href}
+      name={name}
+      location={location}
       className={`inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-bold transition ${styles} ${className}`}
     >
       {children}
-    </Link>
+    </TrackedLink>
   );
 }
 
@@ -155,9 +169,13 @@ export function AudienceHero({
           {sub}
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <CtaPrimary href={primary.href}>{primary.label}</CtaPrimary>
+          <CtaPrimary href={primary.href} name={primary.label} location="hero">
+            {primary.label}
+          </CtaPrimary>
           {secondary ? (
-            <CtaSecondary href={secondary.href}>{secondary.label}</CtaSecondary>
+            <CtaSecondary href={secondary.href} name={secondary.label} location="hero">
+              {secondary.label}
+            </CtaSecondary>
           ) : null}
         </div>
         {status ? <div className="mt-6 text-sm text-secondary">{status}</div> : null}
@@ -244,26 +262,18 @@ export function PointGrid({
  */
 export function FaqAccordion({
   items,
+  page = "unknown",
 }: {
   items: ReadonlyArray<{ q: string; a: React.ReactNode }>;
+  /** Which page this accordion is on, so FAQ opens are comparable across pages. */
+  page?: string;
 }) {
   return (
     <div className="mt-10 divide-y divide-line border-y border-line">
       {items.map((item) => (
-        <details key={item.q} className="group py-4">
-          <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-bold text-ink">
-            {item.q}
-            <span
-              aria-hidden="true"
-              className="mt-0.5 shrink-0 text-muted transition group-open:rotate-45"
-            >
-              +
-            </span>
-          </summary>
-          <div className="mt-2.5 max-w-3xl text-sm leading-relaxed text-secondary">
-            {item.a}
-          </div>
-        </details>
+        <TrackedFaqItem key={item.q} question={item.q} page={page}>
+          {item.a}
+        </TrackedFaqItem>
       ))}
     </div>
   );
@@ -293,9 +303,16 @@ export function CtaBand({
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/70">{body}</p>
         ) : null}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <CtaPrimary href={primary.href}>{primary.label}</CtaPrimary>
+          <CtaPrimary href={primary.href} name={primary.label} location="cta-band">
+            {primary.label}
+          </CtaPrimary>
           {secondary ? (
-            <CtaSecondary href={secondary.href} tone="light">
+            <CtaSecondary
+              href={secondary.href}
+              tone="light"
+              name={secondary.label}
+              location="cta-band"
+            >
               {secondary.label}
             </CtaSecondary>
           ) : null}

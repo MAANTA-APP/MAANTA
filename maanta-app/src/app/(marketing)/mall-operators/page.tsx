@@ -16,6 +16,7 @@ import {
   SectionHeading,
   StepRail,
 } from "@/components/marketing/sections";
+import { SectionInView } from "@/components/marketing/tracked";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -223,6 +224,7 @@ export default function MallOperatorsPage() {
         each month.
       */}
       <Section id="report" tone="ink">
+        <SectionInView name="report">
         <SectionHeading
           tone="light"
           lead="You are not asked to log into anything, learn a tool, or chase a login for a colleague. A pilot includes a written report on how the node performed, and we sit down and go through it with you."
@@ -247,6 +249,7 @@ export default function MallOperatorsPage() {
           The last item is the one that matters. Numbers without an interpretation are
           another dashboard nobody opens.
         </p>
+      </SectionInView>
       </Section>
 
       <Section id="deployment">
@@ -392,6 +395,7 @@ export default function MallOperatorsPage() {
       <Section id="faq" tone="paper">
         <SectionHeading>Questions operators ask</SectionHeading>
         <FaqAccordion
+          page="mall-operators"
           items={[
             {
               q: "Does this compete with our own marketing?",

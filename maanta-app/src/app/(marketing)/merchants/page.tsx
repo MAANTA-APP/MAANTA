@@ -13,6 +13,7 @@ import {
   SectionHeading,
   StepRail,
 } from "@/components/marketing/sections";
+import { SectionInView } from "@/components/marketing/tracked";
 
 /**
  * `/merchants` — merchant marketing page. 301 target for `/for-merchants`.
@@ -86,6 +87,7 @@ export default function MerchantsPage() {
       />
 
       <Section id="cost" tone="paper">
+        <SectionInView name="cost">
         <SectionHeading lead={<>{fee} for each verified redemption. That is the whole price.</>}>
           What it costs
         </SectionHeading>
@@ -118,6 +120,7 @@ export default function MerchantsPage() {
           The money for the sale goes straight into your till, the way it does today.
           MAANTA never touches the payment.
         </p>
+      </SectionInView>
       </Section>
 
       {/*
@@ -283,6 +286,7 @@ export default function MerchantsPage() {
       </Section>
 
       <Section id="plans" tone="paper">
+        <SectionInView name="plans">
         <SectionHeading lead="Most shops never need to leave Standard. Elite is for shops that want to run more than one offer at a time.">
           Plans
         </SectionHeading>
@@ -317,6 +321,7 @@ export default function MerchantsPage() {
           </Link>
           .
         </p>
+      </SectionInView>
       </Section>
 
       <Section id="start">
@@ -336,6 +341,7 @@ export default function MerchantsPage() {
       <Section id="faq" tone="paper">
         <SectionHeading>Questions shop owners ask</SectionHeading>
         <FaqAccordion
+          page="merchants"
           items={[
             {
               q: "Will this take customers who would have paid full price?",

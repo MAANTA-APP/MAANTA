@@ -6,6 +6,8 @@ import { SCENARIO } from "@/lib/marketing/scenario";
 import { ModelledBadge, ScenarioNotice } from "@/components/marketing/ScenarioNotice";
 import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { LandingEarlyAccess } from "./landing-early-access";
+import { SectionInView, TrackedLink } from "@/components/marketing/tracked";
+import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
 import {
   AudienceHero,
   LiveDot,
@@ -134,12 +136,16 @@ export default function LandingPage() {
         and malls, the page has not done its job.
       */}
       <Section id="doors" tone="paper">
+        <SectionInView name="doors">
         <SectionHeading>Three ways in</SectionHeading>
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {DOORS.map((d) => (
-            <Link
+            <TrackedLink
               key={d.href}
               href={d.href}
+              event={MARKETING_EVENTS.audienceDoor}
+              name={d.title}
+              location="doors"
               className="group flex flex-col rounded-card border border-line bg-white p-6 transition hover:border-ink"
             >
               <h3 className="text-lg font-black text-ink">{d.title}</h3>
@@ -147,9 +153,10 @@ export default function LandingPage() {
               <span className="mt-4 text-sm font-bold text-ink underline underline-offset-4">
                 {d.label} →
               </span>
-            </Link>
+            </TrackedLink>
           ))}
         </div>
+        </SectionInView>
       </Section>
 
       <Section id="verified" tone="ink">
@@ -209,12 +216,14 @@ export default function LandingPage() {
               <ModelledBadge />
             </p>
           ) : null}
-          <Link
+          <TrackedLink
             href="/merchants"
+            name="List your shop"
+            location="merchant-band"
             className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft transition hover:brightness-95"
           >
             List your shop
-          </Link>
+          </TrackedLink>
         </div>
       </Section>
 

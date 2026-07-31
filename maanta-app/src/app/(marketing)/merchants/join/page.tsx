@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
 import { ENTITY } from "@/lib/marketing/demo";
+import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 
 /**
  * `/merchants/join` — the lead form, relocated from `/merchants`.
@@ -42,6 +43,8 @@ export default function MerchantJoinPage() {
         className="mt-8 space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
+          // Records the handoff into onboarding. No shop name, no phone number.
+          trackMarketing(MARKETING_EVENTS.formSubmit, { form: "merchant-join" });
           const params = new URLSearchParams({ shop: shopName });
           if (phone.trim()) {
             params.set("phone", phone.trim());

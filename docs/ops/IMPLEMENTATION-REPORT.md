@@ -229,10 +229,11 @@ All verified returning 200 against a production build (`next start`, port 3100).
 |---|---|---|
 | **Opening credit + Elite trial sections** | Built, **not rendering** | Both `OFFERS.*.expiresOn` are `{{SET_A_DATE}}`. `isOfferLive()` gates them, so they are absent rather than stale. **Filling two dates in `facts.ts` is the only change needed.** This is a live gap on the merchant acquisition path. |
 | **Founder biography** | Omitted | `{{FOUNDER_BIO}}` unfilled — deck blocking dependency A. |
-| **PostHog events on doors / CTAs / form submits** | **Not done** | Every deck asks for instrumentation, and the definition of done lists it. `PostHogClientProvider` is mounted so pageviews are captured, but no custom events were added. Deliberately deferred: `website-footer-legal-docs-plan.md` §4 says the cookie-consent question is "a legal-and-code dependency, not a copy task", and adding tracking to new pages before that is resolved would prejudge it. **Highest-value follow-up.** |
-| **OG images** | **Not done** | OG *metadata* (title, description, type, locale, `metadataBase`) is on every page. No image is generated. Needs a design decision, and an `opengraph-image.tsx` per route is a small follow-up. |
+| **PostHog events on doors / CTAs / form submits** | **Done** — see §13 | Initially deferred on consent grounds; that reasoning was wrong and is corrected in §13. |
+| **OG images** | **Done** — see §13 | Six generated per-route images via `next/og`. |
 | **Cookie-consent mechanism** | Not built | Product + counsel decision (handoff §7 item 15). `/cookies` describes categories; the consent architecture is unresolved and the notice does not claim an opt-out that does not exist. |
 | **Lighthouse ≥ 90 verification** | **Not measured** | No Lighthouse run in this environment. Structural work was done and verified in a real browser (§7). Treat the ≥ 90 target as unverified. |
+| **Live PostHog event verification** | **Not possible here** | A placeholder project token makes posthog-js fail remote config and disable capture entirely, so a browser probe reports "no events" whether the wiring is right or not. Verified by unit test with a mocked transport instead (§13). Confirm one real event in the PostHog UI after deploy. |
 | **`/help` marketing variant** | Not done (R9) | Footer points at `/faq` instead, which the footer plan offers as the sanctioned interim. `/help` still renders in the app shell. |
 | **A/B variants** | Not done | Home and Shoppers decks suggest keeping current H1s as variant B. No experiment framework was added. |
 | **Social icons, newsletter, testimonials, logo wall, founder photo** | Deliberately absent | Per the footer plan and the prompt's DO-NOT list. |
@@ -314,9 +315,10 @@ do not conflate them.
 1. **The two offer dates are the highest-value unblock.** Until
    `OFFERS.*.expiresOn` are set, the KES 300 opening credit and the 30-day Elite
    trial do not appear anywhere on the site.
-2. **PostHog instrumentation is missing** — see §6. The audience-door
-   click-through is described in the Home deck as "the single most useful number
-   this site can produce in its first month", and it is not being collected.
+2. **Confirm one real PostHog event after deploy.** The wiring is unit-tested
+   but has never reached a real project (§13). The audience-door click-through is
+   the number the Home deck calls "the single most useful number this site can
+   produce in its first month" — check it arrives before trusting the dashboard.
 3. **`admin@maanta.app` for everything.** Four roles, one inbox. The About deck's
    objection stands, and at launch `privacy@` must match the Privacy Policy.
 4. **The WhatsApp number is a UK (+44) line** on a Nairobi mall site. Flagged in
@@ -327,9 +329,9 @@ do not conflate them.
 6. **Handoff §7 blocker #11 is factually wrong** about production being US-hosted
    (§1, Q14). Correct it before counsel answers the transfer-basis question.
 7. **Lighthouse unverified** (§6).
-8. **`/faq` and `/malls/bbs-mall` were not rebuilt.** They render in the new
-   chrome and `/faq` still hardcodes "KES 30" in prose rather than reading from
-   `facts.ts`. Outside the six-page scope, worth a follow-up.
+8. **`/malls/bbs-mall` was not rebuilt.** It renders in the new chrome but its
+   content is untouched, and it still carries the demo shop and deal counts that
+   risk R11 warns against quoting. `/faq` **was** rebuilt — see §13.
 9. **Route renames invalidate drift-register citations.** The `(public)` →
    `(marketing)` rename broke four cited paths including two pre-existing rows.
    `drift-register.test.ts` caught it, but any future move will do the same.
@@ -387,3 +389,87 @@ To see the pitch build: `NEXT_PUBLIC_SCENARIO_MODE=true npm run build && npm sta
 Suggested audit entry points: `src/lib/marketing/` (four constants modules),
 `src/components/marketing/` (shell and disclosure), and the four guard tests
 named in §7.
+
+---
+
+## 13. Follow-up pass — analytics, FAQ and OG images
+
+Three items from §6 were completed after the first report. This section is
+additive; §6 rows are updated to point here.
+
+### 13.1 PostHog instrumentation — and a corrected judgement
+
+The first report deferred this on consent grounds. **That reasoning was wrong**,
+and it is worth stating why rather than quietly reversing it.
+
+The argument was that adding tracking before the cookie-consent decision would
+prejudge it. But `PostHogClientProvider` is already mounted on every page and
+already captures pageviews and autocapture in production. A named CTA event
+therefore introduces no new category of processing — same tool, same lawful
+basis, same data subject — and it disappears behind whichever consent switch is
+eventually built. Withholding the events would not have improved the privacy
+position; it only meant not knowing which audience the homepage serves.
+
+Five events, names centralised in `lib/marketing/analytics-events.ts`:
+
+| Event | Fires on |
+|---|---|
+| `marketing_audience_door_clicked` | the three Home doors — the priority measurement |
+| `marketing_cta_clicked` | every primary and secondary CTA, with `name` + `location` |
+| `marketing_form_submitted` | contact and merchant-join, on success only |
+| `marketing_faq_opened` | first open of each FAQ item, with `page` |
+| `marketing_section_viewed` | `#cost`, `#plans`, `#counter`, `#report`, `#doors` — once each |
+
+**What is never sent:** no message body, contact detail, name, shop name or
+phone number. A submit event records that a submission happened and which form
+it came from. Enforced by a test that extracts the paren-balanced
+`trackMarketing(...)` call, strips string literals, and fails if a field
+identifier appears inside it.
+
+**A build failure worth knowing about.** `MARKETING_EVENTS` originally lived in
+`analytics.ts`, which is `"use client"`. The Home page is a server component and
+passes `MARKETING_EVENTS.audienceDoor` as a prop — that broke the React Client
+Manifest and **failed the production build**. The constants now live in a
+framework-neutral module; `analytics.ts` re-exports them for client callers. A
+test asserts the split so it cannot regress.
+
+**Not verified against a live PostHog project.** With a placeholder token,
+posthog-js fails remote config and disables capture entirely — a browser probe
+reports "no events" whether the wiring is correct or not, which is exactly what
+happened when it was tried. Verified by unit test with a mocked transport
+instead. **Confirm one real event in the PostHog UI after deploy.**
+
+### 13.2 `/faq` restructured by audience
+
+Split into Shoppers / Merchants / Mall operators per
+`website-footer-legal-docs-plan.md` §3, and every number now reads from
+`facts.ts`. This page was the **last place on the marketing site where a frozen
+number was typed rather than imported** — it hardcoded "KES 30" and "15-minute"
+as prose strings with no constant behind them.
+
+Answers are kept consistent with the audience pages rather than reworded, so a
+shopper reading both is told the same thing twice. The two held claims stay held
+here: no enforcement promise, no statement about a remaining wallet balance.
+
+### 13.3 OG images
+
+Six generated per-route images (`/`, `/shoppers`, `/merchants`,
+`/mall-operators`, `/about`, `/contact`) via `next/og`, from one template in
+`lib/marketing/og.tsx`. Headlines come from the same decks as the page copy, so
+an image cannot drift from the page it represents.
+
+Deliberately typographic: no photograph, no product screenshot, no stock. The
+design notes ban stock imagery, and a screenshot of demo data is precisely what
+risk R1 exists to prevent. Verified rendering at 1200×630 PNG, ~44 KB, with
+`og:image` meta present on the page.
+
+### 13.4 Verification after this pass
+
+`npm test`: **475 passing, 60 files**. Typecheck, lint and build all clean;
+the token gate still reports no `{{TOKEN}}` in rendered output.
+
+### 13.5 What §6 still leaves open
+
+Unchanged: cookie-consent mechanism, Lighthouse measurement, `/help` marketing
+variant, A/B variants, and the two offer dates. Added: confirm one live PostHog
+event after deploy.

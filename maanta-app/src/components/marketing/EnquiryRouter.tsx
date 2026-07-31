@@ -8,6 +8,7 @@ import { TextField, inputClass } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
 import { CONTACT_TOPICS, normaliseTopic, type ContactTopic } from "@/lib/contact";
 import { ENTITY } from "@/lib/marketing/demo";
+import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 
 /**
  * `/contact` enquiry router and form.
@@ -124,6 +125,9 @@ export function EnquiryRouter() {
         setError(data.error ?? "We could not send your message. Please try WhatsApp.");
         return;
       }
+      // Records that a submission succeeded and which topic it was routed to.
+      // Never the name, contact detail or message body.
+      trackMarketing(MARKETING_EVENTS.formSubmit, { form: "contact", topic: submittedTopic });
       setSent(true);
     } catch {
       setError(

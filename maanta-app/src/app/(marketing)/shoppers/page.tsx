@@ -12,6 +12,7 @@ import {
   SectionHeading,
   StepRail,
 } from "@/components/marketing/sections";
+import { SectionInView } from "@/components/marketing/tracked";
 
 /**
  * `/shoppers` — 301 target for both `/for-shoppers` and `/how-it-works`.
@@ -149,6 +150,7 @@ export default function ShoppersPage() {
         of being refused at the till stops more shoppers than any doubt about price.
       */}
       <Section id="counter">
+        <SectionInView name="counter">
         <SectionHeading
           lead={
             <>
@@ -179,9 +181,11 @@ export default function ShoppersPage() {
             },
           ]}
         />
+      </SectionInView>
       </Section>
 
       <Section id="cost" tone="paper">
+        <SectionInView name="cost">
         <SectionHeading>What it costs you</SectionHeading>
         <p className="mt-5 max-w-3xl text-xl font-bold leading-snug text-ink sm:text-2xl">
           Nothing. There is no version of MAANTA that charges you.
@@ -215,6 +219,7 @@ export default function ShoppersPage() {
           </Link>{" "}
           sets out exactly what we hold.
         </p>
+      </SectionInView>
       </Section>
 
       <Section id="install">
@@ -266,6 +271,7 @@ export default function ShoppersPage() {
       <Section id="faq">
         <SectionHeading>Questions</SectionHeading>
         <FaqAccordion
+          page="shoppers"
           items={[
             {
               q: "Is it really free?",
