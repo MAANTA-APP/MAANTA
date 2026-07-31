@@ -16,3 +16,6 @@ node_modules/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Local tooling downloads (e.g. gh CLI for PR workflow)
+.tools/
