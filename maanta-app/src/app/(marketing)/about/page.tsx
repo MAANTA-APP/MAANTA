@@ -251,7 +251,7 @@ export default function AboutPage() {
         <div className="mt-6 max-w-2xl">
           <p className="text-base font-bold text-ink">{ENTITY.founder} — Founder</p>
           <p className="mt-3 text-base leading-relaxed text-secondary">
-            Born in Norway in 1996 to Somali parents who arrived as asylum seekers, and
+            Born in Norway in 1997 to Somali parents who arrived as asylum seekers, and
             raised in the UK from 2003. He read Politics and Economics at Aston University
             and moved back to Norway in 2024. MAANTA is his first company.
           </p>
