@@ -99,8 +99,8 @@ describe("validateWaitlistSubmission", () => {
 describe("waitlist segment capture", () => {
   const SRC = path.resolve(__dirname, "..", "..");
   const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
-  const LANDING = ["app", "(public)", "landing-early-access.tsx"];
-  const WAITLIST = ["app", "(public)", "waitlist", "waitlist-form.tsx"];
+  const LANDING = ["app", "(marketing)", "landing-early-access.tsx"];
+  const WAITLIST = ["app", "(marketing)", "waitlist", "waitlist-form.tsx"];
 
   it("offers every segment, in canonical order", () => {
     expect(WAITLIST_SEGMENT_OPTIONS.map((o) => o.value)).toEqual([

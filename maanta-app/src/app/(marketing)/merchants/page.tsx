@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
 import { IconCheck } from "@/components/ui/icons";
+import { FACTS } from "@/lib/marketing/facts";
+import { formatKes } from "@/lib/ui";
 
 /** 12m Merchant signup landing (lead-gen) — funnels into the onboarding wizard. */
 export default function MerchantSignupPage() {
@@ -18,9 +20,13 @@ export default function MerchantSignupPage() {
       <h1 className="text-3xl font-black text-ink">Pay only for verified redemptions</h1>
       <ul className="mt-6 space-y-2.5">
         {[
-          "KES 30 success fee per verified redemption — nothing else",
+          `${formatKes(FACTS.successFeeKes)} success fee per verified redemption — nothing else`,
           "No listing fees, no percentage cut",
-          "Boost any deal for KES 500 / 24h",
+          // Elite-only, and said so. `purchase_boost` raises BOOST_ELITE_ONLY for
+          // every non-Elite merchant (migration 20260715194145), so the previous
+          // "Boost any deal" sold the default plan a feature it cannot use — the
+          // page most prospective merchants see before choosing one. Drift D34.
+          `Elite: boost a deal to the top for ${formatKes(FACTS.boostPer24hKes)} / ${FACTS.boostHours}h`,
         ].map((line) => (
           <li key={line} className="flex items-start gap-2 text-sm font-semibold text-ink">
             <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-verified" />

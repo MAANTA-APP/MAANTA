@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { destinationForRole } from "@/lib/pwa/app-bootstrap";
-import { DownloadHeroCopy } from "@/app/(public)/download/download-install-panel";
+import { DownloadHeroCopy } from "@/app/(marketing)/download/download-install-panel";
 
 describe("destinationForRole", () => {
   it("routes customer to /feed", () => {

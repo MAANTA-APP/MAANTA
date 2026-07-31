@@ -1,5 +1,6 @@
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import { FACTS } from "@/lib/marketing/facts";
 
 /**
  * 12e Pricing — Standard vs Elite.
@@ -20,6 +21,8 @@ import { SUCCESS_FEE_KES } from "@/lib/pricing";
  */
 export default function PricingPage() {
   const fee = formatKes(SUCCESS_FEE_KES);
+  const elite = formatKes(FACTS.elitePerMonthKes);
+  const boost = formatKes(FACTS.boostPer24hKes);
   return (
     <main className="mx-auto max-w-4xl px-5 py-14">
       <h1 className="text-center text-3xl font-black text-ink">Simple pricing</h1>
@@ -27,7 +30,8 @@ export default function PricingPage() {
         <div className="rounded-card border border-line bg-white p-6">
           <h2 className="text-lg font-bold text-ink">Standard</h2>
           <p className="mt-2 text-sm text-muted">
-            1 standard deal · {fee} success fee per verified redemption
+            {FACTS.standardActiveDeals} standard deal · {fee} success fee per verified
+            redemption
           </p>
           <p className="mt-6 text-3xl font-black text-ink">No monthly fee</p>
           <p className="mt-1 text-xs text-faint">
@@ -37,10 +41,21 @@ export default function PricingPage() {
         <div className="rounded-card border-[3px] border-ink bg-ink p-6">
           <h2 className="text-lg font-bold text-brand">Elite</h2>
           <p className="mt-2 text-sm text-white/70">
-            KES 3,500/mo + {fee}/redemption · 2 active deals · flash deals · boosts
+            {elite}/mo + {fee}/redemption · {FACTS.eliteActiveDeals} active deals · flash
+            deals · boosts
           </p>
-          <p className="mt-6 text-3xl font-black text-white">KES 3,500</p>
+          <p className="mt-6 text-3xl font-black text-white">{elite}</p>
           <p className="mt-1 text-xs text-white/50">per month</p>
+          {/*
+            The boost price belonged here and was not stated on this page at all —
+            it appeared only on /merchants, which is how the two pages came to
+            disagree on both price and availability (drift D34). Boosts are an
+            Elite feature, so the price belongs in the Elite card where the plan
+            context is, not in a bullet a Standard merchant reads first.
+          */}
+          <p className="mt-3 border-t border-white/15 pt-3 text-xs text-white/50">
+            Boosts {boost} per {FACTS.boostHours}h, charged from your wallet
+          </p>
         </div>
       </div>
       <p className="mt-8 rounded-full bg-brand-tint px-5 py-3 text-center text-sm font-semibold text-ink">

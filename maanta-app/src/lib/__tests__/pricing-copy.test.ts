@@ -31,7 +31,7 @@ import { SUCCESS_FEE_KES } from "@/lib/pricing";
  */
 
 const SRC = path.resolve(__dirname, "..", "..");
-const PUBLIC_PAGES = path.join(SRC, "app", "(public)");
+const PUBLIC_PAGES = path.join(SRC, "app", "(marketing)");
 
 function tsxFiles(dir: string): string[] {
   const out: string[] = [];
