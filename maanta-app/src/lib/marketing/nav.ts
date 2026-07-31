@@ -24,11 +24,11 @@ export const HEADER_CTA = { label: "Browse deals", href: "/feed" } as const;
  * Footer columns 2–4. Column 1 (brand) and column 5 (contact) are structural
  * rather than link lists, so `SiteFooter` composes them directly.
  *
- * Resources points at `/faq`, not `/help`. `/help` renders inside the *app*
- * shell (Feed/Browse/Map/Deals/You tab bar), so a marketing footer link would
- * drop the visitor into different chrome mid-journey — risk R9. The footer plan
- * offers two fixes; until `/help` is rehomed, `/faq` is the one that does not
- * ship the jarring version.
+ * Resources includes `/help` again as of 2026-07-31. It used to point only at
+ * `/faq` because `/help` rendered inside the *app* shell and a footer link would
+ * drop a visitor into product chrome mid-journey (risk R9). `/help` now renders
+ * in the marketing shell, with the same content served to signed-in shoppers at
+ * `/you/help`, so the interim workaround is retired.
  */
 export const FOOTER_COLUMNS = [
   {
@@ -53,6 +53,7 @@ export const FOOTER_COLUMNS = [
   {
     title: "Resources",
     links: [
+      { label: "Help centre", href: "/help" },
       { label: "FAQ", href: "/faq" },
       { label: "BBS Mall (Node 0)", href: "/malls/bbs-mall" },
     ],
@@ -91,6 +92,7 @@ export const SITEMAP_ROUTES: ReadonlyArray<{ path: string; priority: number }> =
   { path: "/about", priority: 0.7 },
   { path: "/contact", priority: 0.7 },
   { path: "/pricing", priority: 0.8 },
+  { path: "/help", priority: 0.6 },
   { path: "/faq", priority: 0.6 },
   { path: "/malls/bbs-mall", priority: 0.6 },
   { path: "/download", priority: 0.5 },

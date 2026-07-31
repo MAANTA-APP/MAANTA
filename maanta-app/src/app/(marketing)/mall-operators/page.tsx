@@ -203,7 +203,7 @@ export default function MallOperatorsPage() {
             },
             {
               title: "Tenant activation, done in person",
-              body: "Our team works the floors unit by unit. We onboard shops, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion are the ones we spend the most time with.",
+              body: "Activation is done on the floor, unit by unit. We onboard shops, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion are the ones we spend the most time with.",
             },
             {
               title: "Every offer in one place",
@@ -264,7 +264,7 @@ export default function MallOperatorsPage() {
             },
             {
               title: "Activation",
-              body: "Our team is in the building. We onboard tenants unit by unit, set up wallets and staff accounts, and run each shop through a live redemption before we leave the counter.",
+              body: "We are in the building for this phase. Tenants are onboarded unit by unit, wallets and staff accounts set up, and each shop run through a live redemption before we leave the counter.",
             },
             {
               title: "Go live",
@@ -371,7 +371,7 @@ export default function MallOperatorsPage() {
               </p>
               <p>
                 That is a deliberate constraint, and it is worth being direct about what it
-                buys you. A mall that joins now gets our team on its floors, not a support
+                buys you. A mall that joins now gets us on its floors, not a support
                 queue. It gets the product shaped around problems its tenants actually have.
                 And it gets an operating report written by the people who were in the
                 building that month.
@@ -384,9 +384,9 @@ export default function MallOperatorsPage() {
           ) : (
             <p>
               MAANTA is live at {FACTS.launchMall} — our first node. We are choosing the next
-              malls carefully rather than collecting logos. A mall that joins now gets our
-              team on its floors, not a support queue, and a product shaped around problems
-              its tenants actually have.
+              malls carefully rather than collecting logos. A mall that joins now gets us on
+              its floors, not a support queue, and a product shaped around problems its
+              tenants actually have.
             </p>
           )}
         </div>
@@ -411,7 +411,7 @@ export default function MallOperatorsPage() {
             },
             {
               q: "Who supports our tenants day to day?",
-              a: "We do. WhatsApp support, plus a desk in the mall during activation and on request afterwards. Tenant support does not land on your team.",
+              a: "We do. WhatsApp support, plus someone in the mall during activation and on request afterwards. Tenant support does not land on your team.",
             },
             {
               q: "What happens to the data if we stop?",

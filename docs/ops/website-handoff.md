@@ -252,7 +252,7 @@ export const LEGAL_LINKS = [
 |---|---|---|
 | 9 | **CBK: does the prepaid wallet need PSP/e-money authorisation?** | Merchant Terms 7.5–7.7, and the merchants copy line *"anything left in your balance stays yours"*. **Highest consequence item in the project.** |
 | 10 | ODPC registration status | Privacy §1 |
-| 11 | Cross-border transfer basis — production is US-hosted, PostHog EU | Privacy §12 |
+| 11 | Cross-border transfer basis. **Corrected 2026-07-31:** production Postgres is **Supabase `eu-west-1` (Ireland)**, not US — verified against the live project. PostHog is EU. The actual cross-border exposure is **Resend (US)** and probably Clerk, whose region is not determinable from the repo | Privacy §12 |
 | 12 | Liability caps | Merchant Terms 13.3, ToS 11.3 |
 | 13 | Consumer Protection Act 2012 duties on MAANTA as intermediary | Merchant Terms 1.2, ToS 2.1 |
 | 14 | Retention periods, VAT treatment, prohibited categories | Privacy §8, Merchant Terms 7.9, 4.4 |

@@ -73,7 +73,7 @@ export function ShopperBottomBar() {
       href: "/you",
       label: "You",
       icon: IconUser,
-      match: ["/you", "/profile", "/help", "/notifications"],
+      match: ["/you", "/profile", "/you/help", "/notifications"],
     },
   ];
   return (

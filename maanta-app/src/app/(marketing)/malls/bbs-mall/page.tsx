@@ -1,44 +1,41 @@
-import { createServiceClient } from "@/lib/supabase/service";
-import { withPublicMerchant, withPublicMerchantRows } from "@/lib/data";
-import { isDemoModeEnabled } from "@/lib/demo-mode";
+import type { Metadata } from "next";
+import { FACTS } from "@/lib/marketing/facts";
 import { ButtonLink } from "@/components/ui/button";
+import { LiveDot } from "@/components/marketing/sections";
 
-export const dynamic = "force-dynamic";
+/**
+ * 12k Featured node — BBS Mall, Eastleigh.
+ *
+ * **Counts removed, 2026-07-31 (founder ruling; risk R11).** This page used to
+ * read live shop and deal counts from Supabase and print them in the hero. That
+ * looked safe — the numbers were real queries, not hardcoded — but it had two
+ * problems that only became visible once the marketing shell was separated:
+ *
+ *  1. With `app_config.demo_mode_enabled` on, those queries include synthetic
+ *     rows, so the page rendered demo counts ("121 shops · 190 live deals") as
+ *     though they were traction. That is the figure `website-expansion-plan.md`
+ *     R11 names specifically.
+ *  2. The demo-data banner is correctly scoped off marketing routes (R1), so
+ *     there was no disclosure above those synthetic numbers. Scoping the banner
+ *     and querying deal data on the same route is the one combination that had
+ *     to be avoided, and this page was doing both.
+ *
+ * Removing the counts resolves both at once, and it costs the page nothing: a
+ * prospective shopper wants to know the mall is live and to reach the feed, and
+ * a merchant or operator reading a count they cannot verify is not persuaded by
+ * it anyway. The live feed is one tap away and is the honest source.
+ *
+ * Restore counts only from a production-only query that excludes demo rows
+ * unconditionally, and only once the numbers are worth quoting.
+ */
 
-/** 12k Featured node — BBS Mall, Eastleigh (live shop/deal counts + floors). */
-export default async function BbsMallPage() {
-  const service = createServiceClient();
-  // Synthetic rows are excluded unless demo mode is explicitly on.
-  const includeDemo = await isDemoModeEnabled();
-  // Public counts must use the canonical public predicate so they never report
-  // shops/deals a shopper can't actually see (pending, suspended, low-trust or
-  // shadow-banned merchants).
-  const [{ count: shops }, { data: deals }] = await Promise.all([
-    withPublicMerchantRows(
-      service
-        .from("merchants")
-        .select("id", { count: "exact", head: true })
-        .eq("node", "BBS Mall"),
-      { includeDemo }
-    ),
-    withPublicMerchant(
-      service
-        .from("deals")
-        .select("id, merchants!inner(floor, node, status)")
-        .eq("is_active", true)
-        .gt("expires_at", new Date().toISOString())
-        .eq("merchants.node", "BBS Mall"),
-      { includeDemo }
-    ),
-  ]);
+export const metadata: Metadata = {
+  title: "BBS Mall, Eastleigh — MAANTA",
+  description:
+    "BBS Mall, Eastleigh is Node 0 — MAANTA's launch mall in Nairobi. See what shops are offering today.",
+};
 
-  const byFloor = new Map<string, number>();
-  for (const d of (deals ?? []) as unknown as { merchants: { floor: string | null } }[]) {
-    const f = d.merchants?.floor ?? "Other";
-    byFloor.set(f, (byFloor.get(f) ?? 0) + 1);
-  }
-  const floors = Array.from(byFloor.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-
+export default function BbsMallPage() {
   return (
     <div>
       <section className="bg-ink px-5 py-16">
@@ -46,35 +43,27 @@ export default async function BbsMallPage() {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
             <span className="h-1.5 w-1.5 rounded-full bg-verified" /> LIVE NOW
           </span>
-          <h1 className="mt-4 text-4xl font-black text-brand">BBS Mall, Eastleigh</h1>
+          <h1 className="mt-4 text-4xl font-black text-brand">{FACTS.launchMall}</h1>
           <p className="mt-2 text-sm text-white/70">
-            {shops ?? 0} shops · {(deals ?? []).length} live deals · Nairobi&apos;s launch
-            node
+            {FACTS.nodeLabel} — MAANTA&apos;s launch mall in {FACTS.city}.
           </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-4xl px-5 py-10">
-        <div className="space-y-3">
-          {floors.length === 0 ? (
-            <p className="rounded-card border border-line bg-white px-5 py-8 text-center text-sm text-muted">
-              Deals go live at launch — check back soon
-            </p>
-          ) : (
-            floors.map(([floor, count]) => (
-              <div
-                key={floor}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-5 py-4"
-              >
-                <span className="text-sm font-bold text-ink">{floor}</span>
-                <span className="text-sm text-muted">
-                  {count} deal{count === 1 ? "" : "s"}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="mt-8 text-center">
+      <section className="mx-auto max-w-4xl px-5 py-12">
+        <p className="max-w-2xl text-base leading-relaxed text-secondary">
+          {FACTS.launchMall} is where MAANTA started and where the product is run in person.
+          Shops here publish deals from a phone, shoppers claim them on theirs, and every
+          redemption is verified at the counter.
+        </p>
+        <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink">
+          <LiveDot />
+          Live now · {FACTS.city}
+        </p>
+        <p className="mt-8 max-w-2xl text-base leading-relaxed text-secondary">
+          What is on offer changes through the day. The feed is the live answer.
+        </p>
+        <div className="mt-8">
           <ButtonLink href="/feed">Browse BBS Mall deals</ButtonLink>
         </div>
       </section>

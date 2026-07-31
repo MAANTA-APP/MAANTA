@@ -41,7 +41,7 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **4.3 You must honour a validly verified code** on the terms you published. If you cannot, see clause 6.4.
 
-**4.4** You may not publish deals for anything you are not lawfully entitled to sell, anything requiring a licence you do not hold, counterfeit goods, or anything prohibited under {{PROHIBITED_CATEGORIES}}.
+**4.4** You may not publish deals for anything you are not lawfully entitled to sell, anything requiring a licence you do not hold, counterfeit goods, or anything prohibited under Kenyan law. This includes, without limitation: prescription medicines and controlled substances; tobacco, nicotine and vaping products; alcohol, except where you hold a valid licence; firearms, ammunition and weapons; live animals; counterfeit, replica or stolen goods; adult content or services; gambling; currency exchange, lending or other financial services; and any category we notify you of in writing.
 
 **4.5** You may end a deal early. Codes already claimed remain valid for their window plus the grace period in clause 6.2.
 
@@ -77,23 +77,23 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **7.5 Your balance is prepaid credit for MAANTA fees only.** It is not money held on deposit, it cannot be transferred to any other person or account, it cannot be used to pay anyone other than MAANTA, and it carries no interest.
 
-**7.6 Refunds.** {{REFUND_POLICY}}
+**7.6 Refunds.** Credit you have topped up yourself, and not yet spent on fees, is refundable to you on request. Ask us in writing and we will return the unspent balance to the account it came from, less any fees already incurred and any amount owed to us in arrears. Promotional credit under 7.8 is excluded and is not refundable.
 
-**7.7 Expiry of unused credit.** {{CREDIT_EXPIRY}}
+**7.7 Expiry of unused credit.** Credit you have topped up yourself does not expire while your account is open. If you close your account, ask us for the unspent balance under 7.6. Promotional credit may carry an expiry date, which will be stated when it is granted.
 
 **7.8 Opening credit and promotions.** Promotional credit — including the KES 300 opening credit for the first 100 shops activated at BBS Mall — is granted at our discretion, has no cash value, is not refundable, and may have an expiry date stated when it is granted.
 
-**7.9 Taxes.** Fees are stated {{TAX_INCLUSIVE_OR_EXCLUSIVE}} of VAT. We will issue receipts or invoices as required.
+**7.9 Taxes.** Fees are stated exclusive of VAT. We will issue receipts or invoices as required.
 
 ## 8. Disputes about a redemption
 
-**8.1** If you believe a redemption was charged in error, tell us within **{{DISPUTE_WINDOW}}** of it happening.
+**8.1** If you believe a redemption was charged in error, tell us within **14 days** of it happening.
 
 **8.2** We will look at the record — the deal, the code, the time, and which staff account verified it — and tell you the outcome.
 
 **8.3** Where we find a fee was charged in error, we will credit it back to your balance.
 
-**8.4** {{DISPUTE_LOSS_ALLOCATION}}
+**8.4** Where you are clearly in the right, we reverse the success fee — including where the shopper has already redeemed the deal. Every reversal is reviewed by a member of our team, and an approved reversal is applied by crediting your top-up balance; the original redemption and the original fee entry stay on your statement so the history remains auditable. Where the evidence is genuinely inconclusive, we bear the cost and reverse the fee. We do not silently adjust balances
 
 ## 9. Plans
 
@@ -105,9 +105,9 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **9.4 Trial.** The first 100 shops activated at BBS Mall receive 30 days of Elite at no monthly cost. The success fee applies during the trial. At the end you have **7 days** to decide; if you do nothing, your account returns to Standard. **Nothing is charged automatically at the end of a trial.**
 
-**9.5 Renewal and cancellation.** {{ELITE_RENEWAL_TERMS}}
+**9.5 Renewal and cancellation.** Elite is billed monthly and renews automatically until you cancel. You can cancel at any time and the plan runs to the end of the period you have paid for, after which the account returns to Standard. We do not refund part of a month. Cancelling Elite does not close your account, end your deals, or affect the success fee
 
-**9.6 Changes to fees.** We will give you at least **{{FEE_CHANGE_NOTICE}}** notice before changing published fees. Changes do not affect a deal already published or a code already claimed.
+**9.6 Changes to fees.** We will give you at least **30 days'** notice before changing published fees. Changes do not affect a deal already published or a code already claimed.
 
 ## 10. Rankings
 
@@ -141,7 +141,7 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **13.2** We are not liable for the sale itself, for goods or services you supply, or for any dispute between you and a shopper about them.
 
-**13.3** {{LIABILITY_CAP}}
+**13.3** Where we are liable to you, our total liability in respect of all claims arising in any 12-month period is limited to the total fees you paid us in the 3 months immediately before the event giving rise to the claim. Nothing in these terms limits liability for fraud, for death or personal injury caused by negligence, or for anything else that cannot lawfully be limited
 
 **13.4** Nothing in these terms excludes liability that cannot lawfully be excluded, including for fraud or for death or personal injury caused by negligence.
 
@@ -153,11 +153,11 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **14.3** Where you or your staff see personal data through MAANTA, you must use it only to verify and honour a redemption, and not for marketing or any other purpose.
 
-**14.4** {{CONTROLLER_RELATIONSHIP}}
+**14.4** For redemption records, you and MAANTA each act as an independent data controller: we determine how we process the data needed to run the platform, and you determine how you process what you learn about your own customers at your counter. Neither party processes personal data on the other's behalf
 
 ## 15. Changes to these terms
 
-**15.1** We may update these terms. We will give at least **{{TERMS_CHANGE_NOTICE}}** notice of material changes by the contact details on your account.
+**15.1** We may update these terms. We will give at least **30 days'** notice of material changes by the contact details on your account.
 
 **15.2** Continuing to use MAANTA after a change takes effect means you accept it. If you do not, you may close your account under clause 12.1.
 
@@ -167,7 +167,7 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **16.2** We will try to resolve any dispute with you directly first. Contact admin@maanta.app.
 
-**16.3** {{DISPUTE_RESOLUTION_MECHANISM}}
+**16.3** If a dispute arises, we will each try in good faith to resolve it directly first — write to us and we will respond. If it cannot be resolved within 30 days, it is subject to the exclusive jurisdiction of the courts of Kenya
 
 ## 17. General
 

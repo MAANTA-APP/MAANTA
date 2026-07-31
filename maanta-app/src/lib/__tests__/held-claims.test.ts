@@ -47,21 +47,27 @@ const TSX = walk(path.join(SRC, "app", "(marketing)"), [".tsx"]).concat(
 );
 const MD = walk(path.join(SRC, "content", "legal"), [".md"]);
 
+/**
+ * Three §9 claims were released on 2026-07-31 once the thing they were waiting on
+ * actually existed, and each release is now guarded from the other direction —
+ * the claim may be published, but only while its backing clause is present:
+ *
+ *  - the shop-enforcement claim, released against Terms of Service 6.3;
+ *  - the wallet-balance claim, released against Merchant Terms 7.6 — and narrowed
+ *    to credit the merchant topped up, since promotional credit is excluded by 7.8;
+ *  - response times, released against RESPONSE_TIMES in facts.ts.
+ *
+ * A claim whose clause is later deleted is a claim with nothing behind it, so the
+ * pairing is asserted below rather than left to memory.
+ */
 const HELD: { pattern: RegExp; claim: string; blockedOn: string }[] = [
   {
-    pattern: /balance stays yours/i,
-    claim: '"Anything left in your balance stays yours"',
-    blockedOn: "the CBK licensing question — needs a real refund mechanism and Merchant Terms 7.6",
-  },
-  {
-    pattern: /does not stay on MAANTA/i,
-    claim: '"A shop that does not honour its own deals does not stay on MAANTA"',
-    blockedOn: "an enforcement process (ToS 6.3) that does not exist yet",
-  },
-  {
-    pattern: /within 24 hours|reply within \d|respond within \d/i,
-    claim: "A stated response time",
-    blockedOn: "nobody having committed to a window — publish only what can be met",
+    // The *unqualified* form stays held: 7.8 excludes promotional credit, so
+    // "anything left" over-promises even now.
+    pattern: /anything left in your balance/i,
+    claim: '"Anything left in your balance stays yours" (unqualified)',
+    blockedOn:
+      "Merchant Terms 7.8 excluding promotional credit — say \"credit you topped up yourself\"",
   },
   {
     pattern: /CBK[-/]\s*(DEMO|PSP)/i,
@@ -91,6 +97,37 @@ describe("held claims are absent from shippable content", () => {
       ).toEqual([]);
     });
   }
+
+  // Released claims must keep their backing clause. Deleting the clause without
+  // deleting the claim is how a promise becomes unbacked without anyone noticing.
+  it("keeps each released claim paired with the clause that backs it", () => {
+    const tos = readFileSync(path.join(SRC, "content", "legal", "terms-of-service.md"), "utf8");
+    const merchantTerms = readFileSync(
+      path.join(SRC, "content", "legal", "merchant-terms.md"),
+      "utf8"
+    );
+    const shoppers = readFileSync(
+      path.join(SRC, "app", "(marketing)", "shoppers", "page.tsx"),
+      "utf8"
+    );
+    const merchants = readFileSync(
+      path.join(SRC, "app", "(marketing)", "merchants", "page.tsx"),
+      "utf8"
+    );
+
+    if (/does not stay on MAANTA/i.test(codeOnly(shoppers))) {
+      expect(
+        /\*\*6\.3\*\*\s+Where a shop refuses/.test(tos),
+        "/shoppers publishes the enforcement claim, so ToS 6.3 must still define the process"
+      ).toBe(true);
+    }
+    if (/refundable on request/i.test(codeOnly(merchants))) {
+      expect(
+        /\*\*7\.6 Refunds\.\*\*\s+Credit you have topped up/.test(merchantTerms),
+        "/merchants publishes the refund claim, so Merchant Terms 7.6 must still grant it"
+      ).toBe(true);
+    }
+  });
 
   // The legal drafts carry trailing sections addressed to counsel and to
   // MAANTA, not to a visitor. A public legal page must not contain a table

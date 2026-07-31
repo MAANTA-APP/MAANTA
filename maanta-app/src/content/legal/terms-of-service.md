@@ -61,7 +61,7 @@ If you run a shop on MAANTA, separate [Merchant Terms](/merchant-terms) apply to
 
 **6.2** We can see what the shop published, what code was issued, and when. We will look into it and tell you what we find.
 
-**6.3** {{ENFORCEMENT_COMMITMENT}}
+**6.3** Where a shop refuses to honour a code we can see it published, we act on it. The first time, we contact the shop, establish what happened, and require them to honour the deal as published or withdraw it properly. If it happens again, or if a shop will not engage, we suspend their ability to publish new deals. A shop that repeatedly refuses valid codes is removed from MAANTA. Claimed codes already held by shoppers remain valid through any suspension, and you are never charged either way.
 
 **6.4** We cannot make a shop sell you something, and we cannot compensate you for a sale that did not happen. What we can do is hold shops to what they publish, and remove those that will not be held to it.
 
@@ -110,7 +110,7 @@ We may suspend or close an account that does any of these.
 
 **11.2** We are not responsible for the goods or services you buy from a shop, or for a dispute between you and a shop about them. See clause 2.
 
-**11.3** {{LIABILITY_CAP}}
+**11.3** Because MAANTA is free to you and we are not the seller, our liability to you is limited. Where we are liable, our total liability for all claims arising in any 12-month period is limited to KES 10,000. Nothing here limits our liability for fraud, for death or personal injury caused by our negligence, or for anything else that cannot lawfully be limited — and nothing here affects your rights against the shop under the Consumer Protection Act 2012
 
 **11.4** Nothing here removes any right you have that cannot lawfully be removed, including under the Consumer Protection Act 2012, or any liability for fraud or for death or personal injury caused by negligence.
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ENTITY } from "@/lib/marketing/demo";
-import { FACTS } from "@/lib/marketing/facts";
+import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
 
@@ -14,14 +14,15 @@ import { Section, SectionHeading } from "@/components/marketing/sections";
  * pages bury the human channels under a form and lose the people who would
  * actually have got in touch.
  *
- * **No response times are published.** The deck's `#response` section is built
- * entirely from tokens — `{{WHATSAPP_RESPONSE}}`, `{{EMAIL_RESPONSE}}`,
- * `{{OPERATOR_RESPONSE}}`, `{{PRIVACY_ACK}}` — and every one is unfilled. The
- * deck's own instruction is "publish only what you can actually meet: a missed
- * commitment here does more damage than no commitment at all", and
- * `website-handoff.md` §9 holds every stated response time. So the section states
- * what is true — that a person reads every message and WhatsApp is fastest — and
- * commits to no window. Hours and desk location are omitted for the same reason.
+ * **Response times are published as of 2026-07-31**, by founder ruling, and read
+ * from `RESPONSE_TIMES` in `facts.ts` so the page and the autoresponder cannot
+ * drift apart. They are deliberately conservative — the deck is blunt that "a
+ * missed commitment here does more damage than no commitment at all", so these
+ * should be tightened only against evidence, never loosened after the fact.
+ *
+ * WhatsApp hours and the desk location are still omitted: those tokens are
+ * unfilled and a stated opening hour that is not staffed is the same failure as
+ * a missed response time.
  *
  * The form itself lives in `EnquiryRouter`, which is a client component because
  * it reads `?topic=`. It is wrapped in `Suspense` so `useSearchParams` does not
@@ -104,20 +105,31 @@ export default function ContactPage() {
 
       <Section id="response" tone="paper">
         <SectionHeading>What happens next</SectionHeading>
-        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
-          <p>
+        <div className="mt-6 max-w-2xl">
+          <p className="text-base leading-relaxed text-secondary">
             A person reads every message that arrives here — there is no ticket queue. You
             will get a confirmation by email as soon as your message lands, so you know it
             reached us.
           </p>
-          <p>
-            WhatsApp is the fastest route during the day. Privacy and data requests are
-            answered within the period required by the Kenya Data Protection Act 2019.
-          </p>
-          <p className="text-ink">
-            We are not publishing a response-time commitment until we are certain we can meet
-            it. If we are going to be slow, we would rather tell you than promise a window
-            and miss it.
+          <dl className="mt-6 divide-y divide-line border-y border-line">
+            {[
+              ["WhatsApp", `We reply ${RESPONSE_TIMES.whatsapp}`],
+              ["This form and email", `We reply within ${RESPONSE_TIMES.form}`],
+              ["Mall operator enquiries", `We reply within ${RESPONSE_TIMES.operator}`],
+              [
+                "Privacy and data requests",
+                "Acknowledged within 1 business day, answered within the period required by the Kenya Data Protection Act 2019",
+              ],
+            ].map(([label, value]) => (
+              <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-6">
+                <dt className="text-sm font-bold text-ink sm:w-56 sm:shrink-0">{label}</dt>
+                <dd className="text-sm leading-relaxed text-secondary">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-6 text-base leading-relaxed text-ink">
+            If we are going to be slower than this, we will tell you rather than leave you
+            waiting.
           </p>
         </div>
       </Section>
@@ -130,8 +142,7 @@ export default function ContactPage() {
             <strong className="font-semibold text-ink">
               {FACTS.launchMall}, {FACTS.city}
             </strong>
-            . That is where the shops are, where our activation team works, and where the
-            desk is.
+            . That is where the shops are, and where activation happens.
           </p>
           <p>There is no other office worth sending you to.</p>
         </div>

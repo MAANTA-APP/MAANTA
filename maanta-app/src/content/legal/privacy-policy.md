@@ -106,7 +106,7 @@ We use:
 - **Strictly necessary** cookies to keep you signed in and to keep the service secure. These cannot be turned off.
 - **Analytics** to understand how the product is used.
 
-{{COOKIE_CONSENT_STATEMENT}}
+We do not place analytics identifiers on your device before you sign in. Analytics for anonymous visitors runs in memory only and is discarded when you close the tab, so there is no analytics cookie to consent to or withdraw. Session cookies needed to keep you signed in are strictly necessary and are described in the Cookie & Tracking Notice.
 
 Full detail is in our [Cookie Notice](/cookies).
 
@@ -114,11 +114,11 @@ Full detail is in our [Cookie Notice](/cookies).
 
 | Data | Retention |
 |---|---|
-| Shopper account and phone number | While your account is active, then {{SHOPPER_RETENTION}} after you close it |
-| Redemption records | {{REDEMPTION_RETENTION}} — needed for dispute resolution, merchant billing, tax and accounting |
+| Shopper account and phone number | While your account is active, then for as long as your account is open. If you close it, or if you do not use MAANTA for 24 months, we delete or anonymise your account data within 6 months after you close it |
+| Redemption records | for 7 years. Redemptions are financial records — they evidence a fee charged to a merchant — and Kenyan tax and accounting rules require us to keep them — needed for dispute resolution, merchant billing, tax and accounting |
 | Merchant account and wallet records | For the life of the account, then as required by tax and accounting law |
-| Analytics | {{ANALYTICS_RETENTION}} |
-| Contact and waitlist messages | {{CONTACT_RETENTION}} |
+| Analytics | for 24 months, after which it is deleted or aggregated so it no longer identifies anyone |
+| Contact and waitlist messages | for 24 months after we last replied to you, so we have the history if you get back in touch |
 
 ## 9. Your rights
 
@@ -148,7 +148,7 @@ If a personal data breach occurs that presents a risk to you, we will notify the
 
 ## 12. Data processed outside Kenya
 
-Some of our providers process data outside Kenya, including in the United States and the European Union, as set out in section 6. Where we transfer personal data outside Kenya we do so on the basis of {{TRANSFER_BASIS}} and take steps to ensure it remains protected to the standard required by the Act.
+Some of our providers process data outside Kenya, including in the United States and the European Union, as set out in section 6. Where we transfer personal data outside Kenya we do so on the basis of Our primary database is hosted in the EU (Ireland) and our analytics in the EU. Some processors are outside Kenya — notably our email provider, in the United States. Where personal data leaves Kenya we rely on appropriate safeguards under section 48 of the Act, in the form of contractual data protection terms with each processor, and we transfer only what the processor needs to provide its service and take steps to ensure it remains protected to the standard required by the Act.
 
 ## 13. Children
 

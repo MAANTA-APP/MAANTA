@@ -5,6 +5,11 @@
 **Built against:** the 16-document handoff pack, added to the repo in commit `bbe6ad4`
 **Audience:** the Cursor audit pass, and the human reviewing after it
 
+> **§14 supersedes parts of §6, §8, §10 and §11** — sixteen founder rulings landed
+> on 2026-07-31 after the rest of this report was written, releasing three held
+> claims, resolving 23 of 26 tokens, and surfacing two new findings. Read §14
+> alongside them.
+>
 > **Read this first.** The handoff documents did not exist in this repository when
 > the build started — not in the working tree, not on any branch, not anywhere in
 > `git log --all`. They were supplied mid-session and committed as `bbe6ad4`.
@@ -473,3 +478,94 @@ the token gate still reports no `{{TOKEN}}` in rendered output.
 Unchanged: cookie-consent mechanism, Lighthouse measurement, `/help` marketing
 variant, A/B variants, and the two offer dates. Added: confirm one live PostHog
 event after deploy.
+
+---
+
+## 14. Founder rulings, 2026-07-31 — and one finding they produced
+
+Sixteen open decisions were put to the founder and answered. This section records
+what changed, and one thing the answers revealed.
+
+### 14.1 The finding: there is no activation team
+
+Answering the founder-bio question, the founder confirmed MAANTA is a **solo,
+non-technical founder, currently resident in Norway**. The marketing copy claimed
+a standing activation team on the mall floor in **more than ten places** — "Our
+team is in the mall", "Our team works the floors unit by unit", "a team that is in
+the building most days", "a desk in the mall".
+
+This repo's own `docs/ops/live-pilot-3-person-2026-07-30.md` scopes day one as
+"founder + one real pilot merchant + one real pilot shopper". Both merchant and
+mall-operator copy decks had flagged the team claim as "partly true — confirm team
+capacity matches the promise". The confirmation came back negative.
+
+This is a larger exposure than any single held claim, because in-person activation
+is the **core of the merchant and mall-operator value proposition** — it is the
+answer to "why you and not a flyer". Recorded as **D35**, which stays **open**: the
+copy is now defensible, but the underlying question is commercial. Decide whether
+activation is founder-delivered, agent-delivered or partner-delivered, then write
+copy that matches.
+
+What changed: standing-presence claims replaced with activation stated as a
+commitment rather than an existing operation — the same pattern already used for
+the operating report. `/about` now says plainly that MAANTA is a one-person company
+and the founder does activation himself. Guarded by `held-claims.test.ts`.
+
+### 14.2 A second finding: the support WhatsApp number was a placeholder
+
+Both live support surfaces linked to `wa.me/254700000000` — a placeholder that
+reaches nobody. `/help` and `merchant/(app)/support` each rendered a "Chat on
+WhatsApp" button that silently went nowhere, and the footer plan instructed the
+implementer to "reuse the link already live on `/help`", which would have
+propagated it to the marketing footer.
+
+Same family as D28. Recorded and **closed** as **D36**: both now read
+`ENTITY.whatsappLink`, and a guard fails on any hardcoded `wa.me/` link outside
+the constants module.
+
+### 14.3 What each ruling changed
+
+| # | Ruling | Effect |
+|---|---|---|
+| 1 | Offer dates → **31 Oct 2026** | The KES 300 opening credit and 30-day Elite trial now render. The expiry gate stays, so they vanish on the date rather than going stale. |
+| 2 | Response times published | WhatsApp same day · form 1 business day · operators 2 business days, from `RESPONSE_TIMES` in `facts.ts` so page and autoresponder cannot drift. Released from §9. |
+| 3 | Founder bio | Written from supplied facts only. **One sentence is deliberately missing** — why MAANTA, why Eastleigh — which the deck calls the sentence that does the most work. Not invented. |
+| 4 | Keep +44 WhatsApp | Unchanged. Still flagged for launch. |
+| 5 | Keep one inbox | Unchanged. `privacy@` must still match the Privacy Policy before launch. |
+| 6 | No social accounts | Row stays absent. |
+| 7 | Enforcement process defined | ToS 6.3 drafted (warn → suspend → remove, claimed codes stay valid). The `/shoppers` claim is **released** and now paired to the clause by a test. |
+| 8 | Unspent credit refundable | Merchant Terms 7.6/7.7 drafted. The `/merchants` claim is **released**, narrowed to "credit you topped up yourself" because 7.8 excludes promotional credit. **Taken with the CBK question open** — flagged to counsel. |
+| 9 | PostHog cookieless for anonymous | `persistence: "memory"` — nothing stored on an anonymous device. Cookie Notice and Privacy Policy now describe what is built. Trade accepted: no cross-session attribution before sign-in. |
+| 10 | `/help` marketing variant | Content extracted to one component; `/help` renders in the marketing shell, `/you/help` in the app shell. Footer points at `/help` again. R9 closed. |
+| 11 | Strip `/malls/bbs-mall` counts | **Worse than it looked**: the counts were live Supabase queries that *include synthetic rows in demo mode*, on a route that — correctly — no longer carries the demo banner. Removing them fixed a real disclosure gap, not just a stale figure. |
+| 12 | Ship one headline | No experiment framework added. |
+| 13 | Merchant Terms first, then drafts | `docs/legal/COUNSEL-REVIEW-NOTE.md` written. **10 Merchant Terms, 5 Privacy and 1 ToS clause drafted as proposals**, clearly marked as not advice. |
+| 14 | Correct the handoff | `website-handoff.md` §7 #11 now states Supabase is `eu-west-1`, not US. |
+| 15 | Founder sets Vercel env | `docs/ops/marketing-site-deploy-runbook.md` written — UI-only, no terminal. |
+| 16 | Wait for the Cursor audit | **No PR opened.** Branch pushed and ready. |
+
+### 14.4 Tokens now
+
+**26 → 3.** Merchant Terms, Privacy Policy and Terms of Service carry **no
+unresolved tokens**. What remains is engineering, not legal, and each renders as a
+visible marker rather than a fabricated value:
+
+| Token | Document | Why |
+|---|---|---|
+| `{{AUTH_COOKIE_LIFETIME}}` | Cookie Notice | Configured in the Clerk dashboard, not this repo. |
+| `{{CLERK_REGION}}` | Privacy Policy | Not determinable from the repo. Not assumed. |
+| `{{SENTRY_REGION}}` | Privacy Policy | Same. |
+
+### 14.5 Verification after this pass
+
+`npm test`: **475 passing, 60 files**. Typecheck, lint and build clean; the token
+gate reports no `{{TOKEN}}` in 47 rendered files.
+
+### 14.6 Still open
+
+- **D35** — what activation actually is. The only item here that is a business
+  decision rather than a task.
+- Confirm one live PostHog event after deploy (§13.1).
+- Counsel review of all four documents; the CBK question first.
+- Lighthouse unmeasured; `{{AUTH_COOKIE_LIFETIME}}`, `{{CLERK_REGION}}`,
+  `{{SENTRY_REGION}}`; +254 line and split inboxes at launch.

@@ -30,7 +30,7 @@ These are required for MAANTA to work. Without them you cannot stay signed in or
 |---|---|---|
 | Error and performance reports | Sentry | Tells us when something breaks and helps us fix it |
 
-We use this to keep the service working. {{SENTRY_BASIS_STATEMENT}}
+We use this to keep the service working. We rely on our legitimate interest in keeping the service working and secure. Sentry is configured to report errors, not to profile you, and we do not use it for analytics or marketing.
 
 ### Product analytics
 
@@ -38,7 +38,7 @@ We use this to keep the service working. {{SENTRY_BASIS_STATEMENT}}
 |---|---|---|
 | Usage events — pages viewed, features used, where journeys stop | PostHog (processed in the European Union) | Understanding how MAANTA is used so we can improve it |
 
-{{ANALYTICS_CONSENT_STATEMENT}}
+We do not ask for consent to a cookie banner for this, because we do not store analytics identifiers on your device before you sign in. Analytics for anonymous visitors runs in memory only and is discarded when you close the tab.
 
 ### Notifications
 
@@ -53,7 +53,7 @@ If you turn on notifications, your browser stores a push subscription so we can 
 
 ## 4. Your choices
 
-**Analytics.** {{ANALYTICS_OPTOUT_INSTRUCTIONS}}
+**Analytics.** Anonymous browsing already stores nothing on your device. If you have an account and want analytics stopped, write to admin@maanta.app and we will exclude your account.
 
 **Notifications.** Turn them off in your MAANTA settings or in your browser.
 
@@ -70,7 +70,7 @@ If you turn on notifications, your browser stores a push subscription so we can 
 | Session cookies | Until you close your browser or sign out |
 | Authentication | {{AUTH_COOKIE_LIFETIME}} |
 | Preferences stored on your device | Until you clear them |
-| Analytics identifiers | {{ANALYTICS_COOKIE_LIFETIME}} |
+| Analytics identifiers | None for anonymous visitors — nothing is stored on your device. After you sign in, analytics is tied to your account rather than to a cookie. |
 
 ## 6. Data processed outside Kenya
 

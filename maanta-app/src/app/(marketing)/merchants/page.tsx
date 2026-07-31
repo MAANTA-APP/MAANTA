@@ -34,8 +34,9 @@ import { SectionInView } from "@/components/marketing/tracked";
  *    this resolution before stating one answer everywhere;
  *  - staff accounts are on all plans (`merchant_staff` has no tier column);
  *  - top-up is M-Pesa STK push, not paybill (`initiateMpesaStkPush`);
- *  - "Anything left in your balance stays yours" is a **held claim**
- *    (`website-handoff.md` §9, gated on the CBK question) and is omitted.
+ *  - the wallet claim is published as of 2026-07-31, backed by Merchant Terms
+ *    7.6. It is worded "credit you topped up yourself", not "anything left in
+ *    your balance", because promotional credit is expressly excluded under 7.8.
  *
  * Every number reads from `facts.ts`. This is the page where a pricing
  * inconsistency does the most damage.
@@ -328,9 +329,9 @@ export default function MerchantsPage() {
         <SectionHeading>Start at BBS Mall</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
-            You do not have to work this out on your own. Our team is in the mall. We will
-            come to your shop, set you up, publish your first deal with you, and stay until a
-            real code has been verified at your counter.
+            You do not have to work this out on your own. Activation is done in person: we
+            will come to your shop, set you up, publish your first deal with you, and stay
+            until a real code has been verified at your counter.
           </p>
           <p>
             If you would rather do it yourself, shop name and phone number to start.
@@ -364,18 +365,19 @@ export default function MerchantsPage() {
               a: "Your staff can reject a code, and you are not charged. If it is going to be a busy day, end the deal early or do not publish one.",
             },
             {
-              // The deck's answer ended "Anything left in your balance stays
-              // yours" — a held claim gated on the CBK question, removed until
-              // there is a refund mechanism and matching Merchant Terms.
+              // Restored 2026-07-31: Merchant Terms 7.6 now states that unspent
+              // credit you topped up yourself is refundable on request, so the
+              // claim has a clause behind it. Promotional credit is excluded,
+              // which is why the wording says "topped up" rather than "left".
               q: "Can I stop?",
-              a: "Yes. End your deals and stop publishing. There is no notice period, no contract length and no exit fee.",
+              a: "Yes. End your deals and stop publishing. There is no notice period, no contract length and no exit fee. Credit you topped up yourself and have not spent is refundable on request.",
             },
             {
               q: "Who do I call when something goes wrong?",
               a: (
                 <>
-                  WhatsApp support, and a desk in the mall. You are not filing a ticket and
-                  waiting.{" "}
+                  WhatsApp support, and someone in the mall during activation. You are not
+                  filing a ticket and waiting.{" "}
                   <a
                     href={ENTITY.whatsappLink}
                     target="_blank"

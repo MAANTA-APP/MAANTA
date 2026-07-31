@@ -151,6 +151,40 @@ describe("marketing shell", () => {
     ).toEqual([]);
   });
 
+  // D36: both support surfaces linked to wa.me/254700000000, a placeholder that
+  // reached nobody. The number is declared once, in lib/marketing/demo.ts, so the
+  // footer, the contact page and both app support surfaces cannot disagree.
+  it("never hardcodes a WhatsApp number outside the constants module", () => {
+    const offenders: string[] = [];
+    const roots = [
+      path.join(SRC, "app"),
+      path.join(SRC, "components"),
+    ];
+    const scan = (dir: string): string[] => {
+      if (!existsSync(dir)) return [];
+      const out: string[] = [];
+      for (const name of readdirSync(dir)) {
+        const full = path.join(dir, name);
+        if (statSync(full).isDirectory()) {
+          if (name === "node_modules" || name === "__tests__") continue;
+          out.push(...scan(full));
+        } else if (name.endsWith(".tsx") || name.endsWith(".ts")) {
+          out.push(full);
+        }
+      }
+      return out;
+    };
+    for (const f of roots.flatMap(scan)) {
+      codeOnly(readFileSync(f, "utf8")).forEach((line, i) => {
+        if (/wa\.me\/\d/.test(line)) offenders.push(`${rel(f)}:${i + 1}  ${line.trim()}`);
+      });
+    }
+    expect(
+      offenders,
+      `Use ENTITY.whatsappLink — a hardcoded number goes stale silently (drift D36):\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
   // Risk R8 / footer link hygiene: a five-column footer pointing at "#" is worse
   // than the thin footer it replaced, because the visual promise is higher.
   it("has no placeholder links in the nav module", () => {

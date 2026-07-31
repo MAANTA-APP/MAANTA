@@ -15,13 +15,22 @@ import { CtaBand, Section, SectionHeading } from "@/components/marketing/section
  * seriousness the copy is going for, and `#not` in particular would look
  * decorative with icons on it.
  *
- * **`{{FOUNDER_BIO}}` is unfilled and therefore not rendered.** The deck lists it
- * as blocking dependency A, and the hard rule is that no `{{TOKEN}}` reaches
- * production output. Rendering the raw token would fail the build check; printing
- * a generic bio would be worse than none, since the whole point of the block is
- * that it is specific and checkable. The founder's name and address render; the
- * biography appears the moment someone writes two to four sentences to the
- * guidance in `copy/about.md` `#team`. Tracked in the implementation report.
+ * **The founder biography was supplied on 2026-07-31** and is written only from
+ * facts given: born in Norway, raised in the UK, Politics and Economics at Aston,
+ * back in Norway since 2024. Nothing is embellished — the deck's guidance is that
+ * what earns trust here is specific and checkable, and that a sentence true of a
+ * hundred other founders should be cut.
+ *
+ * **One sentence is deliberately missing**: why MAANTA, and why Eastleigh. The
+ * deck calls that the sentence that does the most work, and it was not supplied.
+ * It is not invented here. See the implementation report.
+ *
+ * **The team paragraph was rewritten, not copied.** The deck's version describes
+ * "an activation team that works the mall floors"; the founder confirmed MAANTA
+ * is a solo operation, and this repo's own live-pilot document scopes day one as
+ * founder plus one merchant plus one shopper. Claiming a standing team is the
+ * largest untrue thing this site could say, so the copy states what activation
+ * commits to rather than implying headcount. Drift D35.
  *
  * **Two corrections to the deck.** `#money` said "any shop can buy a boost" —
  * boosts are Elite-only and enforced as such, so that is stated correctly here.
@@ -224,8 +233,9 @@ export default function AboutPage() {
             one properly than announce three.
           </p>
           <p>
-            We have no outside investment to point at and no awards to list. What we have is
-            a working loop, shops using it, and a team that is in the building most days.
+            We have no outside investment to point at, no awards to list, and no staff. What
+            we have is a working loop, shops using it, and a founder who does the activation
+            himself.
           </p>
           <p className="text-ink">If any of that changes, this page changes with it.</p>
         </div>
@@ -235,6 +245,12 @@ export default function AboutPage() {
         <SectionHeading>Who is building it</SectionHeading>
         <div className="mt-6 max-w-2xl">
           <p className="text-base font-bold text-ink">{ENTITY.founder} — Founder</p>
+          <p className="mt-3 text-base leading-relaxed text-secondary">
+            Born in Norway in 1996 to Somali parents who arrived as asylum seekers, and
+            raised in the UK from 2003. He read Politics and Economics at Aston University,
+            and moved back to Norway in 2024. MAANTA is his first company and he runs it on
+            his own.
+          </p>
           {/*
             {{FOUNDER_BIO}} is unfilled. No token is rendered and no placeholder
             prose is invented — a generic founder paragraph is worse than none on
@@ -249,10 +265,10 @@ export default function AboutPage() {
             </a>
           </p>
           <p className="mt-6 text-base leading-relaxed text-secondary">
-            Alongside the product, MAANTA runs an activation team that works the mall floors
-            — onboarding shops in person, setting up staff accounts, and staying at a counter
-            until a real code has been verified. Most of what we have learned came from that,
-            not from analytics.
+            MAANTA is a one-person company. Activation is done in person rather than by
+            email — sitting with a shop owner while they publish their first deal, setting up
+            staff accounts, and staying at the counter until a real code has been verified.
+            Most of what we have learned came from that, not from analytics.
           </p>
         </div>
       </Section>

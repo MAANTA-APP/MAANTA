@@ -26,11 +26,11 @@ import { SectionInView } from "@/components/marketing/tracked";
  * turned away at a till with people watching — which is the thing that actually
  * stops a shopper using this, not any doubt about the price.
  *
- * **One held claim removed.** The deck's FAQ answer ended "a shop that does not
- * honour its own deals does not stay on MAANTA". That is a policy promise
- * requiring an enforcement process that does not exist yet (`website-handoff.md`
- * §9, claims register #2), so the answer states what is true — the deal is on
- * record and the shopper is never charged — and stops there.
+ * **A previously held claim is now published.** "A shop that does not honour its
+ * own deals does not stay on MAANTA" was held because it promised an enforcement
+ * process that did not exist. That process was defined on 2026-07-31 and written
+ * into Terms of Service 6.3 — warn, then suspend publishing, then remove — so the
+ * claim is backed by a clause a shopper can read.
  *
  * No deal or shop counts appear on this page, by rule. A shopper-facing count
  * must be true at the moment it is read; scenario constants are forbidden here.
@@ -290,11 +290,11 @@ export default function ShoppersPage() {
               a: `You have the deal's full window plus a ${FACTS.graceMinutes}-minute grace period after it ends. If you are in the mall, you have time.`,
             },
             {
-              // Held claim removed: the deck ended this answer with "a shop that
-              // does not honour its own deals does not stay on MAANTA", which
-              // needs an enforcement process that does not exist yet.
+              // Restored 2026-07-31: the enforcement process now exists and is
+              // written into Terms of Service 6.3 (warn, then suspend, then
+              // remove). The claim was held only because the clause was blank.
               q: "What if the shop will not honour it?",
-              a: "Tell us. Every code is tied to a deal that shop published themselves, so we can see exactly what was promised. You are never charged either way.",
+              a: "Tell us. Every code is tied to a deal that shop published themselves, so we can see exactly what was promised. You are never charged either way, and a shop that does not honour its own deals does not stay on MAANTA.",
             },
             {
               q: "Do I need to make an account?",

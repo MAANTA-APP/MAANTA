@@ -68,23 +68,24 @@ export const TOPUP_METHOD = "stk-push" as const;
  * whose date has passed — or was never set — disappears instead of going stale
  * on the page. Risk R7 in `website-expansion-plan.md` §5.
  *
- * Both `expiresOn` values are unfilled tokens pending a founder decision, so
- * **neither offer renders today**. That is deliberate: an opening credit with no
- * end date is an unbounded promise. Filling in the two dates is the only change
- * needed to make them appear. Tracked in the implementation report under
- * "Not implemented".
+ * Both dates were set on 2026-07-31 by founder ruling. The gate stays in place
+ * regardless: an offer with no end date is an unbounded promise, and one whose
+ * date has passed must vanish rather than sit there stale (risk R7).
  */
 export const OFFERS = {
   openingCredit: {
     amountKes: 300,
     cohortShops: 100,
-    expiresOn: "{{SET_A_DATE}}",
+    // Set 2026-07-31 from the founder's ruling. This is a public commercial
+    // promise: when the date passes the whole block disappears rather than
+    // going stale, and extending it is a one-line change here.
+    expiresOn: "2026-10-31",
   },
   eliteTrial: {
     days: 30,
     postTrialGraceDays: 7,
     cohortShops: 100,
-    expiresOn: "{{SET_A_DATE}}",
+    expiresOn: "2026-10-31",
   },
 } as const;
 
@@ -93,5 +94,22 @@ export const OFFERS = {
  * `{{TOKEN}}` reads as "not live", which is why the token-scanner never sees
  * these strings in rendered output — they are gated before they reach JSX.
  */
+/**
+ * Published response commitments, set by founder ruling 2026-07-31.
+ *
+ * These were held until now: `website-handoff.md` §9 holds every stated response
+ * time, and `copy/contact.md` is blunt that "a missed commitment here does more
+ * damage than no commitment at all". They are published because they can be met,
+ * and they are deliberately conservative — tighten them once there is a month of
+ * evidence, never the other way round.
+ *
+ * Business days, not calendar days, so a Saturday enquiry is not a missed promise.
+ */
+export const RESPONSE_TIMES = {
+  whatsapp: "the same day",
+  form: "1 business day",
+  operator: "2 business days",
+} as const;
+
 export const isOfferLive = (o: { expiresOn: string }) =>
   !o.expiresOn.startsWith("{{") && new Date(o.expiresOn) > new Date();
