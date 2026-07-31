@@ -31,7 +31,7 @@ export default function MerchantJoinPage() {
   const [phone, setPhone] = useState("");
 
   return (
-    <main className="mx-auto max-w-xl px-5 py-14">
+    <div className="mx-auto max-w-xl px-5 py-14">
       <h1 className="text-3xl font-black text-ink">List your shop on MAANTA</h1>
       <p className="mt-3 text-base leading-relaxed text-secondary">
         Two fields to start. We will call you to finish setting up, or come to your shop
@@ -80,6 +80,6 @@ export default function MerchantJoinPage() {
         </Link>
         .
       </p>
-    </main>
+    </div>
   );
 }

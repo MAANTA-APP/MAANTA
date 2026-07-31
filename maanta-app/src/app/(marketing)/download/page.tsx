@@ -13,11 +13,11 @@ export const metadata: Metadata = {
 /** PWA install landing — primary path for “get the app” links. */
 export default function DownloadPage() {
   return (
-    <main className="bg-stone">
+    <div className="bg-stone">
       <section className="mx-auto flex min-h-[70dvh] max-w-3xl flex-col items-center px-5 pb-16 pt-14 text-center sm:pt-20">
         <DownloadHeroCopy />
         <DownloadInstallPanel />
       </section>
-    </main>
+    </div>
   );
 }

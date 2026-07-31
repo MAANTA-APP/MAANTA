@@ -25,7 +25,7 @@ export default function WaitlistPage({
     typeof searchParams?.email === "string" ? searchParams.email : "";
 
   return (
-    <main className="mx-auto max-w-xl px-5 py-14">
+    <div className="mx-auto max-w-xl px-5 py-14">
       <p className="text-xs font-bold uppercase tracking-wide text-muted">
         Launching at BBS Mall, Eastleigh
       </p>
@@ -37,6 +37,6 @@ export default function WaitlistPage({
         day one.
       </p>
       <WaitlistForm initialSegment={initialSegment} initialEmail={initialEmail} />
-    </main>
+    </div>
   );
 }

@@ -287,7 +287,7 @@ export function LegalDoc({ title, markdown }: { title: string; markdown: string 
   const headings = extractHeadings(markdown);
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
+    <div className="mx-auto max-w-3xl px-5 py-12 sm:py-16">
       <LegalDraftBanner />
 
       <h1 className="mt-8 text-3xl font-black leading-tight text-ink sm:text-4xl">{title}</h1>
@@ -330,6 +330,6 @@ export function LegalDoc({ title, markdown }: { title: string; markdown: string 
           , or find us at {ENTITY.address}, {ENTITY.city}.
         </p>
       </div>
-    </main>
+    </div>
   );
 }

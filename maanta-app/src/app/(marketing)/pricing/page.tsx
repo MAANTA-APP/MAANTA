@@ -24,7 +24,7 @@ export default function PricingPage() {
   const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
   return (
-    <main className="mx-auto max-w-4xl px-5 py-14">
+    <div className="mx-auto max-w-4xl px-5 py-14">
       <h1 className="text-center text-3xl font-black text-ink">Simple pricing</h1>
       <div className="mt-10 grid gap-6 sm:grid-cols-2">
         <div className="rounded-card border border-line bg-white p-6">
@@ -65,6 +65,6 @@ export default function PricingPage() {
         The {fee} success fee still applies during the trial. After 30 days there is a
         7-day grace period, then the account stays on Standard unless you convert.
       </p>
-    </main>
+    </div>
   );
 }

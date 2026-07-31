@@ -26,8 +26,21 @@ import { SiteFooter } from "@/components/marketing/SiteFooter";
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-white">
+      {/*
+        Skip link. The header carries five nav links plus a CTA before the
+        content starts, which a keyboard or screen-reader user would otherwise
+        traverse on every page. Visually hidden until focused.
+      */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
+      >
+        Skip to content
+      </a>
       <SiteHeader />
-      <div className="flex-1">{children}</div>
+      <main id="main" className="flex-1">
+        {children}
+      </main>
       <SiteFooter />
     </div>
   );

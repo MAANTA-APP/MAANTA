@@ -20,7 +20,7 @@ const FAQS = [
 
 export default function FaqPage() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-14">
+    <div className="mx-auto max-w-3xl px-5 py-14">
       <h1 className="text-3xl font-black text-ink">FAQ</h1>
       <div className="mt-8 space-y-3">
         {FAQS.map((f) => (
@@ -33,6 +33,6 @@ export default function FaqPage() {
           </details>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

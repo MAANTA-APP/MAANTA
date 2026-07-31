@@ -40,7 +40,7 @@ export default async function BbsMallPage() {
   const floors = Array.from(byFloor.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   return (
-    <main>
+    <div>
       <section className="bg-ink px-5 py-16">
         <div className="mx-auto max-w-4xl">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
@@ -78,6 +78,6 @@ export default async function BbsMallPage() {
           <ButtonLink href="/feed">Browse BBS Mall deals</ButtonLink>
         </div>
       </section>
-    </main>
+    </div>
   );
 }
