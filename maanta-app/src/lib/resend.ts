@@ -93,6 +93,54 @@ export async function addWaitlistContact(
   }
 }
 
+/**
+ * Send one transactional email. The generic form of `sendWaitlistEmail`, added
+ * for `/api/contact`, which needs to send two different messages (the enquiry to
+ * the monitored inbox, and the autoresponder to the sender) rather than one
+ * templated waitlist mail.
+ *
+ * `replyTo` matters for the enquiry copy: without it, replying to the message in
+ * the inbox goes back to MAANTA's own from-address instead of to the person who
+ * wrote in.
+ */
+export async function sendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) {
+    console.error("Resend is not configured (RESEND_API_KEY / RESEND_FROM_EMAIL).");
+    return false;
+  }
+
+  try {
+    const res = await fetch(`${RESEND_API_URL}/emails`, {
+      method: "POST",
+      headers: authHeaders(apiKey),
+      body: JSON.stringify({
+        from,
+        to: [params.to],
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),
+      }),
+    });
+    if (!res.ok) {
+      console.error("Resend email send failed:", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Resend email send threw:", err);
+    return false;
+  }
+}
+
 export async function sendWaitlistEmail(
   to: string,
   email: WaitlistEmail
