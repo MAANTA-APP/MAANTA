@@ -252,15 +252,16 @@ export default function AboutPage() {
           <p className="text-base font-bold text-ink">{ENTITY.founder} — Founder</p>
           <p className="mt-3 text-base leading-relaxed text-secondary">
             Born in Norway in 1996 to Somali parents who arrived as asylum seekers, and
-            raised in the UK from 2003. He read Politics and Economics at Aston University,
-            and moved back to Norway in 2024. MAANTA is his first company and he runs it on
-            his own.
+            raised in the UK from 2003. He read Politics and Economics at Aston University
+            and moved back to Norway in 2024. MAANTA is his first company.
           </p>
-          {/*
-            {{FOUNDER_BIO}} is unfilled. No token is rendered and no placeholder
-            prose is invented — a generic founder paragraph is worse than none on
-            the page a diligence reader opens for exactly this block.
-          */}
+          <p className="mt-3 text-base leading-relaxed text-secondary">
+            Eastleigh is the commercial centre of the Somali diaspora in East Africa — a
+            market he has a claim on by descent, and one most founders cannot read. Studying
+            politics and economics is what gave the thing he already recognised a shape: the
+            shops work and the prices work, and what is missing is not capital or demand but
+            information. Someone two floors up never learns what is on offer.
+          </p>
           <p className="mt-2 text-base leading-relaxed text-secondary">
             <a
               href={`mailto:${ENTITY.email}`}

@@ -542,7 +542,7 @@ the constants module.
 |---|---|---|
 | 1 | Offer dates → **31 Oct 2026** | The KES 300 opening credit and 30-day Elite trial now render. The expiry gate stays, so they vanish on the date rather than going stale. |
 | 2 | Response times published | WhatsApp same day · form 1 business day · operators 2 business days, from `RESPONSE_TIMES` in `facts.ts` so page and autoresponder cannot drift. Released from §9. |
-| 3 | Founder bio | Written from supplied facts only. **One sentence is deliberately missing** — why MAANTA, why Eastleigh — which the deck calls the sentence that does the most work. Not invented. See §14.1 for the team question this answer raised. |
+| 3 | Founder bio | Complete as of 2026-07-31. Biography from supplied facts; the "why MAANTA, why Eastleigh" paragraph added on founder instruction — see §14.7. See §14.1 for the team question this answer raised. |
 | 4 | Keep +44 WhatsApp | Unchanged. Still flagged for launch. |
 | 5 | Keep one inbox | Unchanged. `privacy@` must still match the Privacy Policy before launch. |
 | 6 | No social accounts | Row stays absent. |
@@ -580,3 +580,28 @@ gate reports no `{{TOKEN}}` in 47 rendered files.
 - Counsel review of all four documents; the CBK question first.
 - Lighthouse unmeasured; `{{AUTH_COOKIE_LIFETIME}}`, `{{CLERK_REGION}}`,
   `{{SENTRY_REGION}}`; +254 line and split inboxes at launch.
+
+### 14.7 The "why Eastleigh" paragraph, and what was inferred
+
+The deck calls this the sentence that does the most work, and it was the last gap
+on `/about`. The founder declined to write it and instead said: *"Do the maths: I
+was born in Norway, grew up in the UK and ethnically Somali with a Politics &
+Economics degree."*
+
+**The inference drawn:** Eastleigh is the commercial centre of the Somali diaspora
+in East Africa. A Somali founder therefore has a claim on that market by descent
+and a legibility most founders lack — and a politics-and-economics training is what
+turns a recognised market into a stated problem: not capital, not demand, but
+information.
+
+**What was deliberately not written.** The copy deck's own worked example is *"I
+grew up shopping in Eastleigh and watched shops write offers on chalkboards"* —
+tempting, and false. The founder was born in Norway and raised in the UK; no
+residence in or visit to Kenya has been stated. The paragraph therefore claims
+**descent**, not memory. Nor does it name Birmingham, which Aston University would
+imply but the founder did not say.
+
+If the founder does have direct Eastleigh experience — family there, time spent
+there, a specific shop — that is a stronger sentence than the one written, and it
+should replace this. What is on the page is the strongest honest version of what
+was actually supplied.
