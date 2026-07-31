@@ -1,139 +1,148 @@
-"use client";
-
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { TextField, inputClass } from "@/components/ui/inputs";
-import { cn } from "@/lib/ui";
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ENTITY } from "@/lib/marketing/demo";
+import { FACTS } from "@/lib/marketing/facts";
+import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
+import { Section, SectionHeading } from "@/components/marketing/sections";
 
 /**
- * 12g Contact (form + success).
+ * `/contact` — channels first, form second.
  *
- * **The success state now means something.** This page used to call
- * `setSent(true)` on submit and render "✓ We'll get back to you within 24 hours"
- * without sending anything anywhere — drift D28. It now POSTs to `/api/contact`,
- * which delivers to the monitored inbox via Resend and autoresponds to the
- * sender, and it only shows the confirmation once that request has succeeded.
+ * That order is a deliberate inversion of the usual layout and the right call for
+ * this market (`copy/contact.md` §0): a shop owner in Eastleigh will WhatsApp
+ * before they fill in a form, and will walk to a desk before either. Most contact
+ * pages bury the human channels under a form and lose the people who would
+ * actually have got in touch.
  *
- * A failed send surfaces the error and offers WhatsApp and the direct address,
- * rather than showing a tick. Silently succeeding is the exact defect being
- * fixed, so it must not be reintroduced by an optimistic UI.
+ * **No response times are published.** The deck's `#response` section is built
+ * entirely from tokens — `{{WHATSAPP_RESPONSE}}`, `{{EMAIL_RESPONSE}}`,
+ * `{{OPERATOR_RESPONSE}}`, `{{PRIVACY_ACK}}` — and every one is unfilled. The
+ * deck's own instruction is "publish only what you can actually meet: a missed
+ * commitment here does more damage than no commitment at all", and
+ * `website-handoff.md` §9 holds every stated response time. So the section states
+ * what is true — that a person reads every message and WhatsApp is fastest — and
+ * commits to no window. Hours and desk location are omitted for the same reason.
  *
- * The full enquiry-router rebuild (`?topic=` handling, channels-first layout,
- * the six topic options) is Phase 3, per `docs/ops/copy/contact.md`. This change
- * is the Phase 0 bug fix only: it keeps the existing two-field form and makes it
- * actually deliver. `topic` is sent as "general" until the router ships.
+ * The form itself lives in `EnquiryRouter`, which is a client component because
+ * it reads `?topic=`. It is wrapped in `Suspense` so `useSearchParams` does not
+ * opt the whole route out of static rendering.
  */
+
+export const metadata: Metadata = {
+  title: "Contact — MAANTA",
+  description:
+    "Talk to MAANTA. WhatsApp support for shoppers and merchants, a desk at BBS Mall, Eastleigh, and direct contacts for mall operators, press and privacy requests.",
+};
+
 export default function ContactPage() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [hpUrl, setHpUrl] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (sending) return;
-    setSending(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact: email,
-          message,
-          topic: "general",
-          hp_url: hpUrl,
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "We could not send your message. Please try WhatsApp.");
-        return;
-      }
-      setSent(true);
-    } catch {
-      setError(
-        "We could not reach the server. Check your connection, or message us on WhatsApp."
-      );
-    } finally {
-      setSending(false);
-    }
-  }
-
   return (
-    <main className="mx-auto max-w-xl px-5 py-14">
-      <h1 className="text-3xl font-black text-ink">Contact us</h1>
-      {sent ? (
-        <div className="mt-8 rounded-card bg-verified-tint px-5 py-4">
-          <p className="text-sm font-semibold text-verified">✓ Message sent</p>
-          <p className="mt-1 text-sm text-ink">
-            A person will read it and reply. If it is urgent,{" "}
-            <a
-              className="underline underline-offset-2"
-              href={ENTITY.whatsappLink}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              WhatsApp is faster
-            </a>
-            .
-          </p>
-        </div>
-      ) : (
-        <form className="mt-8 space-y-4" onSubmit={onSubmit}>
-          <TextField
-            label="Your email or phone"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted">Message</span>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={5}
-              required
-              className={cn(inputClass, "h-auto py-3")}
-            />
-          </label>
+    <>
+      <Section>
+        <h1 className="text-3xl font-black leading-tight text-ink sm:text-4xl">Talk to us</h1>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
+          Pick what this is about and we will point you at the fastest route. Most things are
+          quicker on WhatsApp than by form.
+        </p>
+      </Section>
 
-          {/* Honeypot — hidden from people, ignored by password managers. */}
-          <div aria-hidden="true" className="hidden">
-            <label>
-              Do not fill this in
-              <input
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={hpUrl}
-                onChange={(e) => setHpUrl(e.target.value)}
-              />
-            </label>
-          </div>
+      {/* Channels above the form — the routes people will actually use. */}
+      <Section id="channels" tone="paper" className="!py-0">
+        <div className="py-14 sm:py-16">
+          <SectionHeading>Ways to reach us</SectionHeading>
+          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">WhatsApp</h3>
+              <a
+                href={ENTITY.whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block text-sm font-semibold text-ink underline underline-offset-4"
+              >
+                {ENTITY.whatsapp}
+              </a>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                The quickest route for anything to do with a deal, a code, or a shop account.
+              </p>
+            </div>
 
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-card border border-flame px-4 py-3 text-sm text-ink"
-            >
-              {error} You can also email{" "}
-              <a className="underline underline-offset-2" href={`mailto:${ENTITY.email}`}>
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">The desk at BBS Mall</h3>
+              <p className="mt-1 text-sm font-semibold text-ink">
+                {ENTITY.address}, {ENTITY.city}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                If you run a shop in the mall and would rather do this in person, come and
+                find us. We will set you up at your counter.
+              </p>
+            </div>
+
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">Email</h3>
+              <a
+                href={`mailto:${ENTITY.email}`}
+                className="mt-1 block text-sm font-semibold text-ink underline underline-offset-4"
+              >
                 {ENTITY.email}
               </a>
-              .
-            </p>
-          ) : null}
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                For anything else.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
 
-          <Button type="submit" full disabled={sending}>
-            {sending ? "Sending…" : "Send message"}
-          </Button>
-        </form>
-      )}
-    </main>
+      <Section>
+        <Suspense
+          fallback={
+            <div className="h-96 animate-pulse rounded-card border border-line bg-paper" />
+          }
+        >
+          <EnquiryRouter />
+        </Suspense>
+      </Section>
+
+      <Section id="response" tone="paper">
+        <SectionHeading>What happens next</SectionHeading>
+        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
+          <p>
+            A person reads every message that arrives here — there is no ticket queue. You
+            will get a confirmation by email as soon as your message lands, so you know it
+            reached us.
+          </p>
+          <p>
+            WhatsApp is the fastest route during the day. Privacy and data requests are
+            answered within the period required by the Kenya Data Protection Act 2019.
+          </p>
+          <p className="text-ink">
+            We are not publishing a response-time commitment until we are certain we can meet
+            it. If we are going to be slow, we would rather tell you than promise a window
+            and miss it.
+          </p>
+        </div>
+      </Section>
+
+      <Section id="location">
+        <SectionHeading>Where to find us</SectionHeading>
+        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
+          <p>
+            MAANTA operates at{" "}
+            <strong className="font-semibold text-ink">
+              {FACTS.launchMall}, {FACTS.city}
+            </strong>
+            . That is where the shops are, where our activation team works, and where the
+            desk is.
+          </p>
+          <p>There is no other office worth sending you to.</p>
+        </div>
+        <address className="mt-8 not-italic text-sm leading-relaxed text-ink">
+          <strong className="font-bold">{ENTITY.name}</strong>
+          <br />
+          {ENTITY.address}
+          <br />
+          {ENTITY.city}, {ENTITY.country}
+        </address>
+      </Section>
+    </>
   );
 }

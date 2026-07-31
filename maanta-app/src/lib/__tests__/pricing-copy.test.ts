@@ -147,7 +147,14 @@ describe("public pricing copy matches the frozen commercial rules", () => {
         /Elite trial/i.test(text) ||
         /30-day trial/i.test(text);
       if (!mentionsOffer) continue;
-      if (!/\b100\b/.test(text)) {
+      // The cap must be *stated*, but it need not be typed. A page that renders
+      // `OFFERS.eliteTrial.cohortShops` from lib/marketing/facts.ts states it
+      // more reliably than a literal `100` does, and the marketing hard rule is
+      // that no number is inlined into JSX. Accepting the constant keeps both
+      // rules satisfiable at once; accepting *only* the literal would have forced
+      // the copy to hardcode the very number this suite exists to single-source.
+      const statesCap = /\b100\b/.test(text) || /cohortShops/.test(text);
+      if (!statesCap) {
         problems.push(`  ${rel(f)}  mentions the Elite trial but not the first-100 cap`);
       }
       if (!/BBS/i.test(text)) {

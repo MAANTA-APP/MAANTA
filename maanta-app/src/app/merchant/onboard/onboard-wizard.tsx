@@ -26,11 +26,21 @@ export function OnboardWizard({
   successFee,
   agents = [],
   initialShopName = "",
+  initialPhone = "",
+  initialCc = "+254",
 }: {
   successFee: number;
   agents?: OnboardAgent[];
-  /** Prefill from `/merchants` → `/login?next=/merchant/onboard?shop=…`. */
+  /** Prefill from `/merchants/join` → `/login?next=/merchant/onboard?shop=…`. */
   initialShopName?: string;
+  /**
+   * Prefill from the same handoff. The join form asks for a phone number and,
+   * before this, dropped it on the floor — the merchant then typed it again two
+   * steps later. Carrying it through is the difference between a form that
+   * collects a value and a form that only appears to.
+   */
+  initialPhone?: string;
+  initialCc?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("intro");
@@ -51,8 +61,8 @@ export function OnboardWizard({
   const [shopName, setShopName] = useState(initialShopName);
   const [shopWhatsapp, setShopWhatsapp] = useState("");
   const [ownerName, setOwnerName] = useState("");
-  const [ownerCc, setOwnerCc] = useState("+254");
-  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerCc, setOwnerCc] = useState(initialCc);
+  const [ownerPhone, setOwnerPhone] = useState(initialPhone);
   const [ownerEmail, setOwnerEmail] = useState("");
 
   // location (9f/9u)

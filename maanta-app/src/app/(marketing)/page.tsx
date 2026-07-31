@@ -1,189 +1,246 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Body,
-  HeadingLg,
-  HeadingMd,
-  PrimaryButtonLink,
-} from "@/components/ui/claude";
-import { InstallPrompt } from "@/components/install-prompt";
+import { formatKes } from "@/lib/ui";
+import { FACTS, OFFERS, isOfferLive } from "@/lib/marketing/facts";
+import { SCENARIO } from "@/lib/marketing/scenario";
+import { ModelledBadge, ScenarioNotice } from "@/components/marketing/ScenarioNotice";
+import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { LandingEarlyAccess } from "./landing-early-access";
+import {
+  AudienceHero,
+  LiveDot,
+  PointGrid,
+  Section,
+  SectionHeading,
+  StepRail,
+} from "@/components/marketing/sections";
 
-/** Public landing — Claude-calm + Maanta mall story. */
+/**
+ * `/` — Home.
+ *
+ * Home routes; it does not persuade. `#doors` is the load-bearing section and
+ * everything below it is reinforcement, so each section has to survive the
+ * question "would removing this cost us a conversion?".
+ *
+ * The tagline "The mall, made live." is kept, but in the title tag rather than as
+ * the H1. It is memorable once you know what MAANTA is and opaque before that,
+ * and the H1 has to do the explaining.
+ *
+ * Accent discipline: `#FDBF2D` appears on the primary CTA, the live-status dot,
+ * and the merchant band. Nowhere else.
+ *
+ * No live deal count appears anywhere on this page. The only scenario value
+ * permitted here is the merchant-facing shop count, and it renders through
+ * `ScenarioStat` inside `ScenarioNotice` like every other modelled figure.
+ */
+
+export const metadata: Metadata = {
+  title: "MAANTA — The mall, made live.",
+  description:
+    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the shop in person. Live at BBS Mall, Eastleigh.",
+  openGraph: {
+    title: "Every deal in your mall, live on your phone.",
+    description:
+      "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",
+  },
+};
+
+const DOORS = [
+  {
+    title: "Shoppers",
+    body: "See what the shops in your mall are offering right now. Free, no card, and nothing to download.",
+    label: "For shoppers",
+    href: "/shoppers",
+  },
+  {
+    title: "Merchants",
+    body: "Publish a deal in two minutes. Pay only when a customer's code is verified at your counter — no listing fee, no cut of the sale.",
+    label: "For merchants",
+    href: "/merchants",
+  },
+  {
+    title: "Mall operators",
+    body: "Make every tenant promotion in your mall visible and measurable. No POS integration, no cost to the mall.",
+    label: "For mall operators",
+    href: "/mall-operators",
+  },
+] as const;
+
 export default function LandingPage() {
+  const fee = formatKes(FACTS.successFeeKes);
+  const credit = formatKes(OFFERS.openingCredit.amountKes);
+  const creditLive = isOfferLive(OFFERS.openingCredit);
+
   return (
-    <main className="bg-stone">
-      {/* Hero — brand-first, one composition */}
-      <section className="relative overflow-hidden border-b border-line">
-        <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(253,191,45,0.28),transparent_55%),radial-gradient(ellipse_at_90%_40%,rgba(10,92,52,0.12),transparent_50%),linear-gradient(180deg,#1A1A18_0%,#2A2824_100%)]"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12] mix-blend-overlay"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.35'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
-          }}
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-3xl px-5 pb-16 pt-16 text-center sm:pt-20">
-          <p className="animate-fade-in text-[11px] font-semibold uppercase tracking-[0.16em] text-brand">
-            Maanta
-          </p>
-          <HeadingLg className="mx-auto mt-3 max-w-xl animate-fade-in text-white sm:text-[2.35rem]">
-            Claim in‑mall deals before you pay.
-          </HeadingLg>
-          <Body className="mx-auto mt-4 max-w-md animate-fade-in text-white/75">
-            A live feed of deals at your mall — claim on your phone, redeem at
-            the counter with a code.
-          </Body>
-          {/* One action in the hero. Install is a quiet text link, and early
-              access keeps its own section below — three competing buttons here
-              split the decision and cost the primary action. */}
-          <div className="mt-8 flex flex-col items-center gap-1 animate-fade-in">
-            <PrimaryButtonLink href="/feed" size="lg">
-              Browse live deals
-            </PrimaryButtonLink>
-            <Link
-              href="/download"
-              className="inline-flex min-h-[44px] items-center px-4 text-sm font-semibold text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline"
-            >
-              Install the app
-            </Link>
-          </div>
-
-          {/* Trust strip — the strongest proof on the page, so it reads as a
-              component rather than a caption. */}
-          <div className="mt-6 flex justify-center animate-fade-in">
-            <p className="inline-flex items-center gap-2 rounded-pill border border-white/25 bg-white/10 px-4 py-2 text-[13px] font-semibold text-white/90">
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
-                aria-hidden
-              />
-              Live at BBS Mall, Eastleigh · Nairobi
+    <ScenarioNotice>
+      <AudienceHero
+        eyebrow="The mall, made live"
+        title="Every deal in your mall, live on your phone."
+        sub={
+          <>
+            Claim a deal on your phone, show a {FACTS.codeLength}-digit code at the counter,
+            and pay the shop in person. Free for shoppers, with no card and no online
+            checkout. Shops pay {fee} only when a code is verified at their till.
+          </>
+        }
+        primary={{ label: "Browse live deals", href: "/feed" }}
+        secondary={{ label: "Install the app", href: "/download" }}
+        status={
+          <>
+            <p className="font-semibold text-ink">No sign-in needed to look around.</p>
+            <p className="mt-2 inline-flex items-center gap-2">
+              <LiveDot />
+              Live at {FACTS.launchMall} · {FACTS.city}
             </p>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
-      {/* Claim → code → counter is the unfamiliar part. It has to land before
-          the feature grid means anything. */}
-      <section className="mx-auto max-w-3xl px-5 py-14">
-        <HeadingMd as="h2" className="text-xl">
-          How Maanta works
-        </HeadingMd>
-        <ol className="mt-6 space-y-4">
-          {[
-            ["Discover", "Open the feed for your mall — Flash, Boosted, and near you."],
-            ["Claim", "Tap a deal and get a 6-digit code on your phone."],
-            ["Redeem", "Show the code at the counter and pay the deal price in person."],
-          ].map(([title, sub], i) => (
-            <li
-              key={title}
-              className="flex gap-4 rounded-card border border-line bg-white p-4 shadow-card"
+      <Section id="problem" tone="paper">
+        <SectionHeading>Malls have deals. Shoppers rarely see them.</SectionHeading>
+        <p className="mt-6 max-w-3xl text-base leading-relaxed text-secondary sm:text-lg">
+          Merchants write offers on chalkboards, on paper taped to the shutter, and in
+          WhatsApp groups. Shoppers walk past without knowing.
+        </p>
+      </Section>
+
+      <Section id="loop">
+        <SectionHeading>How it works</SectionHeading>
+        <StepRail
+          steps={[
+            {
+              title: "Discover",
+              body: "Open the feed for your mall. Deals sorted by what is nearest and what ends soonest.",
+            },
+            {
+              title: "Claim",
+              body: `Tap a deal. A ${FACTS.codeLength}-digit code appears on your phone and the deal is held for you.`,
+            },
+            {
+              title: "Redeem",
+              body: "Show the code at the counter. Staff verify it, you pay the deal price in person.",
+            },
+          ]}
+        />
+        <p className="mt-10 max-w-3xl text-base font-semibold leading-relaxed text-ink sm:text-lg">
+          No online checkout. Money moves at the till, between you and the shop, the way it
+          always has.
+        </p>
+      </Section>
+
+      {/*
+        The most important section on the page. Three equal cards — resist adding
+        a fourth. If a visitor has to scroll to discover MAANTA serves merchants
+        and malls, the page has not done its job.
+      */}
+      <Section id="doors" tone="paper">
+        <SectionHeading>Three ways in</SectionHeading>
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          {DOORS.map((d) => (
+            <Link
+              key={d.href}
+              href={d.href}
+              className="group flex flex-col rounded-card border border-line bg-white p-6 transition hover:border-ink"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-black">
-                {i + 1}
+              <h3 className="text-lg font-black text-ink">{d.title}</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-secondary">{d.body}</p>
+              <span className="mt-4 text-sm font-bold text-ink underline underline-offset-4">
+                {d.label} →
               </span>
-              <div>
-                <HeadingMd as="h3">{title}</HeadingMd>
-                <Body className="mt-1">{sub}</Body>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="border-y border-line bg-white">
-        <div className="mx-auto max-w-3xl px-5 py-14">
-          <HeadingMd as="h2" className="text-xl">
-            Malls have deals. Shoppers rarely see them.
-          </HeadingMd>
-          <Body className="mt-3 max-w-xl">
-            Merchants write offers on chalkboards and WhatsApp groups. Shoppers walk
-            past without knowing. Maanta puts every live deal on one screen — before
-            you pay at the till.
-          </Body>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-3xl px-5 py-14">
-        <HeadingMd as="h2" className="text-xl">
-          A live feed for in‑mall deals
-        </HeadingMd>
-        <Body className="mt-3 max-w-xl">
-          Flash picks, boosted neighbourhood favourites, and standard deals near you —
-          filtered to the mall you&apos;re in. Save favourites and open the map
-          when you&apos;re ready to redeem.
-        </Body>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {[
-            ["Flash", "Short-window top picks"],
-            ["Boosted", "Neighbourhood favourites pushed to the top"],
-            ["Map", "Pins with precise pickup spots"],
-          ].map(([title, sub], i) => (
-            <div
-              key={title}
-              className="animate-fade-in rounded-card border border-line bg-white p-5 [animation-fill-mode:both]"
-              style={{ animationDelay: `${i * 80}ms` }}
-            >
-              <HeadingMd as="h3">{title}</HeadingMd>
-              <Body className="mt-1.5 text-muted">{sub}</Body>
-            </div>
+            </Link>
           ))}
         </div>
-      </section>
+      </Section>
 
-      {/* The merchant door. Outreach at BBS tells shopkeepers to "check out
-          Maanta" — without this they land on a page with nothing for them. */}
-      <section className="border-y border-line bg-brand">
-        <div className="mx-auto max-w-3xl px-5 py-14">
-          <HeadingMd as="h2" className="text-xl">
-            Run a shop at BBS Mall?
-          </HeadingMd>
-          <Body className="mt-3 max-w-xl !text-ink/80">
-            You only pay when a customer walks in. KES 30 per verified
-            redemption — no listing fee, no percentage cut, no monthly minimum.
-          </Body>
-          <div className="mt-6">
-            <PrimaryButtonLink
-              href="/for-merchants"
-              size="lg"
-              className="!bg-ink !text-white hover:!bg-ink/90"
-            >
-              List your shop
-            </PrimaryButtonLink>
-          </div>
+      <Section id="verified" tone="ink">
+        <SectionHeading tone="light">Ranked by who actually walked in.</SectionHeading>
+        <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-white/70 sm:text-lg">
+          <p>
+            Nothing on MAANTA is ranked by stars or reviews. A deal rises because shoppers
+            claimed it and staff verified the code at a counter — a real person, in a real
+            shop, at a real time.
+          </p>
+          <p className="text-white">
+            That single rule is why merchants trust the ranking, why shoppers trust the feed,
+            and why a mall can treat the numbers as evidence rather than marketing.
+          </p>
         </div>
-      </section>
+      </Section>
 
-      <section className="mx-auto max-w-3xl px-5 py-14">
-        <HeadingMd as="h2" className="text-xl">
-          Built for Nairobi malls first
-        </HeadingMd>
-        <Body className="mt-3 max-w-xl">
-          Maanta starts at BBS Mall (Node 0) — a precise, in-person loop for
-          shoppers and merchants who already meet at the till. No online
-          checkout. Just claim, show up, and save.
-        </Body>
-      </section>
+      <Section id="deals">
+        <SectionHeading>Flash, Boosted, and what is near you</SectionHeading>
+        <PointGrid
+          columns={3}
+          points={[
+            {
+              title: "Flash",
+              body: "Short-window top picks, often under an hour. Worth walking to now.",
+            },
+            { title: "Boosted", body: "Neighbourhood favourites, pushed to the top." },
+            {
+              title: "Map",
+              body: "Pins with precise pickup spots, so you find the right shop the first time.",
+            },
+          ]}
+        />
+      </Section>
 
-      <section className="border-t border-line bg-white">
-        <div className="mx-auto max-w-3xl px-5 py-14">
-          <HeadingMd as="h2" className="text-xl">
-            Get early access
-          </HeadingMd>
-          <Body className="mt-3 max-w-xl">
-            Join the waitlist as a shopper, merchant, or mall operator. We&apos;ll
-            email you before the next drop.
-          </Body>
-          <div className="mt-6">
-            <LandingEarlyAccess />
+      {/* Merchant conversion band — the third and last use of the accent. */}
+      <Section id="merchant-band" tone="paper">
+        <div className="rounded-card border-l-4 border-brand bg-white p-6 sm:p-8">
+          <h2 className="text-2xl font-black text-ink sm:text-3xl">Run a shop at BBS Mall?</h2>
+          <div className="mt-4 max-w-3xl space-y-3 text-base leading-relaxed text-secondary">
+            <p>
+              {fee} per verified redemption. No listing fee, no percentage cut, no monthly
+              minimum. A code that expires or gets rejected costs you nothing.
+            </p>
+            {/* Time-bound: absent rather than stale once the offer closes. */}
+            {creditLive ? (
+              <p>
+                The first {OFFERS.openingCredit.cohortShops} shops we activate at BBS start
+                with {credit} of opening credit — ten redemptions before you spend anything.
+              </p>
+            ) : null}
           </div>
+          {SCENARIO.isScenario ? (
+            <p className="mt-4 text-sm text-secondary">
+              <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops publishing at{" "}
+              {FACTS.launchMall}
+              <ModelledBadge />
+            </p>
+          ) : null}
+          <Link
+            href="/merchants"
+            className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft transition hover:brightness-95"
+          >
+            List your shop
+          </Link>
         </div>
-      </section>
+      </Section>
 
-      <InstallPrompt />
-    </main>
+      <Section id="node">
+        <SectionHeading>Built for Nairobi malls first</SectionHeading>
+        <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
+          <p>
+            MAANTA starts at {FACTS.launchMall} — {FACTS.nodeLabel}. A precise, in-person loop
+            for shoppers and merchants who already meet at the till.
+          </p>
+          <p className="text-ink">
+            We are not building an online marketplace. There is no checkout, no delivery and
+            no escrow. The transaction that already works — a person, a counter, a price —
+            stays exactly as it is. We make the offer visible before it happens, and
+            verifiable after.
+          </p>
+        </div>
+        <Link
+          href="/malls/bbs-mall"
+          className="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+        >
+          See what&apos;s live at BBS Mall
+        </Link>
+      </Section>
+
+      <LandingEarlyAccess />
+    </ScenarioNotice>
   );
 }

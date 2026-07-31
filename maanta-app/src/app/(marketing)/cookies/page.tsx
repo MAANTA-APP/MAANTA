@@ -4,7 +4,7 @@ import { loadLegalDoc, LEGAL_TITLES } from "@/lib/marketing/legal-docs";
 import { DEMO_MODE } from "@/lib/marketing/demo";
 
 /**
- * `/privacy` — unreviewed draft, rendered from `src/content/legal/`.
+ * `/cookies` — unreviewed draft, rendered from `src/content/legal/`.
  *
  * `noindex` while `DEMO_MODE` is true. A draft legal document indexed by Google
  * is a liability that outlives the draft, and search engines keep serving a
@@ -14,11 +14,11 @@ import { DEMO_MODE } from "@/lib/marketing/demo";
  */
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — MAANTA",
-  description: "How MAANTA collects, uses and protects personal data under the Kenya Data Protection Act 2019.",
+  title: "Cookie & Tracking Notice — MAANTA",
+  description: "What MAANTA stores on your device and what we track, with the basis for each.",
   robots: DEMO_MODE ? { index: false, follow: false } : undefined,
 };
 
 export default function Page() {
-  return <LegalDoc title={LEGAL_TITLES["privacy"]} markdown={loadLegalDoc("privacy")} />;
+  return <LegalDoc title={LEGAL_TITLES["cookies"]} markdown={loadLegalDoc("cookies")} />;
 }

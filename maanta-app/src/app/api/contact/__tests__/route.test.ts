@@ -119,9 +119,21 @@ describe("POST /api/contact", () => {
   });
 });
 
-describe("/contact page", () => {
+describe("/contact form", () => {
+  // The form lives in EnquiryRouter (a client component — it reads `?topic=`),
+  // not in the page shell. The guard follows the form, not the route file:
+  // asserting against page.tsx would silently pass the day the form moves.
   const page = readFileSync(
-    path.resolve(__dirname, "..", "..", "..", "(marketing)", "contact", "page.tsx"),
+    path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "components",
+      "marketing",
+      "EnquiryRouter.tsx"
+    ),
     "utf8"
   );
 

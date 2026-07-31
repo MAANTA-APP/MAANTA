@@ -34,6 +34,8 @@ export function topicLabel(topic: ContactTopic | "general"): string {
 }
 
 export type ContactSubmission = {
+  /** Optional. Improves routing and lets a reply open properly. */
+  name?: string;
   /** Email or phone — the live form accepts either, and that is kept. */
   contact: string;
   message: string;
@@ -54,6 +56,7 @@ export const CONTACT_FIELD_MAX = 200;
 export function validateContactSubmission(
   body: Record<string, unknown>
 ): { ok: true; value: ContactSubmission } | { ok: false; error: string } {
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, CONTACT_FIELD_MAX) : "";
   const contact = typeof body.contact === "string" ? body.contact.trim() : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const topic = normaliseTopic(typeof body.topic === "string" ? body.topic : null);
@@ -67,7 +70,7 @@ export function validateContactSubmission(
     return { ok: false, error: "That message is too long." };
   }
 
-  return { ok: true, value: { contact, message, topic } };
+  return { ok: true, value: { name: name || undefined, contact, message, topic } };
 }
 
 /** True when the value looks like an email, so we know whether we can autorespond. */
@@ -92,7 +95,7 @@ export function enquiryEmail(s: ContactSubmission): {
   const subject = `[MAANTA contact] ${label}`;
   const text = [
     `Topic: ${label}`,
-    `From: ${s.contact}`,
+    `From: ${s.name ? `${s.name} <${s.contact}>` : s.contact}`,
     "",
     s.message,
     "",
@@ -100,7 +103,7 @@ export function enquiryEmail(s: ContactSubmission): {
   ].join("\n");
   const html = [
     `<p><strong>Topic:</strong> ${escapeHtml(label)}</p>`,
-    `<p><strong>From:</strong> ${escapeHtml(s.contact)}</p>`,
+    `<p><strong>From:</strong> ${escapeHtml(s.name ? `${s.name} <${s.contact}>` : s.contact)}</p>`,
     `<hr />`,
     `<p style="white-space:pre-wrap">${escapeHtml(s.message)}</p>`,
     `<hr /><p style="color:#5C5C5C;font-size:12px">Sent from the contact form on maanta.app</p>`,
@@ -128,6 +131,8 @@ export function autoresponderEmail(s: ContactSubmission): {
   const label = topicLabel(s.topic);
   const subject = "We got your message — MAANTA";
   const text = [
+    s.name ? `Hello ${s.name},` : "Hello,",
+    "",
     "Thanks for getting in touch with MAANTA.",
     "",
     `We have your message about: ${label}.`,
