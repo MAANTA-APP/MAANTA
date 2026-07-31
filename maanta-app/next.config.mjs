@@ -2,6 +2,34 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * Permanent redirects for the marketing IA change.
+   *
+   * These are 301s because the old paths are printed on flyers, pasted into
+   * WhatsApp groups and used on in-mall signage (risk R6) — inbound links that
+   * nobody can edit after the fact. `permanent: true` is deliberate and hard to
+   * walk back, which is the correct trade for URLs that live off-platform.
+   *
+   * Three redirects, not the four listed in `website-handoff.md` §5. The fourth
+   * row there — "old `/merchants` form → `/merchants/join`" — is a **component
+   * move, not a URL redirect**. `/merchants` becomes the merchant marketing page,
+   * so redirecting it to `/merchants/join` would make that page unreachable and
+   * dark-route the audience it was written for. The lead form relocated to
+   * `/merchants/join`; anyone deep-linking `/merchants` for the form now lands on
+   * the marketing page whose primary CTA points at it. Recorded as a deviation in
+   * `docs/ops/IMPLEMENTATION-REPORT.md` §5.
+   *
+   * The header nav label changed in the same change that added these, so
+   * "How it works" and its redirect can never disagree.
+   */
+  async redirects() {
+    return [
+      { source: "/for-shoppers", destination: "/shoppers", permanent: true },
+      { source: "/for-merchants", destination: "/merchants", permanent: true },
+      { source: "/how-it-works", destination: "/shoppers", permanent: true },
+    ];
+  },
+
   async rewrites() {
     return [
       {

@@ -1,0 +1,140 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Logomark } from "@/components/ui/icons";
+import { HEADER_CTA, HEADER_LINKS } from "@/lib/marketing/nav";
+
+/**
+ * Marketing header — audience nav plus a mobile sheet.
+ *
+ * The header must expose all three audiences (`website-ia.md` §5). The one it
+ * replaces exposed none: How it works · Pricing · FAQ told a mall operator
+ * nothing about whether the site was for them. "How it works" is folded into
+ * `/shoppers` and FAQ moves to the footer, both in this same change, so the nav
+ * label and its 301 never disagree.
+ *
+ * Links come from `lib/marketing/nav.ts` so header, footer and sitemap cannot
+ * drift apart.
+ *
+ * `Browse deals` is the one amber element here — #FDBF2D on CTAs and live-status
+ * only. A second amber element in the same bar would spend the accent and leave
+ * the actual call to action competing with decoration.
+ */
+export function SiteHeader() {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close the sheet on navigation — otherwise it stays open over the new page.
+  useEffect(() => setOpen(false), [pathname]);
+
+  // Lock the background from scrolling behind the open sheet.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // Escape closes the sheet — keyboard parity with the close button.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
+        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="MAANTA home">
+          <Logomark className="h-7 w-7" />
+          <span className="text-lg font-black tracking-tight text-ink">MAANTA</span>
+        </Link>
+
+        <nav
+          aria-label="Primary"
+          className="hidden items-center gap-6 text-sm font-medium text-muted lg:flex"
+        >
+          {HEADER_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              aria-current={isActive(l.href) ? "page" : undefined}
+              className={
+                isActive(l.href)
+                  ? "text-ink underline decoration-2 underline-offset-8"
+                  : "hover:text-ink"
+              }
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href={HEADER_CTA.href}
+            className="hidden rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink-soft transition hover:brightness-95 sm:inline-flex"
+          >
+            {HEADER_CTA.label}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls="marketing-mobile-nav"
+            aria-label={open ? "Close menu" : "Open menu"}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink lg:hidden"
+          >
+            {/* Plain glyphs: two states, no icon dependency to keep in sync. */}
+            <span aria-hidden="true" className="text-lg leading-none">
+              {open ? "✕" : "☰"}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/*
+        Mobile sheet. `Browse deals` is pinned at the top of the sheet rather than
+        buried under the audience links — it is the primary action for the
+        largest audience, and the shopper audience is almost entirely mobile.
+      */}
+      {open ? (
+        <div id="marketing-mobile-nav" className="border-t border-line bg-white lg:hidden">
+          <nav aria-label="Primary (mobile)" className="mx-auto max-w-6xl px-5 py-4">
+            <Link
+              href={HEADER_CTA.href}
+              className="mb-3 block rounded-full bg-brand px-4 py-3 text-center text-sm font-bold text-ink-soft"
+            >
+              {HEADER_CTA.label}
+            </Link>
+            <ul className="divide-y divide-line">
+              {HEADER_LINKS.map((l) => (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    aria-current={isActive(l.href) ? "page" : undefined}
+                    className={`block py-3 text-base font-semibold ${
+                      isActive(l.href) ? "text-ink" : "text-secondary"
+                    }`}
+                  >
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+      ) : null}
+    </header>
+  );
+}

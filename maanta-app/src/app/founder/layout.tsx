@@ -1,4 +1,5 @@
 import { requireFounderPage } from "@/lib/founder";
+import { AppProviders } from "@/components/auth/app-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -9,5 +10,5 @@ export default async function FounderLayout({
   children: React.ReactNode;
 }) {
   await requireFounderPage();
-  return <>{children}</>;
+  return <AppProviders>{children}</AppProviders>;
 }

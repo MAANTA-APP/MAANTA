@@ -10,16 +10,21 @@ export const dynamic = "force-dynamic";
  * "Were you helped by a Maanta agent?" attribution picker. The merchant remains
  * the authenticated submitter — the agent is captured as attribution only.
  *
- * `?shop=` comes from `/merchants` signup handoff (`/login?next=/merchant/onboard?shop=…`).
+ * `?shop=`, `?phone=` and `?cc=` come from the `/merchants/join` signup handoff (`/login?next=/merchant/onboard?shop=…`).
  * Prefilling it is the only durable use of that query param — without it the lead
  * form silently discarded the shop name after login. */
 export default async function MerchantOnboardPage({
   searchParams,
 }: {
-  searchParams?: { shop?: string };
+  searchParams?: { shop?: string; phone?: string; cc?: string };
 }) {
   const successFee = await getSuccessFee();
   const initialShopName = (searchParams?.shop ?? "").trim().slice(0, 120);
+  // Digits only, and a country code constrained to a plausible shape — these
+  // land straight in form state, so nothing arbitrary from the URL is trusted.
+  const initialPhone = (searchParams?.phone ?? "").replace(/\D/g, "").slice(0, 15);
+  const rawCc = (searchParams?.cc ?? "").trim();
+  const initialCc = /^\+\d{1,4}$/.test(rawCc) ? rawCc : "+254";
 
   // Active agents only, id + display name. Read with the service client (the
   // signed-in caller is a not-yet-merchant customer with no rights to the
@@ -42,6 +47,8 @@ export default async function MerchantOnboardPage({
       successFee={successFee}
       agents={agents}
       initialShopName={initialShopName}
+      initialPhone={initialPhone}
+      initialCc={initialCc}
     />
   );
 }

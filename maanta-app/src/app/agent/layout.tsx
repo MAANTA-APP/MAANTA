@@ -1,4 +1,5 @@
 import { requireAgentPage } from "@/lib/agent";
+import { AppProviders } from "@/components/auth/app-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -14,5 +15,5 @@ export default async function AgentLayout({
   children: React.ReactNode;
 }) {
   await requireAgentPage("/agent");
-  return <>{children}</>;
+  return <AppProviders>{children}</AppProviders>;
 }

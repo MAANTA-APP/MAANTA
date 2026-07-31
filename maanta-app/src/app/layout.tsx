@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
-import { AuthProviders } from "@/components/auth/auth-providers";
 import { PostHogClientProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
@@ -22,12 +21,33 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+/**
+ * `metadataBase` makes every relative OG and canonical URL in a child page
+ * resolve to an absolute one. Without it Next emits relative OG URLs, which
+ * most scrapers — WhatsApp in particular — will not follow, and WhatsApp is how
+ * these pages actually get shared in this market.
+ */
+const SITE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.maanta.app";
+
 export const metadata: Metadata = {
-  title: "Maanta — The mall, made live.",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: {
+    default: "Maanta — The mall, made live.",
+    // Child pages set their own full title; this only applies to pages that
+    // provide a bare string and want the brand appended.
+    template: "%s",
+  },
   description:
     "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg" },
+  openGraph: {
+    type: "website",
+    siteName: "MAANTA",
+    locale: "en_KE",
+    url: SITE_ORIGIN,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +62,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <AuthProviders>
+    /*
+      No auth provider here, deliberately.
+      Clerk is mounted per authenticated shell via `AppProviders`, so a marketing
+      visitor never downloads the auth SDK for a page that has no login on it.
+      `PostHogClientProvider` stays — anonymous analytics runs everywhere and
+      carries no Clerk dependency.
+    */
+    <>
       <html lang="en">
         <body
           className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} bg-white text-ink antialiased`}
@@ -50,6 +77,6 @@ export default function RootLayout({
           <PostHogClientProvider>{children}</PostHogClientProvider>
         </body>
       </html>
-    </AuthProviders>
+    </>
   );
 }

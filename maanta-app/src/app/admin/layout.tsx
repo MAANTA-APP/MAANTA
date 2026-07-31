@@ -1,5 +1,6 @@
 import { requireAdminPage } from "@/lib/admin";
 import { AdminSidebar } from "@/components/nav/admin-sidebar";
+import { AppProviders } from "@/components/auth/app-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,11 @@ export default async function AdminLayout({
 }) {
   await requireAdminPage();
   return (
-    <div className="flex min-h-dvh bg-white">
-      <AdminSidebar />
-      <div className="min-w-0 flex-1 px-5 pb-16 pt-14 lg:px-10 lg:pt-8">{children}</div>
-    </div>
+    <AppProviders>
+      <div className="flex min-h-dvh bg-white">
+        <AdminSidebar />
+        <div className="min-w-0 flex-1 px-5 pb-16 pt-14 lg:px-10 lg:pt-8">{children}</div>
+      </div>
+    </AppProviders>
   );
 }

@@ -1,0 +1,159 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { ENTITY } from "@/lib/marketing/demo";
+import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
+import { Section, SectionHeading } from "@/components/marketing/sections";
+
+/**
+ * `/contact` — channels first, form second.
+ *
+ * That order is a deliberate inversion of the usual layout and the right call for
+ * this market (`copy/contact.md` §0): a shop owner in Eastleigh will WhatsApp
+ * before they fill in a form, and will walk to a desk before either. Most contact
+ * pages bury the human channels under a form and lose the people who would
+ * actually have got in touch.
+ *
+ * **Response times are published as of 2026-07-31**, by founder ruling, and read
+ * from `RESPONSE_TIMES` in `facts.ts` so the page and the autoresponder cannot
+ * drift apart. They are deliberately conservative — the deck is blunt that "a
+ * missed commitment here does more damage than no commitment at all", so these
+ * should be tightened only against evidence, never loosened after the fact.
+ *
+ * WhatsApp hours and the desk location are still omitted: those tokens are
+ * unfilled and a stated opening hour that is not staffed is the same failure as
+ * a missed response time.
+ *
+ * The form itself lives in `EnquiryRouter`, which is a client component because
+ * it reads `?topic=`. It is wrapped in `Suspense` so `useSearchParams` does not
+ * opt the whole route out of static rendering.
+ */
+
+export const metadata: Metadata = {
+  title: "Contact — MAANTA",
+  description:
+    "Talk to MAANTA. WhatsApp support for shoppers and merchants, a desk at BBS Mall, Eastleigh, and direct contacts for mall operators, press and privacy requests.",
+};
+
+export default function ContactPage() {
+  return (
+    <>
+      <Section>
+        <h1 className="text-3xl font-black leading-tight text-ink sm:text-4xl">Talk to us</h1>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
+          Pick what this is about and we will point you at the fastest route. Most things are
+          quicker on WhatsApp than by form.
+        </p>
+      </Section>
+
+      {/* Channels above the form — the routes people will actually use. */}
+      <Section id="channels" tone="paper" className="!py-0">
+        <div className="py-14 sm:py-16">
+          <SectionHeading>Ways to reach us</SectionHeading>
+          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">WhatsApp</h3>
+              <a
+                href={ENTITY.whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block text-sm font-semibold text-ink underline underline-offset-4"
+              >
+                {ENTITY.whatsapp}
+              </a>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                The quickest route for anything to do with a deal, a code, or a shop account.
+              </p>
+            </div>
+
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">The desk at BBS Mall</h3>
+              <p className="mt-1 text-sm font-semibold text-ink">
+                {ENTITY.address}, {ENTITY.city}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                If you run a shop in the mall and would rather do this in person, come and
+                find us. We will set you up at your counter.
+              </p>
+            </div>
+
+            <div className="rounded-card border border-line bg-white p-5">
+              <h3 className="text-base font-bold text-ink">Email</h3>
+              <a
+                href={`mailto:${ENTITY.email}`}
+                className="mt-1 block text-sm font-semibold text-ink underline underline-offset-4"
+              >
+                {ENTITY.email}
+              </a>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">
+                For anything else.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section>
+        <Suspense
+          fallback={
+            <div className="h-96 animate-pulse rounded-card border border-line bg-paper" />
+          }
+        >
+          <EnquiryRouter />
+        </Suspense>
+      </Section>
+
+      <Section id="response" tone="paper">
+        <SectionHeading>What happens next</SectionHeading>
+        <div className="mt-6 max-w-2xl">
+          <p className="text-base leading-relaxed text-secondary">
+            A person reads every message that arrives here — there is no ticket queue. You
+            will get a confirmation by email as soon as your message lands, so you know it
+            reached us.
+          </p>
+          <dl className="mt-6 divide-y divide-line border-y border-line">
+            {[
+              ["WhatsApp", `We reply ${RESPONSE_TIMES.whatsapp}`],
+              ["This form and email", `We reply within ${RESPONSE_TIMES.form}`],
+              ["Mall operator enquiries", `We reply within ${RESPONSE_TIMES.operator}`],
+              [
+                "Privacy and data requests",
+                "Acknowledged within 1 business day, answered within the period required by the Kenya Data Protection Act 2019",
+              ],
+            ].map(([label, value]) => (
+              <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-6">
+                <dt className="text-sm font-bold text-ink sm:w-56 sm:shrink-0">{label}</dt>
+                <dd className="text-sm leading-relaxed text-secondary">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-6 text-base leading-relaxed text-ink">
+            If we are going to be slower than this, we will tell you rather than leave you
+            waiting.
+          </p>
+        </div>
+      </Section>
+
+      <Section id="location">
+        <SectionHeading>Where to find us</SectionHeading>
+        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
+          <p>
+            MAANTA operates at{" "}
+            <strong className="font-semibold text-ink">
+              {FACTS.launchMall}, {FACTS.city}
+            </strong>
+            . That is where the shops are, and where the node team works.
+          </p>
+          <p>There is no other office worth sending you to.</p>
+        </div>
+        <address className="mt-8 not-italic text-sm leading-relaxed text-ink">
+          <strong className="font-bold">{ENTITY.name}</strong>
+          <br />
+          {ENTITY.address}
+          <br />
+          {ENTITY.city}, {ENTITY.country}
+        </address>
+      </Section>
+    </>
+  );
+}

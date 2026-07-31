@@ -133,7 +133,7 @@ export default async function TicketPage({
           Support will resolve it within 72 hours. Nothing is needed from you right
           now.
         </InlineAlert>
-        <ButtonLink href="/help" variant="ghost" full className="mt-6">
+        <ButtonLink href="/you/help" variant="ghost" full className="mt-6">
           Contact support
         </ButtonLink>
       </main>
