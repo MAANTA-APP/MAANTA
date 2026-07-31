@@ -142,7 +142,7 @@ export default function ContactPage() {
             <strong className="font-semibold text-ink">
               {FACTS.launchMall}, {FACTS.city}
             </strong>
-            . That is where the shops are, and where activation happens.
+            . That is where the shops are, and where the node team works.
           </p>
           <p>There is no other office worth sending you to.</p>
         </div>

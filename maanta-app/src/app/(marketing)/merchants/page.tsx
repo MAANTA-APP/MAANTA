@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatKes } from "@/lib/ui";
-import { FACTS, OFFERS, isOfferLive } from "@/lib/marketing/facts";
+import { FACTS, NODE_TEAM, OFFERS, isOfferLive } from "@/lib/marketing/facts";
 import { ENTITY } from "@/lib/marketing/demo";
 import {
   AudienceHero,
@@ -329,9 +329,10 @@ export default function MerchantsPage() {
         <SectionHeading>Start at BBS Mall</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
-            You do not have to work this out on your own. Activation is done in person: we
-            will come to your shop, set you up, publish your first deal with you, and stay
-            until a real code has been verified at your counter.
+            You do not have to work this out on your own. Every node has a team in the mall
+            — a node manager and up to {NODE_TEAM.agentsMax} agents. They will come to your
+            shop, set you up, publish your first deal with you, and stay until a real code
+            has been verified at your counter.
           </p>
           <p>
             If you would rather do it yourself, shop name and phone number to start.
@@ -376,8 +377,8 @@ export default function MerchantsPage() {
               q: "Who do I call when something goes wrong?",
               a: (
                 <>
-                  WhatsApp support, and someone in the mall during activation. You are not
-                  filing a ticket and waiting.{" "}
+                  WhatsApp support, and agents in the mall. You are not filing a ticket and
+                  waiting.{" "}
                   <a
                     href={ENTITY.whatsappLink}
                     target="_blank"

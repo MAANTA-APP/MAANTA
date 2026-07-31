@@ -95,6 +95,32 @@ export const OFFERS = {
  * these strings in rendered output — they are gated before they reach JSX.
  */
 /**
+ * How a node is staffed — the operating model, confirmed by the founder
+ * 2026-07-31.
+ *
+ * One node manager and up to four agents at any node. Agents are shopper- and
+ * merchant-facing on the floor; the node manager coordinates with mall
+ * management so operations run smoothly. That is a **description of the model**,
+ * which is what a mall operator is actually evaluating, and it is deliberately
+ * more concrete than the "our team" phrasing it replaces — a named structure
+ * with a cap and defined roles tells an operator what they are getting, where a
+ * vague plural tells them nothing and invites the wrong follow-up question.
+ *
+ * Stated as how a node runs, never as a headcount standing in BBS Mall today.
+ * The distinction matters: the model is true as a design and is what this
+ * demonstration site exists to show; a present-tense staffing count would be a
+ * measured figure, and measured figures go through `ScenarioStat`.
+ */
+export const NODE_TEAM = {
+  managers: 1,
+  agentsMax: 4,
+  managerRole:
+    "coordinates with mall management so the node runs smoothly, and owns the relationship with the operator",
+  agentRole:
+    "works the floor with shoppers and merchants — onboarding shops, setting up staff accounts, and helping at the counter",
+} as const;
+
+/**
  * Published response commitments, set by founder ruling 2026-07-31.
  *
  * These were held until now: `website-handoff.md` §9 holds every stated response

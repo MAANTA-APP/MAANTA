@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
-import { FACTS } from "@/lib/marketing/facts";
+import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
 import { SCENARIO } from "@/lib/marketing/scenario";
 import { ENTITY, ENTITY_LINE, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
@@ -25,12 +25,17 @@ import { CtaBand, Section, SectionHeading } from "@/components/marketing/section
  * deck calls that the sentence that does the most work, and it was not supplied.
  * It is not invented here. See the implementation report.
  *
- * **The team paragraph was rewritten, not copied.** The deck's version describes
- * "an activation team that works the mall floors"; the founder confirmed MAANTA
- * is a solo operation, and this repo's own live-pilot document scopes day one as
- * founder plus one merchant plus one shopper. Claiming a standing team is the
- * largest untrue thing this site could say, so the copy states what activation
- * commits to rather than implying headcount. Drift D35.
+ * **The team paragraph states the node operating model**, confirmed by the founder
+ * 2026-07-31: one node manager and up to four agents per node, agents on the
+ * floor with shoppers and merchants, the node manager coordinating with mall
+ * management. It reads from `NODE_TEAM` in `facts.ts` so `/about`, `/merchants`
+ * and `/mall-operators` cannot describe the model differently.
+ *
+ * Stated as how a node is staffed, not as a headcount standing in BBS Mall on any
+ * given day. That distinction is what keeps it honest on a site demonstrating
+ * post-launch operation: the model is real and is what an operator is evaluating;
+ * a present-tense count would be a measured figure, and measured figures render
+ * through `ScenarioStat`. Drift D35.
  *
  * **Two corrections to the deck.** `#money` said "any shop can buy a boost" —
  * boosts are Elite-only and enforced as such, so that is stated correctly here.
@@ -233,9 +238,9 @@ export default function AboutPage() {
             one properly than announce three.
           </p>
           <p>
-            We have no outside investment to point at, no awards to list, and no staff. What
-            we have is a working loop, shops using it, and a founder who does the activation
-            himself.
+            We have no outside investment to point at and no awards to list. What we have
+            is a working loop, shops using it, and people in the mall rather than a support
+            address.
           </p>
           <p className="text-ink">If any of that changes, this page changes with it.</p>
         </div>
@@ -265,10 +270,12 @@ export default function AboutPage() {
             </a>
           </p>
           <p className="mt-6 text-base leading-relaxed text-secondary">
-            MAANTA is a one-person company. Activation is done in person rather than by
-            email — sitting with a shop owner while they publish their first deal, setting up
-            staff accounts, and staying at the counter until a real code has been verified.
-            Most of what we have learned came from that, not from analytics.
+            Every node MAANTA opens is staffed. A node manager and up to{" "}
+            {NODE_TEAM.agentsMax} agents work the mall: the agents {NODE_TEAM.agentRole},
+            and the node manager {NODE_TEAM.managerRole}. Activation happens in person
+            rather than by email — sitting with a shop owner while they publish their first
+            deal, and staying at the counter until a real code has been verified. Most of
+            what we have learned came from that, not from analytics.
           </p>
         </div>
       </Section>

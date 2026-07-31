@@ -185,6 +185,34 @@ describe("marketing shell", () => {
     ).toEqual([]);
   });
 
+  // D35. The three audience pages each describe the in-mall team. They must all
+  // read it from NODE_TEAM, or they drift into describing different models — which
+  // is exactly what the vague "our team" phrasing allowed. The cap in particular is
+  // a frozen decision (decisions log 2026-07-31), not an estimate to restate.
+  it("describes the node staffing model from one source", () => {
+    const pages = [
+      path.join(MARKETING_APP, "mall-operators", "page.tsx"),
+      path.join(MARKETING_APP, "merchants", "page.tsx"),
+      path.join(MARKETING_APP, "about", "page.tsx"),
+    ];
+    const problems: string[] = [];
+    for (const f of pages) {
+      const code = codeText(f);
+      if (!/NODE_TEAM/.test(code)) {
+        problems.push(`${rel(f)} describes the team without reading NODE_TEAM`);
+      }
+      // A typed agent cap is the drift this guards: "up to four agents" written
+      // as prose survives a change to the frozen cap silently.
+      if (/up to (four|4|five|5|three|3) agents/i.test(code)) {
+        problems.push(`${rel(f)} hardcodes the agent cap — render NODE_TEAM.agentsMax`);
+      }
+    }
+    expect(
+      problems,
+      `The node staffing model is frozen and single-sourced (drift D35):\n${problems.join("\n")}`
+    ).toEqual([]);
+  });
+
   // Risk R8 / footer link hygiene: a five-column footer pointing at "#" is worse
   // than the thin footer it replaced, because the visual promise is higher.
   it("has no placeholder links in the nav module", () => {

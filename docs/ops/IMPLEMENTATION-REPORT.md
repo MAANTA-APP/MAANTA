@@ -486,30 +486,43 @@ event after deploy.
 Sixteen open decisions were put to the founder and answered. This section records
 what changed, and one thing the answers revealed.
 
-### 14.1 The finding: there is no activation team
+### 14.1 The team question — asked, answered, and answered wrongly first
 
-Answering the founder-bio question, the founder confirmed MAANTA is a **solo,
-non-technical founder, currently resident in Norway**. The marketing copy claimed
-a standing activation team on the mall floor in **more than ten places** — "Our
-team is in the mall", "Our team works the floors unit by unit", "a team that is in
-the building most days", "a desk in the mall".
+The founder-bio answer mentioned a **solo, non-technical founder resident in
+Norway**. The copy claimed an in-mall team in more than ten places, all of it
+vague — "Our team is in the mall", "a team that is in the building most days" —
+and both copy decks had flagged it as "partly true, confirm team capacity matches
+the promise".
 
-This repo's own `docs/ops/live-pilot-3-person-2026-07-30.md` scopes day one as
-"founder + one real pilot merchant + one real pilot shopper". Both merchant and
-mall-operator copy decks had flagged the team claim as "partly true — confirm team
-capacity matches the promise". The confirmation came back negative.
+**I read that as "there is no team" and stripped the claims back. That reading was
+wrong**, and it is recorded here because the correction is more useful than the
+error. The founder ruled the same day that this site demonstrates MAANTA at
+**post-launch**, and that node staffing is a defined model:
 
-This is a larger exposure than any single held claim, because in-person activation
-is the **core of the merchant and mall-operator value proposition** — it is the
-answer to "why you and not a flyer". Recorded as **D35**, which stays **open**: the
-copy is now defensible, but the underlying question is commercial. Decide whether
-activation is founder-delivered, agent-delivered or partner-delivered, then write
-copy that matches.
+> **One node manager and up to four agents at any node.** Agents are shopper- and
+> merchant-facing on the floor. The node manager coordinates with mall management
+> so operations run smoothly.
 
-What changed: standing-presence claims replaced with activation stated as a
-commitment rather than an existing operation — the same pattern already used for
-the operating report. `/about` now says plainly that MAANTA is a one-person company
-and the founder does activation himself. Guarded by `held-claims.test.ts`.
+The lesson worth keeping: "the founder is solo" and "a node is staffed" are not in
+conflict — one is about the company today, the other about the operating model the
+site exists to show. Reading a staffing answer as a headcount answer is what
+produced the mistake.
+
+**The copy is now stronger than either previous version.** "Our team" told a mall
+operator nothing and invited the wrong follow-up question. A node manager plus up
+to four agents, with named roles and a cap, tells an operator what they are getting
+and who they call. `/mall-operators` gained a dedicated point for it, since that is
+the audience evaluating exactly this.
+
+One distinction is load-bearing and is enforced: the model is stated as **how a
+node is staffed**, never as a headcount standing in a named mall on a given day.
+The first is a product description and belongs in production; the second is a
+measured figure and would have to render through `ScenarioStat`.
+
+**D35 closed.** `NODE_TEAM` in `facts.ts` is the single source, the cap is frozen
+in the decisions log (2026-07-31), and `marketing-shell.test.ts` fails if any of
+the three pages describes the team without reading it, or hardcodes the cap in
+prose.
 
 ### 14.2 A second finding: the support WhatsApp number was a placeholder
 
@@ -529,7 +542,7 @@ the constants module.
 |---|---|---|
 | 1 | Offer dates → **31 Oct 2026** | The KES 300 opening credit and 30-day Elite trial now render. The expiry gate stays, so they vanish on the date rather than going stale. |
 | 2 | Response times published | WhatsApp same day · form 1 business day · operators 2 business days, from `RESPONSE_TIMES` in `facts.ts` so page and autoresponder cannot drift. Released from §9. |
-| 3 | Founder bio | Written from supplied facts only. **One sentence is deliberately missing** — why MAANTA, why Eastleigh — which the deck calls the sentence that does the most work. Not invented. |
+| 3 | Founder bio | Written from supplied facts only. **One sentence is deliberately missing** — why MAANTA, why Eastleigh — which the deck calls the sentence that does the most work. Not invented. See §14.1 for the team question this answer raised. |
 | 4 | Keep +44 WhatsApp | Unchanged. Still flagged for launch. |
 | 5 | Keep one inbox | Unchanged. `privacy@` must still match the Privacy Policy before launch. |
 | 6 | No social accounts | Row stays absent. |
@@ -563,8 +576,6 @@ gate reports no `{{TOKEN}}` in 47 rendered files.
 
 ### 14.6 Still open
 
-- **D35** — what activation actually is. The only item here that is a business
-  decision rather than a task.
 - Confirm one live PostHog event after deploy (§13.1).
 - Counsel review of all four documents; the CBK question first.
 - Lighthouse unmeasured; `{{AUTH_COOKIE_LIFETIME}}`, `{{CLERK_REGION}}`,
