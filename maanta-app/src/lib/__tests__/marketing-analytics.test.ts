@@ -103,7 +103,11 @@ describe("marketing analytics wiring", () => {
     expect(read("components", "marketing", "EnquiryRouter.tsx")).toContain(
       "MARKETING_EVENTS.formSubmit"
     );
-    expect(read("app", "(marketing)", "merchants", "join", "page.tsx")).toContain(
+    // `join-form.tsx`, not `page.tsx`: the route was split on 2026-08-01 so the
+    // server shell could export `metadata` (drift D52), and the tracked submit
+    // handler moved with the form. This guard caught that move, which is the
+    // point of it — an untracked merchant lead form is invisible in the funnel.
+    expect(read("app", "(marketing)", "merchants", "join", "join-form.tsx")).toContain(
       "MARKETING_EVENTS.formSubmit"
     );
   });
@@ -149,7 +153,7 @@ describe("marketing analytics wiring", () => {
     }
 
     const joinCall = identifiersOnly(
-      submitCall(read("app", "(marketing)", "merchants", "join", "page.tsx"))
+      submitCall(read("app", "(marketing)", "merchants", "join", "join-form.tsx"))
     );
     for (const field of ["shopName", "phone"]) {
       expect(

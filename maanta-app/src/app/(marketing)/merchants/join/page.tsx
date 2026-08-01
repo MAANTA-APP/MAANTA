@@ -1,91 +1,36 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { PhoneField, TextField } from "@/components/ui/inputs";
-import { ENTITY } from "@/lib/marketing/demo";
-import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
-import { stashMerchantJoin } from "@/lib/merchant-join-handoff";
+import type { Metadata } from "next";
+import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import { MerchantJoinForm } from "./join-form";
 
 /**
- * `/merchants/join` — the lead form, relocated from `/merchants`.
+ * `/merchants/join` — the merchant lead form.
  *
- * Field labels are verified live and deliberately unchanged (`copy/merchants.md`
- * §4). The relocation is sequenced ahead of `/merchants` becoming the marketing
- * page, so merchant acquisition is never dark between commits (risk R2).
+ * A thin server shell around the client form, which is the only reason this file
+ * exists separately: `export const metadata` is not permitted in a client
+ * component, and this route had no metadata at all until 2026-08-01, so it
+ * shipped sharing the homepage's title and search snippet (drift D52). Same
+ * split as `/waitlist`.
  *
- * **The phone number now survives the handoff, without entering the URL.** This
- * form previously collected a phone and passed only `?shop=` to onboarding, so the
- * merchant typed their number here and then typed it again two steps into the
- * wizard. Carrying it as a query parameter fixed that and created a worse problem
- * — the number landed in history, in `Referer`, and in the PostHog `$current_url`
- * on every event — so it travels in `sessionStorage` instead
- * (`@/lib/merchant-join-handoff`). The shop name stays in the URL: it is about to
- * be published on a public feed, and keeping it there means a merchant who lands
- * on onboarding in a fresh tab loses only the phone prefill.
- *
- * The destination is unchanged: `/login?next=/merchant/onboard?…`. This is a funnel
- * into authenticated onboarding, not a lead-capture endpoint. `/api/leads` exists
- * but is agent-only — it requires a signed-in agent or admin and locks a shop for
- * 48 hours, which is the in-mall field-agent workflow, not public self-serve.
+ * The form itself is in `./join-form.tsx`, with the reasoning about the phone
+ * handoff and the onboarding destination.
  */
+
+/**
+ * The description names the fee rather than selling the form.
+ *
+ * This is the page a merchant reaches from a search for "list my shop", and the
+ * snippet is the last thing they read before deciding to click. The fee is the
+ * single fact that decides whether MAANTA is worth their time, and stating it
+ * here means the price is not a surprise waiting on the other side of a form.
+ * It reads from `SUCCESS_FEE_KES` for the same reason the body copy does —
+ * metadata is rendered output, and a typed fee here is a second place for the
+ * frozen number to drift.
+ */
+export const metadata: Metadata = {
+  title: "List your shop — MAANTA",
+  description: `Put your shop on MAANTA in two fields. No listing fee and no cut of the sale — you pay KES ${SUCCESS_FEE_KES} only when a customer's code is verified at your counter.`,
+};
+
 export default function MerchantJoinPage() {
-  const router = useRouter();
-  const [shopName, setShopName] = useState("");
-  const [cc, setCc] = useState("+254");
-  const [phone, setPhone] = useState("");
-
-  return (
-    <div className="mx-auto max-w-xl px-5 py-14">
-      <h1 className="text-3xl font-black text-ink">List your shop on MAANTA</h1>
-      <p className="mt-3 text-base leading-relaxed text-secondary">
-        Two fields to start. We will call you to finish setting up, or come to your shop
-        if you are at BBS Mall.
-      </p>
-
-      <form
-        className="mt-8 space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          // Records the handoff into onboarding. No shop name, no phone number.
-          trackMarketing(MARKETING_EVENTS.formSubmit, { form: "merchant-join" });
-          if (phone.trim()) stashMerchantJoin({ cc, phone: phone.trim() });
-          const params = new URLSearchParams({ shop: shopName });
-          router.push(`/login?next=${encodeURIComponent(`/merchant/onboard?${params}`)}`);
-        }}
-      >
-        <TextField
-          label="Shop name"
-          value={shopName}
-          onChange={(e) => setShopName(e.target.value)}
-          required
-        />
-        <PhoneField
-          label="Phone"
-          countryCode={cc}
-          onCountryCode={setCc}
-          value={phone}
-          onChange={setPhone}
-        />
-        <Button type="submit" full>
-          Get started
-        </Button>
-      </form>
-
-      <p className="mt-4 text-center text-xs text-faint">
-        Prefer to do it in person? Find us at the MAANTA desk in {ENTITY.address},{" "}
-        {ENTITY.city}.
-      </p>
-
-      <p className="mt-6 text-center text-xs text-muted">
-        By continuing you agree to our{" "}
-        <Link href="/merchant-terms" className="underline underline-offset-2 hover:text-ink">
-          Merchant Terms
-        </Link>
-        .
-      </p>
-    </div>
-  );
+  return <MerchantJoinForm />;
 }
