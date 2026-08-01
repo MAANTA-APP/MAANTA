@@ -49,10 +49,59 @@ function tsxFiles(dir: string): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
+function lineCommentAt(line: string, start: number): number {
+  let pos = start;
+  while (pos < line.length) {
+    const idx = line.indexOf("//", pos);
+    if (idx === -1) return -1;
+    if (idx > 0 && line[idx - 1] === ":") {
+      pos = idx + 2;
+      continue;
+    }
+    return idx;
+  }
+  return -1;
+}
+
+/** Comments explain why copy is qualified; they are not published copy. */
+function withoutComments(src: string): string {
+  const lines = src.split("\n");
+  let inBlock = false;
+  const stripped = lines.map((line) => {
+    let out = "";
+    let i = 0;
+    while (i < line.length) {
+      if (inBlock) {
+        const end = line.indexOf("*/", i);
+        if (end === -1) return out;
+        inBlock = false;
+        i = end + 2;
+        continue;
+      }
+      const blockStart = line.indexOf("/*", i);
+      const lineComment = lineCommentAt(line, i);
+      if (blockStart !== -1 && (lineComment === -1 || blockStart < lineComment)) {
+        out += line.slice(i, blockStart);
+        inBlock = true;
+        i = blockStart + 2;
+        continue;
+      }
+      if (lineComment !== -1) {
+        out += line.slice(i, lineComment);
+        return out;
+      }
+      out += line.slice(i);
+      break;
+    }
+    return out;
+  });
+  return stripped.join("\n");
+}
+
 /** Whole-file text with JSX line breaks collapsed, so copy split across lines
  *  by the formatter still reads as one sentence to the patterns below. */
 function copyText(file: string): string {
-  return readFileSync(file, "utf8").replace(/\s+/g, " ");
+  return withoutComments(readFileSync(file, "utf8")).replace(/\s+/g, " ");
 }
 
 const PUBLIC_FILES = tsxFiles(PUBLIC_PAGES);
@@ -145,7 +194,8 @@ describe("public pricing copy matches the frozen commercial rules", () => {
       const mentionsOffer =
         /launch offer/i.test(text) ||
         /Elite trial/i.test(text) ||
-        /30-day trial/i.test(text);
+        /30-day trial/i.test(text) ||
+        /days of Elite/i.test(text);
       if (!mentionsOffer) continue;
       // The cap must be *stated*, but it need not be typed. A page that renders
       // `OFFERS.eliteTrial.cohortShops` from lib/marketing/facts.ts states it

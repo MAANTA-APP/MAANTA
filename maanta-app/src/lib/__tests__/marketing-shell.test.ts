@@ -36,6 +36,21 @@ function filesUnder(dir: string, ext = ".tsx"): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
+/** Line comment start, but not the `://` in `https://…` URLs. */
+function lineCommentAt(line: string, start: number): number {
+  let pos = start;
+  while (pos < line.length) {
+    const idx = line.indexOf("//", pos);
+    if (idx === -1) return -1;
+    if (idx > 0 && line[idx - 1] === ":") {
+      pos = idx + 2;
+      continue;
+    }
+    return idx;
+  }
+  return -1;
+}
+
 /**
  * Strip comments before scanning.
  *
@@ -62,7 +77,7 @@ function codeOnly(src: string): string[] {
         i = end + 2;
         continue;
       }
-      const lineComment = line.indexOf("//", i);
+      const lineComment = lineCommentAt(line, i);
       const blockStart = line.indexOf("/*", i);
       if (blockStart !== -1 && (lineComment === -1 || blockStart < lineComment)) {
         out += line.slice(i, blockStart);
