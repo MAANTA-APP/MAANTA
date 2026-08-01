@@ -43,13 +43,36 @@ export const metadata: Metadata = {
   description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
 };
 
-/** One feature row. The icon carries the meaning, never colour alone. */
+/**
+ * One feature row. The icon carries the meaning, never colour alone.
+ *
+ * **The tick is neutral, not `text-verified`.** It was the success green on the
+ * Standard card and `text-white/60` on Elite, which was wrong twice over. First,
+ * the same element rendered in two different colours, so two identical lists read
+ * as two different kinds of thing — the green was only ever chosen because green
+ * on the dark card would have been unreadable, which is a contrast workaround
+ * driving a semantic decision. Second, `verified` is the **status-success** token
+ * (`#0A5C34`), and "1 active deal at a time" is a plan feature, not a success
+ * state. Spending a status colour on a bullet is how the token stops meaning
+ * anything where it does carry state — a redemption verified at a counter.
+ *
+ * Both tones now sit one step lighter than the body text beside them, which is
+ * what a list marker should do: `text-muted` against `text-secondary` on white,
+ * `text-white/60` against `text-white/80` on ink. Same relationship, same
+ * meaning, no colour doing work the glyph already does.
+ *
+ * **No size class here, deliberately — see drift D54.** This passed
+ * `h-4 w-4 shrink-0`, and none of it did anything: `Svg` in
+ * `@/components/ui/icons` applies `cn("h-5 w-5 shrink-0", className)`, `cn()` is
+ * a plain join with no Tailwind conflict resolution, and `h-5` wins the cascade.
+ * The tick measured 20px while the code asked for 16px. Passing a size that is
+ * silently discarded is worse than passing none, because the next reader trusts
+ * it. The icon renders at its 20px default and the code now says so.
+ */
 function Feature({ children, tone = "dark" }: { children: React.ReactNode; tone?: "dark" | "light" }) {
   return (
     <li className="flex gap-2.5">
-      <IconCheck
-        className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "light" ? "text-white/60" : "text-verified"}`}
-      />
+      <IconCheck className={`mt-0.5 ${tone === "light" ? "text-white/60" : "text-muted"}`} />
       <span
         className={`text-sm leading-relaxed ${tone === "light" ? "text-white/80" : "text-secondary"}`}
       >
