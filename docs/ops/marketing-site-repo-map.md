@@ -152,7 +152,20 @@ Two things the audit could not determine, both now settled:
 skips a `//` preceded by `:`, plus a `withoutComments()` pass in `pricing-copy`
 and a `/days of Elite/i` trigger. It is a clean, self-contained change.
 
-### NEW FINDING — a third guard has the same bug, and `038e3bc0` does not fix it
+### NEW FINDING — a third guard had the same bug — **FIXED 2026-08-01, D38 closed**
+
+> Ported `lineCommentAt()` in and rewrote `codeOnly()` to strip line comments through
+> it. Mutation-verified both ways: a held claim planted on the same line as an
+> `https://` link turns the guard red, while the identical mutation **passes 5/5 on
+> `origin/main`'s copy**; and the same claim inside a JSX comment or after a real `//`
+> comment stays correctly ignored, so the fix does not over-correct. No hidden
+> violation was revealed — blind guard, clean content, same as the other two.
+>
+> `lineCommentAt()` now exists in **three** test files with identical bodies. A fourth
+> copy is how this recurs. Extracting it to a shared test helper is the right
+> follow-up; it was left out of this change to keep the diff to the guard itself.
+
+The original finding, retained:
 
 `maanta-app/src/lib/__tests__/held-claims.test.ts:42`:
 

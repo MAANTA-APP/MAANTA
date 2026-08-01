@@ -37,9 +37,44 @@ function walk(dir: string, exts: string[]): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
+/**
+ * Line comment start, but not the `//` in `https://…` URLs.
+ *
+ * Ported from `038e3bc0`, which fixed exactly this in `marketing-shell.test.ts`
+ * and `pricing-copy.test.ts` and left this file carrying the bug — three files
+ * had the defect, two were patched. Drift **D38**.
+ *
+ * The old stripper here was `.replace(/\/\/.*$/gm, "")`, which truncates every
+ * line from its first `//`. Marketing JSX is full of `https://` links, so any
+ * held claim sharing a line with one was deleted before the scan ever saw it —
+ * and the guard reported green for the half of the line it had thrown away. That
+ * is the failure mode this whole file exists to prevent, reproduced in the file's
+ * own machinery.
+ */
+function lineCommentAt(line: string, start: number): number {
+  let pos = start;
+  while (pos < line.length) {
+    const idx = line.indexOf("//", pos);
+    if (idx === -1) return -1;
+    if (idx > 0 && line[idx - 1] === ":") {
+      pos = idx + 2;
+      continue;
+    }
+    return idx;
+  }
+  return -1;
+}
+
 /** Comments explain why a claim was withheld; they are not published copy. */
 function codeOnly(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .map((line) => {
+      const idx = lineCommentAt(line, 0);
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join("\n");
 }
 
 const TSX = walk(path.join(SRC, "app", "(marketing)"), [".tsx"]).concat(

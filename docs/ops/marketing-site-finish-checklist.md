@@ -84,7 +84,11 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 - [ ] `marketing-analytics.test.ts` — payload privacy → add a `name` or `phone` field to a `trackMarketing` call
 - [ ] `marketing-a11y.test.ts` — link integrity / one `<main>` / per-page metadata → point a footer link at a dead route
 - [ ] `scripts/check-tokens.mjs` — plant a `{{TOKEN}}` in a rendered page; `npm run build` must fail
-- [ ] **Tenth row — `held-claims.test.ts:42`**: `lineCommentAt()` from `038e3bc0` ported in; confirm a `wa.me` URL on a line with `//` is now visible to the scanner
+- [x] **Tenth row — `held-claims.test.ts`**: `lineCommentAt()` ported in and `codeOnly()`
+      rewritten. Planted `anything left in your balance stays yours` on the same line as
+      an `https://` link → **FAIL observed**; **same mutation passes 5/5 on `origin/main`'s
+      copy**. Negative controls green (claim inside a `{/* */}` comment, and after a real
+      `//` comment, both still ignored). Reverted. **D38 closed.**
 - [ ] Any guard that cannot be made to fail is fixed or deleted — **not left green**
 - [ ] Mutation table committed
 - [ ] Every guard that asserts a *rendered* property has been rewritten to read `.next/server/app/**` — model on `scripts/check-tokens.mjs`
