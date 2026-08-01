@@ -51,14 +51,36 @@ const BUILD_DIR = process.argv[2] ?? ".next/server/app";
 /**
  * Routes that must ship a working form in prerendered HTML.
  *
- * `needle` is a distinctive string from the form's own copy. A `<form>` tag alone
- * would be satisfied by any form on the page — the site header could grow a
- * search box and mask the real regression — so each route also names something
- * only its form renders.
+ * `formNeedle` is a string rendered **inside** the route's own `<form>` — a field
+ * label, not a section heading. Every assertion about controls is made against
+ * the form that contains it, never against the document.
+ *
+ * That binding is the point, and the first version of this file got it wrong: it
+ * tested for a `<form>` anywhere, a control anywhere, and the copy anywhere, as
+ * three independent document-wide searches. A header search box would have
+ * satisfied the first two while the route's form was missing entirely — a gate
+ * that passes while the thing it guards is gone, which is the exact vacuity this
+ * repo keeps producing and this script's docblock claims to avoid.
+ *
+ * `alsoOnPage` covers markup the same failure removes but which lives outside the
+ * `<form>`: on `/contact` the whole topic router went with it. Verified non-vacuous
+ * rather than assumed — on a real build of the pre-fix source these strings are
+ * absent from the HTML entirely, RSC flight payload included, because the bailed-out
+ * subtree is not serialised.
  */
 const MUST_PRERENDER_A_FORM = [
-  { route: "/contact", file: "contact.html", needle: "What is this about?" },
-  { route: "/merchants/join", file: "merchants/join.html", needle: "Shop name" },
+  {
+    route: "/contact",
+    file: "contact.html",
+    formNeedle: "Your message",
+    alsoOnPage: ["What is this about?", "I am a mall operator"],
+  },
+  {
+    route: "/merchants/join",
+    file: "merchants/join.html",
+    formNeedle: "Shop name",
+    alsoOnPage: ["Get started"],
+  },
 ];
 
 /** Known-dynamic routes with forms: no build artefact exists, so they are named. */
@@ -78,7 +100,7 @@ if (!existsSync(BUILD_DIR)) {
 const problems = [];
 let checked = 0;
 
-for (const { route, file, needle } of MUST_PRERENDER_A_FORM) {
+for (const { route, file, formNeedle, alsoOnPage } of MUST_PRERENDER_A_FORM) {
   const full = path.join(BUILD_DIR, file);
   if (!existsSync(full)) {
     // Not a skip. This route is declared prerendered; if it no longer is, either
@@ -92,13 +114,31 @@ for (const { route, file, needle } of MUST_PRERENDER_A_FORM) {
   checked++;
   const html = readFileSync(full, "utf8");
 
-  if (!/<form[\s>]/.test(html)) problems.push(`${route}: no <form> in server HTML`);
-  if (!/<input[\s>]|<textarea[\s>]|<select[\s>]/.test(html)) {
-    problems.push(`${route}: a <form> with no input, textarea or select`);
+  // HTML forbids nested forms, so a non-greedy match to the first </form> is a
+  // whole form and never a fragment of two.
+  const forms = html.match(/<form\b[\s\S]*?<\/form\s*>/g) ?? [];
+  if (forms.length === 0) {
+    problems.push(`${route}: no <form> in server HTML`);
+  } else {
+    const target = forms.filter((f) => f.includes(formNeedle));
+    if (target.length === 0) {
+      problems.push(
+        `${route}: ${forms.length} <form> element(s) in server HTML, none containing ` +
+          `"${formNeedle}" — this route's own form is not among them`
+      );
+    } else if (!target.some((f) => /<(?:input|textarea|select)\b/.test(f))) {
+      problems.push(
+        `${route}: the <form> containing "${formNeedle}" has no input, textarea or select`
+      );
+    }
   }
-  if (!html.includes(needle)) {
-    problems.push(`${route}: the form's own copy ("${needle}") is not in server HTML`);
+
+  for (const copy of alsoOnPage) {
+    if (!html.includes(copy)) {
+      problems.push(`${route}: "${copy}" is not in server HTML`);
+    }
   }
+
   if (html.includes("BAILOUT_TO_CLIENT_SIDE_RENDERING")) {
     problems.push(
       `${route}: BAILOUT_TO_CLIENT_SIDE_RENDERING — a subtree was skipped at build time. ` +
