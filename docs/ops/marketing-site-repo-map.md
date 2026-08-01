@@ -46,10 +46,37 @@ marked UNVERIFIABLE HERE:
 | **LEG-01** — unfinished cells | **CONFIRMED EXACTLY.** Three `PendingValue` markers live and no more — `{{CLERK_REGION}}`, `{{SENTRY_REGION}}` on `/privacy`; `{{AUTH_COOKIE_LIFETIME}}` on `/cookies`. |
 | **GAP-04** — canonicals | **CONFIRMED FROM RENDER.** The `/shoppers` HTML contains zero `rel="canonical"` and zero `og:url`. |
 
-Still unresolved: **GAP-03**. Settling rewrite-vs-redirect needs the *status line*
-of an unfollowed request, and every fetch path available here follows redirects.
-PostHog, which could settle it by pageview timing, requires interactive approval
-this session cannot give. See §4.
+### GAP-03 — the audit's evidence is refuted by control (2026-08-01)
+
+`/how-it-works` from production: **200**, `x-matched-path: /shoppers`, no
+`location`, body **60,642 bytes** — the audit's figures exactly.
+
+`/for-shoppers`, which is unambiguously a `permanent: true` **308** in the same
+`redirects()` array: **200**, `x-matched-path: /shoppers`, no `location`, body
+**60,642 bytes** — byte-identical.
+
+**The instrument follows redirects.** A 308 and a rewrite are indistinguishable
+through it, so the audit's observations cannot support "it is a rewrite, not a
+redirect". Every check that *can* discriminate points to a redirect: the config
+declares it in `redirects()` and in no `rewrites()`, there is **no `vercel.json`**
+anywhere in the repo so that file is the only routing source, and the phase-6
+audit recorded three 308s.
+
+**D39 stays open** — not because the finding is credible, but because closing it
+honestly needs a status line from a non-following request (`curl -sI`, no `-L`),
+which nothing in this environment can issue. PostHog would settle it by pageview
+timing but needs interactive approval.
+
+### Step 1 completed 2026-08-01
+
+PR #155 merged as `136af6b`, with a merge commit rather than a squash — a squash
+would have rewritten `038e3bc0` out of `main`'s ancestry and failed the acceptance
+check while appearing to pass it. Both criteria now hold:
+`git merge-base --is-ancestor 038e3bc0 origin/main` → OK, and Vercel
+`dpl_A14D3ms…` is `target: production`, `githubCommitRef: main`, sha `136af6b`,
+deployed 03:26:34 UTC by the GitHub integration on merge. Verified by rendered
+truth: live `robots.txt` serves the eleven operational `Disallow` lines with the
+four legal routes absent. **D37 closed.**
 
 ### Built-HTML baseline, captured 2026-08-01 (third pass)
 

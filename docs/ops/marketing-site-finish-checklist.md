@@ -51,7 +51,14 @@ The three source-vs-render disagreements. Record the observed value, not an opin
 - [x] ~~`.gitignore` conflict~~ — **does not occur.** `314b5ef` already carried the
       same three lines including `.tools/`; both sides are byte-identical. Prediction
       withdrawn.
-- [ ] `main` updated (fast-forward or PR merge) — **the remaining step**
+- [x] `main` updated — PR #155 merged as `136af6b`, **merge commit not squash**
+      (a squash would rewrite `038e3bc0` out of `main`'s ancestry and fail the
+      acceptance check below while appearing to pass)
+- [x] **`[EXT]`** production redeployed from `main` — `dpl_A14D3ms…`,
+      `githubCommitRef: main`, 03:26:34 UTC, by the GitHub integration on merge
+- [x] **`[EXT]`** verified by rendered truth: live `robots.txt` serves the eleven
+      operational `Disallow` lines, legal routes absent
+- [x] **D37 closed**
 - [ ] `git merge-base --is-ancestor 038e3bc0 origin/main && echo OK`
 - [ ] **`[EXT]`** production redeployed from `main`
 - [ ] **`[EXT]`** Vercel production deployment reports `githubCommitRef: main`
