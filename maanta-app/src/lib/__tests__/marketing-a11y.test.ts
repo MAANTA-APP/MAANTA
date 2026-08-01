@@ -49,34 +49,45 @@ describe("marketing accessibility and metadata", () => {
     expect(layout, "the shell needs a skip link").toContain('href="#main"');
   });
 
-  // Every top-level marketing page needs its own title and description, or it
-  // inherits the root's and every page shares one snippet in search results.
-  it("gives each top-level page its own metadata", () => {
-    // Maintained by hand, which is the weakness: `/pricing` shipped without
-    // metadata precisely because it was never added here, and `/merchants/join`
-    // still is missing (drift D52). A walk of every `page.tsx` under
-    // `(marketing)/` would need no list and would catch the next page added.
-    const TOP_LEVEL = [
-      "page.tsx",
-      path.join("shoppers", "page.tsx"),
-      path.join("merchants", "page.tsx"),
-      path.join("mall-operators", "page.tsx"),
-      path.join("pricing", "page.tsx"),
-      path.join("about", "page.tsx"),
-      path.join("contact", "page.tsx"),
-      path.join("privacy", "page.tsx"),
-      path.join("terms", "page.tsx"),
-      path.join("merchant-terms", "page.tsx"),
-      path.join("cookies", "page.tsx"),
-    ];
+  /**
+   * Every marketing page needs its own title and description, or it inherits the
+   * root's and every page shares one snippet in search results.
+   *
+   * **This walks `PAGES` rather than an enumerated list, and that is the fix, not
+   * a tidy-up.** It was a hand-maintained array of ten paths, which is a guard
+   * that only checks what someone remembered to add to it. Two pages were missing
+   * from it and shipped with no metadata at all — `/pricing`, the commercial
+   * page, and `/merchants/join`, the merchant lead form — while the assertion
+   * above them claimed to cover "every top-level page" (drift D52). The list was
+   * the defect; a page added tomorrow is now covered without anyone touching this
+   * file.
+   *
+   * `generateMetadata` counts. No marketing route uses it today — every one of
+   * them exports a static `metadata` — but a dynamic route legitimately would,
+   * and a guard that failed such a page would push the next author to delete the
+   * check rather than satisfy it.
+   */
+  it("gives every marketing page its own metadata", () => {
     const missing: string[] = [];
-    for (const p of TOP_LEVEL) {
-      const src = read(path.join(MARKETING, p));
-      if (!/export const metadata/.test(src)) missing.push(`${p} — no metadata export`);
-      else if (!/title:/.test(src)) missing.push(`${p} — no title`);
-      else if (!/description:/.test(src)) missing.push(`${p} — no description`);
+    for (const f of PAGES) {
+      const src = read(f);
+      const hasStatic = /export const metadata/.test(src);
+      const hasDynamic = /export\s+(?:async\s+)?function\s+generateMetadata/.test(src);
+      if (!hasStatic && !hasDynamic) {
+        missing.push(`${rel(f)} — no metadata or generateMetadata export`);
+        continue;
+      }
+      // Only the static form can be checked field-by-field from source.
+      if (hasStatic) {
+        if (!/title:/.test(src)) missing.push(`${rel(f)} — no title`);
+        else if (!/description:/.test(src)) missing.push(`${rel(f)} — no description`);
+      }
     }
-    expect(missing, `Missing per-page metadata:\n${missing.join("\n")}`).toEqual([]);
+    expect(
+      missing,
+      `Missing per-page metadata — without it the page inherits the root's title\n` +
+        `and description, and shares one snippet in search results (drift D52):\n${missing.join("\n")}`
+    ).toEqual([]);
   });
 
   // A draft legal document indexed by Google outlives the draft.

@@ -260,3 +260,63 @@ offer renders `100` / `BBS Mall, Eastleigh` / `30 days` / `7-day` from the
 constants, the title is per-page, and there is no bare "Free" and no amber money.
 
 Still not viewed in a browser.
+
+## Update 2026-08-01 — `/merchants/join` metadata, and D52 closed
+
+The last open half of D52. It lagged behind `/pricing` for a real reason, not
+neglect: `/merchants/join` is a `"use client"` component, and **Next.js forbids
+`export const metadata` in a client component**. Adding the export was never the
+fix.
+
+It is now split on the `/waitlist` precedent already in this repo — a server
+`page.tsx` that exports metadata, wrapping `join-form.tsx` which holds the form.
+
+**The split was checked against D41, the failure it most resembles.** `/contact`
+shipped a form that existed in JSX and not in server HTML, because it called
+`useSearchParams()` inside a `Suspense` boundary. This form does neither, and the
+built output confirms it: `.next/server/app/merchants/join.html` contains a
+`<form>`, the "Shop name" and "Get started" strings, and **zero**
+`BAILOUT_TO_CLIENT_SIDE_RENDERING` markers.
+
+The description names the KES 30 fee, read from `SUCCESS_FEE_KES`. This is the
+page a merchant reaches from "list my shop", and the snippet is the last thing
+they read before clicking — the fee is the one fact that decides whether MAANTA
+is worth their time, so it should not be a surprise on the far side of a form.
+Metadata is rendered output, so a typed fee there would be a second place for the
+frozen number to drift.
+
+### The guard now walks, and that is the actual fix
+
+The metadata check was a hand-maintained array of ten paths. A list only checks
+what someone remembered to add to it, and **both** misses were misses of memory.
+It now walks every `page.tsx` under `(marketing)/`, so a page added tomorrow is
+covered without anyone touching the test. It accepts `generateMetadata` as well
+as static `metadata` — no marketing route uses it today, but a dynamic one
+legitimately would, and a guard that failed such a page would push the next
+author to delete the check rather than satisfy it.
+
+Proved by mutation, including the case the old list could never have caught:
+
+| Mutation | Result |
+|---|---|
+| A brand-new page added with no metadata | ❌ fails |
+| `metadata` export removed from `/merchants/join` | ❌ fails |
+| Unmodified (all 17 marketing pages) | ✅ passes |
+
+### What the split broke, and why that was good
+
+Moving the form moved the `formSubmit` tracking with it, and
+`marketing-analytics.test.ts` asserted that call lived in `page.tsx`. It failed —
+correctly. An untracked merchant lead form is invisible in the funnel, and
+nothing else in the build would have noticed. Both references now point at
+`join-form.tsx`.
+
+Worth generalising: this session has now had **three** guards catch a real
+mistake — `auth-routes` on the ternary, `typecheck` on the undestructured
+`media` prop, and this one. Each was caught by something that reads structure
+rather than behaviour, and in each case the fix was to satisfy the guard rather
+than relax it. The one guard that *was* relaxed (`pricing-copy`'s node check,
+D51) was relaxed because it was in direct conflict with another rule, and the
+widening was mutation-tested in both directions.
+
+**D52 is closed.** Suite 515/515, build and `check-tokens` clean.
