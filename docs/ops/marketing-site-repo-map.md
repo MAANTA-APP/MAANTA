@@ -502,22 +502,34 @@ server-rendered … **Copy that pattern**."*
 Repo truth: `maanta-app/src/app/(marketing)/waitlist/waitlist-form.tsx:1` is
 **`"use client"`**, with `<form>` at line 112 and the `hp_url` honeypot at line 176.
 
-It is not a server component. It prerenders because it is a client component that
-**does not call `useSearchParams()`** — so React can render it to HTML at build
-time and hydrate it later. The transferable pattern is therefore:
+It is not a server component. It is a client component that **does not call
+`useSearchParams()`**, which is what lets React render it to HTML and hydrate it
+later. The transferable pattern is therefore:
 
 > **a client form with no `useSearchParams()`, and no `Suspense` boundary around
 > it** — not "a server-rendered form".
 
 Getting this wrong sends Cursor on a rewrite to server actions that the codebase
-does not need. Of the plan's three options, the second — read `?topic=` from the
-page's `searchParams` prop and pass it down as a plain prop — matches this codebase
-best and deletes the `Suspense` boundary entirely. **Caveat: accepting
-`searchParams` opts the route into dynamic rendering in the App Router**, so
-`/contact` stops being a static prerender. Confirm that trade is acceptable before
-committing to it; the cheapest alternative that keeps the prerender is to drop
-`useSearchParams` and read `?topic=` in a `useEffect` after hydration, which leaves
-the form itself statically rendered.
+does not need.
+
+> **CORRECTION to this correction, 2026-08-01 — drift D55.** An earlier version of
+> the paragraph above said `/waitlist` *"prerenders"*. It does not. Separate the
+> component from the route: `waitlist-form.tsx` on its own would prerender, but
+> `waitlist/page.tsx` accepts a `searchParams` prop, and accepting `searchParams`
+> opts the route into dynamic rendering. `/waitlist` is `ƒ` in every build, which
+> is exactly why `scripts/check-canonicals.mjs` and `scripts/check-server-forms.mjs`
+> both have to report it as having no build artefact to inspect. The transferable
+> pattern in the blockquote is unaffected and was what Step 5 applied.
+
+Of the plan's three options, the second — read `?topic=` from the page's
+`searchParams` prop and pass it down as a plain prop — deletes the `Suspense`
+boundary entirely. **Caveat: accepting `searchParams` opts the route into dynamic
+rendering in the App Router**, so `/contact` stops being a static prerender.
+
+**Step 5 took the third option instead**: drop `useSearchParams` and read `?topic=`
+in a `useEffect` after hydration. It puts the form in the HTML *and* keeps the
+prerender, so `/contact` stays `○` and stays inside the canonical guard's coverage.
+The second option would have traded a visible defect for an invisible one.
 
 ### RESOLVED — the audit's open telemetry question
 

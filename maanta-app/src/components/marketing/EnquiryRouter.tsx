@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { TextField, inputClass } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
@@ -28,6 +27,35 @@ import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
  * "I want to list my shop" is a route, not a topic. The copy deck is explicit —
  * "this is not a contact enquiry" — so it links straight to `/merchants/join`
  * rather than dropping a would-be merchant into a support queue.
+ *
+ * ## Why the topic is read from `window`, not `useSearchParams` (drift D41)
+ *
+ * This component called `useSearchParams()`, which opts the calling subtree out
+ * of static rendering. `/contact` wrapped it in `Suspense` to contain that — and
+ * the containment worked exactly as designed: React server-rendered the
+ * *fallback*, a grey pulsing rectangle, and nothing else. The page shipped **zero
+ * `<form>` elements and zero inputs** directly above server-rendered copy
+ * promising "This form and email — We reply within 1 business day". The form was
+ * correctly written, correctly wired to `/api/contact`, and never rendered.
+ *
+ * It is D28's successor. D28 was a form that POSTed nowhere while telling the
+ * sender it had arrived; that was fixed, and the same promise then broke one
+ * layer down.
+ *
+ * Reading the parameter in an effect keeps the whole page a static prerender —
+ * the markup is in the HTML at build time and the topic is selected on hydration.
+ * The alternative in `marketing-site-repo-map.md` §6, taking `searchParams` as a
+ * prop on the page, also puts the form in the HTML but makes `/contact`
+ * dynamically rendered, which is what `/waitlist` did and why it has no build
+ * artefact for the canonical guard to read. That trade buys nothing here.
+ *
+ * The cost of an effect is that it reads the URL once, on mount, instead of
+ * tracking it. That is not a regression in practice: the only inbound links
+ * carrying `?topic=` are the two `/mall-operators` CTAs, both to
+ * `?topic=mall-operator`, and nothing on `/contact` changes the parameter while
+ * you are on the page — so the reactive dependency never fired. If a future
+ * surface links between topics *within* `/contact`, this needs a `popstate`
+ * listener, not `useSearchParams`.
  */
 
 type Choice = ContactTopic | "list-shop";
@@ -81,7 +109,6 @@ const CHOICES: ReadonlyArray<{ slug: Choice; label: string }> = [
 ];
 
 export function EnquiryRouter() {
-  const searchParams = useSearchParams();
   const [choice, setChoice] = useState<Choice | null>(null);
 
   const [name, setName] = useState("");
@@ -94,17 +121,20 @@ export function EnquiryRouter() {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
-  // Pre-select from the URL. Runs on mount and whenever the param changes, so an
-  // inbound link from /mall-operators lands on the right topic.
+  // Pre-select from the URL, on mount only, so an inbound link from
+  // /mall-operators lands on the right topic. Reading `window.location` in an
+  // effect rather than calling `useSearchParams` is what keeps this whole page a
+  // static prerender — see the docblock above and drift D41. The effect never
+  // runs on the server, so it cannot affect the rendered HTML.
   useEffect(() => {
-    const raw = searchParams.get("topic");
+    const raw = new URLSearchParams(window.location.search).get("topic");
     if (raw === "list-shop") {
       setChoice("list-shop");
       return;
     }
     const t = normaliseTopic(raw);
     if (t !== "general") setChoice(t);
-  }, [searchParams]);
+  }, []);
 
   // The topic sent to the API. "list-shop" is never submitted — it is a redirect.
   const submittedTopic: ContactTopic | "general" =
