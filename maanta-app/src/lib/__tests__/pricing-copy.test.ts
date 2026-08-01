@@ -166,8 +166,18 @@ describe("public pricing copy matches the frozen commercial rules", () => {
       if (!statesCap) {
         problems.push(`  ${rel(f)}  mentions the Elite trial but not the first-100 cap`);
       }
-      if (!/BBS/i.test(text)) {
-        problems.push(`  ${rel(f)}  mentions the Elite trial but not that it is BBS Mall only`);
+      // The node must be *stated*, but — like the cap above — it need not be
+      // typed. A page rendering `FACTS.launchMall` names the node more reliably
+      // than a literal "BBS Mall" does, and cannot satisfy a check that only
+      // looks for the literal, because this scan reads source rather than
+      // rendered output. Requiring the literal would have forced the copy to
+      // hardcode the very value the marketing hard rule single-sources — the
+      // same bind the cap check resolved the same way (drift D51).
+      if (!/BBS/i.test(text) && !/launchMall/.test(text)) {
+        problems.push(
+          `  ${rel(f)}  mentions the Elite trial but not the node it is scoped to ` +
+            `(render FACTS.launchMall, or name BBS Mall directly)`
+        );
       }
       if (!/success fee/i.test(text)) {
         problems.push(

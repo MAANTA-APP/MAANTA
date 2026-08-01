@@ -186,3 +186,77 @@ type but never destructured, so three references were `Cannot find name 'media'`
 Every marketing guard reads source as text, so none of them could see it. Prior
 sessions on this branch verified with `npm test` and `npm run build` only —
 which CLAUDE.md now says explicitly is not verified.
+
+## Update 2026-08-01 — the pricing page (drift D51, D52)
+
+`/pricing` was the last item on the gap list. Reading it turned up three
+problems, only one of which was visual.
+
+### What the cards now do
+
+**Both cards state the success fee, in the same words and the same position.**
+The old layout put the fee in Standard's small print and showed Elite as a bare
+monthly price, which reads as "Elite is the paid plan, so the fee is included".
+It is not — the fee is identical on both plans, and that *is* the pricing model.
+A merchant who discovers it after signing up discovers it as something withheld.
+Elite's card now says it outright: *the fee is the same on both plans; Elite buys
+capacity, not a cheaper redemption.*
+
+**The accent moved to the action.** The page had amber on the Elite heading and
+an amber-tinted offer banner — and **no call to action anywhere**. The accent was
+decorating a page a merchant could not act on. Elite is now carried by the dark
+fill, and the one amber element is a `CtaBand` CTA to `/merchants/join`.
+
+Beyond that: shared `Section` primitives instead of a bare `div`, a real `<h1>`,
+feature lists where the icon carries meaning rather than colour, and the boost
+price kept inside the Elite card where the plan context is (it is Elite-only —
+`BOOST_ELITE_ONLY`, and stating it outside that context is how D34 happened).
+
+### D51 — the launch offer was stated twice and gated once
+
+`/merchants` renders the offer from `OFFERS.eliteTrial` and wraps it in
+`isOfferLive(...)`, so a closed offer vanishes (risk R7). `/pricing` did neither:
+it typed the cohort size, trial length and grace period as literals, and stated
+the offer unconditionally. So four numbers duplicated constants that already
+existed, and on `expiresOn` the two pages would have disagreed — one commercial
+fact, two pages, no shared source, which is D34 again.
+
+Both halves are fixed. No visible change today (`expiresOn` is 2026-10-31); the
+change is that the block will now disappear on the same day `/merchants` drops
+it.
+
+**This needed a guard widened, and that is worth understanding before touching
+it again.** `pricing-copy.test.ts` required the literal string `BBS` on any page
+mentioning the trial — but it scans *source*, not rendered output, so no page
+rendering `FACTS.launchMall` can ever satisfy it. The guard and the
+single-sourcing rule were in direct conflict: satisfying one broke the other. It
+now also accepts `launchMall`, which is the same accommodation its cap check
+already made for `cohortShops`, for the same reason.
+
+### D52 — the metadata guard's intent was wider than its list
+
+`marketing-a11y.test.ts` says "every top-level marketing page needs its own title
+and description", then enumerates ten paths. `/pricing` and `/merchants/join` are
+not among them and had no `metadata` export at all, so both shipped sharing the
+homepage's title and search snippet.
+
+`/pricing` now has its own and is on the list. **`/merchants/join` is
+deliberately not fixed here** — it needs a copy decision about what a lead form's
+search snippet should say, which is a marketing call, not a mechanical one. D52
+stays open for it.
+
+The enumerated list is the real weakness: a guard walking every `page.tsx` under
+`(marketing)/` would have caught both without anyone maintaining a list, and
+would catch the next page added. Recorded in the row rather than done here.
+
+### Verified
+
+All five gates: lint, typecheck, **515/515**, build + `check-tokens` clean.
+Three mutations confirm the guards are not vacuous — removing the node reference
+from `/pricing` fails, removing the success-fee caveat fails, and deleting the
+`metadata` export fails (which it did **not** before this change). Rendered
+output checked in `.next/server/app/pricing.html`: both cards show `KES 30`, the
+offer renders `100` / `BBS Mall, Eastleigh` / `30 days` / `7-day` from the
+constants, the title is per-page, and there is no bare "Free" and no amber money.
+
+Still not viewed in a browser.

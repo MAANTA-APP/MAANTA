@@ -1,70 +1,176 @@
+import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
-import { FACTS } from "@/lib/marketing/facts";
+import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
+import { IconCheck } from "@/components/ui/icons";
+import { CtaBand, Section } from "@/components/marketing/sections";
 
 /**
  * 12e Pricing — Standard vs Elite.
  *
  * Every number here is a public commercial promise, so it is either imported
- * from the single frozen constant (`SUCCESS_FEE_KES`) or stated in the exact
- * terms of the frozen "Launch offer" rule. Two things this page must never do:
+ * from the single frozen constant (`SUCCESS_FEE_KES`) or read from
+ * `lib/marketing/facts.ts`. Two things this page must never do:
  *
  *  1. Print "Free" as Standard's price. Standard has no subscription, but a
  *     Standard merchant still pays the success fee on every verified redemption
  *     — "Free" reads as "costs nothing" and is a forbidden framing.
  *  2. State the Elite trial without its qualifications. The frozen rule is
- *     capped and node-scoped ("first 100 BBS Mall merchants") and the success
- *     fee is still charged during the trial. Dropping either turns a bounded
- *     promo into an unbounded promise the product does not keep.
+ *     capped and node-scoped, and the success fee is still charged during the
+ *     trial. Dropping either turns a bounded promo into an unbounded promise.
  *
  * Enforced by `src/lib/__tests__/pricing-copy.test.ts`.
+ *
+ * **Both plans state the success fee on the card.** The old layout put the fee
+ * in Standard's small print and left Elite showing a bare monthly price, which
+ * reads as "Elite is the paid plan, so the fee is included". It is not — the fee
+ * is identical on both plans, and that is the whole pricing model. A merchant
+ * who learns this after signing up learns it as something withheld.
+ *
+ * **The accent is spent on the action, not on the plan name.** This page
+ * previously had amber on the Elite heading and an amber-tinted offer banner,
+ * and no call to action anywhere — the accent decorated a page a merchant could
+ * not act on. Amber is now on one CTA, which is the frozen rule.
+ *
+ * **The launch offer is gated and single-sourced** (drift D51). `/merchants`
+ * already read it from `OFFERS.eliteTrial` and hid it once expired; this page
+ * typed the numbers and stated it unconditionally, so the two would have
+ * disagreed the day the offer closed.
  */
+
+export const metadata: Metadata = {
+  title: "Pricing — MAANTA",
+  description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
+};
+
+/** One feature row. The icon carries the meaning, never colour alone. */
+function Feature({ children, tone = "dark" }: { children: React.ReactNode; tone?: "dark" | "light" }) {
+  return (
+    <li className="flex gap-2.5">
+      <IconCheck
+        className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "light" ? "text-white/60" : "text-verified"}`}
+      />
+      <span
+        className={`text-sm leading-relaxed ${tone === "light" ? "text-white/80" : "text-secondary"}`}
+      >
+        {children}
+      </span>
+    </li>
+  );
+}
+
 export default function PricingPage() {
   const fee = formatKes(SUCCESS_FEE_KES);
   const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
+  const trial = OFFERS.eliteTrial;
+  const trialLive = isOfferLive(trial);
+
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
-      <h1 className="text-center text-3xl font-black text-ink">Simple pricing</h1>
-      <div className="mt-10 grid gap-6 sm:grid-cols-2">
-        <div className="rounded-card border border-line bg-white p-6">
-          <h2 className="text-lg font-bold text-ink">Standard</h2>
-          <p className="mt-2 text-sm text-muted">
-            {FACTS.standardActiveDeals} standard deal · {fee} success fee per verified
-            redemption
-          </p>
-          <p className="mt-6 text-3xl font-black text-ink">No monthly fee</p>
-          <p className="mt-1 text-xs text-faint">
-            you pay {fee} only when a redemption is verified
-          </p>
+    <>
+      <Section className="border-b border-line">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">Pricing</p>
+        <h1 className="mt-2 max-w-3xl text-3xl font-black leading-[1.1] text-ink sm:text-4xl">
+          One fee. Two plans. No cut of your sale.
+        </h1>
+        <p className="mt-5 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
+          Every plan pays {fee} when a shopper&apos;s code is verified at your counter. The
+          plan decides how many deals you can run — never what a redemption costs.
+        </p>
+
+        <div className="mt-10 grid items-start gap-5 lg:grid-cols-2">
+          {/* Standard */}
+          <div className="rounded-card border border-line bg-white p-6 shadow-card sm:p-7">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Standard</h2>
+            <p className="mt-4 text-3xl font-black leading-none text-ink">No monthly fee</p>
+            {/*
+              The fee sits directly under the price on both cards, in the same
+              position and the same words, so the two are read as one number
+              rather than compared as different offers.
+            */}
+            <p className="mt-2 text-sm font-semibold text-ink">
+              {fee} per verified redemption
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-faint">
+              Charged from your wallet when staff verify a code. A code that expires or is
+              rejected costs nothing.
+            </p>
+            <ul className="mt-6 space-y-2.5 border-t border-line pt-5">
+              <Feature>
+                {FACTS.standardActiveDeals} active deal at a time
+              </Feature>
+              <Feature>
+                Staff accounts with their own permissions
+                {PLAN_AVAILABILITY.staff === "all" ? " — on every plan" : null}
+              </Feature>
+              <Feature>M-Pesa wallet top-ups</Feature>
+              <Feature>No listing fee, no percentage of the sale, no monthly minimum</Feature>
+            </ul>
+          </div>
+
+          {/* Elite — dark, so it reads as the upgrade without spending the accent. */}
+          <div className="rounded-card border border-ink bg-ink p-6 shadow-card sm:p-7">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-white/60">Elite</h2>
+            <p className="mt-4 flex items-baseline gap-1.5">
+              <span className="tnum text-3xl font-black leading-none text-white">{elite}</span>
+              <span className="text-sm font-semibold text-white/60">per month</span>
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              plus {fee} per verified redemption
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-white/50">
+              The fee is the same on both plans. Elite buys capacity, not a cheaper
+              redemption.
+            </p>
+            <ul className="mt-6 space-y-2.5 border-t border-white/15 pt-5">
+              <Feature tone="light">Everything in Standard</Feature>
+              <Feature tone="light">
+                {FACTS.eliteActiveDeals} active deals at a time
+              </Feature>
+              <Feature tone="light">Flash deals — short windows, top of the feed</Feature>
+              {/*
+                The boost price belongs in the Elite card: boosts raise
+                BOOST_ELITE_ONLY for any non-Elite merchant (migration
+                20260715194145), and stating the price outside the plan context is
+                how /pricing and /merchants came to disagree (drift D34).
+              */}
+              <Feature tone="light">
+                Boosts — {boost} per {FACTS.boostHours}h, charged from your wallet
+              </Feature>
+            </ul>
+          </div>
         </div>
-        <div className="rounded-card border-[3px] border-ink bg-ink p-6">
-          <h2 className="text-lg font-bold text-brand">Elite</h2>
-          <p className="mt-2 text-sm text-white/70">
-            {elite}/mo + {fee}/redemption · {FACTS.eliteActiveDeals} active deals · flash
-            deals · boosts
-          </p>
-          <p className="mt-6 text-3xl font-black text-white">{elite}</p>
-          <p className="mt-1 text-xs text-white/50">per month</p>
-          {/*
-            The boost price belonged here and was not stated on this page at all —
-            it appeared only on /merchants, which is how the two pages came to
-            disagree on both price and availability (drift D34). Boosts are an
-            Elite feature, so the price belongs in the Elite card where the plan
-            context is, not in a bullet a Standard merchant reads first.
-          */}
-          <p className="mt-3 border-t border-white/15 pt-3 text-xs text-white/50">
-            Boosts {boost} per {FACTS.boostHours}h, charged from your wallet
-          </p>
-        </div>
-      </div>
-      <p className="mt-8 rounded-full bg-brand-tint px-5 py-3 text-center text-sm font-semibold text-ink">
-        Launch offer: the first 100 BBS Mall merchants get a 30-day Elite trial
-      </p>
-      <p className="mt-2 text-center text-xs text-faint">
-        The {fee} success fee still applies during the trial. After 30 days there is a
-        7-day grace period, then the account stays on Standard unless you convert.
-      </p>
-    </div>
+      </Section>
+
+      {/*
+        Time-bound, and gated the same way /merchants gates it (D51). When
+        `expiresOn` passes this block disappears rather than promising a closed
+        offer. The cap, the node and the fee caveat are all stated, which
+        pricing-copy.test.ts requires of any page that mentions the trial.
+      */}
+      {trialLive ? (
+        <Section tone="paper">
+          <h2 className="text-2xl font-black text-ink sm:text-3xl">Launch offer</h2>
+          <div className="mt-4 max-w-3xl space-y-3 text-base leading-relaxed text-secondary">
+            <p>
+              The first {trial.cohortShops} merchants we activate at {FACTS.launchMall} get{" "}
+              {trial.days} days of Elite, at no monthly cost.
+            </p>
+            <p className="text-ink">
+              The {fee} success fee still applies throughout the trial. When the{" "}
+              {trial.days} days end there is a {trial.postTrialGraceDays}-day grace period,
+              then the account stays on Standard unless you convert.
+            </p>
+          </div>
+        </Section>
+      ) : null}
+
+      <CtaBand
+        title="Publish your first deal today."
+        body="No listing fee to join, and nothing to pay until a shopper's code is verified at your counter."
+        primary={{ label: "List your shop", href: "/merchants/join" }}
+        secondary={{ label: "How it works at your counter", href: "/merchants#counter" }}
+      />
+    </>
   );
 }

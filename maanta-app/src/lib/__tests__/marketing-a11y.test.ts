@@ -52,11 +52,16 @@ describe("marketing accessibility and metadata", () => {
   // Every top-level marketing page needs its own title and description, or it
   // inherits the root's and every page shares one snippet in search results.
   it("gives each top-level page its own metadata", () => {
+    // Maintained by hand, which is the weakness: `/pricing` shipped without
+    // metadata precisely because it was never added here, and `/merchants/join`
+    // still is missing (drift D52). A walk of every `page.tsx` under
+    // `(marketing)/` would need no list and would catch the next page added.
     const TOP_LEVEL = [
       "page.tsx",
       path.join("shoppers", "page.tsx"),
       path.join("merchants", "page.tsx"),
       path.join("mall-operators", "page.tsx"),
+      path.join("pricing", "page.tsx"),
       path.join("about", "page.tsx"),
       path.join("contact", "page.tsx"),
       path.join("privacy", "page.tsx"),
