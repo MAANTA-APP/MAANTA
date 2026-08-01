@@ -6,6 +6,7 @@ import { ENTITY, ENTITY_LINE, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
 import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { CtaBand, Section, SectionHeading } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/about` — set in prose, not cards.
@@ -45,15 +46,15 @@ import { CtaBand, Section, SectionHeading } from "@/components/marketing/section
  * is home" is recorded as an open issue rather than silently actioned.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/about",
   title: "About — MAANTA",
   description:
     "MAANTA makes the deals inside a mall visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh. Here is how it works and how we make money.",
-  openGraph: {
-    title: "What MAANTA is, and how it makes money.",
-    description: "Live at BBS Mall, Eastleigh, Nairobi.",
-  },
-};
+  ogTitle: "What MAANTA is, and how it makes money.",
+  ogDescription:
+    "The deals inside a mall, visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh.",
+});
 
 export default function AboutPage() {
   const fee = formatKes(FACTS.successFeeKes);

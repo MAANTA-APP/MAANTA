@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatKes } from "@/lib/ui";
 import { FACTS } from "@/lib/marketing/facts";
 import { FaqAccordion, Section, SectionHeading } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/faq` — restructured by audience (`website-footer-legal-docs-plan.md` §3:
@@ -23,11 +24,12 @@ import { FaqAccordion, Section, SectionHeading } from "@/components/marketing/se
  * statement about what happens to a remaining wallet balance.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/faq",
   title: "FAQ — MAANTA",
   description:
     "Answers for shoppers, merchants and mall operators. What MAANTA costs, how a code is verified at the counter, and where it is live.",
-};
+});
 
 export default function FaqPage() {
   const fee = formatKes(FACTS.successFeeKes);

@@ -4,11 +4,13 @@ import {
   DownloadInstallPanel,
 } from "./download-install-panel";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/download",
   title: "Install Maanta",
   description:
     "Add Maanta to your phone home screen — shoppers, merchants, agents, and founders.",
-};
+});
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /** PWA install landing — primary path for “get the app” links. */
 export default function DownloadPage() {

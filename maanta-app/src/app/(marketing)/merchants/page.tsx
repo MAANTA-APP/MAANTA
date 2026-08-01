@@ -15,6 +15,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/merchants` — merchant marketing page. 301 target for `/for-merchants`.
@@ -46,14 +47,18 @@ import { SectionInView } from "@/components/marketing/tracked";
 // Metadata is rendered output too — it is what a search result and a shared
 // link say — so the fee reads from FACTS here for the same reason it does in
 // the body. These two strings were literals until 2026-08-01.
-export const metadata: Metadata = {
+//
+// The D40 branch this was reconciled with predates that change and had them as
+// typed "KES 30" literals. Resolved toward FACTS: taking the branch verbatim
+// would have reintroduced a second declaration of the frozen fee in rendered
+// output, which is the D34 failure the marketing hard rule exists to stop.
+export const metadata: Metadata = pageMetadata({
+  path: "/merchants",
   title: "For merchants — MAANTA",
   description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
-  openGraph: {
-    title: "You only pay when a customer walks in.",
-    description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter.`,
-  },
-};
+  ogTitle: "You only pay when a customer walks in.",
+  ogDescription: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter.`,
+});
 
 export default function MerchantsPage() {
   const fee = formatKes(FACTS.successFeeKes);
