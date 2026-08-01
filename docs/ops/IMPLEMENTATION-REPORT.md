@@ -232,7 +232,7 @@ All verified returning 200 against a production build (`next start`, port 3100).
 
 | Item | Status | Reason |
 |---|---|---|
-| **Opening credit + Elite trial sections** | Built, **not rendering** | Both `OFFERS.*.expiresOn` are `{{SET_A_DATE}}`. `isOfferLive()` gates them, so they are absent rather than stale. **Filling two dates in `facts.ts` is the only change needed.** This is a live gap on the merchant acquisition path. |
+| **Opening credit + Elite trial sections** | **Rendering** — see §14.3 | Dates set to **2026-10-31** in `facts.ts`; `isOfferLive()` gates them so they vanish on expiry rather than going stale. |
 | **Founder biography** | Omitted | `{{FOUNDER_BIO}}` unfilled — deck blocking dependency A. |
 | **PostHog events on doors / CTAs / form submits** | **Done** — see §13 | Initially deferred on consent grounds; that reasoning was wrong and is corrected in §13. |
 | **OG images** | **Done** — see §13 | Six generated per-route images via `next/og`. |
@@ -286,7 +286,7 @@ Verified against **rendered build output**, not against the source I wrote.
 | Monthly operating report | **Reworded** — describes what a pilot includes, not a deliverable being produced. |
 | BBS Mall as signed partner / 3 months live | **ABSENT in production.** Renders only when `NEXT_PUBLIC_SCENARIO_MODE=true`. |
 | "121 shops · 190 live deals" | **ABSENT** — 0 occurrences in the production build. |
-| Every stated response time | **ABSENT** — no window published anywhere. |
+| Every stated response time | **Published** — see §14.3 ruling 2 | WhatsApp same day · form 1 business day · operators 2 business days, from `RESPONSE_TIMES` in `facts.ts`. |
 | CBK licence identifier (real or placeholder) | **ABSENT** — no `cbk` key exists in `PLACEHOLDER_IDS`. |
 
 > **Two of these reached the build before being caught.** `/merchant-terms` and
@@ -317,10 +317,7 @@ do not conflate them.
 
 ## 10. Known issues and open questions
 
-1. **The two offer dates are the highest-value unblock.** Until
-   `OFFERS.*.expiresOn` are set, the KES 300 opening credit and the 30-day Elite
-   trial do not appear anywhere on the site.
-2. **Confirm one real PostHog event after deploy.** The wiring is unit-tested
+1. **Confirm one real PostHog event after deploy.** The wiring is unit-tested
    but has never reached a real project (§13). The audience-door click-through is
    the number the Home deck calls "the single most useful number this site can
    produce in its first month" — check it arrives before trusting the dashboard.
@@ -448,9 +445,10 @@ instead. **Confirm one real event in the PostHog UI after deploy.**
 
 Split into Shoppers / Merchants / Mall operators per
 `website-footer-legal-docs-plan.md` §3, and every number now reads from
-`facts.ts`. This page was the **last place on the marketing site where a frozen
-number was typed rather than imported** — it hardcoded "KES 30" and "15-minute"
-as prose strings with no constant behind them.
+`facts.ts`. This page was **one of the last marketing routes where frozen
+numbers were typed rather than imported** — it hardcoded "KES 30" and "15-minute"
+as prose strings with no constant behind them. Waitlist metadata and OG image
+headlines may still inline numbers; those surfaces were not in scope for this pass.
 
 Answers are kept consistent with the audience pages rather than reworded, so a
 shopper reading both is told the same thing twice. The two held claims stay held
@@ -470,13 +468,13 @@ risk R1 exists to prevent. Verified rendering at 1200×630 PNG, ~44 KB, with
 
 ### 13.4 Verification after this pass
 
-`npm test`: **475 passing, 60 files**. Typecheck, lint and build all clean;
+`npm test`: **481 passing, 61 files**. Typecheck, lint and build all clean;
 the token gate still reports no `{{TOKEN}}` in rendered output.
 
 ### 13.5 What §6 still leaves open
 
 Unchanged: cookie-consent mechanism, Lighthouse measurement, `/help` marketing
-variant, A/B variants, and the two offer dates. Added: confirm one live PostHog
+variant, A/B variants. Added: confirm one live PostHog
 event after deploy.
 
 ---
@@ -534,7 +532,9 @@ propagated it to the marketing footer.
 
 Same family as D28. Recorded and **closed** as **D36**: both now read
 `ENTITY.whatsappLink`, and a guard fails on any hardcoded `wa.me/` link outside
-the constants module.
+the constants module. **Phase 6 audit (2026-07-31):** the guard's comment stripper
+treated `://` in URLs as a line comment and was vacuous — fixed in
+`marketing-shell.test.ts` by skipping `//` preceded by `:`.
 
 ### 14.3 What each ruling changed
 
@@ -571,7 +571,7 @@ visible marker rather than a fabricated value:
 
 ### 14.5 Verification after this pass
 
-`npm test`: **475 passing, 60 files**. Typecheck, lint and build clean; the token
+`npm test`: **481 passing, 61 files**. Typecheck, lint and build clean; the token
 gate reports no `{{TOKEN}}` in 47 rendered files.
 
 ### 14.6 Still open
