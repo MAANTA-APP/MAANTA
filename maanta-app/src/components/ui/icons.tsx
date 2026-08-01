@@ -2,6 +2,24 @@ import { cn } from "@/lib/ui";
 
 type IconProps = { className?: string; strokeWidth?: number };
 
+/**
+ * Does `className` already set this dimension?
+ *
+ * `cn()` is a plain join with no Tailwind conflict resolution, so a default and
+ * a caller override both land in the attribute and the cascade picks a winner —
+ * which was `h-5` every time, silently discarding every size an icon was ever
+ * asked for (drift **D54**). The default is now applied only when the caller
+ * supplies nothing, so the two never collide in the first place.
+ *
+ * Anchored on a word boundary so compound utilities are not mistaken for a
+ * size: `min-h-0` and `max-w-full` have a `-` before the `h-`/`w-`, not
+ * whitespace, and so correctly do not count as the caller setting a dimension.
+ * Height and width are tested independently, because a caller passing only
+ * `w-full` still wants the default height rather than none.
+ */
+const setsDimension = (className: string | undefined, axis: "h" | "w") =>
+  new RegExp(`(?:^|\\s)${axis}-\\S`).test(className ?? "");
+
 function Svg({
   className,
   children,
@@ -16,7 +34,12 @@ function Svg({
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("h-5 w-5 shrink-0", className)}
+      className={cn(
+        !setsDimension(className, "h") && "h-5",
+        !setsDimension(className, "w") && "w-5",
+        "shrink-0",
+        className
+      )}
       aria-hidden
     >
       {children}
