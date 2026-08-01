@@ -11,11 +11,18 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **Production is not a clean mirror of `main`** — three open rows say
-so: its migration ledger and this repo disagree on two version numbers (**D24**),
-the `claim_deal` pause gate is merged but not applied (**D25**, `pending-deploy`),
-and `main` and the deployed commit have diverged in both directions (**D37**).
-Do not describe the schema as aligned; check those rows first. The live gate
+still on. **Production is not a clean mirror of `main`** — two open rows say so:
+its migration ledger and this repo disagree on two version numbers (**D24**), and
+the `claim_deal` pause gate is merged but not applied (**D25**, `pending-deploy`).
+Do not describe the schema as aligned; check those rows first.
+
+The *deployment* is aligned as of 2026-08-01: production serves `main` again
+(**D37** closed, verified against the Vercel deployment rather than assumed). It
+came apart twice in one day, so treat alignment as a thing to check, not a state
+to assume — the second time was a manual dashboard promote of an open PR branch
+(**D53**). When auditing this, compare **trees, not commit SHAs**: a squash merge
+mints a new SHA, so an ancestry check against a promoted branch commit fails
+forever even when the content is identical. The live gate
 being worked is the 3-person friends-and-family pilot at Node 0 — see
 `docs/maanta-launch-readiness-tracker.md` and
 `docs/ops/live-pilot-3-person-2026-07-30.md`. Treat the readiness tracker as the
@@ -332,16 +339,23 @@ finish pass, in this reading order:
 
 Three things a session must not get wrong:
 
-- **`main` and production have diverged both ways** (drift **D37**). `main` is
-  missing the commit that fixed two vacuously-passing guards, so its suite is green
-  for the wrong reason. Reconcile before trusting any guard.
+- **~~`main` and production have diverged both ways~~ — closed 2026-08-01
+  (**D37**).** `main` carries all three reconcile commits and production serves
+  `main`. The guard vacuity that made it urgent is fixed and covered by **D38**:
+  one shared comment lexer at
+  `maanta-app/src/lib/__tests__/helpers/comment-stripping.ts`, imported by every
+  copy guard. A fourth private copy of that stripper is how the defect returns.
 - **Every marketing guard reads `.tsx` source.** Only `scripts/check-tokens.mjs`
   reads built output. That is why a `/contact` form present in JSX but absent from
   server HTML shipped (**D41**). New guards assert against `.next/server/app/**`.
 - **Two steps are already done in the repo** — the `/how-it-works` 308
   (`next.config.mjs`) and `metadataBase` (`src/app/layout.tsx`). Do not redo them.
 
-Open rows for this work: **D37–D42**.
+Rows for this work: **D39**, **D40**, **D41** open; **D37**, **D38**, **D42**
+closed. Marketing polish since then opened **D50** (the hero mockup is the one
+marketing surface rendering synthetic deal rows) and **D51** (the launch offer is
+single-sourced but its expiry gate is unproven until `OFFERS.eliteTrial.expiresOn`
+passes and both pages drop it together); **D52** and **D53** are closed.
 
 ## Claude role system
 
