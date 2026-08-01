@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { ENTITY } from "@/lib/marketing/demo";
 import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
@@ -25,9 +24,21 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
  * unfilled and a stated opening hour that is not staffed is the same failure as
  * a missed response time.
  *
- * The form itself lives in `EnquiryRouter`, which is a client component because
- * it reads `?topic=`. It is wrapped in `Suspense` so `useSearchParams` does not
- * opt the whole route out of static rendering.
+ * The form itself lives in `EnquiryRouter`, a client component. It is **not**
+ * wrapped in `Suspense`, and that is load-bearing (drift D41).
+ *
+ * It used to be. `EnquiryRouter` called `useSearchParams()` to read `?topic=`,
+ * which opts its subtree out of static rendering, and the `Suspense` here was
+ * meant to stop that spreading to the whole route. It did — by server-rendering
+ * the fallback instead of the form. A grey pulsing rectangle shipped where the
+ * form should be, immediately below this page's own promise that "This form and
+ * email — We reply within 1 business day". Nobody could send anything.
+ *
+ * The parameter is now read in an effect, so the form markup is in the
+ * prerendered HTML and a boundary is neither needed nor wanted here: adding one
+ * back around a component that no longer suspends would reintroduce a fallback
+ * with nothing to fall back from. Guarded by `scripts/check-server-forms.mjs`,
+ * which reads built output rather than this file.
  */
 
 export const metadata: Metadata = pageMetadata({
@@ -96,13 +107,38 @@ export default function ContactPage() {
       </Section>
 
       <Section>
-        <Suspense
-          fallback={
-            <div className="h-96 animate-pulse rounded-card border border-line bg-paper" />
-          }
-        >
-          <EnquiryRouter />
-        </Suspense>
+        {/*
+          The form submits through a JavaScript handler, so it renders without
+          JavaScript but cannot send. Saying so is the honest state — a form that
+          silently does nothing is the same broken promise D41 was, one layer
+          further down. The two channels named here are the ones that work with
+          no JavaScript at all: a link and a mailto.
+        */}
+        <noscript>
+          <div className="mb-8 rounded-card border border-line bg-paper p-5">
+            <p className="text-sm font-bold text-ink">
+              This form needs JavaScript to send.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-secondary">
+              Message us on WhatsApp at{" "}
+              <a
+                href={ENTITY.whatsappLink}
+                className="font-semibold text-ink underline underline-offset-4"
+              >
+                {ENTITY.whatsapp}
+              </a>{" "}
+              or email{" "}
+              <a
+                href={`mailto:${ENTITY.email}`}
+                className="font-semibold text-ink underline underline-offset-4"
+              >
+                {ENTITY.email}
+              </a>
+              . Both reach the same people.
+            </p>
+          </div>
+        </noscript>
+        <EnquiryRouter />
       </Section>
 
       <Section id="response" tone="paper">

@@ -136,22 +136,43 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 
 ---
 
-## 6. Step 5 — `/contact` form in server HTML
+## 6. Step 5 — `/contact` form in server HTML — **DONE 2026-08-01**
 
-- [ ] `useSearchParams()` removed from the render path, or `?topic=` read via the page's `searchParams` prop
-- [ ] If `searchParams` prop used: the loss of static prerendering on `/contact` is accepted and recorded
-- [ ] `Suspense` fallback no longer a bare pulsing rectangle (boundary removed, or fallback is real form markup)
-- [ ] Pattern followed is `waitlist-form.tsx` — a **client** component with no `useSearchParams` (not a server form)
-- [ ] `<noscript>` block added naming WhatsApp and `admin@maanta.app`
-- [ ] **`[HTML]`** `grep -c 'BAILOUT_TO_CLIENT_SIDE_RENDERING'` on `/contact` = **0**
-- [ ] **`[HTML]`** `grep -oE '<form[^>]*>'` on `/contact` prints a form
-- [ ] **`[HTML]`** `grep -oE 'name="[^"]+"'` lists every field
-- [ ] Manual pass with JavaScript disabled: form visible and legible
+- [x] `useSearchParams()` removed from the render path — `?topic=` is read from
+      `window.location.search` in a mount effect, which never runs on the server
+- [x] The `searchParams` prop was **not** used, so `/contact` keeps its static
+      prerender (`○ /contact`) and stays inside the canonical guard's coverage.
+      Taking the prop would have made it `ƒ`, like `/waitlist`
+- [x] `Suspense` boundary removed entirely, pulsing-rectangle fallback with it —
+      with nothing suspending, a boundary would be a fallback with nothing to
+      fall back from
+- [x] Pattern followed is `waitlist-form.tsx` — a **client** component with no
+      `useSearchParams` (not a server form). Note the route around it is a
+      different matter: `/waitlist` does **not** prerender, drift **D55**
+- [x] `<noscript>` block added naming WhatsApp and `admin@maanta.app`
+- [x] **`[HTML]`** `BAILOUT_TO_CLIENT_SIDE_RENDERING` on `/contact` = **0** (was 1)
+- [x] **`[HTML]`** `/contact` prints one `<form>` with 5 input controls (was 0 and 0)
+- [x] **`[HTML]`** `animate-pulse` on `/contact` = **0** (was the whole render)
+- [ ] ~~**`[HTML]`** `grep -oE 'name="[^"]+"'` lists every field~~ — **not
+      achievable, and should not be.** The controls carry no `name` attribute:
+      they are React-controlled and submitted by `fetch` to `/api/contact`, not
+      by a native form POST. Verified — the only `name=` on the page are `<meta>`
+      tags. The equivalent assertion the guard makes instead is that the form's
+      own visible copy is present, plus a count of input controls
+- [x] Manual pass with JavaScript disabled: rendered the prerendered HTML in
+      Chromium with `javaScriptEnabled: false` at 390px. Form visible
+      (350×662px), all six topic cards, all four fields, and the `<noscript>`
+      notice parsed and legible above them. Control: with JS on, the notice is
+      not shown
 - [ ] **`[EXT]`** one real enquiry submitted end to end
 - [ ] **`[EXT]`** both emails arrive (enquiry with `reply_to` set, plus autoresponder)
-- [ ] **`[EXT]`** `marketing_form_submitted` appears in PostHog
-- [ ] New guard: `/contact` built HTML contains `<form>` and zero bailout markers
-- [ ] Drift row **D40** closed
+- [ ] **`[EXT]`** `marketing_form_submitted` appears in PostHog — it has never
+      fired, because the form has never rendered; this is the first build where
+      it can
+- [x] New guard: `scripts/check-server-forms.mjs`, chained into `npm run build`
+      (**not** vitest — CI runs `test` before `build`). Mutation-tested six ways,
+      including a real rebuild with both source files reverted
+- [x] Drift row **D41** closed (this list said D40, which Step 4 closed)
 
 ---
 

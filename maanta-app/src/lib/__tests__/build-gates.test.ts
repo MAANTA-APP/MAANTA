@@ -12,6 +12,8 @@ import path from "node:path";
  *  - `scripts/check-tokens.mjs` — no `{{TOKEN}}` survives into a rendered page.
  *  - `scripts/check-canonicals.mjs` — every marketing route carries a
  *    self-referencing canonical and `og:url`.
+ *  - `scripts/check-server-forms.mjs` — every page that promises a form actually
+ *    renders one server-side.
  *
  * Neither can live in this suite: CI runs `npm run test` **before**
  * `npm run build`, so a test asserting on `.next/` would fail there. They run as
@@ -35,6 +37,7 @@ const pkg = JSON.parse(readFileSync(path.join(APP, "package.json"), "utf8"));
 const GATES: Record<string, string> = {
   "scripts/check-tokens.mjs": "check:tokens",
   "scripts/check-canonicals.mjs": "check:canonicals",
+  "scripts/check-server-forms.mjs": "check:forms",
 };
 
 describe("build-output gates stay wired into the build", () => {
@@ -70,9 +73,13 @@ describe("build-output gates stay wired into the build", () => {
       ).toBe(true);
     }
     // `&&` and not `;` or `||`: a gate joined with `;` cannot fail the build.
-    expect(
-      /&&\s*npm run check:tokens/.test(build) && /&&\s*npm run check:canonicals/.test(build),
-      `gates must be joined with && so a failure fails the build. Got: ${build}`
-    ).toBe(true);
+    // Derived from GATES rather than a hardcoded pair, so adding a gate above
+    // extends this assertion instead of quietly leaving it behind.
+    for (const script of Object.values(GATES)) {
+      expect(
+        new RegExp(`&&\\s*npm run ${script.replace(":", "\\:")}`).test(build),
+        `${script} must be joined with && so a failure fails the build. Got: ${build}`
+      ).toBe(true);
+    }
   });
 });
