@@ -104,12 +104,28 @@ git log --oneline origin/main..origin/claude/maanta-marketing-site-y8fesm
 git log --oneline origin/claude/maanta-marketing-site-y8fesm..origin/main
 ```
 
-Bring `038e3bc0`, `6a22c0f` and `480bdf6` onto `main`, then redeploy production from
-`main`. **Expect one conflict, in `.gitignore`, and nowhere else** — both sides
-edited it. Keep both sets of entries.
+> **DONE IN THE REPO, 2026-08-01.** `038e3bc0`, `6a22c0f` and `480bdf6` are merged
+> into `claude/marketing-site-repo-prep-010wpw`, cleanly. `origin/main` is an
+> ancestor of that branch, so **`main` can fast-forward to it** — no rebase, no
+> cherry-pick. The `.gitignore` conflict predicted here **did not occur**: `314b5ef`
+> already carried the same three lines including `.tools/`. Prediction withdrawn.
+>
+> Two things remain, and neither is a repo operation: update `main`, and redeploy
+> production from it.
+>
+> **The guard fix is proved, not assumed.** Planting `https://wa.me/254700000000`
+> into a marketing page turns `marketing-shell.test.ts` red on the reconciled tree —
+> and the *same mutation passes 7/7 against `origin/main`'s copy of that file*. `main`
+> would ship the D36 placeholder number undetected. That is rows 1 of the Step 2
+> table, observed.
+>
+> **One correction to this document's own earlier claim:** `pricing-copy`'s *fee*
+> pattern was never vacuous — `KES 40 success fee` fails on `main` too. The vacuity
+> in that file was confined to the Elite-trial / launch-offer trigger, which fired on
+> a JSX comment instead of rendered copy. Mutate *that* to prove the second half.
 
-Do not skip this. Until it lands, every guard you rely on in PR-B is the vacuous
-version.
+Do not skip this. Until `main` is updated, every guard someone relies on when
+working from `main` is still the vacuous version.
 
 ### PR-B — Step 2: mutation-test the guards **(gates everything after)**
 

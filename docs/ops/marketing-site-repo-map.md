@@ -166,14 +166,40 @@ the scanner. `038e3bc0` patched `marketing-shell` and `pricing-copy` and **left
 this one**. It is not in the audit, not in the finish plan, and not on either
 branch. Treat it as a fourth row in the Step 2 mutation table.
 
+### RECONCILED IN THE REPO, 2026-08-01
+
+The three branch commits are merged into `claude/marketing-site-repo-prep-010wpw`.
+The merge was **clean** — `origin/main` is an ancestor of that branch, so `main` can
+**fast-forward** to it. Suite after the merge: **481/481, 61 files**; `tsc` and lint
+clean.
+
+**The `.gitignore` conflict predicted below did not occur.** `314b5ef` already
+carried the same three lines including `.tools/`; the two sides are byte-identical.
+Prediction withdrawn — the merge touched four files, all from the branch side.
+
+**The vacuity is now demonstrated, not inferred.** Two mutations, run against both
+trees:
+
+| Mutation | Reconciled tree | `origin/main` | Reading |
+|---|---|---|---|
+| Plant `https://wa.me/254700000000` in a marketing page | **FAIL** (correct) | **PASSES 7/7** | The wa.me guard on `main` is blind. It would ship the D36 placeholder number undetected. |
+| Plant `KES 40 success fee` in rendered JSX | **FAIL** (correct) | **FAIL** | The fee pattern was *never* vacuous — correcting this document's earlier implication. |
+
+So `pricing-copy`'s vacuity was confined to the **Elite-trial / launch-offer
+trigger**, which fired on a JSX comment rather than rendered copy. That is the
+mutation still worth running against both trees, and it is the row that proves the
+second half of `038e3bc0`.
+
+Remaining for Step 1: update `main`, and redeploy production from it. Neither is a
+repo operation.
+
 ### Repo files involved
 
 - `maanta-app/src/lib/__tests__/marketing-shell.test.ts`
 - `maanta-app/src/lib/__tests__/pricing-copy.test.ts`
-- `maanta-app/src/lib/__tests__/held-claims.test.ts` *(new finding)*
+- `maanta-app/src/lib/__tests__/held-claims.test.ts` *(new finding — still unfixed)*
 - `docs/ops/IMPLEMENTATION-REPORT.md`
-- `.gitignore` — **touched on both sides of the divergence; expect a conflict here
-  and nowhere else.**
+- `.gitignore` — identical on both sides; no conflict.
 
 ### Blockers / dependencies
 

@@ -45,8 +45,13 @@ The three source-vs-render disagreements. Record the observed value, not an opin
 - [ ] `git fetch origin`
 - [ ] `git log --oneline origin/main..origin/claude/maanta-marketing-site-y8fesm` → expect 3 commits
 - [ ] `git log --oneline origin/claude/maanta-marketing-site-y8fesm..origin/main` → expect 2 commits
-- [ ] PR opened carrying `038e3bc0`, `6a22c0f`, `480bdf6` onto `main`
-- [ ] `.gitignore` conflict resolved keeping **both** sides' entries
+- [x] `038e3bc0`, `6a22c0f`, `480bdf6` merged into the finish-pass branch —
+      **clean, no conflicts.** `origin/main` is an ancestor of that branch, so `main`
+      can fast-forward to it.
+- [x] ~~`.gitignore` conflict~~ — **does not occur.** `314b5ef` already carried the
+      same three lines including `.tools/`; both sides are byte-identical. Prediction
+      withdrawn.
+- [ ] `main` updated (fast-forward or PR merge) — **the remaining step**
 - [ ] `git merge-base --is-ancestor 038e3bc0 origin/main && echo OK`
 - [ ] **`[EXT]`** production redeployed from `main`
 - [ ] **`[EXT]`** Vercel production deployment reports `githubCommitRef: main`
@@ -62,11 +67,18 @@ The three source-vs-render disagreements. Record the observed value, not an opin
 
 One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 
-- [ ] `marketing-shell.test.ts` — WhatsApp constant → point one call site at `wa.me/254700000000`
+- [x] `marketing-shell.test.ts` — WhatsApp constant → planted `https://wa.me/254700000000`
+      in a marketing page. **FAIL observed** on the reconciled tree; **same mutation
+      PASSES 7/7 on `origin/main`'s copy** — the vacuity, demonstrated. Reverted.
 - [ ] `marketing-shell.test.ts` — demo-banner scoping → mount the banner on the marketing layout
 - [ ] `marketing-shell.test.ts` — `NODE_TEAM` staffing copy → replace with "our team"
-- [ ] `pricing-copy.test.ts` — success fee → `KES 30` to `KES 40` in **rendered JSX**, not a comment
-- [ ] `pricing-copy.test.ts` — launch offer → drop the first-100 cap from the offer line
+- [x] `pricing-copy.test.ts` — success fee → planted `KES 40 success fee` in rendered
+      JSX. **FAIL observed.** Note: this one **also fails on `origin/main`** — the fee
+      pattern was never vacuous. Reverted.
+- [ ] `pricing-copy.test.ts` — launch offer → drop the first-100 cap from the offer line.
+      **This is the one that was actually vacuous on `main`** (the `mentionsOffer`
+      trigger fired on a JSX comment rather than rendered copy). Mutate it against both
+      trees — it is the row that proves the second half of `038e3bc0`.
 - [ ] `elite-trial.test.ts` — trial terms → `30-day` to `60-day`
 - [ ] `held-claims.test.ts` — held claim / draft banner → remove a banner from one legal page
 - [ ] `marketing-analytics.test.ts` — payload privacy → add a `name` or `phone` field to a `trackMarketing` call
