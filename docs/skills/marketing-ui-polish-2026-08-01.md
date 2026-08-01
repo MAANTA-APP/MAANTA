@@ -22,6 +22,8 @@ of UI work, check `git status` against the claim before building on it.
 | `components/marketing/SiteHeader.tsx` | Shadow appears on scroll |
 | `components/marketing/SiteFooter.tsx` | Spacing, row/column gap split, link transitions |
 | `app/(marketing)/page.tsx` | `TrustBar` under the hero, door-card hover + arrow, early-access section |
+| `app/(marketing)/shoppers/page.tsx` | `TrustBar` under the hero |
+| `app/(marketing)/merchants/page.tsx` | `TrustBar` under the hero |
 | `components/auth/auth-chrome.tsx` | **New.** `AuthChrome` — logomark + tagline + the `<main>` landmark |
 | `app/login/[[...sign-in]]/page.tsx` | Wrapped in `AuthChrome` |
 | `app/sign-up/[[...sign-up]]/page.tsx` | Wrapped in `AuthChrome` |
@@ -41,6 +43,16 @@ live, and they would have to render through `<ScenarioStat>` inside
 `<ScenarioNotice>`. What it carries instead is the commercial shape of the
 product — free for shoppers, a fee only on a verified redemption, payment in
 person — which is true today and needs no scenario gate.
+
+**Each page's three items answer that audience's objections, not a house
+template.** Home states the commercial shape. `/shoppers` answers the three
+things that stop a shopper — will this cost me, will I miss the window, must I
+install something — each of which is answered in full further down the page
+(`#cost`, `#counter`, `#install`); the bar only gets the answer to someone who
+will not scroll that far. `/merchants` states the whole offer before the first
+scroll, reusing the same `fee` binding that `#cost` and the FAQ render, so there
+is no second number to keep in step. Note `/shoppers` forbids counts by its own
+page rule, which the no-metrics rule above already satisfies.
 
 **The hero wash is not the accent.** `from-paper via-white to-white` lifts the
 hero off the header using the neutral tokens. Amber stays on primary CTAs and
@@ -84,6 +96,9 @@ files, `next lint` is clean. The ones that actually constrained the work:
 
 ## Known gaps, deliberately not done
 
-- No `TrustBar` on `/shoppers` or `/merchants` — Home only so far.
+- No `TrustBar` on `/mall-operators` — the other three audience pages have one.
+  Not an oversight to fix blind: an operator is evaluating the model, not a
+  price or a fee, so the three items would have to be written for that question
+  rather than copied from `/merchants`.
 - No product screenshot or phone mockup in the hero.
 - Pricing page cards untouched.

@@ -11,6 +11,7 @@ import {
   Section,
   SectionHeading,
   StepRail,
+  TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 
@@ -73,6 +74,36 @@ export default function ShoppersPage() {
             </p>
           </>
         }
+      />
+
+      {/*
+        The three things that actually stop a shopper: is this going to cost me,
+        will I miss the window, and do I have to install something. Each is
+        answered in full further down (#cost, #counter, #install) — this only
+        gets the answer in front of someone who will not scroll that far.
+
+        No counts, per the page rule above. Every value reads from FACTS.
+      */}
+      <TrustBar
+        items={[
+          {
+            title: "Free, always",
+            body: "No card, no online checkout, nothing to pay MAANTA. Shops pay the fee, never you.",
+          },
+          {
+            title: <>{FACTS.graceMinutes} minutes of grace</>,
+            body: (
+              <>
+                A claimed code lasts the deal&apos;s full window plus {FACTS.graceMinutes}{" "}
+                minutes after it ends. You do not have to run.
+              </>
+            ),
+          },
+          {
+            title: "Nothing to download",
+            body: "It runs in your browser, and you can look around the whole feed without an account.",
+          },
+        ]}
       />
 
       <Section id="problem" tone="paper">
