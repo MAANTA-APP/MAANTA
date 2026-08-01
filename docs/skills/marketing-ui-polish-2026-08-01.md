@@ -24,6 +24,7 @@ of UI work, check `git status` against the claim before building on it.
 | `app/(marketing)/page.tsx` | `TrustBar` under the hero, door-card hover + arrow, early-access section |
 | `app/(marketing)/shoppers/page.tsx` | `TrustBar` under the hero |
 | `app/(marketing)/merchants/page.tsx` | `TrustBar` under the hero |
+| `app/(marketing)/mall-operators/page.tsx` | `TrustBar` under the hero |
 | `components/auth/auth-chrome.tsx` | **New.** `AuthChrome` — logomark + tagline + the `<main>` landmark |
 | `app/login/[[...sign-in]]/page.tsx` | Wrapped in `AuthChrome` |
 | `app/sign-up/[[...sign-up]]/page.tsx` | Wrapped in `AuthChrome` |
@@ -53,6 +54,18 @@ will not scroll that far. `/merchants` states the whole offer before the first
 scroll, reusing the same `fee` binding that `#cost` and the FAQ render, so there
 is no second number to keep in step. Note `/shoppers` forbids counts by its own
 page rule, which the no-metrics rule above already satisfies.
+
+`/mall-operators` answers what an operator is actually evaluating — what does it
+cost us, what must we install, what do we get — against `#commercial`,
+`#deployment` and `#report`. Two things were decided there and should not be
+undone casually. Its cost item names the tenant success fee rather than stopping
+at "the mall pays nothing": left alone that reads as free, and an operator who
+meets the fee later meets it as something withheld. And it carries no figures at
+all, not even scenario-gated ones — the modelled node counts stay in the
+sections that own them, behind `ScenarioStat`, and the bar sits above the point
+where the page has established what Node 0 is. It makes no claim about BBS
+beyond it being the mall MAANTA is live in, which `demo-mode-spec.md` §2a
+requires of this page specifically.
 
 **The hero wash is not the accent.** `from-paper via-white to-white` lifts the
 hero off the header using the neutral tokens. Amber stays on primary CTAs and
@@ -96,9 +109,5 @@ files, `next lint` is clean. The ones that actually constrained the work:
 
 ## Known gaps, deliberately not done
 
-- No `TrustBar` on `/mall-operators` — the other three audience pages have one.
-  Not an oversight to fix blind: an operator is evaluating the model, not a
-  price or a fee, so the three items would have to be written for that question
-  rather than copied from `/merchants`.
 - No product screenshot or phone mockup in the hero.
 - Pricing page cards untouched.
