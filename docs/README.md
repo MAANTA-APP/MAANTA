@@ -46,6 +46,7 @@ documents (previously 2026-07-28, comprehensive audit links).
 
 | File | Purpose |
 |---|---|
+| `ops/claude-stack-setup.md` | Skills/tooling recommendations for Claude sessions on this repo + copy-paste session bootstrap prompt |
 | `ops/tech-stack-deep-dive-2026-07.md` | Current stack inventory, ~100k scalability assessment, upgrades, advisor map |
 | `ops/pwa-install.md` | `/download` install landing + `/app-bootstrap` role router |
 | `ops/auth-strategies.md` | Clerk (launch) vs Supabase email OTP (dev/test) toggle |
