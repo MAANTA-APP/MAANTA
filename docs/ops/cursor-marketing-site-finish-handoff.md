@@ -258,6 +258,12 @@ docs/maanta-drift-register.md                           every PR
 
 ## 6. What requires a founder decision
 
+> **RULED AND APPLIED, 2026-08-01 — option B.** The `Disallow` lines are removed
+> from `src/app/robots.ts`; `noindex` stays on all four pages; `DEMO_MODE` is
+> untouched. Recorded in `docs/maanta-decisions-log.md` and verified against built
+> output. **Step 7b is done — PR-F is now 7a only.** Nothing below needs deciding;
+> it is retained as the rationale.
+
 **LEG-02 — the four legal pages' `Disallow` lines. `DECISION REQUIRED — FOUNDER`.**
 
 The repo map narrows this considerably. Because `noindex` is already set in source

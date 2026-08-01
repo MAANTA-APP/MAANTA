@@ -51,6 +51,35 @@ of an unfollowed request, and every fetch path available here follows redirects.
 PostHog, which could settle it by pageview timing, requires interactive approval
 this session cannot give. See §4.
 
+### Built-HTML baseline, captured 2026-08-01 (third pass)
+
+`npm install` + `npm run build` now run clean in this environment, so the audit's
+remaining findings were checked against `.next/server/app/**` — **render truth,
+not source**. All confirmed:
+
+| Check | Built-HTML result | Finding |
+|---|---|---|
+| `rel="canonical"` across all prerendered marketing HTML | **0** | GAP-04 |
+| `/contact` `BAILOUT_TO_CLIENT_SIDE_RENDERING` | **1** | GAP-01 |
+| `/contact` `<form>` count | **0** | GAP-01 |
+| `/pricing` `<title>` | `Maanta — The mall, made live.` (root default — note the casing tell) | GAP-02 |
+| `/shoppers` `og:url` | **absent entirely** | GAP-04 |
+| `/contact`, `/pricing` `og:url` | `https://www.maanta.app` (bare origin) | GAP-04 |
+| `robots.txt` legal `Disallow` lines | **absent** (founder ruling B applied) | LEG-02 |
+| Legal pages `<meta name="robots">` | `noindex, nofollow` on **all four** | D42 |
+| `sitemap.xml` | 13 routes, legal absent | unchanged |
+| Token gate | clean — 47 rendered files scanned, no `{{TOKEN}}` | — |
+
+**Suite baseline: 481 tests / 61 files, all passing. `tsc --noEmit` clean.** This
+is the number to diff against after each finish-plan step — and note it matches
+the count recorded in `docs/skills/marketing-site-phase6-audit-2026-07-31.md`,
+so the suite has not drifted since that audit.
+
+The `og:url` split is worth stating precisely because it names the bug: the five
+pages that declare their own `openGraph` lose the field entirely, while the pages
+that do not declare one inherit the root's — which is the bare origin. Both halves
+are wrong, in opposite directions, from one cause.
+
 ---
 
 ## 1. Environment and prep state

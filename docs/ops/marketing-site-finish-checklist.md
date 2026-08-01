@@ -12,11 +12,13 @@ system outside this repo (Vercel, PostHog, Clerk, Sentry, production).
 
 ## 0. Prep
 
-- [ ] `cd maanta-app && npm install` — `node_modules` is absent
-- [ ] `npm test` runs and reports a real result (not `vitest: not found`)
-- [ ] Baseline test count recorded: ____ passed / ____ failed
-- [ ] `npm run build` succeeds and `.next/server/app` exists
-- [ ] `npm run typecheck` clean
+- [x] `cd maanta-app && npm install` — verified 2026-08-01
+- [x] `npm test` runs and reports a real result
+- [x] Baseline recorded: **481 passed / 0 failed, 61 files** (matches the
+      phase-6 audit count — the suite has not drifted)
+- [x] `npm run build` succeeds; `.next/server/app` exists; token gate clean
+      (47 rendered files scanned)
+- [x] `npm run typecheck` clean
 - [ ] Read `docs/ops/marketing-site-repo-map.md` §9 (findings absent from both source docs)
 
 ---
@@ -170,13 +172,16 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 - [ ] `PLACEHOLDER_IDS.odpc` unchanged
 - [ ] **`[HTML]`** zero occurrences of `to be confirmed` in any route's built HTML
 
-### 8b — robots ruling
+### 8b — robots ruling — **DONE 2026-08-01**
 
-- [ ] §1 `noindex` check completed first
-- [ ] Founder ruling recorded in `docs/maanta-decisions-log.md`: **A** (keep `Disallow`) / **B** (remove `Disallow`)
-- [ ] `src/app/robots.ts` matches the ruling
-- [ ] `DEMO_MODE` **not** flipped as a side effect
-- [ ] **`[HTML]`** `robots.txt` and the four pages' `<meta name="robots">` agree with the ruling
+- [x] §1 `noindex` check completed first
+- [x] Founder ruling recorded in `docs/maanta-decisions-log.md`: **B** — remove the
+      `Disallow` lines, keep `noindex`
+- [x] `src/app/robots.ts` matches the ruling (spread + two orphaned imports removed)
+- [x] `DEMO_MODE` **not** flipped as a side effect — still `true`
+- [x] **`[HTML]`** built `robots.txt` carries no legal `Disallow`; all four pages
+      still emit `noindex, nofollow`; `sitemap.xml` still excludes them
+- [x] Suite still 481/481 after the change
 
 ---
 
