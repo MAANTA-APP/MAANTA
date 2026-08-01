@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import { stripComments } from "./helpers/comment-stripping";
 
 /**
  * Public commercial-copy invariants (truth audit 2026-07-30).
@@ -49,54 +50,12 @@ function tsxFiles(dir: string): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
-function lineCommentAt(line: string, start: number): number {
-  let pos = start;
-  while (pos < line.length) {
-    const idx = line.indexOf("//", pos);
-    if (idx === -1) return -1;
-    if (idx > 0 && line[idx - 1] === ":") {
-      pos = idx + 2;
-      continue;
-    }
-    return idx;
-  }
-  return -1;
-}
-
-/** Comments explain why copy is qualified; they are not published copy. */
-function withoutComments(src: string): string {
-  const lines = src.split("\n");
-  let inBlock = false;
-  const stripped = lines.map((line) => {
-    let out = "";
-    let i = 0;
-    while (i < line.length) {
-      if (inBlock) {
-        const end = line.indexOf("*/", i);
-        if (end === -1) return out;
-        inBlock = false;
-        i = end + 2;
-        continue;
-      }
-      const blockStart = line.indexOf("/*", i);
-      const lineComment = lineCommentAt(line, i);
-      if (blockStart !== -1 && (lineComment === -1 || blockStart < lineComment)) {
-        out += line.slice(i, blockStart);
-        inBlock = true;
-        i = blockStart + 2;
-        continue;
-      }
-      if (lineComment !== -1) {
-        out += line.slice(i, lineComment);
-        return out;
-      }
-      out += line.slice(i);
-      break;
-    }
-    return out;
-  });
-  return stripped.join("\n");
-}
+/**
+ * Comments explain why copy is qualified; they are not published copy.
+ *
+ * Shared implementation — three private copies of this is how drift D38 happened.
+ */
+const withoutComments = stripComments;
 
 /** Whole-file text with JSX line breaks collapsed, so copy split across lines
  *  by the formatter still reads as one sentence to the patterns below. */

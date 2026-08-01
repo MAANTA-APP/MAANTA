@@ -89,6 +89,9 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
       an `https://` link → **FAIL observed**; **same mutation passes 5/5 on `origin/main`'s
       copy**. Negative controls green (claim inside a `{/* */}` comment, and after a real
       `//` comment, both still ignored). Reverted. **D38 closed.**
+- [x] Comment stripping extracted to `src/lib/__tests__/helpers/comment-stripping.ts`
+      — one implementation, three importers. Re-verified with a four-positive /
+      four-negative mutation matrix after the refactor. **D38 closed.**
 - [ ] Any guard that cannot be made to fail is fixed or deleted — **not left green**
 - [ ] Mutation table committed
 - [ ] Every guard that asserts a *rendered* property has been rewritten to read `.next/server/app/**` — model on `scripts/check-tokens.mjs`

@@ -161,9 +161,14 @@ and a `/days of Elite/i` trigger. It is a clean, self-contained change.
 > comment stays correctly ignored, so the fix does not over-correct. No hidden
 > violation was revealed — blind guard, clean content, same as the other two.
 >
-> `lineCommentAt()` now exists in **three** test files with identical bodies. A fourth
-> copy is how this recurs. Extracting it to a shared test helper is the right
-> follow-up; it was left out of this change to keep the diff to the guard itself.
+> **The triplication is gone too.** The one implementation now lives in
+> `maanta-app/src/lib/__tests__/helpers/comment-stripping.ts`; all three guards
+> import it (−131 lines, +19). That is the actual root cause — the same defect was
+> found twice in three copies — so it is worth more than the individual fix. The
+> helper is not named `*.test.ts` on purpose (`vitest.config.ts` collects
+> `src/**/*.test.ts` and would run it as an empty suite); the count stays 61 files
+> / 481 tests. Re-verified after the refactor with a four-positive / four-negative
+> mutation matrix, since it touches guards that were already mutation-verified.
 
 The original finding, retained:
 
