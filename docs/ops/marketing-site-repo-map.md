@@ -349,7 +349,31 @@ them working regardless.
 
 ---
 
-## 5. Step 4 — Canonical and Open Graph
+## 5. Step 4 — Canonical and Open Graph — **DONE 2026-08-01, D40 closed**
+
+> **Shipped.** `src/lib/marketing/page-metadata.ts` builds every marketing page's
+> metadata; 17 routes go through it. `path` is relative and resolves against
+> `metadataBase`, so the helper holds no second copy of the origin — which removes
+> the preview-emits-production-canonicals risk this section originally warned about.
+> `/merchants/join` needed its server/client split to get there; that split landed
+> ahead of this step, under **D52** (see §7 — that part of 6b is done, but not by
+> this change). GAP-05 fixed in the same pass.
+>
+> Verified in built HTML: 16 prerendered routes carry a canonical and `og:url`
+> equal to their own URL plus all three OG base fields. `/waitlist` is dynamic and
+> has no build artefact; the guard names it rather than skipping it.
+>
+> Guard: `scripts/check-canonicals.mjs`, chained into `npm run build` — **not** a
+> vitest suite, because CI runs `test` before `build`. It derives expectations from
+> the generated sitemap (so sitemap and canonical agreeing is enforced), asserts the
+> 404 has no canonical, and refuses to report success on a partial scan.
+> Mutation-tested four ways plus two vacuity controls.
+>
+> One correction to what this document predicted: the root canonical has **no**
+> trailing slash — Next normalises `"/"` — so it is byte-identical to the sitemap's
+> entry rather than differing from it.
+
+The original analysis, retained:
 
 **Audit finding:** GAP-04 (High), GAP-05 (Medium).
 **Verdict: CONFIRMED — with one sub-item already done.**

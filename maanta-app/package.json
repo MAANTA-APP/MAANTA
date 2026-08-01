@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "next build && npm run check:tokens",
+    "build": "next build && npm run check:tokens && npm run check:canonicals",
     "check:tokens": "node scripts/check-tokens.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:canonicals": "node scripts/check-canonicals.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.6",

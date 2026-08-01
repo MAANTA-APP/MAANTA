@@ -4,6 +4,8 @@ import { SUCCESS_FEE_KES } from "@/lib/pricing";
 import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
 import { IconCheck } from "@/components/ui/icons";
 import { CtaBand, Section } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
+
 
 /**
  * 12e Pricing — Standard vs Elite.
@@ -38,10 +40,13 @@ import { CtaBand, Section } from "@/components/marketing/sections";
  * disagreed the day the offer closed.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/pricing",
   title: "Pricing — MAANTA",
   description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
-};
+  ogTitle: "You pay when a customer walks in, not before.",
+  ogDescription: `Standard and Elite for shops at ${FACTS.launchMall}. The success fee is the same on both plans; the plan decides how many deals you can run.`,
+});
 
 /**
  * One feature row. The icon carries the meaning, never colour alone.

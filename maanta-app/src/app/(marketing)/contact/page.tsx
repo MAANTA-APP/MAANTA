@@ -4,6 +4,7 @@ import { ENTITY } from "@/lib/marketing/demo";
 import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/contact` — channels first, form second.
@@ -29,11 +30,12 @@ import { Section, SectionHeading } from "@/components/marketing/sections";
  * opt the whole route out of static rendering.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/contact",
   title: "Contact — MAANTA",
   description:
     "Talk to MAANTA. WhatsApp support for shoppers and merchants, a desk at BBS Mall, Eastleigh, and direct contacts for mall operators, press and privacy requests.",
-};
+});
 
 export default function ContactPage() {
   return (
