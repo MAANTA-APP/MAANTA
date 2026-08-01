@@ -1,0 +1,203 @@
+# MAANTA — Terms of Service, shoppers (DRAFT)
+
+**Status:** Draft for legal review. **Not legal advice — I am not a lawyer.**
+**Date drafted:** 2026-07-31
+**Route:** `/terms` (currently a placeholder in production)
+**Must stay aligned with:** `merchant-terms.md` clauses 1.2–1.4, 4.3, 6.2–6.4
+
+---
+
+> ## ⚠️ DRAFT — NO LEGAL STANDING
+>
+> This document is an **unreviewed draft**, published as part of a **pre-launch demonstration** of MAANTA. It has **not** been reviewed by a lawyer. It does **not** create any rights or obligations, it is **not** a contract, and it **must not be relied on by anyone**.
+>
+> MAANTA APP is not yet trading. Any registration, licence or authorisation identifiers shown are **placeholders** (`*-DEMO-*`) and do not refer to any real registration with the Central Bank of Kenya, the Office of the Data Protection Commissioner, or any other authority. See `docs/ops/demo-mode-spec.md`.
+>
+> Questions: admin@maanta.app
+
+
+## Before this ships
+
+**The single thing to get right:** this document and the Merchant Terms must describe the same relationship in the same way. A shopper reading `/terms` and a merchant reading `/merchant-terms` should come away with an identical understanding of who is selling, who is liable, and what a code obliges. Clause 2 below is drafted as the mirror of Merchant Terms 1.2–1.4 and should be reviewed alongside it, not separately.
+
+**Deliberately written plainly.** This is read by shoppers on a phone, many of whom are not reading in a first language. Short sentences, no defined-term stacking, no cross-reference chains. It is still a contract, but a contract nobody can read protects nobody.
+
+**Open question that shapes clause 6:** MAANTA's marketing tells shoppers that if a shop will not honour a valid code, they should tell us, and that a shop which does not honour its own deals does not stay on MAANTA. That is a commitment. Either these terms back it with a stated process, or the marketing line comes out. It is currently row 2 in the Shoppers claims register.
+
+---
+
+# MAANTA Terms of Service
+
+**MAANTA APP** ("MAANTA", "we", "us")
+Last updated: 31 July 2026 (DRAFT)
+
+These terms apply when you use MAANTA to find, claim or redeem a deal. By using MAANTA you agree to them.
+
+If you run a shop on MAANTA, separate [Merchant Terms](/merchant-terms) apply to you as well. Our [Privacy Policy](/privacy) explains what we do with your personal data.
+
+---
+
+## 1. What MAANTA is
+
+**1.1** MAANTA shows you deals published by shops inside a mall. You can claim a deal, and we give you a 6-digit code. You show that code at the shop's counter, the staff check it, and you buy the item from the shop at the deal price.
+
+**1.2** MAANTA is free for shoppers. There is nothing to pay us, at any point.
+
+## 2. We are not the seller
+
+**2.1 The shop is the seller, not MAANTA.** When you buy something, the contract is between you and that shop.
+
+**2.2** There is no payment inside MAANTA. You pay the shop directly, at the counter, however that shop accepts payment.
+
+**2.3** The shop is responsible for the item, its description, its quality, its safety, and for any refund, exchange or warranty. Your consumer rights are against the shop, in the ordinary way, exactly as if you had walked in without us.
+
+**2.4** We are responsible for MAANTA itself — for showing you deals accurately as published, for issuing codes, and for the things set out in these terms.
+
+> *Counsel note: 2.1–2.4 mirror Merchant Terms 1.2–1.4. Review together. Also confirm whether the Consumer Protection Act 2012 places any duty on MAANTA as an intermediary notwithstanding 2.1.*
+
+## 3. Your account
+
+**3.1** You can browse deals without an account.
+
+**3.2** To claim a deal you give us a phone number. That number is your account — there is no password and we do not ask for an email address.
+
+**3.3** Use a number that belongs to you, and keep access to it secure. Anyone with your phone can see your codes.
+
+**3.4** You must be 18 or over to use MAANTA.
+
+> *Counsel note: nothing currently checks age — sign-up collects only a phone number. Confirm whether a declaration at sign-up is needed under s.33 of the Data Protection Act, 2019.*
+
+## 4. Claiming a deal
+
+**4.1 Claiming is not buying.** When you claim a deal, we hold it for you and give you a code. You have not agreed to buy anything and you owe nobody any money.
+
+**4.2** If you change your mind, do nothing. The code expires and that is the end of it. There is no charge and no penalty.
+
+**4.3** A code is for you. Do not sell it, trade it, or pass it to someone else.
+
+**4.4** Claim deals you actually intend to use. Claiming deals in bulk with no intention of collecting them takes stock away from other shoppers, and we may limit or suspend accounts that do it.
+
+## 5. Your code
+
+**5.1** A code is 6 digits, can be used once, and works only for the deal you claimed at the shop that published it.
+
+**5.2** A code stays valid until the deal ends, **plus a 15-minute grace period**.
+
+**5.3** Shop staff will check the code at the counter. They can reject it — for example if it has expired, if you are asking for something other than the deal, or if they reasonably suspect misuse.
+
+**5.4** If your code is not accepted, you owe nothing. Claiming a deal never becomes a payment obligation.
+
+## 6. If a shop will not honour a valid deal
+
+**6.1** Tell us at admin@maanta.app or on WhatsApp. Give us the code and the shop.
+
+**6.2** We can see what the shop published, what code was issued, and when. We will look into it and tell you what we find.
+
+**6.3** {{ENFORCEMENT_COMMITMENT}}
+
+**6.4** We cannot make a shop sell you something, and we cannot compensate you for a sale that did not happen. What we can do is hold shops to what they publish, and remove those that will not be held to it.
+
+> *Counsel note: `{{ENFORCEMENT_COMMITMENT}}` must be a real, operable process — even a simple one. See the note at the top of this file. Draft it to match what support will actually do, and no further.*
+>
+> *Status 2026-08-01: **this token has been filled in the published document** and
+> is the clause counsel should review. This file is the pre-fill draft and is kept
+> as the record of what was asked for; the text actually served at `/terms` §6.3
+> lives in `maanta-app/src/content/legal/terms-of-service.md` and reads: contact
+> the shop and establish what happened → require them to honour the deal as
+> published or withdraw it properly → suspend publishing on repeat or
+> non-engagement → removal for repeated refusal, with claimed codes staying valid
+> through any suspension and no charge either way. Releasing it also released the
+> held claim "a shop that does not honour its own deals does not stay on MAANTA"
+> (`website-handoff.md` §9). Review the published wording, not this token.*
+
+## 7. What we do not promise
+
+**7.1** We do not guarantee that any particular deal will be available, that stock will remain, that a shop will be open, or that the shop is where the map says it is.
+
+**7.2** Deals, prices and quantities are set by shops. We show what they publish.
+
+**7.3** MAANTA may be unavailable at times, for maintenance or for reasons outside our control.
+
+**7.4** Rankings in the feed come from verified redemptions, distance and time remaining. They are not a recommendation and not an endorsement of any shop.
+
+## 8. Using MAANTA properly
+
+You must not:
+
+- claim deals using a phone number that is not yours;
+- sell, trade or publish codes;
+- use software to claim deals automatically;
+- try to get around the one-claim-per-code rule;
+- attempt to interfere with the service or access parts of it you are not entitled to;
+- use MAANTA to do anything unlawful.
+
+We may suspend or close an account that does any of these.
+
+## 9. Location and notifications
+
+**9.1** If you allow it, we use your approximate location to show deals near you and distances in metres. You can refuse and still use MAANTA.
+
+**9.2** If you turn on notifications, we send you messages about deals you have claimed and things happening in your mall. You can turn them off at any time in your settings or in your browser.
+
+**9.3** You can withdraw either permission whenever you like, without losing access.
+
+## 10. Closing your account
+
+**10.1** You can stop using MAANTA at any time and ask us to close your account at admin@maanta.app.
+
+**10.2** We may suspend or close an account that breaches these terms or that we reasonably believe is being used fraudulently. Where we can, we will tell you why and give you a chance to put it right.
+
+**10.3** Some records of redemptions are kept after an account closes — see the [Privacy Policy](/privacy), section 8, for why and for how long.
+
+## 11. Our responsibility to you
+
+**11.1** MAANTA is provided as it is.
+
+**11.2** We are not responsible for the goods or services you buy from a shop, or for a dispute between you and a shop about them. See clause 2.
+
+**11.3** {{LIABILITY_CAP}}
+
+**11.4** Nothing here removes any right you have that cannot lawfully be removed, including under the Consumer Protection Act 2012, or any liability for fraud or for death or personal injury caused by negligence.
+
+> *Counsel note: 11.3 needs care. MAANTA charges shoppers nothing, so a fees-based cap does not work here. Consider a modest fixed cap, and check it against Kenyan consumer-protection rules on unfair terms.*
+
+## 12. Changes
+
+**12.1** We may update these terms. If a change materially affects you we will tell you before it takes effect.
+
+**12.2** Continuing to use MAANTA after that means you accept the change. If you do not, close your account under clause 10.1.
+
+## 13. Law
+
+**13.1** These terms are governed by the laws of Kenya.
+
+**13.2** If you have a problem, contact us first at admin@maanta.app. We would rather sort it out directly.
+
+## 14. Contact
+
+MAANTA APP
+BBS Mall, Eastleigh, Nairobi, Kenya
+admin@maanta.app
+
+---
+
+## Questions for counsel
+
+1. **Does the Consumer Protection Act 2012 impose obligations on MAANTA as an intermediary**, despite clause 2.1? This is the same question as Merchant Terms q8 and should be answered once, for both documents.
+2. **Liability cap for a free service** (11.3) — what is enforceable where the user pays nothing?
+3. **Age** (3.4) — is a declaration at sign-up required under s.33 of the Data Protection Act, 2019, given that sign-up collects only a phone number?
+4. **Clause 6.3** — how strong an enforcement commitment can MAANTA make without creating an obligation it cannot meet?
+5. **Bulk-claiming limits** (4.4) — is a suspension power on these grounds fair and enforceable?
+6. **Is the phone number alone sufficient** as an account credential from a liability standpoint, given that anyone holding the phone can see the codes (3.3)?
+7. **Language.** These terms will be read by many people whose first language is not English. Is an English-only version adequate, or is a Swahili translation advisable? If translated, confirm which version governs.
+
+---
+
+## Copy alignment required
+
+| Marketing claim | Where | Status |
+|---|---|---|
+| "A shop that does not honour its own deals does not stay on MAANTA" | `copy/shoppers.md`, `#faq` | Depends on 6.3. Do not publish the marketing line until the clause is written. |
+| "Claiming a deal is not buying it" | `copy/shoppers.md`, `#cost` | Consistent with 4.1. Keep in sync. |
+| "If it does not work, you owe nothing" | `copy/shoppers.md`, `#counter` | Consistent with 5.4. |
+| "Free. No card." | `copy/shoppers.md`, `copy/home.md` | Consistent with 1.2. |

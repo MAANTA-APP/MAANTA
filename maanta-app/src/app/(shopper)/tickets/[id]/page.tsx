@@ -28,6 +28,7 @@ type Row = {
     price_kes: number | null;
     compare_at_kes: number | null;
     charges: unknown;
+    is_paused: boolean | null;
   } | null;
   merchants: {
     id: string;
@@ -62,7 +63,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges), merchants(id, merchant_name, floor, what3words_address)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -132,7 +133,7 @@ export default async function TicketPage({
           Support will resolve it within 72 hours. Nothing is needed from you right
           now.
         </InlineAlert>
-        <ButtonLink href="/help" variant="ghost" full className="mt-6">
+        <ButtonLink href="/you/help" variant="ghost" full className="mt-6">
           Contact support
         </ButtonLink>
       </main>
@@ -177,6 +178,13 @@ export default async function TicketPage({
         <div className="mt-2 w-full animate-fade-in rounded-xl border border-line bg-white py-2.5 text-center text-sm font-bold text-ink">
           Deal claimed
         </div>
+      ) : null}
+
+      {ticket.deals?.is_paused === true ? (
+        <p className="mt-3 w-full rounded-card border border-line bg-cream px-3 py-2.5 text-center text-xs text-muted">
+          Your ticket is still valid until {hhmm(ticket.expires_at)}. The
+          merchant paused new claims — show this code at the till as usual.
+        </p>
       ) : null}
 
       <div className="mt-4">

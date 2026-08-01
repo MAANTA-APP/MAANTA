@@ -42,14 +42,14 @@ code disagree, say so explicitly in your summary and add a row to
 | Path | What it is |
 |---|---|
 | `maanta-app/` | The only runnable product: Next.js 14 (App Router) + Supabase Postgres/RLS, Clerk auth, Tailwind, Stripe/IntaSend, Sentry + PostHog |
-| `maanta-app/src/app/` | Route groups: `(public)/*` marketing + legal, `(shopper)/*` (`/feed`, `/browse`, `/map`, `/my-deals`, `/you`), `merchant/*`, `admin/*`, `agent/*`, `founder/*`, auth (`/login`, `/sign-up`, `/verify-phone`) |
+| `maanta-app/src/app/` | Route groups (URL-invisible): `(marketing)/*` public site + legal, `(shopper)/*` (`/feed`, `/browse`, `/map`, `/my-deals`, `/you`), plus `merchant/*`, `admin/*`, `agent/*`, `founder/*`, auth (`/login`, `/sign-up`, `/verify-phone`) |
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
 | `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (caveat: prod's ledger and this repo currently disagree on two version numbers — drift row **D24**) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
-| `maanta-app/legal/` | DRAFT legal docs (not published, not lawyer-reviewed) |
+| `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
 | `docs/` | Operating docs (see below) |
 | `docs/ops/` | Runbooks and dated operational reports: auth strategies, demo mode, migrations, e2e/pilot readiness, UI polish |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
@@ -70,6 +70,8 @@ email OTP for rehearsal/CI. See `docs/ops/auth-strategies.md` and
 | How does money actually move? | `docs/skills/payments-rails.md`, `docs/skills/money-trust-engineering-guardrails.md`, the `claim_deal` / `verify_redemption` migrations |
 | What are the UI hard rules? | `docs/skills/frozen-ui-locked-rules-audit.md`, `docs/skills/claude-design-system.md` |
 | How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
+| Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
+| Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
 
 ## Working style
 
@@ -105,7 +107,9 @@ Run from `maanta-app/`:
 - `npm run lint` — `next lint`
 - `npm run typecheck` — `tsc --noEmit`
 - `npm test` — vitest suite
-- `npm run build` — production build
+- `npm run build` — production build; **also runs `check:tokens`**, which fails
+  the build if a `{{TOKEN}}` placeholder survives into rendered output
+- `npm run check:tokens` — that scan on its own, against an existing build
 - `npm run test:e2e` — Playwright golden path (needs `E2E_BASE_URL` + storage;
   see `docs/ops/e2e-golden-path.md`)
 
@@ -212,6 +216,8 @@ Use tokens from `tailwind.config.ts` and primitives from
 - `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`
 - `docs/maanta-staged-readiness-now-launch-10k-100k.md` — now / launch / 10k / 100k readiness
+- `docs/ops/IMPLEMENTATION-REPORT.md` — what the marketing-site build shipped,
+  its 17 recorded deviations, and what it deliberately did not implement
 - `docs/maanta-drift-register.md` — open/closed record of every known gap between
   what MAANTA claims and what is true. Schema and evidence rules are enforced by
   `maanta-app/src/lib/__tests__/drift-register.test.ts`, so a row cannot be closed
@@ -236,6 +242,29 @@ Use tokens from `tailwind.config.ts` and primitives from
 
 See `docs/maanta-decisions-log.md` for the full log and dates.
 
+## Paused deals
+
+Source of truth for pause / claim / resume / redeem: **PR #150**,
+`docs/skills/paused-deal-semantics.md`, and drift **D25** (plus closed **D32**
+for the SQL browse-view filter).
+
+- Claimed while the deal was **active** → ticket stays in My deals / Tickets and
+  remains verifiable until normal ticket expiry (`verify_redemption` ignores
+  `is_paused`).
+- Pausing a deal **immediately** removes it from shopper discovery (feed,
+  browse, map) and from `deals_public_browse`; new claims are blocked.
+- Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
+  layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
+- Resume (while the deal is otherwise valid) restores discovery and claimability.
+- **Deploy status:** repo is complete (#150: migrations `180000` + `190000`,
+  tests, UI). **D25 remains `pending-deploy`** until a human `supabase db push`
+  and `pg_get_functiondef` for `claim_deal` shows `deal_paused`. Not fully live
+  on production until that read-back.
+- Any future change to claim / pause / resume / redeem must: read
+  `docs/skills/paused-deal-semantics.md` first; check the latest drift register
+  and migrations; keep RPC, UI, and discovery surfaces aligned; and record
+  behavior changes in the drift register and this file.
+
 ## Mandatory session rule
 
 Every MAANTA session must leave behind at least one durable artifact:
@@ -248,6 +277,61 @@ it in `docs/maanta-drift-register.md` **before** writing the narrative, and clos
 prior rows by ID rather than re-describing them. An audit document is a story; the
 register is the state. Skipping it is how the same finding gets discovered twice,
 which has already happened (rows D3, D5, D6, D9).
+
+## Marketing site
+
+Six-page marketing site under `maanta-app/src/app/(marketing)/` (renamed from
+`(public)`; route groups are URL-invisible, so no path moved). Source of truth for
+what shipped and why: **`docs/ops/IMPLEMENTATION-REPORT.md`**, then the 16 planning
+documents in `docs/ops/` and `docs/legal/`.
+
+Four rules that are enforced, not conventions:
+
+- **The demo-data banner never renders on a marketing route.** It stays on
+  `(shopper)/layout.tsx` and `merchant/(app)/layout.tsx`, where synthetic deal rows
+  actually render. Guarded by `marketing-shell.test.ts` in both directions — it
+  fails if the banner returns to marketing *and* if either app shell drops it.
+  Note the switch is the database row `app_config.demo_mode_enabled`, not an env
+  var, so it cannot be checked by reading `.env`.
+- **Every number renders from `lib/marketing/facts.ts`.** It re-exports
+  `SUCCESS_FEE_KES` rather than redeclaring it; `pricing-copy.test.ts` fails on a
+  second declaration of the frozen fee.
+- **Modelled figures render only through `<ScenarioStat>` inside
+  `<ScenarioNotice>`**, which is a wrapper providing context — a stat without it
+  throws in dev. Production is `NEXT_PUBLIC_SCENARIO_MODE` unset, which renders
+  honest fallbacks and makes no claim that BBS Mall is a signed partner.
+- **No `{{TOKEN}}` may reach rendered output.** `npm run build` runs
+  `scripts/check-tokens.mjs` over the build output and fails if one survives.
+
+Held claims (`website-handoff.md` §9) must not ship; `held-claims.test.ts` scans
+both page source and `src/content/legal/*.md` for each one.
+
+### Unfinished work on the marketing site (as of 2026-08-01)
+
+A production render audit found a tail of defects. Four documents govern the
+finish pass, in this reading order:
+
+1. `docs/ops/marketing-site-gap-audit.md` — what production actually serves.
+   Written **without reading the repo**; every inferred path is marked `VERIFY IN REPO`.
+2. `docs/ops/marketing-site-finish-plan.md` — seven ordered steps.
+3. `docs/ops/marketing-site-repo-map.md` — **the correction layer.** Maps every
+   finding to real `path:line`, and marks each verdict CONFIRMED, CONTRADICTED or
+   UNVERIFIABLE HERE. Read this before acting on either document above.
+4. `docs/ops/cursor-marketing-site-finish-handoff.md` +
+   `docs/ops/marketing-site-finish-checklist.md` — execution.
+
+Three things a session must not get wrong:
+
+- **`main` and production have diverged both ways** (drift **D37**). `main` is
+  missing the commit that fixed two vacuously-passing guards, so its suite is green
+  for the wrong reason. Reconcile before trusting any guard.
+- **Every marketing guard reads `.tsx` source.** Only `scripts/check-tokens.mjs`
+  reads built output. That is why a `/contact` form present in JSX but absent from
+  server HTML shipped (**D41**). New guards assert against `.next/server/app/**`.
+- **Two steps are already done in the repo** — the `/how-it-works` 308
+  (`next.config.mjs`) and `metadataBase` (`src/app/layout.tsx`). Do not redo them.
+
+Open rows for this work: **D37–D42**.
 
 ## Claude role system
 

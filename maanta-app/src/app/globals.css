@@ -60,3 +60,35 @@ body {
     font-variant-numeric: tabular-nums;
   }
 }
+
+@layer base {
+  /*
+   * Visible keyboard focus, site-wide.
+   *
+   * There was no global focus style before this, so keyboard and screen-reader
+   * users had no reliable indication of where they were — a WCAG 2.4.7 failure
+   * on every interactive element. `:focus-visible` rather than `:focus` so a
+   * mouse click does not leave a ring behind.
+   *
+   * The ring is ink, not amber: #FDBF2D on white is 1.7:1 and would fail the
+   * 3:1 non-text contrast requirement precisely where it matters most. The
+   * accent stays on CTAs and live status.
+   */
+  :focus-visible {
+    outline: 2px solid theme("colors.ink.DEFAULT");
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Respect a reduced-motion preference for the few transitions in use. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { PhoneField, TextField, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/ui";
+import { takeMerchantJoin } from "@/lib/merchant-join-handoff";
 
 type Step = "intro" | "business" | "location" | "floor" | "wallet" | "review" | "done";
 
@@ -29,7 +30,7 @@ export function OnboardWizard({
 }: {
   successFee: number;
   agents?: OnboardAgent[];
-  /** Prefill from `/merchants` → `/login?next=/merchant/onboard?shop=…`. */
+  /** Prefill from `/merchants/join` → `/login?next=/merchant/onboard?shop=…`. */
   initialShopName?: string;
 }) {
   const router = useRouter();
@@ -54,6 +55,24 @@ export function OnboardWizard({
   const [ownerCc, setOwnerCc] = useState("+254");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+
+  /**
+   * Pick up the phone number left by `/merchants/join`.
+   *
+   * The join form asks for a number and, before this handoff existed, dropped it
+   * on the floor — the merchant typed it again two steps later. It arrives via
+   * `sessionStorage` rather than the URL so it stays out of history, `Referer`
+   * and the PostHog `$current_url`; see `@/lib/merchant-join-handoff`.
+   *
+   * Read once, after mount, and only into empty fields, so it can never
+   * overwrite something the merchant has already typed.
+   */
+  useEffect(() => {
+    const stashed = takeMerchantJoin();
+    if (!stashed) return;
+    setOwnerPhone((cur) => cur || stashed.phone);
+    setOwnerCc((cur) => (cur === "+254" ? stashed.cc : cur));
+  }, []);
 
   // location (9f/9u)
   const [w3w, setW3w] = useState("");

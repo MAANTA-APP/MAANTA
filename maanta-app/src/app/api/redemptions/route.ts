@@ -92,6 +92,10 @@ export async function POST(request: Request) {
     } else if (message.includes("deal_paused")) {
       status = 409;
       userMessage = "This deal is paused — no new claims right now.";
+      return NextResponse.json(
+        { error: userMessage, code: "deal_paused" },
+        { status }
+      );
     } else if (message.includes("deal_expired")) {
       status = 410;
       userMessage = "This deal has expired.";

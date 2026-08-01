@@ -10,9 +10,15 @@ export const dynamic = "force-dynamic";
  * "Were you helped by a Maanta agent?" attribution picker. The merchant remains
  * the authenticated submitter — the agent is captured as attribution only.
  *
- * `?shop=` comes from `/merchants` signup handoff (`/login?next=/merchant/onboard?shop=…`).
- * Prefilling it is the only durable use of that query param — without it the lead
- * form silently discarded the shop name after login. */
+ * `?shop=` comes from the `/merchants/join` signup handoff
+ * (`/login?next=/merchant/onboard?shop=…`). Prefilling it is the only durable use
+ * of that query param — without it the lead form silently discarded the shop name
+ * after login.
+ *
+ * The phone number deliberately does **not** travel in the URL. It briefly did,
+ * which put it in browser history, `Referer` and the PostHog `$current_url` on
+ * every event; it now moves through `sessionStorage` and is read by the client
+ * wizard (`@/lib/merchant-join-handoff`). Do not add `?phone=` back. */
 export default async function MerchantOnboardPage({
   searchParams,
 }: {

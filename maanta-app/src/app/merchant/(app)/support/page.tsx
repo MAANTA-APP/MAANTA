@@ -1,4 +1,5 @@
 import { getSuccessFee } from "@/lib/data";
+import { ENTITY } from "@/lib/marketing/demo";
 import { ButtonLink } from "@/components/ui/button";
 import { IconWhatsApp } from "@/components/ui/icons";
 
@@ -32,7 +33,7 @@ export default async function MerchantSupportPage() {
         ))}
       </div>
       <ButtonLink
-        href="https://wa.me/254700000000"
+        href={ENTITY.whatsappLink}
         variant="secondary"
         full
         className="mt-8"

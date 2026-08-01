@@ -44,6 +44,27 @@ supabase db push --dry-run
 Prefer a **low-traffic window** — the hardening migrations are grant/view/table
 changes and can take brief locks.
 
+### Paused-deal claim gate deploy (D25)
+
+Parked checklist — run when ready to touch production. Do **not** treat pause as
+live enforcement on prod until the verify step passes. Canonical semantics:
+`docs/skills/paused-deal-semantics.md` / `CLAUDE.md` (Paused deals).
+
+- **Pre-check:** confirm PR #150 merged and CI tests green.
+- **Run:** `supabase link --project-ref axrrslqssmbngbataejg` if needed, then
+  `supabase db push` from `maanta-app/` (prefer `--dry-run` first). Applies
+  `20260730180000` (claim gate) and `20260730190000` (browse-view pause filter).
+- **Verify on prod:**
+  ```sql
+  SELECT pg_get_functiondef(
+    'public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure
+  );
+  -- must contain: RAISE EXCEPTION 'deal_paused'
+  ```
+- **Close:** mark **D25** as `closed` in `docs/maanta-drift-register.md` and
+  update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
+  **live on production**.
+
 ### The #48–#61 hardening set (must be present after push)
 
 From `docs/skills/prod-handoff-security-audit-2026-07-23.md`, apply in filename
@@ -225,6 +246,7 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
 | `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
 | `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
+| `20260730190000` | `paused_deals_discovery_filter` | `deals_public_browse` excludes `is_paused` (SQL mirror of app rails) |
 
 When adding a new 07-30 (or later) migration, pick a version **strictly after**
 the highest row above that is already on `main` *and* confirm with

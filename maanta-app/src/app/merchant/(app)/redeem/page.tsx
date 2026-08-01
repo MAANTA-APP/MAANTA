@@ -1,5 +1,6 @@
 import { getMerchantContext } from "@/lib/merchant";
 import { getSuccessFee } from "@/lib/data";
+import { createServiceClient } from "@/lib/supabase/service";
 import { RedeemKeypad } from "./redeem-keypad";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,27 @@ export default async function MerchantRedeemPage() {
   const { merchant, permissions } = res.ctx;
   const fee = await getSuccessFee();
 
+  const service = createServiceClient();
+  const { count: pausedCount } = await service
+    .from("deals")
+    .select("id", { count: "exact", head: true })
+    .eq("merchant_id", merchant.id)
+    .eq("is_active", true)
+    .eq("is_paused", true);
+
   return (
-    <RedeemKeypad
-      balance={merchant.account_balance}
-      fee={fee}
-      canVerify={permissions.can_verify}
-    />
+    <div>
+      {(pausedCount ?? 0) > 0 ? (
+        <p className="border-b border-line bg-cream px-4 py-2.5 text-xs text-muted">
+          Paused for new claims; existing claimed tickets remain redeemable until
+          expiry.
+        </p>
+      ) : null}
+      <RedeemKeypad
+        balance={merchant.account_balance}
+        fee={fee}
+        canVerify={permissions.can_verify}
+      />
+    </div>
   );
 }
