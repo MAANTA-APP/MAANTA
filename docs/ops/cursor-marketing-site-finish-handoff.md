@@ -74,18 +74,15 @@ The audit's evidence (200, `x-matched-path: /shoppers`, byte-identical body) is
 also exactly what a **followed** 308 looks like. If this returns 308, close Step 3
 without touching `next.config.mjs`.
 
-### 3.2 Legal `noindex` — repo sets it, audit found none
+### 3.2 Legal `noindex` — **RESOLVED 2026-08-01, no action needed**
 
-```bash
-for p in /privacy /terms /merchant-terms /cookies; do
-  curl -s "https://www.maanta.app$p" | grep -i 'name="robots"'
-done
-```
+Checked against production HTML: `/privacy` and `/cookies` both emit
+`<meta name="robots" content="noindex, nofollow"/>`. The audit was wrong — the tag
+is `name="robots"`, and its other head checks look for `property=`.
 
-Note Next emits `name="robots"`, not `property=`. If the tag is present, LEG-02 is
-not a defect and the founder ruling narrows to a single line in `src/app/robots.ts`
-(see §6). If it is genuinely absent, you have found a real bug **and** a vacuous
-guard, because `marketing-a11y.test.ts` asserts this at source level.
+**Do not add `noindex` to any legal page.** Option A is already implemented. The
+founder ruling narrows to one line in `src/app/robots.ts` (see §6). Drift **D42**
+is closed. `marketing-a11y.test.ts` is vindicated rather than vacuous.
 
 ### 3.3 `/pricing` live-deals fetch — audit asked, repo answers no
 

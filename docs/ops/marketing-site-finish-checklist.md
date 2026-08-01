@@ -28,10 +28,10 @@ The three source-vs-render disagreements. Record the observed value, not an opin
 - [ ] **`[HTML]`** `curl -sI https://www.maanta.app/how-it-works | head -3` → status: ______
   - [ ] 308 + `location: /shoppers` → **Step 3 already done**; close it, edit nothing
   - [ ] 200 → escalate: the cause is outside `next.config.mjs:29`
-- [ ] **`[HTML]`** `curl -s <base>/privacy | grep -i 'name="robots"'` → present / absent: ______
-  - [ ] repeat for `/terms`, `/merchant-terms`, `/cookies`
-  - [ ] if present → LEG-02 reduces to the `Disallow` ruling only
-  - [ ] if absent → real bug **and** `marketing-a11y.test.ts` is a vacuous guard
+- [x] **`[HTML]`** legal `noindex` → **PRESENT** on `/privacy` and `/cookies`
+      (`content="noindex, nofollow"`), verified 2026-08-01. Audit refuted, D42 closed.
+  - [x] LEG-02 reduces to the `Disallow` ruling only — **add no `noindex`**
+  - [ ] optional: repeat for `/terms` and `/merchant-terms` (same source pattern, expected present)
 - [x] `/pricing` carries no live-deals fetch — verified by inspection, nothing to remove
 - [x] `metadataBase` already set (`src/app/layout.tsx:33`) — do not re-add
 - [x] `marketing_form_submitted` exists and is called — no analytics work in Step 5
@@ -45,9 +45,12 @@ The three source-vs-render disagreements. Record the observed value, not an opin
 - [ ] `git log --oneline origin/claude/maanta-marketing-site-y8fesm..origin/main` → expect 2 commits
 - [ ] PR opened carrying `038e3bc0`, `6a22c0f`, `480bdf6` onto `main`
 - [ ] `.gitignore` conflict resolved keeping **both** sides' entries
-- [ ] `git merge-base --is-ancestor <production-sha> origin/main && echo OK`
+- [ ] `git merge-base --is-ancestor 038e3bc0 origin/main && echo OK`
 - [ ] **`[EXT]`** production redeployed from `main`
 - [ ] **`[EXT]`** Vercel production deployment reports `githubCommitRef: main`
+      — **as of 2026-08-01 01:07 UTC it reads `claude/maanta-marketing-site-y8fesm`
+      on `dpl_8Pvcon…`; do NOT "roll back" to the `314b5ef` deployment, that
+      discards the guard fix**
 - [ ] Branch `claude/maanta-marketing-site-y8fesm` deleted after merge
 - [ ] Drift row **D37** closed with evidence
 

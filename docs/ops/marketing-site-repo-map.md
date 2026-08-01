@@ -32,6 +32,25 @@ are three of them, all called out below.
 in this environment and `npm test` fails with `sh: 1: vitest: not found`. No test
 result in this document is claimed as observed.
 
+### Production evidence obtained 2026-08-01 (second pass)
+
+Direct egress to `www.maanta.app` is blocked by this environment's network policy
+(the gateway answers 403 to CONNECT), but **the Vercel deployment-fetch tool and
+the Vercel API reach it**, which settled three items this document originally
+marked UNVERIFIABLE HERE:
+
+| Item | Result |
+|---|---|
+| **RISK-01** — production commit ref | **CONFIRMED LIVE.** `dpl_8Pvcon…` is `target: production`, `githubCommitRef: claude/maanta-marketing-site-y8fesm`, sha `038e3bc0`, `action: promote`. Last production deploy from `main` was `314b5ef` at 2026-07-31 14:52 UTC; the branch promotion at 2026-08-01 01:07 UTC superseded it. |
+| **LEG-02** — legal `noindex` | **AUDIT REFUTED.** `/privacy` and `/cookies` both emit `<meta name="robots" content="noindex, nofollow"/>`. See §8. |
+| **LEG-01** — unfinished cells | **CONFIRMED EXACTLY.** Three `PendingValue` markers live and no more — `{{CLERK_REGION}}`, `{{SENTRY_REGION}}` on `/privacy`; `{{AUTH_COOKIE_LIFETIME}}` on `/cookies`. |
+| **GAP-04** — canonicals | **CONFIRMED FROM RENDER.** The `/shoppers` HTML contains zero `rel="canonical"` and zero `og:url`. |
+
+Still unresolved: **GAP-03**. Settling rewrite-vs-redirect needs the *status line*
+of an unfollowed request, and every fetch path available here follows redirects.
+PostHog, which could settle it by pageview timing, requires interactive approval
+this session cannot give. See §4.
+
 ---
 
 ## 1. Environment and prep state
@@ -573,7 +592,23 @@ Minor note: `PLACEHOLDER_IDS.odpc` in `maanta-app/src/lib/marketing/demo.ts` is
 alone** — `demo.ts`'s docblock argues at length why a plausible-looking fake is the
 version that causes harm.
 
-### 7b — LEG-02, robots vs `noindex` — **CONTRADICTED, and the premise may be wrong**
+### 7b — LEG-02, robots vs `noindex` — **RESOLVED 2026-08-01: the audit is wrong**
+
+> **Settled against production HTML.** `/privacy` and `/cookies` both emit
+> `<meta name="robots" content="noindex, nofollow"/>`. The audit's §6.2 premise —
+> "carry no `noindex` meta tag" — does not hold. The likely cause of the miss is
+> that the tag is `name="robots"` while the audit's other head checks look for
+> `property=` (the Open Graph convention). Recorded as **D42, closed**.
+>
+> **Two consequences.** First, **do not add `noindex` to anything** — option A is
+> already implemented. Second, `marketing-a11y.test.ts` is *vindicated*: its
+> source-level assertion was checked against render and matched. It is the one
+> guard in this repo confirmed against rendered output rather than merely read,
+> which is a useful data point for Step 2 — the source-reading guards are not all
+> wrong, they are unverified.
+>
+> The rest of this section is retained because its reasoning is what predicted the
+> result, and because the `DEMO_MODE` coupling it describes still governs Step 7b.
 
 The audit reports zero `noindex` tags on all four legal pages. **The source sets
 them on all four.** Each of
