@@ -103,7 +103,7 @@ export function CtaPrimary({
       href={href}
       name={name}
       location={location}
-      className={`inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft transition hover:brightness-95 ${className}`}
+      className={`inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft shadow-card transition hover:-translate-y-px hover:brightness-95 active:translate-y-0 active:brightness-90 ${className}`}
     >
       {children}
     </TrackedLink>
@@ -135,7 +135,7 @@ export function CtaSecondary({
       href={href}
       name={name}
       location={location}
-      className={`inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-bold transition ${styles} ${className}`}
+      className={`inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-bold transition active:translate-y-px ${styles} ${className}`}
     >
       {children}
     </TrackedLink>
@@ -159,7 +159,11 @@ export function AudienceHero({
   status?: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-line bg-white">
+    // The wash is the one place broad colour is allowed, because it is not the
+    // accent: paper fading to white lifts the hero off the header without
+    // spending #FDBF2D on decoration. Top-down, so the CTA sits on clean white
+    // and keeps its contrast.
+    <section className="border-b border-line bg-gradient-to-b from-paper via-white to-white">
       <div className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">{eyebrow}</p>
         <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.1] text-ink sm:text-5xl">
@@ -184,6 +188,43 @@ export function AudienceHero({
   );
 }
 
+/**
+ * The three load-bearing facts, restated immediately under the hero.
+ *
+ * Deliberately **not** social proof. The honest version of a trust bar at this
+ * stage is the commercial shape of the product — free for shoppers, a fee only
+ * on a verified redemption, money moving in person — not a shop count or a
+ * redemption total, which would be a measured figure and would have to go
+ * through `ScenarioStat` (and would be modelled, not real, until BBS is live).
+ *
+ * `items` is passed in rather than hardcoded here so every value still resolves
+ * from `lib/marketing/facts.ts` at the call site. No amber: this is context for
+ * the CTA above it, and a second accent would compete with it.
+ */
+export function TrustBar({
+  items,
+}: {
+  items: ReadonlyArray<{ title: React.ReactNode; body: React.ReactNode }>;
+}) {
+  return (
+    <section className="border-b border-line bg-white">
+      <div className="mx-auto max-w-5xl px-5 py-6 sm:py-8">
+        <dl className="grid animate-fade-in-up gap-5 sm:grid-cols-3 sm:gap-8">
+          {items.map((item, i) => (
+            <div
+              key={i}
+              className="sm:border-l sm:border-line sm:pl-5 sm:first:border-l-0 sm:first:pl-0"
+            >
+              <dt className="text-sm font-black text-ink">{item.title}</dt>
+              <dd className="mt-1 text-[13px] leading-relaxed text-secondary">{item.body}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
 /** "Live at BBS Mall" style line with the amber status dot. */
 export function LiveDot() {
   return (
@@ -203,7 +244,10 @@ export function StepRail({
   return (
     <ol className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {steps.map((s, i) => (
-        <li key={s.title} className="rounded-card border border-line bg-white p-5">
+        <li
+          key={s.title}
+          className="rounded-card border border-line bg-white p-5 transition hover:border-ink/20 hover:shadow-card"
+        >
           <span
             aria-hidden="true"
             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-paper text-sm font-black text-ink"

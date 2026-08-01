@@ -15,6 +15,7 @@ import {
   Section,
   SectionHeading,
   StepRail,
+  TrustBar,
 } from "@/components/marketing/sections";
 
 /**
@@ -98,6 +99,34 @@ export default function LandingPage() {
         }
       />
 
+      {/*
+        Restates the hero's three commitments as scannable facts. Every value
+        reads from FACTS, and none of them is a metric — there is no shop count,
+        no redemption total and no shopper number here, because those are
+        modelled until BBS is live and would have to render through ScenarioStat.
+      */}
+      <TrustBar
+        items={[
+          {
+            title: "Free for shoppers",
+            body: "No card, no online checkout, and no sign-in needed to look around.",
+          },
+          {
+            title: <>{fee} per verified redemption</>,
+            body: "What a shop pays, and only once staff verify a code. No listing fee, no cut of the sale.",
+          },
+          {
+            title: "Paid in person",
+            body: (
+              <>
+                Show a {FACTS.codeLength}-digit code at the counter and pay the shop
+                directly, the way you already do.
+              </>
+            ),
+          },
+        ]}
+      />
+
       <Section id="problem" tone="paper">
         <SectionHeading>Malls have deals. Shoppers rarely see them.</SectionHeading>
         <p className="mt-6 max-w-3xl text-base leading-relaxed text-secondary sm:text-lg">
@@ -146,12 +175,20 @@ export default function LandingPage() {
               event={MARKETING_EVENTS.audienceDoor}
               name={d.title}
               location="doors"
-              className="group flex flex-col rounded-card border border-line bg-white p-6 transition hover:border-ink"
+              className="group flex flex-col rounded-card border border-line bg-white p-6 transition hover:-translate-y-0.5 hover:border-ink hover:shadow-card"
             >
               <h3 className="text-lg font-black text-ink">{d.title}</h3>
               <p className="mt-2 flex-1 text-sm leading-relaxed text-secondary">{d.body}</p>
+              {/* The arrow moves, not the label — the underline stays put so the
+                  link target does not appear to shift under the cursor. */}
               <span className="mt-4 text-sm font-bold text-ink underline underline-offset-4">
-                {d.label} →
+                {d.label}{" "}
+                <span
+                  aria-hidden="true"
+                  className="inline-block no-underline transition-transform group-hover:translate-x-1"
+                >
+                  →
+                </span>
               </span>
             </TrackedLink>
           ))}
@@ -249,7 +286,26 @@ export default function LandingPage() {
         </Link>
       </Section>
 
-      <LandingEarlyAccess />
+      {/*
+        The form was rendering bare at the end of the page — no container, no
+        padding, no heading — so it read as a stray input rather than the page's
+        closing action. It is the only conversion on Home for a visitor who is
+        not ready to browse, and it needs to look like one.
+
+        The heading promises a notification and nothing else. A waitlist signup
+        is not a launch date, and this page must not imply one.
+      */}
+      <Section id="early-access" tone="paper">
+        <SectionHeading
+          eyebrow="Early access"
+          lead="Tell us which mall you shop in or trade at, and we will let you know when MAANTA opens there."
+        >
+          Not at BBS Mall yet?
+        </SectionHeading>
+        <div className="mt-8 max-w-2xl">
+          <LandingEarlyAccess />
+        </div>
+      </Section>
     </ScenarioNotice>
   );
 }

@@ -88,12 +88,23 @@ const config: Config = {
           from: { transform: "scale(0.7)", opacity: "0.4" },
           to: { transform: "scale(1)", opacity: "1" },
         },
+        // Marketing entrance. Deliberately small (8px) and opacity-only beyond
+        // that: a long travel reads as a template, and anything applied to the
+        // LCP element delays it. Never put this on an <h1>.
+        "fade-in-up": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "sheet-up": "sheet-up 0.25s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
         r3: "r3 2s ease-in-out infinite",
         "otp-pop": "otp-pop 0.15s ease-out",
+        // `both` so the element is not visible at its untransformed position for
+        // a frame before the animation starts. globals.css collapses the
+        // duration under prefers-reduced-motion, which leaves the end state.
+        "fade-in-up": "fade-in-up 0.4s ease-out both",
       },
     },
   },

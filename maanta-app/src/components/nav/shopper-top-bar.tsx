@@ -23,7 +23,13 @@ export function ShopperTopBar({ node }: { node: string }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/80 bg-stone/90 px-4 py-3 backdrop-blur-md">
+      {/*
+        Deal cards scroll under a translucent stone bar, and a hairline alone was
+        not enough separation once a card's own shadow passed behind it. The
+        shadow is the card token, so the bar sits in the same elevation language
+        as the content it floats over.
+      */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/80 bg-stone/90 px-4 py-3 shadow-card backdrop-blur-md">
         <LocationPill label={nodeLabel(node)} onClick={() => setOpen(true)} />
         <div className="flex items-center gap-2">
           <Link
