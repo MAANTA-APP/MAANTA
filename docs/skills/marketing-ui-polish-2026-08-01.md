@@ -13,7 +13,13 @@ repository — the container it ran in held the only copy. It was redone here
 against `314b5ef` so it exists in git. If a future session is handed a summary
 of UI work, check `git status` against the claim before building on it.
 
-## What changed (8 files)
+## What changed
+
+<!-- No file count in this heading on purpose. It said "8 files" while the table
+     listed 13, because the table grew over three commits and the heading did
+     not. A hand-synced duplicate of something the table already states will go
+     stale again; count the rows. -->
+
 
 | File | Change |
 |---|---|
