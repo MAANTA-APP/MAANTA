@@ -303,15 +303,22 @@ export const LEGAL_LINKS = [
 
 Marketing that currently outruns what is true or agreed. Each is in the relevant claims register.
 
-| Claim | Where | Why held |
-|---|---|---|
-| "Anything left in your balance stays yours" | `copy/merchants.md` `#faq` | Depends on the CBK question. **Remove until resolved.** |
-| "A shop that does not honour its own deals does not stay on MAANTA" | `copy/shoppers.md` `#faq` | Needs ToS 6.3 to exist |
-| "We do not sell shopper data" | `copy/about.md`, `copy/mall-operators.md` | Must match the rewritten Privacy Policy word for word |
-| Monthly operating report | `copy/mall-operators.md` `#report` | Confirm someone owns producing it |
-| BBS Mall as a signed partner, 3 months live | `copy/mall-operators.md` throughout | Scenario. Marker required; prose claims need editing out for public use |
-| "121 shops · 190 live deals" | Any page | These are the demo figures already on `/malls/bbs-mall` |
-| Every stated response time | `copy/contact.md` | Publish only what can be met |
+The **Status** column was added on 2026-08-01. Three of these were released on
+2026-07-31 once the thing they were waiting on actually existed; the rows stay
+here rather than being deleted, because the record that a claim was ever held is
+what stops it being re-held or re-released by accident. `held-claims.test.ts`
+enforces both directions: a still-held claim must not appear in a page or a
+legal `.md`, and a released claim's backing clause must still be present.
+
+| Claim | Where | Why held | Status |
+|---|---|---|---|
+| "Anything left in your balance stays yours" | `copy/merchants.md` `#faq` | Depends on the CBK question. **Remove until resolved.** | **Held** in this unqualified form. Merchant Terms 7.8 excludes promotional credit, so the published copy says "credit you topped up yourself" — narrowed, not released |
+| "A shop that does not honour its own deals does not stay on MAANTA" | `copy/shoppers.md` `#faq` | Needs ToS 6.3 to exist | **Released 2026-07-31** against Terms of Service 6.3, which now sets out the actual escalation (contact → require honour or withdraw → suspend publishing → removal) |
+| "We do not sell shopper data" | `copy/about.md`, `copy/mall-operators.md` | Must match the rewritten Privacy Policy word for word | **Held** |
+| Monthly operating report | `copy/mall-operators.md` `#report` | Confirm someone owns producing it | **Held** |
+| BBS Mall as a signed partner, 3 months live | `copy/mall-operators.md` throughout | Scenario. Marker required; prose claims need editing out for public use | **Held** in production. Renders only under `NEXT_PUBLIC_SCENARIO_MODE`, inside `<ScenarioNotice>` |
+| "121 shops · 190 live deals" | Any page | These are the demo figures already on `/malls/bbs-mall` | **Held** in production. Scenario-gated as above |
+| Every stated response time | `copy/contact.md` | Publish only what can be met | **Released 2026-07-31** against `RESPONSE_TIMES` in `facts.ts` — same day, 1 business day, 2 business days |
 
 ---
 

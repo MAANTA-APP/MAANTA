@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
 import { ENTITY } from "@/lib/marketing/demo";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
+import { stashMerchantJoin } from "@/lib/merchant-join-handoff";
 
 /**
  * `/merchants/join` — the lead form, relocated from `/merchants`.
@@ -15,10 +16,15 @@ import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
  * §4). The relocation is sequenced ahead of `/merchants` becoming the marketing
  * page, so merchant acquisition is never dark between commits (risk R2).
  *
- * **The phone number now survives the handoff.** This form previously collected a
- * phone and passed only `?shop=` to onboarding, so the merchant typed their number
- * here and then typed it again two steps into the wizard. Both values are carried
- * through now — same class of defect as the contact form, smaller blast radius.
+ * **The phone number now survives the handoff, without entering the URL.** This
+ * form previously collected a phone and passed only `?shop=` to onboarding, so the
+ * merchant typed their number here and then typed it again two steps into the
+ * wizard. Carrying it as a query parameter fixed that and created a worse problem
+ * — the number landed in history, in `Referer`, and in the PostHog `$current_url`
+ * on every event — so it travels in `sessionStorage` instead
+ * (`@/lib/merchant-join-handoff`). The shop name stays in the URL: it is about to
+ * be published on a public feed, and keeping it there means a merchant who lands
+ * on onboarding in a fresh tab loses only the phone prefill.
  *
  * The destination is unchanged: `/login?next=/merchant/onboard?…`. This is a funnel
  * into authenticated onboarding, not a lead-capture endpoint. `/api/leads` exists
@@ -45,11 +51,8 @@ export default function MerchantJoinPage() {
           e.preventDefault();
           // Records the handoff into onboarding. No shop name, no phone number.
           trackMarketing(MARKETING_EVENTS.formSubmit, { form: "merchant-join" });
+          if (phone.trim()) stashMerchantJoin({ cc, phone: phone.trim() });
           const params = new URLSearchParams({ shop: shopName });
-          if (phone.trim()) {
-            params.set("phone", phone.trim());
-            params.set("cc", cc);
-          }
           router.push(`/login?next=${encodeURIComponent(`/merchant/onboard?${params}`)}`);
         }}
       >

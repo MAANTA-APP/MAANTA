@@ -90,12 +90,19 @@ describe("marketing shell", () => {
 
   // Hard rule: every number renders from facts.ts. A price typed into JSX is how
   // /merchants and /pricing came to disagree in the first place.
-  it("does not inline the boost or Elite price into marketing JSX", () => {
+  //
+  // The success fee joined this list on 2026-08-01. It was inlined into
+  // `merchants/opengraph-image.tsx` — a file this guard already reached, since OG
+  // routes live under MARKETING_APP, but which its pattern did not name. Widening
+  // it found three more: both `/merchants` metadata descriptions and the waitlist
+  // blurb. Metadata and OG images are rendered output too, and the OG image is
+  // arguably the most quoted surface on the site.
+  it("does not inline the success fee, boost or Elite price into marketing JSX", () => {
     const offenders: string[] = [];
     for (const f of filesUnder(MARKETING_APP).concat(filesUnder(MARKETING_COMPONENTS))) {
       codeOnly(readFileSync(f, "utf8")).forEach((line, i) => {
         // A currency-shaped literal in copy, rather than a FACTS/formatKes read.
-        if (/KES\s*(500|3,?500)\b/.test(line)) {
+        if (/KES\s*(30|500|3,?500)\b/.test(line)) {
           offenders.push(`${rel(f)}:${i + 1}  ${line.trim()}`);
         }
       });

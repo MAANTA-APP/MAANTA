@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { TextField, inputClass } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
-import { CONTACT_TOPICS, normaliseTopic, type ContactTopic } from "@/lib/contact";
+import {
+  CONTACT_TOPICS,
+  isEmailAddress,
+  normaliseTopic,
+  type ContactTopic,
+} from "@/lib/contact";
 import { ENTITY } from "@/lib/marketing/demo";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 
@@ -83,7 +88,9 @@ export function EnquiryRouter() {
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
   const [hpUrl, setHpUrl] = useState("");
-  const [sent, setSent] = useState(false);
+  // Null until submitted; then whether the API actually sent an autoresponder.
+  // The form must not promise a confirmation email it did not send.
+  const [sent, setSent] = useState<null | { autoresponded: boolean }>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -120,7 +127,10 @@ export function EnquiryRouter() {
           hp_url: hpUrl,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        autoresponded?: boolean;
+      };
       if (!res.ok) {
         setError(data.error ?? "We could not send your message. Please try WhatsApp.");
         return;
@@ -128,7 +138,7 @@ export function EnquiryRouter() {
       // Records that a submission succeeded and which topic it was routed to.
       // Never the name, contact detail or message body.
       trackMarketing(MARKETING_EVENTS.formSubmit, { form: "contact", topic: submittedTopic });
-      setSent(true);
+      setSent({ autoresponded: Boolean(data.autoresponded) });
     } catch {
       setError(
         "We could not reach the server. Check your connection, or message us on WhatsApp."
@@ -187,8 +197,23 @@ export function EnquiryRouter() {
         </p>
 
         {sent ? (
-          <div className="mt-6 rounded-card bg-verified-tint px-5 py-4">
+          /*
+            The form is replaced by this block, so a screen-reader user gets no
+            focus change and no announcement — submit, and nothing appears to
+            happen. `role="status"` with `aria-live="polite"` announces the
+            result without stealing focus mid-sentence.
+          */
+          <div
+            role="status"
+            aria-live="polite"
+            className="mt-6 rounded-card bg-verified-tint px-5 py-4"
+          >
             <p className="text-sm font-semibold text-verified">✓ Message sent</p>
+            {sent.autoresponded ? (
+              <p className="mt-1 text-sm text-ink">
+                A confirmation is on its way to your email.
+              </p>
+            ) : null}
             <p className="mt-1 text-sm text-ink">
               We read every message and a person will reply. If it is urgent,{" "}
               <a
@@ -220,8 +245,17 @@ export function EnquiryRouter() {
               <span className="mb-1.5 block text-xs font-medium text-muted">
                 What is this about?
               </span>
+              {/*
+                Bound to `submittedTopic`, not `choice`. "list-shop" is a route
+                rather than a topic and has no <option>, so binding to `choice`
+                left the select rendering "General enquiry" while React believed
+                the value was "list-shop" — and the next keyboard selection of
+                "General enquiry" fired no change event, stranding it.
+                `submittedTopic` is what the API would actually receive, which
+                is the honest thing to show.
+              */}
               <select
-                value={choice ?? ""}
+                value={submittedTopic === "general" ? "" : submittedTopic}
                 onChange={(e) => setChoice((e.target.value || null) as Choice | null)}
                 className={cn(inputClass)}
               >
@@ -276,9 +310,17 @@ export function EnquiryRouter() {
               {sending ? "Sending…" : "Send message"}
             </Button>
 
+            {/*
+              The confirmation email only exists for people who gave an email
+              address — the API sends the autoresponder to `contact` and skips
+              it otherwise. Promising it unconditionally told everyone who left
+              a phone number to watch an inbox that would stay empty.
+            */}
             <p className="text-xs leading-relaxed text-muted">
-              We read every message. You will get a confirmation by email as soon as it
-              arrives.
+              We read every message.{" "}
+              {isEmailAddress(contact.trim())
+                ? "You will get a confirmation by email as soon as it arrives."
+                : "Leave an email address and we will confirm as soon as it arrives."}
             </p>
             <p className="text-xs leading-relaxed text-muted">
               We use what you send here only to reply to you. See our{" "}

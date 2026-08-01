@@ -330,7 +330,10 @@ do not conflate them.
    document is the least complete.
 6. **Handoff §7 blocker #11 is factually wrong** about production being US-hosted
    (§1, Q14). Correct it before counsel answers the transfer-basis question.
-7. **Lighthouse unverified** (§6).
+7. **Lighthouse measured locally, unmeasured on production** — **superseded by
+   §15**, which was added after this list was written. Five of six pages meet the
+   performance bar and `/` is 87; accessibility, best practices and SEO are 100 on
+   all six. What remains open is a production measurement, not any measurement.
 8. **`/malls/bbs-mall` was not rebuilt.** It renders in the new chrome but its
    content is untouched, and it still carries the demo shop and deal counts that
    risk R11 warns against quoting. `/faq` **was** rebuilt — see §13.
@@ -447,8 +450,9 @@ Split into Shoppers / Merchants / Mall operators per
 `website-footer-legal-docs-plan.md` §3, and every number now reads from
 `facts.ts`. This page was **one of the last marketing routes where frozen
 numbers were typed rather than imported** — it hardcoded "KES 30" and "15-minute"
-as prose strings with no constant behind them. Waitlist metadata and OG image
-headlines may still inline numbers; those surfaces were not in scope for this pass.
+as prose strings with no constant behind them. The remaining surfaces flagged here
+— waitlist metadata and OG image headlines — **were** still inlining the fee, and
+were fixed on 2026-08-01 after the guard was widened to catch them (§17.4).
 
 Answers are kept consistent with the audience pages rather than reworded, so a
 shopper reading both is told the same thing twice. The two held claims stay held
@@ -473,9 +477,10 @@ the token gate still reports no `{{TOKEN}}` in rendered output.
 
 ### 13.5 What §6 still leaves open
 
-Unchanged: cookie-consent mechanism, Lighthouse measurement, `/help` marketing
-variant, A/B variants. Added: confirm one live PostHog
-event after deploy.
+Unchanged: cookie-consent mechanism, `/help` marketing variant, A/B variants.
+Added: confirm one live PostHog event after deploy. Lighthouse has since been
+measured locally (§15); only the production measurement is still outstanding. The
+two offer dates were set to 2026-10-31 (§14.3), so that item is closed.
 
 ---
 
@@ -578,8 +583,9 @@ gate reports no `{{TOKEN}}` in 47 rendered files.
 
 - Confirm one live PostHog event after deploy (§13.1).
 - Counsel review of all four documents; the CBK question first.
-- Lighthouse unmeasured; `{{AUTH_COOKIE_LIFETIME}}`, `{{CLERK_REGION}}`,
-  `{{SENTRY_REGION}}`; +254 line and split inboxes at launch.
+- Lighthouse **on production** unmeasured — local runs are in §15;
+  `{{AUTH_COOKIE_LIFETIME}}`, `{{CLERK_REGION}}`, `{{SENTRY_REGION}}`; +254 line
+  and split inboxes at launch.
 
 ### 14.7 The "why Eastleigh" paragraph, and what was inferred
 
@@ -737,3 +743,114 @@ inside `PostHogClientProvider`, `AppProviders` present on all fourteen shells, a
 no `@clerk/` import anywhere under `(marketing)`. The last is the backstop — a
 missing shell throws at runtime for a signed-in user, which no build or type check
 catches.
+
+---
+
+## 17. Automated review, 2026-08-01 — and the two guards that did not guard
+
+CodeRabbit raised 39 threads on PR #153. CI was green throughout; none of this was
+caught by a test, because the two most serious findings were *about* the tests.
+
+### 17.1 The comment-stripper, twice (D38, then D43)
+
+Four static guard suites scan source text with comments stripped first. Every
+stripper cut lines at the first `//`, wherever it appeared — including inside a
+string literal. So `href="https://wa.me/254700000000"` became `href="https:`, and
+the D36 guard, whose entire purpose is catching a hardcoded `wa.me/` number,
+matched nothing and reported success. The register recorded D36 as *closed and
+guarded*; it was closed and unguarded.
+
+`CURSOR-AUDIT-BRIEF.md` §B told the auditor to check this exact failure mode —
+*"a naive one breaks on `//` inside a string or a URL, which would blind the guard
+silently"* — so the failure mode was described in a brief and shipped in the same
+change.
+
+**It then took two passes to actually fix.** The first (D38, on `main`)
+consolidated three private copies into one helper whose `lineCommentAt()` skips a
+`//` preceded by a colon. That repairs `https://` and nothing else, and its
+docblock argued the limit was safe because *"a false strip can only ever make a
+guard miss something"*. A guard that misses is not a mitigated failure mode — it
+is D36 exactly.
+
+The second pass (D43) made the lexer track string state. The difference is
+demonstrable rather than theoretical: a protocol-relative
+`href="//wa.me/254700000000"` is caught now and would have passed the colon rule,
+which strips that line to `return <a href="`.
+
+The general point is the one worth keeping: **a scope limit written in a docblock
+is not a mitigation.** Stating "this does not handle X" documents the hole without
+closing it, and the next reader inherits the sentence rather than the risk.
+
+### 17.2 The scenario gate (D44)
+
+`ScenarioStat` threw on an unwrapped modelled figure only when
+`NODE_ENV === "development"`. A preview deployment — the only build that renders
+modelled figures at all — runs `NEXT_PUBLIC_SCENARIO_MODE=true` **and**
+`NODE_ENV=production`. The guard was disabled in precisely the configuration it
+existed for, and the component's own docblock argued it was safe, reasoning
+correctly about production and not at all about preview.
+
+### 17.3 The token gate's scope (D45)
+
+`check-tokens.mjs` scanned `.html`/`.rsc`/`.body` under `.next/server/app`. Most
+routes here are `ƒ` and emit no HTML at build time; a token in a client component
+ships in a JS chunk. Both classes were invisible. Now proven caught, in both a
+client and a server component on a dynamic route.
+
+### 17.4 What else was real
+
+- **A phone number in the URL.** `/merchants/join` passed `?phone=`/`?cc=` through
+  `/login` into onboarding — into browser history, `Referer`, and the PostHog
+  `$current_url` on every event. Introduced in this PR, to stop the join form
+  discarding what it collected. It now moves through `sessionStorage`.
+- **A confirmation email promised to people who left a phone number**, for whom
+  the API sends nothing.
+- **The success fee inlined in four places** — the `/merchants` OG image, both of
+  that page's metadata descriptions, and the waitlist blurb. Three of the four
+  were found by widening the existing guard, not by reading the diff.
+- **A sentence in the privacy policy broken by a token substitution**, which read
+  "…on the basis of Our primary database is hosted in the EU (Ireland)…".
+- **A migration filename in the decisions log that does not exist**
+  (`20260715120000…`; the real one is `20260715194145_boost_elite_only_gate.sql`).
+- Contact-form a11y (`role="status"` on a block that replaces the form), a select
+  bound to a value with no matching option, and no timeout on any Resend call.
+
+### 17.5 The pattern worth naming
+
+D43 and D45 are the same failure: a check whose *reported success* did not mean
+what every reader of it believed. Both were described as enforced in `CLAUDE.md`,
+in the handoff, and in this report. A guard that passes vacuously is worse than an
+absent one, because it converts an unchecked property into a checked one on paper
+— and then the register, the report and the repo guide all repeat the claim.
+
+The general lesson is narrow and repeatable: **prove a guard by breaking it.**
+Every guard fixed here was verified by planting the violation and watching the
+failure, not by reading the code and agreeing with it. That step takes a minute
+and is the only thing that distinguishes a guard from a comment.
+
+### 17.6 The one I got wrong twice
+
+The OG footer line "Live at BBS Mall, Eastleigh · Nairobi" was flagged by
+CodeRabbit, and independently by the Cursor audit as *"'Live at BBS Mall' vs
+prelaunch footer"*. I dismissed it on the grounds that `demo-mode-spec.md` §2a
+names that exact string as the sanctioned production fallback.
+
+That was checking the string and not the surface. §2a sanctions it as the `#hero`
+status line **on `/mall-operators`** — a page whose footer says "Pre-launch
+demonstration. MAANTA is not yet trading." An OG image has no footer. It is what
+a WhatsApp forward shows before anyone opens the page, in a market where WhatsApp
+is how these links travel, so it is the one surface the disclosure provably cannot
+reach. The root metadata description ("Now live at BBS Mall") had the same problem
+as the search-result snippet.
+
+Both now derive from `DEMO_MODE` and are guarded by an invariant rather than a
+string list (D46). Two independent reviewers raising the same thing should have
+been enough on its own; the spec citation felt like an answer and was not.
+
+### 17.7 Declined
+
+- **Rewriting the nine planning decks to match the implementation.** They are
+  dated inputs and the audit trail is the point; rewriting them would destroy the
+  record of what was asked for versus what shipped. Each now carries a banner
+  stating that the code and this report win on disagreement, which addresses the
+  real risk — a later session mining them for copy — without falsifying them.

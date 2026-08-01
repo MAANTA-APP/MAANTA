@@ -11,6 +11,7 @@ import {
   inputClass,
 } from "@/components/ui/inputs";
 import { cn } from "@/lib/ui";
+import { FACTS } from "@/lib/marketing/facts";
 import {
   WAITLIST_CONSENT_TEXT,
   WAITLIST_SEGMENT_OPTIONS,
@@ -19,8 +20,7 @@ import {
 
 const SEGMENT_BLURB: Record<WaitlistSegment, string> = {
   shopper: "Get early access and day-one deals at BBS Mall.",
-  merchant:
-    "Publish deals and pay only KES 30 per verified in-person redemption.",
+  merchant: `Publish deals and pay only KES ${FACTS.successFeeKes} per verified in-person redemption.`,
   mall_operator:
     "Bring measurable footfall and deal activity to your property.",
 };

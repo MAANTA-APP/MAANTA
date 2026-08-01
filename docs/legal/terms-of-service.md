@@ -98,6 +98,17 @@ If you run a shop on MAANTA, separate [Merchant Terms](/merchant-terms) apply to
 **6.4** We cannot make a shop sell you something, and we cannot compensate you for a sale that did not happen. What we can do is hold shops to what they publish, and remove those that will not be held to it.
 
 > *Counsel note: `{{ENFORCEMENT_COMMITMENT}}` must be a real, operable process — even a simple one. See the note at the top of this file. Draft it to match what support will actually do, and no further.*
+>
+> *Status 2026-08-01: **this token has been filled in the published document** and
+> is the clause counsel should review. This file is the pre-fill draft and is kept
+> as the record of what was asked for; the text actually served at `/terms` §6.3
+> lives in `maanta-app/src/content/legal/terms-of-service.md` and reads: contact
+> the shop and establish what happened → require them to honour the deal as
+> published or withdraw it properly → suspend publishing on repeat or
+> non-engagement → removal for repeated refusal, with claimed codes staying valid
+> through any suspension and no charge either way. Releasing it also released the
+> held claim "a shop that does not honour its own deals does not stay on MAANTA"
+> (`website-handoff.md` §9). Review the published wording, not this token.*
 
 ## 7. What we do not promise
 

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { walk, relToSrc } from "./helpers/source-files";
+import { stripComments as codeOnly } from "./helpers/comment-stripping";
 
 /**
  * Clerk is scoped to the routes that authenticate.
@@ -34,26 +36,13 @@ const read = (...p: string[]) => readFileSync(path.join(...p), "utf8");
  * absence — and a scanner that cannot tell code from commentary fails on exactly
  * the files it is meant to pass, teaching the next author to delete the
  * explanation instead of keeping the guard.
+ *
+ * `codeOnly` is shared and string-literal aware — see `helpers/comment-stripping.ts`
+ * for why the naive regex this file used to inline was unsafe.
  */
-const codeOnly = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+const filesUnder = (dir: string) => walk(dir, [".tsx", ".ts"]);
 
-function filesUnder(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = path.join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name === "node_modules" || name === "__tests__") continue;
-      out.push(...filesUnder(full));
-    } else if (name.endsWith(".tsx") || name.endsWith(".ts")) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const rel = (f: string) => path.relative(SRC, f);
+const rel = (f: string) => relToSrc(SRC, f);
 
 describe("Clerk provider scoping", () => {
   it("keeps the auth provider out of the root layout", () => {
