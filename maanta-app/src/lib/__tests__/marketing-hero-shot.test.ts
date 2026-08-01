@@ -4,7 +4,7 @@ import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
 
 /**
- * Guard for the hero device mockup — drift row **D49**.
+ * Guard for the hero device mockup — drift row **D50**.
  *
  * `HeroShot` is the one place on the marketing site where synthetic deal rows
  * render. Every other marketing surface is held to "no invented content",
@@ -48,7 +48,7 @@ const HOME = path.join(SRC, "app", "(marketing)", "page.tsx");
 
 const code = (f: string) => stripComments(readFileSync(f, "utf8"));
 
-describe("hero device mockup (D49)", () => {
+describe("hero device mockup (D50)", () => {
   // The visible caption under the mockup. Not the sr-only text — a sighted
   // visitor is the one being shown invented prices.
   it("renders a visible illustration disclosure next to the mockup", () => {
@@ -92,7 +92,7 @@ describe("hero device mockup (D49)", () => {
     );
     expect(
       others,
-      `HeroShot is Home-only (D49). Adding it to another page needs its own decision:\n${others.join(
+      `HeroShot is Home-only (D50). Adding it to another page needs its own decision:\n${others.join(
         "\n"
       )}`
     ).toEqual([]);

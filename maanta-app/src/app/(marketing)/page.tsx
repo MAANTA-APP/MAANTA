@@ -91,7 +91,7 @@ export default function LandingPage() {
         secondary={{ label: "Install the app", href: "/download" }}
         // Founder decision 2026-08-01: the hero shows the feed with example
         // deals. The shops and prices are invented and the mockup says so on
-        // its face — see HeroShot's docblock and drift row D49.
+        // its face — see HeroShot's docblock and drift row D50.
         media={<HeroShot />}
         status={
           <>

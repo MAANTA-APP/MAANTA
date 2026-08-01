@@ -36,9 +36,9 @@ of UI work, check `git status` against the claim before building on it.
 | `app/sign-up/[[...sign-up]]/page.tsx` | Wrapped in `AuthChrome` |
 | `components/nav/merchant-top-bar.tsx` | Wallet chip elevated off the white bar |
 | `components/nav/shopper-top-bar.tsx` | Header shadow over scrolling cards |
-| `components/marketing/HeroShot.tsx` | **New, 2026-08-01.** CSS mockup of the feed for the Home hero — see the D49 section |
+| `components/marketing/HeroShot.tsx` | **New, 2026-08-01.** CSS mockup of the feed for the Home hero — see the D50 section |
 | `lib/__tests__/marketing-hero-shot.test.ts` | **New, 2026-08-01.** Guard for the mockup's disclosure |
-| `docs/maanta-drift-register.md` | Row **D49** opened for the mockup |
+| `docs/maanta-drift-register.md` | Row **D50** opened for the mockup |
 
 ## Decisions worth keeping
 
@@ -122,7 +122,7 @@ files, `next lint` is clean. The ones that actually constrained the work:
   see the section below.** It is not a screenshot.
 - Pricing page cards untouched.
 
-## Update 2026-08-01 — the hero mockup (drift D49)
+## Update 2026-08-01 — the hero mockup (drift D50)
 
 The hero now carries `components/marketing/HeroShot.tsx`, a CSS drawing of the
 shopper feed, passed into `AudienceHero` through a new optional `media` slot.
@@ -139,7 +139,7 @@ mechanic-only mockup with no invented merchants and over a scaffold awaiting a
 real capture. Both alternatives, and the consequence below, were on the table
 before the decision.
 
-**The consequence is a real gap, tracked as D49.** `CLAUDE.md` keeps the
+**The consequence is a real gap, tracked as D50.** `CLAUDE.md` keeps the
 demo-data banner off marketing routes on the premise that no synthetic deal rows
 render there. That premise is now false on `/`. The rule as written is not
 violated — D33 is about the banner's location — but its justification no longer
@@ -175,7 +175,7 @@ of demo data to the repo.
 with a real Eastleigh business, which would turn an illustration into a claim
 about that business. The names were chosen to be generic for exactly that
 reason, but no test can check it. Replacing the mockup with a real capture from
-Node 0 — once BBS carries real deals — closes both the risk and D49.
+Node 0 — once BBS carries real deals — closes both the risk and D50.
 
 ### What running the full CI gate caught
 

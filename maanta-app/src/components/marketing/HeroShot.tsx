@@ -9,7 +9,7 @@ import { FACTS } from "@/lib/marketing/facts";
  * (2026-08-01) and it is the one place on the marketing site where synthetic
  * deal rows render, which is why it carries a visible "Illustration" label and
  * an `alt`-equivalent description rather than passing silently as a capture.
- * Tracked as drift row **D49** — the demo-data banner is deliberately kept off
+ * Tracked as drift row **D50** — the demo-data banner is deliberately kept off
  * marketing routes on the premise that no synthetic rows render there, and this
  * component is the exception to that premise.
  *
