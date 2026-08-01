@@ -9,10 +9,14 @@ merchants and handle fraud/dispute review.
 top up a prepaid wallet, verify codes), on-ground agents (merchant acquisition and
 dispute handling), admins/founder (approval, billing, fraud review).
 
-**Current stage:** pre-launch pilot. Production is live and schema-aligned
-(Supabase `axrrslqssmbngbataejg`, Vercel deploying from `main`), but the data is
-seed/rehearsal and demo mode is still on. The live gate being worked is the
-3-person friends-and-family pilot at Node 0 — see
+**Current stage:** pre-launch pilot. Production is live and serving (Supabase
+`axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
+still on. **Production is not a clean mirror of `main`** — three open rows say
+so: its migration ledger and this repo disagree on two version numbers (**D24**),
+the `claim_deal` pause gate is merged but not applied (**D25**, `pending-deploy`),
+and `main` and the deployed commit have diverged in both directions (**D37**).
+Do not describe the schema as aligned; check those rows first. The live gate
+being worked is the 3-person friends-and-family pilot at Node 0 — see
 `docs/maanta-launch-readiness-tracker.md` and
 `docs/ops/live-pilot-3-person-2026-07-30.md`. Treat the readiness tracker as the
 gate-status truth, not this paragraph.
@@ -54,7 +58,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `docs/ops/` | Runbooks and dated operational reports: auth strategies, demo mode, migrations, e2e/pilot readiness, UI polish |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
 
-**Auth, in one line:** `src/middleware.ts` runs `clerkMiddleware()` on every path.
+**Auth, in one line:** `maanta-app/src/middleware.ts` runs `clerkMiddleware()` on every path.
 Clerk is the launch strategy; `MAANTA_AUTH_STRATEGY=supabase` swaps in Supabase
 email OTP for rehearsal/CI. See `docs/ops/auth-strategies.md` and
 `docs/skills/clerk-auth.md`.
@@ -96,6 +100,8 @@ email OTP for rehearsal/CI. See `docs/ops/auth-strategies.md` and
 5. Implement it.
 6. Run the relevant checks (below).
 7. Summarize: files changed · what was verified · open human decisions.
+8. Leave a durable artifact — see the mandatory session rule below. A summary in
+   chat is not one.
 
 Skip steps 1–4 only for genuinely trivial edits (a typo, a broken link).
 
@@ -176,6 +182,10 @@ Use tokens from `tailwind.config.ts` and primitives from
 `src/components/ui/claude/`. Never raw hex in components.
 
 ## Product guardrails
+
+The commercial rules themselves — the KES 30 success fee, the Elite trial, the
+zero-balance gate, verify-anyway, segmentation — are in **Frozen business rules**
+below. They are stated once, there. This section is how to work near them.
 
 - **Never invent a product rule.** If the answer isn't in the decisions log, the
   readiness tracker, the drift register or a migration, it is an open question —

@@ -95,6 +95,10 @@ Output: direct and operational, no preamble. Finish with — files changed ·
 what you ran and what it said · drift found (add rows to the drift register
 before writing any narrative) · decisions still needed from me.
 
+Leave at least one durable artifact before you finish: a docs/skills/*.md
+update, a tracker update, an ops or marketing brief, or an approved markdown
+export. Chat history is not an artifact.
+
 State your mode for this session: Planner, Builder, Reviewer, or Operator.
 One objective, one deliverable family.
 ```
@@ -105,5 +109,6 @@ One objective, one deliverable family.
 Read CLAUDE.md. Check the drift register and frames.json before treating
 anything as new. Verify before editing, smallest safe diff, frozen UI and money
 rules apply. Run lint + typecheck + test + build (and make db-verify if SQL
-changed). Summarize files changed, what you verified, and what still needs me.
+changed). Summarize files changed, what you verified, and what still needs me,
+and leave a durable artifact — not just chat.
 ```
