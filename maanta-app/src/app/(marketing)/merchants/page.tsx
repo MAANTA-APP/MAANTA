@@ -12,6 +12,7 @@ import {
   Section,
   SectionHeading,
   StepRail,
+  TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 
@@ -86,6 +87,32 @@ export default function MerchantsPage() {
             Live at {FACTS.launchMall} · {FACTS.city}
           </span>
         }
+      />
+
+      {/*
+        The whole commercial offer, before the merchant has scrolled once. This
+        is the page where a pricing inconsistency does the most damage, so every
+        figure here is the same `fee` binding that #cost and the FAQ render —
+        there is no second number to keep in step.
+
+        Deliberately no shop count. That is a measured figure, it is modelled
+        until BBS is live, and it would have to go through ScenarioStat.
+      */}
+      <TrustBar
+        items={[
+          {
+            title: <>{fee} per verified redemption</>,
+            body: "No listing fee, no cut of the sale, no monthly minimum.",
+          },
+          {
+            title: "Nothing for a code that fails",
+            body: "If a code expires or your staff reject it, you are not charged.",
+          },
+          {
+            title: "You keep the payment",
+            body: "The customer pays you at your till, in full. MAANTA never touches the money.",
+          },
+        ]}
       />
 
       <Section id="cost" tone="paper">

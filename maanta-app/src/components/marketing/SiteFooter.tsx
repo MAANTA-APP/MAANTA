@@ -28,15 +28,20 @@ import { PrelaunchNotice } from "./PrelaunchNotice";
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-line bg-paper">
-      <div className="mx-auto max-w-6xl px-5 py-12">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+      {/*
+        Row gap is larger than column gap. At the 2-column breakpoint the columns
+        stack into pairs, and an equal gap leaves "Company" reading as a
+        continuation of the column above it rather than a heading of its own.
+      */}
+      <div className="mx-auto max-w-6xl px-5 py-14 sm:py-16">
+        <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-5">
           {/* Column 1 — brand */}
           <div className="lg:col-span-1">
             <Link href="/" className="flex items-center gap-2" aria-label="MAANTA home">
               <Logomark className="h-7 w-7" />
               <span className="text-lg font-black tracking-tight text-ink">MAANTA</span>
             </Link>
-            <p className="mt-3 text-[13px] leading-relaxed text-secondary">
+            <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-secondary">
               Live mall deals, claimed on your phone and verified at the counter.
             </p>
             {/*
@@ -64,12 +69,12 @@ export function SiteFooter() {
               <h2 className="text-xs font-bold uppercase tracking-wide text-muted">
                 {col.title}
               </h2>
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.href}>
                     <Link
                       href={l.href}
-                      className="text-[13px] text-secondary hover:text-ink hover:underline hover:underline-offset-4"
+                      className="text-[13px] text-secondary transition-colors hover:text-ink hover:underline hover:underline-offset-4"
                     >
                       {l.label}
                     </Link>
@@ -82,7 +87,7 @@ export function SiteFooter() {
           {/* Column 5 — contact */}
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wide text-muted">Contact</h2>
-            <ul className="mt-3 space-y-2 text-[13px] text-secondary">
+            <ul className="mt-4 space-y-2.5 text-[13px] text-secondary">
               <li>
                 <a
                   href={`mailto:${ENTITY.email}`}
@@ -111,7 +116,7 @@ export function SiteFooter() {
         </div>
 
         {/* Legal base bar */}
-        <div className="mt-10 border-t border-line pt-6">
+        <div className="mt-14 border-t border-line pt-8">
           <PrelaunchNotice />
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[12px] text-muted">© MAANTA 2026 · {ENTITY_LINE}</p>

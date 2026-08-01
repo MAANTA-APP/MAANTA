@@ -24,10 +24,26 @@ import { HEADER_CTA, HEADER_LINKS } from "@/lib/marketing/nav";
  */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
   // Close the sheet on navigation — otherwise it stays open over the new page.
   useEffect(() => setOpen(false), [pathname]);
+
+  /*
+    Shadow only once the page has moved. At rest the header is part of the hero
+    wash and a shadow there is decoration; after a scroll it is doing real work,
+    separating the bar from content passing under the backdrop blur.
+
+    Read once on mount too: a browser restoring scroll position on back/forward
+    fires no scroll event, and the header would sit flat over mid-page content.
+  */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Lock the background from scrolling behind the open sheet.
   useEffect(() => {
@@ -52,7 +68,11 @@ export function SiteHeader() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
+    <header
+      className={`sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur transition-shadow ${
+        scrolled ? "shadow-card" : ""
+      }`}
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="MAANTA home">
           <Logomark className="h-7 w-7" />

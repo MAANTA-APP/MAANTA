@@ -15,6 +15,7 @@ import {
   Section,
   SectionHeading,
   StepRail,
+  TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 
@@ -95,6 +96,44 @@ export default function MallOperatorsPage() {
             </span>
           )
         }
+      />
+
+      {/*
+        An operator is evaluating the model, not a price — so these are the three
+        questions that decide whether the rest of the page gets read: what does
+        it cost us, what do we have to install, and what do we actually get.
+        Each is answered in full at #commercial, #deployment and #report.
+
+        The cost item names the tenant fee rather than stopping at "the mall pays
+        nothing". Left alone that reads as "free", and an operator who discovers
+        the success fee later discovers it as something withheld. It is the same
+        `fee` binding #commercial renders.
+
+        No figures here at all — not even behind a scenario gate. The modelled
+        node counts belong to `ScenarioStat` inside the sections that own them,
+        and this bar sits above the point where the page has established what
+        Node 0 is. No claim about BBS beyond being the mall MAANTA is live in.
+      */}
+      <TrustBar
+        items={[
+          {
+            title: "The mall pays nothing",
+            body: (
+              <>
+                No invoice to the mall at any point in a pilot. MAANTA earns its {fee}{" "}
+                success fee from a tenant, and only on a verified redemption.
+              </>
+            ),
+          },
+          {
+            title: "Nothing to integrate",
+            body: "No POS connection, no hardware, no procurement cycle, and no security review of your systems.",
+          },
+          {
+            title: "Evidence, not impressions",
+            body: "A redemption counts only when your tenant's staff verify a code at the counter, with the shopper standing there.",
+          },
+        ]}
       />
 
       <Section id="problem" tone="paper">
