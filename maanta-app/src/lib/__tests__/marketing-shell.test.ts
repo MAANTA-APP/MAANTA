@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
+import { stripCommentLines } from "./helpers/comment-stripping";
 
 /**
  * Static guards for the marketing shell.
@@ -47,39 +48,11 @@ const rel = (f: string) => path.relative(SRC, f);
  *
  * Block comments are blanked line-by-line rather than collapsed, so reported line
  * numbers still point at the right source line.
+ *
+ * Shared with `pricing-copy.test.ts` and `held-claims.test.ts` — three private
+ * copies of this is how drift D38 happened. See the helper's docblock.
  */
-function codeOnly(src: string): string[] {
-  const lines = src.split("\n");
-  let inBlock = false;
-  return lines.map((line) => {
-    let out = "";
-    let i = 0;
-    while (i < line.length) {
-      if (inBlock) {
-        const end = line.indexOf("*/", i);
-        if (end === -1) return out;
-        inBlock = false;
-        i = end + 2;
-        continue;
-      }
-      const lineComment = line.indexOf("//", i);
-      const blockStart = line.indexOf("/*", i);
-      if (blockStart !== -1 && (lineComment === -1 || blockStart < lineComment)) {
-        out += line.slice(i, blockStart);
-        inBlock = true;
-        i = blockStart + 2;
-        continue;
-      }
-      if (lineComment !== -1) {
-        out += line.slice(i, lineComment);
-        return out;
-      }
-      out += line.slice(i);
-      break;
-    }
-    return out;
-  });
-}
+const codeOnly = stripCommentLines;
 
 const codeText = (f: string) => codeOnly(readFileSync(f, "utf8")).join("\n");
 

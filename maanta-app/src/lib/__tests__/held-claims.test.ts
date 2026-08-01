@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
+import { stripComments } from "./helpers/comment-stripping";
 
 /**
  * Held claims must not ship — `docs/ops/website-handoff.md` §9.
@@ -37,10 +38,15 @@ function walk(dir: string, exts: string[]): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
-/** Comments explain why a claim was withheld; they are not published copy. */
-function codeOnly(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-}
+/**
+ * Comments explain why a claim was withheld; they are not published copy.
+ *
+ * Shared implementation. This file carried a private stripper that treated the
+ * `//` in `https://` as a line comment, so any held claim sharing a line with a
+ * link was deleted before the scan — drift **D38**. Importing rather than copying
+ * is the fix that keeps a fourth copy from reintroducing it.
+ */
+const codeOnly = stripComments;
 
 const TSX = walk(path.join(SRC, "app", "(marketing)"), [".tsx"]).concat(
   walk(path.join(SRC, "components", "marketing"), [".tsx"])

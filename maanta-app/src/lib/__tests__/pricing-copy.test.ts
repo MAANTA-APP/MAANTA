@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import { stripComments } from "./helpers/comment-stripping";
 
 /**
  * Public commercial-copy invariants (truth audit 2026-07-30).
@@ -49,10 +50,17 @@ function tsxFiles(dir: string): string[] {
 
 const rel = (f: string) => path.relative(SRC, f);
 
+/**
+ * Comments explain why copy is qualified; they are not published copy.
+ *
+ * Shared implementation — three private copies of this is how drift D38 happened.
+ */
+const withoutComments = stripComments;
+
 /** Whole-file text with JSX line breaks collapsed, so copy split across lines
  *  by the formatter still reads as one sentence to the patterns below. */
 function copyText(file: string): string {
-  return readFileSync(file, "utf8").replace(/\s+/g, " ");
+  return withoutComments(readFileSync(file, "utf8")).replace(/\s+/g, " ");
 }
 
 const PUBLIC_FILES = tsxFiles(PUBLIC_PAGES);
@@ -145,7 +153,8 @@ describe("public pricing copy matches the frozen commercial rules", () => {
       const mentionsOffer =
         /launch offer/i.test(text) ||
         /Elite trial/i.test(text) ||
-        /30-day trial/i.test(text);
+        /30-day trial/i.test(text) ||
+        /days of Elite/i.test(text);
       if (!mentionsOffer) continue;
       // The cap must be *stated*, but it need not be typed. A page that renders
       // `OFFERS.eliteTrial.cohortShops` from lib/marketing/facts.ts states it

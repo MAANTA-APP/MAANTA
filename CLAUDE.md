@@ -150,6 +150,33 @@ Four rules that are enforced, not conventions:
 Held claims (`website-handoff.md` §9) must not ship; `held-claims.test.ts` scans
 both page source and `src/content/legal/*.md` for each one.
 
+### Unfinished work on the marketing site (as of 2026-08-01)
+
+A production render audit found a tail of defects. Four documents govern the
+finish pass, in this reading order:
+
+1. `docs/ops/marketing-site-gap-audit.md` — what production actually serves.
+   Written **without reading the repo**; every inferred path is marked `VERIFY IN REPO`.
+2. `docs/ops/marketing-site-finish-plan.md` — seven ordered steps.
+3. `docs/ops/marketing-site-repo-map.md` — **the correction layer.** Maps every
+   finding to real `path:line`, and marks each verdict CONFIRMED, CONTRADICTED or
+   UNVERIFIABLE HERE. Read this before acting on either document above.
+4. `docs/ops/cursor-marketing-site-finish-handoff.md` +
+   `docs/ops/marketing-site-finish-checklist.md` — execution.
+
+Three things a session must not get wrong:
+
+- **`main` and production have diverged both ways** (drift **D37**). `main` is
+  missing the commit that fixed two vacuously-passing guards, so its suite is green
+  for the wrong reason. Reconcile before trusting any guard.
+- **Every marketing guard reads `.tsx` source.** Only `scripts/check-tokens.mjs`
+  reads built output. That is why a `/contact` form present in JSX but absent from
+  server HTML shipped (**D41**). New guards assert against `.next/server/app/**`.
+- **Two steps are already done in the repo** — the `/how-it-works` 308
+  (`next.config.mjs`) and `metadataBase` (`src/app/layout.tsx`). Do not redo them.
+
+Open rows for this work: **D37–D42**.
+
 ## Claude role system
 
 Use one narrow mode per session — Planner, Builder, Reviewer, or Operator — with
