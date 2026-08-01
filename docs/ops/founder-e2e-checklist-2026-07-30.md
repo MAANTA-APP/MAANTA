@@ -6,41 +6,73 @@ still be on.
 
 Companions:
 
+- **Go / no-go:** `docs/ops/node0-pilot-readiness-2026-07-30.md`
+- Parity / Elite handoff: `docs/ops/founder-parity-handoff-2026-07-30.md`
 - Inventory report: `docs/ops/e2e-readiness-report-inventory-2026-07-30.md`
 - Route table: `docs/ops/e2e-route-readiness-2026-07-30.md`
 - Prior trial-honesty report: `docs/ops/e2e-readiness-report-2026-07-30.md`
+- Migrations: `docs/ops/supabase-migrations.md`
 
 App: **https://www.maanta.app** (unless you intentionally use a non-prod deploy).  
-Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
-(`docs/ops/e2e-golden-path.md`) — that suite must never target production.
+Vercel: project **`maanta-nuia`**. Supabase: **`axrrslqssmbngbataejg`**.  
+Do **not** confuse this with Playwright CI (`docs/ops/e2e-golden-path.md`) —
+that suite must **never** target production.
+
+**Before this walkthrough:** merge **#148** then **#137 / #143 / #94 / #131**,
+then human `supabase db push` so pause-gate `20260730180000` (and opening-credit
+`20260730170000` if #143 landed) actually apply. See Node 0 readiness note §4.
 
 ---
 
 ## 0. Prerequisites (before any click)
 
-- [ ] **Migrations:** confirm these are applied on the target DB (SQL editor or
-  `supabase migration list`):
-  - `20260730130000_enforce_elite_trial_first_100_cap`
-  - `20260730140000_trial_expiry_launch_sentinel_null_guard`
-  - `20260730150000_demo_wipe_audit_trail_retention`
-  - `20260730180000_restore_claim_deal_pause_gate` ← pause must block new claims
-  - (safe metadata) `20260730120000_correct_success_fee_config_notes`
-- [ ] **Cap status:** run `SELECT * FROM public.elite_trial_cap_status();`  
-  Note `cap / granted / remaining`. If `granted` looks high after first apply,
-  that is the durable backfill — slots already consumed stay consumed.
+### Migrations (Supabase project `axrrslqssmbngbataejg`)
+
+From `maanta-app/`: `supabase link --project-ref axrrslqssmbngbataejg` →
+`supabase migration list` → `supabase db push` (prefer `--dry-run` first).
+
+- [ ] Confirm these versions appear in **REMOTE**:
+  - `20260730130000` — Elite first-100 cap
+  - `20260730140000` — trial expiry sentinel
+  - `20260730150000` — demo wipe audit retention
+  - `20260730180000` — **pause-gate** (must block new claims on paused deals)
+  - `20260730170000` — opening-credit reland (**after #143**)
+  - Do **not** expect a *new* file at `20260730160000` — that number is
+    **reserved** (prod notes ledger alias)
+- [ ] **Lat/lng:** `20260726120000` present; if Map pins empty, **backfill**
+  BBS Mall merchant `lat`/`lng` (Browse works without pins; Map does not)
+- [ ] **Cap status:** `SELECT * FROM public.elite_trial_cap_status();`  
+  Note `cap / granted / remaining`. High `granted` after first apply = durable
+  backfill — slots already consumed stay consumed.
 - [ ] **Demo posture:** `SELECT value, notes FROM app_config WHERE key = 'demo_mode_enabled';`  
   Rehearsal may be `true` (banner visible). That is **not** public launch.
-- [ ] **Auth:** Clerk works for admin + merchant + shopper (real publishable **and**
-  secret). Phone verified on the shopper (claim gate).
-- [ ] **W3W:** `W3W_API_KEY` set if you will complete onboard location validation.
-- [ ] **Top-up rail:** Stripe sandbox keys for `/merchant/topup`. Treat **Pay with
-  card** as the Phase 1 path. M-Pesa STK only if IntaSend is configured (UI says so).
-- [ ] **Accounts:** use the rehearsal set in `docs/ops/test-accounts.md` /
-  `docs/maanta-node0-rehearsal-checklist.md` **or** create a fresh pending merchant
-  for the acquisition→approve leg.
-- [ ] **Sessions:** one normal window + incognito (or two phones) so roles do not
-  evict each other.
+
+### Env keys (Vercel → `maanta-nuia` → Production)
+
+- [ ] **Clerk:** `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` **and** `CLERK_SECRET_KEY`
+  for instance `cheerful-sailfish-3`. Both required. Save → **Redeploy**.
+  Publishable alone → browser “Invalid host”.
+- [ ] **W3W:** `W3W_API_KEY` set (onboard location validation fails closed if empty).
+- [ ] **Stripe:** sandbox (or intentional live) keys for `/merchant/topup`.
+  Treat **Pay with card** as Phase 1. M-Pesa STK only if IntaSend is configured
+  (UI says so when off).
+
+### Optional Playwright confidence (GitHub Actions or local — never prod)
+
+- [ ] Secrets: `E2E_BASE_URL` (non-prod URL only), `E2E_SHOPPER_*`,
+  `E2E_MERCHANT_*`, optional `E2E_ADMIN_*`. See `docs/ops/e2e-golden-path.md`.
+
+### Accounts / browser
+
+- [ ] **Auth works** in a real browser for admin + merchant + shopper; shopper
+  phone verified (claim gate).
+- [ ] **Accounts:** rehearsal set in `docs/ops/test-accounts.md` /
+  `docs/maanta-node0-rehearsal-checklist.md` **or** a fresh pending merchant.
+- [ ] **Sessions:** one normal window + incognito (or two phones) so roles do
+  not evict each other.
 - [ ] **Node cookie:** feed scoped to **BBS Mall** (`maanta_node`).
+- [ ] **Prefs spot-check:** `/you/notifications` has toggles; `/notifications`
+  is inbox + “Manage alert preferences” only.
 
 ---
 

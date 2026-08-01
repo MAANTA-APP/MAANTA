@@ -51,9 +51,12 @@ documents (previously 2026-07-28, comprehensive audit links).
 | `ops/auth-strategies.md` | Clerk (launch) vs Supabase email OTP (dev/test) toggle |
 | `ops/merchant-lifecycle.md` | Merchant lifecycle states and signals |
 | `ops/supabase-migrations.md` | How migrations are applied and verified |
+| `ops/node0-pilot-readiness-2026-07-30.md` | **Go / no-go:** main + DB + env for Node 0 pilot |
+| `ops/notion-optruth-node0-pilot-2026-07-30.md` | Notion OpTruth page URL + summary paste (2026-07-30) |
 | `ops/live-pilot-day-one-prep-2026-07-30.md` | PRs / db push / config flips before the 3-person pilot |
 | `ops/live-pilot-3-person-2026-07-30.md` | Act-by-Act day-one runbook (founder + merchant + shopper) |
-| `ops/founder-parity-handoff-2026-07-30.md` | Elite trial vs D-12 free-month — what copy is allowed |
+| `ops/founder-parity-handoff-2026-07-30.md` | Money path, Elite vs D-12, concrete env actions |
+| `ops/founder-e2e-checklist-2026-07-30.md` | Founder click-through of claim → verify → fee |
 | `ops/e2e-golden-path.md` | End-to-end claim → verify money path |
 | `ops/test-accounts.md` | Test account conventions |
 | `ops/nodes-nairobi-2026-07.md` | 3-node Nairobi rehearsal registry (BBS + CBD + Westlands) |
