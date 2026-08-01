@@ -1,6 +1,12 @@
 # System design — pre-10k readiness
 
-Last updated: 2026-07-26 · Status: **repo implementation complete**; prod apply is human-owned.
+Last updated: 2026-08-01 · Status: **repo implementation complete**; prod apply is human-owned.
+
+> **2026-08-01 — scope note.** This document is the **pre-10k** baseline and stays
+> scoped to that. Cost per redemption, the per-MAU auth curve, multi-node
+> economics and the security findings are in
+> `docs/skills/scaling-cost-security-audit-2026-08-01.md` (drift rows
+> **D56–D64**). One row below was corrected in the same pass — see Multi-node.
 
 ## Stack
 
@@ -27,7 +33,7 @@ Last updated: 2026-07-26 · Status: **repo implementation complete**; prod apply
 | Caching | 30s node-scoped cache only | Sufficient for launch; invalidate via tag when deal CRUD ships |
 | Roles | No separate `founder` DB enum — uses `admin` | Documented in `docs/skills/role-permissions.md` |
 | Notifications | Prefs are device-local (localStorage) | Server column planned; push API exists |
-| Multi-node | Reporting is Node 0 first | `node` column on deals/merchants ready |
+| Multi-node | Reporting is Node 0 first | `node` column exists on deals/merchants — **not** "ready" in the sense this row implied (corrected 2026-08-01, **D60**). `src/lib/nodes.ts` is a hardcoded array, so opening a mall is a code change and a redeploy; the join key is the mall's **display label**, with no `nodes` table and no foreign key, so a rename silently orphans rows |
 | E2E | Playwright self-skips without secrets | Opt-in `e2e.yml` workflow |
 
 ## Data model (Node 0)
