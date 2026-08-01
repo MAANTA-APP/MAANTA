@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
+import { stripComments } from "./helpers/comment-stripping";
 
 /**
  * Phase 5 invariants — accessibility, metadata and mobile.
@@ -66,11 +67,26 @@ describe("marketing accessibility and metadata", () => {
    * them exports a static `metadata` — but a dynamic route legitimately would,
    * and a guard that failed such a page would push the next author to delete the
    * check rather than satisfy it.
+   *
+   * **Comments are stripped first, and that is load-bearing.** The first version
+   * of this walk matched raw source, and `merchants/join/page.tsx` — added in the
+   * same change — carries the literal phrase `export const metadata` inside its
+   * JSDoc explaining why the route was split. It passed only because a real
+   * export also existed below. A page whose *only* occurrence was in a comment
+   * would have satisfied the guard while shipping no metadata at all, which is
+   * precisely the drift (D52) this exists to catch. Raised by CodeRabbit on #161.
+   *
+   * It uses the shared lexer rather than a local regex. The obvious one-liner —
+   * `src.replace(/\/\/.*$/gm, "")` — is drift **D38**: it truncates every line at
+   * its first `//`, including the one inside `https://`, so a real export sharing
+   * a line with a URL would be deleted before the scan and the guard would report
+   * a page as missing metadata it actually has. That bug has already been written
+   * three times in this suite; the helper exists so it is not written a fourth.
    */
   it("gives every marketing page its own metadata", () => {
     const missing: string[] = [];
     for (const f of PAGES) {
-      const src = read(f);
+      const src = stripComments(read(f));
       const hasStatic = /export const metadata/.test(src);
       const hasDynamic = /export\s+(?:async\s+)?function\s+generateMetadata/.test(src);
       if (!hasStatic && !hasDynamic) {
