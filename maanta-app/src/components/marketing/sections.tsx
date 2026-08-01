@@ -149,6 +149,7 @@ export function AudienceHero({
   primary,
   secondary,
   status,
+  media,
 }: {
   eyebrow: string;
   title: React.ReactNode;
@@ -157,6 +158,14 @@ export function AudienceHero({
   secondary?: { label: string; href: string };
   /** Live-status or scenario line. Rendered under the actions, quietly. */
   status?: React.ReactNode;
+  /**
+   * Optional visual beside the copy. Home passes `<HeroShot />`; the audience
+   * pages pass nothing and keep the single-column hero, which is why this is
+   * optional rather than a required slot with an empty default — a hero with a
+   * blank column reserved for a picture that never arrives is worse than one
+   * that was never two columns.
+   */
+  media?: React.ReactNode;
 }) {
   return (
     // The wash is the one place broad colour is allowed, because it is not the
@@ -165,24 +174,40 @@ export function AudienceHero({
     // and keeps its contrast.
     <section className="border-b border-line bg-gradient-to-b from-paper via-white to-white">
       <div className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted">{eyebrow}</p>
-        <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.1] text-ink sm:text-5xl">
-          {title}
-        </h1>
-        <p className="mt-5 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
-          {sub}
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <CtaPrimary href={primary.href} name={primary.label} location="hero">
-            {primary.label}
-          </CtaPrimary>
-          {secondary ? (
-            <CtaSecondary href={secondary.href} name={secondary.label} location="hero">
-              {secondary.label}
-            </CtaSecondary>
-          ) : null}
+        <div
+          className={
+            media
+              ? "grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-14"
+              : undefined
+          }
+        >
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">{eyebrow}</p>
+            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.1] text-ink sm:text-5xl">
+              {title}
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
+              {sub}
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <CtaPrimary href={primary.href} name={primary.label} location="hero">
+                {primary.label}
+              </CtaPrimary>
+              {secondary ? (
+                <CtaSecondary href={secondary.href} name={secondary.label} location="hero">
+                  {secondary.label}
+                </CtaSecondary>
+              ) : null}
+            </div>
+            {status ? <div className="mt-6 text-sm text-secondary">{status}</div> : null}
+          </div>
+          {/*
+            Ordered after the copy in the DOM, so the H1 is still the first thing
+            a screen reader and a crawler meet, and the mockup is not competing
+            with the LCP element for paint.
+          */}
+          {media ? <div className="lg:pl-4">{media}</div> : null}
         </div>
-        {status ? <div className="mt-6 text-sm text-secondary">{status}</div> : null}
       </div>
     </section>
   );

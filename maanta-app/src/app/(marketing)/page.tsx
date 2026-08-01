@@ -5,6 +5,7 @@ import { FACTS, OFFERS, isOfferLive } from "@/lib/marketing/facts";
 import { SCENARIO } from "@/lib/marketing/scenario";
 import { ModelledBadge, ScenarioNotice } from "@/components/marketing/ScenarioNotice";
 import { ScenarioStat } from "@/components/marketing/ScenarioStat";
+import { HeroShot } from "@/components/marketing/HeroShot";
 import { LandingEarlyAccess } from "./landing-early-access";
 import { SectionInView, TrackedLink } from "@/components/marketing/tracked";
 import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
@@ -88,6 +89,10 @@ export default function LandingPage() {
         }
         primary={{ label: "Browse live deals", href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
+        // Founder decision 2026-08-01: the hero shows the feed with example
+        // deals. The shops and prices are invented and the mockup says so on
+        // its face — see HeroShot's docblock and drift row D50.
+        media={<HeroShot />}
         status={
           <>
             <p className="font-semibold text-ink">No sign-in needed to look around.</p>

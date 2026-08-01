@@ -36,6 +36,9 @@ of UI work, check `git status` against the claim before building on it.
 | `app/sign-up/[[...sign-up]]/page.tsx` | Wrapped in `AuthChrome` |
 | `components/nav/merchant-top-bar.tsx` | Wallet chip elevated off the white bar |
 | `components/nav/shopper-top-bar.tsx` | Header shadow over scrolling cards |
+| `components/marketing/HeroShot.tsx` | **New, 2026-08-01.** CSS mockup of the feed for the Home hero — see the D50 section |
+| `lib/__tests__/marketing-hero-shot.test.ts` | **New, 2026-08-01.** Guard for the mockup's disclosure |
+| `docs/maanta-drift-register.md` | Row **D50** opened for the mockup |
 
 ## Decisions worth keeping
 
@@ -115,5 +118,71 @@ files, `next lint` is clean. The ones that actually constrained the work:
 
 ## Known gaps, deliberately not done
 
-- No product screenshot or phone mockup in the hero.
+- ~~No product screenshot or phone mockup in the hero.~~ **Done 2026-08-01 —
+  see the section below.** It is not a screenshot.
 - Pricing page cards untouched.
+
+## Update 2026-08-01 — the hero mockup (drift D50)
+
+The hero now carries `components/marketing/HeroShot.tsx`, a CSS drawing of the
+shopper feed, passed into `AudienceHero` through a new optional `media` slot.
+Home only; the three audience pages keep the single-column hero.
+
+**It is not a screenshot, and it could not have been one here.** Capturing the
+real feed needs a running app: the local server 500s because middleware builds a
+Supabase client and this container has no keys, the network policy blocks the
+Vercel preview host, and Playwright is not installed. So the choice was never
+"real capture vs mockup" — it was what an illustration should depict.
+
+**The founder chose a feed with example deals** (2026-08-01), over a
+mechanic-only mockup with no invented merchants and over a scaffold awaiting a
+real capture. Both alternatives, and the consequence below, were on the table
+before the decision.
+
+**The consequence is a real gap, tracked as D50.** `CLAUDE.md` keeps the
+demo-data banner off marketing routes on the premise that no synthetic deal rows
+render there. That premise is now false on `/`. The rule as written is not
+violated — D33 is about the banner's location — but its justification no longer
+holds, and a session reading D33 alone would conclude marketing carries no
+synthetic content. Hence a row rather than a comment.
+
+What keeps it honest, none of which is decoration:
+
+- a **visible** caption under the mockup, `Illustration · example shops and
+  prices` — sighted visitors are the ones being shown invented prices;
+- an `sr-only` sentence saying the shops and prices are invented, with the
+  mockup body `aria-hidden`, so assistive tech gets one honest sentence instead
+  of walking three invented listings as if they were a live feed;
+- `marketing-hero-shot.test.ts`, **proved non-vacuous by mutation** — deleting
+  the caption fails, moving it into a JSX comment fails (the string is still in
+  the file, which is the case a naive `includes()` would pass), and a sample
+  price in `text-brand` fails.
+
+That guard reads source, not built HTML, which is against the standing rule for
+new marketing guards. The reason is stated in the file rather than left to be
+found: CI runs `test` before `build`, so `.next/` does not exist at test time,
+and a guard that skipped on the missing directory would pass vacuously on every
+run. The output was verified by hand this session instead — the caption, the
+sr-only sentence, `text-ink` prices and the `aria-hidden` wrapper are all present
+in `.next/server/app/index.html`, and absent from the other three pages.
+
+**Drawn in CSS, not shipped as a PNG.** It stays sharp at any density, adds no
+image bytes on mall wifi, restyles with the tokens instead of going stale the
+first time the feed changes, and sidesteps the question of committing a capture
+of demo data to the repo.
+
+**The residual risk cannot be guarded:** an invented shop name could coincide
+with a real Eastleigh business, which would turn an illustration into a claim
+about that business. The names were chosen to be generic for exactly that
+reason, but no test can check it. Replacing the mockup with a real capture from
+Node 0 — once BBS carries real deals — closes both the risk and D50.
+
+### What running the full CI gate caught
+
+This session ran all five gates for the first time in this workstream
+(`lint`, `typecheck`, `test`, `build`, `db-tests` via CI). **`typecheck` failed
+where the 515-test suite passed**: `media` was added to `AudienceHero`'s prop
+type but never destructured, so three references were `Cannot find name 'media'`.
+Every marketing guard reads source as text, so none of them could see it. Prior
+sessions on this branch verified with `npm test` and `npm run build` only —
+which CLAUDE.md now says explicitly is not verified.
