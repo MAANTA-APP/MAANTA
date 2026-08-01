@@ -22,7 +22,9 @@ of UI work, check `git status` against the claim before building on it.
 | `components/marketing/SiteHeader.tsx` | Shadow appears on scroll |
 | `components/marketing/SiteFooter.tsx` | Spacing, row/column gap split, link transitions |
 | `app/(marketing)/page.tsx` | `TrustBar` under the hero, door-card hover + arrow, early-access section |
-| `app/login/[[...sign-in]]/page.tsx` | Logomark + tagline chrome, factored into `LoginChrome` |
+| `components/auth/auth-chrome.tsx` | **New.** `AuthChrome` — logomark + tagline + the `<main>` landmark |
+| `app/login/[[...sign-in]]/page.tsx` | Wrapped in `AuthChrome` |
+| `app/sign-up/[[...sign-up]]/page.tsx` | Wrapped in `AuthChrome` |
 | `components/nav/merchant-top-bar.tsx` | Wallet chip elevated off the white bar |
 | `components/nav/shopper-top-bar.tsx` | Header shadow over scrolling cards |
 
@@ -50,12 +52,19 @@ element delays LCP. It is used on the trust bar only. `globals.css` already
 collapses animation duration under `prefers-reduced-motion`, and the animation
 is declared `both` so the end state survives that collapse.
 
-**The login chrome is a wrapper, not two copies.** `auth-routes.test.ts`
-requires the literal `if (isClerkAuth())` branch in the route — a ternary fails
-it. The first attempt here merged the branches and broke that guard. The shape
-that satisfies both the guard and the no-duplication goal is: keep the early
-return, extract the chrome into `LoginChrome`, wrap each branch. The guard is
-right — it is what proves the route branches on strategy at all.
+**The auth chrome is one shared component, not four copies.**
+`auth-routes.test.ts` requires the literal `if (isClerkAuth())` branch in each
+route — a ternary fails it. The first attempt here merged the branches and broke
+that guard; the guard is right, because it is what proves the route branches on
+strategy at all. So each route keeps its early return, and the chrome lives in
+`components/auth/auth-chrome.tsx`.
+
+That matters more than it looks: with the chrome inline there are **four** places
+it would live — two routes times two strategy branches. A change made on the
+Supabase path would never reach the Clerk one, and the gap stays invisible until
+`MAANTA_AUTH_STRATEGY` is flipped in production, on the one screen where a
+stranger is deciding whether to trust us. `AuthChrome` also owns the `<main>`
+landmark, so neither route may declare its own.
 
 **The merchant wallet chip changed fill, not the number.** Cream on white was a
 one-step tonal difference that made a tappable link read as loose text. It is
@@ -75,10 +84,6 @@ files, `next lint` is clean. The ones that actually constrained the work:
 
 ## Known gaps, deliberately not done
 
-- **`/sign-up` did not get the login chrome.** The two auth pages now differ:
-  `/login` has the logomark and tagline, `/sign-up` does not. Applying
-  `LoginChrome` to `app/sign-up/[[...sign-up]]/page.tsx` is the fix and is a few
-  lines; it was outside the eight-file scope of this pass.
 - No `TrustBar` on `/shoppers` or `/merchants` — Home only so far.
 - No product screenshot or phone mockup in the hero.
 - Pricing page cards untouched.
