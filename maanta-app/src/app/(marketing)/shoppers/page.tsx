@@ -13,6 +13,7 @@ import {
   StepRail,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/shoppers` — 301 target for both `/for-shoppers` and `/how-it-works`.
@@ -36,16 +37,15 @@ import { SectionInView } from "@/components/marketing/tracked";
  * must be true at the moment it is read; scenario constants are forbidden here.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/shoppers",
   title: "For shoppers — MAANTA",
   description:
     "See the deals in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the deal price in person. Free, no card needed.",
-  openGraph: {
-    title: "The deals in your mall, before you get there.",
-    description:
-      "Claim on your phone, show a 6-digit code at the counter, pay the deal price in person.",
-  },
-};
+  ogTitle: "The deals in your mall, before you get there.",
+  ogDescription:
+    "Claim on your phone, show a 6-digit code at the counter, pay the deal price in person.",
+});
 
 export default function ShoppersPage() {
   const fee = formatKes(FACTS.successFeeKes);

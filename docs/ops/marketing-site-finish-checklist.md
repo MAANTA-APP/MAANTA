@@ -114,21 +114,28 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 
 ---
 
-## 5. Step 4 — canonical and Open Graph
+## 5. Step 4 — canonical and Open Graph — **DONE 2026-08-01**
 
-- [ ] Metadata helper created (`src/lib/marketing/page-metadata.ts` or `src/lib/seo/`)
-- [ ] Helper reads the **same** `NEXT_PUBLIC_APP_URL ?? "https://www.maanta.app"` constant as `src/app/layout.tsx`
-- [ ] Root `openGraph.url` no longer hardcoded to the bare origin
-- [ ] All 15 existing marketing pages routed through the helper
-- [ ] `alternates.canonical` set per page
-- [ ] `og:url`, `og:site_name`, `og:locale`, `og:type` preserved on the five pages that declare their own `openGraph`
-- [ ] GAP-05 fixed: `mall-operators/page.tsx:52` OG title/description stand alone
-- [ ] GAP-05 fixed: `about/page.tsx:48` OG title/description stand alone
-- [ ] No canonical added to `src/app/not-found.tsx`
-- [ ] **`[HTML]`** every route prints a canonical whose `href` is its own URL
-- [ ] **`[HTML]`** every route prints an `og:url` equal to its own URL, never the bare origin
-- [ ] New guard added, asserting against **built HTML**, failing on zero canonicals or an origin-equal `og:url`
-- [ ] Drift row **D39** updated
+- [x] Metadata helper created — `src/lib/marketing/page-metadata.ts`
+- [x] Helper needs **no** origin of its own: `path` is relative and resolved against
+      the root layout's `metadataBase`, so preview cannot emit production canonicals
+- [x] All 17 marketing routes go through it — the 15 that had metadata, plus
+      `/pricing` (had none) and `/merchants/join` (needed a server/client split first)
+- [x] `alternates.canonical` set per page
+- [x] `og:url`, `og:site_name`, `og:locale`, `og:type` preserved on the five pages
+      that declare their own `openGraph`
+- [x] GAP-05 fixed: `/mall-operators` OG title and description each stand alone
+- [x] GAP-05 fixed: `/about` OG description is a sentence, not a location fragment
+- [x] No canonical on the 404 — and asserted in the inverse direction by the guard
+- [x] **`[HTML]`** 16 prerendered routes print a canonical equal to their own URL
+- [x] **`[HTML]`** same 16 print an `og:url` equal to their own URL, never the origin
+- [x] Guard added: `scripts/check-canonicals.mjs`, chained into `npm run build`
+      (**not** vitest — CI runs `test` before `build`). Mutation-tested four ways
+      plus two vacuity controls; refuses to pass on a partial scan.
+- [x] Drift row **D40** closed
+- [ ] **`[EXT]`** `/waitlist` is dynamically rendered, so it has no build artefact —
+      the guard names it rather than skipping it. Verify its canonical against a
+      live response after deploy. (Its dynamic rendering is RISK-06, still open.)
 
 ---
 

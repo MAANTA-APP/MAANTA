@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { FACTS } from "@/lib/marketing/facts";
 import { ButtonLink } from "@/components/ui/button";
 import { LiveDot } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * 12k Featured node — BBS Mall, Eastleigh.
@@ -29,11 +30,12 @@ import { LiveDot } from "@/components/marketing/sections";
  * unconditionally, and only once the numbers are worth quoting.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/malls/bbs-mall",
   title: "BBS Mall, Eastleigh — MAANTA",
   description:
     "BBS Mall, Eastleigh is Node 0 — MAANTA's launch mall in Nairobi. See what shops are offering today.",
-};
+});
 
 export default function BbsMallPage() {
   return (

@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { isWaitlistSegment, type WaitlistSegment } from "@/lib/waitlist";
 import { WaitlistForm } from "./waitlist-form";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/waitlist",
   title: "Join the MAANTA waitlist",
   description:
     "MAANTA is launching at BBS Mall, Eastleigh — real in-mall deals, claimed on your phone and redeemed in person. Join the waitlist as a shopper, merchant, or mall operator.",
-};
+});
 
 /**
  * Public pre-launch waitlist. Other pages can preset the segment via

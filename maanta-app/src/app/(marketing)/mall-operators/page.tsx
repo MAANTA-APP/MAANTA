@@ -17,6 +17,7 @@ import {
   StepRail,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -49,15 +50,15 @@ import { SectionInView } from "@/components/marketing/tracked";
  * shipping a dashboard nobody opens.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/mall-operators",
   title: "Mall operators — MAANTA",
   description:
     "MAANTA makes every tenant promotion in your mall visible, redeemable and measurable. No POS integration. No cost to the mall.",
-  openGraph: {
-    title: "Your mall runs hundreds of promotions a month.",
-    description: "None of them are measured.",
-  },
-};
+  ogTitle: "Every tenant promotion in your mall, measured.",
+  ogDescription:
+    "MAANTA makes promotions visible, redeemable and measurable — with no POS integration and no cost to the mall.",
+});
 
 export default function MallOperatorsPage() {
   const fee = formatKes(FACTS.successFeeKes);

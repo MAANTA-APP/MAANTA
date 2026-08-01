@@ -99,11 +99,16 @@ describe("marketing analytics wiring", () => {
     expect(home).toContain("TrackedLink");
   });
 
+  // `merchants/join` is a server shell owning the route metadata; the form —
+  // and therefore the event — lives in `join-form.tsx` beside it. A `"use client"`
+  // module cannot export `metadata`, which is why the split exists. These paths
+  // are pinned deliberately: the point is that *these two forms* fire the event,
+  // so a moved file must be re-pointed here rather than the assertion loosened.
   it("tracks both form submissions", () => {
     expect(read("components", "marketing", "EnquiryRouter.tsx")).toContain(
       "MARKETING_EVENTS.formSubmit"
     );
-    expect(read("app", "(marketing)", "merchants", "join", "page.tsx")).toContain(
+    expect(read("app", "(marketing)", "merchants", "join", "join-form.tsx")).toContain(
       "MARKETING_EVENTS.formSubmit"
     );
   });
@@ -149,7 +154,7 @@ describe("marketing analytics wiring", () => {
     }
 
     const joinCall = identifiersOnly(
-      submitCall(read("app", "(marketing)", "merchants", "join", "page.tsx"))
+      submitCall(read("app", "(marketing)", "merchants", "join", "join-form.tsx"))
     );
     for (const field of ["shopName", "phone"]) {
       expect(

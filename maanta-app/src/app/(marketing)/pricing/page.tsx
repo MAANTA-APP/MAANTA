@@ -1,6 +1,28 @@
+import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
 import { FACTS } from "@/lib/marketing/facts";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
+
+/**
+ * Authored metadata, replacing the root default this route used to inherit
+ * (GAP-02) — it is in the primary nav and was the only nav destination without
+ * its own title, description or canonical.
+ *
+ * Deliberately carries **no figures**. Every number on this page is rendered from
+ * `SUCCESS_FEE_KES` or `FACTS`, and a price typed into a metadata string is a
+ * second source that no guard reads at render time. The page body still owes the
+ * Step 6a expansion and a page-specific `opengraph-image`.
+ */
+export const metadata: Metadata = pageMetadata({
+  path: "/pricing",
+  title: "Pricing — MAANTA",
+  description:
+    "Standard and Elite for shops on MAANTA. You pay the success fee only when a customer's code is verified at your counter — no listing fee, no cut of the sale.",
+  ogTitle: "You pay when a customer walks in, not before.",
+  ogDescription:
+    "Standard and Elite plans for shops at BBS Mall, Eastleigh. No listing fee, no cut of the sale.",
+});
 
 /**
  * 12e Pricing — Standard vs Elite.

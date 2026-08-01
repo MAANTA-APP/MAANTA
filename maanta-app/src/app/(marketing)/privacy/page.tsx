@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { LegalDoc } from "@/components/marketing/LegalDoc";
 import { loadLegalDoc, LEGAL_TITLES } from "@/lib/marketing/legal-docs";
 import { DEMO_MODE } from "@/lib/marketing/demo";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/privacy` — unreviewed draft, rendered from `src/content/legal/`.
@@ -13,11 +14,13 @@ import { DEMO_MODE } from "@/lib/marketing/demo";
  * stops indexing of a page reached from a shared link.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/privacy",
   title: "Privacy Policy — MAANTA",
-  description: "How MAANTA collects, uses and protects personal data under the Kenya Data Protection Act 2019.",
+  description:
+    "How MAANTA collects, uses and protects personal data under the Kenya Data Protection Act 2019.",
   robots: DEMO_MODE ? { index: false, follow: false } : undefined,
-};
+});
 
 export default function Page() {
   return <LegalDoc title={LEGAL_TITLES["privacy"]} markdown={loadLegalDoc("privacy")} />;

@@ -14,6 +14,7 @@ import {
   StepRail,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/merchants` — merchant marketing page. 301 target for `/for-merchants`.
@@ -42,16 +43,15 @@ import { SectionInView } from "@/components/marketing/tracked";
  * inconsistency does the most damage.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/merchants",
   title: "For merchants — MAANTA",
   description:
     "List your shop on MAANTA. KES 30 when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.",
-  openGraph: {
-    title: "You only pay when a customer walks in.",
-    description:
-      "List your shop on MAANTA. KES 30 when a customer's code is verified at your counter.",
-  },
-};
+  ogTitle: "You only pay when a customer walks in.",
+  ogDescription:
+    "List your shop on MAANTA. KES 30 when a customer's code is verified at your counter.",
+});
 
 export default function MerchantsPage() {
   const fee = formatKes(FACTS.successFeeKes);

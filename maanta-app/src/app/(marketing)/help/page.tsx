@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { HelpFaqs, HelpWhatsAppButton } from "@/components/marketing/help-content";
 import { Section, SectionHeading } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/help` in the marketing shell — risk R9, resolved 2026-07-31.
@@ -14,11 +15,12 @@ import { Section, SectionHeading } from "@/components/marketing/sections";
  * `/you/help` keeps the app-shell version for signed-in shoppers.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/help",
   title: "Help — MAANTA",
   description:
     "How to claim and redeem a MAANTA deal, what the grace period is, and how to reach support.",
-};
+});
 
 export default function HelpPage() {
   return (

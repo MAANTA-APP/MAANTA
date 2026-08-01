@@ -16,6 +16,7 @@ import {
   SectionHeading,
   StepRail,
 } from "@/components/marketing/sections";
+import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
  * `/` — Home.
@@ -36,16 +37,15 @@ import {
  * `ScenarioStat` inside `ScenarioNotice` like every other modelled figure.
  */
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/",
   title: "MAANTA — The mall, made live.",
   description:
     "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the shop in person. Live at BBS Mall, Eastleigh.",
-  openGraph: {
-    title: "Every deal in your mall, live on your phone.",
-    description:
-      "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",
-  },
-};
+  ogTitle: "Every deal in your mall, live on your phone.",
+  ogDescription:
+    "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",
+});
 
 const DOORS = [
   {
