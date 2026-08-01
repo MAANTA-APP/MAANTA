@@ -60,13 +60,19 @@ export const metadata: Metadata = {
  * what a list marker should do: `text-muted` against `text-secondary` on white,
  * `text-white/60` against `text-white/80` on ink. Same relationship, same
  * meaning, no colour doing work the glyph already does.
+ *
+ * **No size class here, deliberately — see drift D54.** This passed
+ * `h-4 w-4 shrink-0`, and none of it did anything: `Svg` in
+ * `@/components/ui/icons` applies `cn("h-5 w-5 shrink-0", className)`, `cn()` is
+ * a plain join with no Tailwind conflict resolution, and `h-5` wins the cascade.
+ * The tick measured 20px while the code asked for 16px. Passing a size that is
+ * silently discarded is worse than passing none, because the next reader trusts
+ * it. The icon renders at its 20px default and the code now says so.
  */
 function Feature({ children, tone = "dark" }: { children: React.ReactNode; tone?: "dark" | "light" }) {
   return (
     <li className="flex gap-2.5">
-      <IconCheck
-        className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "light" ? "text-white/60" : "text-muted"}`}
-      />
+      <IconCheck className={`mt-0.5 ${tone === "light" ? "text-white/60" : "text-muted"}`} />
       <span
         className={`text-sm leading-relaxed ${tone === "light" ? "text-white/80" : "text-secondary"}`}
       >
