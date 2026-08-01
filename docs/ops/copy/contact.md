@@ -1,11 +1,23 @@
 # MAANTA — `/contact` Copy Deck
 
-**Status:** Ready for implementation — one blocking technical unknown (see §0)
+**Status:** Ready for implementation — one blocking technical unknown (see §0) — *(at time of writing; built and shipped, see the note below)*
 **Date:** 2026-07-31
 **Route:** `/contact`, accepts `?topic=`
 **Primary CTA:** Send message
 **Supporting CTA:** WhatsApp support
 **Companion docs:** `about.md`, `mall-operators.md`, `../website-footer-legal-docs-plan.md`
+
+> **Implemented as of PR #153 (2026-08-01).** This deck is the input that was
+> written before the build, kept unedited as the record of what was asked for.
+> It is **not** the description of what shipped, and several passages were
+> deliberately departed from — see the 17 recorded deviations in
+> `docs/ops/IMPLEMENTATION-REPORT.md` §5, and the founder rulings in §14.
+>
+> **Where this deck and the code disagree, the code and the implementation
+> report win.** Do not copy a line out of here into a page without checking it
+> against `docs/ops/website-handoff.md` §9 (held claims) and
+> `maanta-app/src/lib/marketing/facts.ts` (every rendered number) first.
+
 
 ---
 

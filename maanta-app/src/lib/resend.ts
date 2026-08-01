@@ -23,6 +23,27 @@ function authHeaders(apiKey: string) {
   };
 }
 
+/**
+ * How long any single Resend call may take before it is abandoned.
+ *
+ * Without a deadline, `fetch` inherits the platform's — which on a hung TCP
+ * connection is minutes. `/api/contact` awaits two of these calls before it
+ * responds, so an unresponsive Resend held the request open until the serverless
+ * function itself timed out, and the visitor watched a spinner and then got a
+ * generic network error, with no way to tell whether their enquiry had been
+ * delivered. Ten seconds is well beyond Resend's normal latency and well inside
+ * any platform request budget.
+ */
+const RESEND_TIMEOUT_MS = 10_000;
+
+/**
+ * `fetch` with the deadline applied, and the abort surfaced as a normal
+ * rejection so every caller's existing `catch` handles it.
+ */
+function resendFetch(url: string, init: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(RESEND_TIMEOUT_MS) });
+}
+
 export type WaitlistContactResult = "created" | "already_exists" | "failed";
 
 export async function addWaitlistContact(
@@ -57,7 +78,7 @@ export async function addWaitlistContact(
   };
 
   const post = (body: Record<string, unknown>) =>
-    fetch(`${RESEND_API_URL}/audiences/${audienceId}/contacts`, {
+    resendFetch(`${RESEND_API_URL}/audiences/${audienceId}/contacts`, {
       method: "POST",
       headers: authHeaders(apiKey),
       body: JSON.stringify(body),
@@ -118,7 +139,7 @@ export async function sendEmail(params: {
   }
 
   try {
-    const res = await fetch(`${RESEND_API_URL}/emails`, {
+    const res = await resendFetch(`${RESEND_API_URL}/emails`, {
       method: "POST",
       headers: authHeaders(apiKey),
       body: JSON.stringify({
@@ -153,7 +174,7 @@ export async function sendWaitlistEmail(
   }
 
   try {
-    const res = await fetch(`${RESEND_API_URL}/emails`, {
+    const res = await resendFetch(`${RESEND_API_URL}/emails`, {
       method: "POST",
       headers: authHeaders(apiKey),
       body: JSON.stringify({

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { PostHogClientProvider } from "@/components/posthog-provider";
+import { DEMO_MODE } from "@/lib/marketing/demo";
 import "./globals.css";
 
 // Claude-calm shopper type: DM Sans for UI hierarchy; Inter kept as fallback
@@ -37,8 +38,13 @@ export const metadata: Metadata = {
     // provide a bare string and want the brand appended.
     template: "%s",
   },
-  description:
-    "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
+  // Same reasoning as OG_STATUS_LINE: this is the search-result snippet, shown
+  // before the visitor reaches the page carrying "MAANTA is not yet trading".
+  // A description that says "now live" while the site says pre-launch is a
+  // contradiction resolved in favour of whichever surface the reader saw first.
+  description: DEMO_MODE
+    ? "Discover, claim and redeem live mall deals. Launching at BBS Mall, Eastleigh."
+    : "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg" },
   openGraph: {

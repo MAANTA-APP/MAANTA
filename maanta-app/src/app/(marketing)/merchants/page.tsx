@@ -42,14 +42,15 @@ import { SectionInView } from "@/components/marketing/tracked";
  * inconsistency does the most damage.
  */
 
+// Metadata is rendered output too — it is what a search result and a shared
+// link say — so the fee reads from FACTS here for the same reason it does in
+// the body. These two strings were literals until 2026-08-01.
 export const metadata: Metadata = {
   title: "For merchants — MAANTA",
-  description:
-    "List your shop on MAANTA. KES 30 when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.",
+  description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
   openGraph: {
     title: "You only pay when a customer walks in.",
-    description:
-      "List your shop on MAANTA. KES 30 when a customer's code is verified at your counter.",
+    description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter.`,
   },
 };
 

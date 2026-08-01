@@ -1,11 +1,23 @@
 # MAANTA — `/mall-operators` Copy Deck
 
-**Status:** Ready for implementation
+**Status:** Ready for implementation — *(at time of writing; built and shipped, see the note below)*
 **Date:** 2026-07-31
 **Route:** `/mall-operators`
 **Primary CTA:** Book a pilot conversation → `/contact?topic=mall-operator`
 **Supporting CTA:** Join as a mall operator → `/waitlist?role=mall-operator`
 **Companion docs:** `../website-ia.md`, `../website-expansion-plan.md`
+
+> **Implemented as of PR #153 (2026-08-01).** This deck is the input that was
+> written before the build, kept unedited as the record of what was asked for.
+> It is **not** the description of what shipped, and several passages were
+> deliberately departed from — see the 17 recorded deviations in
+> `docs/ops/IMPLEMENTATION-REPORT.md` §5, and the founder rulings in §14.
+>
+> **Where this deck and the code disagree, the code and the implementation
+> report win.** Do not copy a line out of here into a page without checking it
+> against `docs/ops/website-handoff.md` §9 (held claims) and
+> `maanta-app/src/lib/marketing/facts.ts` (every rendered number) first.
+
 
 ---
 

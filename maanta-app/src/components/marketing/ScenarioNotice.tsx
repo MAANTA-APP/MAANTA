@@ -10,7 +10,8 @@ import { SCENARIO } from "@/lib/marketing/scenario";
  * modelled numbers render unlabelled. That guarantee is structural rather than
  * conventional: this component is a **wrapper**, and `ScenarioStat` reads the
  * context it provides. A stat placed on a page that forgot the notice has no
- * context to read and throws in development.
+ * context to read and throws — in any build where modelled figures render,
+ * preview included, not development only.
  *
  * Wrapping rather than sitting as a sibling is the point. A sibling notice can be
  * deleted while the stats stay; a wrapper cannot, because deleting it removes the

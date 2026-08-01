@@ -1,10 +1,22 @@
 # MAANTA — Website Information Architecture
 
-**Status:** Proposed
+**Status:** Proposed — *(at time of writing; built and shipped, see the note below)*
 **Date:** 2026-07-31
 **Repo:** `MAANTA-APP/MAANTA` (private) — Next.js 14.2.35 App Router
 **Canonical host:** `https://www.maanta.app` (apex `maanta.app` 308-redirects to `www`)
 **Scope:** Public marketing surface only. Does not cover `/app`-shell, `/merchant/*`, `/admin/*`, `/agent/*`.
+
+> **Implemented as of PR #153 (2026-08-01).** This deck is the input that was
+> written before the build, kept unedited as the record of what was asked for.
+> It is **not** the description of what shipped, and several passages were
+> deliberately departed from — see the 17 recorded deviations in
+> `docs/ops/IMPLEMENTATION-REPORT.md` §5, and the founder rulings in §14.
+>
+> **Where this deck and the code disagree, the code and the implementation
+> report win.** Do not copy a line out of here into a page without checking it
+> against `docs/ops/website-handoff.md` §9 (held claims) and
+> `maanta-app/src/lib/marketing/facts.ts` (every rendered number) first.
+
 
 ---
 

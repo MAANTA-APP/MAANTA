@@ -28,40 +28,35 @@
  * Three files carrying the same subtle helper is how a fourth copy gets written
  * with the bug back in it. Hence one implementation, imported.
  *
- * ## Scope
+ * ## Scope, and why the `://` rule was not enough
  *
- * This is a deliberately small lexer, not a JS/TSX parser. It understands `//`
- * and block comments and nothing else — in particular it does **not** track
- * string or template literals, so a `//` inside a quoted string is still treated
- * as a comment start. That is acceptable here and load-bearing nowhere: these
- * guards scan for prose, and a false *strip* can only ever make a guard miss
- * something, which the mutation tests in each consumer are there to catch. If a
- * guard ever needs literal-aware stripping, parse properly rather than growing
- * this.
+ * The first consolidation of this helper skipped a `//` **preceded by a colon**,
+ * which fixes `https://` and nothing else. Its docblock argued the limit was safe
+ * because "a false *strip* can only ever make a guard miss something".
+ *
+ * That is the failure mode, not a mitigation. A guard that misses is exactly what
+ * D36 was: green while the file contained the string it forbids. And the `://`
+ * rule still mis-strips any other literal containing a double slash — a bare
+ * protocol-relative `"//cdn.example.com"`, a doubled path segment, a regex source
+ * in a string. Each silently truncates the line before the scan reads it.
+ *
+ * So this now tracks string state — `'`, `"` and `` ` `` with escape handling — and
+ * a `//` inside a literal is left alone regardless of what precedes it. It is
+ * still a small lexer rather than a parser, and its remaining limits are stated
+ * rather than assumed safe:
+ *
+ *  - **Regex literals are not tracked.** `/ \/\/ /` reads as a comment. No source
+ *    file here contains one, and the residual risk is a banned phrase written
+ *    inside a regex, which is not how copy gets published.
+ *  - **`${…}` interpolations are treated as string interior**, so a comment inside
+ *    one is not stripped. Scanning slightly too much is the safe direction.
+ *
+ * Both are exercised by `comment-stripping.test.ts`, whose first assertion is the
+ * `wa.me` line that started all of this.
  *
  * Not under a `*.test.ts` name on purpose: `vitest.config.ts` collects
  * `src/**​/*.test.ts`, so a helper named like a suite would be run as an empty one.
  */
-
-/**
- * Index of the `//` that starts a line comment at or after `start`, or `-1`.
- *
- * Skips a `//` preceded by `:` so the `//` in `https://` is not mistaken for a
- * comment. This is the whole fix — see the file docblock.
- */
-export function lineCommentAt(line: string, start: number): number {
-  let pos = start;
-  while (pos < line.length) {
-    const idx = line.indexOf("//", pos);
-    if (idx === -1) return -1;
-    if (idx > 0 && line[idx - 1] === ":") {
-      pos = idx + 2;
-      continue;
-    }
-    return idx;
-  }
-  return -1;
-}
 
 /**
  * Source with comments removed, as one entry per original line.
@@ -71,35 +66,75 @@ export function lineCommentAt(line: string, start: number): number {
  * failing guard report a line number the reader can open.
  */
 export function stripCommentLines(src: string): string[] {
+  const out: string[] = [];
   let inBlock = false;
-  return src.split("\n").map((line) => {
-    let out = "";
+  /** The quote character of the string literal currently open, if any. */
+  let quote: '"' | "'" | "`" | null = null;
+
+  for (const line of src.split("\n")) {
+    let kept = "";
     let i = 0;
+
     while (i < line.length) {
+      const ch = line[i];
+
       if (inBlock) {
         const end = line.indexOf("*/", i);
-        if (end === -1) return out;
+        if (end === -1) {
+          i = line.length;
+          break;
+        }
         inBlock = false;
         i = end + 2;
         continue;
       }
-      const lineComment = lineCommentAt(line, i);
-      const blockStart = line.indexOf("/*", i);
-      if (blockStart !== -1 && (lineComment === -1 || blockStart < lineComment)) {
-        out += line.slice(i, blockStart);
-        inBlock = true;
-        i = blockStart + 2;
+
+      if (quote) {
+        kept += ch;
+        if (ch === "\\") {
+          // Escape: consume the next character verbatim so `\"` does not close
+          // the literal. A trailing backslash continues onto the next line.
+          if (i + 1 < line.length) kept += line[i + 1];
+          i += 2;
+          continue;
+        }
+        if (ch === quote) quote = null;
+        i += 1;
         continue;
       }
-      if (lineComment !== -1) {
-        out += line.slice(i, lineComment);
-        return out;
+
+      if (ch === '"' || ch === "'" || ch === "`") {
+        quote = ch;
+        kept += ch;
+        i += 1;
+        continue;
       }
-      out += line.slice(i);
-      break;
+
+      if (ch === "/" && line[i + 1] === "/") {
+        // A genuine line comment: nothing further on this line is code.
+        i = line.length;
+        break;
+      }
+
+      if (ch === "/" && line[i + 1] === "*") {
+        inBlock = true;
+        i += 2;
+        continue;
+      }
+
+      kept += ch;
+      i += 1;
     }
-    return out;
-  });
+
+    // Only a template literal may span a newline. Reset the other two so one
+    // stray apostrophe — in prose inside a comment we just stripped, say —
+    // cannot swallow the remainder of the file.
+    if (quote === '"' || quote === "'") quote = null;
+
+    out.push(kept);
+  }
+
+  return out;
 }
 
 /** `stripCommentLines`, rejoined — for guards that scan whole-file text. */

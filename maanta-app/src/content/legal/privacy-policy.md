@@ -148,7 +148,7 @@ If a personal data breach occurs that presents a risk to you, we will notify the
 
 ## 12. Data processed outside Kenya
 
-Some of our providers process data outside Kenya, including in the United States and the European Union, as set out in section 6. Where we transfer personal data outside Kenya we do so on the basis of Our primary database is hosted in the EU (Ireland) and our analytics in the EU. Some processors are outside Kenya — notably our email provider, in the United States. Where personal data leaves Kenya we rely on appropriate safeguards under section 48 of the Act, in the form of contractual data protection terms with each processor, and we transfer only what the processor needs to provide its service and take steps to ensure it remains protected to the standard required by the Act.
+Some of our providers process data outside Kenya, including in the United States and the European Union, as set out in section 6. Our primary database is hosted in the EU (Ireland) and our analytics in the EU. Some processors are outside Kenya — notably our email provider, in the United States. Where personal data leaves Kenya we rely on appropriate safeguards under section 48 of the Act, in the form of contractual data protection terms with each processor, and we transfer only what the processor needs to provide its service and take steps to ensure it remains protected to the standard required by the Act.
 
 ## 13. Children
 

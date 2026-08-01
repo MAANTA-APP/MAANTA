@@ -15,12 +15,19 @@ import { ModelledBadge, useScenarioLabelled } from "./ScenarioNotice";
  *   - scenario on  → the value, followed by a `Modelled` badge
  *   - scenario off → `fallback`, or nothing at all when fallback is null
  *
- * **Throws in development if `ScenarioNotice` is not an ancestor.** That turns a
- * page with unlabelled projections into a build error instead of something a
- * reviewer has to notice. It cannot throw in production, because in production
- * `SCENARIO.isScenario` is false and the component has already returned the
- * fallback before the check is reached — the guard protects the preview build,
- * which is the only build where modelled figures exist to be mislabelled.
+ * **Throws whenever a modelled figure would render without `ScenarioNotice` as
+ * an ancestor.** That turns a page with unlabelled projections into a hard
+ * failure instead of something a reviewer has to notice.
+ *
+ * The check is deliberately *not* conditioned on `NODE_ENV`. It was, and that
+ * was wrong: a preview deployment is built with `NEXT_PUBLIC_SCENARIO_MODE=true`
+ * **and** `NODE_ENV=production`, which is precisely the combination where
+ * modelled figures exist and the guard was disabled. An unwrapped stat rendered
+ * `121` with no `Modelled` badge to the exact audience the preview build is for.
+ *
+ * Real production is unaffected: `NEXT_PUBLIC_SCENARIO_MODE` is unset there, so
+ * the fallback returns on the line above and this is never reached. There is no
+ * configuration in which a visitor sees a crash instead of honest copy.
  */
 export function ScenarioStat({
   value,
@@ -40,7 +47,7 @@ export function ScenarioStat({
 
   if (!SCENARIO.isScenario) return <>{fallback}</>;
 
-  if (!labelled && process.env.NODE_ENV === "development") {
+  if (!labelled) {
     throw new Error(
       "<ScenarioStat> rendered without <ScenarioNotice> in the tree. " +
         "Modelled figures must never render unlabelled — wrap the page in " +

@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { DEMO_MODE } from "@/lib/marketing/demo";
 
 /**
  * Shared Open Graph image template.
@@ -25,6 +26,33 @@ const SECONDARY = "#3D3D3D";
 const PAPER = "#FAFAF8";
 const BRAND = "#FDBF2D";
 const LINE = "#E5E2DA";
+
+/**
+ * The status line across the foot of every OG image.
+ *
+ * `demo-mode-spec.md` §2a sanctions "Live at BBS Mall, Eastleigh · Nairobi" as
+ * the production fallback — but it sanctions it as the **`#hero` status line on
+ * `/mall-operators`**, a page that carries `PrelaunchNotice` in its footer:
+ * "Pre-launch demonstration. MAANTA is not yet trading."
+ *
+ * An OG image has no footer. It is what a person sees in a WhatsApp forward or a
+ * search result **before** they open anything, so it is the one surface where the
+ * disclosure provably cannot follow the claim — and in this market WhatsApp is
+ * how these pages actually get shared. Asserting "Live at" there, while the site
+ * itself says the company is not yet trading, is a contradiction that reaches
+ * more people than the page it contradicts.
+ *
+ * So while `DEMO_MODE` holds, the line states the location and makes no claim
+ * about trading. Flipping `DEMO_MODE` to false at launch restores "Live at".
+ *
+ * Raised independently by two reviewers on PR #153 (CodeRabbit; the Cursor audit
+ * as "'Live at BBS Mall' vs prelaunch footer"). Dismissed once on the grounds
+ * that the string is spec-sanctioned, which checked the string and not the
+ * surface it renders on.
+ */
+export const OG_STATUS_LINE = DEMO_MODE
+  ? "BBS Mall, Eastleigh · Nairobi"
+  : "Live at BBS Mall, Eastleigh · Nairobi";
 
 export function ogImage({
   eyebrow,
@@ -122,7 +150,7 @@ export function ogImage({
           <div
             style={{ width: 12, height: 12, borderRadius: 6, background: BRAND, display: "flex" }}
           />
-          Live at BBS Mall, Eastleigh · Nairobi
+          {OG_STATUS_LINE}
         </div>
       </div>
     ),
