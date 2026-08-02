@@ -31,8 +31,20 @@ const RUNNERS = [
   {
     label: "CI db-tests job",
     file: ".github/workflows/ci.yml",
-    // Narrowed to the job, so setting it in an unrelated job cannot satisfy this.
-    section: (src: string) => src.slice(src.indexOf("db-tests:")),
+    // Narrowed to the job itself. Slicing to end-of-file would mean a later
+    // job's unrelated `plpgsql.check_asserts=on` could satisfy this assertion
+    // after `db-tests` lost its own — the guard passing for the wrong reason,
+    // which is the exact failure mode this file exists to prevent. `db-tests`
+    // happens to be the last job today, so nothing is broken yet; that is a
+    // property of the current file, not something to depend on. Raised in
+    // review. Stops at the next two-space job key, mirroring the Makefile
+    // extractor below.
+    section: (src: string) => {
+      const start = src.indexOf("db-tests:");
+      const rest = src.slice(start);
+      const next = rest.slice(1).search(/\n {2}[a-zA-Z0-9_-]+:/);
+      return next === -1 ? rest : rest.slice(0, next + 1);
+    },
   },
   {
     label: "make db-verify",

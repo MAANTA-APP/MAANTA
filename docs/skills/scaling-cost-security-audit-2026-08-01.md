@@ -224,25 +224,42 @@ resolves the demo flag outside the cache boundary so a toggle is not baked in
 for 30 seconds. `getVerifiedCounts` uses a GROUP BY RPC specifically to avoid
 PostgREST's silent 1000-row cap.
 
-That is the right design, and per-node keying buys **isolation**: one busy mall
-cannot evict or poison another's cached rails, and a node's reads stay its own.
+That is the right design, and per-node keying buys **key separation**: one mall's
+rails are cached under their own key, so a busy node cannot serve or overwrite
+another node's entry.
 
-**It does not buy bounded cost, and an earlier draft of this paragraph claimed it
-did** ("extends to many nodes without change"). Raised in review, and the
-correction matters because the two properties look alike and only one of them is
-true. Keying per node *multiplies* the work rather than sharing it: cache entries
-grow as nodes × demo-flag, and each entry is three queries that must be re-run
-per node on every 30-second expiry — so the floor on database load is
-`3 × nodes × (1 / 30s)` even with nobody browsing, and every node added raises it
-whether or not that node has traffic. At one node this is invisible. At fifty it
-is 150 queries every 30 seconds of standing load.
+**This paragraph has now been wrong twice, in opposite directions, so the third
+version states only what the code supports.** The first draft claimed the design
+"extends to many nodes without change" — too generous. The correction claimed a
+standing floor on database load of `3 × nodes × (1/30s)` "even with nobody
+browsing" — **that is wrong, and it is worth being explicit about why, because it
+is the more seductive error.** `unstable_cache` with `revalidate: 30` is
+stale-while-revalidate, not a timer: nothing re-runs on expiry. An entry is only
+recomputed when a request arrives and finds it stale. **An idle node issues no
+queries at all**, so registered-but-quiet malls cost nothing, and the load term
+is *active* `(node, mode)` keys — not nodes on the registry.
 
-Nothing here needs changing now, but it needs a number attached before it is
-relied on. **The check to run before opening node ~10:** measure the steady-state
-query rate against the Supabase instance with all nodes idle, and confirm it is a
-small fraction of the connection and CPU budget. If it is not, the fix is a
-longer TTL for cold nodes or one query returning all nodes' rails instead of
-three per node — not a bigger instance.
+What a miss actually costs, read off `getLiveDealsUncached` rather than assumed:
+three bucket queries always (flash, boosted, standard — deliberately separate so
+a flood of standard deals cannot starve the other rails), plus the
+`verified_counts_by_merchant` RPC and the `boost_flags` lookup, each of which
+early-returns without a query when its input list is empty. So **three to five
+queries per miss**, and at sustained traffic across every active key the ceiling
+is about `5 × active_node_mode_keys × (1/30s)` — traffic-driven, with the cache
+capping it regardless of how many shoppers are behind it. That capping is the
+property that actually matters, and it holds.
+
+**One claim deliberately not made: eviction isolation.** Per-node keys prevent
+collisions; they say nothing about one node's entries pushing out another's. This
+app configures no custom `cacheHandler` (`next.config.mjs`), so eviction belongs
+to the platform's shared data cache, and asserting isolation would need
+deployment-level evidence this audit does not have.
+
+**The check to run before opening node ~10** is therefore a load test, not an
+idle measurement: drive concurrent traffic across several nodes at once and watch
+the query rate and connection count, since idle nodes will show nothing by
+construction. If it does not hold, the fix is a longer TTL or one query returning
+all nodes' rails — not a bigger instance.
 
 Two things do not extend:
 

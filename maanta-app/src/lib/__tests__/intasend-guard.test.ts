@@ -309,6 +309,33 @@ describe("fetchCollectionStatus", () => {
         invoice: { invoiceId: "XMSLWOS" },
       });
     });
+
+    // The implementation reads `invoice_id` first and falls back to `id`, so
+    // there are two ways a wrong id arrives and the cases above only exercised
+    // one. Raised in review as the last untested branch of the function that
+    // guards against a duplicate wallet credit — which is exactly where an
+    // untested branch is least acceptable.
+    it("rejects a mismatched id arriving through the `id` fallback field", async () => {
+      const { fetchCollectionStatus } = await freshIntasend();
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ id: "SOMEONE_ELSE", state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      expect(await fetchCollectionStatus("XMSLWOS")).toMatchObject({
+        ok: false,
+        reason: "unexpected_shape",
+      });
+    });
+
+    it("rejects a blank id arriving through the `id` fallback field", async () => {
+      const { fetchCollectionStatus } = await freshIntasend();
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ id: "", state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      expect(await fetchCollectionStatus("XMSLWOS")).toMatchObject({
+        ok: false,
+        reason: "unexpected_shape",
+      });
+    });
   });
 });
 
