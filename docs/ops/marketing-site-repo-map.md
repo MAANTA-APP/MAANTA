@@ -290,10 +290,66 @@ lesson of Step 2. See §8 below.
 
 ---
 
-## 4. Step 3 — Collapse `/how-it-works`
+## 4. Step 3 — Collapse `/how-it-works` — **still open, one command from done**
 
 **Audit finding:** GAP-03, High.
-**Verdict: CONTRADICTED — the repo says this is already done.**
+**Verdict: CONTRADICTED in the repo. GAP-03's evidence is void — but its conclusion is not yet excluded.**
+
+> **Tested 2026-08-02, no code changed. Not yet resolved.** The prediction below
+> — that the audit's 200 is what a *followed* 308 looks like — was tested and
+> holds. That voids the audit's evidence; it does not settle the question. See
+> the correction further down, and **D39**, which stays open.
+>
+> The unfollowed `curl` this section asks for is **not possible from a Claude
+> session**: the network policy refuses the CONNECT tunnel to `www.maanta.app`
+> with the proxy's own 403 (the D42 constraint), and the Vercel fetch tool that
+> can reach the host follows redirects. So it was established two other ways.
+>
+> **Build artifact.** `.next/routes-manifest.json` lists `/how-it-works` →
+> `/shoppers` with `statusCode: 308`, and `how-it-works` appears in the
+> `rewrites` array zero times. This beats reading `next.config.mjs` — it is what
+> Next compiled, not what the source appears to say.
+>
+> **Live control.** Fetching production reproduced the audit's exact observation
+> for `/how-it-works` (200, no `location`, `x-matched-path: /shoppers`), and then
+> reproduced it identically for two paths nobody disputes are redirects:
+>
+> | path | status | `x-matched-path` |
+> |---|---|---|
+> | `/how-it-works` (disputed) | 200 | `/shoppers` |
+> | `/for-shoppers` (known 308) | 200 | `/shoppers` |
+> | `/for-merchants` (known 308) | 200 | `/merchants` |
+>
+> `x-matched-path` tracks each path's own redirect destination. A known redirect
+> is therefore indistinguishable from the disputed one under this measurement.
+> **What this does and does not prove — corrected after review on #169.** It
+> proves the audit's *evidence* is uninformative: a followed 308 and a rewrite
+> are indistinguishable under this measurement, so the 200 supports neither
+> conclusion. It does **not** exclude a Vercel-side rewrite on `/how-it-works`.
+> An earlier version of this section argued the rewrite hypothesis "would
+> additionally require `/for-shoppers` and `/for-merchants` to be rewrites" —
+> **that does not follow.** A rewrite on `/how-it-works` alone is entirely
+> consistent with the other two being ordinary redirects. Showing the redirect
+> explanation is *sufficient* is not showing the rewrite one is *excluded*.
+>
+> In-repo interception is ruled out: no `vercel.json` in the tree, and
+> `src/middleware.ts` does not mention the path. Routing configured outside the
+> repository cannot be checked from a Claude session — `get_project` does not
+> expose it.
+>
+> **D39 therefore stays open**, one command from closing:
+> `curl -sI https://www.maanta.app/how-it-works` from an ordinary terminal.
+> A 308 closes it; a genuine 200 sends the search to the Vercel project config.
+>
+> **D57 is closed regardless** — its scope is the repo and stands on its own.
+> Two things were fixed on the way past: the docblock said
+> these were "301s" when `permanent: true` emits **308**, and nothing asserted
+> the redirects existed at all — now guarded by
+> `maanta-app/src/lib/__tests__/marketing-redirects.test.ts`, whose
+> rewrite-direction assertion is the one that would have settled GAP-03 in a
+> second.
+
+The original analysis, retained:
 
 `maanta-app/next.config.mjs:29`, inside `async redirects()`:
 
