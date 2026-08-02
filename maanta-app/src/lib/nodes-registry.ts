@@ -4,7 +4,7 @@ import { NODES, type NodeEntry } from "@/lib/nodes";
 
 /**
  * Server-side reader for `public.nodes` — the registry table added by
- * `supabase/migrations/20260802120000_nodes_registry.sql` for drift **D62**.
+ * `supabase/migrations/20260802120000_nodes_registry.sql` for drift **D72**.
  *
  * Where this sits relative to `src/lib/nodes.ts`, because the split is the
  * whole point and is easy to get backwards:
@@ -21,7 +21,7 @@ import { NODES, type NodeEntry } from "@/lib/nodes";
  * So adding a mall today is: insert the row, update the constant, and the
  * parity guard fails if you do only one. Making the app read this table on
  * every surface — which is what removes the deploy entirely — is the remaining
- * half of D62 and is tracked there, not silently assumed here.
+ * half of D72 and is tracked there, not silently assumed here.
  */
 
 export type NodeRecord = {

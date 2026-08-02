@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Guard for drift D60 — a wallet credit that trusted the webhook body.
+ * Guard for drift D70 — a wallet credit that trusted the webhook body.
  *
  * IntaSend authenticates its webhook with a plaintext shared secret in the
  * body and signs nothing, so a valid challenge proves only that the caller
@@ -96,7 +96,7 @@ beforeEach(() => {
   fetchCollectionStatusMock.mockResolvedValue(settled());
 });
 
-describe("the forgery this route exists to stop (D60)", () => {
+describe("the forgery this route exists to stop (D70)", () => {
   it("credits what IntaSend reports, not what an authenticated body claims", async () => {
     // A caller who knows the secret, lying about every field that moves money.
     const res = await post({

@@ -65,7 +65,7 @@ live enforcement on prod until the verify step passes. Canonical semantics:
   update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
   **live on production**.
 
-### The node registry — `20260802120000_nodes_registry.sql` (D62)
+### The node registry — `20260802120000_nodes_registry.sql` (D72)
 
 Creates `public.nodes` and puts a foreign key on `deals.node` and
 `merchants.node`, so a mall rename can no longer orphan rows and an unregistered
@@ -95,9 +95,9 @@ grandfathers the strings already in those columns.
    WHERE conname IN ('deals_node_fkey', 'merchants_node_fkey');
   -- both rows, convalidated = true
   ```
-- **Close:** D62 does **not** close on this push alone. It also needs node
+- **Close:** D72 does **not** close on this push alone. It also needs node
   *selection* moved off the compiled array in `src/lib/data.ts`
-  (`getSelectedNode`). Record the push against D62 and leave it open.
+  (`getSelectedNode`). Record the push against D72 and leave it open.
 
 ### The #48–#61 hardening set (must be present after push)
 

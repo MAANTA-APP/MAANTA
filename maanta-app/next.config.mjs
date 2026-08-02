@@ -55,7 +55,7 @@ const nextConfig = {
     ];
   },
   /**
-   * Response security headers — drift row **D64**.
+   * Response security headers — drift row **D74**.
    *
    * This app shipped with none of these. Neither Next.js nor Vercel adds them,
    * so their absence was the served state rather than a platform default
@@ -85,7 +85,7 @@ const nextConfig = {
    * never blocks, so this ships safely and surfaces violations in the browser
    * console for tuning. Promoting it to an enforcing `Content-Security-Policy`
    * is a separate change that needs a real browser pass across auth, top-up and
-   * the map — see D64. Until then, do not describe this app as having a CSP.
+   * the map — see D74. Until then, do not describe this app as having a CSP.
    */
   async headers() {
     const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
