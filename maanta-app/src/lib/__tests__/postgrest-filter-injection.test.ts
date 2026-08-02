@@ -24,12 +24,36 @@ import { stripComments } from "./helpers/comment-stripping";
 
 const SRC = path.resolve(__dirname, "..", "..");
 
+/**
+ * A realtime transport that is never used.
+ *
+ * `createClient` eagerly constructs a `RealtimeClient`, which resolves a
+ * WebSocket implementation at construction time and throws when there is no
+ * global one. CI pins Node 20 (`.github/workflows/ci.yml`), where `WebSocket`
+ * is not global — so this suite passed on a Node 22 dev machine and failed in
+ * CI on the very first run.
+ *
+ * Supplying a transport short-circuits that lookup. It is deliberately a stub:
+ * nothing here opens a socket, and the alternative — importing `PostgrestClient`
+ * from `@supabase/postgrest-js` — would reach into a transitive dependency and
+ * test a different object than the app uses. The point of this suite is the URL
+ * that **`@supabase/supabase-js` itself** emits, so it keeps using that client.
+ */
+class UnusedRealtimeTransport {
+  close() {}
+  send() {}
+  addEventListener() {}
+  removeEventListener() {}
+}
+
 /** The URL supabase-js builds — the only thing PostgREST ever sees. */
 function emittedUrl(build: (q: ReturnType<typeof table>) => { url: URL }): string {
   return decodeURIComponent(build(table()).url.toString());
 }
 function table() {
-  return createClient("https://example.supabase.co", "anon-key-for-tests")
+  return createClient("https://example.supabase.co", "anon-key-for-tests", {
+    realtime: { transport: UnusedRealtimeTransport as never },
+  })
     .from("users")
     .select("id, full_name, email, phone, role");
 }
