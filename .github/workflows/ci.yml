@@ -77,6 +77,13 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           db_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          # Every suite here signals failure with ASSERT, and ASSERT is a no-op
+          # when plpgsql.check_asserts is off — with it off this whole job passes
+          # green while testing nothing. It defaults to on, which is why nothing
+          # caught it, but the default belongs to the server and nothing here was
+          # pinning it. Set once for the loop rather than in each file header, so
+          # a new suite cannot forget it. Mirrored in `make db-verify`.
+          export PGOPTIONS="-c plpgsql.check_asserts=on"
           ran=0
           for f in supabase/tests/*.sql; do
             ran=1

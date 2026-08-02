@@ -254,6 +254,62 @@ describe("fetchCollectionStatus", () => {
       reason: "unexpected_shape",
     });
   });
+
+  /**
+   * The returned id becomes the ledger's `provider_reference`, and that
+   * uniqueness constraint is the only thing preventing a double credit on a
+   * redelivered webhook. So these are money-path assertions, not shape pedantry.
+   */
+  describe("pins the returned invoice id to the one that was asked about", () => {
+    it("rejects a blank id rather than making it the ledger key", async () => {
+      const { fetchCollectionStatus } = await freshIntasend();
+      // `""` is a string, so a `typeof === "string"` check accepts it. That is
+      // how a blank idempotency key would have reached the ledger.
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ invoice_id: "", state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      expect(await fetchCollectionStatus("XMSLWOS")).toMatchObject({
+        ok: false,
+        reason: "unexpected_shape",
+      });
+    });
+
+    it("rejects an id for a different invoice", async () => {
+      const { fetchCollectionStatus } = await freshIntasend();
+      // Crediting under a reference this app never looked up means the replayed
+      // webhook keys differently — the double credit the constraint exists to stop.
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ invoice_id: "SOMEONE_ELSE", state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      const result = await fetchCollectionStatus("XMSLWOS");
+      expect(result).toMatchObject({ ok: false, reason: "unexpected_shape" });
+      // `unexpected_shape`, not `unavailable`: the provider answered and the
+      // answer is wrong, so an identical retry would only reproduce it.
+      expect(result.ok).toBe(false);
+    });
+
+    it("accepts a matching id, and falls back to the requested one when absent", async () => {
+      const { fetchCollectionStatus } = await freshIntasend();
+
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ invoice_id: "XMSLWOS", state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      expect(await fetchCollectionStatus("XMSLWOS")).toMatchObject({
+        ok: true,
+        invoice: { invoiceId: "XMSLWOS" },
+      });
+
+      // Neither id field present: nothing contradicts the request, so the
+      // requested id is the right key and the lookup still succeeds.
+      vi.mocked(fetch).mockResolvedValueOnce(
+        statusBody({ state: "COMPLETE", value: 500, currency: "KES" })
+      );
+      expect(await fetchCollectionStatus("XMSLWOS")).toMatchObject({
+        ok: true,
+        invoice: { invoiceId: "XMSLWOS" },
+      });
+    });
+  });
 });
 
 describe("isIntasendConfigured", () => {

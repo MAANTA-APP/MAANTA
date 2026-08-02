@@ -266,15 +266,46 @@ export async function fetchCollectionStatus(
     return { ok: false, reason: "unexpected_shape", detail: "status response had no invoice.state." };
   }
 
+  // The returned id becomes the ledger's `provider_reference`, which is the
+  // uniqueness constraint the whole retry contract rests on — crediting twice
+  // is prevented by that key and by nothing else. So it has to be the invoice
+  // that was actually asked about, not merely a string.
+  //
+  // An earlier version took `invoice_id` whenever it was a string and fell back
+  // to the requested id otherwise. Two ways that goes wrong, both raised in
+  // review: `""` is a string, so a blank field became a blank idempotency key;
+  // and any other invoice id was accepted verbatim, so a response that did not
+  // correspond to the query would credit under a reference this app never
+  // looked up — which is a double-credit waiting to happen, since the replayed
+  // webhook would key differently.
+  //
+  // A disagreement here is not something to reconcile on a guess. It means the
+  // response is not the one requested, so it is `unexpected_shape` — and note
+  // that is deliberately *not* `unavailable`: the provider answered, the answer
+  // is wrong, and retrying an identical request would only produce it again.
+  const reported =
+    typeof invoice.invoice_id === "string"
+      ? invoice.invoice_id
+      : typeof invoice.id === "string"
+        ? invoice.id
+        : null;
+
+  if (reported !== null && reported !== invoiceId) {
+    return {
+      ok: false,
+      reason: "unexpected_shape",
+      detail: reported
+        ? `status lookup for ${invoiceId} reported a different invoice id: ${reported}`
+        : `status lookup for ${invoiceId} reported a blank invoice id.`,
+    };
+  }
+
   return {
     ok: true,
     invoice: {
-      invoiceId:
-        typeof invoice.invoice_id === "string"
-          ? invoice.invoice_id
-          : typeof invoice.id === "string"
-            ? invoice.id
-            : invoiceId,
+      // Either it matched, or neither field was present; both mean the
+      // requested id is the right key.
+      invoiceId,
       // Upper-cased once, here, so every consumer compares like for like.
       // Raised in review: the webhook route was checking the settled state
       // strictly and the known-unsettled set case-insensitively, so a

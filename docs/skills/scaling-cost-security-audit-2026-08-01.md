@@ -187,10 +187,22 @@ compiled fallback) and `/founder` lists nodes from it — an ops surface where t
 registry is strictly more truthful than the constant, since it shows a node
 registered by INSERT that no deploy knows about yet.
 `src/lib/__tests__/nodes-registry-parity.test.ts` then asserts `nodes.ts` and the
-migration seed agree field by field, so registering a mall in only one place
+migration seed agree field by field, so a mall added to only one of those two
 fails the CI `test` job (vitest — not one of the three post-build scans, which
 are the only things that read rendered output). That guard is itself
 mutation-proven by adding a mall to the constant alone.
+
+**Scope that guarantee precisely: it is a guard on this repository, not on the
+table.** It compares the migration seed against the compiled constant, and both
+of those live in git. The migration grants `service_role` write access, so a
+privileged direct `INSERT` — the Supabase dashboard, a psql session, anything
+holding the service key — creates a node the parity test never sees and cannot
+fail on. That is not a hole to close; it is the supported way to register a mall
+without a migration, and `/founder` reads the table specifically so such a node
+is visible to ops. But it means the honest claim is "the repo cannot describe two
+different node sets", not "the table cannot disagree with the code". A node
+inserted directly is real to every query and invisible to `getSelectedNode()`,
+which is the same D72 tail described below.
 
 **What is deliberately not claimed.** `getSelectedNode()` still validates the
 node cookie against the compiled array, so a mall registered by INSERT alone is
@@ -212,8 +224,25 @@ resolves the demo flag outside the cache boundary so a toggle is not baked in
 for 30 seconds. `getVerifiedCounts` uses a GROUP BY RPC specifically to avoid
 PostgREST's silent 1000-row cap.
 
-That is the right design and it extends to many nodes without change, because
-the cache key already includes the node.
+That is the right design, and per-node keying buys **isolation**: one busy mall
+cannot evict or poison another's cached rails, and a node's reads stay its own.
+
+**It does not buy bounded cost, and an earlier draft of this paragraph claimed it
+did** ("extends to many nodes without change"). Raised in review, and the
+correction matters because the two properties look alike and only one of them is
+true. Keying per node *multiplies* the work rather than sharing it: cache entries
+grow as nodes × demo-flag, and each entry is three queries that must be re-run
+per node on every 30-second expiry — so the floor on database load is
+`3 × nodes × (1 / 30s)` even with nobody browsing, and every node added raises it
+whether or not that node has traffic. At one node this is invisible. At fifty it
+is 150 queries every 30 seconds of standing load.
+
+Nothing here needs changing now, but it needs a number attached before it is
+relied on. **The check to run before opening node ~10:** measure the steady-state
+query rate against the Supabase instance with all nodes idle, and confirm it is a
+small fraction of the connection and CPU budget. If it is not, the fix is a
+longer TTL for cold nodes or one query returning all nodes' rails instead of
+three per node — not a bigger instance.
 
 Two things do not extend:
 
