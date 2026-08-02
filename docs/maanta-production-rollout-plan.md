@@ -67,7 +67,11 @@ production. **DB goes first, then the frontend.**
 
 Facts confirmed this session:
 - Prod project ref **`axrrslqssmbngbataejg`** (MAANTA-APP org, eu-west-1, PG 17,
-  `ACTIVE_HEALTHY`). 50 migrations applied; repo has 61.
+  `ACTIVE_HEALTHY`). 50 migrations applied; repo has 61. *(Dated record —
+  accurate 2026-07-24. The repo carries **83** migrations as of 2026-08-02, and
+  the applied count is no longer a simple comparison: production's ledger and
+  the repo disagree on which migration two version numbers are — drift **D24**.
+  For current state read `docs/maanta-launch-readiness-tracker.md` E17.)*
 - **maskedPhone / verifiedAt need NO migration** — both are read-only/derived
   (`maskPhone(users.phone)` and `new Date().toISOString()` in
   `src/app/api/redemptions/verify/route.ts`). Confirmed against the code.

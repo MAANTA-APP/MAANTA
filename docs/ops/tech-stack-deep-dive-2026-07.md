@@ -31,7 +31,7 @@ Related: [clerk-auth](../skills/clerk-auth.md),
 | Fonts | DM Sans, Inter, JetBrains Mono via `next/font/google` | `src/app/layout.tsx` |
 | PWA manifest | `start_url: /app-bootstrap`, `display: standalone` | `public/manifest.webmanifest` |
 | Service worker | **Push + notification click only** — no offline asset cache | `public/sw.js` |
-| Install landing | `/download` — `usePwaInstall` + Android/iOS fallback copy | `src/app/(public)/download/`, `src/lib/pwa/usePwaInstall.ts` |
+| Install landing | `/download` — `usePwaInstall` + Android/iOS fallback copy | `src/app/(marketing)/download/`, `src/lib/pwa/usePwaInstall.ts` |
 | Role bootstrap | `/app-bootstrap` — client router via `GET /api/me` + `destinationForRole` | `src/app/app-bootstrap/`, `src/lib/pwa/app-bootstrap.ts` |
 | Install UX | Home `InstallPrompt` bottom sheet (reuses hook) + links to `/download` | `src/components/install-prompt.tsx` |
 

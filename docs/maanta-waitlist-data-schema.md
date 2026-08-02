@@ -12,7 +12,7 @@ One audience database, three role-based segments. Companion to
   `business_name`, `note`, `source_channel/medium/campaign`, `consent_at`,
   and `consent_text` are stored as contact properties using the canonical
   field names below. No Supabase table (per the 2026-07-10 decision).
-- **Page:** `/waitlist` in `maanta-app/src/app/(public)/waitlist/` — one
+- **Page:** `/waitlist` in `maanta-app/src/app/(marketing)/waitlist/` — one
   form with a hard segment selector (`shopper` | `merchant` | `mall_operator`);
   other pages preset it via `/waitlist?segment=merchant`. UTM params are
   captured from the URL at submit.

@@ -40,18 +40,33 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
   multi-currency: KES/USD/EUR/GBP with live FX conversion to KES) or M-Pesa
   STK via IntaSend (KES). Stripe is in sandbox during testing; IntaSend
   availability is not assumed.
-- **Boosts**: KES 500 for 24 hours of boosted deal placement.
+- **Boosts**: KES 500 for 24 hours of boosted deal placement — **Elite only**.
+  `purchase_boost` / `move_boost` raise `BOOST_ELITE_ONLY` for any non-Elite
+  merchant, and the gate is not bypassed by admin or `service_role` (migration
+  `20260715194145_boost_elite_only_gate.sql`). Never state the boost price
+  without the tier qualifier — see drift **D34**.
 - **Elite tier**: 30-day free trial → 7-day grace period → auto-downgrade to
   Standard if not converted. Paid Elite: KES 3,500/month (price review Feb 2027).
 
 ## Technical state (as of this update)
 
-- **Stack**: Next.js App Router + Supabase (Postgres, Auth, RLS, storage),
-  deployed via Vercel; Supabase project currently in AWS `eu-west-1`.
-- **Money movements** all flow through the `record_merchant_ledger_entry` RPC —
-  atomic, idempotent by provider reference. Redemption verification is the
-  self-authorizing `verify_redemption` RPC. See `docs/skills/payments-rails.md`
-  and `docs/skills/redemption-disputes.md`.
+- **Stack**: Next.js App Router + Supabase (Postgres, RLS, storage) with
+  **Clerk** as the launch authentication layer (wired in as a Supabase
+  third-party auth provider, selectable via `MAANTA_AUTH_STRATEGY` — see
+  `docs/ops/auth-strategies.md`); deployed via Vercel; Supabase project
+  currently in AWS `eu-west-1`.
+- **Money movements** are written **only by sanctioned SECURITY DEFINER RPCs**,
+  never by a direct balance edit from a route. `record_merchant_ledger_entry`
+  is the app-layer one (atomic, idempotent by provider reference) and every
+  top-up and webhook goes through it via `recordMerchantTransaction`. Four
+  further RPCs write the ledger in-database rather than calling it, by design:
+  `deduct_success_fee_or_record_arrears` (the KES 30 fee, called by
+  `verify_redemption`), `purchase_boost`, `activate_merchant` (the Node 0
+  opening credit) and `reverse_success_fee` (admin fee reversal — it cannot
+  reuse the service-role-only ledger RPC from an admin JWT). The full rule and
+  its exceptions are in `docs/skills/payments-rails.md`; redemption
+  verification is the self-authorizing `verify_redemption` RPC, detailed in
+  `docs/skills/redemption-disputes.md`.
 - **UI**: the frozen wireframe system (`maanta-app/design/`) is implemented
   across shopper/merchant/admin/agent/public surfaces.
 - **Auth**: phone and email sign-in; role self-escalation blocked at DB level.

@@ -8,7 +8,7 @@ to `maanta-decisions-log.md`, not this file.
 > **2026-08-01 — production is live and serving, but it is NOT a clean mirror
 > of `main`.** This supersedes the "live and schema-aligned" wording in the
 > 2026-07-29 block below and in E10. That wording was accurate when written; it
-> was overtaken the next day. Three open drift rows say so:
+> was overtaken the next day. Two open drift rows say so:
 >
 > - **D24** — production's migration ledger and this repo disagree about which
 >   migration each version number *is*. Prod records a `node_scoped_opening_credit_cap`
@@ -17,11 +17,19 @@ to `maanta-decisions-log.md`, not this file.
 >   and **not applied**, so production still accepts claims on a paused deal via
 >   deep link or direct API call. The shopper rails hide paused deals; the RPC is
 >   the enforcement point and it is not enforcing.
-> - **D37** — `main` and the deployed commit have diverged in **both** directions,
->   so neither is a superset of the other.
 >
-> Do not describe the schema as aligned until those close. Tracked as **E17**
+> Do not describe the *schema* as aligned until those close. Tracked as **E17**
 > below; the register rows are the detail.
+>
+> **Updated 2026-08-02 — the *deployment* half is closed.** **D37** (`main` and
+> the deployed commit diverged both ways) closed on 2026-08-01, verified against
+> the Vercel deployment rather than assumed: production serves `main`. It came
+> apart twice that day, the second time by a manual dashboard promote of an open
+> PR branch (**D53**, also closed), so treat deployment alignment as a thing to
+> re-check rather than a settled state. When auditing it, compare **trees, not
+> commit SHAs** — a squash merge mints a new SHA, so an ancestry check against a
+> promoted branch commit fails forever even when the content is identical. What
+> remains open is the **database** side: D24 and D25.
 
 > **Staged readiness (now / launch / 10k / 100k):** see
 > [`docs/maanta-staged-readiness-now-launch-10k-100k.md`](maanta-staged-readiness-now-launch-10k-100k.md)
@@ -39,7 +47,10 @@ to `maanta-decisions-log.md`, not this file.
 > READY), Sentry + PostHog ingesting. Data is **seed/rehearsal** (291 deals but 5
 > redemptions). Remaining gates are verification-at-volume + money rails + legal,
 > **not** deployment. Key fix from that audit: the trial-expiry cron job was
-> never registered on prod (see E11) — corrective migration `20260729120000` added.
+> never registered on prod (see E11) — corrective migration
+> `20260729092118_schedule_trial_expiry_cron.sql` added. (Corrected 2026-08-02:
+> this line previously said `20260729120000`, a version number with no file in
+> the repo, while E11 below named the real one — drift **D59**.)
 >
 > **2026-07-24 repo audit:** earlier full repo-vs-prod readiness audit in
 > `docs/skills/launch-audit-2026-07-24.md` (superseded by the 07-29 audit above
@@ -88,20 +99,20 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | E7 | Waitlist live: `/waitlist` form → Resend audience (platform decided 2026-07-10: Resend) | Founder + engineer + AI lead | 🟡 in progress | GATE (marketing) | Built + end-to-end tested 2026-07-10 (real contact in Waitlist audience, confirmation email delivered; domain verified; properties created). **2026-07-23 prod debug:** confirmation emails weren't arriving; DB evidence (a live `claim:` rate-limit bucket but **zero** `waitlist:` buckets) strongly indicated every prod submission was failing *before* the rate-limit/Resend steps (so not env/limiter/service-role) — most likely the honeypot, the only pre-rate-limit step that returns a success-looking response. Hardened the honeypot against browser autofill (renamed `website`→`hp_url`, kept `display:none` + added password-manager ignore attrs) so a real signup can't be silently dropped, and added `GET /api/waitlist?healthz=1` (booleans only) to confirm the 3 Resend env vars are present on the running deployment. Remaining: deploy, read healthz, verify first production signup lands in the Waitlist segment |
 | E8 | Campaign-source capture (UTM → `source_campaign` property on every signup, in Resend) | Agency + AI lead | 🟡 in progress | GATE (marketing) | Form captures `utm_source/medium/campaign` → contact properties; verify end-to-end once Resend is configured |
 | E9 | FX provider replaced with SLA-backed source | Engineer | 🟡 repo-complete, prod-ops pending | GATE if non-KES live charges | **Repo (PR #70, on `main`):** FX **abstraction** landed — `src/lib/fx/**` (`kesPerUnit` resolver + static fallback), `currency.ts` `toKes` delegates, behaviour preserved + unit-tested, so swapping the source is now a config-level change (`docs/skills/fx-provider.md`). **Prod-ops pending (human):** choose + wire an SLA-backed provider and set prod FX rules/margin disclosure. Free tier today; fine to defer while launch is KES-only |
-| E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | 🟡 in progress | GATE | **Deploy is live and serving; schema alignment is NOT current** — the 2026-07-29 audit's "schema-aligned" finding was overtaken on 07-30 by D24/D25 and on 08-01 by D37; see E17 and the note at the top of this file. As of that audit: Supabase `axrrslqssmbngbataejg` at 67/67 migrations, Vercel prod READY from `main`, seeds applied. Remaining founder-owned: confirm the **required-now** env values on Vercel Production (values not machine-readable) + `W3W_API_KEY`, per `docs/ops/backend-prod-setup-status-2026-07.md` + `founder-backend-prod-checklist-2026-07.md` |
+| E10 | Production env vars set on Vercel + Supabase secrets audit | Engineer | 🟡 in progress | GATE | **Deploy is live and serving; schema alignment is NOT current** — the 2026-07-29 audit's "schema-aligned" finding was overtaken on 07-30 by D24/D25 (D37 also applied at the time and closed on 08-01); see E17 and the note at the top of this file. As of that audit: Supabase `axrrslqssmbngbataejg` at 67/67 migrations, Vercel prod READY from `main`, seeds applied. Remaining founder-owned: confirm the **required-now** env values on Vercel Production (values not machine-readable) + `W3W_API_KEY`, per `docs/ops/backend-prod-setup-status-2026-07.md` + `founder-backend-prod-checklist-2026-07.md` |
 | E11 | Trial-expiry job scheduling confirmed in production Supabase | Engineer | 🟡 in progress | GATE | **2026-07-29 audit found the job was never registered:** pg_cron is installed on prod but `cron.job` had **zero rows** — the old migrations' direct `INSERT INTO cron.job` (with `EXCEPTION … NULL`) silently failed, so `handle_trial_expiry` never ran (101 merchants on Elite trial, none would ever grace/downgrade). Corrective migration `20260729092118_schedule_trial_expiry_cron.sql` uses the supported `cron.schedule()` API. **Applied to prod 2026-07-29** — job `maanta_handle_trial_expiry` is registered and `active` (`0 2 * * *`), function smoke-run clean (0 trials past-due). Remaining: confirm the first real nightly run in `cron.job_run_details` |
 | E12 | Money-path + golden-path automated tests (ENGINEERING_NOTES §8.3/§8.4) | Engineer | ✅ done | — | Merged PR #32 (2026-07-21). `supabase/tests/{golden_path,verify_redemption_money_path,topup_settles_arrears}_test.sql` run in CI `db-tests` against a real Supabase: one-winner double-verify / no double charge, owed@low-balance, unknown → fraud task, settle-first, ledger reconciliation |
 | E13 | Frozen-rule enforcement ratchet + Locked-Rules audit (§8.5) | Engineer | ✅ done | — | Merged PR #32. `src/lib/__tests__/frozen-ui-rules.test.ts` fails CI on money-in-amber, banned vocabulary, red failure surfaces, or red error body text; audit in `docs/skills/frozen-ui-locked-rules-audit.md`. R1 (≤1 amber/screen) stays a manual PASS-2 item |
 | E14 | Browser golden-path E2E (Playwright: `/demo` → claim → verify → wallet) | Engineer | 🟡 repo-complete, prod-ops pending | — | **Repo (PR #70, on `main`):** self-skipping Playwright golden path landed — `maanta-app/playwright.config.ts` + `maanta-app/e2e/golden-path.spec.ts` (browse → claim → verify, asserts the collect line) + opt-in `.github/workflows/e2e.yml`; skips without `E2E_BASE_URL`, `@playwright/test` not installed by default, so never false coverage; `docs/ops/e2e-golden-path.md`. The E12 RPC golden path already proves the money invariants. **Prod-ops pending (human):** provision a live Supabase + Clerk test env, set `E2E_BASE_URL` + storage-state secrets, then flip `e2e.yml` to gate CI. Supersedes the older standalone PR #35 |
-| E15 | Pre-traffic security hardening | Engineer | ✅ done | GATE | Internal money RPCs locked to service_role, rate limits on claim/onboard/top-up, image magic-byte validation, atomic `capture_lead` (PRs #48/#50). CI `db-tests` now includes `security_hardening` + `capture_lead` suites; 11 SQL suites total on `main` |
+| E15 | Pre-traffic security hardening | Engineer | ✅ done | GATE | Internal money RPCs locked to service_role, rate limits on claim/onboard/top-up, image magic-byte validation, atomic `capture_lead` (PRs #48/#50). CI `db-tests` now includes `security_hardening` + `capture_lead` suites; that PR took the total to 11 SQL suites — **22 as of 2026-08-02** (`ls maanta-app/supabase/tests/*.sql`) |
 | E16 | Product analytics (PostHog) instrumented | Engineer | ✅ done (events flowing) | — | Client + funnel instrumentation merged (PRs #45, #47), EU cloud project 211805. **Confirmed live 2026-07-29:** PostHog is ingesting (2,757 events / 217 persons over the prior 6 days; `deal_viewed` + `deal_claim_started` custom events firing), so the env vars (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`) are set on Vercel. Remaining: redemption/`guardian_outcome`/purchase events unverified (only 5 prod redemptions so far) — reconfirm once real volume exists |
-| E17 | Production reconciled with `main`: migration ledger repaired, pause gate applied | Founder + engineer | 🔴 open | GATE (proposed — founder to confirm or downgrade) | Opened 2026-08-01 from three drift rows. **D24:** prod's ledger and this repo disagree on which migration each version number is; prod records a `node_scoped_opening_credit_cap` with no file in this repo. **D25** (`pending-deploy`): the `claim_deal` pause gate is merged and not applied, so production still accepts claims on a paused deal via deep link or direct API — the app-layer filter narrows exposure, the RPC is the enforcement point. **D37:** `main` and the deployed commit have diverged both ways. Close only on read-back: `pg_get_functiondef` for `claim_deal` must contain `deal_paused`, and the ledger must match the repo's filenames. Human-run per `docs/ops/supabase-migrations.md` — Claude must not apply migrations. Gate designation is proposed by the 2026-08-01 docs session, not a founder ruling |
+| E17 | Production reconciled with `main`: migration ledger repaired, pause gate applied | Founder + engineer | 🔴 open | GATE (proposed — founder to confirm or downgrade) | Opened 2026-08-01 from three drift rows; **two remain**. **D24:** prod's ledger and this repo disagree on which migration each version number is; prod records a `node_scoped_opening_credit_cap` with no file in this repo. **D25** (`pending-deploy`): the `claim_deal` pause gate is merged and not applied, so production still accepts claims on a paused deal via deep link or direct API — the app-layer filter narrows exposure, the RPC is the enforcement point. ~~**D37:** `main` and the deployed commit have diverged both ways.~~ **D37 closed 2026-08-01** — production serves `main`, verified against the Vercel deployment (corrected here 2026-08-02; drift **D60**). This gate is therefore now purely the **database** reconciliation. Close only on read-back: `pg_get_functiondef` for `claim_deal` must contain `deal_paused`, and the ledger must match the repo's filenames. Human-run per `docs/ops/supabase-migrations.md` — Claude must not apply migrations. Gate designation is proposed by the 2026-08-01 docs session, not a founder ruling |
 
 ## Marketing & growth gates
 
 | # | Item | Owner | Status | Gate | Notes |
 |---|---|---|---|---|---|
-| M1 | Shopper + merchant landing pages live | Agency + engineer | ⬜ not started | GATE (campaign) | Separate CTAs; segment set at the form, see waitlist spec |
+| M1 | Shopper + merchant landing pages live | Agency + engineer | ✅ done | GATE (campaign) | **Shipped in the marketing site build** (corrected 2026-08-02 — this row read "not started" long after the pages went live; drift **D63**). `/shoppers` and `/merchants` are separate pages with separate CTAs, plus `/mall-operators` for the third audience; `/merchants/join` is the merchant lead form and `/waitlist` carries the hard segment selector. What shipped and why: `docs/ops/IMPLEMENTATION-REPORT.md`. The remaining campaign work is E7/E8 (Resend config + UTM capture), not page build |
 | M2 | Email platform configured with segments + automations | Agency + AI lead | ⬜ not started | GATE (campaign) | `shopper` / `merchant` / `mall_operator` from signup |
 | M3 | Welcome sequences written and activated | Agency | ⬜ not started | GATE (campaign) | Drafts in the three sequence docs |
 | M4 | 4-week social content calendar | Agency | ⬜ not started | GATE (campaign) | One-month pre-launch push |
