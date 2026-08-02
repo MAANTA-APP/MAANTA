@@ -40,7 +40,7 @@ export default async function AdminCustomersPage({
     .order("created_at", { ascending: false })
     .limit(100);
   // `.or()` takes PostgREST's filter DSL, not a bound value — interpolating `q`
-  // straight into it let a comma inject an extra top-level predicate (D58).
+  // straight into it let a comma inject an extra top-level predicate (D59).
   const search = orIlikeAny(["full_name", "email", "phone"], q);
   if (search) query = query.or(search);
   if (role && ROLE_LABEL[role]) query = query.eq("role", role);

@@ -1,5 +1,5 @@
 -- ============================================================
--- Test: nodes registry (20260802120000_nodes_registry.sql) — drift D61.
+-- Test: nodes registry (20260802120000_nodes_registry.sql) — drift D62.
 --
 -- The scenario that matters is C: renaming a mall for display must not orphan
 -- its deals and merchants. That was the actual defect — the display name was
@@ -29,7 +29,7 @@ BEGIN
 END $$;
 
 -- Scenario B: a deal or merchant cannot name a node that does not exist.
--- This is the constraint that did not exist before D61 — any typo was accepted.
+-- This is the constraint that did not exist before D62 — any typo was accepted.
 DO $$
 DECLARE
   v_mid UUID;
@@ -58,7 +58,7 @@ BEGIN
   RAISE NOTICE 'Scenario B passed: unknown node values are rejected on both tables';
 END $$;
 
--- Scenario C: THE D61 CASE. Renaming a mall for display must not orphan
+-- Scenario C: THE D62 CASE. Renaming a mall for display must not orphan
 -- anything. Before this migration the display name *was* the key, so a rename
 -- silently detached every deal and merchant referencing the old string.
 DO $$
@@ -181,7 +181,7 @@ BEGIN
   RAISE NOTICE 'Scenario F passed: nodes are world-readable, service_role-writable';
 END $$;
 
--- Scenario G: adding a mall is a row, which is the other half of D61.
+-- Scenario G: adding a mall is a row, which is the other half of D62.
 DO $$
 DECLARE
   v_mid   UUID;

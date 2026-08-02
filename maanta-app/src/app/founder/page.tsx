@@ -16,7 +16,7 @@ export default async function FounderDashboardPage() {
   const since7d = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
   const now = new Date().toISOString();
 
-  // Read the node registry rather than the compiled-in array (D61). On an ops
+  // Read the node registry rather than the compiled-in array (D62). On an ops
   // surface this is the more truthful of the two: it shows a node registered by
   // INSERT — including one the migration adopted from existing data — which the
   // constant would not know about until a deploy.

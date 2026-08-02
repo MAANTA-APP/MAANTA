@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
 /**
- * Guard for drift **D63** — the app shipped no response security headers.
+ * Guard for drift **D64** — the app shipped no response security headers.
  *
  * Asserts against `next.config.mjs`'s real `headers()` output rather than a
  * copy of the expected values, so this cannot pass while the config says
@@ -25,7 +25,7 @@ beforeAll(async () => {
   const config = (await import("../../../next.config.mjs")).default as {
     headers?: () => Promise<{ source: string; headers: Header[] }[]>;
   };
-  expect(config.headers, "next.config.mjs must declare a headers() block (D63)").toBeTypeOf(
+  expect(config.headers, "next.config.mjs must declare a headers() block (D64)").toBeTypeOf(
     "function"
   );
   const rules = await config.headers!();
@@ -36,7 +36,7 @@ beforeAll(async () => {
   byKey = new Map(headers.map((h) => [h.key, h.value]));
 });
 
-describe("every response carries the baseline hardening headers (D63)", () => {
+describe("every response carries the baseline hardening headers (D64)", () => {
   it("denies framing in both the modern and legacy mechanisms", () => {
     // /merchant/redeem is a money surface on a phone at a counter. Both are
     // sent because older browsers ignore frame-ancestors.
@@ -77,7 +77,7 @@ describe("the CSP is honest about what it is", () => {
     expect(byKey.has("Content-Security-Policy-Report-Only")).toBe(true);
     expect(
       byKey.has("Content-Security-Policy"),
-      "Promoting the CSP to enforcing is a separate, browser-verified change (D63).\n" +
+      "Promoting the CSP to enforcing is a separate, browser-verified change (D64).\n" +
         "If that work is done, update this assertion deliberately rather than deleting it."
     ).toBe(false);
   });

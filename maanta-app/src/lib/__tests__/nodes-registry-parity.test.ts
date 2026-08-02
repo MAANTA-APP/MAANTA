@@ -4,7 +4,7 @@ import path from "node:path";
 import { NODES } from "@/lib/nodes";
 
 /**
- * Parity guard for drift **D61**: `src/lib/nodes.ts` and the `public.nodes`
+ * Parity guard for drift **D62**: `src/lib/nodes.ts` and the `public.nodes`
  * seed must describe the same malls.
  *
  * The migration made the table authoritative for *integrity* — `deals.node` and
@@ -21,7 +21,7 @@ import { NODES } from "@/lib/nodes";
  * Concretely this makes registering a mall a two-step that cannot be half-done:
  * insert the row **and** update the constant, or this fails. That is a weaker
  * promise than "add a mall with no deploy", and it is the honest one for what
- * shipped — the remaining half is tracked on D61 rather than implied here.
+ * shipped — the remaining half is tracked on D62 rather than implied here.
  *
  * Reads the migration as text on purpose. Parsing the seed the database will
  * actually receive is the only way this compares against the real thing; a
@@ -123,7 +123,7 @@ function parseSeed(): SeedRow[] {
   return rows;
 }
 
-describe("nodes.ts and the nodes table seed describe the same malls (D61)", () => {
+describe("nodes.ts and the nodes table seed describe the same malls (D62)", () => {
   it("has a migration to read, and parses rows out of it", () => {
     expect(existsSync(MIGRATION), `${MIGRATION} is missing`).toBe(true);
     // Guards against the parser matching nothing and passing everything.

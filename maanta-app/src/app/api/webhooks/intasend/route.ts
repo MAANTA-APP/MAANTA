@@ -14,7 +14,7 @@ import { captureTopupCompletedMpesa } from "@/lib/analytics";
 /**
  * IntaSend M-Pesa top-up webhook.
  *
- * **The request body is a pointer, not an instruction** (drift row D59).
+ * **The request body is a pointer, not an instruction** (drift row D60).
  *
  * IntaSend authenticates its webhook with a plaintext shared secret echoed in
  * the body — there is no signature over the payload, unlike Stripe's HMAC. So a
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
   // `value` is the gross amount the payer was charged, which is what this rail
   // has always credited. IntaSend also reports `net_amount` (value minus their
   // charges); switching to it would change what merchants receive and is a
-  // product decision, not a review fix — see the note in the D59 register row.
+  // product decision, not a review fix — see the note in the D60 register row.
   const amount = invoice.value;
   if (amount == null || amount <= 0 || amount > MAX_TOPUP_AMOUNT) {
     await logWebhookFailure(service, {

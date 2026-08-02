@@ -1,5 +1,5 @@
 -- Promote nodes (malls) from a hardcoded TypeScript array to a real table.
--- Drift row D61.
+-- Drift row D62.
 --
 -- Two problems, one of which is dangerous:
 --
@@ -52,9 +52,9 @@ CREATE TABLE public.nodes (
 );
 
 COMMENT ON TABLE public.nodes IS
-  'Registry of MAANTA nodes (malls). Source of truth for which nodes exist. `id` is an opaque grandfathered key — render `label`, never `id`. See D61.';
+  'Registry of MAANTA nodes (malls). Source of truth for which nodes exist. `id` is an opaque grandfathered key — render `label`, never `id`. See D62.';
 COMMENT ON COLUMN public.nodes.id IS
-  'Opaque stable key, grandfathered from the pre-D61 deals.node / merchants.node text values. Never display it; never change it.';
+  'Opaque stable key, grandfathered from the pre-D62 deals.node / merchants.node text values. Never display it; never change it.';
 COMMENT ON COLUMN public.nodes.label IS
   'Display name. Safe to change at any time — no foreign key points at it.';
 
@@ -157,7 +157,7 @@ ALTER TABLE public.merchants VALIDATE CONSTRAINT merchants_node_fkey;
 -- ON DELETE RESTRICT: a node with history cannot be deleted out from under it.
 -- Retire a node by setting is_live = FALSE, which is what the app reads.
 -- ON UPDATE CASCADE: if a future change ever does re-key a node, the children
--- follow rather than orphaning — the exact failure D61 was opened for.
+-- follow rather than orphaning — the exact failure D62 was opened for.
 
 CREATE INDEX IF NOT EXISTS idx_deals_node ON public.deals(node);
 CREATE INDEX IF NOT EXISTS idx_merchants_node ON public.merchants(node);
@@ -197,7 +197,7 @@ AS $$
 BEGIN
   IF NEW.id IS DISTINCT FROM OLD.id THEN
     RAISE EXCEPTION
-      'node_id_immutable: nodes.id is an opaque key referenced by deals.node and merchants.node. Change label/short_label instead (D61).';
+      'node_id_immutable: nodes.id is an opaque key referenced by deals.node and merchants.node. Change label/short_label instead (D62).';
   END IF;
   RETURN NEW;
 END;
