@@ -1,33 +1,47 @@
-# Production served an open PR branch — twice, 2026-08-01
+# Production served an open PR branch — three times, 2026-08-01 → 02
 
 Evidence artifact for drift rows **D53** (closed) and **D56** (open). Written
-because the evidence for both lives outside this repository — in the Vercel API
-and in a bot comment — and neither survives. A deployment record ages out; a
-session transcript is not a durable record. If this happens a third time, this
-file is what the next person should read first.
+because the evidence lives outside this repository — in the Vercel API and in a
+bot comment — and neither survives. A deployment record ages out; a session
+transcript is not a durable record.
 
-**Status:** both incidents resolved. The control that would prevent a third is a
-Vercel project setting and remains an open founder decision — see §6.
+The filename carries the date of the first occurrence; the file is the record for
+the whole family, not for one day.
+
+> **This document was already out of date when it was written.** It closed with
+> "if this happens a third time, this file is what the next person should read
+> first" and predicted the control would need escalating. The third occurrence
+> landed **13 hours later**, on the branch of the pull request that added this
+> file — see §8. That is not an anecdote: it is the third data point in under 24
+> hours, and it is what makes §6 a standing decision rather than a precaution.
+
+**Status:** all three incidents resolved. The control that would prevent a fourth
+is a Vercel project setting and remains an open founder decision — see §6.
 
 ---
 
 ## 1. What happened, in one line
 
-On two occasions roughly four hours apart, `www.maanta.app` and `maanta.app`
-were served from a deployment built from an **open pull request branch** rather
-than from `main`.
+On three occasions within 24 hours, `www.maanta.app` and `maanta.app` were served
+from a deployment built from an **open pull request branch** rather than from
+`main`.
 
-| | First (D53) | Second (D56) |
-|---|---|---|
-| Deployment | `dpl_kwm9shnHG6T1M17syCDfrKjjeSqW` | `dpl_ALPrV9RBGrbncco8YE2bzpsF7jMd` |
-| PR | #161 | #166 |
-| Branch commit | `8bd96374` | `602323e` |
-| Promoted tree | `69a462eb…` | `a959d669…` |
-| `main` tree at the time | `69a462eb…` — **identical** | `ed3b3d4d…` — **different** |
-| Content risk | none; provenance only | real: `main` lacked the `/contact` fix |
-| Resolved by | merging #161 → `b6f19716` | merging #166 → `225db23` |
+| | First (D53) | Second (D56) | Third (§8) |
+|---|---|---|---|
+| When | 2026-08-01 ~14:20Z | 2026-08-01 18:31Z | 2026-08-02 07:36Z |
+| Deployment | `dpl_kwm9shnHG6T1M17syCDfrKjjeSqW` | `dpl_ALPrV9RBGrbncco8YE2bzpsF7jMd` | `dpl_6zKSsfbFeVWtrjpvbfKuSvSuEaUz` |
+| PR | #161 | #166 | #167 |
+| Branch commit | `8bd96374` | `602323e` | `205a7ed` |
+| Promoted tree | `69a462eb…` | `a959d669…` | `2458a8da…` |
+| `main` tree at the time | `69a462eb…` — **identical** | `ed3b3d4d…` — **different** | `a959d669…` — **different** |
+| Diff vs `main` | none | 2 commits, **app code** | 2 commits, **docs only** |
+| Content risk | none; provenance only | real: `main` lacked the `/contact` fix | none; nothing under `maanta-app/` |
+| Resolved by | merging #161 → `b6f19716` | merging #166 → `225db23` | merging #167 |
 
-The second is the one that mattered. See §4.
+**Only the second carried live risk.** That is the point worth holding on to,
+and also the trap: two of three were harmless, which is exactly the pattern that
+makes a recurring failure easy to keep tolerating until the one that is not
+harmless arrives. It already did once, in the middle of the three.
 
 ---
 
@@ -130,11 +144,29 @@ and email — We reply within 1 business day".
 Nothing would have alerted anyone. The revert would have looked like a normal
 production deploy from `main`.
 
+**The third occurrence carried no such risk, and the check that establishes that
+is worth copying** — a promoted tree differing from `main` is not automatically
+dangerous, and it matters whether the difference reaches the app:
+
+```
+$ git diff --name-only origin/main 205a7ed
+docs/maanta-drift-register.md
+docs/ops/production-branch-promote-2026-08-01.md
+
+$ git diff --name-only origin/main 205a7ed -- maanta-app/
+                                     ← empty: the rendered site is unaffected
+```
+
+Two of the three were harmless by this test. That is the trap rather than the
+reassurance: a failure mode that is usually harmless is one people learn to
+tolerate, and the one occurrence that was not harmless sat in the middle of the
+three.
+
 ---
 
 ## 5. How it was detected, and why that is not a control
 
-Neither occurrence was found by a check. Both were found by reading the Vercel
+No occurrence was found by a check. All three were found by reading the Vercel
 bot's PR comment, whose base64 payload carries:
 
 ```json
@@ -161,8 +193,23 @@ document:
   the production aliases.
 
 Either removes the failure mode at the source. Both are founder calls, so no
-Claude session can take them, which is why D56 stays **open** while the two
+Claude session can take them, which is why D56 stays **open** while the three
 incidents behind it are resolved.
+
+**Three occurrences in under 24 hours is the escalation trigger this section was
+written to anticipate.** The first version of this file called a third occurrence
+the point at which the control needs taking seriously; it then happened 13 hours
+later, on the branch of the pull request that added the file. A pattern that
+reproduces three times in a day is not a lapse to be more careful about — it is
+the normal way this project currently reaches production, and the only reason it
+keeps being caught is a human decoding a bot comment.
+
+If promoting the working branch is in fact the intended workflow rather than an
+accident, that is a legitimate choice — but then D56 should be rewritten to
+record it as a deliberate practice with its risks named, not left as an incident
+awaiting a control that is never going to be applied. What is not sustainable is
+the current state: a documented incident class, no control, and a recurrence rate
+of once every eight hours.
 
 **Until one is taken, the operational rule is: if a branch must go live before
 merge, merge it.** Merging is fast, reversible through the normal path, and
@@ -206,3 +253,52 @@ serving:
 A mismatch is not automatically an incident: it may simply mean `main` has moved
 ahead and the deploy has not run yet. What makes it an incident is
 `meta.githubCommitRef` naming something other than `main`.
+
+---
+
+## 8. Third occurrence — 2026-08-02, on this file's own pull request
+
+Thirteen hours after §1–§7 were written, and while **#167** — the PR adding this
+file — was open, its branch was promoted to production.
+
+```
+id:              dpl_6zKSsfbFeVWtrjpvbfKuSvSuEaUz
+createdAt:       2026-08-02 07:36:26Z
+ready:           2026-08-02 07:38:50Z
+state:           READY
+target:          production
+source:          redeploy
+meta.action:     promote
+meta.originalDeploymentId: dpl_EcuMzBo2HAvrycuzLFEVk6dReFp6
+meta.githubCommitRef: claude/install-superpowers-plugin-na574p
+meta.githubCommitSha: 205a7edd5afedbd8f7fe3d92b17ec175cd1a7076
+meta.githubPrId:      167
+alias:
+  - www.maanta.app
+  - maanta.app
+  - maanta-nuia.vercel.app
+  - maanta-nuia-maanta.vercel.app
+  - maanta-nuia-git-claude-install-superpowers-plugin-na574p-maanta.vercel.app
+```
+
+Trees differed — deployed `2458a8da…`, `main` `a959d669…` — but the entire diff
+was `docs/maanta-drift-register.md` and this file. Nothing under `maanta-app/`,
+so the rendered site was byte-identical to what `main` produces. Confirmed with
+the path check in §4 rather than assumed from the commit messages.
+
+Detected the same way as the other two, by the `previewUrl` field in the Vercel
+bot comment. Resolved the same way, by merging #167.
+
+**What this occurrence adds to the record**, beyond being a third tally mark:
+
+- It happened on the pull request whose only content is the documentation of the
+  problem. Writing the incident down changed nothing about the behaviour, which
+  is the strongest available argument that the missing piece is a configuration
+  setting rather than more prose.
+- It is the second of three where the divergence was harmless. That ratio is
+  what makes this easy to keep tolerating — and the harmful one was the middle
+  of the three, not the last.
+- The §7 procedure was used to triage it and worked, including the
+  `git diff --name-only … -- maanta-app/` step that separated "trees differ" from
+  "the site is wrong". That distinction is the difference between a note and an
+  incident, and it should be the first thing checked next time.
