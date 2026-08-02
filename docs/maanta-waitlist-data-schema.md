@@ -74,7 +74,7 @@ Nairobi. Still align with `legal/privacy-policy.md` at lawyer review.
 > **SUPERSEDED IN TWO RESPECTS — read the "Implemented" section above, which is
 > the current contract** (marked 2026-08-02; the block below was left standing
 > after the same-day amendment and contradicted this document's own header,
-> drift **D64**). Both changes are recorded in `docs/maanta-decisions-log.md`
+> drift **D65**). Both changes are recorded in `docs/maanta-decisions-log.md`
 > under 2026-07-10: (1) **the email platform is confirmed — Resend**, not "later";
 > (2) **a `/api/waitlist` route does exist**, as a deliberately **stateless**
 > proxy, because the segmentation plan needs server-side keyed API access and

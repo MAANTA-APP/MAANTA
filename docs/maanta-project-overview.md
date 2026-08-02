@@ -55,7 +55,7 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
   third-party auth provider). Clerk is enabled **only when both**
   `MAANTA_AUTH_STRATEGY` **and** `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` are set to
   `clerk`; set one and not the other and the code stays on its default, which is
-  **Supabase** email OTP — see `docs/ops/auth-strategies.md` and drift **D58**.
+  **Supabase** email OTP — see `docs/ops/auth-strategies.md` and drift **D59**.
   Deployed via Vercel; Supabase project currently in AWS `eu-west-1`.
 - **Money movements** are written **only by sanctioned SECURITY DEFINER RPCs**,
   never by a direct balance edit from a route. `record_merchant_ledger_entry`

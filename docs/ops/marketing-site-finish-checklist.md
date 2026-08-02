@@ -98,12 +98,40 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 
 ---
 
-## 4. Step 3 — `/how-it-works`
+## 4. Step 3 — `/how-it-works` — **one command from done, D39 still open**
 
-- [ ] §1 check completed and recorded
-- [ ] If 308: no code change; finding recorded, drift row **D38** closed
-- [ ] If 200: cause identified outside `next.config.mjs`, fixed, retested
-- [ ] **`[HTML]`** `/sitemap.xml` contains `/shoppers` once, `/how-it-works` zero times
+- [x] Check completed and recorded — **not** by the unfollowed `curl` this list
+      assumed, which a Claude session cannot run: the network policy refuses the
+      CONNECT tunnel to `www.maanta.app` with the proxy's own 403, and the Vercel
+      fetch tool that can reach the host follows redirects
+- [x] Established from the build artifact instead: `.next/routes-manifest.json`
+      lists `/how-it-works` → `/shoppers` with `statusCode: 308`, and
+      `how-it-works` appears in `rewrites` zero times
+- [x] Established from a live control: `/for-shoppers` and `/for-merchants` —
+      undisputed 308s — return the identical 200 + `x-matched-path` observation
+      the audit reported for `/how-it-works`, with `x-matched-path` tracking each
+      one's own destination. A known redirect is indistinguishable from the
+      disputed path under this measurement
+- [x] **No code change**, as the remedy required
+- [x] **`[HTML]`** `/sitemap.xml` contains `/shoppers` once and `/how-it-works`
+      zero times — checked against the generated `sitemap.xml.body`, 12 URLs
+- [ ] Drift row **D39** — **still open.** It was briefly marked closed on the
+      reasoning above; review on #169 caught the flaw. What the control proves is
+      that the audit's evidence is uninformative, **not** that a Vercel-side
+      rewrite on `/how-it-works` alone is excluded — the other two paths being
+      ordinary redirects is consistent with that. In-repo interception *is* ruled
+      out (no `vercel.json`, not in `middleware.ts`); routing configured outside
+      the repo cannot be checked from here. (This list also said D38, which is the
+      comment-lexer row.)
+- [x] **D57** opened and closed on the way past: the docblock said these were
+      "301s" when `permanent: true` emits 308, and nothing asserted the redirects
+      existed at all. Now guarded by `marketing-redirects.test.ts`, mutation-tested
+      four ways
+- [ ] **`[EXT]`** — **the blocker.** One unfollowed
+      `curl -sI https://www.maanta.app/how-it-works` from an ordinary terminal.
+      A 308 with `location: /shoppers` closes D39 and this step; a genuine 200
+      means the cause is outside `next.config.mjs` and the search moves to the
+      Vercel project configuration. Every other line here is done
 
 ---
 

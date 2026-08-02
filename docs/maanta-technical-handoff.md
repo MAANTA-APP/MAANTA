@@ -2,7 +2,7 @@
 
 Audience: the software engineer taking the product to launch.
 
-**Accuracy note (corrected 2026-08-02 — drift D59).** This document used to
+**Accuracy note (corrected 2026-08-02 — drift D60).** This document used to
 promise that "where the doc says something does not exist yet, it genuinely does
 not exist in the code", with no date attached. That guarantee outlived its
 accuracy: by 2026-08-02 five of its claims were contradicted by the tree,
@@ -50,7 +50,7 @@ to real services):
    and runs `maanta-app/supabase/tests/*.sql`
 
 The `db-tests` job is the one this section used to omit (drift **D47**, and again
-here as **D59**). It matters most for SQL work: **a change that only passes
+here as **D60**). It matters most for SQL work: **a change that only passes
 `npm test` is not verified.** If you touch anything under
 `supabase/migrations/`, the check is `make db-verify` from the repo root — which
 mirrors that job locally — not vitest. CI also sets
@@ -110,7 +110,7 @@ reimplement this logic in TypeScript:
 - `record_merchant_ledger_entry` — the **app-layer** entry point for wallet
   ledger writes: every top-up and webhook reaches the ledger through it, via
   `recordMerchantTransaction`. It is **not** the only writer, and this line
-  said "single entry point" until 2026-08-02 (drift **D57**, whose first pass
+  said "single entry point" until 2026-08-02 (drift **D58**, whose first pass
   corrected the same claim in `docs/maanta-project-overview.md` and missed this
   copy). Four more RPCs write `merchant_transactions` in-database by design,
   because they cannot call a `service_role`-only RPC from their own caller
@@ -214,7 +214,7 @@ Two layers, both in CI:
 **Vitest** (`npm test`) covers the merchant ledger, currency validation/FX
 handling, pricing, the Stripe webhook route, and the static frozen-UI /
 feature-gap ratchets (`src/lib/__tests__/`,
-`src/app/api/webhooks/stripe/__tests__/`). **69 files / 525 tests green on
+`src/app/api/webhooks/stripe/__tests__/`). **70 files / 533 tests green on
 `main`, run 2026-08-02.** The waitlist API is built; its coverage lives with the
 marketing guards under `src/lib/__tests__/`.
 

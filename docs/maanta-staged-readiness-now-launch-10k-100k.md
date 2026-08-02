@@ -21,7 +21,7 @@ Related:
 
 **Repo evidence as of 2026-07-28:** `npm test` → **293 passed / 45 files**;
 CI runs lint + typecheck + vitest + build + **22 SQL suites** in `db-tests`
-(count as of 2026-08-02; this line read 16 — drift **D64**).
+(count as of 2026-08-02; this line read 16 — drift **D65**).
 Browser Playwright golden path exists but **self-skips** until a non-prod E2E
 env is wired. Sentry + PostHog are **in code**; production value is gated on
 Vercel env.

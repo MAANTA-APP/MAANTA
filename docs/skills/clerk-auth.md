@@ -88,7 +88,7 @@ regression suite passing, since it authenticates by setting `sub = users.auth_ui
 |---|---|
 | `package.json` | added `@clerk/nextjs@^6` (v7 needs Next 15; we're on Next 14) |
 | `src/app/layout.tsx` | wrapped app in `<ClerkProvider>` |
-| `src/middleware.ts` | `clerkMiddleware()` runs **for the `clerk` strategy only**; the middleware branches on `authStrategy()` and falls back to Supabase session refresh. Corrected 2026-08-02 (drift **D63**): this row said Clerk "replaces the Supabase session-refresh middleware (deleted `src/lib/supabase/middleware.ts`)". That file was never deleted — `src/middleware.ts` imports `updateSession` from it and calls it on the **default** path, since `DEFAULT_AUTH_STRATEGY` is `supabase` |
+| `src/middleware.ts` | `clerkMiddleware()` runs **for the `clerk` strategy only**; the middleware branches on `authStrategy()` and falls back to Supabase session refresh. Corrected 2026-08-02 (drift **D64**): this row said Clerk "replaces the Supabase session-refresh middleware (deleted `src/lib/supabase/middleware.ts`)". That file was never deleted — `src/middleware.ts` imports `updateSession` from it and calls it on the **default** path, since `DEFAULT_AUTH_STRATEGY` is `supabase` |
 | `src/app/login/[[...rest]]/page.tsx` | Clerk `<SignIn>` (replaced the custom OTP page) |
 | `src/app/sign-up/[[...rest]]/page.tsx` | Clerk `<SignUp>` |
 | `src/app/sign-out-button.tsx` | `useClerk().signOut()` |
@@ -96,7 +96,7 @@ regression suite passing, since it authenticates by setting `sub = users.auth_ui
 | `src/lib/supabase/server.ts`, `client.ts` | attach Clerk token via `accessToken` so RLS/RPCs see the caller |
 | `src/lib/data.ts` (`getAppUser`) + all `/api/*` routes | `supabase.auth.getUser()` → `ensureAppUser` / `currentClerkUserId` |
 | `supabase/migrations/20260720140000_clerk_third_party_auth.sql` | `users.clerk_user_id` + redefined identity helpers |
-| ~~`src/components/nav/public-nav.tsx`~~ → `src/components/marketing/SiteHeader.tsx` | landing-nav auth controls: `<SignedOut>` Sign in + Get started, `<SignedIn>` My feed + `<UserButton>` (v6 uses `SignedIn`/`SignedOut`, not v7's `<Show>`). Corrected 2026-08-02 (drift **D63**): `public-nav.tsx` was deleted in the Phase 1 marketing shell and superseded by `SiteHeader`/`SiteFooter` — see `docs/ops/IMPLEMENTATION-REPORT.md` §3 |
+| ~~`src/components/nav/public-nav.tsx`~~ → `src/components/marketing/SiteHeader.tsx` | landing-nav auth controls: `<SignedOut>` Sign in + Get started, `<SignedIn>` My feed + `<UserButton>` (v6 uses `SignedIn`/`SignedOut`, not v7's `<Show>`). Corrected 2026-08-02 (drift **D64**): `public-nav.tsx` was deleted in the Phase 1 marketing shell and superseded by `SiteHeader`/`SiteFooter` — see `docs/ops/IMPLEMENTATION-REPORT.md` §3 |
 | `.env.example`, `.github/workflows/ci.yml` | Clerk keys (CI uses a well-formed dummy publishable key) |
 
 ### Clerk CLI note
