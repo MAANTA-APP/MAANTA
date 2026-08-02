@@ -290,13 +290,15 @@ lesson of Step 2. See §8 below.
 
 ---
 
-## 4. Step 3 — Collapse `/how-it-works` — **DONE 2026-08-02, D39 closed**
+## 4. Step 3 — Collapse `/how-it-works` — **still open, one command from done**
 
 **Audit finding:** GAP-03, High.
-**Verdict: CONTRADICTED — and now confirmed empirically. GAP-03 is refuted.**
+**Verdict: CONTRADICTED in the repo. GAP-03's evidence is void — but its conclusion is not yet excluded.**
 
-> **Resolved 2026-08-02, no code changed.** The prediction below — that the
-> audit's 200 is what a *followed* 308 looks like — was tested and holds.
+> **Tested 2026-08-02, no code changed. Not yet resolved.** The prediction below
+> — that the audit's 200 is what a *followed* 308 looks like — was tested and
+> holds. That voids the audit's evidence; it does not settle the question. See
+> the correction further down, and **D39**, which stays open.
 >
 > The unfollowed `curl` this section asks for is **not possible from a Claude
 > session**: the network policy refuses the CONNECT tunnel to `www.maanta.app`
@@ -320,10 +322,27 @@ lesson of Step 2. See §8 below.
 >
 > `x-matched-path` tracks each path's own redirect destination. A known redirect
 > is therefore indistinguishable from the disputed one under this measurement.
-> The rewrite hypothesis would additionally require `/for-shoppers` and
-> `/for-merchants` to be rewrites, which nothing claims and nothing explains.
+> **What this does and does not prove — corrected after review on #169.** It
+> proves the audit's *evidence* is uninformative: a followed 308 and a rewrite
+> are indistinguishable under this measurement, so the 200 supports neither
+> conclusion. It does **not** exclude a Vercel-side rewrite on `/how-it-works`.
+> An earlier version of this section argued the rewrite hypothesis "would
+> additionally require `/for-shoppers` and `/for-merchants` to be rewrites" —
+> **that does not follow.** A rewrite on `/how-it-works` alone is entirely
+> consistent with the other two being ordinary redirects. Showing the redirect
+> explanation is *sufficient* is not showing the rewrite one is *excluded*.
 >
-> Two things were fixed on the way past, recorded as **D57**: the docblock said
+> In-repo interception is ruled out: no `vercel.json` in the tree, and
+> `src/middleware.ts` does not mention the path. Routing configured outside the
+> repository cannot be checked from a Claude session — `get_project` does not
+> expose it.
+>
+> **D39 therefore stays open**, one command from closing:
+> `curl -sI https://www.maanta.app/how-it-works` from an ordinary terminal.
+> A 308 closes it; a genuine 200 sends the search to the Vercel project config.
+>
+> **D57 is closed regardless** — its scope is the repo and stands on its own.
+> Two things were fixed on the way past: the docblock said
 > these were "301s" when `permanent: true` emits **308**, and nothing asserted
 > the redirects existed at all — now guarded by
 > `maanta-app/src/lib/__tests__/marketing-redirects.test.ts`, whose
