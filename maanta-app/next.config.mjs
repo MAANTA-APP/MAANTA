@@ -82,10 +82,25 @@ const nextConfig = {
    * **CSP is Report-Only on purpose, and is not yet protection.** A wrong CSP
    * breaks sign-in, payments or the map, and the origin list here was assembled
    * by reading the source rather than by watching a real browser. Report-Only
-   * never blocks, so this ships safely and surfaces violations in the browser
-   * console for tuning. Promoting it to an enforcing `Content-Security-Policy`
-   * is a separate change that needs a real browser pass across auth, top-up and
-   * the map — see D74. Until then, do not describe this app as having a CSP.
+   * never blocks, so this ships safely. Promoting it to an enforcing
+   * `Content-Security-Policy` is a separate change that needs a real browser
+   * pass across auth, top-up and the map — see D74. Until then, do not describe
+   * this app as having a CSP.
+   *
+   * **There is deliberately no `report-uri`/`report-to`, so nothing collects
+   * violations passively.** Raised in review, and worth stating rather than
+   * leaving as an apparent oversight: the tuning step this policy exists for is
+   * a human opening devtools and walking those three flows, not a background
+   * feed. A collector was considered and rejected for now on two grounds this
+   * same audit already raises. Pointing it at Sentry bills a browser-triggered
+   * event per violation into the project the money path alerts through (D70,
+   * D74); pointing it at an app route adds an unauthenticated, unrate-limited
+   * write endpoint, which is exactly the shape flagged as D70. Report-only CSP
+   * violations are also dominated by browser-extension noise, so at a
+   * three-person pilot a deliberate pass gives better signal than a feed.
+   *
+   * Revisit once there is real traffic: at that point a sampled collector is
+   * worth more than a manual pass, and rate limiting it is the precondition.
    */
   async headers() {
     const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
