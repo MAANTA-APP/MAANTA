@@ -4,7 +4,8 @@ Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
 2026-07-09 from the launch-handoff and operating-system doc packs; index
-updated 2026-07-30 with the drift register and the 2026-07-30 operating
+updated 2026-08-02 (waitlist backend row corrected); previously 2026-07-30,
+which added the drift register and the 2026-07-30 operating
 documents (previously 2026-07-28, comprehensive audit links).
 
 ## Orientation
@@ -29,7 +30,7 @@ documents (previously 2026-07-28, comprehensive audit links).
 | File | Purpose |
 |---|---|
 | `maanta-marketing-agency-brief.md` | Agency brief: objective, audiences, offers, channel plan, KPIs, ground rules |
-| `maanta-waitlist-data-schema.md` | Waitlist capture spec: segments, fields, consent (open decision: in-repo vs external backend) |
+| `maanta-waitlist-data-schema.md` | Waitlist capture spec: segments, fields, consent. **Backend decided 2026-07-10: Resend**, no Supabase waitlist table; the in-repo `POST /api/waitlist` is a stateless proxy. (The "open decision: in-repo vs external backend" note here was stale — drift **D65**) |
 | `maanta-email-segmentation-plan.md` | Segments, sub-segments, lead scoring, CRM map, sequence structure |
 | `maanta-shopper-email-sequence.md` | Shopper welcome/nurture copy draft |
 | `maanta-merchant-email-sequence.md` | Merchant welcome/nurture copy draft |

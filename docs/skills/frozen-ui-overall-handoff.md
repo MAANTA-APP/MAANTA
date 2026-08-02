@@ -55,7 +55,7 @@ table; the wireframes were adapted to the code, not the reverse). Key moves:
 
 The visual reskin was followed by wiring the brief's central **YOU PAY** model
 (decisions-log 2026-07-18). Migration
-`20260718120000_shopper_you_pay_price_model.sql` adds `deals.price_kes /
+`20260719233037_shopper_you_pay_price_model.sql` adds `deals.price_kes /
 compare_at_kes / charges` and `redemptions.amount_kes` (claim snapshot).
 `src/lib/pricing.ts` is the **single** place YOU PAY is computed (tile, deal
 detail, claimed code all read `dealPricing`). The create-deal wizard gained the

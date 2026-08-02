@@ -65,10 +65,16 @@ code disagree, say so explicitly in your summary and add a row to
 | `docs/ops/` | Runbooks and dated operational reports: auth strategies, demo mode, migrations, e2e/pilot readiness, UI polish |
 | `docs/skills/` | Durable handoff/skills docs updated after meaningful sessions |
 
-**Auth, in one line:** `maanta-app/src/middleware.ts` runs `clerkMiddleware()` on every path.
-Clerk is the launch strategy; `MAANTA_AUTH_STRATEGY=supabase` swaps in Supabase
-email OTP for rehearsal/CI. See `docs/ops/auth-strategies.md` and
-`docs/skills/clerk-auth.md`.
+**Auth, in one line:** `maanta-app/src/middleware.ts` runs on every path and
+**branches on the strategy** — `clerkMiddleware()` for Clerk, Supabase session
+refresh (`updateSession`) otherwise. Clerk is the launch strategy and what
+production runs, but it is **not** the code default: `DEFAULT_AUTH_STRATEGY` in
+`src/lib/auth/strategy.ts` is `supabase`, and Clerk turns on only when **both**
+`MAANTA_AUTH_STRATEGY` and `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` are explicitly
+`clerk`. A checkout with no auth env set therefore runs Supabase email OTP, which
+is also what CI uses. See `docs/ops/auth-strategies.md` and
+`docs/skills/clerk-auth.md`. The decisions log calls Clerk the default; that
+wording and the code disagree — drift **D59**, founder to rule.
 
 ## Orientation map — where to look before you edit
 
@@ -120,9 +126,18 @@ Run from `maanta-app/`:
 - `npm run lint` — `next lint`
 - `npm run typecheck` — `tsc --noEmit`
 - `npm test` — vitest suite
-- `npm run build` — production build; **also runs `check:tokens`**, which fails
-  the build if a `{{TOKEN}}` placeholder survives into rendered output
-- `npm run check:tokens` — that scan on its own, against an existing build
+- `npm run build` — production build; **also runs three post-build gates**, each
+  chained with `&&` so a failure fails the build:
+  - `check:tokens` — fails if a `{{TOKEN}}` placeholder survives into rendered
+    output or a compiled chunk
+  - `check:canonicals` — fails if a marketing route's canonical or `og:url`
+    disagrees with the generated sitemap
+  - `check:forms` — fails if a route listed as prerendered ships no `<form>`, or
+    ships a client-side-rendering bailout marker
+- `npm run check:tokens` / `check:canonicals` / `check:forms` — any of those
+  scans on its own, against an existing build. The chaining itself is guarded by
+  `src/lib/__tests__/build-gates.test.ts`, so deleting a gate from the `build`
+  script fails CI rather than silently disabling it
 - `npm run test:e2e` — Playwright golden path (needs `E2E_BASE_URL` + storage;
   see `docs/ops/e2e-golden-path.md`)
 
@@ -297,10 +312,17 @@ which has already happened (rows D3, D5, D6, D9).
 
 ## Marketing site
 
-Six-page marketing site under `maanta-app/src/app/(marketing)/` (renamed from
-`(public)`; route groups are URL-invisible, so no path moved). Source of truth for
-what shipped and why: **`docs/ops/IMPLEMENTATION-REPORT.md`**, then the 16 planning
-documents in `docs/ops/` and `docs/legal/`.
+Marketing site under `maanta-app/src/app/(marketing)/` (renamed from `(public)`;
+route groups are URL-invisible, so no path moved). The build that shipped is
+described as "six-page" throughout the planning docs and that is still the right
+way to read them — six core marketing pages (`/`, `/shoppers`, `/merchants`,
+`/mall-operators`, `/about`, `/contact`). The route group now holds **17**
+`page.tsx` files in total: those six, the four legal routes, and
+`/pricing`, `/faq`, `/help`, `/download`, `/waitlist`, `/merchants/join`,
+`/malls/bbs-mall`. Count with `find src/app/\(marketing\) -name page.tsx`; the
+guards that walk "every marketing page" walk all 17, not the six. Source of truth
+for what shipped and why: **`docs/ops/IMPLEMENTATION-REPORT.md`**, then the 16
+planning documents in `docs/ops/` and `docs/legal/`.
 
 Four rules that are enforced, not conventions:
 
@@ -345,14 +367,21 @@ Three things a session must not get wrong:
   one shared comment lexer at
   `maanta-app/src/lib/__tests__/helpers/comment-stripping.ts`, imported by every
   copy guard. A fourth private copy of that stripper is how the defect returns.
-- **Every marketing guard reads `.tsx` source.** Only `scripts/check-tokens.mjs`
-  reads built output. That is why a `/contact` form present in JSX but absent from
-  server HTML shipped (**D41**). New guards assert against `.next/server/app/**`.
-- **Two steps are already done in the repo** — the `/how-it-works` 308
-  (`next.config.mjs`) and `metadataBase` (`src/app/layout.tsx`). Do not redo them.
+- **Every marketing *vitest* guard reads `.tsx` source**, because CI runs `test`
+  before `build` and `.next/` does not exist at test time. Built output is checked
+  by the three post-build scripts instead — `check-tokens.mjs`,
+  `check-canonicals.mjs`, `check-server-forms.mjs` — chained into `npm run build`.
+  Source-only scanning is why a `/contact` form present in JSX but absent from
+  server HTML shipped (**D41**); the last two scripts exist because of it. A new
+  guard that needs rendered output belongs in a build script, not in vitest.
+- **Four steps are already done in the repo** — the `/how-it-works` 308
+  (`next.config.mjs`), `metadataBase` (`src/app/layout.tsx`), Step 4 canonical/OG
+  (**D40**) and Step 5 server-rendered `/contact` (**D41**). Do not redo them.
 
-Rows for this work: **D39**, **D40**, **D41** open; **D37**, **D38**, **D42**
-closed. Marketing polish since then opened **D50** (the hero mockup is the one
+Rows for this work: **D39** open (the `/how-it-works` measurement, which needs a
+`curl -sI` with redirect-following off — the repo side is settled: `next.config.mjs`
+declares a 308 and `rewrites()` holds only the PostHog proxies). **D37**, **D38**,
+**D40**, **D41**, **D42** closed. Marketing polish since then opened **D50** (the hero mockup is the one
 marketing surface rendering synthetic deal rows) and **D51** (the launch offer is
 single-sourced but its expiry gate is unproven until `OFFERS.eliteTrial.expiresOn`
 passes and both pages drop it together); **D52** and **D53** are closed.

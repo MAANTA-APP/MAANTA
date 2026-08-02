@@ -23,7 +23,15 @@
 
 ## 0. Two things to settle before writing any code
 
-### ⚠️ Where does the current form submit?
+### ✅ Where does the current form submit? — ANSWERED, do not re-investigate
+
+**Resolved 2026-08-02 marker.** The suspicion below was correct and is fixed:
+the form now POSTs to `maanta-app/src/app/api/contact/route.ts`, which delivers
+the enquiry to `admin@maanta.app` via Resend and autoresponds to the sender.
+Drift **D28** (fake success) and **D41** (form missing from server HTML) are both
+closed. The audit text is kept below as the record of how it was found.
+
+### ⚠️ Where does the current form submit? *(original finding, superseded)*
 
 The production build manifest contains `/api/leads`, `/api/waitlist`, `/api/staff`, `/api/profile` and `/api/support` — **but no `/api/contact`**. The live `/contact` page renders a working-looking form with *Your email or phone*, *Message* and a *Send* button.
 
