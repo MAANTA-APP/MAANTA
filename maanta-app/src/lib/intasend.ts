@@ -1,7 +1,18 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 const INTASEND_BASE_URL =
   process.env.INTASEND_ENV === "live"
     ? "https://payment.intasend.com/api/v1"
     : "https://sandbox.intasend.com/api/v1";
+
+/**
+ * The one invoice state that means the money actually arrived.
+ *
+ * Declared here rather than inline at the webhook so the settled-vs-not
+ * decision has exactly one definition. Every other state IntaSend can report
+ * (PENDING, PROCESSING, FAILED, RETRY) means "do not credit anything".
+ */
+export const INTASEND_SETTLED_STATE = "COMPLETE";
 
 // Mirrors the STRIPE_ENV guard in stripe.ts: IntaSend keys embed the
 // environment (ISPubKey_test_/ISPubKey_live_, ISSecretKey_test_/
@@ -88,7 +99,152 @@ export async function initiateMpesaStkPush(params: {
   }
 }
 
+/**
+ * Constant-time equality for two secrets of unknown length.
+ *
+ * `timingSafeEqual` throws on a length mismatch, and guarding that with a
+ * length check leaks the length — so hash both sides to a fixed 32 bytes first
+ * and compare those. Equal-length inputs by construction, no early return, and
+ * the comparison tells an attacker nothing about the secret's shape.
+ */
+function secretsMatch(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a, "utf8").digest();
+  const hb = createHash("sha256").update(b, "utf8").digest();
+  return timingSafeEqual(ha, hb);
+}
+
+/**
+ * Authenticates the *caller*, and nothing more.
+ *
+ * IntaSend's webhook carries a plaintext shared secret in the body rather than
+ * a signature over the payload, so a valid challenge proves only that whoever
+ * sent this knows the secret — it says nothing about the amount, the merchant
+ * or whether any money moved. That is why `verifyCollectionSettled` exists and
+ * why the webhook route credits from *its* answer, never from the request body.
+ * See drift row D58.
+ */
 export function verifyWebhookChallenge(challenge: unknown): boolean {
   const secret = process.env.INTASEND_WEBHOOK_SECRET;
-  return Boolean(secret) && challenge === secret;
+  if (!secret || typeof challenge !== "string") return false;
+  return secretsMatch(challenge, secret);
+}
+
+/** What IntaSend itself says about an invoice, normalised. */
+export type IntasendInvoice = {
+  invoiceId: string;
+  state: string;
+  /** Gross amount the payer was charged, in `currency`. Null when unparseable. */
+  value: number | null;
+  currency: string | null;
+  /** The `api_ref` IntaSend recorded at STK-push time — the merchant binding. */
+  apiRef: string | null;
+  failedReason: string | null;
+};
+
+/**
+ * `unavailable` is deliberately distinct from every other failure: it means we
+ * could not establish the truth, not that the truth is "no". The caller must
+ * retry rather than drop the payment on the floor.
+ */
+export type IntasendStatusResult =
+  | { ok: true; invoice: IntasendInvoice }
+  | { ok: false; reason: "unavailable" | "unexpected_shape"; detail: string };
+
+function toFiniteNumber(raw: unknown): number | null {
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Ask IntaSend what actually happened to an invoice.
+ *
+ * `POST /payment/status/` with `{ public_key, invoice_id }`, per IntaSend's
+ * collection API. This is the out-of-band confirmation that turns their webhook
+ * from an *instruction* into a *notification*: the webhook says "look at this
+ * invoice", and this call is the only thing allowed to say what it was worth
+ * and who it belongs to.
+ *
+ * Every failure to reach or parse IntaSend returns `unavailable` — including a
+ * key/env misconfiguration, which `assertKeyMatchesEnv` raises. That is
+ * deliberate: an unreachable or misconfigured provider must make the caller
+ * retry and alert, never silently conclude that a real top-up did not happen.
+ * The one thing this function will not do is guess.
+ */
+export async function fetchCollectionStatus(
+  invoiceId: string
+): Promise<IntasendStatusResult> {
+  const publicKey = process.env.INTASEND_API_KEY;
+  const secretKey = process.env.INTASEND_SECRET;
+  if (!publicKey || !secretKey) {
+    return { ok: false, reason: "unavailable", detail: "IntaSend keys are not set." };
+  }
+
+  let res: Response;
+  try {
+    assertKeyMatchesEnv(publicKey, secretKey);
+    res = await fetch(`${INTASEND_BASE_URL}/payment/status/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${secretKey}`,
+      },
+      body: JSON.stringify({ public_key: publicKey, invoice_id: invoiceId }),
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "unavailable",
+      detail: `status lookup threw: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  if (!res.ok) {
+    let body = "";
+    try {
+      body = (await res.text()).slice(0, 500);
+    } catch {
+      body = "(unreadable body)";
+    }
+    return {
+      ok: false,
+      reason: "unavailable",
+      detail: `status lookup returned HTTP ${res.status}: ${body}`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await res.json();
+  } catch {
+    return { ok: false, reason: "unexpected_shape", detail: "status lookup returned non-JSON." };
+  }
+
+  const invoice = (parsed as { invoice?: Record<string, unknown> } | null)?.invoice;
+  if (!invoice || typeof invoice !== "object") {
+    return { ok: false, reason: "unexpected_shape", detail: "status response had no invoice object." };
+  }
+
+  const state = invoice.state;
+  if (typeof state !== "string" || !state) {
+    return { ok: false, reason: "unexpected_shape", detail: "status response had no invoice.state." };
+  }
+
+  return {
+    ok: true,
+    invoice: {
+      invoiceId:
+        typeof invoice.invoice_id === "string"
+          ? invoice.invoice_id
+          : typeof invoice.id === "string"
+            ? invoice.id
+            : invoiceId,
+      state,
+      value: toFiniteNumber(invoice.value),
+      currency: typeof invoice.currency === "string" ? invoice.currency : null,
+      apiRef: typeof invoice.api_ref === "string" ? invoice.api_ref : null,
+      failedReason:
+        typeof invoice.failed_reason === "string" ? invoice.failed_reason : null,
+    },
+  };
 }

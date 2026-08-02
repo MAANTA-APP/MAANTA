@@ -262,6 +262,12 @@ and guard against interpolated template literals reaching `.or()`.
 
 ### 3.3 IntaSend top-up credit is forgeable with a single secret — D58, High (rail not yet live)
 
+> **Fixed in code 2026-08-02.** The webhook body is now a pointer, not an
+> instruction — see "What shipped" at the end of this section. The row stays
+> open until the endpoint contract is confirmed against IntaSend's sandbox. The
+> description below is the defect as found, kept because the reasoning is what
+> makes the fix reviewable.
+
 `verifyWebhookChallenge` is the whole of the authentication:
 
 ```ts
@@ -292,6 +298,52 @@ reduces a leaked secret to a nuisance.
 
 M-Pesa is not live (tracker E6), so this is entirely fixable before it can ever
 be exploited. It should block that gate.
+
+#### What shipped — 2026-08-02
+
+The body now supplies exactly one thing: **which invoice to ask about**.
+`fetchCollectionStatus` calls IntaSend's `POST /payment/status/` and every value
+that moves money is read from *that* response:
+
+| Decision | Was | Now |
+|---|---|---|
+| Did money arrive? | `payload.state` | status API `state` |
+| How much? | `payload.value` | status API `value` |
+| Whose wallet? | `payload.api_ref` | status API `api_ref` |
+
+`verifyWebhookChallenge` also compares in constant time now — both sides are
+hashed to a fixed 32 bytes first, so the length-mismatch case is safe to handle
+and leaks nothing about the secret.
+
+**The proof is a mutation, not an assertion.** The forgery test posts a
+correctly-authenticated body claiming `value: 1000000` for an attacker-chosen
+merchant, while IntaSend reports KES 500 for the real one. It credits 500 to the
+real merchant now; run against the pre-fix route recovered from `git show HEAD`,
+**the identical test credits KES 1,000,000 to the attacker** and 7 of 12 tests
+fail. That is the exploit, executed.
+
+Three design decisions worth knowing about, because each one is a trap avoided:
+
+- **Unknown truth returns 500, not 200.** If IntaSend cannot be reached, the
+  route asks for redelivery rather than concluding "no payment". Returning 200
+  there would silently drop real top-ups during any IntaSend blip. Redelivery is
+  safe because the ledger is idempotent on `provider_reference`.
+- **Misconfiguration is treated as "unknown", not as "no".** A missing key or a
+  live/test key mismatch resolves to `unavailable` rather than throwing into the
+  route or quietly returning a falsy state — so a real payment is retried and
+  alerted on, never lost to a config error.
+- **The rail still credits gross `value`.** IntaSend also reports `net_amount`
+  (value minus their charges). Switching would change what merchants actually
+  receive, which is a product decision for the decisions log — not something a
+  security fix gets to change on the way past.
+
+**What still gates M-Pesa go-live:** the endpoint and response shape came from
+IntaSend's official documentation repository, not from a live call — no session
+here holds IntaSend credentials. One sandbox STK push, confirming
+`/payment/status/` returns an `invoice` carrying `state`, `value`, `currency` and
+the `api_ref` this app issued, closes D58. If the contract differs, the failure
+is safe by construction — top-ups 500 and retry rather than over-credit — but
+M-Pesa will not work until it is reconciled.
 
 ### 3.4 Redemption codes come from a non-cryptographic PRNG — D64, Low
 
@@ -575,7 +627,7 @@ Sequenced by cost-of-delay, not by severity.
 
 | # | Action | Why now | Row |
 |---|---|---|---|
-| 1 | Verify the IntaSend invoice out of band before crediting a wallet | M-Pesa is not live yet, so this is free to fix and unfixable-cheaply later | D58 |
+| 1 | ~~Verify the IntaSend invoice out of band before crediting a wallet~~ — **done 2026-08-02**, mutation-proven. Remaining: one sandbox STK push to confirm the endpoint contract, before E6 go-live | M-Pesa is not live yet, so this was free to fix and expensive later | D58 |
 | 2 | Promote nodes to a table with a surrogate key; migrate `deals.node` / `merchants.node` to an FK | Contained at one node, a data-repair project at ten, and mall names will be on signage | D60 |
 | 3 | Fix the `.or()` construction and guard the pattern | Small, self-contained, and one copy-paste from a shopper surface | D57 |
 | 4 | Add the `headers()` block — frame-ancestors, nosniff, referrer, HSTS now; CSP report-only | Four are zero-risk today; CSP gets harder with every third-party origin added | D62 |
@@ -610,5 +662,19 @@ Two things **not** on this list, deliberately:
    the frozen rules and guarded, because its cost consequence is invisible from
    the code.
 
-No code was changed in this session. Findings are recorded as **D56–D64**; close
-them by D-number.
+---
+
+## 8. Change log
+
+- **2026-08-01** — audit written. No code changed; findings recorded as
+  **D56–D64**.
+- **2026-08-02** — **D58 fixed** on founder instruction: the IntaSend webhook
+  now verifies the invoice against IntaSend before crediting a wallet (§3.3,
+  "What shipped"). `maanta-app/src/lib/intasend.ts`,
+  `maanta-app/src/app/api/webhooks/intasend/route.ts`, plus tests in
+  `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` and
+  `maanta-app/src/lib/__tests__/intasend-guard.test.ts`. Gates run: lint clean,
+  typecheck clean, **545 tests / 70 files** (from 525 / 69). D58 stays open
+  pending a sandbox contract check. No other finding touched.
+
+Close findings by D-number in `docs/maanta-drift-register.md`.
