@@ -17,7 +17,7 @@ import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
- * `/shoppers` — 301 target for both `/for-shoppers` and `/how-it-works`.
+ * `/shoppers` — 308 target for both `/for-shoppers` and `/how-it-works`.
  *
  * Written from the real logged-out UI (`copy/shoppers.md` §1): feed section
  * names, filters and the deal-card anatomy were all verified against the live app
