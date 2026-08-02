@@ -242,9 +242,18 @@ serving:
 
 1. Read the current production deployment (Vercel dashboard, or `get_deployment`
    on the project's production alias).
-2. **`meta.githubCommitRef` must be `main`, and `source` must be `git`** — not
-   `redeploy` with `meta.action: promote`. This is the check that decides whether
-   there is an incident. Everything below only characterises one.
+2. **`meta.githubCommitRef` must be `main`. That single field is the incident
+   condition.** Anything else means production is serving a branch.
+
+   `source` and `meta.action` are **supporting evidence only, never the test.**
+   Vercel documents `source` as "a best-effort guess for metrics only", explicitly
+   not authoritative and not to be gated on, and a legitimate redeploy of a
+   `main`-built deployment can carry `source: redeploy` while `githubCommitRef`
+   still reads `main`. Gating on it would manufacture incidents that are not one.
+   All three occurrences in §1 did show `action: promote`, which is why they are
+   quoted throughout — as corroboration of how the deployment was made, not as the
+   thing that made it wrong.
+
 3. Confirm tree equality against **the revision you expect to be live**, which is
    `meta.githubCommitSha` from step 1 — not against whatever `origin/main` points
    at right now:
@@ -255,14 +264,21 @@ serving:
    git rev-parse origin/main^{tree}
    ```
 
-   Equality means production is serving that revision's content. **Inequality is
-   ambiguous on its own** and step 2 is what disambiguates it:
+   Equality means production is serving `main`'s content. **Inequality is
+   ambiguous on its own**, and step 2 is what disambiguates it:
 
-   - `githubCommitRef: main` and the deployed SHA is an ancestor of `origin/main`
-     → `main` has moved ahead and the next deploy has not landed yet. Deployment
-     lag, not an incident. Re-check once it does.
-   - `githubCommitRef` naming anything else → production is serving a branch.
-     That is the incident, whether or not the trees happen to match.
+   - **`githubCommitRef` is not `main`** → the incident, whether or not the trees
+     happen to match. Content agreeing today does not make the provenance right,
+     and the next push to `main` is what exposes the difference.
+   - **`githubCommitRef: main`, deployed SHA is an ancestor of `origin/main`** →
+     `main` has moved ahead and the next deploy has not landed. Deployment lag,
+     not an incident. Re-check once it has.
+   - **`githubCommitRef: main`, deployed SHA is *not* an ancestor** → do not
+     escalate on the ancestry alone; this is the squash-merge case §3 warns
+     about, where the pre-merge SHA never becomes an ancestor even though the
+     content is identical. **Compare trees first.** Trees equal → content match,
+     nothing to do. Trees differ → validate the repository and history as in
+     step 4, and escalate if the SHA is still non-ancestral afterwards.
 
 4. If the deployed SHA is not in the local repository, **it cannot be verified
    from this checkout** — that is a statement about the checkout, not yet about
