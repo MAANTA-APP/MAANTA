@@ -188,8 +188,9 @@ registry is strictly more truthful than the constant, since it shows a node
 registered by INSERT that no deploy knows about yet.
 `src/lib/__tests__/nodes-registry-parity.test.ts` then asserts `nodes.ts` and the
 migration seed agree field by field, so registering a mall in only one place
-fails the build. That guard is itself mutation-proven by adding a mall to the
-constant alone.
+fails the CI `test` job (vitest — not one of the three post-build scans, which
+are the only things that read rendered output). That guard is itself
+mutation-proven by adding a mall to the constant alone.
 
 **What is deliberately not claimed.** `getSelectedNode()` still validates the
 node cookie against the compiled array, so a mall registered by INSERT alone is

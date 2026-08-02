@@ -293,9 +293,10 @@ Source of truth for which malls exist: the **`public.nodes` table**
 - **Retire a node with `is_live = FALSE`, never `DELETE`** (`ON DELETE RESTRICT`).
 - **`maanta-app/src/lib/nodes.ts` is a build-time cache, not the source of truth.**
   Client components and the synchronous `getSelectedNode()` cookie check cannot
-  await a query, so they read it. `nodes-registry-parity.test.ts` fails the build
-  if it and the migration seed disagree, so **adding a mall means both** an
-  INSERT and a `nodes.ts` entry — you cannot ship one without the other.
+  await a query, so they read it. `nodes-registry-parity.test.ts` fails the CI
+  `test` job — it is vitest, not a post-build scan — if it and the migration seed
+  disagree, so **adding a mall means both** an INSERT and a `nodes.ts` entry: you
+  cannot ship one without the other, because `test` blocks the merge.
 - **Not yet true: "add a mall with no deploy."** `getSelectedNode()` still
   validates against the compiled array, so a mall registered by INSERT alone is
   not selectable. Moving selection onto the table is what closes D72, along with

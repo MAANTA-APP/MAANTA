@@ -30,13 +30,14 @@ export const INTASEND_KNOWN_UNSETTLED_STATES = new Set([
 ]);
 
 /**
- * Ceiling on the status lookup, body included.
+ * Ceiling on any outbound IntaSend request, response body included.
  *
- * The webhook blocks on this call, so an unbounded request turns a slow
- * IntaSend into a stalled handler and — once the platform kills it — a dropped
- * top-up with no ledger entry and no retry.
+ * Both call sites are awaited by a handler a human is waiting on: the webhook
+ * blocks on the status lookup, and `/api/topup` blocks on the STK push. An
+ * unbounded request turns a slow IntaSend into a stalled handler and — once the
+ * platform kills it — a dropped top-up with no ledger entry and no retry.
  */
-const STATUS_TIMEOUT_MS = 10_000;
+const INTASEND_REQUEST_TIMEOUT_MS = 10_000;
 
 // Mirrors the STRIPE_ENV guard in stripe.ts: IntaSend keys embed the
 // environment (ISPubKey_test_/ISPubKey_live_, ISSecretKey_test_/
@@ -101,6 +102,13 @@ export async function initiateMpesaStkPush(params: {
         name: params.name,
         email: params.email,
       }),
+      // Same bound as the status lookup, for the same reason: `/api/topup`
+      // awaits this, so an unbounded call leaves a merchant staring at a
+      // spinner until the platform kills the request. Raised in review as the
+      // sibling of the status-lookup timeout — it is the same defect, and
+      // fixing only the one that happened to be in the diff would leave the
+      // other to be rediscovered.
+      signal: AbortSignal.timeout(INTASEND_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -220,7 +228,7 @@ export async function fetchCollectionStatus(
         Authorization: `Bearer ${secretKey}`,
       },
       body: JSON.stringify({ public_key: publicKey, invoice_id: invoiceId }),
-      signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+      signal: AbortSignal.timeout(INTASEND_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -267,7 +275,15 @@ export async function fetchCollectionStatus(
           : typeof invoice.id === "string"
             ? invoice.id
             : invoiceId,
-      state,
+      // Upper-cased once, here, so every consumer compares like for like.
+      // Raised in review: the webhook route was checking the settled state
+      // strictly and the known-unsettled set case-insensitively, so a
+      // `"complete"` from IntaSend would have failed the settled check, then
+      // missed the known-unsettled set too, and been logged as an unrecognised
+      // state instead of crediting. Normalising at the source removes the
+      // possibility of the two comparisons disagreeing rather than fixing them
+      // one at a time.
+      state: state.toUpperCase(),
       value: toFiniteNumber(invoice.value),
       currency: typeof invoice.currency === "string" ? invoice.currency : null,
       apiRef: typeof invoice.api_ref === "string" ? invoice.api_ref : null,

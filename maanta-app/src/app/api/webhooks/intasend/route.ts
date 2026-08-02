@@ -109,7 +109,9 @@ export async function POST(request: Request) {
     // outside that set is different: it means IntaSend is reporting something
     // this code has never seen, and the only visible symptom would be a top-up
     // that never credits with nothing anywhere explaining why.
-    if (!INTASEND_KNOWN_UNSETTLED_STATES.has(invoice.state.toUpperCase())) {
+    // `invoice.state` is already upper-cased by fetchCollectionStatus, so this
+    // and the settled comparison above cannot disagree about casing.
+    if (!INTASEND_KNOWN_UNSETTLED_STATES.has(invoice.state)) {
       await logWebhookFailure(service, {
         paymentProvider: "intasend",
         errorMessage: `IntaSend invoice ${invoiceId} reported an unrecognised state "${invoice.state}" — not credited. ${invoice.failedReason ?? ""}`.trim(),

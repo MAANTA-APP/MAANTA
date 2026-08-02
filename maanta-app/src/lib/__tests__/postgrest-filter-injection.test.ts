@@ -118,7 +118,49 @@ describe("orIlikeAny keeps user input inside the value (D69)", () => {
   });
 });
 
+/**
+ * The two shapes the scan must catch, as data rather than as planted files.
+ *
+ * The repository scan below can only ever assert "no offenders", so on its own
+ * it would still pass if the detector were deleted — it was mutation-tested by
+ * hand, but nothing kept it honest afterwards. Raised in review. Running the
+ * same patterns over these fixtures makes the detector self-proving on every
+ * run, with the repository scan left as the integration half.
+ *
+ * Written with a split string so these lines are not themselves offenders when
+ * the scan reaches this file.
+ */
+const OR = ".o" + "r(";
+const UNSAFE_FIXTURES = [
+  ["template literal", "query" + OR + "`full_name.ilike.%${q}%`)"],
+  ["string concatenation", "query" + OR + '"full_name.ilike." + q)'],
+] as const;
+const SAFE_FIXTURES = [
+  ["bound variable", "query" + OR + "search)"],
+  ["static template literal", "query" + OR + "`full_name.ilike.%a%`)"],
+] as const;
+
+/** The detector, extracted so fixtures and the repo scan run the same logic. */
+function findsInterpolatedOr(code: string): boolean {
+  for (const match of Array.from(code.matchAll(/\.or\s*\(\s*`([^`]*)`/g))) {
+    if (match[1].includes("${")) return true;
+  }
+  return /\.or\s*\(\s*["'][^"']*["']\s*\+/.test(code);
+}
+
 describe("no source builds a PostgREST filter expression by interpolation", () => {
+  it("detects both unsafe shapes, so the scan below cannot be vacuous", () => {
+    for (const [name, code] of UNSAFE_FIXTURES) {
+      expect(findsInterpolatedOr(code), `${name} must be flagged`).toBe(true);
+    }
+  });
+
+  it("does not flag the safe forms, so the scan cannot be trivially true", () => {
+    for (const [name, code] of SAFE_FIXTURES) {
+      expect(findsInterpolatedOr(code), `${name} must not be flagged`).toBe(false);
+    }
+  });
+
   it("finds real call sites to check, so the scan cannot pass vacuously", () => {
     const files = walk(SRC).filter((f) => /\.or\s*\(/.test(stripComments(readFileSync(f, "utf8"))));
     expect(files.length, "no .or( call sites found — did the scan break?").toBeGreaterThan(0);
@@ -127,21 +169,10 @@ describe("no source builds a PostgREST filter expression by interpolation", () =
   it("fails on an interpolated .or( anywhere under src/", () => {
     const offenders: string[] = [];
 
+    // Same detector the fixtures above exercise — one implementation, so the
+    // fixtures cannot certify a detector this scan does not use.
     for (const file of walk(SRC)) {
-      const code = stripComments(readFileSync(file, "utf8"));
-      // `.or(` opened with a template literal containing a substitution. The
-      // safe form passes a variable built by orIlikeAny, so it has no backtick.
-      for (const match of Array.from(code.matchAll(/\.or\s*\(\s*`([^`]*)`/g))) {
-        if (match[1].includes("${")) {
-          offenders.push(relToSrc(SRC, file));
-        }
-      }
-
-      // `.or("col.ilike." + q)` is the identical defect without a backtick.
-      // Added after review pointed out the template-literal pattern alone would
-      // have let plain concatenation straight through — the same "the guard
-      // only catches the shape someone remembered" gap as D52.
-      if (/\.or\s*\(\s*["'][^"']*["']\s*\+/.test(code)) {
+      if (findsInterpolatedOr(stripComments(readFileSync(file, "utf8")))) {
         offenders.push(relToSrc(SRC, file));
       }
     }

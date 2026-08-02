@@ -153,29 +153,60 @@ END $$;
 DO $$
 DECLARE
   v_count INT;
+  v_role  TEXT;
 BEGIN
   SET ROLE anon;
   SELECT COUNT(*) INTO v_count FROM public.nodes WHERE is_live;
   ASSERT v_count >= 1, 'F: anon cannot read live nodes';
 
-  BEGIN
-    UPDATE public.nodes SET label = 'anon owned' WHERE id = 'BBS Mall';
-    RESET ROLE;
-    RAISE EXCEPTION 'F: anon was able to write to nodes';
-  EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-  END;
   RESET ROLE;
 
-  SET ROLE authenticated;
-  BEGIN
-    INSERT INTO public.nodes (id, slug, label, short_label)
-      VALUES ('__test_authed', 'test_authed', 'x', 'x');
-    RESET ROLE;
-    RAISE EXCEPTION 'F: authenticated was able to insert a node';
-  EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-  END;
+  -- The full write matrix, not a sample. Raised in review: this scenario
+  -- claims "writable by nobody but service_role" while checking only one verb
+  -- per role, so a grant that reopened DELETE for authenticated would have
+  -- passed. Two roles times three verbs is the claim, so it is what runs.
+  --
+  -- The role is set *inside* each attempt, not once per role, because
+  -- `SET ROLE` is transactional: the implicit subtransaction a BEGIN/EXCEPTION
+  -- block opens rolls it back when the expected error fires, so a role set at
+  -- the top of the loop would silently be the *outer* role by the second verb
+  -- — and the outer role can write, so the test would fail on a correct schema.
+  --
+  -- These are ACL failures, not RLS ones. `nodes_public_read` grants SELECT to
+  -- everyone, so a row-level denial would make UPDATE/DELETE match zero rows
+  -- and succeed silently; what makes them raise is the explicit
+  -- `REVOKE INSERT, UPDATE, DELETE ... FROM anon, authenticated` in the
+  -- migration. That REVOKE is what this loop is really pinning down.
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    BEGIN
+      EXECUTE format('SET ROLE %I', v_role);
+      INSERT INTO public.nodes (id, slug, label, short_label)
+        VALUES ('__test_write_matrix', 'test_write_matrix', 'x', 'x');
+      RESET ROLE;
+      RAISE EXCEPTION 'F: % was able to INSERT a node', v_role;
+    EXCEPTION
+      WHEN insufficient_privilege THEN NULL;
+    END;
+
+    BEGIN
+      EXECUTE format('SET ROLE %I', v_role);
+      UPDATE public.nodes SET label = 'owned' WHERE id = 'BBS Mall';
+      RESET ROLE;
+      RAISE EXCEPTION 'F: % was able to UPDATE a node', v_role;
+    EXCEPTION
+      WHEN insufficient_privilege THEN NULL;
+    END;
+
+    BEGIN
+      EXECUTE format('SET ROLE %I', v_role);
+      DELETE FROM public.nodes WHERE id = 'Sarit Centre';
+      RESET ROLE;
+      RAISE EXCEPTION 'F: % was able to DELETE a node', v_role;
+    EXCEPTION
+      WHEN insufficient_privilege THEN NULL;
+    END;
+  END LOOP;
+
   RESET ROLE;
 
   RAISE NOTICE 'Scenario F passed: nodes are world-readable, service_role-writable';
