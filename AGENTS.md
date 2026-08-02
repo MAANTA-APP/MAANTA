@@ -48,8 +48,13 @@ for it to work (already configured in the image).
   `psql "$DB_URL" -c "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;"`
   (`$DB_URL` = the local-stack URL from `supabase start` / the `Makefile`).
   This mirrors hosted defaults; it is a local-stack fixup, not a schema change.
-- Clerk gates every route and blocks browser UI without real keys.
-  `src/middleware.ts` runs `clerkMiddleware()` on all paths. On a real browser
+- **In Clerk mode only**, Clerk gates every route and blocks browser UI without
+  real keys. `src/middleware.ts` runs on all paths but **branches**: it calls
+  `clerkMiddleware()` only when `authStrategy()` resolves to `clerk`, which needs
+  **both** `MAANTA_AUTH_STRATEGY` and `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` set to
+  `clerk`; otherwise it runs Supabase session refresh. `DEFAULT_AUTH_STRATEGY` is
+  `supabase`, so with no auth env set none of what follows applies — and CI sets
+  both vars to `supabase` for exactly that reason. In Clerk mode, on a real browser
   navigation (`Sec-Fetch-Dest: document`) it issues a 307 handshake redirect to
   the Clerk FAPI; with placeholder keys that FAPI shows an "Invalid host" error
   page, so `/feed`, `/`, etc. cannot be viewed interactively. Header-light
