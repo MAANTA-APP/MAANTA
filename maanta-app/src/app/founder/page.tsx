@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { HeadingLg, Body, Page, Section } from "@/components/ui/claude";
 import { KpiCard } from "@/components/ui/cards";
 import { formatKes } from "@/lib/ui";
-import { NODES } from "@/lib/nodes";
+import { getLiveNodes } from "@/lib/nodes-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,12 @@ export default async function FounderDashboardPage() {
   const service = createServiceClient();
   const since7d = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
   const now = new Date().toISOString();
+
+  // Read the node registry rather than the compiled-in array (D60). On an ops
+  // surface this is the more truthful of the two: it shows a node registered by
+  // INSERT — including one the migration adopted from existing data — which the
+  // constant would not know about until a deploy.
+  const liveNodes = await getLiveNodes();
 
   const [
     { count: totalUsers },
@@ -99,7 +105,7 @@ export default async function FounderDashboardPage() {
 
       <Section title="Live deals by node" className="mt-6">
         <div className="space-y-2">
-          {NODES.filter((n) => n.live).map((n) => (
+          {liveNodes.map((n) => (
             <div
               key={n.id}
               className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3 shadow-card"

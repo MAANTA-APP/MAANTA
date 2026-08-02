@@ -108,6 +108,12 @@ Ordered by when it bites, not by severity.
 
 ### 2.1 Nodes are code, and the key is a display label (D60)
 
+> **Registry shipped 2026-08-02** — `public.nodes` exists, `deals.node` and
+> `merchants.node` carry a foreign key, and renaming a mall no longer orphans
+> anything. See "What shipped" at the end of this section. The row stays open:
+> the migration still needs a human to apply it, and node *selection* still
+> reads the compiled array. The description below is the defect as found.
+
 `src/lib/nodes.ts` is a hardcoded `as const` array of five malls, holding each
 one's label, coordinates, what3words address and a `live` flag. Opening a mall
 is a PR and a redeploy.
@@ -131,6 +137,70 @@ which is why this is a register row and not just a recommendation.
 **Do this before the second mall goes live.** At one node it is a contained
 migration over a known row set. At ten it is a data-repair project with live
 money attached, and the mall names will by then be printed on signage.
+
+#### What shipped — 2026-08-02
+
+`20260802120000_nodes_registry.sql` creates `public.nodes` and puts a real
+foreign key on `deals.node` and `merchants.node`.
+
+**No live row is rewritten.** `nodes.id` grandfathers the string already stored
+in those columns, and a new `label` column becomes what humans see. Renaming a
+mall now edits `label` and touches no key at all. A surrogate UUID would have
+been tidier and would have meant rewriting `node` on every deal and merchant row
+on the money path — in a project whose production ledger already disagrees with
+this repo (D24). That trade is written into the migration header so the next
+person meets the reasoning rather than the tidiness urge.
+
+Three properties worth knowing:
+
+- **The migration cannot fail on unexpected production data.** It seeds the five
+  known nodes, then adopts every `DISTINCT` value already present in the two
+  columns — raising a `WARNING` per adopted value — *before* adding the foreign
+  key. Anything unexpected surfaces as a node row to reconcile, not as a failed
+  deploy. The FK is added `NOT VALID` and validated in a second step so the
+  historical scan does not hold an exclusive lock on a live deals table.
+- **`nodes.id` is frozen** by a trigger. Without it, `ON UPDATE CASCADE` would
+  let a well-meaning id edit rewrite node scoping across the money path — the
+  same orphaning risk wearing a different hat.
+- **Nodes retire via `is_live`, never `DELETE`** (`ON DELETE RESTRICT`), so a
+  node carrying history cannot be removed from under it.
+
+**Verified by execution.** Docker is unavailable in this environment, so a local
+PostgreSQL 16 cluster was built with a Supabase-shaped bootstrap — roles,
+`auth.uid()`/`auth.role()` reading `request.jwt.claims`, a storage schema, and
+PostGIS geography columns carried as text. **All 84 migrations applied, then all
+23 SQL suites passed** — 22 pre-existing plus the new one — so the added foreign
+keys regress nothing on the money path.
+
+Note the first run reported 12 failures, all `unauthorized`. That was the
+harness, not the change: `auth.role()` had been shimmed to read
+`request.jwt.claim.role` while every suite sets the `request.jwt.claims` JSON
+blob. Recorded because a harness that fails for its own reasons is the easiest
+way to either dismiss a real regression or "fix" a phantom one.
+
+**Mutation-proven in both directions.** Dropping the two foreign keys fails
+Scenario B (`merchants accepted an unknown node value`); dropping the
+immutability trigger fails Scenario D (`nodes.id was allowed to change`).
+
+On the app side, `src/lib/nodes-registry.ts` reads the table (5-minute cache,
+compiled fallback) and `/founder` lists nodes from it — an ops surface where the
+registry is strictly more truthful than the constant, since it shows a node
+registered by INSERT that no deploy knows about yet.
+`src/lib/__tests__/nodes-registry-parity.test.ts` then asserts `nodes.ts` and the
+migration seed agree field by field, so registering a mall in only one place
+fails the build. That guard is itself mutation-proven by adding a mall to the
+constant alone.
+
+**What is deliberately not claimed.** `getSelectedNode()` still validates the
+node cookie against the compiled array, so a mall registered by INSERT alone is
+not yet *selectable*. The parity guard makes that half-registered state
+unshippable rather than making it work. "Add a mall with no deploy" is therefore
+not true yet — it is "add a mall in two places, and you cannot forget one". The
+remaining step is moving node selection onto the table, tracked on D60.
+
+**And the migration is not applied.** A human must run `supabase db push`;
+Claude does not apply migrations. The version is numbered above production's
+ledger max, so it cannot be silently skipped the way the pause gate was (D25).
 
 ### 2.2 Read scaling is fine; the shape of it is the risk
 
@@ -628,7 +698,7 @@ Sequenced by cost-of-delay, not by severity.
 | # | Action | Why now | Row |
 |---|---|---|---|
 | 1 | ~~Verify the IntaSend invoice out of band before crediting a wallet~~ — **done 2026-08-02**, mutation-proven. Remaining: one sandbox STK push to confirm the endpoint contract, before E6 go-live | M-Pesa is not live yet, so this was free to fix and expensive later | D58 |
-| 2 | Promote nodes to a table with a surrogate key; migrate `deals.node` / `merchants.node` to an FK | Contained at one node, a data-repair project at ten, and mall names will be on signage | D60 |
+| 2 | ~~Promote nodes to a table; migrate `deals.node` / `merchants.node` to an FK~~ — **registry shipped 2026-08-02**, mutation-proven. Remaining: a human `supabase db push`, then move node *selection* onto the table | Contained at one node, a data-repair project at ten, and mall names will be on signage | D60 |
 | 3 | Fix the `.or()` construction and guard the pattern | Small, self-contained, and one copy-paste from a shopper surface | D57 |
 | 4 | Add the `headers()` block — frame-ancestors, nosniff, referrer, HSTS now; CSP report-only | Four are zero-risk today; CSP gets harder with every third-party origin added | D62 |
 | 5 | Rate-limit the pre-auth webhook branches; add retention on `payment_webhook_failures`; gate the Sentry example route | Protects the alert channel the money path relies on | D59, D63 |
@@ -676,5 +746,16 @@ Two things **not** on this list, deliberately:
   `maanta-app/src/lib/__tests__/intasend-guard.test.ts`. Gates run: lint clean,
   typecheck clean, **545 tests / 70 files** (from 525 / 69). D58 stays open
   pending a sandbox contract check. No other finding touched.
+
+- **2026-08-02** — **D60 registry shipped** on founder instruction (§2.1, "What
+  shipped"). `maanta-app/supabase/migrations/20260802120000_nodes_registry.sql`,
+  `maanta-app/supabase/tests/nodes_registry_test.sql`,
+  `maanta-app/src/lib/nodes-registry.ts`,
+  `maanta-app/src/lib/__tests__/nodes-registry-parity.test.ts`, and `/founder`
+  now reading the registry. Gates run: lint clean, typecheck clean, **550 tests
+  / 71 files**, build green with all three output gates, and — on a local
+  PostgreSQL harness — **84 migrations applied, 23/23 SQL suites passing**. D60
+  stays open pending a human `supabase db push` and moving node selection onto
+  the table.
 
 Close findings by D-number in `docs/maanta-drift-register.md`.

@@ -33,7 +33,7 @@ Last updated: 2026-08-01 · Status: **repo implementation complete**; prod apply
 | Caching | 30s node-scoped cache only | Sufficient for launch; invalidate via tag when deal CRUD ships |
 | Roles | No separate `founder` DB enum — uses `admin` | Documented in `docs/skills/role-permissions.md` |
 | Notifications | Prefs are device-local (localStorage) | Server column planned; push API exists |
-| Multi-node | Reporting is Node 0 first | `node` column exists on deals/merchants — **not** "ready" in the sense this row implied (corrected 2026-08-01, **D60**). `src/lib/nodes.ts` is a hardcoded array, so opening a mall is a code change and a redeploy; the join key is the mall's **display label**, with no `nodes` table and no foreign key, so a rename silently orphans rows |
+| Multi-node | Reporting is Node 0 first | Corrected 2026-08-01, part-fixed 2026-08-02 (**D60**). A `public.nodes` registry now exists and `deals.node` / `merchants.node` carry a foreign key, so a rename no longer orphans rows and an unregistered node cannot be written (`maanta-app/supabase/migrations/20260802120000_nodes_registry.sql`). **Still open:** the migration needs a human `db push`, and node *selection* still validates against the compiled `src/lib/nodes.ts`, so opening a mall is two places — held in step by a parity guard — not yet one row |
 | E2E | Playwright self-skips without secrets | Opt-in `e2e.yml` workflow |
 
 ## Data model (Node 0)

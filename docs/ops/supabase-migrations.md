@@ -65,6 +65,40 @@ live enforcement on prod until the verify step passes. Canonical semantics:
   update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
   **live on production**.
 
+### The node registry — `20260802120000_nodes_registry.sql` (D60)
+
+Creates `public.nodes` and puts a foreign key on `deals.node` and
+`merchants.node`, so a mall rename can no longer orphan rows and an unregistered
+node value can no longer be written. **No existing row is rewritten** — `nodes.id`
+grandfathers the strings already in those columns.
+
+- **Pre-check:** CI green, including the `db-tests` job (this migration ships
+  with `supabase/tests/nodes_registry_test.sql`, eight scenarios).
+- **Run:** `supabase db push` from `maanta-app/` (`--dry-run` first). The version
+  is numbered above production's ledger max, so it cannot be silently skipped
+  the way `20260730160000` was — see D24.
+- **Watch the output for `WARNING: nodes: adopted unrecognised node value …`.**
+  The migration seeds the five known malls and then adopts any other value it
+  finds in live data, so it cannot fail on unexpected production rows. Each
+  warning is a node that exists in the data but not in `src/lib/nodes.ts` and
+  needs reconciling — it is information, not a failure.
+- **Verify on prod:**
+  ```sql
+  -- Every node value in use is now a registered row.
+  SELECT COUNT(*) FROM public.nodes;
+  SELECT DISTINCT d.node FROM public.deals d
+    LEFT JOIN public.nodes n ON n.id = d.node WHERE n.id IS NULL;
+  -- must return zero rows
+
+  -- The foreign keys are present and validated.
+  SELECT conname, convalidated FROM pg_constraint
+   WHERE conname IN ('deals_node_fkey', 'merchants_node_fkey');
+  -- both rows, convalidated = true
+  ```
+- **Close:** D60 does **not** close on this push alone. It also needs node
+  *selection* moved off the compiled array in `src/lib/data.ts`
+  (`getSelectedNode`). Record the push against D60 and leave it open.
+
 ### The #48–#61 hardening set (must be present after push)
 
 From `docs/skills/prod-handoff-security-audit-2026-07-23.md`, apply in filename
