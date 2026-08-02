@@ -157,8 +157,20 @@ Three properties worth knowing:
   known nodes, then adopts every `DISTINCT` value already present in the two
   columns — raising a `WARNING` per adopted value — *before* adding the foreign
   key. Anything unexpected surfaces as a node row to reconcile, not as a failed
-  deploy. The FK is added `NOT VALID` and validated in a second step so the
-  historical scan does not hold an exclusive lock on a live deals table.
+  deploy. The FK is added `NOT VALID` and validated in a second step — though
+  **that split buys nothing here**, because the Supabase CLI wraps each migration
+  file in one transaction and the lock is therefore held across both statements.
+  The form is kept for shape, not for benefit; the migration header says so.
+- **What the apply actually locks, measured rather than assumed.** Reading
+  `pg_locks` inside the transaction on PostgreSQL 16: `ADD CONSTRAINT ... NOT
+  VALID` takes **ShareRowExclusive** on both tables, and `VALIDATE CONSTRAINT`
+  takes ShareUpdateExclusive on `deals` and RowShare on `nodes`. That is not
+  ACCESS EXCLUSIVE, and the difference is the operational one: confirmed
+  concurrently, a `SELECT` against `deals` returns while the ALTER is held open,
+  and an `INSERT` blocks. **Applying this does not take browse or feed down; it
+  briefly blocks claims.** Choose a quiet counter moment, not a maintenance
+  window. Two earlier versions of this claim were wrong — first that the split
+  avoided the lock, then that the lock was ACCESS EXCLUSIVE.
 - **`nodes.id` is frozen** by a trigger. Without it, `ON UPDATE CASCADE` would
   let a well-meaning id edit rewrite node scoping across the money path — the
   same orphaning risk wearing a different hat.

@@ -125,10 +125,26 @@ END $$;
 -- briefly locked while the historical scan runs without an exclusive lock. That
 -- is true when the two statements are in separate transactions, and it is false
 -- here: the Supabase CLI wraps each migration file in one implicit transaction,
--- so the ACCESS EXCLUSIVE lock taken by ADD CONSTRAINT is held until the file
--- commits — VALIDATE included. Splitting the statements inside one file buys
--- nothing. Corrected in review rather than left as a comment describing a
--- benefit the deploy does not deliver.
+-- so whatever lock ADD CONSTRAINT takes is held until the file commits —
+-- VALIDATE included. Splitting the statements inside one file buys nothing.
+--
+-- **That correction then named the wrong lock**, and the difference is the part
+-- an operator actually cares about, so it is stated here from measurement
+-- rather than memory. Checked on PostgreSQL 16 by reading `pg_locks` inside the
+-- transaction:
+--
+--   ADD CONSTRAINT ... NOT VALID  ->  ShareRowExclusiveLock on BOTH tables
+--   VALIDATE CONSTRAINT           ->  ShareUpdateExclusive on deals,
+--                                     RowShare on nodes
+--
+-- SHARE ROW EXCLUSIVE is **not** ACCESS EXCLUSIVE. It conflicts with writes and
+-- not with reads, which was confirmed concurrently: with the ALTER held open in
+-- one session, a `SELECT count(*) FROM deals` in another returned immediately
+-- while an `INSERT` blocked until commit. So applying this migration does not
+-- take the shopper feed down — browse and feed keep serving throughout. What it
+-- briefly blocks is writes to `deals` and `merchants`, which on this app means
+-- claims. Worth knowing before choosing the apply window: pick a quiet counter
+-- moment, not a maintenance window.
 --
 -- The form is kept because it is still the correct shape and costs nothing at
 -- this size (hundreds of rows, a lock measured in milliseconds), and because it
@@ -136,8 +152,10 @@ END $$;
 -- lock-free. **If these tables grow to where the scan is slow, the fix is to
 -- move VALIDATE CONSTRAINT into its own migration file** — a second file, not a
 -- second statement — or to mark this one `-- supabase:disable-transaction`.
--- Neither is warranted today, and doing them now would add deploy complexity
--- for a lock nobody would notice.
+-- The same applies to the two indexes below, which would become
+-- CREATE INDEX CONCURRENTLY in that non-transactional file. Neither is
+-- warranted today, and doing them now would add deploy complexity for a lock
+-- nobody would notice.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.deals
