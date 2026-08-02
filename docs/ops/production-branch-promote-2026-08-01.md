@@ -51,7 +51,7 @@ Retrieved from the Vercel API, not inferred. Fields trimmed to what is load-bear
 
 ### The promote
 
-```
+```text
 id:              dpl_ALPrV9RBGrbncco8YE2bzpsF7jMd
 createdAt:       2026-08-01 18:31:47Z
 ready:           2026-08-01 18:34:37Z
@@ -76,7 +76,7 @@ not `main`, while `githubPrId: 166` was still open, is the whole finding.
 
 ### The repair
 
-```
+```text
 id:              dpl_HiNU4vwbuhTJfEwoS5uUfPmLs3Xk
 createdAt:       2026-08-01 18:36:13Z
 ready:           2026-08-01 18:38:47Z
@@ -98,7 +98,7 @@ why the divergence was only ever one merge deep.
 
 ## 3. Tree comparison — the method, not just the result
 
-```
+```shell
 $ git rev-parse 602323e^{tree}          # the promoted branch commit
 a959d66922ec63b964139688d069a6d0f432b093
 
@@ -112,7 +112,7 @@ ac8c788 fix(marketing): server-render the /contact form — Step 5, D41
 
 After merging:
 
-```
+```shell
 $ git rev-parse origin/main^{tree}      # main, after the merge (225db23)
 a959d66922ec63b964139688d069a6d0f432b093   ← equals the deployed tree
 ```
@@ -134,12 +134,18 @@ already caused a wrong conclusion here:
 D53's promoted tree and `main`'s were the identical git object. The site served
 correct code throughout; only provenance was wrong.
 
-D56's differed by two commits, and `main` was the one missing them. So for the
-seven minutes between the promote and the merge, a push to `main` — or any
-deploy triggered from it — would have silently reverted `www.maanta.app` to the
-state drift **D41** describes: `/contact` shipping **zero `<form>` elements and
-zero inputs**, directly beneath its own server-rendered promise that "This form
-and email — We reply within 1 business day".
+D56's differed by two commits, and `main` was the one missing them. The exposure
+window is **18:31:47Z to 18:38:47Z** — from the promote's `createdAt` to the
+moment the replacement deployment reached `READY` and took the production
+aliases. Both endpoints are timestamps recorded in §2; the merge time is not,
+which is why the window is stated against the deployment rather than against the
+merge. Seven minutes.
+
+Throughout it, a push to `main` — or any deploy triggered from it — would have
+silently reverted `www.maanta.app` to the state drift **D41** describes:
+`/contact` shipping **zero `<form>` elements and zero inputs**, directly beneath
+its own server-rendered promise that "This form and email — We reply within 1
+business day".
 
 Nothing would have alerted anyone. The revert would have looked like a normal
 production deploy from `main`.
@@ -148,7 +154,7 @@ production deploy from `main`.
 is worth copying** — a promoted tree differing from `main` is not automatically
 dangerous, and it matters whether the difference reaches the app:
 
-```
+```shell
 $ git diff --name-only origin/main 205a7ed
 docs/maanta-drift-register.md
 docs/ops/production-branch-promote-2026-08-01.md
@@ -236,23 +242,37 @@ serving:
 
 1. Read the current production deployment (Vercel dashboard, or `get_deployment`
    on the project's production alias).
-2. Confirm `meta.githubCommitRef` is **`main`** and `source` is **`git`**, not
-   `redeploy` with `meta.action: promote`.
-3. Confirm tree equality, not SHA equality:
+2. **`meta.githubCommitRef` must be `main`, and `source` must be `git`** — not
+   `redeploy` with `meta.action: promote`. This is the check that decides whether
+   there is an incident. Everything below only characterises one.
+3. Confirm tree equality against **the revision you expect to be live**, which is
+   `meta.githubCommitSha` from step 1 — not against whatever `origin/main` points
+   at right now:
 
-   ```
+   ```shell
    git fetch origin main
-   git rev-parse origin/main^{tree}
    git rev-parse <deployed-sha>^{tree}
+   git rev-parse origin/main^{tree}
    ```
 
-   These must match. If the deployed SHA is not in the repository at all, the
-   deployment is from a branch that has been force-pushed or deleted — treat
-   that as unresolved and escalate.
+   Equality means production is serving that revision's content. **Inequality is
+   ambiguous on its own** and step 2 is what disambiguates it:
 
-A mismatch is not automatically an incident: it may simply mean `main` has moved
-ahead and the deploy has not run yet. What makes it an incident is
-`meta.githubCommitRef` naming something other than `main`.
+   - `githubCommitRef: main` and the deployed SHA is an ancestor of `origin/main`
+     → `main` has moved ahead and the next deploy has not landed yet. Deployment
+     lag, not an incident. Re-check once it does.
+   - `githubCommitRef` naming anything else → production is serving a branch.
+     That is the incident, whether or not the trees happen to match.
+
+4. If the deployed SHA is not in the local repository, **it cannot be verified
+   from this checkout** — that is a statement about the checkout, not yet about
+   the deployment. A missing object is equally consistent with a shallow or
+   partial clone, a stale fetch, a fork, or the wrong Vercel project. Confirm you
+   are in the right repository with complete history (`git fetch --all --tags`,
+   and check `remote get-url origin` against `meta.githubOrg`/`meta.githubRepo`)
+   before drawing any conclusion. If the SHA is still absent after that, escalate
+   — at that point the deployed commit genuinely is not reachable from the
+   repository, and no tree comparison can be made.
 
 ---
 
@@ -261,7 +281,7 @@ ahead and the deploy has not run yet. What makes it an incident is
 Thirteen hours after §1–§7 were written, and while **#167** — the PR adding this
 file — was open, its branch was promoted to production.
 
-```
+```text
 id:              dpl_6zKSsfbFeVWtrjpvbfKuSvSuEaUz
 createdAt:       2026-08-02 07:36:26Z
 ready:           2026-08-02 07:38:50Z
