@@ -1,7 +1,7 @@
 /**
  * Safe construction of PostgREST filter *expressions*.
  *
- * Drift row **D57**. The distinction this module exists for:
+ * Drift row **D58**. The distinction this module exists for:
  *
  *   - `.eq()`, `.ilike()`, `.gt()` and friends take a **value**. supabase-js
  *     percent-encodes it, so a comma or a parenthesis stays inside the value

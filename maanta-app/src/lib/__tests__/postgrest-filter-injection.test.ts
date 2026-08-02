@@ -7,7 +7,7 @@ import { walk, relToSrc } from "./helpers/source-files";
 import { stripComments } from "./helpers/comment-stripping";
 
 /**
- * Guard for drift **D57** — user input interpolated into a PostgREST filter
+ * Guard for drift **D58** — user input interpolated into a PostgREST filter
  * expression.
  *
  * Two halves, and the second is the one that matters long-term:
@@ -37,7 +37,7 @@ function table() {
 /** The exact payload from the audit: breaks out of the intended disjunction. */
 const HOSTILE = "x%,role.eq.admin,full_name.ilike.%y";
 
-describe("orIlikeAny keeps user input inside the value (D57)", () => {
+describe("orIlikeAny keeps user input inside the value (D58)", () => {
   it("does not let a comma create a new top-level predicate", () => {
     const filter = orIlikeAny(["full_name", "email", "phone"], HOSTILE)!;
     const url = emittedUrl((q) => q.or(filter) as unknown as { url: URL });
@@ -125,7 +125,7 @@ describe("no source builds a PostgREST filter expression by interpolation", () =
     expect(
       Array.from(new Set(offenders)),
       "`.or()` takes PostgREST's filter DSL, not a bound value — an interpolated\n" +
-        "template literal there is injectable (D57). Build the expression with\n" +
+        "template literal there is injectable (D58). Build the expression with\n" +
         "orIlikeAny/pgrstQuote from src/lib/supabase/filters.ts instead."
     ).toEqual([]);
   });

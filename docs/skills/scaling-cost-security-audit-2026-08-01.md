@@ -4,7 +4,7 @@ Session type: **Reviewer**. Scope: what MAANTA looks like at many nodes and many
 merchants — API/compute cost, cost pass-through, maintenance load — plus a
 security pass over the codebase (injection, secrets, authz, money path).
 
-Drift found is recorded first, as rows **D56–D64** in
+Drift found is recorded first, as rows **D57–D65** in
 `docs/maanta-drift-register.md`. This document is the reasoning; the register is
 the state. Close items by D-number, not by re-describing them here.
 
@@ -28,7 +28,7 @@ Baseline established before any analysis: `npm run typecheck` clean,
 
 Two findings were proven by execution rather than by reading:
 
-- **The `.or()` injection (D57)** — reproduced by building the exact query with
+- **The `.or()` injection (D58)** — reproduced by building the exact query with
   the repo's own `@supabase/supabase-js` and printing the emitted URL. The
   hostile input lands as an extra top-level disjunct. The same run confirmed
   `.ilike()` is **not** injectable, which is why `/search` is safe and
@@ -92,7 +92,7 @@ transaction.
    currently well-aligned — see §4.2, and the reason is a good architectural
    accident you should protect.
 2. **Adding a mall is a code change.** `NODES` is a hardcoded TypeScript array
-   and the join key is the mall's display name (**D60**). This is the single
+   and the join key is the mall's display name (**D61**). This is the single
    most expensive thing to fix late and the cheapest to fix now.
 3. **Merchant approval is a human in a loop**, one per merchant. At 600
    merchants that is the binding constraint on growth, not any API (§5.1).
@@ -106,7 +106,7 @@ than a pricing decision — §4.5.
 
 Ordered by when it bites, not by severity.
 
-### 2.1 Nodes are code, and the key is a display label (D60)
+### 2.1 Nodes are code, and the key is a display label (D61)
 
 > **Registry shipped 2026-08-02** — `public.nodes` exists, `deals.node` and
 > `merchants.node` carry a foreign key, and renaming a mall no longer orphans
@@ -196,7 +196,7 @@ node cookie against the compiled array, so a mall registered by INSERT alone is
 not yet *selectable*. The parity guard makes that half-registered state
 unshippable rather than making it work. "Add a mall with no deploy" is therefore
 not true yet — it is "add a mall in two places, and you cannot forget one". The
-remaining step is moving node selection onto the table, tracked on D60.
+remaining step is moving node selection onto the table, tracked on D61.
 
 **And the migration is not applied.** A human must run `supabase db push`;
 Claude does not apply migrations. The version is numbered above production's
@@ -230,7 +230,7 @@ Two things do not extend:
   `getSuccessFee()` and `getBoostFee()` have no such constraint and are read
   uncached on every merchant page render.
 
-### 2.3 Queries that silently truncate as data grows (D61)
+### 2.3 Queries that silently truncate as data grows (D62)
 
 `admin/deals/page.tsx` selects `fraud_events` with no `limit()` and no ordering.
 PostgREST caps that at 1000 rows and says nothing, so past 1000 unresolved fraud
@@ -271,7 +271,7 @@ one.
 Severity is stated as exploitability **today**, with the trajectory noted where
 it changes.
 
-### 3.1 `service_role` is the default read path, and the code says otherwise — D56, Medium
+### 3.1 `service_role` is the default read path, and the code says otherwise — D57, Medium
 
 `src/lib/supabase/service.ts` states in its header: *"Use only for privileged
 ops: redemption verification, IntaSend webhook, web-push dispatch, trial
@@ -300,7 +300,7 @@ The revoke migration deliberately preserved `GRANT SELECT` to `authenticated`
 "so RLS-governed PostgREST reads remain possible" — the door was left open on
 purpose. Moving shopper reads through it is much cheaper now than at 20 nodes.
 
-### 3.2 PostgREST filter injection in admin customer search — D57, Medium
+### 3.2 PostgREST filter injection in admin customer search — D58, Medium
 
 > **Closed 2026-08-02.** `orIlikeAny` in `src/lib/supabase/filters.ts` quotes the
 > term with PostgREST's own double-quote escape, and a source scan now fails the
@@ -335,7 +335,7 @@ to run it as the founder, and it is one copy-paste from a shopper-facing search
 that sits one directory over. **Fix the construction, not just this call site**,
 and guard against interpolated template literals reaching `.or()`.
 
-### 3.3 IntaSend top-up credit is forgeable with a single secret — D58, High (rail not yet live)
+### 3.3 IntaSend top-up credit is forgeable with a single secret — D59, High (rail not yet live)
 
 > **Fixed in code 2026-08-02.** The webhook body is now a pointer, not an
 > instruction — see "What shipped" at the end of this section. The row stays
@@ -416,11 +416,11 @@ Three design decisions worth knowing about, because each one is a trap avoided:
 IntaSend's official documentation repository, not from a live call — no session
 here holds IntaSend credentials. One sandbox STK push, confirming
 `/payment/status/` returns an `invoice` carrying `state`, `value`, `currency` and
-the `api_ref` this app issued, closes D58. If the contract differs, the failure
+the `api_ref` this app issued, closes D59. If the contract differs, the failure
 is safe by construction — top-ups 500 and retry rather than over-credit — but
 M-Pesa will not work until it is reconciled.
 
-### 3.4 Redemption codes come from a non-cryptographic PRNG — D64, Low
+### 3.4 Redemption codes come from a non-cryptographic PRNG — D65, Low
 
 `claim_deal` generates the code with
 `LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0')`. `RANDOM()` is PostgreSQL's
@@ -439,7 +439,7 @@ practical. This is a weak primitive under solid containment.
 migration next touches `claim_deal`, and assert the source in the SQL suite so it
 cannot regress.
 
-### 3.5 No response security headers at all — D62, Medium
+### 3.5 No response security headers at all — D63, Medium
 
 > **Baseline shipped 2026-08-02**, verified on real served responses. Five
 > headers enforced; the CSP is Report-Only and is not protection yet, so the row
@@ -591,7 +591,7 @@ from the steepest cost curve in the stack. Keep it working.
 
 Small in money terms, listed because they are unauthenticated and uncapped:
 
-- **The webhook failure paths (D59).** Both payment webhooks call
+- **The webhook failure paths (D60).** Both payment webhooks call
   `logWebhookFailure` on branches that run *before* the caller is
   authenticated — missing signature, bad challenge. Each call writes a Postgres
   row **and** emits a billable Sentry event. Both endpoints are necessarily
@@ -601,7 +601,7 @@ Small in money terms, listed because they are unauthenticated and uncapped:
   let a missed webhook leave a balance silently wrong — is right and worth
   keeping; the defect is that the *never-authenticated* branch is the one that
   writes.
-- **`/api/sentry-example-api` (D63).** An unauthenticated `GET` whose entire
+- **`/api/sentry-example-api` (D64).** An unauthenticated `GET` whose entire
   body is `throw`. With a DSN set, every request mints a billable Sentry event.
   It is the stock wizard scaffold and is deliberately kept — the readiness doc
   names hitting it as the way to prove the DSN is wired — so gate it behind the
@@ -706,16 +706,16 @@ Sequenced by cost-of-delay, not by severity.
 
 | # | Action | Why now | Row |
 |---|---|---|---|
-| 1 | ~~Verify the IntaSend invoice out of band before crediting a wallet~~ — **done 2026-08-02**, mutation-proven. Remaining: one sandbox STK push to confirm the endpoint contract, before E6 go-live | M-Pesa is not live yet, so this was free to fix and expensive later | D58 |
-| 2 | ~~Promote nodes to a table; migrate `deals.node` / `merchants.node` to an FK~~ — **registry shipped 2026-08-02**, mutation-proven. Remaining: a human `supabase db push`, then move node *selection* onto the table | Contained at one node, a data-repair project at ten, and mall names will be on signage | D60 |
-| 3 | ~~Fix the `.or()` construction and guard the pattern~~ — **done 2026-08-02**, mutation-proven; the guard now fails the build on any interpolated `.or(` | Small, self-contained, and one copy-paste from a shopper surface | D57 |
-| 4 | ~~Add the `headers()` block~~ — **done 2026-08-02**, five headers enforced and verified on live responses. Remaining: watch the Report-Only CSP in a browser across auth, top-up and the map, then promote it | Four were zero-risk; CSP gets harder with every third-party origin added | D62 |
-| 5 | Rate-limit the pre-auth webhook branches; add retention on `payment_webhook_failures`; gate the Sentry example route | Protects the alert channel the money path relies on | D59, D63 |
+| 1 | ~~Verify the IntaSend invoice out of band before crediting a wallet~~ — **done 2026-08-02**, mutation-proven. Remaining: one sandbox STK push to confirm the endpoint contract, before E6 go-live | M-Pesa is not live yet, so this was free to fix and expensive later | D59 |
+| 2 | ~~Promote nodes to a table; migrate `deals.node` / `merchants.node` to an FK~~ — **registry shipped 2026-08-02**, mutation-proven. Remaining: a human `supabase db push`, then move node *selection* onto the table | Contained at one node, a data-repair project at ten, and mall names will be on signage | D61 |
+| 3 | ~~Fix the `.or()` construction and guard the pattern~~ — **done 2026-08-02**, mutation-proven; the guard now fails the build on any interpolated `.or(` | Small, self-contained, and one copy-paste from a shopper surface | D58 |
+| 4 | ~~Add the `headers()` block~~ — **done 2026-08-02**, five headers enforced and verified on live responses. Remaining: watch the Report-Only CSP in a browser across auth, top-up and the map, then promote it | Four were zero-risk; CSP gets harder with every third-party origin added | D63 |
+| 5 | Rate-limit the pre-auth webhook branches; add retention on `payment_webhook_failures`; gate the Sentry example route | Protects the alert channel the money path relies on | D60, D64 |
 | 6 | Add the directory-walking route-guard test | Converts a convention into a mechanism before contributor count grows | §5.2 |
-| 7 | Bound the `fraud_events` select and audit for other unbounded selects | Silent wrongness, and it arrives platform-wide rather than per node | D61 |
-| 8 | Decide the `service_role` posture and write down whichever answer wins | Cheap now, structural later; blocks nothing but shapes everything after it | D56 |
+| 7 | Bound the `fraud_events` select and audit for other unbounded selects | Silent wrongness, and it arrives platform-wide rather than per node | D62 |
+| 8 | Decide the `service_role` posture and write down whichever answer wins | Cheap now, structural later; blocks nothing but shapes everything after it | D57 |
 | 9 | Plan the Next 14 → 16 upgrade as its own change | 7 high advisories; do it before the contributor count grows, never via `--force` | §3.6 |
-| 10 | Swap `RANDOM()` for `gen_random_bytes` next time a migration touches `claim_deal` | Low risk today under good containment; free to fix opportunistically | D64 |
+| 10 | Swap `RANDOM()` for `gen_random_bytes` next time a migration touches `claim_deal` | Low risk today under good containment; free to fix opportunistically | D65 |
 
 Two things **not** on this list, deliberately:
 
@@ -730,10 +730,10 @@ Two things **not** on this list, deliberately:
 
 ## 7. Open decisions for a human
 
-1. **`service_role` posture (D56)** — correct the docblock, or move shopper
+1. **`service_role` posture (D57)** — correct the docblock, or move shopper
    reads onto the RLS-governed client. Founder/eng call. Everything else in this
    document is a fix; this one is a direction.
-2. **Node table timing (D60)** — before mall #2, or accept a harder migration
+2. **Node table timing (D61)** — before mall #2, or accept a harder migration
    later. This is a scheduling decision with a sharply rising price.
 3. **Next.js major upgrade (§3.6)** — when, and who owns the regression pass.
 4. **Whether anonymous browsing is a stated product invariant** (§4.2) or an
@@ -746,35 +746,35 @@ Two things **not** on this list, deliberately:
 ## 8. Change log
 
 - **2026-08-01** — audit written. No code changed; findings recorded as
-  **D56–D64**.
-- **2026-08-02** — **D58 fixed** on founder instruction: the IntaSend webhook
+  **D57–D65**.
+- **2026-08-02** — **D59 fixed** on founder instruction: the IntaSend webhook
   now verifies the invoice against IntaSend before crediting a wallet (§3.3,
   "What shipped"). `maanta-app/src/lib/intasend.ts`,
   `maanta-app/src/app/api/webhooks/intasend/route.ts`, plus tests in
   `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` and
   `maanta-app/src/lib/__tests__/intasend-guard.test.ts`. Gates run: lint clean,
-  typecheck clean, **545 tests / 70 files** (from 525 / 69). D58 stays open
+  typecheck clean, **545 tests / 70 files** (from 525 / 69). D59 stays open
   pending a sandbox contract check. No other finding touched.
 
-- **2026-08-02** — **D60 registry shipped** on founder instruction (§2.1, "What
+- **2026-08-02** — **D61 registry shipped** on founder instruction (§2.1, "What
   shipped"). `maanta-app/supabase/migrations/20260802120000_nodes_registry.sql`,
   `maanta-app/supabase/tests/nodes_registry_test.sql`,
   `maanta-app/src/lib/nodes-registry.ts`,
   `maanta-app/src/lib/__tests__/nodes-registry-parity.test.ts`, and `/founder`
   now reading the registry. Gates run: lint clean, typecheck clean, **550 tests
   / 71 files**, build green with all three output gates, and — on a local
-  PostgreSQL harness — **84 migrations applied, 23/23 SQL suites passing**. D60
+  PostgreSQL harness — **84 migrations applied, 23/23 SQL suites passing**. D61
   stays open pending a human `supabase db push` and moving node selection onto
   the table.
 
-- **2026-08-02** — **D57 closed and D62's baseline shipped** on founder
+- **2026-08-02** — **D58 closed and D63's baseline shipped** on founder
   instruction. `maanta-app/src/lib/supabase/filters.ts`,
   `maanta-app/src/lib/__tests__/postgrest-filter-injection.test.ts`,
   `maanta-app/next.config.mjs`,
   `maanta-app/src/lib/__tests__/security-headers.test.ts`. Gates: lint clean,
   typecheck clean, **564 tests / 73 files**, build green with all three output
   gates, and the headers confirmed by `curl` against a running server on a
-  marketing page, the merchant money surface, an API route and a 404. D62 stays
+  marketing page, the merchant money surface, an API route and a 404. D63 stays
   open until the CSP enforces.
 
 Close findings by D-number in `docs/maanta-drift-register.md`.

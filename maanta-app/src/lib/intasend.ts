@@ -145,7 +145,7 @@ function secretsMatch(a: string, b: string): boolean {
  * sent this knows the secret — it says nothing about the amount, the merchant
  * or whether any money moved. That is why `verifyCollectionSettled` exists and
  * why the webhook route credits from *its* answer, never from the request body.
- * See drift row D58.
+ * See drift row D59.
  */
 export function verifyWebhookChallenge(challenge: unknown): boolean {
   const secret = process.env.INTASEND_WEBHOOK_SECRET;
