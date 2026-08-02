@@ -98,12 +98,32 @@ One row per guard: mutation applied → `FAIL` observed → mutation reverted.
 
 ---
 
-## 4. Step 3 — `/how-it-works`
+## 4. Step 3 — `/how-it-works` — **DONE 2026-08-02, GAP-03 refuted**
 
-- [ ] §1 check completed and recorded
-- [ ] If 308: no code change; finding recorded, drift row **D38** closed
-- [ ] If 200: cause identified outside `next.config.mjs`, fixed, retested
-- [ ] **`[HTML]`** `/sitemap.xml` contains `/shoppers` once, `/how-it-works` zero times
+- [x] Check completed and recorded — **not** by the unfollowed `curl` this list
+      assumed, which a Claude session cannot run: the network policy refuses the
+      CONNECT tunnel to `www.maanta.app` with the proxy's own 403, and the Vercel
+      fetch tool that can reach the host follows redirects
+- [x] Established from the build artifact instead: `.next/routes-manifest.json`
+      lists `/how-it-works` → `/shoppers` with `statusCode: 308`, and
+      `how-it-works` appears in `rewrites` zero times
+- [x] Established from a live control: `/for-shoppers` and `/for-merchants` —
+      undisputed 308s — return the identical 200 + `x-matched-path` observation
+      the audit reported for `/how-it-works`, with `x-matched-path` tracking each
+      one's own destination. A known redirect is indistinguishable from the
+      disputed path under this measurement
+- [x] **No code change**, as the remedy required
+- [x] **`[HTML]`** `/sitemap.xml` contains `/shoppers` once and `/how-it-works`
+      zero times — checked against the generated `sitemap.xml.body`, 12 URLs
+- [x] Drift row **D39** closed (this list said D38, which is the comment-lexer row)
+- [x] **D57** opened and closed on the way past: the docblock said these were
+      "301s" when `permanent: true` emits 308, and nothing asserted the redirects
+      existed at all. Now guarded by `marketing-redirects.test.ts`, mutation-tested
+      four ways
+- [ ] **`[EXT]`** one unfollowed `curl -sI https://www.maanta.app/how-it-works`
+      from an ordinary terminal, to observe the 308 status line directly. Not a
+      blocker — it would corroborate a conclusion already established two ways —
+      but it is the one check this environment cannot perform
 
 ---
 

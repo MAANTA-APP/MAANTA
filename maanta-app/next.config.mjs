@@ -5,7 +5,15 @@ const nextConfig = {
   /**
    * Permanent redirects for the marketing IA change.
    *
-   * These are 301s because the old paths are printed on flyers, pasted into
+   * These are **308s**, not 301s. `permanent: true` in Next.js emits 308
+   * (`permanent: false` emits 307); this comment said 301 until 2026-08-02 and
+   * was wrong for as long as it existed — drift **D57**. The distinction is not
+   * pedantry: a 301 permits a client to rewrite POST to GET on the redirect,
+   * a 308 requires the method and body to be preserved. Verified against the
+   * build rather than the config: `.next/routes-manifest.json` lists all three
+   * with `statusCode: 308`.
+   *
+   * They are permanent because the old paths are printed on flyers, pasted into
    * WhatsApp groups and used on in-mall signage (risk R6) — inbound links that
    * nobody can edit after the fact. `permanent: true` is deliberate and hard to
    * walk back, which is the correct trade for URLs that live off-platform.
