@@ -74,7 +74,7 @@ production runs, but it is **not** the code default: `DEFAULT_AUTH_STRATEGY` in
 `clerk`. A checkout with no auth env set therefore runs Supabase email OTP, which
 is also what CI uses. See `docs/ops/auth-strategies.md` and
 `docs/skills/clerk-auth.md`. The decisions log calls Clerk the default; that
-wording and the code disagree — drift **D57**, founder to rule.
+wording and the code disagree — drift **D58**, founder to rule.
 
 ## Orientation map — where to look before you edit
 

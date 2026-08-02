@@ -87,7 +87,7 @@ are wrong, in opposite directions, from one cause.
 | Fact | State | Consequence for Cursor |
 |---|---|---|
 | `maanta-app/node_modules` | **Absent** | `npm install` before anything in Step 2. `npm test` currently exits with `vitest: not found` — that is a missing dependency, **not** a green suite. |
-| Test runner | `vitest run` via `npm test` (`maanta-app/package.json`) | **69 test files / 525 tests** under `src/**/__tests__/`, run 2026-08-02 (read 62 when written — drift **D63**). |
+| Test runner | `vitest run` via `npm test` (`maanta-app/package.json`) | **69 test files / 525 tests** under `src/**/__tests__/`, run 2026-08-02 (read 62 when written — drift **D64**). |
 | Build | `next build && npm run check:tokens` | The token gate is chained into `build`, so it cannot be skipped by building. |
 | Local `main` branch | Stale — points at `c8d3e350` | `origin/main` is `314b5ef8`. Always reason about `origin/main`, never the local ref. |
 

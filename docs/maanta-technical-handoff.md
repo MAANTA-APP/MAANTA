@@ -2,7 +2,7 @@
 
 Audience: the software engineer taking the product to launch.
 
-**Accuracy note (corrected 2026-08-02 — drift D58).** This document used to
+**Accuracy note (corrected 2026-08-02 — drift D59).** This document used to
 promise that "where the doc says something does not exist yet, it genuinely does
 not exist in the code", with no date attached. That guarantee outlived its
 accuracy: by 2026-08-02 five of its claims were contradicted by the tree,
@@ -50,7 +50,7 @@ to real services):
    and runs `maanta-app/supabase/tests/*.sql`
 
 The `db-tests` job is the one this section used to omit (drift **D47**, and again
-here as **D58**). It matters most for SQL work: **a change that only passes
+here as **D59**). It matters most for SQL work: **a change that only passes
 `npm test` is not verified.** If you touch anything under
 `supabase/migrations/`, the check is `make db-verify` from the repo root — which
 mirrors that job locally — not vitest. CI also sets

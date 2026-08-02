@@ -29,7 +29,7 @@ documents (previously 2026-07-28, comprehensive audit links).
 | File | Purpose |
 |---|---|
 | `maanta-marketing-agency-brief.md` | Agency brief: objective, audiences, offers, channel plan, KPIs, ground rules |
-| `maanta-waitlist-data-schema.md` | Waitlist capture spec: segments, fields, consent. **Backend decided 2026-07-10: Resend**, no Supabase waitlist table; the in-repo `POST /api/waitlist` is a stateless proxy. (The "open decision: in-repo vs external backend" note here was stale — drift **D63**) |
+| `maanta-waitlist-data-schema.md` | Waitlist capture spec: segments, fields, consent. **Backend decided 2026-07-10: Resend**, no Supabase waitlist table; the in-repo `POST /api/waitlist` is a stateless proxy. (The "open decision: in-repo vs external backend" note here was stale — drift **D64**) |
 | `maanta-email-segmentation-plan.md` | Segments, sub-segments, lead scoring, CRM map, sequence structure |
 | `maanta-shopper-email-sequence.md` | Shopper welcome/nurture copy draft |
 | `maanta-merchant-email-sequence.md` | Merchant welcome/nurture copy draft |
