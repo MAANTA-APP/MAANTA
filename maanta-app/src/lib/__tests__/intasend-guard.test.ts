@@ -113,9 +113,12 @@ describe("fetchCollectionStatus", () => {
   });
 
   /** IntaSend's documented /payment/status/ response shape. */
+  // `text()`, not `json()`: the implementation reads the body as text inside the
+  // same try/catch as the fetch, so that an abort part-way through reading
+  // resolves to `unavailable` (retry) rather than `unexpected_shape` (give up).
   const statusBody = (invoice: Record<string, unknown>) => ({
     ok: true,
-    json: async () => ({ invoice, meta: {} }),
+    text: async () => JSON.stringify({ invoice, meta: {} }),
   }) as Response;
 
   it("posts the invoice id to /payment/status/ on the matching environment", async () => {
@@ -178,6 +181,34 @@ describe("fetchCollectionStatus", () => {
     expect(await fetchCollectionStatus("X")).toMatchObject({ ok: false, reason: "unavailable" });
   });
 
+  it("bounds the lookup with a timeout, and covers the body read too", async () => {
+    // The webhook blocks on this call, so an unbounded request stalls the
+    // handler until the platform kills it — a dropped top-up. Raised in review.
+    vi.mocked(fetch).mockResolvedValue(
+      statusBody({ invoice_id: "X", state: "COMPLETE", currency: "KES", value: 1 })
+    );
+    const { fetchCollectionStatus } = await freshIntasend();
+    await fetchCollectionStatus("X");
+
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(init.signal, "the status lookup must carry an abort signal").toBeInstanceOf(
+      AbortSignal
+    );
+
+    // An abort while reading the body must read as unavailable (retry), not as
+    // unexpected_shape (give up) — nothing is malformed, it just did not arrive.
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      text: async () => {
+        throw new DOMException("The operation was aborted.", "TimeoutError");
+      },
+    } as unknown as Response);
+    expect(await fetchCollectionStatus("X")).toMatchObject({
+      ok: false,
+      reason: "unavailable",
+    });
+  });
+
   it("treats a missing key as unavailable, so a real payment is retried not dropped", async () => {
     delete process.env.INTASEND_SECRET;
     const { fetchCollectionStatus } = await freshIntasend();
@@ -200,7 +231,17 @@ describe("fetchCollectionStatus", () => {
 
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ meta: {} }),
+      text: async () => JSON.stringify({ meta: {} }),
+    } as Response);
+    expect(await fetchCollectionStatus("X")).toMatchObject({
+      ok: false,
+      reason: "unexpected_shape",
+    });
+
+    // Non-JSON is a shape problem, not a reachability problem.
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      text: async () => "<html>gateway</html>",
     } as Response);
     expect(await fetchCollectionStatus("X")).toMatchObject({
       ok: false,

@@ -119,10 +119,25 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- The integrity guarantee: node values must name a real node.
 --
--- NOT VALID + VALIDATE is deliberate rather than a single ALTER. The seed above
--- makes validation succeed, but splitting the steps means the table is only
--- briefly locked for new writes and the historical scan happens without holding
--- an exclusive lock — which matters on a live deals table.
+-- NOT VALID + VALIDATE, and **not** for the reason that pairing usually implies.
+--
+-- An earlier draft of this comment claimed the split keeps the table only
+-- briefly locked while the historical scan runs without an exclusive lock. That
+-- is true when the two statements are in separate transactions, and it is false
+-- here: the Supabase CLI wraps each migration file in one implicit transaction,
+-- so the ACCESS EXCLUSIVE lock taken by ADD CONSTRAINT is held until the file
+-- commits — VALIDATE included. Splitting the statements inside one file buys
+-- nothing. Corrected in review rather than left as a comment describing a
+-- benefit the deploy does not deliver.
+--
+-- The form is kept because it is still the correct shape and costs nothing at
+-- this size (hundreds of rows, a lock measured in milliseconds), and because it
+-- is the half of the work that ports directly if this ever needs to be
+-- lock-free. **If these tables grow to where the scan is slow, the fix is to
+-- move VALIDATE CONSTRAINT into its own migration file** — a second file, not a
+-- second statement — or to mark this one `-- supabase:disable-transaction`.
+-- Neither is warranted today, and doing them now would add deploy complexity
+-- for a lock nobody would notice.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE public.deals

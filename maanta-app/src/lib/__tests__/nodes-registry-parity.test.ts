@@ -158,6 +158,30 @@ describe("nodes.ts and the nodes table seed describe the same malls (D60)", () =
     }
   });
 
+  it("seeds display_order in the array's own order, which the fallback assumes", () => {
+    // compiledNodes() in nodes-registry.ts derives displayOrder from the array
+    // index, and the table read is ordered by display_order — so if the seed's
+    // ordering disagreed with the array's, the switcher would silently reorder
+    // itself the moment the migration is applied. Raised in review: the
+    // field-by-field check covered every column except this one.
+    const seeded = parseSeed();
+    const sql = readFileSync(MIGRATION, "utf8");
+    const start = sql.indexOf("VALUES", sql.indexOf("INSERT INTO public.nodes ("));
+    const body = sql.slice(start, sql.indexOf("ON CONFLICT", start));
+
+    const orders = body
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("("))
+      .map((l) => Number(l.slice(0, l.lastIndexOf(")")).split(",").pop()!.trim()));
+
+    expect(orders).toHaveLength(seeded.length);
+    // Strictly ascending, and matching the compiled array's index order.
+    expect(orders).toEqual([...orders].sort((a, b) => a - b));
+    expect(new Set(orders).size).toBe(orders.length);
+    expect(seeded.map((r) => r.id)).toEqual(NODES.map((n) => n.id));
+  });
+
   it("keeps every slug URL-safe and unique, matching the column's CHECK", () => {
     const slugs = NODES.map((n) => n.slug);
     for (const slug of slugs) {

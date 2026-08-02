@@ -112,6 +112,14 @@ describe("no source builds a PostgREST filter expression by interpolation", () =
           offenders.push(relToSrc(SRC, file));
         }
       }
+
+      // `.or("col.ilike." + q)` is the identical defect without a backtick.
+      // Added after review pointed out the template-literal pattern alone would
+      // have let plain concatenation straight through — the same "the guard
+      // only catches the shape someone remembered" gap as D52.
+      if (/\.or\s*\(\s*["'][^"']*["']\s*\+/.test(code)) {
+        offenders.push(relToSrc(SRC, file));
+      }
     }
 
     expect(

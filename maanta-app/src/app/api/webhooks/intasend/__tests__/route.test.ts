@@ -21,14 +21,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchCollectionStatusMock = vi.fn();
 
-vi.mock("@/lib/intasend", () => ({
-  // The real constant-time comparison is exercised in intasend-guard.test.ts;
-  // here the challenge is a boolean switch so the credit logic is what is under
-  // test rather than the secret handling.
-  verifyWebhookChallenge: (challenge: unknown) => challenge === "right-secret",
-  fetchCollectionStatus: (...args: unknown[]) => fetchCollectionStatusMock(...args),
-  INTASEND_SETTLED_STATE: "COMPLETE",
-}));
+vi.mock("@/lib/intasend", async (importOriginal) => {
+  // The constants come from the real module rather than being restated here.
+  // A literal "COMPLETE" in this mock would keep these tests green if the real
+  // settled-state value ever changed, which is the one thing they exist to
+  // notice. Only the two behaviours under test are replaced: the challenge is a
+  // boolean switch (its constant-time comparison is covered in
+  // intasend-guard.test.ts) and the status lookup is driven per test.
+  const actual = await importOriginal<typeof import("@/lib/intasend")>();
+  return {
+    ...actual,
+    verifyWebhookChallenge: (challenge: unknown) => challenge === "right-secret",
+    fetchCollectionStatus: (...args: unknown[]) => fetchCollectionStatusMock(...args),
+  };
+});
 
 const recordMerchantTransactionMock = vi.fn();
 const logWebhookFailureMock = vi.fn();
@@ -178,6 +184,29 @@ describe("unknown truth is retried, known truth is not", () => {
     expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
   });
 
+  it("stays silent on the normal lifecycle states but surfaces an unknown one", async () => {
+    // Logging every PENDING would bury the failures that matter; an unheard-of
+    // state is the opposite — its only symptom would be a top-up that never
+    // credits, with nothing anywhere saying why. Raised in review of this PR.
+    for (const state of ["PENDING", "PROCESSING", "FAILED", "RETRY"]) {
+      logWebhookFailureMock.mockClear();
+      fetchCollectionStatusMock.mockResolvedValue(settled({ state }));
+      await post({ challenge: "right-secret", invoice_id: "INV123" });
+      expect(logWebhookFailureMock, `state ${state} should be silent`).not.toHaveBeenCalled();
+    }
+
+    logWebhookFailureMock.mockClear();
+    fetchCollectionStatusMock.mockResolvedValue(settled({ state: "QUANTUM_SUPERPOSITION" }));
+    const res = await post({ challenge: "right-secret", invoice_id: "INV123" });
+
+    expect(res.status).toBe(200);
+    expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+    expect(logWebhookFailureMock).toHaveBeenCalledTimes(1);
+    expect(logWebhookFailureMock.mock.calls[0][1].errorMessage).toContain(
+      "QUANTUM_SUPERPOSITION"
+    );
+  });
+
   it("records a failure and credits nothing when the body carries no invoice_id", async () => {
     const res = await post({ challenge: "right-secret", value: 500 });
     expect(res.status).toBe(200);
@@ -203,6 +232,24 @@ describe("what a settled invoice must satisfy before it moves money", () => {
     const res = await post({ challenge: "right-secret", invoice_id: "INV123" });
     expect(res.status).toBe(200);
     expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an invoice that states no currency at all", async () => {
+    // The currency must be stated, not merely not-contradictory. An earlier
+    // version short-circuited on a falsy currency and credited the amount as
+    // KES — a guess reached through the falsy branch rather than the explicit
+    // one. Raised in review of this PR.
+    for (const currency of [null, "", undefined]) {
+      recordMerchantTransactionMock.mockClear();
+      logWebhookFailureMock.mockClear();
+      fetchCollectionStatusMock.mockResolvedValue(settled({ currency }));
+
+      const res = await post({ challenge: "right-secret", invoice_id: "INV123" });
+
+      expect(res.status, `currency ${String(currency)}`).toBe(200);
+      expect(recordMerchantTransactionMock, `currency ${String(currency)}`).not.toHaveBeenCalled();
+      expect(logWebhookFailureMock, `currency ${String(currency)}`).toHaveBeenCalledTimes(1);
+    }
   });
 
   it("refuses an amount above the top-up ceiling", async () => {

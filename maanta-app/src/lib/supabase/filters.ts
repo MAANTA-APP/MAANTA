@@ -49,6 +49,13 @@ export function pgrstQuote(value: string): string {
  *
  * Pass the term already trimmed. Returns null for an empty term so callers can
  * skip the filter entirely rather than emit `or=()`.
+ *
+ * **`columns` must be a trusted, static list — it is not escaped.** Column
+ * names are identifiers in PostgREST's grammar, not values, so quoting them the
+ * way `term` is quoted would break the filter rather than secure it. Passing a
+ * user-supplied column name here would reintroduce exactly the injection this
+ * module exists to close. Every current caller passes a literal array, and it
+ * should stay that way. Noted in review of the PR that added this.
  */
 export function orIlikeAny(columns: readonly string[], term: string): string | null {
   const trimmed = term.trim();

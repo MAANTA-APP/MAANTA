@@ -4,6 +4,7 @@ import {
   verifyWebhookChallenge,
   fetchCollectionStatus,
   INTASEND_SETTLED_STATE,
+  INTASEND_KNOWN_UNSETTLED_STATES,
 } from "@/lib/intasend";
 import { notifyMerchant } from "@/lib/notify-merchant";
 import { recordMerchantTransaction, logWebhookFailure } from "@/lib/merchant-ledger";
@@ -100,8 +101,21 @@ export async function POST(request: Request) {
   const invoice = status.invoice;
 
   if (invoice.state !== INTASEND_SETTLED_STATE) {
-    // PENDING / PROCESSING / FAILED / RETRY — authoritative, so no redelivery
-    // is wanted. IntaSend sends another webhook when the state changes.
+    // Authoritative, so no redelivery is wanted — IntaSend sends another
+    // webhook when the state changes.
+    //
+    // The known non-settled states are silent because they are the normal
+    // lifecycle and logging them would bury the failures that matter. A state
+    // outside that set is different: it means IntaSend is reporting something
+    // this code has never seen, and the only visible symptom would be a top-up
+    // that never credits with nothing anywhere explaining why.
+    if (!INTASEND_KNOWN_UNSETTLED_STATES.has(invoice.state.toUpperCase())) {
+      await logWebhookFailure(service, {
+        paymentProvider: "intasend",
+        errorMessage: `IntaSend invoice ${invoiceId} reported an unrecognised state "${invoice.state}" — not credited. ${invoice.failedReason ?? ""}`.trim(),
+        payload: body,
+      });
+    }
     return NextResponse.json({ received: true });
   }
 
@@ -120,10 +134,18 @@ export async function POST(request: Request) {
   // any other currency is not something to convert on a guess — the FX provider
   // is a display concern on the Stripe rail, not a licence to invent a rate on
   // the money path here.
-  if (invoice.currency && invoice.currency.toUpperCase() !== "KES") {
+  //
+  // The currency must be stated, not merely not-contradictory. An earlier
+  // version read `invoice.currency && invoice.currency.toUpperCase() !== "KES"`,
+  // which short-circuits when IntaSend returns no currency at all and credits
+  // the amount as KES anyway — the exact guess the paragraph above forbids,
+  // reached by the falsy branch instead of the explicit one. IntaSend documents
+  // `currency` on this response, so its absence means the shape is not what
+  // this app expects and is a reason to stop rather than to assume.
+  if (invoice.currency?.toUpperCase() !== "KES") {
     await logWebhookFailure(service, {
       paymentProvider: "intasend",
-      errorMessage: `Settled IntaSend invoice ${invoiceId} is in ${invoice.currency}, not KES — refusing to credit on an assumed rate.`,
+      errorMessage: `Settled IntaSend invoice ${invoiceId} is in ${invoice.currency ?? "an unstated currency"}, not KES — refusing to credit on an assumed rate.`,
       payload: body,
     });
     return NextResponse.json({ received: true });

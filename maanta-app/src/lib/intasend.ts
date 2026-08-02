@@ -14,6 +14,30 @@ const INTASEND_BASE_URL =
  */
 export const INTASEND_SETTLED_STATE = "COMPLETE";
 
+/**
+ * The non-settled states IntaSend is expected to report.
+ *
+ * Used only to decide whether a non-settled state is worth logging: these are
+ * the normal lifecycle and are silent, anything else is surfaced. Deliberately
+ * not used to *accept* a payment — settlement is `INTASEND_SETTLED_STATE` and
+ * nothing else, so adding a state here can never make money move.
+ */
+export const INTASEND_KNOWN_UNSETTLED_STATES = new Set([
+  "PENDING",
+  "PROCESSING",
+  "FAILED",
+  "RETRY",
+]);
+
+/**
+ * Ceiling on the status lookup, body included.
+ *
+ * The webhook blocks on this call, so an unbounded request turns a slow
+ * IntaSend into a stalled handler and — once the platform kills it — a dropped
+ * top-up with no ledger entry and no retry.
+ */
+const STATUS_TIMEOUT_MS = 10_000;
+
 // Mirrors the STRIPE_ENV guard in stripe.ts: IntaSend keys embed the
 // environment (ISPubKey_test_/ISPubKey_live_, ISSecretKey_test_/
 // ISSecretKey_live_), so refuse to run when the key and INTASEND_ENV
@@ -180,17 +204,35 @@ export async function fetchCollectionStatus(
     return { ok: false, reason: "unavailable", detail: "IntaSend keys are not set." };
   }
 
-  let res: Response;
+  // The webhook cannot wait on IntaSend indefinitely — an unbounded lookup here
+  // stalls the whole handler until the platform kills it, which turns a slow
+  // provider into a dropped top-up. The timeout covers the response body too,
+  // which is why the body is read inside the same try: an abort part-way
+  // through reading must resolve to `unavailable` (retry) and not to
+  // `unexpected_shape` (give up), since nothing is actually malformed.
+  let rawBody: string;
   try {
     assertKeyMatchesEnv(publicKey, secretKey);
-    res = await fetch(`${INTASEND_BASE_URL}/payment/status/`, {
+    const res = await fetch(`${INTASEND_BASE_URL}/payment/status/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${secretKey}`,
       },
       body: JSON.stringify({ public_key: publicKey, invoice_id: invoiceId }),
+      signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
     });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => "(unreadable body)");
+      return {
+        ok: false,
+        reason: "unavailable",
+        detail: `status lookup returned HTTP ${res.status}: ${errorBody.slice(0, 500)}`,
+      };
+    }
+
+    rawBody = await res.text();
   } catch (err) {
     return {
       ok: false,
@@ -199,23 +241,9 @@ export async function fetchCollectionStatus(
     };
   }
 
-  if (!res.ok) {
-    let body = "";
-    try {
-      body = (await res.text()).slice(0, 500);
-    } catch {
-      body = "(unreadable body)";
-    }
-    return {
-      ok: false,
-      reason: "unavailable",
-      detail: `status lookup returned HTTP ${res.status}: ${body}`,
-    };
-  }
-
   let parsed: unknown;
   try {
-    parsed = await res.json();
+    parsed = JSON.parse(rawBody);
   } catch {
     return { ok: false, reason: "unexpected_shape", detail: "status lookup returned non-JSON." };
   }

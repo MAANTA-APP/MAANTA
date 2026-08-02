@@ -102,9 +102,24 @@ async function readNodes(): Promise<NodeRecord[]> {
       .order("display_order", { ascending: true })
       .order("label", { ascending: true });
 
-    if (error || !data || data.length === 0) return compiledNodes();
+    // Say so when falling back. The compiled list is close enough to the table
+    // that a silent degrade is invisible — which is the problem: the case this
+    // fallback exists for is "the migration has not been applied yet", and that
+    // would otherwise look identical to a healthy read forever. Raised in
+    // review of the PR that added this.
+    if (error) {
+      console.error("nodes registry read failed, using compiled nodes:", error);
+      return compiledNodes();
+    }
+    if (!data || data.length === 0) {
+      console.error(
+        "nodes registry returned no rows, using compiled nodes — has 20260802120000_nodes_registry.sql been applied?"
+      );
+      return compiledNodes();
+    }
     return (data as unknown as NodeRow[]).map(fromRow);
-  } catch {
+  } catch (err) {
+    console.error("nodes registry read threw, using compiled nodes:", err);
     return compiledNodes();
   }
 }
