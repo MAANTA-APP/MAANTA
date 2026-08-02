@@ -254,18 +254,24 @@ serving:
    quoted throughout — as corroboration of how the deployment was made, not as the
    thing that made it wrong.
 
-3. Confirm tree equality against **the revision you expect to be live**, which is
-   `meta.githubCommitSha` from step 1 — not against whatever `origin/main` points
-   at right now:
+3. Compare two trees. Be precise about which is which — the two sides are
+   different things and an earlier draft of this step conflated them:
+
+   - **deployed** = `meta.githubCommitSha` from step 1. What production is
+     serving.
+   - **expected** = the `main` revision production *should* be serving. Normally
+     `origin/main` after a fetch. If you know a `main` deploy is still in flight,
+     it is the `main` revision from *before* that push, not the tip.
 
    ```shell
    git fetch origin main
+   EXPECTED=origin/main          # or the specific main revision expected to be live
    git rev-parse <deployed-sha>^{tree}
-   git rev-parse origin/main^{tree}
+   git rev-parse "$EXPECTED^{tree}"
    ```
 
-   Equality means production is serving `main`'s content. **Inequality is
-   ambiguous on its own**, and step 2 is what disambiguates it:
+   Equality means production matches the expected `main` revision's content.
+   **Inequality is ambiguous on its own**, and step 2 is what disambiguates it:
 
    - **`githubCommitRef` is not `main`** → the incident, whether or not the trees
      happen to match. Content agreeing today does not make the provenance right,
@@ -283,12 +289,24 @@ serving:
 4. If the deployed SHA is not in the local repository, **it cannot be verified
    from this checkout** — that is a statement about the checkout, not yet about
    the deployment. A missing object is equally consistent with a shallow or
-   partial clone, a stale fetch, a fork, or the wrong Vercel project. Confirm you
-   are in the right repository with complete history (`git fetch --all --tags`,
-   and check `remote get-url origin` against `meta.githubOrg`/`meta.githubRepo`)
-   before drawing any conclusion. If the SHA is still absent after that, escalate
-   — at that point the deployed commit genuinely is not reachable from the
-   repository, and no tree comparison can be made.
+   partial clone, a stale fetch, a fork, or the wrong Vercel project. Rule those
+   out before drawing any conclusion:
+
+   ```shell
+   git remote get-url origin        # must match meta.githubOrg/meta.githubRepo
+   git rev-parse --is-shallow-repository
+   # true  → git fetch --unshallow --tags
+   # false → git fetch --all --tags
+   git cat-file -e <deployed-sha>^{commit} && echo present || echo absent
+   ```
+
+   `--unshallow` is the part that matters and the part easy to get wrong:
+   `git fetch --all --tags` does **not** remove a shallow boundary, so on a
+   shallow clone it will leave the commit missing and the procedure would
+   escalate a checkout problem as a deployment one. Only if the SHA is still
+   absent after this does it escalate — at that point the deployed commit
+   genuinely is not reachable from the repository, and no tree comparison can be
+   made.
 
 ---
 
