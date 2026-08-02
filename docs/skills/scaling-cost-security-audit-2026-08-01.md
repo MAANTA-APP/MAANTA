@@ -302,6 +302,11 @@ purpose. Moving shopper reads through it is much cheaper now than at 20 nodes.
 
 ### 3.2 PostgREST filter injection in admin customer search — D57, Medium
 
+> **Closed 2026-08-02.** `orIlikeAny` in `src/lib/supabase/filters.ts` quotes the
+> term with PostgREST's own double-quote escape, and a source scan now fails the
+> build on any interpolated `.or(` under `src/`. Mutation-proven. The
+> description below is the defect as found.
+
 `src/app/admin/customers/page.tsx:41`:
 
 ```ts
@@ -435,6 +440,10 @@ migration next touches `claim_deal`, and assert the source in the SQL suite so i
 cannot regress.
 
 ### 3.5 No response security headers at all — D62, Medium
+
+> **Baseline shipped 2026-08-02**, verified on real served responses. Five
+> headers enforced; the CSP is Report-Only and is not protection yet, so the row
+> stays open until it enforces. The description below is the defect as found.
 
 `next.config.mjs` declares `redirects()` and `rewrites()` and no `headers()`.
 Nothing else sets them. So MAANTA ships no CSP, no HSTS, no `X-Frame-Options` /
@@ -699,8 +708,8 @@ Sequenced by cost-of-delay, not by severity.
 |---|---|---|---|
 | 1 | ~~Verify the IntaSend invoice out of band before crediting a wallet~~ — **done 2026-08-02**, mutation-proven. Remaining: one sandbox STK push to confirm the endpoint contract, before E6 go-live | M-Pesa is not live yet, so this was free to fix and expensive later | D58 |
 | 2 | ~~Promote nodes to a table; migrate `deals.node` / `merchants.node` to an FK~~ — **registry shipped 2026-08-02**, mutation-proven. Remaining: a human `supabase db push`, then move node *selection* onto the table | Contained at one node, a data-repair project at ten, and mall names will be on signage | D60 |
-| 3 | Fix the `.or()` construction and guard the pattern | Small, self-contained, and one copy-paste from a shopper surface | D57 |
-| 4 | Add the `headers()` block — frame-ancestors, nosniff, referrer, HSTS now; CSP report-only | Four are zero-risk today; CSP gets harder with every third-party origin added | D62 |
+| 3 | ~~Fix the `.or()` construction and guard the pattern~~ — **done 2026-08-02**, mutation-proven; the guard now fails the build on any interpolated `.or(` | Small, self-contained, and one copy-paste from a shopper surface | D57 |
+| 4 | ~~Add the `headers()` block~~ — **done 2026-08-02**, five headers enforced and verified on live responses. Remaining: watch the Report-Only CSP in a browser across auth, top-up and the map, then promote it | Four were zero-risk; CSP gets harder with every third-party origin added | D62 |
 | 5 | Rate-limit the pre-auth webhook branches; add retention on `payment_webhook_failures`; gate the Sentry example route | Protects the alert channel the money path relies on | D59, D63 |
 | 6 | Add the directory-walking route-guard test | Converts a convention into a mechanism before contributor count grows | §5.2 |
 | 7 | Bound the `fraud_events` select and audit for other unbounded selects | Silent wrongness, and it arrives platform-wide rather than per node | D61 |
@@ -757,5 +766,15 @@ Two things **not** on this list, deliberately:
   PostgreSQL harness — **84 migrations applied, 23/23 SQL suites passing**. D60
   stays open pending a human `supabase db push` and moving node selection onto
   the table.
+
+- **2026-08-02** — **D57 closed and D62's baseline shipped** on founder
+  instruction. `maanta-app/src/lib/supabase/filters.ts`,
+  `maanta-app/src/lib/__tests__/postgrest-filter-injection.test.ts`,
+  `maanta-app/next.config.mjs`,
+  `maanta-app/src/lib/__tests__/security-headers.test.ts`. Gates: lint clean,
+  typecheck clean, **564 tests / 73 files**, build green with all three output
+  gates, and the headers confirmed by `curl` against a running server on a
+  marketing page, the merchant money surface, an API route and a 404. D62 stays
+  open until the CSP enforces.
 
 Close findings by D-number in `docs/maanta-drift-register.md`.

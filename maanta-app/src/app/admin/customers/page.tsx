@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { orIlikeAny } from "@/lib/supabase/filters";
 import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
@@ -38,7 +39,10 @@ export default async function AdminCustomersPage({
     .select("id, full_name, email, phone, role, is_blacklisted, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
-  if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+  // `.or()` takes PostgREST's filter DSL, not a bound value — interpolating `q`
+  // straight into it let a comma inject an extra top-level predicate (D57).
+  const search = orIlikeAny(["full_name", "email", "phone"], q);
+  if (search) query = query.or(search);
   if (role && ROLE_LABEL[role]) query = query.eq("role", role);
   const { data: users } = await query;
 
