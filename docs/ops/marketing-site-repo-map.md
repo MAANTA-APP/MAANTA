@@ -27,10 +27,14 @@ most dangerous state in this document, because it is where somebody will "fix"
 something that is already correct, or declare something fixed that is not. There
 are three of them, all called out below.
 
-**Verification method:** all file inspection was done with `grep`/`read` at
-`origin/main`. The vitest suite was **not** run — `node_modules` is not installed
-in this environment and `npm test` fails with `sh: 1: vitest: not found`. No test
-result in this document is claimed as observed.
+**Verification method (as of this document's own pass, 2026-08-01):** all file
+inspection was done with `grep`/`read` at `origin/main`. The vitest suite was
+**not** run in that pass — `node_modules` was not installed in that environment
+and `npm test` failed with `sh: 1: vitest: not found`. No test result *written by
+that pass* is claimed as observed. **Updated 2026-08-02:** the suite has since
+been run on the merged tree — **69 files / 525 tests, all passing**, recorded in
+`docs/maanta-decisions-log.md`. Where this document gives a test count below,
+read it as the 2026-08-01 snapshot, not as current.
 
 ### Production evidence obtained 2026-08-01 (second pass)
 
@@ -70,10 +74,13 @@ not source**. All confirmed:
 | `sitemap.xml` | 13 routes, legal absent | unchanged |
 | Token gate | clean — 47 rendered files scanned, no `{{TOKEN}}` | — |
 
-**Suite baseline: 481 tests / 61 files, all passing. `tsc --noEmit` clean.** This
-is the number to diff against after each finish-plan step — and note it matches
-the count recorded in `docs/skills/marketing-site-phase6-audit-2026-07-31.md`,
-so the suite has not drifted since that audit.
+**Suite baseline as of 2026-07-31: 481 tests / 61 files, all passing. `tsc
+--noEmit` clean.** That was the number to diff against during the finish plan,
+and it matched the count in
+`docs/skills/marketing-site-phase6-audit-2026-07-31.md`, so the suite had not
+drifted between those two passes. **It is no longer current** — the finish-plan
+steps that followed added tests, and the observed count on 2026-08-02 is **525
+tests / 69 files**. Diff against the latest recorded run, not against this line.
 
 The `og:url` split is worth stating precisely because it names the bug: the five
 pages that declare their own `openGraph` lose the field entirely, while the pages

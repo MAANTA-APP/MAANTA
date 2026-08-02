@@ -1,6 +1,6 @@
 # MAANTA project overview
 
-Last updated: 2026-07-09 · Owner: founder · Repo mirror of the Notion overview.
+Last updated: 2026-08-02 · Owner: founder · Repo mirror of the Notion overview.
 
 ## What MAANTA is
 
@@ -52,9 +52,11 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
 
 - **Stack**: Next.js App Router + Supabase (Postgres, RLS, storage) with
   **Clerk** as the launch authentication layer (wired in as a Supabase
-  third-party auth provider, selectable via `MAANTA_AUTH_STRATEGY` — see
-  `docs/ops/auth-strategies.md`); deployed via Vercel; Supabase project
-  currently in AWS `eu-west-1`.
+  third-party auth provider). Clerk is enabled **only when both**
+  `MAANTA_AUTH_STRATEGY` **and** `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` are set to
+  `clerk`; set one and not the other and the code stays on its default, which is
+  **Supabase** email OTP — see `docs/ops/auth-strategies.md` and drift **D58**.
+  Deployed via Vercel; Supabase project currently in AWS `eu-west-1`.
 - **Money movements** are written **only by sanctioned SECURITY DEFINER RPCs**,
   never by a direct balance edit from a route. `record_merchant_ledger_entry`
   is the app-layer one (atomic, idempotent by provider reference) and every

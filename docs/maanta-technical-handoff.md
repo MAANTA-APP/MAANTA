@@ -90,7 +90,7 @@ timestamp order. Key tables:
 | `deals` | Deals with `success_fee` default 30.00, boost flag, flash type, claim caps |
 | `redemptions` | OTP code, GPS + device capture, distance-from-shop, status (`pending`/`success`/`failed`/`flagged`), fraud flags |
 | `merchant_transactions` | Wallet ledger: `topup`/`success_fee`/`boost_fee`/`subscription`/`refund`; providers include `intasend`, `daraja`, `manual`, `stripe`; `provider_reference` is unique (idempotent webhooks) |
-| `leads` | **Agent-sourced merchant leads** with 48-hour lock — this is the on-ground sales pipeline, *not* the public waitlist (which doesn't exist yet; see `maanta-waitlist-data-schema.md`) |
+| `leads` | **Agent-sourced merchant leads** with 48-hour lock — this is the on-ground sales pipeline, *not* the public waitlist. The two are still separate, but for a different reason than this row used to give (corrected 2026-08-02): the public waitlist **does** exist, it simply has no table — contacts live in a Resend audience and `POST /api/waitlist` stores nothing. See `maanta-waitlist-data-schema.md`. `leads` must not be reused for it: different audience, lifecycle and access rules |
 | `fraud_events`, `audit_logs`, `payment_webhook_failures` | Fraud review, audit trail, webhook failure log |
 | `agents`, `agent_tasks`, `kpi_counters`, `boost_flags`, `tier_flags`, `app_config`, `reporting_aggregates`, `archive_history`, `merchant_favourites` | Supporting tables |
 
@@ -107,8 +107,18 @@ reimplement this logic in TypeScript:
   An `unknown` fee status automatically opens a fraud-review task.
 - `onboard_merchant` / `activate_merchant` — merchant lifecycle, with agent
   attribution.
-- `record_merchant_ledger_entry` — single entry point for wallet ledger
-  writes.
+- `record_merchant_ledger_entry` — the **app-layer** entry point for wallet
+  ledger writes: every top-up and webhook reaches the ledger through it, via
+  `recordMerchantTransaction`. It is **not** the only writer, and this line
+  said "single entry point" until 2026-08-02 (drift **D57**, whose first pass
+  corrected the same claim in `docs/maanta-project-overview.md` and missed this
+  copy). Four more RPCs write `merchant_transactions` in-database by design,
+  because they cannot call a `service_role`-only RPC from their own caller
+  context: `deduct_success_fee_or_record_arrears` (the KES 30 fee, via
+  `verify_redemption`), `purchase_boost`, `activate_merchant` (the Node 0
+  opening credit) and `reverse_success_fee` (admin fee reversal). None of them
+  edits a balance directly — each writes a ledger row. Full rule:
+  `docs/skills/payments-rails.md`.
 - Hardening migrations pin `search_path`, revoke anon execute on all
   functions, and lock down grants — preserve this pattern in new RPCs.
 

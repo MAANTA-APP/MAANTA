@@ -1,7 +1,9 @@
 # MAANTA waitlist data schema & backend spec
 
-Last updated: 2026-07-10 · Status: **built — Resend is the platform** (see
-"Implemented" below; env config still required before go-live).
+Last updated: 2026-08-02 (route path and the superseded-decision marker below;
+the implementation it describes dates from 2026-07-10) · Status: **built —
+Resend is the platform** (see "Implemented" below; env config still required
+before go-live).
 One audience database, three role-based segments. Companion to
 `maanta-email-segmentation-plan.md`.
 
@@ -69,6 +71,17 @@ the checkbox and stored verbatim on every contact. Scope matches the first
 campaign: BBS Mall merchants (relaunch marketing period) + users across
 Nairobi. Still align with `legal/privacy-policy.md` at lawyer review.
 
+> **SUPERSEDED IN TWO RESPECTS — read the "Implemented" section above, which is
+> the current contract** (marked 2026-08-02; the block below was left standing
+> after the same-day amendment and contradicted this document's own header,
+> drift **D64**). Both changes are recorded in `docs/maanta-decisions-log.md`
+> under 2026-07-10: (1) **the email platform is confirmed — Resend**, not "later";
+> (2) **a `/api/waitlist` route does exist**, as a deliberately **stateless**
+> proxy, because the segmentation plan needs server-side keyed API access and
+> the Resend key cannot be exposed to a browser form. What survives unchanged is
+> the substance of the ruling: **no `waitlist_signups` table**, and the route
+> stores nothing.
+>
 > **DECIDED (founder, 2026-07-10): waitlist signups live in the email
 > platform** — no `waitlist_signups` table or `/api/waitlist` route in this
 > repo. Which email platform is confirmed later; it must meet the platform

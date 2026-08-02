@@ -4,7 +4,8 @@ Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
 2026-07-09 from the launch-handoff and operating-system doc packs; index
-updated 2026-07-30 with the drift register and the 2026-07-30 operating
+updated 2026-08-02 (waitlist backend row corrected); previously 2026-07-30,
+which added the drift register and the 2026-07-30 operating
 documents (previously 2026-07-28, comprehensive audit links).
 
 ## Orientation
