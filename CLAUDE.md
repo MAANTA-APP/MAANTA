@@ -89,6 +89,8 @@ wording and the code disagree — drift **D59**, founder to rule.
 | How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
 | Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
 | Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
+| Which malls (nodes) exist, and how do I add one? | The Nodes section below, then `maanta-app/supabase/migrations/20260802120000_nodes_registry.sql` |
+| Will this cost more at scale? Is it a security gap? | `docs/skills/scaling-cost-security-audit-2026-08-01.md`, then drift rows **D68–D76** |
 
 ## Working style
 
@@ -273,6 +275,32 @@ below. They are stated once, there. This section is how to work near them.
   acquisition and email audiences from the first signup (`segment_type` required).
 
 See `docs/maanta-decisions-log.md` for the full log and dates.
+
+## Nodes (malls)
+
+Source of truth for which malls exist: the **`public.nodes` table**
+(`maanta-app/supabase/migrations/20260802120000_nodes_registry.sql`, drift **D72**).
+`deals.node` and `merchants.node` carry a foreign key to it.
+
+- **`nodes.id` is an opaque key that happens to read like a label.** It
+  grandfathers the string already stored in those columns (`'BBS Mall'`). Never
+  render it — render `label` or `short_label`. It is frozen by a trigger, because
+  `ON UPDATE CASCADE` would otherwise let an id edit rewrite node scoping across
+  the money path.
+- **Renaming a mall is safe**: change `label`. No foreign key points at it. That
+  was the D72 defect — the display name *was* the key, so a rename silently
+  orphaned every deal and merchant.
+- **Retire a node with `is_live = FALSE`, never `DELETE`** (`ON DELETE RESTRICT`).
+- **`maanta-app/src/lib/nodes.ts` is a build-time cache, not the source of truth.**
+  Client components and the synchronous `getSelectedNode()` cookie check cannot
+  await a query, so they read it. `nodes-registry-parity.test.ts` fails the CI
+  `test` job — it is vitest, not a post-build scan — if it and the migration seed
+  disagree, so **adding a mall means both** an INSERT and a `nodes.ts` entry: you
+  cannot ship one without the other, because `test` blocks the merge.
+- **Not yet true: "add a mall with no deploy."** `getSelectedNode()` still
+  validates against the compiled array, so a mall registered by INSERT alone is
+  not selectable. Moving selection onto the table is what closes D72, along with
+  a human `supabase db push` — **the migration is not applied to production yet**.
 
 ## Paused deals
 

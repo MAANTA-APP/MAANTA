@@ -1,7 +1,7 @@
 import { ClerkAuthShell } from "@/components/clerk-auth-shell";
 import { SupabaseEmailLogin } from "@/components/auth/supabase-email-login";
 import { AuthChrome } from "@/components/auth/auth-chrome";
-import { isClerkAuth } from "@/lib/auth/strategy";
+import { authModeLoginHint, isClerkAuth } from "@/lib/auth/strategy";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default function LoginPage() {
 
   return (
     <AuthChrome>
-      <SupabaseEmailLogin mode="sign-in" />
+      <SupabaseEmailLogin mode="sign-in" loginHint={authModeLoginHint()} />
     </AuthChrome>
   );
 }

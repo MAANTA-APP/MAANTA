@@ -19,6 +19,7 @@ const SHOPPER_AND_REDEEM = [
   "src/app/(shopper)/tickets/[id]/page.tsx",
   "src/app/(shopper)/tickets/[id]/claimed-code.tsx",
   "src/app/verify-phone/page.tsx",
+  "src/app/verify-phone/verify-phone-client.tsx",
   "src/app/merchant/(app)/redeem/page.tsx",
   "src/app/merchant/(app)/redeem/redeem-keypad.tsx",
   "src/components/ui/redemption-result.tsx",
@@ -75,7 +76,10 @@ describe("key user-facing copy is locked", () => {
   });
 
   it("verify-phone heading, success line, and resend cooldown", () => {
-    const src = read("src/app/verify-phone/page.tsx");
+    // The interactive half moved to verify-phone-client.tsx when the page
+    // became a server component to fix the strategy gate (D80). The copy is
+    // what this test locks, so it follows the copy.
+    const src = read("src/app/verify-phone/verify-phone-client.tsx");
     expect(src).toContain("Add your phone to claim");
     expect(src).toContain("Phone verified");
     expect(src).toMatch(/Resend code in \$\{resendIn\}s/);

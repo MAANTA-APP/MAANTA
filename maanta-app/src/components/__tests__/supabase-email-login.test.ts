@@ -43,7 +43,7 @@ describe("SupabaseEmailLogin error surfaces", () => {
       "@/components/auth/supabase-email-login"
     );
     const html = renderToStaticMarkup(
-      createElement(SupabaseEmailLogin, { mode: "sign-in" })
+      createElement(SupabaseEmailLogin, { mode: "sign-in", loginHint: "test login hint" })
     );
     expect(html).toContain("Sign in");
     expect(html).toContain("Send code");

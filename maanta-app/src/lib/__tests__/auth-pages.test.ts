@@ -8,6 +8,9 @@ const { mockIsClerkAuth } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/strategy", () => ({
   isClerkAuth: () => mockIsClerkAuth(),
+  // Resolved server-side and passed to SupabaseEmailLogin as a prop (D80), so
+  // the pages import it too.
+  authModeLoginHint: () => "test login hint",
 }));
 
 vi.mock("@/components/clerk-auth-shell", () => ({

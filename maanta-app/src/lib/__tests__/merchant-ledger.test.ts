@@ -131,4 +131,45 @@ describe("logWebhookFailure", () => {
       payload: { id: "evt_1" },
     });
   });
+
+  /**
+   * IntaSend's `challenge` is the plaintext shared webhook secret, and every
+   * failure branch after the challenge check passes the *verified* body — so
+   * these payloads carry the real secret, not a wrong guess at it.
+   *
+   * The insert has always redacted it. The console.error fallback beside it did
+   * not, and printed the whole `params` object including the raw payload. Raised
+   * in review as a claim about the insert, which was already safe; the adjacent
+   * log line was the actual leak. Both sinks now read one redacted value.
+   */
+  it("keeps the webhook secret out of both the stored row and the error log", async () => {
+    const insert = vi.fn(() =>
+      Promise.resolve({ data: null, error: { message: "insert failed" } })
+    );
+    const from = vi.fn(() => ({ insert }));
+    const service = { from } as unknown as Parameters<typeof logWebhookFailure>[0];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: "could not verify",
+      payload: { challenge: "the-real-webhook-secret", invoice_id: "XMSLWOS" },
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { challenge: "[REDACTED]", invoice_id: "XMSLWOS" },
+      })
+    );
+
+    // The insert failed, so the fallback log ran — the branch that leaked.
+    expect(consoleError).toHaveBeenCalled();
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "the-real-webhook-secret"
+    );
+    // ...and it is redacted, not merely absent because the payload was dropped.
+    expect(JSON.stringify(consoleError.mock.calls)).toContain("[REDACTED]");
+
+    consoleError.mockRestore();
+  });
 });

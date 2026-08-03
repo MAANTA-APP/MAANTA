@@ -1,6 +1,12 @@
 # System design — pre-10k readiness
 
-Last updated: 2026-07-26 · Status: **repo implementation complete**; prod apply is human-owned.
+Last updated: 2026-08-01 · Status: **repo implementation complete**; prod apply is human-owned.
+
+> **2026-08-01 — scope note.** This document is the **pre-10k** baseline and stays
+> scoped to that. Cost per redemption, the per-MAU auth curve, multi-node
+> economics and the security findings are in
+> `docs/skills/scaling-cost-security-audit-2026-08-01.md` (drift rows
+> **D68–D76**). One row below was corrected in the same pass — see Multi-node.
 
 ## Stack
 
@@ -27,7 +33,7 @@ Last updated: 2026-07-26 · Status: **repo implementation complete**; prod apply
 | Caching | 30s node-scoped cache only | Sufficient for launch; invalidate via tag when deal CRUD ships |
 | Roles | No separate `founder` DB enum — uses `admin` | Documented in `docs/skills/role-permissions.md` |
 | Notifications | Prefs are device-local (localStorage) | Server column planned; push API exists |
-| Multi-node | Reporting is Node 0 first | `node` column on deals/merchants ready |
+| Multi-node | Reporting is Node 0 first | Corrected 2026-08-01, part-fixed 2026-08-02 (**D72**). A `public.nodes` registry now exists and `deals.node` / `merchants.node` carry a foreign key, so a rename no longer orphans rows and an unregistered node cannot be written (`maanta-app/supabase/migrations/20260802120000_nodes_registry.sql`). **Still open:** the migration needs a human `db push`, and node *selection* still validates against the compiled `src/lib/nodes.ts`, so opening a mall is two places — held in step by a parity guard — not yet one row |
 | E2E | Playwright self-skips without secrets | Opt-in `e2e.yml` workflow |
 
 ## Data model (Node 0)

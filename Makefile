@@ -63,10 +63,18 @@ db-prod-fixup:
 # linked production project: the suites INSERT assertion data, so they must only
 # ever run against a throwaway local stack. Requires the Supabase CLI + Docker.
 # The db_url below is the fixed local-stack address, not a remote/prod one.
+#
+# PGOPTIONS forces plpgsql.check_asserts on. Every suite under supabase/tests/
+# signals failure with ASSERT, and ASSERT is a no-op when that setting is off —
+# so with it off the entire corpus passes without testing anything. It defaults
+# to on, which is why this was never noticed, but the default is the server's to
+# change and nothing here was pinning it. Set at the runner rather than in each
+# file header so suite 24 cannot forget it. Mirrored in the CI db-tests job.
 db-verify:
 	@command -v supabase >/dev/null 2>&1 || { echo "supabase CLI not found — install it first (see docs/ops/supabase-migrations.md)"; exit 1; }
 	cd $(APP_DIR) && supabase start
 	cd $(APP_DIR) && db_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"; \
+	  export PGOPTIONS="-c plpgsql.check_asserts=on"; \
 	  rc=0; \
 	  for f in supabase/tests/*.sql; do echo "── $$f"; psql "$$db_url" -v ON_ERROR_STOP=1 -f "$$f" || rc=1; done; \
 	  supabase stop; \

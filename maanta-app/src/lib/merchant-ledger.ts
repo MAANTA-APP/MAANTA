@@ -100,15 +100,27 @@ export async function logWebhookFailure(
     "error"
   );
 
+  // Redact once, up front, and use the result everywhere below. IntaSend's
+  // `challenge` is the plaintext shared secret, so anything that prints or
+  // stores the raw payload prints the secret. Doing it at one point rather than
+  // at each sink is what stops the next sink from being added unredacted —
+  // which is exactly how the console.error path below came to leak it while the
+  // insert beside it was already safe.
+  const safePayload =
+    params.payload != null ? redactWebhookPayload(params.payload) : null;
+
   const { error } = await service.from("payment_webhook_failures").insert({
     payment_provider: params.paymentProvider,
     event_type: params.eventType ?? null,
     error_message: params.errorMessage,
-    payload: params.payload != null ? redactWebhookPayload(params.payload) : null,
+    payload: safePayload,
   });
 
   if (error) {
-    console.error("Failed to persist webhook failure:", error, params);
+    console.error("Failed to persist webhook failure:", error, {
+      ...params,
+      payload: safePayload,
+    });
     Sentry.captureMessage(
       `Could not persist payment_webhook_failures row: ${error.message}`,
       "error"
