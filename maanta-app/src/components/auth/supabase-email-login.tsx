@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { Body, HeadingLg } from "@/components/ui/claude";
-import { authModeLoginHint } from "@/lib/auth/strategy";
 import {
   logAuthFlow,
   mapAuthCallbackQueryError,
@@ -26,7 +25,21 @@ type Stage = "email" | "code";
  * Secondary path: magic / confirm link → /auth/callback (prefer token_hash
  * templates in the Supabase dashboard so mobile Mail/Outlook handoff works).
  */
-export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function SupabaseEmailLogin({
+  mode,
+  loginHint,
+}: {
+  mode: "sign-in" | "sign-up";
+  /**
+   * Resolved server-side and passed in, never computed here — drift **D80**.
+   * `authModeLoginHint()` reads `MAANTA_AUTH_STRATEGY`, which Next.js does not
+   * inline into a client bundle, so calling it from this component would always
+   * take the non-Clerk branch in the browser. That happens to be the correct
+   * string today only because the server pages mount this component solely in
+   * the non-Clerk branch — a coincidence, not a guarantee.
+   */
+  loginHint: string;
+}) {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>("email");
   const [email, setEmail] = useState("");
@@ -119,7 +132,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         <HeadingLg as="h1" className="text-[1.5rem]">
           {mode === "sign-up" ? "Sign up" : "Sign in"}
         </HeadingLg>
-        <Body className="mt-1.5">{authModeLoginHint()}</Body>
+        <Body className="mt-1.5">{loginHint}</Body>
       </div>
 
       <div className="w-full rounded-card border border-line bg-white p-5 shadow-card sm:p-6">
