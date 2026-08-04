@@ -1,32 +1,43 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAppUser } from "@/lib/data";
-import { LockedChip, StatusChip } from "@/components/ui/chips";
+import { requireAgentPage } from "@/lib/agent";
+import { canWriteAgentLeads } from "@/lib/roles";
+import { LeadRowList, LeadsReadError } from "@/components/agent/lead-row-list";
 import { IconArrowLeft } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
-/** 11i "My leads". */
+/**
+ * 11i "My leads".
+ *
+ * "My" is literal for a field rep: their own `agents` row's leads. A co-founder
+ * has no such row, so for them this is the whole pipeline, titled accordingly —
+ * an empty "My leads" would be a lie about the data rather than a real state.
+ */
 export default async function MyLeadsPage() {
-  const user = await getAppUser();
-  if (!user) redirect("/login?next=/agent/leads");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
-
+  // requireAgentPage owns the guard and the agents-row lookup, and returns
+  // agentId null for a reader who does not own leads.
+  const { user, agentId } = await requireAgentPage("/agent/leads");
   const service = createServiceClient();
-  const { data: agent } = await service
-    .from("agents")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const ownsLeads = canWriteAgentLeads(user.role);
 
-  const { data: leads } = agent
+  // `error` is captured, not discarded: a failed read leaves `data` null, which
+  // would render as "No leads yet" — the same read-failure-as-empty-state the
+  // co-founder dashboard had.
+  const { data: leads, error } = !ownsLeads
     ? await service
         .from("leads")
         .select("id, shop_name, status, locked_until, created_at")
-        .eq("agent_id", agent.id)
         .order("created_at", { ascending: false })
-    : { data: [] };
+        .limit(50)
+    : agentId
+      ? await service
+          .from("leads")
+          .select("id, shop_name, status, locked_until, created_at")
+          .eq("agent_id", agentId)
+          .order("created_at", { ascending: false })
+      : // No agents row: genuinely no leads, not a failed read.
+        { data: [], error: null };
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
@@ -34,36 +45,17 @@ export default async function MyLeadsPage() {
         <Link href="/agent" aria-label="Back" className="p-1">
           <IconArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="flex-1 text-center text-lg font-bold text-ink">My leads</h1>
+        <h1 className="flex-1 text-center text-lg font-bold text-ink">
+          {ownsLeads ? "My leads" : "All leads"}
+        </h1>
         <span className="w-7" />
       </div>
 
       <div className="mt-5 space-y-2.5">
-        {(leads ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
-            No leads yet
-          </p>
+        {error ? (
+          <LeadsReadError />
         ) : (
-          (leads ?? []).map((l) => {
-            const hoursLeft = Math.max(
-              0,
-              Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
-            );
-            return (
-              <Link
-                key={l.id}
-                href={`/agent/leads/${l.id}`}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
-              >
-                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
-                {l.status === "locked" && hoursLeft > 0 ? (
-                  <LockedChip hoursLeft={hoursLeft} />
-                ) : (
-                  <StatusChip status={l.status} />
-                )}
-              </Link>
-            );
-          })
+          <LeadRowList leads={leads ?? []} emptyLabel="No leads yet" />
         )}
       </div>
     </main>

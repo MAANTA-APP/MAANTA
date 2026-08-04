@@ -14,12 +14,13 @@ import {
  * Supabase Auth: JWT `sub` (UUID) → public.users.auth_uid (legacy path).
  */
 
-export type AppRole =
-  | "customer"
-  | "merchant_admin"
-  | "merchant_staff"
-  | "agent"
-  | "admin";
+/**
+ * Re-exported so existing importers keep working. The union itself lives in
+ * `@/lib/roles` — it used to be declared here *and* inline in `data.ts`, which
+ * meant adding a role required remembering both.
+ */
+import type { AppRole } from "@/lib/roles";
+export type { AppRole };
 
 /** External auth subject for the current request, or null when signed out. */
 export async function currentAuthSubjectId(): Promise<string | null> {

@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { isSupabaseAuthClient } from "@/lib/auth/strategy";
+import { isSupabaseAuthClient } from "@/lib/auth/strategy-client";
 
 // Browser anon client. Clerk strategy attaches the Clerk session token; Supabase
 // strategy uses the Supabase Auth cookie session (email OTP in dev/test).

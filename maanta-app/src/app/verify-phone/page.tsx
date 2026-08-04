@@ -14,7 +14,11 @@ import {
   SupabaseSignedIn,
   SupabaseSignedOut,
 } from "@/components/auth/supabase-email-login";
-import { authModeLoginHint, isClerkAuthClient, phoneOtpEnabled } from "@/lib/auth/strategy";
+import {
+  authModeLoginHintClient,
+  isClerkAuthClient,
+  phoneOtpEnabledClient,
+} from "@/lib/auth/strategy-client";
 
 function safeInternalPath(raw: string | null): string {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
@@ -31,7 +35,7 @@ function VerifyPhoneUnavailable() {
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col px-5 pb-10 pt-6">
       <BackButton fallback="/you" />
       <h1 className="mt-4 text-2xl font-bold text-ink">Phone verification</h1>
-      <p className="mt-2 text-sm text-muted">{authModeLoginHint()}</p>
+      <p className="mt-2 text-sm text-muted">{authModeLoginHintClient()}</p>
       <div className="mt-6 rounded-card border border-line bg-stone px-4 py-3 text-sm text-secondary">
         Phone SMS OTP is launch-only (Clerk). In dev/test you can claim deals with
         email sign-in — no phone step required.
@@ -230,8 +234,21 @@ function SupabaseVerifyPhonePage() {
   );
 }
 
+/**
+ * Both predicates must be browser-safe — this is a `"use client"` module.
+ *
+ * This used to read `phoneOtpEnabled()`, which resolves through `isClerkAuth()`
+ * and therefore needs `MAANTA_AUTH_STRATEGY`. That variable has no
+ * `NEXT_PUBLIC_` prefix, so it is not inlined into the bundle and reads
+ * `undefined` in the browser: the check was **always** true client-side, the page
+ * always fell to the Supabase branch, and `SupabaseSignedIn` then called
+ * `supabase.auth.getSession()` on a client configured with the Clerk
+ * `accessToken` option — which throws (Sentry JAVASCRIPT-NEXTJS-4). Production
+ * server-rendered the Clerk page and the browser replaced it with a crash, on the
+ * one screen standing between a shopper and claiming a deal.
+ */
 export default function VerifyPhonePage() {
-  if (!phoneOtpEnabled() || !isClerkAuthClient()) {
+  if (!phoneOtpEnabledClient() || !isClerkAuthClient()) {
     return <SupabaseVerifyPhonePage />;
   }
   return <ClerkVerifyPhonePage />;

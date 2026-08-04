@@ -4,7 +4,7 @@ import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { isClerkAuthClient } from "@/lib/auth/strategy-client";
 import { createClient } from "@/lib/supabase/client";
 
 const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();

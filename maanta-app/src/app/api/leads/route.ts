@@ -1,30 +1,22 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAppUser } from "@/lib/data";
+import { requireActiveAgentApi } from "@/lib/agent";
 
 /**
  * 11i Lead capture. The 48h lock comes from the DB default
  * (leads.locked_until = NOW() + 48 hours) — not re-implemented here.
+ *
+ * Authorization is `requireActiveAgentApi`, which this route used to restate
+ * inline — the same role check, the same active-`agents`-row lookup and the same
+ * 401/403/404 responses, in two places. That is one place too many for a write
+ * guard: a change to who may capture a lead has to reach both, and the copy that
+ * gets missed is the one that stays permissive.
  */
 export async function POST(request: Request) {
-  const user = await getAppUser();
-  if (!user) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  }
-  if (user.role !== "agent" && user.role !== "admin") {
-    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
+  const guard = await requireActiveAgentApi();
+  if ("error" in guard) return guard.error;
 
   const service = createServiceClient();
-  const { data: agent } = await service
-    .from("agents")
-    .select("id, is_active")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!agent || !agent.is_active) {
-    return NextResponse.json({ error: "No active agent profile." }, { status: 404 });
-  }
-
   const { shopName, ownerName, phone, unitNumber, what3words, notes } =
     await request.json();
   if (!shopName) {
@@ -33,7 +25,7 @@ export async function POST(request: Request) {
 
   const { data: lead, error } = await service
     .rpc("capture_lead", {
-      p_agent_id: agent.id,
+      p_agent_id: guard.agentId,
       p_shop_name: String(shopName).trim(),
       p_owner_name: ownerName || null,
       p_phone: phone || null,

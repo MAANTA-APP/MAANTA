@@ -9,6 +9,7 @@ import {
 import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import type { AppRole } from "@/lib/roles";
 import {
   lockedBoostedOrder,
   lockedFlashOrder,
@@ -33,7 +34,8 @@ export type AppUser = {
   phone: string | null;
   email: string | null;
   full_name: string | null;
-  role: "customer" | "merchant_admin" | "merchant_staff" | "agent" | "admin";
+  /** From `@/lib/roles`, not spelled out here — one union, one place to extend. */
+  role: AppRole;
 };
 
 /** The signed-in Clerk user's public.users row (null when signed out). */
