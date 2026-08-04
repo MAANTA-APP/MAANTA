@@ -1,4 +1,4 @@
-# Production served an open PR branch — three times, 2026-08-01 → 02
+# Production served an open PR branch — six times, 2026-08-01 → 04
 
 Evidence artifact for drift rows **D53** (closed) and **D56** (open). Written
 because the evidence lives outside this repository — in the Vercel API and in a
@@ -15,7 +15,7 @@ the whole family, not for one day.
 > file — see §8. That is not an anecdote: it is the third data point in under 24
 > hours, and it is what makes §6 a standing decision rather than a precaution.
 
-**Status:** all three incidents resolved. The control that would prevent a fourth
+**Status:** all six incidents resolved — the first three as recorded in §1–§8, the fourth by supersession and the fifth and sixth by merge (§9). The control that would prevent a seventh
 is a Vercel project setting and remains an open founder decision — see §6.
 
 ---
@@ -172,7 +172,7 @@ three.
 
 ## 5. How it was detected, and why that is not a control
 
-No occurrence was found by a check. All three were found by reading the Vercel
+No occurrence was found by a check. The first three (§1–§8) were found by reading the Vercel
 bot's PR comment, whose base64 payload carries:
 
 ```json
@@ -356,3 +356,115 @@ bot comment. Resolved the same way, by merging #167.
   `git diff --name-only … -- maanta-app/` step that separated "trees differ" from
   "the site is wrong". That distinction is the difference between a note and an
   incident, and it should be the first thing checked next time.
+
+## 9. Fourth, fifth and sixth occurrences — 2026-08-02 → 04
+
+Three more promotes of open PR branches. Recorded here so the register's
+**D71** row rests on a checked-in artifact rather than on Vercel's deployment
+records, which may be removed under the project's deployment-retention policy
+(Vercel exempts recent and currently-aliased deployments; this project's
+configured policy has not been read from here).
+
+**The count in this section was corrected on 2026-08-04.** A first draft called
+the two Aug 4 promotes "fourth and fifth". Auditing the deployment listing for
+their read-backs surfaced a promote nobody had counted — or detected — in
+between: occurrence four below served production for ~34 hours and appears in
+no incident record until this one. The first draft also cited two deployment
+IDs truncated to 20 characters by the table that displayed them; full IDs
+below.
+
+### Occurrence 4 — 2026-08-02 14:58, undetected while live
+
+```text
+id:              dpl_8VVhSaarcgajWvQibrLZwSzgk8Wa
+createdAt:       2026-08-02 14:58:14Z
+state:           READY
+target:          production
+meta.action:     promote
+meta.originalDeploymentId: dpl_8GiPfNdG94XKLrGSqEB3qiqbLnXF
+meta.githubCommitRef: claude/scaling-costs-security-audit-vfcp97
+meta.githubCommitSha: 2ed98adea2605e604b3450eb32c2d297a4b1eec8
+meta.githubPrId:      168
+```
+
+Source: the `list_deployments` capture of 2026-08-04 (fields above are that
+listing's, verbatim). **PR #168 was open at promote time and is still open** —
+this branch's content has never been on `main`, unlike every other occurrence.
+
+Serving window: from the promote until `dpl_6Eu3Vf3jxgQRZQoBjgML6TMG6ayJ`
+(`ref: main` @ `fb681bb4`, the #171 squash merge, `target: production`, created
+2026-08-04 01:13:23Z) took the production aliases — roughly 34 hours.
+
+Measured shopper impact: Sentry `JAVASCRIPT-NEXTJS-4`'s **latest** event
+(`6442ce3d`, 2026-08-03 11:05:06Z, `url: https://www.maanta.app/verify-phone`)
+carries `release: 2ed98adea260…` — this deployment's commit, timestamped inside
+this serving window. That is the D70 crash, served to a shopper by this
+promote. The issue's *first-seen* (2026-07-30 19:41Z) predates #168's existence
+and therefore belongs to some earlier serving of the defect; which deployment
+served it is **unattributed** — the captured evidence covers the latest event
+only.
+
+Nothing detected this occurrence while it was live. §5's point, sharpened: the
+first three were caught by decoding a bot comment; this one was not caught at
+all, and surfaced two days later only because an audit went looking for
+something else.
+
+### Occurrences 5 and 6 — 2026-08-04, resolved by merge
+
+| # | createdAt (UTC) | Deployment (full id) | Ref @ commit | Listing fields |
+|---|---|---|---|---|
+| 5 | 2026-08-04 15:09:02Z | `dpl_7tkPxRZ8dt7wej3kspDFs5RDxjya` | `claude/install-superpowers-plugin-na574p` @ `6e817424` (PR #172, open) | `target: production`, `action: promote`, `originalDeploymentId: dpl_3GYyZEVcx1c2uRLpmqbULJJXaFg4` |
+| 6 | 2026-08-04 15:43:48Z | `dpl_83SmoigxTmfsRsfpUbVqNC6MgCYA` | same branch @ `7d4af48` (PR #172, open) | `target: production`, `action: promote`, `originalDeploymentId: dpl_BUD7posm5jPi6nYmiBCVbMeCsTPL` |
+
+Alias evidence is contemporaneous, not reconstructed: a deployment's `alias`
+array reflects *current* assignment, so reading these two back after production
+returned to `main` cannot recover what they held at the time. What was captured
+while they served:
+
+- 15:11Z — Vercel bot payload for occurrence 5: `"previewUrl": "www.maanta.app"`,
+  `"nextCommitStatus": "DEPLOYED"` (a branch deployment's payload normally
+  carries its branch alias — §5's detection signal).
+- 15:46Z — the same payload shape for occurrence 6: `"previewUrl": "www.maanta.app"`.
+
+Two promotes 34 minutes apart on consecutive pushes to the same branch is the
+new fact here: production was not moved once, it was *tracking* the open PR
+push-by-push.
+
+**Resolution — merge, not rollback.** The founder merged #172 (squash
+`e167c3d`); the git integration minted `dpl_3ac8FEZ59jnWf7vpNrQtC6qvnCCj`
+(`target: production`, `source: git`, ref `main` @ `e167c3d`), READY at
+2026-08-04 15:57:32Z holding aliases `www.maanta.app`, `maanta.app`,
+`maanta-nuia.vercel.app`, `maanta-nuia-maanta.vercel.app`,
+`maanta-nuia-git-main-maanta.vercel.app` — a `get_deployment` read-back per
+§7's discipline, and the alias list is quoted from it verbatim. One incidental
+upside: the D70 fix reached shoppers hours before the merge, via the very
+failure mode this file records.
+
+### What Vercel's settings actually do — corrected
+
+Earlier drafts of the register pointed at "deployment protection / required
+checks" as the guard. That was wrong, and the error matters because it sends
+the person taking the control to the wrong screen:
+
+- **Deployment Protection** governs **URL access** — Vercel Authentication,
+  password, trusted IPs. Confirmed two ways: Vercel's docs, and the Vercel MCP's
+  own `get_project_deployment_protection` schema, which exposes exactly those
+  three fields and nothing about promotion. It does not block a promote.
+- **Deployment Checks** hold the production-domain assignment until required
+  checks pass — but the dashboard offers **Force Promote**, which bypasses
+  them. A bypassable check is a speed bump, not a guard, for an action that is
+  itself already a deliberate dashboard click.
+- **Disabling "Auto-assign Custom Production Domains"** (Settings →
+  Environments → Production → Branch Tracking) makes *every* production
+  assignment a manual promote. It changes the workflow; it does not restrict
+  which branch may be promoted.
+- **Deployment policies** (Build & Deployment settings) can restrict which
+  *sources* (Git/CLI/API) may deploy to production, and are the closest thing
+  to §6's Option A. Whether the plan tier for
+  `prj_9ZcvFgpVsaUpP9hv2UlNoU5Sdw4c` exposes them is unverified from here.
+
+Consequence for **D71**: it stays open until a human **configures a control and
+demonstrates it** — attempts a promote of a non-`main` deployment and watches it
+be rejected (or records `no guard: <reason>` if the plan tier offers nothing
+that rejects it). A named setting that has not been demonstrated is exactly the
+"stated control that events then tested" failure §6 records for D53 → D56.
