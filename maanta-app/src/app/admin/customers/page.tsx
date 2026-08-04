@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
+import { ROLE_LABELS } from "@/lib/roles";
 import { SearchField } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
 import { friendlyTime, maskPhone } from "@/lib/ui";
@@ -14,13 +15,11 @@ export const dynamic = "force-dynamic";
  * surface, so no money-typography concerns.
  */
 
-const ROLE_LABEL: Record<string, string> = {
-  customer: "Customer",
-  merchant_admin: "Merchant",
-  merchant_staff: "Staff",
-  agent: "Agent",
-  admin: "Admin",
-};
+// Labels live in @/lib/roles beside the role union, so a new role cannot render
+// as its raw DB value here. The filter pills below are still a curated subset —
+// merchant_staff is deliberately absent — which is a product choice, not a
+// completeness one, and so stays local.
+const ROLE_LABEL: Record<string, string> = ROLE_LABELS;
 
 export default async function AdminCustomersPage({
   searchParams,
@@ -42,7 +41,14 @@ export default async function AdminCustomersPage({
   if (role && ROLE_LABEL[role]) query = query.eq("role", role);
   const { data: users } = await query;
 
-  const ROLE_FILTERS = ["all", "customer", "merchant_admin", "agent", "admin"] as const;
+  const ROLE_FILTERS = [
+    "all",
+    "customer",
+    "merchant_admin",
+    "agent",
+    "admin",
+    "cofounder",
+  ] as const;
   const active = role && ROLE_LABEL[role] ? role : "all";
 
   return (

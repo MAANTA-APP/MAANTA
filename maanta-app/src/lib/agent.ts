@@ -2,18 +2,22 @@ import { NextResponse } from "next/server";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, type AppUser } from "@/lib/data";
+import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
 
 /**
- * Server-component guard for `/agent/*`. Mirrors the inline check the agent
- * console already uses (role ∈ {agent, admin}) and resolves the caller's agent
- * profile id in one place. `agentId` is null for an admin with no agent row.
+ * Server-component guard for `/agent/*` — read access.
+ *
+ * Resolves the caller's agent profile id in one place. `agentId` is null for
+ * anyone reading the console without an `agents` row of their own: an admin, or
+ * a co-founder. Callers that render per-agent data must handle that null rather
+ * than assume it.
  */
 export async function requireAgentPage(
   next: string
 ): Promise<{ user: AppUser; agentId: string | null }> {
   const user = await getAppUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!canViewAgentConsole(user.role)) redirect("/");
   const service = createServiceClient();
   const { data: agent } = await service
     .from("agents")
@@ -31,7 +35,7 @@ export async function requireActiveAgentApi(): Promise<
   if (!user) {
     return { error: NextResponse.json({ error: "Sign in required." }, { status: 401 }) };
   }
-  if (user.role !== "agent" && user.role !== "admin") {
+  if (!canWriteAgentLeads(user.role)) {
     return { error: NextResponse.json({ error: "Not authorized." }, { status: 403 }) };
   }
   const service = createServiceClient();

@@ -1,9 +1,10 @@
 /**
  * Post-login / PWA `start_url` destinations by `public.users.role`.
  *
- * `founder` / `cofounder` are not DB roles today (founder UI is gated by
- * `admin` — see docs/skills/role-permissions.md). They are mapped here so a
- * future enum addition routes correctly without changing `/app-bootstrap`.
+ * `cofounder` became a real value in `public.users.role` in migration
+ * 20260804010000 and now reaches `/founder` on its own. `founder` is still not a
+ * DB role — it is mapped defensively so a future enum addition routes correctly
+ * without changing `/app-bootstrap`. See docs/skills/role-permissions.md.
  */
 export function destinationForRole(role: string | null | undefined): string {
   switch (role) {

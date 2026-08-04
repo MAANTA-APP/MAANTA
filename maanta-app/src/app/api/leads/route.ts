@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { canWriteAgentLeads } from "@/lib/roles";
 
 /**
  * 11i Lead capture. The 48h lock comes from the DB default
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
-  if (user.role !== "agent" && user.role !== "admin") {
+  if (!canWriteAgentLeads(user.role)) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

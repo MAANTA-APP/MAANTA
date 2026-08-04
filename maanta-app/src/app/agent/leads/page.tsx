@@ -2,31 +2,44 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
-/** 11i "My leads". */
+/**
+ * 11i "My leads".
+ *
+ * "My" is literal for a field rep: their own `agents` row's leads. A co-founder
+ * has no such row, so for them this is the whole pipeline, titled accordingly —
+ * an empty "My leads" would be a lie about the data rather than a real state.
+ */
 export default async function MyLeadsPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent/leads");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!canViewAgentConsole(user.role)) redirect("/");
 
   const service = createServiceClient();
-  const { data: agent } = await service
-    .from("agents")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const ownsLeads = canWriteAgentLeads(user.role);
 
-  const { data: leads } = agent
+  const { data: agent } = ownsLeads
+    ? await service.from("agents").select("id").eq("user_id", user.id).maybeSingle()
+    : { data: null };
+
+  const { data: leads } = !ownsLeads
     ? await service
         .from("leads")
         .select("id, shop_name, status, locked_until, created_at")
-        .eq("agent_id", agent.id)
         .order("created_at", { ascending: false })
-    : { data: [] };
+        .limit(50)
+    : agent
+      ? await service
+          .from("leads")
+          .select("id, shop_name, status, locked_until, created_at")
+          .eq("agent_id", agent.id)
+          .order("created_at", { ascending: false })
+      : { data: [] };
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
@@ -34,7 +47,9 @@ export default async function MyLeadsPage() {
         <Link href="/agent" aria-label="Back" className="p-1">
           <IconArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="flex-1 text-center text-lg font-bold text-ink">My leads</h1>
+        <h1 className="flex-1 text-center text-lg font-bold text-ink">
+          {ownsLeads ? "My leads" : "All leads"}
+        </h1>
         <span className="w-7" />
       </div>
 

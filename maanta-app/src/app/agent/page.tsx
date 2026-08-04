@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
+import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
 import { KpiCard } from "@/components/ui/cards";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
@@ -8,13 +9,27 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-/** 11h Agent dashboard (mobile — field rep). */
+/**
+ * 11h Agent dashboard (mobile — field rep).
+ *
+ * Two audiences. A field rep or admin gets the working console below: weekly
+ * target, their own leads, and the "+ New lead" action. A co-founder gets the
+ * read-only pipeline view — same data shape, no write affordances — because
+ * `canWriteAgentLeads` excludes them and lead writes are attributed to an
+ * `agents` row they do not have. Rendering the button anyway would offer an
+ * action that 403s, which is worse than not offering it.
+ */
 export default async function AgentDashboardPage() {
   const user = await getAppUser();
   if (!user) redirect("/login?next=/agent");
-  if (user.role !== "agent" && user.role !== "admin") redirect("/");
+  if (!canViewAgentConsole(user.role)) redirect("/");
 
   const service = createServiceClient();
+
+  if (!canWriteAgentLeads(user.role)) {
+    return <CofounderPipelineView name={user.full_name} />;
+  }
+
   const { data: agent } = await service
     .from("agents")
     .select("id, weekly_target")
@@ -124,6 +139,97 @@ export default async function AgentDashboardPage() {
         className="mt-3 block text-center text-xs font-semibold text-muted underline"
       >
         My leads
+      </Link>
+    </main>
+  );
+}
+
+/**
+ * Read-only acquisition pipeline for a co-founder.
+ *
+ * Deliberately not the field-rep console with the buttons removed. A co-founder
+ * has no `agents` row, so "my leads", the weekly target and the conversion
+ * counter have no value to show — a version of this page with those cards empty
+ * would read as a broken console rather than a different one.
+ *
+ * What it shows instead is the pipeline across every agent, which is the
+ * question an executive is actually asking, and it says out loud that the
+ * approval and payout actions live in admin. Every figure is a direct count of
+ * `leads.status`; nothing here is inferred from free text.
+ */
+async function CofounderPipelineView({ name }: { name: string | null }) {
+  const service = createServiceClient();
+  const [{ data: recentLeads }, { count: openLeads }, { count: convertedLeads }] =
+    await Promise.all([
+      service
+        .from("leads")
+        .select("id, shop_name, status, locked_until")
+        .order("created_at", { ascending: false })
+        .limit(8),
+      service
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "locked"),
+      service
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "converted"),
+    ]);
+
+  return (
+    <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold text-ink">
+          Acquisition · {name ?? "Co-founder"}
+        </h1>
+        <span className="rounded-full bg-cream px-3 py-1 text-xs font-bold text-ink">
+          BBS Mall
+        </span>
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        Read-only. Merchant approvals, disputes and payouts are in the admin console.
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <KpiCard label="Leads open" value={openLeads ?? 0} />
+        <KpiCard label="Leads converted" value={convertedLeads ?? 0} />
+      </div>
+
+      <h2 className="mt-6 text-base font-bold text-ink">Recent leads</h2>
+      <div className="mt-2 space-y-2.5">
+        {(recentLeads ?? []).length === 0 ? (
+          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+            No leads yet
+          </p>
+        ) : (
+          (recentLeads ?? []).map((l) => {
+            const hoursLeft = Math.max(
+              0,
+              Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
+            );
+            return (
+              <Link
+                key={l.id}
+                href={`/agent/leads/${l.id}`}
+                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
+              >
+                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
+                {l.status === "locked" && hoursLeft > 0 ? (
+                  <LockedChip hoursLeft={hoursLeft} />
+                ) : (
+                  <StatusChip status={l.status} />
+                )}
+              </Link>
+            );
+          })
+        )}
+      </div>
+
+      <Link
+        href="/founder"
+        className="mt-4 block text-center text-xs font-semibold text-muted underline"
+      >
+        Founder dashboard
       </Link>
     </main>
   );
