@@ -104,37 +104,44 @@ Two things in `5873190` should **not** be carried forward as-is:
 
 ## Group B — open PR (10)
 
-Not forgotten; awaiting review or a decision. Listed for completeness so this file
-accounts for every held-back branch, not a filtered subset.
+Not forgotten; awaiting review or a decision. Measured on the same basis as
+Group A, because "there is an open PR" is a statement about GitHub, not about
+what the branch contains — and the PR can be closed without the commits going
+anywhere.
 
-| Branch | PR |
-|---|---|
-| `cursor/node0-pilot-readiness-4b4b` | #149 |
-| `cursor/prod-hardening-2026-07-ae69` | #121 |
-| `cursor/prod-auth-landing-ux-f18c` | #117 |
-| `cursor/elite-seed-test-accounts-pwa-f18c` | #112 |
-| `cursor/global-e164-phone-auth-2718` | #108 |
-| `cursor/founder-scale-and-ui-polish-7edd` | #102 |
-| `cursor/avatars-notif-seed-7f6b` | #94 |
-| `cursor/seed-feed-deals-c0f8` | #84 |
-| `cursor/fix-sign-in-clerk-nav-c0f8` | #83 |
-| `cursor/clerk-health-check-c0f8` | #80 |
+| Branch | PR | tip | base | ahead | diff vs base |
+|---|---|---|---|---|---|
+| `cursor/node0-pilot-readiness-4b4b` | #149 | `04e9f7dad48b` | `0fa086f99f46` | 2 | 7 files, +300 −48 |
+| `cursor/prod-hardening-2026-07-ae69` | #121 | `545e1d520823` | `4f418755f3d8` | 5 | 24 files, +1435 −41 |
+| `cursor/prod-auth-landing-ux-f18c` | #117 | `dc346d8ff7ac` | `7a0d3cf6c839` | 1 | 20 files, +438 −170 |
+| `cursor/elite-seed-test-accounts-pwa-f18c` | #112 | `4c9476c052b5` | `7875ff955995` | 2 | 32 files, +1148 −11 |
+| `cursor/global-e164-phone-auth-2718` | #108 | `c25baa00b46f` | `0dd792c1bc67` | 10 | 83 files, +3009 −380 |
+| `cursor/founder-scale-and-ui-polish-7edd` | #102 | `f1b55152e3cc` | `85b257802da8` | 2 | 2 files, +583 |
+| `cursor/avatars-notif-seed-7f6b` | #94 | `b065c1a060a1` | `0fa086f99f46` | 4 | 16 files, +548 −27 |
+| `cursor/seed-feed-deals-c0f8` | #84 | `6c35b88df7da` | `9db48ddcf0c2` | 1 | 6 files, +796 −2 |
+| `cursor/fix-sign-in-clerk-nav-c0f8` | #83 | `16b24c8a7d2d` | `9db48ddcf0c2` | 1 | 4 files, +64 −9 |
+| `cursor/clerk-health-check-c0f8` | #80 | `02792988a5ba` | `0a135ee56abf` | 1 | 5 files, +67 −15 |
+
+`cursor/global-e164-phone-auth-2718` shares the base commit `0dd792c1bc67` with
+the D68 branch and is the larger of the two. Anyone reconciling one should look
+at the other before assuming a conflict is theirs.
 
 ## Group C — PR closed without merging (7)
 
 A closed-unmerged PR is a decision, so these are the least likely to hide
-forgotten work. Recorded anyway, because "someone closed it" and "someone decided
-against it" are not the same thing and this file cannot tell them apart.
+forgotten work. Recorded on the same basis anyway, because "someone closed it"
+and "someone decided against it" are not the same thing and this file cannot tell
+them apart.
 
-| Branch | PR |
-|---|---|
-| `cursor/prod-auth-redirect-www-909e` | #118 |
-| `cursor/profile-map-seed-7f6b` | #96 |
-| `cursor/discover-browse-w3w-7f6b` | #95 |
-| `cursor/setup-dev-environment-3d65` | #89 |
-| `cursor/setup-dev-environment-7fba` | #86 |
-| `cursor/prod-ui-deploy-verify-dce0` | #76 |
-| `cursor/setup-dev-environment-0bf5` | #67 |
+| Branch | PR | tip | base | ahead | diff vs base |
+|---|---|---|---|---|---|
+| `cursor/prod-auth-redirect-www-909e` | #118 | `02089d8affbc` | `7a0d3cf6c839` | 1 | 6 files, +92 −11 |
+| `cursor/profile-map-seed-7f6b` | #96 | `0713ea0bc933` | `40b63430fc7d` | 3 | 13 files, +279 −726 |
+| `cursor/discover-browse-w3w-7f6b` | #95 | `5ae460d87373` | `47e46cc6f84e` | 6 | 18 files, +417 −532 |
+| `cursor/setup-dev-environment-3d65` | #89 | `3d082378ab1b` | `16a12db8f725` | 1 | 2 files, +90 |
+| `cursor/setup-dev-environment-7fba` | #86 | `4b9ffb147282` | `9db48ddcf0c2` | 1 | 1 file, +80 |
+| `cursor/prod-ui-deploy-verify-dce0` | #76 | `bfb922ddff66` | `d1d45f6acad6` | 1 | 6 files, +77 −7 |
+| `cursor/setup-dev-environment-0bf5` | #67 | `2ae607f69404` | `1a6359ebbbf7` | 1 | 1 file, +79 |
 
 ## What is safe to delete, and what this file protects
 
@@ -143,9 +150,14 @@ identical to the head of a merged PR and has not moved since. The 25 above are t
 remainder and are held back — the cleanup refuses to delete a branch whose tip has
 moved, precisely so Group A cannot be lost to a tidy-up.
 
-**Do not delete `cursor/design-changes-expiry-map-nav-2718`** until D68 closes,
-either by landing the work in reviewed slices or by a founder ruling that the
-deferred co-founder enum stays deferred.
+**Do not delete `cursor/design-changes-expiry-map-nav-2718`** until *every* slice
+on it has landed or been explicitly declined — co-founder RBAC, merchant
+lifecycle, PWA install, and the shopper deal-list controls, each on its own.
 
-Once every slice of that branch has landed or been explicitly declined, this file
-is the record of what was on it, and the branch itself can go.
+A founder ruling that the deferred co-founder enum stays deferred closes the RBAC
+question and nothing else. It is not permission to delete the branch, because
+deleting it would take the other three concerns with it, none of which the ruling
+was about. One decision, one slice.
+
+Once all four have a disposition, this file is the record of what was on the
+branch, and the branch itself can go.
