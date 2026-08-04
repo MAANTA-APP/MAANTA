@@ -75,7 +75,10 @@ export default async function AgentDashboardPage() {
       <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
         <h1 className="text-lg font-bold text-ink">Agent</h1>
         <div className="mt-5">
-          <LeadsReadError what="your leads" />
+          {/* "dashboard", not "leads": `readFailed` also covers the converted
+              count and the onboarded-merchants count, either of which can fail
+              while the lead query succeeds. */}
+          <LeadsReadError what="your dashboard" />
         </div>
       </main>
     );

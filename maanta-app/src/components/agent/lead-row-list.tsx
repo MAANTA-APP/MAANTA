@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
+import { IconAlert } from "@/components/ui/icons";
 
 /**
  * The acquisition pipeline's lead rows, in one place.
@@ -40,7 +41,17 @@ export function isLockLive(lead: Pick<LeadRow, "status" | "locked_until">): bool
 export function LeadsReadError({ what = "leads" }: { what?: string }) {
   return (
     <div role="alert" className="rounded-card border border-line bg-white px-4 py-6">
-      <p className="text-sm font-semibold text-ink">Could not load {what}.</p>
+      {/*
+        Frozen UI rule 4: state is an icon **and** a word, readable in greyscale.
+        Text alone made "could not load" indistinguishable from an ordinary
+        paragraph once colour is gone. Colour stays on the icon and the border —
+        body text is `text-ink` (#111), never the error red — and the icon is
+        aria-hidden because it repeats what the sentence beside it already says.
+      */}
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+        <IconAlert aria-hidden className="h-4 w-4 shrink-0 text-flame" />
+        Could not load {what}.
+      </p>
       <p className="mt-1 text-xs text-muted">
         This is a read error, not an empty pipeline. Reload the page; if it keeps
         failing, tell the Maanta team.
