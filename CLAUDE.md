@@ -11,10 +11,12 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **Production is not a clean mirror of `main`** — two open rows say so:
-its migration ledger and this repo disagree on two version numbers (**D24**), and
-the `claim_deal` pause gate is merged but not applied (**D25**, `pending-deploy`).
-Do not describe the schema as aligned; check those rows first.
+still on. **Production is not a clean mirror of `main`** — its migration ledger
+and this repo disagree on **four** version numbers (**D24**, widened 2026-08-04
+by the D25 apply). The `claim_deal` pause gate itself is now **live** (**D25**
+closed 2026-08-04 by a founder-authorized MCP apply, verified by
+`pg_get_functiondef` read-back). Do not describe the schema as aligned; check
+D24 first.
 
 The *deployment* is aligned as of 2026-08-01: production serves `main` again
 (**D37** closed, verified against the Vercel deployment rather than assumed). It
@@ -288,10 +290,12 @@ for the SQL browse-view filter).
 - Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
   layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
 - Resume (while the deal is otherwise valid) restores discovery and claimability.
-- **Deploy status:** repo is complete (#150: migrations `180000` + `190000`,
-  tests, UI). **D25 remains `pending-deploy`** until a human `supabase db push`
-  and `pg_get_functiondef` for `claim_deal` shows `deal_paused`. Not fully live
-  on production until that read-back.
+- **Deploy status: live on production as of 2026-08-04.** Both migrations
+  applied (founder-authorized MCP apply — see **D25**, closed) and read back:
+  `pg_get_functiondef(claim_deal)` contains `deal_paused`,
+  `deals_public_browse` filters `is_paused`, and `verify_redemption` still
+  ignores `is_paused`. Ledger caveat: the apply recorded MCP-minted version
+  numbers, not the repo filenames — tracked in **D24**.
 - Any future change to claim / pause / resume / redeem must: read
   `docs/skills/paused-deal-semantics.md` first; check the latest drift register
   and migrations; keep RPC, UI, and discovery surfaces aligned; and record
