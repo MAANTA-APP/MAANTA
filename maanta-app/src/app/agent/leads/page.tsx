@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAppUser } from "@/lib/data";
-import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
-import { LockedChip, StatusChip } from "@/components/ui/chips";
+import { requireAgentPage } from "@/lib/agent";
+import { canWriteAgentLeads } from "@/lib/roles";
+import { LeadRowList } from "@/components/agent/lead-row-list";
 import { IconArrowLeft } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -16,16 +15,11 @@ export const dynamic = "force-dynamic";
  * an empty "My leads" would be a lie about the data rather than a real state.
  */
 export default async function MyLeadsPage() {
-  const user = await getAppUser();
-  if (!user) redirect("/login?next=/agent/leads");
-  if (!canViewAgentConsole(user.role)) redirect("/");
-
+  // requireAgentPage owns the guard and the agents-row lookup, and returns
+  // agentId null for a reader who does not own leads.
+  const { user, agentId } = await requireAgentPage("/agent/leads");
   const service = createServiceClient();
   const ownsLeads = canWriteAgentLeads(user.role);
-
-  const { data: agent } = ownsLeads
-    ? await service.from("agents").select("id").eq("user_id", user.id).maybeSingle()
-    : { data: null };
 
   const { data: leads } = !ownsLeads
     ? await service
@@ -33,11 +27,11 @@ export default async function MyLeadsPage() {
         .select("id, shop_name, status, locked_until, created_at")
         .order("created_at", { ascending: false })
         .limit(50)
-    : agent
+    : agentId
       ? await service
           .from("leads")
           .select("id, shop_name, status, locked_until, created_at")
-          .eq("agent_id", agent.id)
+          .eq("agent_id", agentId)
           .order("created_at", { ascending: false })
       : { data: [] };
 
@@ -54,32 +48,7 @@ export default async function MyLeadsPage() {
       </div>
 
       <div className="mt-5 space-y-2.5">
-        {(leads ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
-            No leads yet
-          </p>
-        ) : (
-          (leads ?? []).map((l) => {
-            const hoursLeft = Math.max(
-              0,
-              Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
-            );
-            return (
-              <Link
-                key={l.id}
-                href={`/agent/leads/${l.id}`}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
-              >
-                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
-                {l.status === "locked" && hoursLeft > 0 ? (
-                  <LockedChip hoursLeft={hoursLeft} />
-                ) : (
-                  <StatusChip status={l.status} />
-                )}
-              </Link>
-            );
-          })
-        )}
+        <LeadRowList leads={leads ?? []} emptyLabel="No leads yet" />
       </div>
     </main>
   );

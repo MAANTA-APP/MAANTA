@@ -32,6 +32,19 @@
 
 ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
 
+-- NOT VALID, then VALIDATE as a separate statement.
+--
+-- A plain ADD CONSTRAINT ... CHECK holds ACCESS EXCLUSIVE on public.users for
+-- the whole validating scan, and this table takes a write on every first
+-- sign-in — ensureAppUser() upserts the row. NOT VALID makes the ADD a catalog
+-- update that returns immediately; VALIDATE CONSTRAINT then does the scan under
+-- SHARE UPDATE EXCLUSIVE, which readers and writers do not block on. The end
+-- state is a fully validated constraint either way.
+--
+-- The scan cannot fail: the new list is a strict superset of the old one, so
+-- every row that satisfied the previous constraint satisfies this one. Keeping
+-- the role literals inside the ADD CONSTRAINT statement also keeps
+-- src/lib/__tests__/roles.test.ts able to parse them.
 ALTER TABLE public.users ADD CONSTRAINT users_role_check
   CHECK (role = ANY (ARRAY[
     'customer'::text,
@@ -40,7 +53,9 @@ ALTER TABLE public.users ADD CONSTRAINT users_role_check
     'agent'::text,
     'admin'::text,
     'cofounder'::text
-  ]));
+  ])) NOT VALID;
+
+ALTER TABLE public.users VALIDATE CONSTRAINT users_role_check;
 
 COMMENT ON COLUMN public.users.role IS
   'App role. cofounder = founder dashboard + read-only acquisition pipeline; no admin console, no money actions.';

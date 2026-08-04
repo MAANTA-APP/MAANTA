@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
 import { KpiCard } from "@/components/ui/cards";
-import { LockedChip, StatusChip } from "@/components/ui/chips";
+import { LeadRowList } from "@/components/agent/lead-row-list";
 import { ButtonLink } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -107,32 +107,10 @@ export default async function AgentDashboardPage() {
 
       <h2 className="mt-6 text-base font-bold text-ink">Recent leads</h2>
       <div className="mt-2 space-y-2.5">
-        {(recentLeads ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
-            No leads yet — lock your first one
-          </p>
-        ) : (
-          (recentLeads ?? []).map((l) => {
-            const hoursLeft = Math.max(
-              0,
-              Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
-            );
-            return (
-              <Link
-                key={l.id}
-                href={`/agent/leads/${l.id}`}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
-              >
-                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
-                {l.status === "locked" && hoursLeft > 0 ? (
-                  <LockedChip hoursLeft={hoursLeft} />
-                ) : (
-                  <StatusChip status={l.status} />
-                )}
-              </Link>
-            );
-          })
-        )}
+        <LeadRowList
+          leads={recentLeads ?? []}
+          emptyLabel="No leads yet — lock your first one"
+        />
       </div>
       <Link
         href="/agent/leads"
@@ -159,22 +137,57 @@ export default async function AgentDashboardPage() {
  */
 async function CofounderPipelineView({ name }: { name: string | null }) {
   const service = createServiceClient();
-  const [{ data: recentLeads }, { count: openLeads }, { count: convertedLeads }] =
-    await Promise.all([
-      service
-        .from("leads")
-        .select("id, shop_name, status, locked_until")
-        .order("created_at", { ascending: false })
-        .limit(8),
-      service
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "locked"),
-      service
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "converted"),
-    ]);
+  const now = new Date().toISOString();
+  const [recent, open, converted] = await Promise.all([
+    service
+      .from("leads")
+      .select("id, shop_name, status, locked_until")
+      .order("created_at", { ascending: false })
+      .limit(8),
+    // "Open" means the lock is still live, which is `locked_until > now` and not
+    // `status = 'locked'` — nothing rewrites `status` when a lock lapses, so the
+    // status alone would count leads the list below shows as no longer locked.
+    // Same condition `capture_lead` uses (`l.locked_until > NOW()`).
+    service
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "locked")
+      .gt("locked_until", now),
+    service
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "converted"),
+  ]);
+
+  // A failed query leaves data null and counts null, which would render as an
+  // empty pipeline beside two zeroes — a co-founder would read "no leads" when
+  // the truth is "we could not ask". Say which it is.
+  const failed = recent.error ?? open.error ?? converted.error;
+  if (failed) {
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
+        <h1 className="text-lg font-bold text-ink">Acquisition</h1>
+        <div className="mt-5 rounded-card border border-line bg-white px-4 py-6">
+          <p className="text-sm font-semibold text-ink">Could not load the pipeline.</p>
+          <p className="mt-1 text-xs text-muted">
+            This is a read error, not an empty pipeline — the lead counts below would
+            be wrong, so they are not shown. Reload the page; if it keeps failing,
+            tell the Maanta team.
+          </p>
+          <Link
+            href="/founder"
+            className="mt-4 block text-center text-xs font-semibold text-muted underline"
+          >
+            Founder dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const recentLeads = recent.data;
+  const openLeads = open.count;
+  const convertedLeads = converted.count;
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
@@ -197,32 +210,7 @@ async function CofounderPipelineView({ name }: { name: string | null }) {
 
       <h2 className="mt-6 text-base font-bold text-ink">Recent leads</h2>
       <div className="mt-2 space-y-2.5">
-        {(recentLeads ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
-            No leads yet
-          </p>
-        ) : (
-          (recentLeads ?? []).map((l) => {
-            const hoursLeft = Math.max(
-              0,
-              Math.round((new Date(l.locked_until).getTime() - Date.now()) / 3600_000)
-            );
-            return (
-              <Link
-                key={l.id}
-                href={`/agent/leads/${l.id}`}
-                className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
-              >
-                <span className="text-sm font-bold text-ink">{l.shop_name}</span>
-                {l.status === "locked" && hoursLeft > 0 ? (
-                  <LockedChip hoursLeft={hoursLeft} />
-                ) : (
-                  <StatusChip status={l.status} />
-                )}
-              </Link>
-            );
-          })
-        )}
+        <LeadRowList leads={recentLeads ?? []} emptyLabel="No leads yet" />
       </div>
 
       <Link

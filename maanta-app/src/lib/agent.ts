@@ -8,9 +8,16 @@ import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
  * Server-component guard for `/agent/*` — read access.
  *
  * Resolves the caller's agent profile id in one place. `agentId` is null for
- * anyone reading the console without an `agents` row of their own: an admin, or
- * a co-founder. Callers that render per-agent data must handle that null rather
- * than assume it.
+ * anyone reading the console without leads of their own — an admin, or a
+ * co-founder. Callers that render per-agent data must handle that null rather
+ * than assume it; `agent/leads/[id]` reads it as "org-wide reader" and both
+ * widens the visible set and hides the merchant-link action.
+ *
+ * The lookup is skipped entirely for roles that cannot write leads. A person
+ * promoted from `agent` to `cofounder` keeps their `agents` row, and resolving
+ * it would silently narrow them back to their own old leads and re-offer a
+ * link action the API rejects — a read-only role acting like a field rep
+ * because of a stale row. Role decides, not row existence.
  */
 export async function requireAgentPage(
   next: string
@@ -18,6 +25,7 @@ export async function requireAgentPage(
   const user = await getAppUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
   if (!canViewAgentConsole(user.role)) redirect("/");
+  if (!canWriteAgentLeads(user.role)) return { user, agentId: null };
   const service = createServiceClient();
   const { data: agent } = await service
     .from("agents")

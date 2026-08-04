@@ -51,8 +51,6 @@ Staff roster (`/merchant/staff`, `/api/staff`) is **owner-only**. Invite UI defa
 
 ## Page guards
 
-| Guard | File | Allowed roles |
-|---|---|---|
 Every guard below asks a **predicate from `src/lib/roles.ts`** rather than
 comparing role strings. That file is also the single declaration of the role
 union — `auth.ts` and `data.ts` import it instead of restating it — and
