@@ -28,6 +28,27 @@ export function isLockLive(lead: Pick<LeadRow, "status" | "locked_until">): bool
   return lead.status === "locked" && new Date(lead.locked_until).getTime() > Date.now();
 }
 
+/**
+ * A read of the pipeline failed.
+ *
+ * Shared because both `/agent` and `/agent/leads` load leads and both would
+ * otherwise render a null result as "No leads yet" — a failed query presented as
+ * a fact about the business. Whoever is reading needs to know the difference:
+ * for a co-founder it is the difference between "we have no pipeline" and "we
+ * could not ask".
+ */
+export function LeadsReadError({ what = "leads" }: { what?: string }) {
+  return (
+    <div role="alert" className="rounded-card border border-line bg-white px-4 py-6">
+      <p className="text-sm font-semibold text-ink">Could not load {what}.</p>
+      <p className="mt-1 text-xs text-muted">
+        This is a read error, not an empty pipeline. Reload the page; if it keeps
+        failing, tell the Maanta team.
+      </p>
+    </div>
+  );
+}
+
 export function LeadRowList({
   leads,
   emptyLabel,

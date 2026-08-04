@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAgentPage } from "@/lib/agent";
 import { canWriteAgentLeads } from "@/lib/roles";
-import { LeadRowList } from "@/components/agent/lead-row-list";
+import { LeadRowList, LeadsReadError } from "@/components/agent/lead-row-list";
 import { IconArrowLeft } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,10 @@ export default async function MyLeadsPage() {
   const service = createServiceClient();
   const ownsLeads = canWriteAgentLeads(user.role);
 
-  const { data: leads } = !ownsLeads
+  // `error` is captured, not discarded: a failed read leaves `data` null, which
+  // would render as "No leads yet" — the same read-failure-as-empty-state the
+  // co-founder dashboard had.
+  const { data: leads, error } = !ownsLeads
     ? await service
         .from("leads")
         .select("id, shop_name, status, locked_until, created_at")
@@ -33,7 +36,8 @@ export default async function MyLeadsPage() {
           .select("id, shop_name, status, locked_until, created_at")
           .eq("agent_id", agentId)
           .order("created_at", { ascending: false })
-      : { data: [] };
+      : // No agents row: genuinely no leads, not a failed read.
+        { data: [], error: null };
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
@@ -48,7 +52,11 @@ export default async function MyLeadsPage() {
       </div>
 
       <div className="mt-5 space-y-2.5">
-        <LeadRowList leads={leads ?? []} emptyLabel="No leads yet" />
+        {error ? (
+          <LeadsReadError />
+        ) : (
+          <LeadRowList leads={leads ?? []} emptyLabel="No leads yet" />
+        )}
       </div>
     </main>
   );

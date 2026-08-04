@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { canViewAgentConsole, canWriteAgentLeads } from "@/lib/roles";
 import { KpiCard } from "@/components/ui/cards";
-import { LeadRowList } from "@/components/agent/lead-row-list";
+import { LeadRowList, LeadsReadError } from "@/components/agent/lead-row-list";
 import { ButtonLink } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -46,27 +46,44 @@ export default async function AgentDashboardPage() {
   }
 
   const weekStart = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
-  const [{ data: recentLeads }, { count: convertedWeek }, { count: onboarded }] =
-    await Promise.all([
-      service
-        .from("leads")
-        .select("id, shop_name, status, locked_until")
-        .eq("agent_id", agent.id)
-        .order("created_at", { ascending: false })
-        .limit(5),
-      service
-        .from("leads")
-        .select("id", { count: "exact", head: true })
-        .eq("agent_id", agent.id)
-        .eq("status", "converted")
-        .gte("created_at", weekStart),
-      service
-        .from("merchants")
-        .select("id", { count: "exact", head: true })
-        .eq("onboarded_by", agent.id),
-    ]);
+  const [recent, convertedWeekRes, onboardedRes] = await Promise.all([
+    service
+      .from("leads")
+      .select("id, shop_name, status, locked_until")
+      .eq("agent_id", agent.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    service
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("agent_id", agent.id)
+      .eq("status", "converted")
+      .gte("created_at", weekStart),
+    service
+      .from("merchants")
+      .select("id", { count: "exact", head: true })
+      .eq("onboarded_by", agent.id),
+  ]);
 
-  const done = convertedWeek ?? 0;
+  // Same reason as the co-founder view below: a failed read would otherwise
+  // render as a rep with no leads and a zeroed weekly target, which is a
+  // demoralising lie rather than an error.
+  const readFailed =
+    recent.error ?? convertedWeekRes.error ?? onboardedRes.error;
+  if (readFailed) {
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
+        <h1 className="text-lg font-bold text-ink">Agent</h1>
+        <div className="mt-5">
+          <LeadsReadError what="your leads" />
+        </div>
+      </main>
+    );
+  }
+
+  const recentLeads = recent.data;
+  const done = convertedWeekRes.count ?? 0;
+  const onboarded = onboardedRes.count;
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
@@ -167,20 +184,15 @@ async function CofounderPipelineView({ name }: { name: string | null }) {
     return (
       <main className="mx-auto min-h-dvh w-full max-w-mobile border-x border-line bg-white px-4 pb-10 pt-5">
         <h1 className="text-lg font-bold text-ink">Acquisition</h1>
-        <div className="mt-5 rounded-card border border-line bg-white px-4 py-6">
-          <p className="text-sm font-semibold text-ink">Could not load the pipeline.</p>
-          <p className="mt-1 text-xs text-muted">
-            This is a read error, not an empty pipeline — the lead counts below would
-            be wrong, so they are not shown. Reload the page; if it keeps failing,
-            tell the Maanta team.
-          </p>
-          <Link
-            href="/founder"
-            className="mt-4 block text-center text-xs font-semibold text-muted underline"
-          >
-            Founder dashboard
-          </Link>
+        <div className="mt-5">
+          <LeadsReadError what="the pipeline" />
         </div>
+        <Link
+          href="/founder"
+          className="mt-4 block text-center text-xs font-semibold text-muted underline"
+        >
+          Founder dashboard
+        </Link>
       </main>
     );
   }
@@ -200,7 +212,8 @@ async function CofounderPipelineView({ name }: { name: string | null }) {
         </span>
       </div>
       <p className="mt-2 text-xs text-muted">
-        Read-only. Merchant approvals, disputes and payouts are in the admin console.
+        Read-only. Merchant approvals, disputes and payouts are in the admin
+        console.
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
