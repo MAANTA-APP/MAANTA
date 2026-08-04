@@ -87,16 +87,66 @@ export function isSupabaseAuthClient(): boolean {
 }
 
 /**
+ * ## Server-only vs client-safe — read before calling any of these
+ *
+ * `MAANTA_AUTH_STRATEGY` has no `NEXT_PUBLIC_` prefix, so Next.js does **not**
+ * inline it into the browser bundle. In client code `process.env.MAANTA_AUTH_STRATEGY`
+ * is `undefined`, which makes `explicitServerStrategy()` return null and
+ * `isClerkAuth()` return **false no matter how production is configured**.
+ *
+ * That is not a theoretical hazard. `/verify-phone` — a `"use client"` page —
+ * branched on `phoneOtpEnabled()`, so in the browser it always took the Supabase
+ * path, rendered `SupabaseSignedIn`, and called `supabase.auth.getSession()` on a
+ * client built with the Clerk `accessToken` option, which throws. Shoppers on the
+ * claim path hit it in production (Sentry JAVASCRIPT-NEXTJS-4).
+ *
+ * So: anything below whose name ends in `Client` reads only `NEXT_PUBLIC_*` and is
+ * safe in the browser. Everything else is server-only and is enforced as such by
+ * `src/lib/__tests__/auth-strategy-boundary.test.ts`.
+ */
+
+/**
  * Clerk SMS phone OTP for sign-in and /verify-phone. Launch-only — disabled in
  * dev/test Supabase Auth mode to avoid Clerk SMS charges during rehearsal.
+ *
+ * **Server-only.** Client components want {@link phoneOtpEnabledClient}.
  */
 export function phoneOtpEnabled(): boolean {
   return isClerkAuth();
 }
 
-/** Human-readable login hint for /login and /verify-phone. */
+/**
+ * Browser-safe {@link phoneOtpEnabled}.
+ *
+ * Answers from `NEXT_PUBLIC_MAANTA_AUTH_STRATEGY` alone, which is the only thing
+ * the browser can see. A build where the public var says `clerk` but the server
+ * var does not is already broken server-side — middleware would not run Clerk —
+ * so treating the public var as the answer here does not paper over a real
+ * mismatch, it just stops the client silently disagreeing with its own SSR.
+ */
+export function phoneOtpEnabledClient(): boolean {
+  return isClerkAuthClient();
+}
+
+/**
+ * Human-readable login hint for /login and /verify-phone.
+ *
+ * **Server-only.** Client components want {@link authModeLoginHintClient} —
+ * calling this one from the browser always produced the rehearsal copy
+ * ("phone OTP will be enabled for launch") on a production build where phone OTP
+ * was in fact live.
+ */
 export function authModeLoginHint(): string {
-  if (isClerkAuth()) {
+  return loginHintFor(isClerkAuth());
+}
+
+/** Browser-safe {@link authModeLoginHint}. */
+export function authModeLoginHintClient(): string {
+  return loginHintFor(isClerkAuthClient());
+}
+
+function loginHintFor(clerk: boolean): string {
+  if (clerk) {
     return "Sign in with email or phone. Phone OTP is required to claim deals.";
   }
   return "For now, please use email to sign in; phone OTP will be enabled for launch.";

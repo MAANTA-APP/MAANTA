@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { Body, HeadingLg } from "@/components/ui/claude";
-import { authModeLoginHint } from "@/lib/auth/strategy";
+import { authModeLoginHintClient } from "@/lib/auth/strategy";
 import {
   logAuthFlow,
   mapAuthCallbackQueryError,
@@ -119,7 +119,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         <HeadingLg as="h1" className="text-[1.5rem]">
           {mode === "sign-up" ? "Sign up" : "Sign in"}
         </HeadingLg>
-        <Body className="mt-1.5">{authModeLoginHint()}</Body>
+        <Body className="mt-1.5">{authModeLoginHintClient()}</Body>
       </div>
 
       <div className="w-full rounded-card border border-line bg-white p-5 shadow-card sm:p-6">
