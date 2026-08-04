@@ -1,4 +1,4 @@
-# Production served an open PR branch — three times, 2026-08-01 → 02
+# Production served an open PR branch — five times, 2026-08-01 → 04
 
 Evidence artifact for drift rows **D53** (closed) and **D56** (open). Written
 because the evidence lives outside this repository — in the Vercel API and in a
@@ -356,3 +356,58 @@ bot comment. Resolved the same way, by merging #167.
   `git diff --name-only … -- maanta-app/` step that separated "trees differ" from
   "the site is wrong". That distinction is the difference between a note and an
   incident, and it should be the first thing checked next time.
+
+## 9. Fourth and fifth occurrences — 2026-08-04, resolved by merge
+
+Two more promotes of an open PR branch, two days after this file said a
+recurrence rate of once every eight hours was not sustainable. Recorded here so
+the register's **D71** row rests on a checked-in artifact rather than on
+Vercel's deployment list, which ages out.
+
+| # | Time (UTC) | Deployment | Ref @ commit | Note |
+|---|---|---|---|---|
+| 4 | 15:09 | `dpl_7tkPxRZ8dt7wej3kspDFs5RDxjya` | `claude/install-superpowers-plugin-na574p` @ `6e817424` | `action: promote`, serving `www.maanta.app` by 15:11. PR #172 open and unmerged |
+| 5 | 15:43 | `dpl_83SmoigxTmfsRsfpUbVqNC6MgCYA` | same branch @ `7d4af48` | `action: promote`, `originalDeploymentId: dpl_BUD7posm5jPi6nYmiBCVbMeCsTPL`. Production was *tracking* the branch push-by-push |
+
+Also relevant: `dpl_8VVhSaarcgajWvQi`, an earlier promote of
+`claude/scaling-costs-security-audit-vfcp97` @ `2ed98ade` — the release tag on
+the Sentry events behind **D70**. That is the incident class's first *measured*
+shopper impact: a defect from an unmerged branch crashed `/verify-phone` on the
+claim path in production.
+
+**Resolution — merge, not rollback.** The founder merged #172 (squash
+`e167c3d`); the git integration minted `dpl_3ac8FEZ59jnWf7vpNrQtC6qvnCCj`
+(`target: production`, `source: git`, ref `main` @ `e167c3d`), READY at 15:57
+UTC holding the `www.maanta.app` and `maanta.app` aliases. Verified by
+`get_deployment` read-back per §7's discipline, not assumed. One incidental
+upside: the D70 fix reached shoppers hours before the merge, via the very
+failure mode this file records.
+
+### What Vercel's settings actually do — corrected
+
+Earlier drafts of the register pointed at "deployment protection / required
+checks" as the guard. That was wrong, and the error matters because it sends
+the person taking the control to the wrong screen:
+
+- **Deployment Protection** governs **URL access** — Vercel Authentication,
+  password, trusted IPs. Confirmed two ways: Vercel's docs, and the Vercel MCP's
+  own `get_project_deployment_protection` schema, which exposes exactly those
+  three fields and nothing about promotion. It does not block a promote.
+- **Deployment Checks** hold the production-domain assignment until required
+  checks pass — but the dashboard offers **Force Promote**, which bypasses
+  them. A bypassable check is a speed bump, not a guard, for an action that is
+  itself already a deliberate dashboard click.
+- **Disabling "Auto-assign Custom Production Domains"** (Settings →
+  Environments → Production → Branch Tracking) makes *every* production
+  assignment a manual promote. It changes the workflow; it does not restrict
+  which branch may be promoted.
+- **Deployment policies** (Build & Deployment settings) can restrict which
+  *sources* (Git/CLI/API) may deploy to production, and are the closest thing
+  to §6's Option A. Whether the plan tier for
+  `prj_9ZcvFgpVsaUpP9hv2UlNoU5Sdw4c` exposes them is unverified from here.
+
+Consequence for **D71**: it stays open until a human **configures a control and
+demonstrates it** — attempts a promote of a non-`main` deployment and watches it
+be rejected (or records `no guard: <reason>` if the plan tier offers nothing
+that rejects it). A named setting that has not been demonstrated is exactly the
+"stated control that events then tested" failure §6 records for D53 → D56.
