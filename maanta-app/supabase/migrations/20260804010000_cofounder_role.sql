@@ -27,8 +27,8 @@
 --
 -- That is repository ordering. Production's schema_migrations ledger was not read
 -- when this was written, and drift D24 records that the ledger and this repo
--- disagree on two version numbers — so check the ledger before the apply rather
--- than assuming this number is also the highest there.
+-- disagree on four version numbers (as of 2026-08-04) — so check the ledger
+-- before the apply rather than assuming this number is also the highest there.
 
 ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
 

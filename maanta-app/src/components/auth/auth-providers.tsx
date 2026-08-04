@@ -1,7 +1,7 @@
 "use client";
 
 import { ClerkProvider } from "@clerk/nextjs";
-import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { isClerkAuthClient } from "@/lib/auth/strategy-client";
 
 type Props = {
   children: React.ReactNode;

@@ -59,7 +59,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (caveat: prod's ledger and this repo currently disagree on two version numbers — drift row **D24**) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (caveat: prod's ledger and this repo currently disagree on four version numbers — drift row **D24**) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |

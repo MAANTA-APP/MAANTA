@@ -18,7 +18,7 @@ import {
   authModeLoginHintClient,
   isClerkAuthClient,
   phoneOtpEnabledClient,
-} from "@/lib/auth/strategy";
+} from "@/lib/auth/strategy-client";
 
 function safeInternalPath(raw: string | null): string {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {

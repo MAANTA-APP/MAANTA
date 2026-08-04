@@ -3,7 +3,7 @@
 import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { isClerkAuthClient } from "@/lib/auth/strategy-client";
 
 function ClerkSignOutButton() {
   const { signOut } = useClerk();

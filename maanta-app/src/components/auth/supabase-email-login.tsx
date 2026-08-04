@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { Body, HeadingLg } from "@/components/ui/claude";
-import { authModeLoginHintClient } from "@/lib/auth/strategy";
+import { authModeLoginHintClient } from "@/lib/auth/strategy-client";
 import {
   logAuthFlow,
   mapAuthCallbackQueryError,

@@ -138,7 +138,7 @@ Two things in `5873190` should **not** be carried forward as-is:
 
   That is a statement about **repository ordering only**. Production's
   `schema_migrations` ledger was not read for this document, and per drift **D24**
-  the ledger and this repo are known to disagree on two version numbers — so
+  the ledger and this repo are known to disagree on version numbers (two at the time of writing; four as of the 2026-08-04 D25 apply — see D24) — so
   "already applied to production" is exactly the claim not being made here. The
   human running the apply should check the ledger before pushing.
 

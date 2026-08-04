@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { destinationForRole } from "@/lib/pwa/app-bootstrap";
 import { Body, HeadingMd } from "@/components/ui/claude";
-import { isClerkAuthClient } from "@/lib/auth/strategy";
+import { isClerkAuthClient } from "@/lib/auth/strategy-client";
 import { useSupabaseSignedIn } from "@/components/auth/supabase-email-login";
 import { logAuthFlow } from "@/lib/auth/supabase-email-auth";
 
