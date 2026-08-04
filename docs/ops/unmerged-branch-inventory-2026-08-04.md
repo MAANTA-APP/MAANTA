@@ -1,7 +1,10 @@
 # Unmerged remote branch inventory — 2026-08-04
 
-**What this is:** a fixed record of every remote branch carrying commits that are
-not on `main`, with the SHAs each claim was measured against. It exists so that
+**What this is:** a fixed record of every remote branch carrying held-back or
+unmerged work, with the SHAs each claim was measured against. Not simply "every
+branch with commits `main` cannot reach" — squash-merged branches have that
+property forever and 39 of them are safe to delete; see *Measurement basis*. It
+exists so that
 drift row **D68** — and any future row about work stranded on a branch — stays
 verifiable after the branch itself is deleted, renamed, or force-pushed.
 
@@ -31,7 +34,21 @@ whose work was squash-merged, that count is **not** zero even though the content
 landed: a squash mints a new SHA, so the original commits stay unreachable from
 `main` forever. Content identity has to be judged by comparing trees, not by
 ancestry. That trap is why the branches below are grouped by *PR state* rather
-than by `ahead` alone.
+than by `ahead` alone, and why "carries commits not on `main`" is not the
+inclusion rule — every one of the 39 safe-to-delete branches satisfies that too.
+
+Because base is `merge-base(main, tip)`, the diff column is identical to
+`git diff main...origin/<branch>` — the three-dot form. That matters on a branch
+that merged `main` into itself partway through, as the D68 branch did: the
+merge-base moves forward with the merge, so **merged-in `main` content is
+excluded from the figure automatically**. Checked rather than assumed —
+`git diff --shortstat main...tip` returns the same 64 files and +2052 −261 as the
+base-to-tip form.
+
+What the diff column does *not* prove is that the changed content is absent from
+`main` today, because a squash of some of those commits would land the content
+under a different SHA. That has to be measured per path, and is, for the one
+branch below where it matters.
 
 ## Group A — merged once, then the tip moved (7, plus one with no PR)
 
@@ -83,6 +100,22 @@ The subject of drift row **D68**. Nine commits, `0dd792c1bc67..40bab4ebf71a`:
 `main` was **147 commits ahead** of the branch's base at the time of measurement,
 which is why D68 calls this a reconcile rather than a merge.
 
+**How much of the 64 is actually missing from `main`.** Three of these commits
+were squash-merged as #106 and #107, so some of the diff has already landed under
+different SHAs. Comparing each of the 64 paths' blob at the tip against the same
+path on `main@1826dc5`:
+
+| | paths |
+|---|---|
+| byte-identical on `main` — already landed | 7 |
+| present on `main` but different | 36 |
+| absent from `main` entirely | 21 |
+
+So the branch's genuinely unlanded surface is 57 paths, not 64, and the
+2,052-line figure is an upper bound on the work rather than a measure of it. Any
+slice taken off this branch should be diffed against `main` per file, not applied
+wholesale.
+
 The branch mixes at least four separable concerns — co-founder RBAC, merchant
 lifecycle, PWA install, shopper deal-list controls — which is the argument for
 landing it in reviewed slices rather than as one 64-file merge.
@@ -99,8 +132,15 @@ Two things in `5873190` should **not** be carried forward as-is:
 - Its `src/lib/cofounder.ts` is dead on arrival — nothing in the commit imports it,
   and it re-declares a `requireFounderPage` that already exists in `founder.ts`.
 - Its migration filename is timestamped `20260727010000`, which sorts **before**
-  migrations already applied to production. Any reconcile has to renumber it to a
-  current timestamp or it will land out of order in the ledger.
+  seven migrations already in this repo (`20260729092118` through
+  `20260730190000`). Any reconcile has to renumber it to a current timestamp or it
+  will land out of order.
+
+  That is a statement about **repository ordering only**. Production's
+  `schema_migrations` ledger was not read for this document, and per drift **D24**
+  the ledger and this repo are known to disagree on two version numbers — so
+  "already applied to production" is exactly the claim not being made here. The
+  human running the apply should check the ledger before pushing.
 
 ## Group B — open PR (10)
 
@@ -161,3 +201,31 @@ was about. One decision, one slice.
 
 Once all four have a disposition, this file is the record of what was on the
 branch, and the branch itself can go.
+
+## Provenance — what produced this file, 2026-08-04
+
+Recorded so a later reader can tell measurement from inference.
+
+**Measured, by running the command:** every tip, base, ahead and diff figure in
+the three tables; the 147-commit figure; the nine-commit listing; the 7 / 36 / 21
+blob comparison; the equivalence of `git diff base..tip` and
+`git diff main...tip` on the D68 branch.
+
+**Read, not inferred:** the contents of `5873190` — its `roles.ts`,
+`cofounder.ts`, migration and guard diffs — which is the basis for calling
+`cofounder.ts` unimported (`git grep -n "lib/cofounder" 5873190` returned nothing)
+and for the renumbering note.
+
+**Taken from a prior session's output, not re-derived here:** the safe-to-delete
+/ held-back split and the PR numbers, which came from the branch-cleanup script
+run on 2026-08-02. The 25-branch held-back set was re-measured against
+`main@1826dc5` for this file; the 39-branch safe set was not.
+
+**Not done:** production's `schema_migrations` was not read (see the note under
+the D68 branch above); the seven uninspected Group A branches were not opened;
+no branch was deleted — remote deletion is blocked from this environment.
+
+**Checks run on the commit that added this file:**
+`npx vitest run src/lib/__tests__/drift-register.test.ts` → 12 passed, and the
+same run with the D68 citation pointed at a non-existent path → 1 failed, which
+is what makes the passing run mean something.
