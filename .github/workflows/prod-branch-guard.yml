@@ -42,7 +42,14 @@ jobs:
       - name: Production /api/healthz must report ref == main
         run: |
           set -euo pipefail
-          body="$(curl -sS --max-time 30 https://www.maanta.app/api/healthz)"
+          # curl exits 0 on HTTP 4xx/5xx; capture the status so a non-2xx
+          # response (which could still carry a JSON body) is never trusted.
+          status="$(curl -sS --max-time 30 -o /tmp/healthz.body -w '%{http_code}' https://www.maanta.app/api/healthz)"
+          if [[ "${status}" != 2?? ]]; then
+            echo "::error::Production healthz returned HTTP ${status} — cannot verify what production serves. Investigate production first. (drift D71)"
+            exit 1
+          fi
+          body="$(cat /tmp/healthz.body)"
           echo "healthz: ${body}"
           ref="$(echo "${body}" | jq -r '.ref // empty')"
           commit="$(echo "${body}" | jq -r '.commit // empty')"

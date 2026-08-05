@@ -1,6 +1,6 @@
 # MAANTA Node 0 rehearsal checklist (BBS Mall)
 
-Last updated: 2026-07-30. Engineer-facing. One sitting ≈ 30 minutes.
+Last updated: 2026-08-05. Engineer-facing. One sitting ≈ 30 minutes.
 App: **https://maanta.app** (Vercel prod, deploys from `main`). Supabase project
 **`axrrslqssmbngbataejg`** — the live project the app points at (Clerk third-party
 auth enabled; see `docs/skills/clerk-auth.md`). *(Corrected 2026-07-24: this
