@@ -1,5 +1,14 @@
 -- Truth audit 2026-07-30: correct the stale metadata on app_config.success_fee_kes.
 --
+-- RENUMBERED in the repo 2026-08-05, from 20260730120000, closing drift D24:
+-- production already held a different migration at 20260730120000
+-- (node_scoped_opening_credit_cap, applied by hand and only exported back into
+-- this repo on the same day), so the copy of this file actually applied to
+-- production on 2026-07-30 was renumbered to 20260730160000 at apply time — its
+-- applied header says so — but the repo file kept the old number. Filename and
+-- ledger now agree. The executable SQL below is byte-identical to what
+-- production ran.
+--
 -- METADATA ONLY. This migration changes no value, no function, no policy and no
 -- behaviour — only the human-readable `notes` string on one config row, plus the
 -- matching COMMENT on the guardrail function that seeded it.

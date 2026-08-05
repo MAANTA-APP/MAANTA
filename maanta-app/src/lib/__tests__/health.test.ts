@@ -15,6 +15,7 @@ const TOUCHED = [
   "RESEND_API_KEY",
   "W3W_API_KEY",
   "VERCEL_GIT_COMMIT_SHA",
+  "VERCEL_GIT_COMMIT_REF",
   "NODE_ENV",
   "NEXT_RUNTIME",
 ];
@@ -48,6 +49,17 @@ describe("liveness()", () => {
     expect(liveness().commit).toBe("abcdef1");
     delete process.env.VERCEL_GIT_COMMIT_SHA;
     expect(liveness().commit).toBeNull();
+  });
+
+  it("reports the build's git ref verbatim, or null when unset/blank", () => {
+    // The prod-branch-guard workflow compares this against "main" — a promoted
+    // preview keeps its branch ref, so the value must never be normalized.
+    process.env.VERCEL_GIT_COMMIT_REF = "claude/some-branch";
+    expect(liveness().ref).toBe("claude/some-branch");
+    process.env.VERCEL_GIT_COMMIT_REF = "   ";
+    expect(liveness().ref).toBeNull();
+    delete process.env.VERCEL_GIT_COMMIT_REF;
+    expect(liveness().ref).toBeNull();
   });
 });
 

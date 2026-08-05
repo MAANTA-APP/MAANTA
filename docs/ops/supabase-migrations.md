@@ -44,26 +44,16 @@ supabase db push --dry-run
 Prefer a **low-traffic window** — the hardening migrations are grant/view/table
 changes and can take brief locks.
 
-### Paused-deal claim gate deploy (D25)
+### Paused-deal claim gate deploy (D25) — LANDED 2026-08-04
 
-Parked checklist — run when ready to touch production. Do **not** treat pause as
-live enforcement on prod until the verify step passes. Canonical semantics:
+**Done — do not re-run.** The pause gate went live on production on 2026-08-04
+via a founder-authorized MCP apply (initially recorded under MCP-minted ledger
+versions; on 2026-08-05 the ledger was repaired to the repo filenames
+**`20260730180000`** / **`20260730190000`**, closing **D24**). Verified by
+read-back: `pg_get_functiondef(claim_deal)` contains `deal_paused`,
+`deals_public_browse` filters `is_paused`, `verify_redemption` ignores
+`is_paused`. **D25 is closed.** Canonical semantics:
 `docs/skills/paused-deal-semantics.md` / `CLAUDE.md` (Paused deals).
-
-- **Pre-check:** confirm PR #150 merged and CI tests green.
-- **Run:** `supabase link --project-ref axrrslqssmbngbataejg` if needed, then
-  `supabase db push` from `maanta-app/` (prefer `--dry-run` first). Applies
-  `20260730180000` (claim gate) and `20260730190000` (browse-view pause filter).
-- **Verify on prod:**
-  ```sql
-  SELECT pg_get_functiondef(
-    'public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure
-  );
-  -- must contain: RAISE EXCEPTION 'deal_paused'
-  ```
-- **Close:** mark **D25** as `closed` in `docs/maanta-drift-register.md` and
-  update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
-  **live on production**.
 
 ### The #48–#61 hardening set (must be present after push)
 
@@ -239,19 +229,20 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | Version | File / intent | Notes |
 |---|---|---|
 | `20260730010000` | `demo_seed_deal_refresh` | Demo cron |
-| `20260730120000` | `correct_success_fee_config_notes` | Repo filename. **Production applied the same notes content under `20260730160000`** — do not put a second logical migration at `160000`. |
+| `20260730120000` | `node_scoped_opening_credit_cap` | Applied to prod by hand 2026-07-30, exported back into the repo 2026-08-05 (D24). **Its per-node change is NOT in effect** — `20260730130000` re-replaces `activate_merchant` with the global-count definition (drift **D73**). |
 | `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap |
 | `20260730140000` | `trial_expiry_launch_sentinel_null_guard` | Trial expiry |
 | `20260730150000` | `demo_wipe_audit_trail_retention` | Demo wipe |
-| `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
-| `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
-| `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
-| `20260730190000` | `paused_deals_discovery_filter` | `deals_public_browse` excludes `is_paused` (SQL mirror of app rails) |
+| `20260730160000` | `correct_success_fee_config_notes` | Renamed in the repo 2026-08-05 from `20260730120000` to match the ledger (the applied copy had declared this number at apply time on 07-30). Filename and ledger now agree |
+| `20260730170000` | ~~`node_scoped_opening_credit_cap_reland`~~ | **Never used.** The 07-30 reservation is dead; if the cap reland ever ships, number it with a current timestamp |
+| `20260730180000` | `restore_claim_deal_pause_gate` | Applied to production 2026-08-04 (MCP apply); ledger repaired to this filename 2026-08-05 |
+| `20260730190000` | `paused_deals_discovery_filter` | Applied to production 2026-08-04 (MCP apply); ledger repaired to this filename 2026-08-05 |
+| `20260804010000` | `cofounder_role` | Adds `'cofounder'` to `users_role_check`. Applied to production 2026-08-05 under the same version |
 
-When adding a new 07-30 (or later) migration, pick a version **strictly after**
-the highest row above that is already on `main` *and* confirm with
-`supabase migration list` that production does not already hold that number
-under a different name.
+When adding a new migration, pick a version **strictly after** the highest row
+above that is already on `main` *and* confirm against production's ledger
+(`supabase migration list`, or the MCP `list_migrations`) that production does
+not already hold that number under a different name.
 
 ## Status note (2026-07-28)
 
@@ -260,6 +251,15 @@ local migration files (`supabase db push --dry-run` → “Remote database is up
 to date”). The “minimum hardening set” and lat/lng / preferred_language
 migrations are present. Do not re-push unless `migration list` shows a local
 version missing remotely.
+
+**Status note (2026-08-05):** the ledger is **fully reconciled** — production's
+`supabase_migrations.schema_migrations` and `supabase/migrations/` agree on all
+**85** version/name pairs, verified by a full read-back diff (D24 closed).
+Reconciliation was: prod's uncommitted `20260730120000_node_scoped_opening_credit_cap`
+exported into the repo (its change is **not in effect** — see D73), the notes
+migration renamed to `20260730160000` to match the ledger, and the pause-gate
+pair's MCP-minted versions repaired to the repo filenames. `db push` should now
+report "Remote database is up to date"; anything else is new drift — register it.
 
 **IPv6 / pooler:** `db.<ref>.supabase.co` may be IPv6-only. Agents or hosts
 without IPv6 should use the session pooler URI

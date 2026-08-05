@@ -1,5 +1,10 @@
 # Founder E2E checklist — first real pilot walkthrough (2026-07-30)
 
+> **Correction (2026-08-05):** the pause-gate migration this checklist lists as
+> needing apply (`20260730180000`) is live on production since 2026-08-04
+> (ledger repaired to the repo filenames 2026-08-05 — see D24/D25). The
+> "claim on paused deal succeeds" failure mode no longer applies to prod.
+
 Use this for a **disciplined** end-to-end session of the critical pilot journey.
 This is **not** a public-launch checklist. Seed/rehearsal data and demo mode may
 still be on.
@@ -24,7 +29,7 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
   - `20260730140000_trial_expiry_launch_sentinel_null_guard`
   - `20260730150000_demo_wipe_audit_trail_retention`
   - `20260730180000_restore_claim_deal_pause_gate` ← pause must block new claims
-  - (safe metadata) `20260730120000_correct_success_fee_config_notes`
+  - (safe metadata) `20260730160000_correct_success_fee_config_notes` (renamed in the repo from `20260730120000` on 2026-08-05 to match the ledger — D24; `20260730120000` is now `node_scoped_opening_credit_cap`)
 - [ ] **Cap status:** run `SELECT * FROM public.elite_trial_cap_status();`  
   Note `cap / granted / remaining`. If `granted` looks high after first apply,
   that is the durable backfill — slots already consumed stay consumed.
@@ -109,7 +114,7 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 | No opening credit | Already active? Off BBS? Cap / launch window exhausted? Ledger `node0_opening_credit` |
 | Onboard shop name empty | URL must keep `?shop=` through login `next=` |
 | Claim blocked | Shopper phone verification; deal paused/expired; wrong mall cookie |
-| Claim on paused deal succeeds | Migration `20260730180000` missing on target DB |
+| Claim on paused deal succeeds | Local/throwaway DB: migration `20260730180000` missing. Production (live since 2026-08-04): should not happen — confirm you are on `axrrslqssmbngbataejg`, then check the ledger and `SELECT pg_get_functiondef('public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure)` for `deal_paused`, and record the production/repository conflict in `docs/maanta-drift-register.md` if it is absent |
 | Verify fails | Wrong OTP; already verified; merchant not owner/staff / `can_verify` |
 | Fee not debited | Check arrears path (wallet &lt; 30); `success_fee_charged` must be 30 |
 | Empty feed | `maanta_node` cookie; demo filter; service_role grants on local only |

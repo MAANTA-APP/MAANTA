@@ -113,6 +113,14 @@ export type Liveness = {
   uptimeSeconds: number;
   /** Short git SHA of the deployed build, when the platform exposes it. */
   commit: string | null;
+  /**
+   * Git ref (branch) the deployed build was created from, when the platform
+   * exposes it. A Vercel promote does not rebuild, so a promoted preview keeps
+   * the branch ref it was built from — on production this must always read
+   * "main". The prod-branch-guard workflow trips on anything else (drift D71;
+   * the D53-pattern branch promotes are exactly what this catches).
+   */
+  ref: string | null;
 };
 
 export function liveness(): Liveness {
@@ -123,12 +131,14 @@ export function liveness(): Liveness {
   // Vercel exposes the build's commit SHA at runtime; redact to the short form
   // and never assume it exists (local/other hosts won't set it).
   const sha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+  const ref = process.env.VERCEL_GIT_COMMIT_REF?.trim();
   return {
     status: "ok",
     nodeEnv: process.env.NODE_ENV ?? "unknown",
     runtime: process.env.NEXT_RUNTIME ?? "nodejs",
     uptimeSeconds: uptime,
     commit: sha ? sha.slice(0, 7) : null,
+    ref: ref || null,
   };
 }
 

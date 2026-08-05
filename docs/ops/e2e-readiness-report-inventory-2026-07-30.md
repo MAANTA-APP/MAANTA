@@ -1,5 +1,12 @@
 # E2E readiness report — inventory verification run (2026-07-30)
 
+> **Correction (2026-08-05):** where this dated report says prod must apply
+> `20260730180000` (and the browse filter `20260730190000`), that has happened —
+> the pause gate landed on production 2026-08-04 and the ledger now records it
+> under the repo filenames `20260730180000` + `20260730190000` (initially under
+> MCP-minted numbers; repaired 2026-08-05 — see D24/D25 in
+> `docs/maanta-drift-register.md`). Do not re-apply.
+
 **Mode:** Builder  
 **Branch:** `cursor/e2e-testing-readiness-2020`  
 **Baseline:** `main` @ `a1cd5b2` (prior trial-honesty E2E work already merged)  

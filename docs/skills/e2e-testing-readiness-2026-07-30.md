@@ -1,5 +1,10 @@
 # Skills: E2E testing readiness (inventory run) — 2026-07-30
 
+> **Correction (2026-08-05):** step "Apply `20260730180000_restore_claim_deal_pause_gate.sql`
+> on target DB" is done for production — landed 2026-08-04 (ledger repaired to
+> the repo filenames `20260730180000`/`20260730190000` on 2026-08-05; see
+> D24/D25). Local/throwaway DBs still apply the repo files normally.
+
 **Mode:** Builder · **Branch:** `cursor/e2e-testing-readiness-2020`  
 **Baseline:** `main` @ `a1cd5b2` (trial-honesty #144 already landed)
 
@@ -34,7 +39,10 @@ wrong inventory paths, or paused deals that still accepted claims.
 ## How to continue
 
 1. Founder runs updated `docs/ops/founder-e2e-checklist-2026-07-30.md`.
-2. Apply `20260730180000_restore_claim_deal_pause_gate.sql` on target DB.
+2. Apply `20260730180000_restore_claim_deal_pause_gate.sql` on **local or
+   throwaway DBs only** — production already has it (live since 2026-08-04);
+   there, verify the ledger instead (`supabase migration list` should show the
+   version applied).
 3. Leave Bucket C design-ahead work alone until after first E2E.
 
 ## Artifacts

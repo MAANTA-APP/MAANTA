@@ -1,7 +1,9 @@
 -- Version note (repo-branch-audit consolidation 2026-07-30):
 -- Previously shipped in-repo as 20260730160000. Production's migration ledger
 -- already holds version 20260730160000 for the success-fee *notes* migration
--- (repo file 20260730120000_correct_success_fee_config_notes.sql). Matching on
+-- (repo file 20260730160000_correct_success_fee_config_notes.sql — renamed to
+-- match the ledger 2026-08-05, D24; it sat at 20260730120000 when this note
+-- was written). Matching on
 -- version string alone made `supabase db push` silently skip the pause gate.
 -- Renumbered to 20260730180000 — past demo wipe (150000) and reserved slots:
 --   170000 = node_scoped_opening_credit_cap_reland (#143, when landed)
@@ -24,14 +26,16 @@
 --
 -- Numbered past 160000, and the gap is deliberate — do not "tidy" it.
 -- Production's migration ledger already holds version 20260730160000, recorded
--- against a different migration (correct_success_fee_config_notes; the repo
--- carries that one as 20260730120000, which prod in turn assigned to a
--- migration that has no file here at all). `supabase db push` matches on the
--- version string alone, so while this file was numbered 160000 it was treated
--- as already applied and skipped silently — merged, and never live. Renumbering
--- past the ledger is what makes it applicable. See D24 and D25 in
--- docs/maanta-drift-register.md; D24 tracks the underlying ledger divergence,
--- which this file does not fix.
+-- against a different migration (correct_success_fee_config_notes — the repo
+-- and the ledger were reconciled 2026-08-05: that file now sits at
+-- 20260730160000 here too, and prod's once-uncommitted 20260730120000
+-- node_scoped_opening_credit_cap was exported back into this repo).
+-- `supabase db push` matches on the version string alone, so while this file
+-- was numbered 160000 it was treated as already applied and skipped silently —
+-- merged, and never live. Renumbering past the ledger is what made it
+-- applicable; it ultimately went live 2026-08-04 under an MCP-minted version
+-- that was repaired back to this filename on 2026-08-05. See D24 and D25 in
+-- docs/maanta-drift-register.md.
 
 CREATE OR REPLACE FUNCTION public.claim_deal(
   p_user_id uuid,
