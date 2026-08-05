@@ -20,9 +20,9 @@ only in UI hiding.
 
 | Layer | Behaviour |
 |---|---|
-| `claim_deal` RPC | Early `RAISE EXCEPTION 'deal_paused'` when `deals.is_paused` and this is a **new** claim. No redemption row, no money movement. Migration `20260730180000_restore_claim_deal_pause_gate.sql` — **live on prod since 2026-08-04**, applied under ledger version `20260804152939` (D24/D25). |
+| `claim_deal` RPC | Early `RAISE EXCEPTION 'deal_paused'` when `deals.is_paused` and this is a **new** claim. No redemption row, no money movement. Migration `20260730180000_restore_claim_deal_pause_gate.sql` — **live on prod since 2026-08-04** (initially recorded under an MCP-minted ledger version; repaired to this filename 2026-08-05, closing D24). |
 | `verify_redemption` RPC | **Ignores** `is_paused`. Ticket validity = pending + `redemptions.expires_at` (+ Guardian). |
-| `deals_public_browse` | SQL discovery view excludes `is_paused` (`20260730190000_paused_deals_discovery_filter.sql` — live on prod since 2026-08-04 as ledger version `20260804152951`). |
+| `deals_public_browse` | SQL discovery view excludes `is_paused` (`20260730190000_paused_deals_discovery_filter.sql` — live on prod since 2026-08-04; ledger repaired to this filename 2026-08-05). |
 | App rails | `getLiveDeals` → `.eq("is_paused", false)` for feed, browse, map. |
 | Deal detail | Unclaimed + paused → “Deal paused by merchant”, claim disabled. Own live ticket → “View your ticket” (still valid). |
 | My deals / tickets | Redemptions list is pause-agnostic; ticket page leads with “still valid until …”, then notes the merchant paused new claims. |
@@ -55,6 +55,7 @@ Local / CI proof: `supabase/tests/claim_deal_pause_gate_test.sql` (scenarios A�
 
 - **D25** — **closed 2026-08-04**: pause gate applied to production via
   founder-authorized MCP apply and verified by `pg_get_functiondef` read-back.
-  The ledger recorded MCP-minted versions `20260804152939` / `20260804152951`,
-  not the repo filenames — that mismatch is tracked in **D24**.
+  The apply initially recorded MCP-minted ledger versions; on 2026-08-05 the
+  ledger was repaired to the repo filenames `20260730180000` / `20260730190000`
+  and **D24 closed** — filenames and ledger now agree everywhere.
 - **D32** — browse view previously advertised paused deals (closed by `190000`).

@@ -126,8 +126,7 @@ gift sets" (standard).
   during on-site onboarding, or geofence checks will be meaningless.
 - Trial-expiry job scheduling in production not yet confirmed (tracker E11).
 - **Paused-deal claim gate (D25): live on production since 2026-08-04.**
-  Applied via founder-authorized MCP apply as ledger versions `20260804152939`
-  + `20260804152951` (the repo's `20260730180000`/`20260730190000` filenames
-  were never applied under those numbers — D24). Verified by
-  `pg_get_functiondef` read-back: `claim_deal` contains `deal_paused`.
-  Semantics: `docs/skills/paused-deal-semantics.md`.
+  Applied via founder-authorized MCP apply; the ledger was repaired 2026-08-05
+  to the repo filenames `20260730180000`/`20260730190000` (D24 closed).
+  Verified by `pg_get_functiondef` read-back: `claim_deal` contains
+  `deal_paused`. Semantics: `docs/skills/paused-deal-semantics.md`.
