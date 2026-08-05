@@ -229,9 +229,11 @@ deploys:
 - and the disclosure banner is not on any deployed page.
 
 Verify against the deployed site, not against view counts. Two further
-migrations (`20260729170000`, `20260729180000`) ship with this branch and are
-**not yet applied** — `make db-push` is human-run against `axrrslqssmbngbataejg`
-by design.
+migrations (`20260729170000`, `20260729180000`) shipped with this branch and
+were **not yet applied when this was written** — `make db-push` is human-run
+against `axrrslqssmbngbataejg` by design. (As of 2026-08-05 both are applied:
+the migration ledger is fully reconciled with the repo at 85/85 version/name
+pairs — drift **D24**, closed.)
 
 **The backfill asserts an audit that may have aged.** It tags exactly the three
 UUID prefixes measured on 2026-07-29 and raises a `NOTICE` listing any merchant

@@ -226,10 +226,11 @@ Every MAANTA session should leave behind one of:
 ### When working on deal pause, claimability, discovery, or redemption
 
 Treat PR #150 and `docs/skills/paused-deal-semantics.md` as the source of truth
-for paused-deal behavior. Drift status: **D25** = implemented in repo,
-**pending-deploy** (not fully live on production until `db push` +
-`pg_get_functiondef` read-back); **D32** = browse-view filter closed in-repo
-via #150.
+for paused-deal behavior. Drift status (as of 2026-08-05): **D25 closed** — the
+pause gate is **live on production** since 2026-08-04, verified by
+`pg_get_functiondef` read-back, with the ledger repaired to the repo filenames
+`20260730180000`/`20260730190000` on 2026-08-05 (D24 closed); **D32** = the
+browse-view filter, closed via #150 and live in the same apply.
 
 - Read the paused-deal semantics doc first.
 - Confirm current behavior via tests (`claim_deal_pause_gate_test.sql`, related

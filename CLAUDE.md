@@ -17,7 +17,9 @@ closed): production's `schema_migrations` and this repo's
 read-back diff. The `claim_deal` pause gate is **live** (**D25** closed
 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
-assigning it is founder-held, Q14). One caveat survives the reconciliation:
+assigning it is founder-held, Q14, and no DB policy references the role: its
+narrower-than-admin scope is app-enforced only, **D74** open — add RLS before
+the role is ever assigned). One caveat survives the reconciliation:
 **D73** — prod's `20260730120000_node_scoped_opening_credit_cap` was
 overwritten by `20260730130000` before it took effect, so the opening-credit
 cap counts **globally** while that migration's header and the live

@@ -23,11 +23,18 @@ to `maanta-decisions-log.md`, not this file.
 >   2026-08-05.
 > - **D69** — **closed 2026-08-05**: the `cofounder` role CHECK is applied to
 >   production, ledger version `20260804010000` matching the repo filename.
+>   Re-verified live 2026-08-05 (evening): exact string `'cofounder'`, zero
+>   holders. Its narrower-than-admin scope is app-enforced only — no DB policy
+>   references the role — tracked forward as **D74** (open).
 >
 > The schema-side reconciliation (E17) is **done**; the open residue is **D73**
 > (a ledger row whose per-node change was clobbered before it took effect —
-> harmless at one node, real at the second) and the deployment-side promote
-> guard (**D71**). The register rows are the detail.
+> harmless at one node, real at the second), **D74** (the cofounder DB policy
+> layer, required before the role is ever assigned) and the deployment-side
+> promote guard (**D71** — narrowed 2026-08-05: Vercel Authentication is
+> enabled at scope `all_except_custom_domains`, so branch/preview URLs are no
+> longer public; the promote path itself remains ungated). The register rows
+> are the detail.
 >
 > **Updated 2026-08-02 — the *deployment* half is closed.** **D37** (`main` and
 > the deployed commit diverged both ways) closed on 2026-08-01, verified against

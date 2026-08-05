@@ -6,6 +6,13 @@ checklist a human executes.
 
 Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.
 
+> **Correction, 2026-08-05:** the "still needs `db push`" notes below are a
+> dated record from 2026-07-30 and are **done** — the migration ledger was fully
+> reconciled with the repo on 2026-08-05 (85/85 version/name pairs, drift
+> **D24** closed), so every migration this checklist names is applied to
+> production. The do-not-apply table (PR #112 and any non-demo Elite seed)
+> still stands.
+
 ---
 
 ## Intent preserved from Claude’s work
