@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../route";
 
 // Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth allows
@@ -21,8 +21,20 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => ({ rpc: rpcMock }),
 }));
 
+// Chainable service `.from().select().eq().maybeSingle()` for the claim-code
+// email's deal/merchant lookup; `.update().eq()` stays unused (no GPS here).
+const maybeSingleMock = vi.fn();
+const serviceFromMock = vi.fn(() => ({
+  select: () => ({ eq: () => ({ maybeSingle: maybeSingleMock }) }),
+  update: () => ({ eq: vi.fn() }),
+}));
 vi.mock("@/lib/supabase/service", () => ({
-  createServiceClient: () => ({ rpc: vi.fn(), from: vi.fn() }),
+  createServiceClient: () => ({ rpc: vi.fn(), from: serviceFromMock }),
+}));
+
+const sendEmailMock = vi.fn();
+vi.mock("@/lib/resend", () => ({
+  sendEmail: (args: unknown) => sendEmailMock(args),
 }));
 
 vi.mock("@/lib/what3words", () => ({
@@ -92,6 +104,7 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
     await expect(res.json()).resolves.toEqual({
       redemptionId: "red-1",
       expiresAt: "2026-07-24T12:00:00Z",
+      codeEmailed: false,
     });
   });
 
@@ -108,6 +121,98 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
     await expect(res.json()).resolves.toEqual({
       error: "This deal is paused — no new claims right now.",
       code: "deal_paused",
+    });
+  });
+});
+
+// Pre-launch tester option (D74): opt-in email copy of the claim code.
+// The claim is the product action; the email is a convenience — nothing on
+// this path may fail the claim.
+describe("POST /api/redemptions — email code delivery (pre-launch, D74)", () => {
+  const claimData = {
+    redemption_id: "red-1",
+    otp_code: "123456",
+    redemption_expires_at: "2026-07-24T12:00:00Z",
+    merchant_id: "merchant-1",
+    what3words_address: "stove.cactus.rally",
+  };
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasPhoneMock.mockResolvedValue(true);
+    ensureAppUserMock.mockResolvedValue({
+      id: "user-1",
+      email: "tester@example.com",
+    });
+    rpcSingleMock.mockResolvedValue({ data: claimData, error: null });
+    maybeSingleMock.mockResolvedValue({
+      data: {
+        deals: { title: "2-for-1 lunch" },
+        merchants: { merchant_name: "Java House" },
+      },
+    });
+  });
+
+  it("emails the code to the account email when the shopper opts in", async () => {
+    sendEmailMock.mockResolvedValue(true);
+
+    const res = await POST(req({ dealId: "deal-1", emailCode: true }));
+
+    expect(res.status).toBe(200);
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const sent = sendEmailMock.mock.calls[0][0] as {
+      to: string;
+      subject: string;
+      text: string;
+    };
+    expect(sent.to).toBe("tester@example.com");
+    expect(sent.subject).toContain("2-for-1 lunch");
+    // Code appears in the display format the ticket uses.
+    expect(sent.text).toContain("123 456");
+    await expect(res.json()).resolves.toMatchObject({ codeEmailed: true });
+  });
+
+  it("does not email when the shopper does not opt in", async () => {
+    const res = await POST(req({ dealId: "deal-1" }));
+
+    expect(res.status).toBe(200);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({ codeEmailed: false });
+  });
+
+  it("ignores the opt-in when the pre-launch flag is off", async () => {
+    vi.stubEnv("MAANTA_EMAIL_CODE_DELIVERY", "off");
+
+    const res = await POST(req({ dealId: "deal-1", emailCode: true }));
+
+    expect(res.status).toBe(200);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({ codeEmailed: false });
+  });
+
+  it("skips sending when the account has no email on file", async () => {
+    ensureAppUserMock.mockResolvedValue({ id: "user-1", email: null });
+
+    const res = await POST(req({ dealId: "deal-1", emailCode: true }));
+
+    expect(res.status).toBe(200);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toMatchObject({ codeEmailed: false });
+  });
+
+  it("never fails the claim when the email send throws", async () => {
+    sendEmailMock.mockRejectedValue(new Error("resend down"));
+
+    const res = await POST(req({ dealId: "deal-1", emailCode: true }));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      redemptionId: "red-1",
+      codeEmailed: false,
     });
   });
 });

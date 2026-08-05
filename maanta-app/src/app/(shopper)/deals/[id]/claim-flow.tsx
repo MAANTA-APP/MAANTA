@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, StickyCtaBar } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/overlays";
 import { W3wChip } from "@/components/ui/chips";
+import { CheckboxRow } from "@/components/ui/inputs";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import posthog from "posthog-js";
 
@@ -12,6 +13,10 @@ import posthog from "posthog-js";
  * 8h Claim confirm (bottom sheet) → 8y location check in progress → ticket.
  * Location is best-effort: denial or timeout never blocks the claim
  * (geofence flags are recorded server-side at claim time).
+ *
+ * `emailCodeTo` is the pre-launch tester option (D74): when set (feature on +
+ * account has an email), the confirm sheet offers to send a copy of the code
+ * to that address. Null hides the option entirely.
  */
 export function ClaimFlow({
   dealId,
@@ -20,6 +25,7 @@ export function ClaimFlow({
   w3w,
   node,
   signedIn,
+  emailCodeTo,
 }: {
   dealId: string;
   dealTitle: string;
@@ -27,12 +33,14 @@ export function ClaimFlow({
   w3w: string;
   node: string;
   signedIn: boolean;
+  emailCodeTo: string | null;
 }) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
+  const [emailCode, setEmailCode] = useState(false);
 
   function getPosition(): Promise<GeolocationPosition | null> {
     return new Promise((resolve) => {
@@ -64,6 +72,7 @@ export function ClaimFlow({
           dealId,
           lat: pos?.coords.latitude,
           lng: pos?.coords.longitude,
+          emailCode: emailCodeTo ? emailCode : false,
         }),
       });
       const body = await res.json();
@@ -150,6 +159,15 @@ export function ClaimFlow({
           Your code will be valid until the deal expires, plus a 15-minute grace
           period.
         </p>
+        {emailCodeTo ? (
+          <div className="mt-3">
+            <CheckboxRow
+              label={`Also email my code to ${emailCodeTo}`}
+              checked={emailCode}
+              onChange={setEmailCode}
+            />
+          </div>
+        ) : null}
         <Button full className="mt-5" onClick={confirmClaim}>
           Confirm
         </Button>

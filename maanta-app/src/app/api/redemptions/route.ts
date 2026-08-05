@@ -15,9 +15,16 @@ import {
   CLAIM_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
 import { PHONE_REQUIRED_AT_CLAIM } from "@/lib/launch-auth";
+import {
+  claimCodeEmail,
+  emailCodeDeliveryEnabled,
+} from "@/lib/email-code-delivery";
+import { sendEmail } from "@/lib/resend";
 
 export async function POST(request: Request) {
-  const appUser = await ensureAppUser<{ id: string }>("id");
+  const appUser = await ensureAppUser<{ id: string; email: string | null }>(
+    "id, email"
+  );
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
@@ -40,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { dealId, lat, lng } = await request.json();
+  const { dealId, lat, lng, emailCode } = await request.json();
   if (!dealId) {
     return NextResponse.json({ error: "Missing dealId." }, { status: 400 });
   }
@@ -147,6 +154,36 @@ export async function POST(request: Request) {
     }
   }
 
+  // Pre-launch tester option: email the code as a copy of the ticket screen.
+  // Opt-in per claim, gated server-side, account email only. Awaited (Resend
+  // calls carry a 10s deadline) so a serverless response can't cut it off, but
+  // any failure resolves to codeEmailed=false — the claim itself already
+  // succeeded and stays succeeded. See src/lib/email-code-delivery.ts and D74.
+  let codeEmailed = false;
+  if (emailCode === true && emailCodeDeliveryEnabled() && appUser.email) {
+    try {
+      const { data: meta } = await service
+        .from("redemptions")
+        .select("deals(title), merchants(merchant_name)")
+        .eq("id", data.redemption_id)
+        .maybeSingle<{
+          deals: { title: string } | null;
+          merchants: { merchant_name: string } | null;
+        }>();
+      codeEmailed = await sendEmail({
+        to: appUser.email,
+        ...claimCodeEmail({
+          code: data.otp_code,
+          dealTitle: meta?.deals?.title ?? "your claimed deal",
+          merchantName: meta?.merchants?.merchant_name ?? null,
+          expiresAt: data.redemption_expires_at,
+        }),
+      });
+    } catch (err) {
+      console.error("claim code email failed:", err);
+    }
+  }
+
   const clerkUserId = await currentClerkUserId();
   if (clerkUserId) {
     const { data: dealMeta } = await service
@@ -168,5 +205,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     redemptionId: data.redemption_id,
     expiresAt: data.redemption_expires_at,
+    codeEmailed,
   });
 }

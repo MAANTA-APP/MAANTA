@@ -6,6 +6,7 @@ import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { serverPosthogDistinctId } from "@/lib/analytics-identity";
 import { isDealClaimable } from "@/lib/deal-expiry";
+import { emailCodeDeliveryEnabled } from "@/lib/email-code-delivery";
 import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
@@ -220,6 +221,11 @@ export default async function DealDetailPage({
           w3w={m.what3words_address}
           node={m.mall_name ?? deal.node}
           signedIn={!!user}
+          // Pre-launch tester option (D74): offer an email copy of the code
+          // only while the flag is on and the account actually has an email.
+          emailCodeTo={
+            emailCodeDeliveryEnabled() ? (user?.email ?? null) : null
+          }
         />
       ) : existingTicketId ? (
         <StickyCtaBar>
