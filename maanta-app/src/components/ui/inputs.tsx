@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/ui";
+import { COUNTRY_CODES } from "@/lib/country-codes";
 import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
 
 export const inputClass =
@@ -22,12 +23,8 @@ export function TextField({
   );
 }
 
-/** 3a Phone field — country code selectable, defaults Kenya +254. */
-const COUNTRIES = [
-  { name: "Kenya", code: "+254", ready: true },
-  { name: "Norway", code: "+47", ready: false },
-  { name: "Uganda", code: "+256", ready: false },
-];
+/** 3a Phone field — country code selectable, defaults Kenya +254.
+ *  The full list lives in `@/lib/country-codes` (Kenya pinned first). */
 
 export function PhoneField({
   countryCode,
@@ -46,8 +43,12 @@ export function PhoneField({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const filtered = COUNTRIES.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
+  // Match by name or dial code, so "+47", "47" and "nor" all find Norway.
+  const q = query.trim().toLowerCase();
+  const filtered = COUNTRY_CODES.filter(
+    (c) =>
+      c.name.toLowerCase().includes(q) ||
+      c.code.includes(q.startsWith("+") ? q : `+${q}`)
   );
   return (
     <div>
@@ -68,7 +69,7 @@ export function PhoneField({
           type="tel"
           inputMode="tel"
           autoFocus={autoFocus}
-          placeholder="7XX XXX XXX"
+          placeholder={countryCode === "+254" ? "7XX XXX XXX" : "Phone number"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full px-3 text-base text-ink placeholder:text-faint focus:outline-none"
@@ -85,26 +86,29 @@ export function PhoneField({
               className="w-full text-sm focus:outline-none"
             />
           </div>
-          {filtered.map((c) => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => {
-                onCountryCode(c.code);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cream",
-                !c.ready && "text-faint"
-              )}
-            >
-              <span>{c.name}</span>
-              <span className="flex items-center gap-1 font-semibold">
-                {c.code}
-                {countryCode === c.code ? <IconCheck className="h-3.5 w-3.5" /> : null}
-              </span>
-            </button>
-          ))}
+          <div className="max-h-64 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-muted">No country matches your search.</p>
+            ) : (
+              filtered.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => {
+                    onCountryCode(c.code);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-cream"
+                >
+                  <span>{c.name}</span>
+                  <span className="flex items-center gap-1 font-semibold">
+                    {c.code}
+                    {countryCode === c.code ? <IconCheck className="h-3.5 w-3.5" /> : null}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       ) : null}
     </div>
