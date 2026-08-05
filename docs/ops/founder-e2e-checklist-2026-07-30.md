@@ -114,7 +114,7 @@ Supabase: **`axrrslqssmbngbataejg`**. Do **not** confuse this with Playwright CI
 | No opening credit | Already active? Off BBS? Cap / launch window exhausted? Ledger `node0_opening_credit` |
 | Onboard shop name empty | URL must keep `?shop=` through login `next=` |
 | Claim blocked | Shopper phone verification; deal paused/expired; wrong mall cookie |
-| Claim on paused deal succeeds | Local/throwaway DB: migration `20260730180000` missing. Production (live since 2026-08-04): should not happen — confirm you are on `axrrslqssmbngbataejg`, then check the ledger and `pg_get_functiondef(claim_deal)` for `deal_paused`, and register new drift if it is gone |
+| Claim on paused deal succeeds | Local/throwaway DB: migration `20260730180000` missing. Production (live since 2026-08-04): should not happen — confirm you are on `axrrslqssmbngbataejg`, then check the ledger and `SELECT pg_get_functiondef('public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure)` for `deal_paused`, and record the production/repository conflict in `docs/maanta-drift-register.md` if it is absent |
 | Verify fails | Wrong OTP; already verified; merchant not owner/staff / `can_verify` |
 | Fee not debited | Check arrears path (wallet &lt; 30); `success_fee_charged` must be 30 |
 | Empty feed | `maanta_node` cookie; demo filter; service_role grants on local only |
