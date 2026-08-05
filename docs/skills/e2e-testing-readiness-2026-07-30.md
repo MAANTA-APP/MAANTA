@@ -1,5 +1,10 @@
 # Skills: E2E testing readiness (inventory run) — 2026-07-30
 
+> **Correction (2026-08-05):** step "Apply `20260730180000_restore_claim_deal_pause_gate.sql`
+> on target DB" is done for production — landed 2026-08-04 as ledger versions
+> `20260804152939` + `20260804152951` (the 07-30 versions were never applied;
+> see D24/D25). Local/throwaway DBs still apply the repo files normally.
+
 **Mode:** Builder · **Branch:** `cursor/e2e-testing-readiness-2020`  
 **Baseline:** `main` @ `a1cd5b2` (trial-honesty #144 already landed)
 

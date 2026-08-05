@@ -1,0 +1,57 @@
+# Trips when production serves a build that was not created from main.
+#
+# Why this exists (drift D71): Vercel has no project setting that restricts
+# "Promote to Production" to the production branch — POST /v10/projects/:id/
+# promote/:deploymentId works for any READY deployment, and it happened four
+# times (D53 pattern; twice on 2026-08-04 alone). A promote does not rebuild,
+# so a promoted preview keeps the VERCEL_GIT_COMMIT_REF it was built from.
+# /api/healthz exposes that ref publicly (src/lib/health.ts liveness()), which
+# makes "is production serving main?" a one-request check.
+#
+# This is a tripwire, not a lock: it cannot make a promote fail, it makes one
+# loud within 30 minutes. The preventive control is human/dashboard-side and is
+# recorded in the D71 drift-register entry.
+#
+# Failure modes and what they mean:
+#   ref == "main"        → green, nothing to do.
+#   ref != "main"        → a non-main build is serving production. Roll back in
+#                          the Vercel dashboard (Deployments → the newest READY
+#                          main deployment → ⋯ → Promote to Production) and
+#                          record the incident in docs/maanta-drift-register.md.
+#   ref missing/null     → the deployment does not expose git metadata. Enable
+#                          Project Settings → Environment Variables →
+#                          "Automatically expose System Environment Variables"
+#                          on maanta-nuia, then redeploy main. Until then this
+#                          guard cannot verify production and stays red.
+#   healthz unreachable  → treated as failure; investigate production first.
+
+name: prod-branch-guard
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-serves-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Production /api/healthz must report ref == main
+        run: |
+          set -euo pipefail
+          body="$(curl -sS --max-time 30 https://www.maanta.app/api/healthz)"
+          echo "healthz: ${body}"
+          ref="$(echo "${body}" | jq -r '.ref // empty')"
+          commit="$(echo "${body}" | jq -r '.commit // empty')"
+          if [ -z "${ref}" ]; then
+            echo "::error::Production healthz exposes no git ref — cannot verify what production serves. Enable 'Automatically expose System Environment Variables' on the Vercel project and redeploy main. (drift D71)"
+            exit 1
+          fi
+          if [ "${ref}" != "main" ]; then
+            echo "::error::Production is serving a build from '${ref}' (commit ${commit:-unknown}), not main — a branch was promoted to production. Roll back via the Vercel dashboard and record the incident in docs/maanta-drift-register.md. (drift D53/D71 pattern)"
+            exit 1
+          fi
+          echo "Production serves main (commit ${commit:-unknown})."

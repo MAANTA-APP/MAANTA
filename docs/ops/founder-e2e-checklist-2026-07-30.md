@@ -1,5 +1,10 @@
 # Founder E2E checklist — first real pilot walkthrough (2026-07-30)
 
+> **Correction (2026-08-05):** the pause-gate migration this checklist lists as
+> needing apply (`20260730180000`) is live on production since 2026-08-04, as
+> ledger versions `20260804152939` + `20260804152951` (see D24/D25). The
+> "claim on paused deal succeeds" failure mode no longer applies to prod.
+
 Use this for a **disciplined** end-to-end session of the critical pilot journey.
 This is **not** a public-launch checklist. Seed/rehearsal data and demo mode may
 still be on.

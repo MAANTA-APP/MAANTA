@@ -44,26 +44,20 @@ supabase db push --dry-run
 Prefer a **low-traffic window** — the hardening migrations are grant/view/table
 changes and can take brief locks.
 
-### Paused-deal claim gate deploy (D25)
+### Paused-deal claim gate deploy (D25) — LANDED 2026-08-04
 
-Parked checklist — run when ready to touch production. Do **not** treat pause as
-live enforcement on prod until the verify step passes. Canonical semantics:
-`docs/skills/paused-deal-semantics.md` / `CLAUDE.md` (Paused deals).
-
-- **Pre-check:** confirm PR #150 merged and CI tests green.
-- **Run:** `supabase link --project-ref axrrslqssmbngbataejg` if needed, then
-  `supabase db push` from `maanta-app/` (prefer `--dry-run` first). Applies
-  `20260730180000` (claim gate) and `20260730190000` (browse-view pause filter).
-- **Verify on prod:**
-  ```sql
-  SELECT pg_get_functiondef(
-    'public.claim_deal(uuid,uuid,text,extensions.geography)'::regprocedure
-  );
-  -- must contain: RAISE EXCEPTION 'deal_paused'
-  ```
-- **Close:** mark **D25** as `closed` in `docs/maanta-drift-register.md` and
-  update the Paused deals section in `CLAUDE.md` from `pending-deploy` to
-  **live on production**.
+**Done — do not re-run.** The pause gate went live on production on 2026-08-04
+via a founder-authorized MCP apply, recorded in the ledger as
+**`20260804152939 restore_claim_deal_pause_gate`** and
+**`20260804152951 paused_deals_discovery_filter`** (MCP-minted versions). The
+repo files keep their `20260730180000` / `20260730190000` names; those 07-30
+versions were **never applied** and never will be — the version mismatch is
+tracked in **D24**. `db push` would see the 07-30 versions as "pending" and
+re-apply content that is already live: don't. Verified by read-back:
+`pg_get_functiondef(claim_deal)` contains `deal_paused`, `deals_public_browse`
+filters `is_paused`, `verify_redemption` ignores `is_paused`. **D25 is closed.**
+Canonical semantics: `docs/skills/paused-deal-semantics.md` / `CLAUDE.md`
+(Paused deals).
 
 ### The #48–#61 hardening set (must be present after push)
 
@@ -243,15 +237,16 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap |
 | `20260730140000` | `trial_expiry_launch_sentinel_null_guard` | Trial expiry |
 | `20260730150000` | `demo_wipe_audit_trail_retention` | Demo wipe |
-| `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version |
-| `20260730170000` | `node_scoped_opening_credit_cap_reland` | Reserved for pilot sequencing (#143) when landed |
-| `20260730180000` | `restore_claim_deal_pause_gate` | Pause-gate restore (renumbered from `160000` so prod can actually apply it) |
-| `20260730190000` | `paused_deals_discovery_filter` | `deals_public_browse` excludes `is_paused` (SQL mirror of app rails) |
+| `20260730160000` | **RESERVED / production notes ledger alias** | Do not add new files at this version — production's ledger already holds it (as `correct_success_fee_config_notes`) |
+| `20260730170000` | ~~`node_scoped_opening_credit_cap_reland`~~ | **Never used.** The 07-30 reservation is dead; if the cap reland ever ships, number it with a current timestamp |
+| `20260730180000` | `restore_claim_deal_pause_gate` | Repo filename only. **Production applied this content as `20260804152939` on 2026-08-04** — the 07-30 version was never applied (D24) |
+| `20260730190000` | `paused_deals_discovery_filter` | Repo filename only. **Production applied this content as `20260804152951` on 2026-08-04** — the 07-30 version was never applied (D24) |
+| `20260804010000` | `cofounder_role` | Adds `'cofounder'` to `users_role_check`. Applied to production 2026-08-05 under the **same** version (ledger repaired to match the repo filename — D24 did not widen) |
 
-When adding a new 07-30 (or later) migration, pick a version **strictly after**
-the highest row above that is already on `main` *and* confirm with
-`supabase migration list` that production does not already hold that number
-under a different name.
+When adding a new migration, pick a version **strictly after** the highest row
+above that is already on `main` *and* confirm against production's ledger
+(`supabase migration list`, or the MCP `list_migrations`) that production does
+not already hold that number under a different name.
 
 ## Status note (2026-07-28)
 

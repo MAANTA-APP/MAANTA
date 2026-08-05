@@ -15,8 +15,11 @@ still on. **Production is not a clean mirror of `main`** — its migration ledge
 and this repo disagree on **four** version numbers (**D24**, widened 2026-08-04
 by the D25 apply). The `claim_deal` pause gate itself is now **live** (**D25**
 closed 2026-08-04 by a founder-authorized MCP apply, verified by
-`pg_get_functiondef` read-back). Do not describe the schema as aligned; check
-D24 first.
+`pg_get_functiondef` read-back). The `cofounder` role CHECK is also live
+(**D69** closed 2026-08-05, applied under ledger version `20260804010000`
+matching the repo filename, so D24 did not widen further; no user holds the
+role — assigning it is founder-held, Q14). Do not describe the schema as
+aligned; check D24 first.
 
 The *deployment* is aligned as of 2026-08-01: production serves `main` again
 (**D37** closed, verified against the Vercel deployment rather than assumed). It

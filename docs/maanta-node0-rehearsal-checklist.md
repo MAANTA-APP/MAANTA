@@ -125,8 +125,9 @@ gift sets" (standard).
 - Seeded what3words addresses are placeholders; replace with each shop's real ///address
   during on-site onboarding, or geofence checks will be meaningless.
 - Trial-expiry job scheduling in production not yet confirmed (tracker E11).
-- **Paused-deal claim gate (D25):** repo has `20260730180000` + browse filter
-  `20260730190000`, but production only reflects them after a human
-  `supabase db push`. Until then, do not treat pause as live enforcement on
-  prod. Semantics: `docs/skills/paused-deal-semantics.md`. Verify with
-  `pg_get_functiondef` for `claim_deal` containing `deal_paused`.
+- **Paused-deal claim gate (D25): live on production since 2026-08-04.**
+  Applied via founder-authorized MCP apply as ledger versions `20260804152939`
+  + `20260804152951` (the repo's `20260730180000`/`20260730190000` filenames
+  were never applied under those numbers — D24). Verified by
+  `pg_get_functiondef` read-back: `claim_deal` contains `deal_paused`.
+  Semantics: `docs/skills/paused-deal-semantics.md`.
