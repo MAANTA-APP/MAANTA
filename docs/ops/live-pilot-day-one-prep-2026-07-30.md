@@ -10,8 +10,11 @@ Session runbook: `docs/ops/live-pilot-3-person-2026-07-30.md`.
 > dated record from 2026-07-30 and are **done** — the migration ledger was fully
 > reconciled with the repo on 2026-08-05 (85/85 version/name pairs, drift
 > **D24** closed), so every migration this checklist names is applied to
-> production. The do-not-apply table (PR #112 and any non-demo Elite seed)
-> still stands.
+> production. The version table below has also been corrected to the post-D24
+> numbering (the notes migration is `20260730160000`, not `20260730120000`,
+> which now names the node-scoped cap — `docs/ops/supabase-migrations.md` is
+> the canonical map). The do-not-apply table (PR #112 and any non-demo Elite
+> seed) still stands.
 
 ---
 
@@ -66,7 +69,7 @@ supabase db push                 # apply in order
 
 | Version | Source | What it does |
 |---|---|---|
-| `20260730120000` | #135 (main) | Correct success-fee config notes (metadata) |
+| `20260730160000` | #135 (main) | Correct success-fee config notes (metadata). *Corrected 2026-08-05: this row originally said `20260730120000`, the file's number when this was written; the D24 reconciliation renamed it to `20260730160000` to match prod's ledger, and `20260730120000` is now `node_scoped_opening_credit_cap` — see the canonical map in `docs/ops/supabase-migrations.md`* |
 | `20260730130000` | #135 (main) | Elite trial first-100 cap + `elite_trial_cap_status()` |
 | `20260730140000` | #139 (merged) | Trial-expiry launch-sentinel NULL guard |
 | `20260730150000` | #140 (merged) | Demo-wipe Option C audit retention |
