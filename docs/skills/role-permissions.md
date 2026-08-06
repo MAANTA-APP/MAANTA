@@ -1,7 +1,11 @@
 # Skills: Role & permissions
 
-Last updated: 2026-08-04 · Status: **shipped in code**; the `cofounder` role is
-**pending-deploy** — see drift **D69**.
+Last updated: 2026-08-05 · Status: **shipped in code and live on production** —
+the `cofounder` CHECK was applied 2026-08-05 and read back (drift **D69**,
+closed; ledger version `20260804010000` matches the repo filename). No user
+holds the role. Its narrower-than-admin scope is **app-enforced only** — no
+database policy references `cofounder` — tracked as drift **D74** (open): add
+the RLS/policy layer before the role is ever assigned.
 
 Full persona walkthrough: `docs/skills/role-functionality-review-2026-07-29.md`.
 
@@ -36,7 +40,12 @@ narrower than full admin, which was the stated condition for adding the value.
 Adding the enum value grants nothing at the database level. RLS policies are
 written as `current_user_role() = 'admin'` and do not match `cofounder`;
 `supabase/tests/cofounder_role_test.sql` asserts that no policy names the role
-and that a co-founder cannot promote itself to admin.
+and that a co-founder cannot promote itself to admin. Verified against
+production 2026-08-05: a sweep of `pg_policies`, `pg_proc` and table grants
+found zero objects referencing the role. That means every narrowing above is
+**app-layer only** — drift **D74** requires a DB policy layer (and the
+inversion of that test assertion) to land before the role is assigned to
+anyone.
 
 ## Merchant staff permissions
 
@@ -94,9 +103,11 @@ UPDATE public.users SET role = 'admin'     WHERE email = 'founder@example.com';
 UPDATE public.users SET role = 'cofounder' WHERE email = 'cofounder@example.com';
 ```
 
-The `cofounder` statement fails with a CHECK violation until
-`20260804010000_cofounder_role.sql` has been applied to that database. On
-production that apply is a human step — see `docs/ops/supabase-migrations.md` and
-drift **D69**.
+The `cofounder` statement fails with a CHECK violation on any database that has
+not applied `20260804010000_cofounder_role.sql`. **As of 2026-08-05 production
+has it** (D69 closed, verified by `pg_get_constraintdef` read-back), so the
+statement would succeed there — which is exactly why it must not be run yet:
+assignment is founder-held (Q14), and drift **D74** (the missing DB policy
+layer) must close first.
 
 Or use the rehearsal seed accounts documented in `/demo` and `docs/ops/test-accounts.md`.
