@@ -181,12 +181,6 @@ export const IconWhatsApp = (p: IconProps) => (
     <path d="M9 8.8c0 3.4 2.8 6.2 6.2 6.2l.8-1.8-2-1-1 .8a4.6 4.6 0 0 1-2-2l.8-1-1-2z" />
   </Svg>
 );
-export const IconClock = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M12 7.5V12l3 2" />
-  </Svg>
-);
 export const IconBackspace = (p: IconProps) => (
   <Svg {...p}>
     <path d="M10 5h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-7-7z" />

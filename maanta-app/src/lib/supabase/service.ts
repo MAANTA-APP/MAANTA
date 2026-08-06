@@ -23,8 +23,3 @@ export function createServiceClient(): SupabaseClient {
   });
   return cached;
 }
-
-/** Test-only: drop the cached client so env changes are picked up. */
-export function resetServiceClientForTests(): void {
-  cached = null;
-}

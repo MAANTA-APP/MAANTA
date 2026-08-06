@@ -36,8 +36,6 @@ function SupabaseSignOutButton() {
   );
 }
 
-export function SignOutButton() {
+export default function SignOutButton() {
   return isClerkAuthClient() ? <ClerkSignOutButton /> : <SupabaseSignOutButton />;
 }
-
-export default SignOutButton;

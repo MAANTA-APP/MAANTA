@@ -39,10 +39,10 @@ export type DealCharge = {
   value: number;
 };
 
-export const MAX_CHARGES = 10;
-export const MAX_CHARGE_LABEL_LENGTH = 80;
-export const MAX_FIXED_CHARGE_KES = 1_000_000;
-export const MAX_PERCENT_CHARGE = 100;
+const MAX_CHARGES = 10;
+const MAX_CHARGE_LABEL_LENGTH = 80;
+const MAX_FIXED_CHARGE_KES = 1_000_000;
+const MAX_PERCENT_CHARGE = 100;
 
 /** Resolve a single charge to whole KES against the deal price. */
 export function chargeAmount(charge: DealCharge, priceKes: number): number {
@@ -113,7 +113,17 @@ export function dealPricing(deal: {
   return { pay, was, extras, charges };
 }
 
-/** "Includes KES 122 in taxes and charges" — the one-line extras summary. */
+/**
+ * "Includes KES 122 in taxes and charges" — the one-line extras summary, from a
+ * precomputed extras total in whole KES. Every surface that shows the summary
+ * renders this string, so the wording cannot drift between tiles, detail,
+ * tickets and the merchant preview.
+ */
+export function extrasLine(total: number): string {
+  return `Includes KES ${total.toLocaleString("en-KE")} in taxes and charges`;
+}
+
+/** The one-line extras summary from a price + charge list, or null when there are no extras. */
 export function extrasSummary(
   priceKes: number | null | undefined,
   charges: DealCharge[] = []
@@ -121,5 +131,5 @@ export function extrasSummary(
   if (priceKes == null) return null;
   const total = extrasTotal(charges, priceKes);
   if (total <= 0) return null;
-  return `Includes KES ${total.toLocaleString("en-KE")} in taxes and charges`;
+  return extrasLine(total);
 }

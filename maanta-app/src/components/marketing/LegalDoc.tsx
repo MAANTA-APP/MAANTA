@@ -104,7 +104,7 @@ const slugify = (s: string) =>
     .replace(/\s+/g, "-");
 
 /** Headings, for the generated table of contents. */
-export function extractHeadings(markdown: string): { id: string; text: string }[] {
+function extractHeadings(markdown: string): { id: string; text: string }[] {
   return markdown
     .split("\n")
     .filter((l) => l.startsWith("## "))

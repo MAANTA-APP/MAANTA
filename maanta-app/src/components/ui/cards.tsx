@@ -1,17 +1,15 @@
 import Link from "next/link";
-import { cn, formatCode, formatKesSigned, friendlyTime, relativeAge } from "@/lib/ui";
+import { cn, friendlyTime, relativeAge } from "@/lib/ui";
+import { extrasLine } from "@/lib/pricing";
 import {
   CountdownChip,
   FlashTag,
   BoostedTag,
-  PlanChip,
   StatusChip,
-  W3wChip,
   LiveChip,
   ComingSoonChip,
 } from "@/components/ui/chips";
-import { IconCheck, IconChevronRight, IconPin, IconImage } from "@/components/ui/icons";
-import { ButtonLink } from "@/components/ui/button";
+import { IconCheck, IconChevronRight, IconImage } from "@/components/ui/icons";
 
 export function CoverImage({
   src,
@@ -45,91 +43,6 @@ export function CoverImage({
           the deal/shop name, so the placeholder needs no accessible name. */}
       <IconImage className="h-7 w-7" />
     </div>
-  );
-}
-
-/** 1a Deal card (vertical) — feed "Deals Near Me". */
-export function DealCardVertical({
-  href,
-  imageUrl,
-  merchantName,
-  floor,
-  title,
-  dealType,
-  boosted = false,
-  verifiedCount,
-  expiresAt,
-  pay,
-  wasKes,
-  extras,
-}: {
-  href: string;
-  imageUrl: string | null;
-  merchantName: string;
-  floor: string | null;
-  title: string;
-  dealType: "standard" | "flash";
-  boosted?: boolean;
-  verifiedCount: number;
-  expiresAt?: string | null;
-  pay?: number | null;
-  wasKes?: number | null;
-  extras?: number | null;
-}) {
-  return (
-    <Link
-      href={href}
-      className="block overflow-hidden rounded-card border border-line bg-white transition hover:shadow-md motion-safe:active:scale-[0.99]"
-    >
-      <div className="relative h-40 bg-cream">
-        <CoverImage src={imageUrl} alt={title} />
-        <div className="absolute left-3 top-3 flex gap-1.5">
-          {dealType === "flash" ? <FlashTag /> : null}
-          {boosted ? <BoostedTag /> : null}
-        </div>
-        {expiresAt ? (
-          <div className="absolute bottom-3 left-3">
-            <CountdownChip expiresAt={expiresAt} className="bg-white/95" />
-          </div>
-        ) : null}
-      </div>
-      <div className="space-y-1.5 p-4">
-        <p className="text-xs text-muted">
-          {merchantName}
-          {floor ? ` · ${floor}` : ""}
-        </p>
-        <h3 className="text-base font-bold leading-snug text-ink">{title}</h3>
-        {pay != null ? (
-          <div className="flex items-baseline gap-2 pt-0.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">
-              You pay
-            </span>
-            <span className="tnum text-lg font-bold text-ink">
-              KES {pay.toLocaleString("en-KE")}
-            </span>
-            {wasKes != null ? (
-              <span className="tnum text-xs text-secondary line-through">
-                KES {wasKes.toLocaleString("en-KE")}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        {/* S1 — one-line extras summary (brief §4: everywhere except deal
-            detail). text-secondary is the money-context token, never `muted`. */}
-        {pay != null && extras != null && extras > 0 ? (
-          <p className="tnum text-[11px] text-secondary">
-            Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
-          </p>
-        ) : null}
-        <div className="flex items-center gap-2 pt-0.5">
-          <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
-          <span className="flex items-center gap-1 text-xs font-medium text-ink">
-            <IconCheck className="h-3.5 w-3.5 text-verified" />
-            {verifiedCount} verified redemptions
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }
 
@@ -170,7 +83,7 @@ export function DealCardHorizontal({
         {/* S1 — one-line extras summary (brief §4). */}
         {pay != null && extras != null && extras > 0 ? (
           <p className="tnum mt-0.5 text-[11px] leading-snug text-secondary">
-            Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
+            {extrasLine(extras)}
           </p>
         ) : null}
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
@@ -179,61 +92,6 @@ export function DealCardHorizontal({
         </p>
       </div>
     </Link>
-  );
-}
-
-/** 1c Ticket card — thick black border, cream fill, big mono code. */
-export function TicketCard({
-  merchantName,
-  floor,
-  code,
-  expiryLabel,
-  w3w,
-  navigateHref,
-  className,
-}: {
-  merchantName: string;
-  floor: string | null;
-  code: string;
-  expiryLabel: React.ReactNode;
-  w3w: string | null;
-  navigateHref?: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "animate-r3 rounded-2xl border-[2.5px] border-brand bg-white p-5 text-center",
-        className
-      )}
-    >
-      <p className="text-xs font-medium text-muted">
-        {merchantName}
-        {floor ? ` · ${floor}` : ""}
-      </p>
-      <p className="font-code mt-2 text-4xl font-medium tracking-[0.14em] text-ink">
-        {formatCode(code)}
-      </p>
-      <p className="mt-2 text-xs font-semibold text-rust">{expiryLabel}</p>
-      {w3w ? (
-        <div className="mt-3 flex justify-center">
-          <W3wChip address={w3w} />
-        </div>
-      ) : null}
-      {navigateHref ? (
-        <ButtonLink
-          href={navigateHref}
-          variant="ghost"
-          size="sm"
-          full
-          className="mt-4 bg-transparent"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Navigate
-        </ButtonLink>
-      ) : null}
-    </div>
   );
 }
 
@@ -487,71 +345,3 @@ export function ShopCard({
   );
 }
 
-/** 1m Transaction card rows */
-export function TransactionRow({
-  href,
-  title,
-  when,
-  amount,
-}: {
-  href?: string;
-  title: string;
-  when: string;
-  amount: number;
-}) {
-  const inner = (
-    <>
-      <div>
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <p className="mt-0.5 text-xs text-muted">{friendlyTime(when)}</p>
-      </div>
-      <span
-        className={cn(
-          "text-sm font-bold",
-          amount >= 0 ? "text-verified" : "text-ink"
-        )}
-      >
-        {formatKesSigned(amount)}
-      </span>
-    </>
-  );
-  const cls =
-    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left";
-  if (href) {
-    return (
-      <Link href={href} className={cn(cls, "hover:bg-cream/50")}>
-        {inner}
-      </Link>
-    );
-  }
-  return <div className={cls}>{inner}</div>;
-}
-
-/** Location line: "Fabric House · Floor 2 · ///stove.cactus.rally" */
-export function LocationLine({
-  merchantName,
-  floor,
-  w3w,
-  className,
-}: {
-  merchantName: string;
-  floor: string | null;
-  w3w: string | null;
-  className?: string;
-}) {
-  return (
-    <p className={cn("flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted", className)}>
-      <span className="flex items-center gap-1">
-        <IconPin className="h-3.5 w-3.5" />
-        {merchantName}
-      </span>
-      {floor ? <span>· {floor}</span> : null}
-      {w3w ? (
-        <>
-          <span>·</span>
-          <W3wChip address={w3w} />
-        </>
-      ) : null}
-    </p>
-  );
-}

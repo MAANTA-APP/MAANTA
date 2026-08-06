@@ -13,7 +13,7 @@ export type BrowseChipFilter =
   | "today";
 
 /** Deals expiring within this window qualify for the Expiring soon chip. */
-export const ENDING_SOON_HOURS = 6;
+const ENDING_SOON_HOURS = 6;
 
 const BROWSE_CHIP_FILTERS: BrowseChipFilter[] = [
   "all",
@@ -69,10 +69,7 @@ export function isLiveNow(d: DealRow, now = new Date()): boolean {
   return t <= graceEnd;
 }
 
-/** @deprecated Use isLiveNow */
-export const isCollectNow = isLiveNow;
-
-export function isCollectToday(d: DealRow, now = new Date()): boolean {
+function isCollectToday(d: DealRow, now = new Date()): boolean {
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now);

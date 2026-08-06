@@ -1,5 +1,5 @@
 import {
-  BackToProfileLink,
+  BackToYouLink,
   Body,
   HeadingLg,
   Page,
@@ -17,7 +17,7 @@ export default function YouHelpPage() {
   return (
     <Page className="px-0 pt-4">
       <div className="px-4">
-        <BackToProfileLink />
+        <BackToYouLink />
         <HeadingLg className="mt-4">Help</HeadingLg>
         <Body className="mt-1">Answers and a line to WhatsApp support.</Body>
       </div>

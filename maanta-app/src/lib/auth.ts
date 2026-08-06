@@ -22,15 +22,6 @@ import {
 import type { AppRole } from "@/lib/roles";
 export type { AppRole };
 
-/** External auth subject for the current request, or null when signed out. */
-export async function currentAuthSubjectId(): Promise<string | null> {
-  if (isSupabaseAuth()) {
-    return currentSupabaseAuthUserId();
-  }
-  const { userId } = await auth();
-  return userId ?? null;
-}
-
 /** Clerk user id — null when signed out or when not using the Clerk strategy. */
 export async function currentClerkUserId(): Promise<string | null> {
   if (!isClerkAuth()) return null;

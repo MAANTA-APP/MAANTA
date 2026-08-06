@@ -61,26 +61,6 @@ export function IconButton({
   );
 }
 
-/** Neutral informational chip. */
-export function Chip({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full bg-stone-soft px-2.5 py-1 text-[11px] font-semibold text-ink",
-        className
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 /** Toggleable filter chip (Browse category / time). */
 export function FilterChip({
   children,
@@ -307,8 +287,6 @@ export function BackToYouLink({ className }: { className?: string }) {
   return <BackButton fallback="/you" className={className} />;
 }
 
-/** @deprecated Use BackToYouLink — kept for gradual migration. */
-export const BackToProfileLink = BackToYouLink;
 
 /** Current location pill — Discover / Browse top bar. */
 export function LocationPill({

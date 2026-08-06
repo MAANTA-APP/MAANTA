@@ -79,10 +79,3 @@ export function loadLegalDoc(slug: LegalSlug): string {
   const file = path.join(process.cwd(), "src", "content", "legal", FILES[slug]);
   return readFileSync(file, "utf8");
 }
-
-/** Every token still unresolved in a document, for the implementation report. */
-export function unresolvedTokens(markdown: string): string[] {
-  const found = markdown.match(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g) ?? [];
-  const names = found.map((t) => t.replace(/[{}\s]/g, ""));
-  return Array.from(new Set(names)).filter((t) => !(t in RESOLVED_TOKENS));
-}

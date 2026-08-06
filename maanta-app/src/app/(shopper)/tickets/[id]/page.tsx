@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { formatCode } from "@/lib/ui";
-import { dealPricing } from "@/lib/pricing";
+import { dealPricing, extrasLine } from "@/lib/pricing";
 import { W3wChip, ClaimChip } from "@/components/ui/chips";
 import { ButtonLink } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -218,9 +218,7 @@ export default async function TicketPage({
             KES {pay.toLocaleString("en-KE")}
           </div>
           {priced.extras > 0 ? (
-            <div className="tnum mt-0.5 text-sm text-secondary">
-              Includes KES {priced.extras.toLocaleString("en-KE")} in taxes and charges
-            </div>
+            <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(priced.extras)}</div>
           ) : null}
           {priced.was != null ? (
             <div className="tnum text-sm text-secondary line-through">
