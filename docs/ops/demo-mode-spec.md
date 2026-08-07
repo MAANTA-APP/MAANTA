@@ -44,6 +44,13 @@ A realistic-looking licence number — something like `CBK/PSP/2026/0147` — is
 
 Every one must render inside `<PlaceholderId>`, which applies a monospace face, a dotted underline, and a `Placeholder` badge. Never as plain text.
 
+> **Implementation note (2026-08-07, drift D75):** this rule was unwired for the
+> first weeks of the site's life — `<PlaceholderId>` had no importers and the
+> privacy policy hardcoded a transposed `DEMO-ODPC-…` literal that did not even
+> match the `/-DEMO-/` net below. Wired in per founder ruling: identifier tokens
+> route through the component in `LegalDoc.tsx`, and the rule is now guarded by
+> `maanta-app/src/lib/__tests__/prelaunch-disclosures.test.ts`.
+
 ### ✅ DECIDED 2026-07-31 — build the regulatory status block, not the CBK placeholder
 
 MAANTA may not need CBK authorisation at all — if the merchant wallet is closed-loop prepaid credit spendable only on MAANTA's own fees, it is arguably not e-money. Showing even a placeholder CBK licence advertises a requirement you may never have. **Use the block below instead.** The `PLACEHOLDER_IDS` constants stay in the codebase for the company and PIN fields, but no CBK licence identifier is rendered anywhere.

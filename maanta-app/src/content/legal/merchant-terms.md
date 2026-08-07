@@ -65,6 +65,10 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **6.5** Rejecting codes repeatedly for valid claims may lead to suspension under clause 12. Publishing offers you do not intend to honour damages every shop on the platform.
 
+## Regulatory status — pre-launch
+
+{{REGULATORY_STATUS}}
+
 ## 7. Fees and your balance
 
 **7.1 Success fee.** You pay **KES 30** for each verified redemption. The amount is the same regardless of the value of the sale. We take no percentage of any sale.

@@ -17,13 +17,16 @@ closed): production's `schema_migrations` and this repo's
 read-back diff. The `claim_deal` pause gate is **live** (**D25** closed
 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
-assigning it is founder-held, Q14, and no DB policy references the role: its
-narrower-than-admin scope is app-enforced only, **D74** open — add RLS before
-the role is ever assigned). One caveat survives the reconciliation:
-**D73** — prod's `20260730120000_node_scoped_opening_credit_cap` was
-overwritten by `20260730130000` before it took effect, so the opening-credit
-cap counts **globally** while that migration's header and the live
-`app_config` notes say per-node. Harmless with one node; must be relanded
+assigning it is founder-held, Q14). The role's DB policy layer is **written
+but not yet applied** (**D74** pending-deploy since 2026-08-07:
+`20260807161000_cofounder_read_policies.sql`, SELECT-only read scope — a
+human applies it before the role is ever assigned). One caveat survives the
+reconciliation: **D73** (pending-deploy) — prod's
+`20260730120000_node_scoped_opening_credit_cap` was overwritten by
+`20260730130000` before it took effect, so the **live** opening-credit cap
+counts **globally** while the live `app_config` notes say per-node. The
+reland exists in the repo (`20260807160000_reland_node_scoped_opening_credit_cap.sql`)
+and awaits the human production apply; harmless with one node, required
 before a second node launches. Like deployment alignment, treat ledger
 alignment as a thing to re-check, not a settled state.
 
@@ -68,7 +71,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod 2026-08-05, closed drift **D24**; caveat: the node-scoped cap migration is in the chain but not in effect — **D73**) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod 2026-08-05, closed drift **D24**; two migrations await the human prod apply: the **D73** per-node cap reland `20260807160000` and the **D74** cofounder read policies `20260807161000`) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
