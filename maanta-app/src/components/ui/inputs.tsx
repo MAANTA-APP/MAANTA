@@ -321,37 +321,6 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-/** Filter chip row (10d Today/Week/All, 10u All/Top-ups/Fees/Boosts, 11d reasons) */
-export function ChipTabs<T extends string>({
-  options,
-  value,
-  onChange,
-  className,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (v: T) => void;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex flex-wrap gap-2", className)}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "rounded-full px-3.5 py-1.5 text-xs font-semibold",
-            value === o.value ? "bg-ink text-white" : "bg-cream text-muted hover:bg-cream-dark"
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** 3h Checkbox row */
 export function CheckboxRow({
   label,

@@ -6,6 +6,7 @@ import { CountdownChip } from "@/components/ui/chips";
 import { FavouriteButton } from "@/components/favourite-button";
 import { HeadingSm, Meta, Label } from "@/components/ui/claude/typography";
 import { cn } from "@/lib/ui";
+import { extrasLine } from "@/lib/pricing";
 
 export type DealRailBadge = "flash" | "boosted" | "standard" | null;
 
@@ -122,9 +123,7 @@ export function DealCard({
               </div>
             ) : null}
             {pay != null && extras != null && extras > 0 ? (
-              <p className="tnum text-[11px] text-secondary">
-                Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
-              </p>
+              <p className="tnum text-[11px] text-secondary">{extrasLine(extras)}</p>
             ) : null}
           </div>
         </Link>
@@ -180,6 +179,3 @@ export function DealCard({
     </article>
   );
 }
-
-/** Back-compat alias used by earlier Discover wiring. */
-export const DiscoverDealCard = DealCard;

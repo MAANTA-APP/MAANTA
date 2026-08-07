@@ -83,7 +83,7 @@ export function SectionHeading({
 }
 
 /** Primary action. The one amber element on a page. */
-export function CtaPrimary({
+function CtaPrimary({
   href,
   children,
   className = "",
@@ -111,7 +111,7 @@ export function CtaPrimary({
 }
 
 /** Secondary action — outlined, never filled, so it cannot compete with the CTA. */
-export function CtaSecondary({
+function CtaSecondary({
   href,
   children,
   tone = "dark",

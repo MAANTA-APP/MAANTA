@@ -15,7 +15,7 @@ function formatDurationParts(ms: number): { hours: number; minutes: number } {
 }
 
 /** "Expires in 2h 14m" */
-export function formatExpiresIn(expiresAt: Date, now: Date): string {
+function formatExpiresIn(expiresAt: Date, now: Date): string {
   const ms = expiresAt.getTime() - now.getTime();
   if (ms <= 0) return "Expired";
   const { hours, minutes } = formatDurationParts(ms);
@@ -25,7 +25,7 @@ export function formatExpiresIn(expiresAt: Date, now: Date): string {
 }
 
 /** "Grace period: 12 minutes left" */
-export function formatGraceLeft(graceEndsAt: Date, now: Date): string {
+function formatGraceLeft(graceEndsAt: Date, now: Date): string {
   const ms = graceEndsAt.getTime() - now.getTime();
   if (ms <= 0) return "Expired";
   const { hours, minutes } = formatDurationParts(ms);

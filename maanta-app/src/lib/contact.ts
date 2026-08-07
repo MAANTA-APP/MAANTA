@@ -21,7 +21,7 @@ export const CONTACT_TOPICS = [
 
 export type ContactTopic = (typeof CONTACT_TOPICS)[number]["slug"];
 
-export const CONTACT_TOPIC_SLUGS = CONTACT_TOPICS.map((t) => t.slug) as readonly string[];
+const CONTACT_TOPIC_SLUGS = CONTACT_TOPICS.map((t) => t.slug) as readonly string[];
 
 /** Unknown or absent `?topic=` falls back to the general queue rather than erroring. */
 export function normaliseTopic(raw: string | null | undefined): ContactTopic | "general" {
@@ -29,7 +29,7 @@ export function normaliseTopic(raw: string | null | undefined): ContactTopic | "
   return (CONTACT_TOPIC_SLUGS as string[]).includes(raw) ? (raw as ContactTopic) : "general";
 }
 
-export function topicLabel(topic: ContactTopic | "general"): string {
+function topicLabel(topic: ContactTopic | "general"): string {
   return CONTACT_TOPICS.find((t) => t.slug === topic)?.label ?? "General enquiry";
 }
 
@@ -42,8 +42,8 @@ export type ContactSubmission = {
   topic: ContactTopic | "general";
 };
 
-export const CONTACT_MESSAGE_MAX = 5_000;
-export const CONTACT_FIELD_MAX = 200;
+const CONTACT_MESSAGE_MAX = 5_000;
+const CONTACT_FIELD_MAX = 200;
 
 /**
  * Validate without being precious about the format. The live form's field is

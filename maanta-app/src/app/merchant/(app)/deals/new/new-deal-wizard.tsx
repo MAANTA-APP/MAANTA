@@ -8,7 +8,7 @@ import { ImageUploader, TextField, FlashSlider, inputClass } from "@/components/
 import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/components/ui/icons";
 import { PlanChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
-import { extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
+import { extrasLine, extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 
 type Step = "type" | "details" | "price" | "schedule" | "review";
 type ChargeDraft = { id: string; label: string; type: "fixed" | "percent"; value: string };
@@ -447,9 +447,7 @@ export function NewDealWizard({
                 You pay KES {previewPay.toLocaleString("en-KE")}
               </p>
               {previewExtras > 0 ? (
-                <p className="tnum mt-0.5 text-xs text-secondary">
-                  Includes KES {previewExtras.toLocaleString("en-KE")} in taxes and charges
-                </p>
+                <p className="tnum mt-0.5 text-xs text-secondary">{extrasLine(previewExtras)}</p>
               ) : null}
             </div>
           ) : null}
@@ -538,7 +536,7 @@ export function NewDealWizard({
             </div>
             {previewExtras > 0 ? (
               <p className="tnum mt-1 text-right text-xs text-secondary">
-                Includes KES {previewExtras.toLocaleString("en-KE")} in taxes and charges
+                {extrasLine(previewExtras)}
               </p>
             ) : null}
           </div>

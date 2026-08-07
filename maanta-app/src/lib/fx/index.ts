@@ -16,10 +16,6 @@ export { staticFallbackProvider, FALLBACK_KES_PER_UNIT } from "./fallback";
  */
 const DEFAULT_CHAIN: readonly FxRateProvider[] = [openErApiProvider, staticFallbackProvider];
 
-export function fxProviders(): readonly FxRateProvider[] {
-  return DEFAULT_CHAIN;
-}
-
 /**
  * KES per 1 unit of `currency`, resolved by trying each provider in `chain` in
  * order and taking the first positive answer. Returns null only if no provider

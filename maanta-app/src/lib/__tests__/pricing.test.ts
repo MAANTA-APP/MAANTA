@@ -4,6 +4,7 @@ import {
   extrasTotal,
   youPay,
   parseCharges,
+  extrasLine,
   extrasSummary,
   dealPricing,
   type DealCharge,
@@ -41,6 +42,14 @@ describe("pricing — YOU PAY", () => {
   it("summarises extras as one line", () => {
     expect(extrasSummary(450, CHARGES)).toBe("Includes KES 122 in taxes and charges");
     expect(extrasSummary(450, [])).toBeNull();
+  });
+
+  it("renders the extras line identically from a precomputed total", () => {
+    // extrasLine is what every surface renders; it must match extrasSummary
+    // exactly, including the en-KE thousands separator.
+    expect(extrasLine(122)).toBe("Includes KES 122 in taxes and charges");
+    expect(extrasLine(1500)).toBe("Includes KES 1,500 in taxes and charges");
+    expect(extrasLine(extrasTotal(CHARGES, 450))).toBe(extrasSummary(450, CHARGES));
   });
 
   it("rounds each charge to whole KES independently", () => {

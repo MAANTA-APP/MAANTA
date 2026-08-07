@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
-import { dealPricing, chargeAmount } from "@/lib/pricing";
+import { dealPricing, chargeAmount, extrasLine } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { serverPosthogDistinctId } from "@/lib/analytics-identity";
@@ -161,9 +161,7 @@ export default async function DealDetailPage({
               KES {pay.toLocaleString("en-KE")}
             </div>
             {extras > 0 ? (
-              <div className="tnum mt-0.5 text-sm text-secondary">
-                Includes KES {extras.toLocaleString("en-KE")} in taxes and charges
-              </div>
+              <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(extras)}</div>
             ) : null}
             {was != null ? (
               <div className="tnum text-sm text-secondary line-through">

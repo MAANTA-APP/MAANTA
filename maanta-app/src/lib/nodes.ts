@@ -59,11 +59,6 @@ export const ALL_NODES = "all";
 export const NODE_COOKIE = "maanta_node";
 export const DEFAULT_NODE = "BBS Mall";
 
-export function nodeShortLabel(id: string) {
-  if (id === ALL_NODES) return "All nodes";
-  return NODES.find((n) => n.id === id)?.short ?? id;
-}
-
 export function nodeLabel(id: string) {
   if (id === ALL_NODES) return "All nodes";
   return NODES.find((n) => n.id === id)?.label ?? id;
