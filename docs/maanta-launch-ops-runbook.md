@@ -57,6 +57,42 @@ sandbox until the launch cutover decision).
 - [ ] Waitlist forms (once built): each of the three forms writes the right segment, UTM captured, duplicate email handled gracefully
 - [ ] CI green on the release commit; production env vars verified (`STRIPE_ENV` guard behaves as expected)
 
+## Production deployments and Promote
+
+Production must always serve a build of `main`. Vercel cannot enforce this —
+the Promote action accepts any READY deployment, and five branch promotes have
+reached production (most recent 2026-08-07, drift D76) — so this section is the
+rule and the tripwire is the check. This is detection, not prevention: a
+non-main Promote will succeed; it will be caught within ~30 minutes and treated
+as an incident.
+
+- **Promote only from `main`.** Never promote a preview/branch deployment to
+  production — not briefly, not to "test something live". If a change needs
+  production, merge it first.
+- **Before every Promote confirm, read the dialog**: the branch must say
+  `main` and the commit must be the one you expect. The top of the
+  Deployments list is always the newest branch preview — the most prominent
+  row is the wrong one (that exact mis-click was promote number five, D76).
+  If the dialog shows any `claude/…` or other non-`main` branch, cancel.
+- **Instant Rollback only targets the immediately previous production
+  deployment.** After stacked bad promotes, that target is another bad
+  promote — read the dialog's target preview, and prefer promoting the named
+  `main` deployment directly.
+- **After any Promote or rollback**: `curl -s https://www.maanta.app/api/healthz`
+  and confirm `"ref":"main"` and the expected `commit`. When comparing what
+  production serves against the repo, compare trees, not commit SHAs — a
+  squash merge mints a new SHA.
+- **The tripwire**: `.github/workflows/prod-branch-guard.yml` checks production
+  every 30 minutes and goes red when the ref is not `main`, when the ref is
+  missing, or when healthz is unreachable. A red run is an incident, not noise.
+- **If a non-main Promote happens** — by anyone, for any reason, even if the
+  promoted build works: roll back in the Vercel dashboard (Deployments → the
+  newest READY `main` deployment → ⋯ → Promote to Production), verify healthz,
+  then add a drift-register row recording who, what and when.
+- **Rights hygiene**: promote ability is Vercel team RBAC only. Re-run the
+  promote-rights and token audit whenever team membership changes or a new
+  deploy-capable token is minted.
+
 ## Weekly operations review (Ops track, Thursday)
 
 1. **Merchant onboarding readiness** — pipeline from waitlist interest →

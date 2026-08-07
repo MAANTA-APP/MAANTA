@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { ENTITY, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
-import { RESOLVED_TOKENS, TOKEN_OWNERS } from "@/lib/marketing/legal-docs";
+import {
+  PLACEHOLDER_ID_TOKENS,
+  RESOLVED_TOKENS,
+  TOKEN_OWNERS,
+} from "@/lib/marketing/legal-docs";
+import { PlaceholderId } from "@/components/marketing/PlaceholderId";
 import { LegalDraftBanner } from "./LegalDraftBanner";
 
 /**
@@ -54,7 +59,13 @@ function inline(text: string, keyPrefix: string): React.ReactNode[] {
     if (raw.startsWith("{{")) {
       const name = raw.replace(/[{}\s]/g, "");
       const resolved = RESOLVED_TOKENS[name];
-      nodes.push(resolved ? <span key={key}>{resolved}</span> : <PendingValue key={key} name={name} />);
+      if (resolved && PLACEHOLDER_ID_TOKENS.has(name)) {
+        // Placeholder regulatory identifiers render through <PlaceholderId> —
+        // never as plain text (demo-mode-spec §2, drift D75).
+        nodes.push(<PlaceholderId key={key} value={resolved} />);
+      } else {
+        nodes.push(resolved ? <span key={key}>{resolved}</span> : <PendingValue key={key} name={name} />);
+      }
     } else if (raw.startsWith("**")) {
       // Recurse: these documents write `**{{DISPUTE_WINDOW}}**`, and rendering
       // the bold content as a flat string leaked the raw token straight past the

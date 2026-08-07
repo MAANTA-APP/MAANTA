@@ -13,7 +13,7 @@ MAANTA APP is the data controller for the personal data described in this policy
 
 **Registered address:** BBS Mall, Eastleigh, Nairobi, Kenya
 **Contact for privacy matters:** admin@maanta.app
-**ODPC registration:** `DEMO-ODPC-NOT-REGISTERED` — placeholder, see demo notice
+**ODPC registration:** {{ODPC_REGISTRATION}}
 
 ## 2. What this policy covers
 

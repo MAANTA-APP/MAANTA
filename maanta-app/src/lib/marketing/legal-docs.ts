@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ENTITY, LEGAL_LAST_UPDATED, PLACEHOLDER_IDS } from "@/lib/marketing/demo";
+import {
+  ENTITY,
+  LEGAL_LAST_UPDATED,
+  PLACEHOLDER_IDS,
+  REGULATORY_STATUS,
+} from "@/lib/marketing/demo";
 import { FACTS } from "@/lib/marketing/facts";
 
 /**
@@ -62,8 +67,25 @@ export const RESOLVED_TOKENS: Record<string, string> = {
   ODPC_REGISTRATION: PLACEHOLDER_IDS.odpc,
   COMPANY_REGISTRATION: PLACEHOLDER_IDS.company,
   PIN: PLACEHOLDER_IDS.pin,
+  // Verbatim from demo.ts (must not be paraphrased) — rendered as a section in
+  // /merchant-terms above clause 7, per demo-mode-spec §2 (drift D75).
+  REGULATORY_STATUS,
   lastUpdated: LEGAL_LAST_UPDATED,
 };
+
+/**
+ * Tokens whose resolved value is a placeholder regulatory identifier.
+ * `LegalDoc` renders these through `<PlaceholderId>` — monospace, dotted
+ * underline, `Placeholder` badge — never as plain text (`demo-mode-spec.md`
+ * §2, drift D75). The badge is what survives a screenshot cropped past the
+ * disclaimer, and the component's `-DEMO-` net is what keeps a placeholder
+ * from reaching production silently once `DEMO_MODE` flips off.
+ */
+export const PLACEHOLDER_ID_TOKENS: ReadonlySet<string> = new Set([
+  "ODPC_REGISTRATION",
+  "COMPANY_REGISTRATION",
+  "PIN",
+]);
 
 /**
  * Who owns each unresolved token, surfaced in the marker so a reader — and the

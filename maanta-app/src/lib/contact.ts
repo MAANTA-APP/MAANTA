@@ -1,4 +1,5 @@
 import { ENTITY } from "@/lib/marketing/demo";
+import { escapeHtml } from "@/lib/escape-html";
 
 /**
  * Contact enquiry model — shared by `/contact` and `/api/contact`.
@@ -78,12 +79,6 @@ export function isEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-const escapeHtml = (s: string) =>
-  s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 
 /** The message that reaches the monitored inbox. */
 export function enquiryEmail(s: ContactSubmission): {

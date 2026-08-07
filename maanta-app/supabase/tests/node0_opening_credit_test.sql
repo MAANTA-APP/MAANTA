@@ -158,5 +158,99 @@ BEGIN
   RAISE NOTICE 'Scenario D passed: at-cap activation received no credit';
 END $$;
 
+-- Scenario E (D73 reland, 20260807160000): the cap is counted PER NODE — an
+-- off-node merchant holding an opening-credit ledger row must NOT consume the
+-- launch node's allowance. Under the clobbered GLOBAL count this scenario
+-- fails (the off-node row pushes the count to the cap and the launch-node
+-- merchant gets nothing), which is exactly the regression this exists to catch.
+DO $$
+DECLARE
+  v_mid_off UUID;
+  v_mid_on  UUID;
+  v_balance NUMERIC;
+  v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
+  v_node   TEXT    := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+BEGIN
+  -- Cap of exactly 1: one consumed slot anywhere-vs-per-node is the whole test.
+  UPDATE public.app_config SET value = '1' WHERE key = 'node0_opening_credit_merchant_cap';
+
+  -- An already-credited merchant at a DIFFERENT node (a future Node 1), with
+  -- the ledger row the count query looks for.
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_E_off', 'test.off.node', '+254700000005', v_node || ' (test other node)', 'active', 0)
+  RETURNING id INTO v_mid_off;
+  INSERT INTO public.merchant_transactions (
+    merchant_id, amount, transaction_type, payment_provider,
+    provider_reference, description, currency, charged_amount
+  ) VALUES (
+    v_mid_off, COALESCE(v_credit, 300), 'topup', 'manual',
+    'node0_opening_credit:' || v_mid_off,
+    'Node 0 launch opening credit · node0_opening_credit', 'KES', 0
+  );
+
+  -- A fresh pending merchant at the LAUNCH node. Its node's allowance is
+  -- untouched, so it must be credited even though the global count is at cap.
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_E_on', 'test.launch.node', '+254700000006', v_node, 'pending', 0)
+  RETURNING id INTO v_mid_on;
+
+  PERFORM public.activate_merchant(v_mid_on, gen_random_uuid(), FALSE);
+
+  SELECT account_balance INTO v_balance FROM public.merchants WHERE id = v_mid_on;
+  ASSERT v_balance = v_credit,
+    format('E: launch-node merchant must be credited %s despite an off-node consumed slot (got %s) — '
+           'a mismatch here means the opening-credit count regressed to GLOBAL (drift D73)',
+           v_credit, v_balance);
+
+  UPDATE public.app_config SET value = v_saved_cap WHERE key = 'node0_opening_credit_merchant_cap';
+  DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_mid_off, v_mid_on);
+  DELETE FROM public.merchants WHERE id IN (v_mid_off, v_mid_on);
+  RAISE NOTICE 'Scenario E passed: off-node consumed slot does not exhaust the launch node''s allowance';
+END $$;
+
+-- Scenario F (D73): the per-node count still enforces the cap WITHIN a node —
+-- a consumed slot at the launch node blocks the next launch-node grant.
+DO $$
+DECLARE
+  v_mid_first UUID;
+  v_mid_next  UUID;
+  v_balance NUMERIC;
+  v_credit NUMERIC := (SELECT value::NUMERIC FROM public.app_config WHERE key = 'node0_opening_credit_kes');
+  v_node   TEXT    := (SELECT value FROM public.app_config WHERE key = 'node0_launch_node');
+  v_saved_cap TEXT := (SELECT value FROM public.app_config WHERE key = 'node0_opening_credit_merchant_cap');
+BEGIN
+  UPDATE public.app_config SET value = '1' WHERE key = 'node0_opening_credit_merchant_cap';
+
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_F_first', 'test.launch.node', '+254700000007', v_node, 'active', 0)
+  RETURNING id INTO v_mid_first;
+  INSERT INTO public.merchant_transactions (
+    merchant_id, amount, transaction_type, payment_provider,
+    provider_reference, description, currency, charged_amount
+  ) VALUES (
+    v_mid_first, COALESCE(v_credit, 300), 'topup', 'manual',
+    'node0_opening_credit:' || v_mid_first,
+    'Node 0 launch opening credit · node0_opening_credit', 'KES', 0
+  );
+
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance)
+  VALUES ('__test_node0_credit_F_next', 'test.launch.node', '+254700000008', v_node, 'pending', 0)
+  RETURNING id INTO v_mid_next;
+
+  PERFORM public.activate_merchant(v_mid_next, gen_random_uuid(), FALSE);
+
+  SELECT account_balance INTO v_balance FROM public.merchants WHERE id = v_mid_next;
+  ASSERT v_balance = 0,
+    format('F: launch-node cap of 1 already consumed at that node — expected no credit, got %s', v_balance);
+  ASSERT (SELECT status FROM public.merchants WHERE id = v_mid_next) = 'active',
+    'F: merchant must still activate when its node''s allowance is spent';
+
+  UPDATE public.app_config SET value = v_saved_cap WHERE key = 'node0_opening_credit_merchant_cap';
+  DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_mid_first, v_mid_next);
+  DELETE FROM public.merchants WHERE id IN (v_mid_first, v_mid_next);
+  RAISE NOTICE 'Scenario F passed: the per-node count still enforces the cap within a node';
+END $$;
+
 -- If we got here, every ASSERT held.
 DO $$ BEGIN RAISE NOTICE 'ALL node0_opening_credit scenarios passed.'; END $$;

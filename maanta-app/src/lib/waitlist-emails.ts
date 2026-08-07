@@ -1,4 +1,5 @@
 import type { WaitlistSegment } from "@/lib/waitlist";
+import { escapeHtml } from "@/lib/escape-html";
 
 /**
  * Segment-specific waitlist confirmation emails (email #1 of each
@@ -7,15 +8,6 @@ import type { WaitlistSegment } from "@/lib/waitlist";
  */
 
 export type WaitlistEmail = { subject: string; html: string; text: string };
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] || "there";

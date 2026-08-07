@@ -4,6 +4,7 @@ import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
 import { FACTS } from "@/lib/marketing/facts";
 import { PrelaunchNotice } from "./PrelaunchNotice";
+import { RegulatoryStatus } from "./RegulatoryStatus";
 
 /**
  * Five columns plus a legal base bar (`website-footer-legal-docs-plan.md` §2).
@@ -118,6 +119,9 @@ export function SiteFooter() {
         {/* Legal base bar */}
         <div className="mt-14 border-t border-line pt-8">
           <PrelaunchNotice />
+          {/* Rendered in place of any licence identifier — demo-mode-spec §2,
+              DECIDED 2026-07-31 (drift D75). */}
+          <RegulatoryStatus className="mt-4" />
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[12px] text-muted">© MAANTA 2026 · {ENTITY_LINE}</p>
             <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
