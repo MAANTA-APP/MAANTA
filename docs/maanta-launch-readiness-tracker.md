@@ -1,6 +1,6 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-08-07 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-08-08 · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
@@ -14,7 +14,7 @@ to `maanta-decisions-log.md`, not this file.
 >   reconciled — production's `schema_migrations` and `supabase/migrations/`
 >   agree on all **85** version/name pairs, verified by a full read-back diff.
 >   Prod's uncommitted `node_scoped_opening_credit_cap` is now exported into the
->   repo (its change is **not in effect** — see **D73**, open), the notes
+>   repo (its change was relanded and **applied 2026-08-08** — see **D73**, closed), the notes
 >   migration was renamed to match the ledger, and the MCP-minted pause-gate
 >   versions were repaired to the repo filenames.
 > - ~~**D25** (`pending-deploy`)~~ — **closed 2026-08-04**: the `claim_deal`
@@ -24,17 +24,17 @@ to `maanta-decisions-log.md`, not this file.
 > - **D69** — **closed 2026-08-05**: the `cofounder` role CHECK is applied to
 >   production, ledger version `20260804010000` matching the repo filename.
 >   Re-verified live 2026-08-05 (evening): exact string `'cofounder'`, zero
->   holders. Its narrower-than-admin scope is app-enforced only — no DB policy
->   references the role — tracked forward as **D74** (open).
+>   holders. Its narrower-than-admin scope was app-enforced only until the
+>   policy layer applied — tracked as **D74**, closed 2026-08-08 (eight
+>   SELECT-only policies read back).
 >
-> The schema-side reconciliation (E17) is **done**; the open residue is **D73**
-> (a ledger row whose per-node change was clobbered before it took effect —
-> harmless at one node, real at the second), **D74** (the cofounder DB policy
-> layer, required before the role is ever assigned) and the deployment-side
-> promote guard (**D71** — narrowed 2026-08-05: Vercel Authentication is
-> enabled at scope `all_except_custom_domains`, so branch/preview URLs are no
-> longer public; the promote path itself remains ungated). The register rows
-> are the detail.
+> The schema-side reconciliation (E17) is **done**, and its residue cleared on
+> 2026-08-08: **D73** (per-node cap reland) and **D74** (cofounder policy
+> layer) both applied to production with read-backs — ledger 87/87. The open
+> residue is now only the deployment-side promote guard (**D71** — narrowed
+> 2026-08-05: Vercel Authentication is enabled at scope
+> `all_except_custom_domains`, so branch/preview URLs are no longer public;
+> the promote path itself remains ungated). The register rows are the detail.
 >
 > **Updated 2026-08-02 — the *deployment* half is closed.** **D37** (`main` and
 > the deployed commit diverged both ways) closed on 2026-08-01, verified against
@@ -124,7 +124,7 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | E14 | Browser golden-path E2E (Playwright: `/demo` → claim → verify → wallet) | Engineer | 🟡 repo-complete, prod-ops pending | — | **Repo (PR #70, on `main`):** self-skipping Playwright golden path landed — `maanta-app/playwright.config.ts` + `maanta-app/e2e/golden-path.spec.ts` (browse → claim → verify, asserts the collect line) + opt-in `.github/workflows/e2e.yml`; skips without `E2E_BASE_URL`, `@playwright/test` not installed by default, so never false coverage; `docs/ops/e2e-golden-path.md`. The E12 RPC golden path already proves the money invariants. **Prod-ops pending (human):** provision a live Supabase + Clerk test env, set `E2E_BASE_URL` + storage-state secrets, then flip `e2e.yml` to gate CI. Supersedes the older standalone PR #35 |
 | E15 | Pre-traffic security hardening | Engineer | ✅ done | GATE | Internal money RPCs locked to service_role, rate limits on claim/onboard/top-up, image magic-byte validation, atomic `capture_lead` (PRs #48/#50). CI `db-tests` now includes `security_hardening` + `capture_lead` suites; that PR took the total to 11 SQL suites — **22 as of 2026-08-02** (`ls maanta-app/supabase/tests/*.sql`) |
 | E16 | Product analytics (PostHog) instrumented | Engineer | ✅ done (events flowing) | — | Client + funnel instrumentation merged (PRs #45, #47), EU cloud project 211805. **Confirmed live 2026-07-29:** PostHog is ingesting (2,757 events / 217 persons over the prior 6 days; `deal_viewed` + `deal_claim_started` custom events firing), so the env vars (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PROJECT_KEY`, `POSTHOG_HOST`) are set on Vercel. Remaining: redemption/`guardian_outcome`/purchase events unverified (only 5 prod redemptions so far) — reconfirm once real volume exists |
-| E17 | Production reconciled with `main`: migration ledger repaired, pause gate applied | Founder + engineer | ✅ done (2026-08-05) | GATE (proposed — founder to confirm or downgrade) | Opened 2026-08-01 from three drift rows; **all three now closed**. ~~**D37**~~ closed 2026-08-01 — production serves `main`. ~~**D25**~~ closed 2026-08-04 — pause gate live, verified by read-back (`pg_get_functiondef` contains `deal_paused`; `deals_public_browse` filters `is_paused`). ~~**D24**~~ closed 2026-08-05 — the ledger is fully reconciled: production's `schema_migrations` and `supabase/migrations/` agree on all **85** version/name pairs (full read-back diff). That took: exporting prod's uncommitted `node_scoped_opening_credit_cap` into the repo, renaming the notes migration to `20260730160000` to match the ledger, and repairing the MCP-minted pause-gate/cofounder versions to the repo filenames. **New residue is D73** (open): the exported node-scoped cap was clobbered by `20260730130000`'s `CREATE OR REPLACE` before it took effect, so the live `activate_merchant` counts the opening-credit cap globally while the ledger and `app_config` notes say per-node — harmless with one node, must be relanded before a second node launches. Gate designation was proposed by the 2026-08-01 docs session, not a founder ruling |
+| E17 | Production reconciled with `main`: migration ledger repaired, pause gate applied | Founder + engineer | ✅ done (2026-08-05) | GATE (proposed — founder to confirm or downgrade) | Opened 2026-08-01 from three drift rows; **all three now closed**. ~~**D37**~~ closed 2026-08-01 — production serves `main`. ~~**D25**~~ closed 2026-08-04 — pause gate live, verified by read-back (`pg_get_functiondef` contains `deal_paused`; `deals_public_browse` filters `is_paused`). ~~**D24**~~ closed 2026-08-05 — the ledger is fully reconciled: production's `schema_migrations` and `supabase/migrations/` agree on all **85** version/name pairs (full read-back diff). That took: exporting prod's uncommitted `node_scoped_opening_credit_cap` into the repo, renaming the notes migration to `20260730160000` to match the ledger, and repairing the MCP-minted pause-gate/cofounder versions to the repo filenames. Residue ~~**D73**~~ **closed 2026-08-08**: the reland `20260807160000` (and the D74 cofounder policy layer `20260807161000`) applied to production with read-backs — per-node lock and count live in `activate_merchant`, eight SELECT-only cofounder policies present, ledger 87/87 on repo filenames. Gate designation was proposed by the 2026-08-01 docs session, not a founder ruling |
 
 ## Marketing & growth gates
 

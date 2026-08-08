@@ -229,7 +229,7 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | Version | File / intent | Notes |
 |---|---|---|
 | `20260730010000` | `demo_seed_deal_refresh` | Demo cron |
-| `20260730120000` | `node_scoped_opening_credit_cap` | Applied to prod by hand 2026-07-30, exported back into the repo 2026-08-05 (D24). **Its per-node change is NOT in effect** — `20260730130000` re-replaces `activate_merchant` with the global-count definition (drift **D73**). |
+| `20260730120000` | `node_scoped_opening_credit_cap` | Applied to prod by hand 2026-07-30, exported back into the repo 2026-08-05 (D24). Its per-node change was clobbered by `20260730130000` (drift **D73**) and restored by the `20260807160000` reland, applied 2026-08-08 |
 | `20260730130000` | `enforce_elite_trial_first_100_cap` | Elite first-100 cap |
 | `20260730140000` | `trial_expiry_launch_sentinel_null_guard` | Trial expiry |
 | `20260730150000` | `demo_wipe_audit_trail_retention` | Demo wipe |
@@ -238,6 +238,8 @@ different file also named `N_….sql` in the repo will be **silently skipped**.
 | `20260730180000` | `restore_claim_deal_pause_gate` | Applied to production 2026-08-04 (MCP apply); ledger repaired to this filename 2026-08-05 |
 | `20260730190000` | `paused_deals_discovery_filter` | Applied to production 2026-08-04 (MCP apply); ledger repaired to this filename 2026-08-05 |
 | `20260804010000` | `cofounder_role` | Adds `'cofounder'` to `users_role_check`. Applied to production 2026-08-05 under the same version |
+| `20260807160000` | `reland_node_scoped_opening_credit_cap` | The D73 reland: per-node opening-credit lock + joined count. Applied to production 2026-08-08 (MCP apply); minted version repaired to this filename same session |
+| `20260807161000` | `cofounder_read_policies` | The D74 policy layer: eight SELECT-only cofounder policies + explicit grants. Applied to production 2026-08-08 (MCP apply); minted version repaired to this filename same session |
 
 When adding a new migration, pick a version **strictly after** the highest row
 above that is already on `main` *and* confirm against production's ledger
