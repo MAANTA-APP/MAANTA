@@ -1,14 +1,13 @@
 # Skills: Role & permissions
 
-Last updated: 2026-08-07 · Status: **shipped in code and live on production** —
+Last updated: 2026-08-08 · Status: **shipped in code and live on production** —
 the `cofounder` CHECK was applied 2026-08-05 and read back (drift **D69**,
 closed; ledger version `20260804010000` matches the repo filename). No user
 holds the role. The DB policy layer for its narrower-than-admin scope is
-**written and repo-verified but not yet applied to production** — drift
-**D74** (pending-deploy since 2026-08-07):
-`20260807161000_cofounder_read_policies.sql` adds SELECT-only policies on the
-enumerated read surface; a human applies it (and reads it back) before the
-role is ever assigned.
+**applied to production and read back** — drift **D74**, closed 2026-08-08:
+`20260807161000_cofounder_read_policies.sql` adds exactly eight SELECT-only
+policies on the enumerated read surface, verified live by `pg_policies`
+sweep; ledger version matches the repo filename.
 
 Full persona walkthrough: `docs/skills/role-functionality-review-2026-07-29.md`.
 
@@ -50,10 +49,10 @@ read surface) — deliberately without touching any existing policy
 `supabase/tests/cofounder_role_test.sql` asserts the policy set matches that
 list exactly and is SELECT-only, behaviorally checks read-yes/write-no/
 fraud-events-dark under `SET ROLE authenticated`, and keeps the
-self-promotion check. **Production has not applied this migration yet** — a
-sweep of live `pg_policies` still finds zero objects referencing the role
-(last verified 2026-08-05). D74 closes when a human applies
-`20260807161000` and reads back the eight policies.
+self-promotion check. **Applied to production 2026-08-08 and read back**: the
+live `pg_policies` sweep returns exactly the eight SELECT-only
+`*_cofounder_read` policies, zero non-SELECT, zero role holders (D74,
+closed). The ledger carries the repo filename `20260807161000`.
 
 ## Merchant staff permissions
 
@@ -114,9 +113,10 @@ UPDATE public.users SET role = 'cofounder' WHERE email = 'cofounder@example.com'
 The `cofounder` statement fails with a CHECK violation on any database that has
 not applied `20260804010000_cofounder_role.sql`. **As of 2026-08-05 production
 has it** (D69 closed, verified by `pg_get_constraintdef` read-back), so the
-statement would succeed there — which is exactly why it must not be run yet:
-assignment is founder-held (Q14), and drift **D74** must close first — the
-policy-layer migration `20260807161000_cofounder_read_policies.sql` exists in
-the repo but production has not applied it (pending-deploy).
+statement would succeed there — which is exactly why it must not be run
+casually: assignment is founder-held (Q14). The D74 precondition is met as of
+2026-08-08 — the policy-layer migration
+`20260807161000_cofounder_read_policies.sql` is applied to production and
+read back — so assigning the role is now purely the founder's call.
 
 Or use the rehearsal seed accounts documented in `/demo` and `docs/ops/test-accounts.md`.
