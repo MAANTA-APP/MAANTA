@@ -1,19 +1,19 @@
 import { getMerchantContext } from "@/lib/merchant";
 import { ButtonLink } from "@/components/ui/button";
 import { SettingsRow } from "@/components/ui/cards";
-import { timeLeftLabel } from "@/lib/ui";
-import { formatAdminTrialStatus } from "@/lib/elite-trial";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { formatMerchantTrialStatus } from "@/lib/elite-trial";
 
 export const dynamic = "force-dynamic";
 
-/** 10g Plan / billing. */
+/** 10g Plan / billing (trial + 14n grace states). */
 export default async function PlanPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
   const { merchant } = res.ctx;
 
   const isElite = merchant.tier === "elite";
-  const trialLabel = formatAdminTrialStatus({
+  const trialStatus = formatMerchantTrialStatus({
     eliteTrialActive: merchant.elite_trial_active,
     trialEndsAt: merchant.trial_ends_at,
     gracePeriodEndsAt: merchant.grace_period_ends_at,
@@ -30,18 +30,20 @@ export default async function PlanPage() {
             ? "2 active deals · flash deals · boosts"
             : "1 active deal · 24h fixed schedule"}
         </p>
-        {trialLabel ? (
+        {trialStatus && !trialStatus.body ? (
           <p className="mt-2 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
-            {trialLabel}
-            {merchant.grace_period_ends_at &&
-            new Date(merchant.grace_period_ends_at).getTime() > Date.now()
-              ? ` (${timeLeftLabel(merchant.grace_period_ends_at)})`
-              : merchant.trial_ends_at
-                ? ` (${timeLeftLabel(merchant.trial_ends_at)})`
-                : ""}
+            {trialStatus.label}
           </p>
         ) : null}
       </div>
+
+      {/* Grace states carry a body and are a be-careful state, so they render
+          as the rust inline alert, never the amber pill (amber means act). */}
+      {trialStatus?.body ? (
+        <InlineAlert variant="warning" title={trialStatus.label} className="mt-4">
+          {trialStatus.body}
+        </InlineAlert>
+      ) : null}
 
       {!isElite ? (
         <ButtonLink href="/merchant/plan/upgrade" variant="secondary" full className="mt-4">

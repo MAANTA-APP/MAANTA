@@ -14,6 +14,17 @@ export type EliteTrialCapStatus = {
 
 export type EliteTrialOutcome = "granted" | "skipped_cap_reached" | "unknown";
 
+/**
+ * Approve-notice copy, ruled 2026-08-09 (design brief v1.4, item A2 wording;
+ * drift D78). Single-sourced here because the strings render twice — the
+ * approve API returns them and `approveOutcomeMessage` synthesises them when
+ * the response body is incomplete — and two copies is how they drift apart.
+ */
+export const APPROVE_NOTICE_TRIAL_SKIPPED =
+  "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.";
+export const APPROVE_NOTICE_TRIAL_UNCONFIRMED =
+  "Approved — trial outcome unconfirmed. The shop is live. We could not confirm whether the trial was applied — check Plans & trials.";
+
 /** Normalise elite_trial_cap_status() RPC payloads (row or single-element array). */
 export function parseEliteTrialCapStatus(capRows: unknown): EliteTrialCapStatus | null {
   if (Array.isArray(capRows) && capRows[0]) {
@@ -66,13 +77,72 @@ export function approveOutcomeMessage(input: {
     return "Shop approved with a 30-day Elite trial.";
   }
   if (outcome === "skipped_cap_reached") {
-    return "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.";
+    return APPROVE_NOTICE_TRIAL_SKIPPED;
   }
   if (outcome === "unknown") {
-    return "Shop approved, but we could not confirm whether the Elite trial was granted — check the shop's plan before telling the merchant.";
+    return APPROVE_NOTICE_TRIAL_UNCONFIRMED;
   }
   // Response shape incomplete — still do not imply a trial.
   return "Shop approved. Confirm the plan on this page before telling the merchant about a trial.";
+}
+
+/**
+ * Merchant-facing trial / grace state for the 10g Plan screen — frame 14n
+ * wording, ruled 2026-08-09 (D80). Deliberately separate from
+ * `formatAdminTrialStatus`: the admin string set names the nightly job, and
+ * ops vocabulary must not reach a merchant surface — that leak is why this
+ * formatter exists.
+ *
+ * Grace is shown from the moment the trial ends, not from the moment the
+ * nightly job stamps `grace_period_ends_at`: the stamp is always
+ * trial_ends_at + 7 days (frozen rule; migration 20260701110443), so deriving
+ * the same timestamp for display closes the window where a merchant would
+ * otherwise see an ended trial with no explanation.
+ */
+export const TRIAL_GRACE_DAYS = 7;
+
+export type MerchantTrialStatus = { label: string; body?: string };
+
+export function formatMerchantTrialStatus(input: {
+  eliteTrialActive: boolean;
+  trialEndsAt: string | null;
+  gracePeriodEndsAt?: string | null;
+  nowMs?: number;
+}): MerchantTrialStatus | null {
+  if (!input.eliteTrialActive) return null;
+  const now = input.nowMs ?? Date.now();
+  const day = 24 * 3600_000;
+  const trialEnd = input.trialEndsAt ? new Date(input.trialEndsAt).getTime() : NaN;
+  const stampedGraceEnd = input.gracePeriodEndsAt
+    ? new Date(input.gracePeriodEndsAt).getTime()
+    : NaN;
+  const graceEnd = Number.isFinite(stampedGraceEnd)
+    ? stampedGraceEnd
+    : Number.isFinite(trialEnd)
+      ? trialEnd + TRIAL_GRACE_DAYS * day
+      : NaN;
+
+  if (Number.isFinite(trialEnd) && trialEnd > now) {
+    const days = Math.max(0, Math.ceil((trialEnd - now) / day));
+    return { label: `Elite trial · ${days} day${days === 1 ? "" : "s"} left` };
+  }
+
+  if (Number.isFinite(graceEnd) && graceEnd > now) {
+    const days = Math.max(0, Math.ceil((graceEnd - now) / day));
+    return {
+      label: `Grace period · ${days} day${days === 1 ? "" : "s"} to convert`,
+      body: "Your trial ended. Elite features stay on until you convert or the grace period runs out.",
+    };
+  }
+
+  if (Number.isFinite(graceEnd)) {
+    return {
+      label: "Grace period ended",
+      body: "Your trial and grace period have ended. Your plan returns to Standard.",
+    };
+  }
+
+  return { label: "Elite trial active" };
 }
 
 /** Admin merchant-detail trial / grace line. Returns null when not on trial. */
