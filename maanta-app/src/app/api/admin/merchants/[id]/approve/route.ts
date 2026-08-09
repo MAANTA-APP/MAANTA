@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
 import { logAdminOp } from "@/lib/admin-audit";
+import {
+  APPROVE_NOTICE_TRIAL_SKIPPED,
+  APPROVE_NOTICE_TRIAL_UNCONFIRMED,
+} from "@/lib/elite-trial";
 
 export async function POST(
   request: Request,
@@ -94,16 +98,10 @@ export async function POST(
     // Surfaced so the approve modal can tell the admin what really happened
     // rather than implying a trial that may not exist.
     ...(outcome === "skipped_cap_reached"
-      ? {
-          notice:
-            "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.",
-        }
+      ? { notice: APPROVE_NOTICE_TRIAL_SKIPPED }
       : {}),
     ...(outcome === "unknown"
-      ? {
-          notice:
-            "Shop approved, but we could not confirm whether the Elite trial was granted — check the shop's plan before telling the merchant.",
-        }
+      ? { notice: APPROVE_NOTICE_TRIAL_UNCONFIRMED }
       : {}),
   });
 }

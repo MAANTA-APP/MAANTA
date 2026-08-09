@@ -14,6 +14,17 @@ export type EliteTrialCapStatus = {
 
 export type EliteTrialOutcome = "granted" | "skipped_cap_reached" | "unknown";
 
+/**
+ * Approve-notice copy, ruled 2026-08-09 (design brief v1.4, item A2 wording;
+ * drift D77). Single-sourced here because the strings render twice — the
+ * approve API returns them and `approveOutcomeMessage` synthesises them when
+ * the response body is incomplete — and two copies is how they drift apart.
+ */
+export const APPROVE_NOTICE_TRIAL_SKIPPED =
+  "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.";
+export const APPROVE_NOTICE_TRIAL_UNCONFIRMED =
+  "Approved — trial outcome unconfirmed. The shop is live. We could not confirm whether the trial was applied — check Plans & trials.";
+
 /** Normalise elite_trial_cap_status() RPC payloads (row or single-element array). */
 export function parseEliteTrialCapStatus(capRows: unknown): EliteTrialCapStatus | null {
   if (Array.isArray(capRows) && capRows[0]) {
@@ -66,10 +77,10 @@ export function approveOutcomeMessage(input: {
     return "Shop approved with a 30-day Elite trial.";
   }
   if (outcome === "skipped_cap_reached") {
-    return "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed.";
+    return APPROVE_NOTICE_TRIAL_SKIPPED;
   }
   if (outcome === "unknown") {
-    return "Shop approved, but we could not confirm whether the Elite trial was granted — check the shop's plan before telling the merchant.";
+    return APPROVE_NOTICE_TRIAL_UNCONFIRMED;
   }
   // Response shape incomplete — still do not imply a trial.
   return "Shop approved. Confirm the plan on this page before telling the merchant about a trial.";

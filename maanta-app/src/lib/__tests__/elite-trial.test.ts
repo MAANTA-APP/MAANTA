@@ -48,12 +48,28 @@ describe("approveOutcomeMessage", () => {
   });
 
   it("surfaces unknown rather than collapsing to skipped", () => {
+    // Exact strings, written out rather than imported from elite-trial.ts —
+    // asserting the constant against itself would pass any wording. This is
+    // the ruled copy (design brief v1.4 item A2, adopted 2026-08-09; D77).
     expect(
       approveOutcomeMessage({
         grantRequested: true,
         eliteTrialOutcome: "unknown",
       })
-    ).toMatch(/could not confirm/);
+    ).toBe(
+      "Approved — trial outcome unconfirmed. The shop is live. We could not confirm whether the trial was applied — check Plans & trials."
+    );
+  });
+
+  it("names the cap when the trial was skipped, in the ruled wording", () => {
+    expect(
+      approveOutcomeMessage({
+        grantRequested: true,
+        eliteTrialOutcome: "skipped_cap_reached",
+      })
+    ).toBe(
+      "Shop approved on Standard — the 30-day Elite trial launch offer is fully claimed."
+    );
   });
 });
 
