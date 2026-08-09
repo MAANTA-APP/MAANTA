@@ -136,7 +136,7 @@ export function DealActions({
       <BottomSheet open={sheet === "boost"} onClose={() => setSheet("none")}>
         <h2 className="text-lg font-bold text-ink">Boost this deal</h2>
         <p className="mt-1 text-sm text-muted">
-          {formatKes(boostFee)} / 24h · appears in Priority Placements
+          {formatKes(boostFee)} / 24h · appears in Neighbourhood favourites
         </p>
         <span className="mt-3 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
           Pay from wallet ({Math.round(balance).toLocaleString("en-KE")})

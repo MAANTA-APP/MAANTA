@@ -46,7 +46,7 @@ export function CoverImage({
   );
 }
 
-/** 1b Deal card (horizontal scroller) — Flash Deals / Priority Placements rails. */
+/** 1b Deal card (horizontal scroller) — "Top picks near you" / "Neighbourhood favourites" rails. */
 export function DealCardHorizontal({
   href,
   imageUrl,

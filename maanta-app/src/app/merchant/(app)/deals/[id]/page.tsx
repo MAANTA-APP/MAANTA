@@ -99,7 +99,7 @@ export default async function MerchantDealDetailPage({
             Boost active — {timeLeftLabel(boost.ends_at).replace(" left", "")} remaining
           </p>
           <p className="mt-0.5 text-xs text-ink/70">
-            Showing in Priority Placements · {formatKes(boostFee)} / 24h
+            Showing in Neighbourhood favourites · {formatKes(boostFee)} / 24h
           </p>
         </div>
       ) : null}
