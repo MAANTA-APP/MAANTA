@@ -17,9 +17,13 @@ import type { DealRow } from "@/lib/data";
  * The locked feed structure from Notion "Frozen Scope & Rules → Feed structure
  * (locked)", enforced as code (decision D1, docs/skills/truth-audit-2026-07-30.md):
  *
- *   1 Flash               → soonest expiry first
- *   2 Priority Placements → most recently boosted first
- *   3 All Active Deals    → all-time verified redemptions descending
+ *   1 Top picks near you       (flash)    → soonest expiry first
+ *   2 Neighbourhood favourites (boosted)  → most recently boosted first
+ *   3 Deals near me            (standard) → all-time verified redemptions descending
+ *
+ * Rail names are the shopper-facing titles frozen by founder ruling R2 (design
+ * brief v1.4; decisions log 2026-08-09) — see `rail-names.test.ts` for the copy
+ * guard. These suites pin the *orders*, which R2 did not touch.
  *
  * Before 2026-07-30 the feed defaulted to `nearest`, which re-sorted all three
  * rails by distance from the *mall centroid* and threw away the locked orders —
@@ -195,7 +199,7 @@ describe("locked rail 1 — Flash: soonest expiry first", () => {
   });
 });
 
-describe("locked rail 2 — Priority Placements: most recently boosted first", () => {
+describe("locked rail 2 — Neighbourhood favourites (boosted): most recently boosted first", () => {
   it("orders by boost start time, newest boost first", () => {
     const rows = [deal("old"), deal("newest"), deal("mid")];
     const startedAt = new Map([
@@ -230,7 +234,7 @@ describe("locked rail 2 — Priority Placements: most recently boosted first", (
   });
 });
 
-describe("locked rail 3 — All Active Deals: verified redemptions descending", () => {
+describe("locked rail 3 — Deals near me (standard): verified redemptions descending", () => {
   it("orders by the merchant's all-time verified redemptions", () => {
     const rows = [
       deal("low", { merchant_id: "m-low" }),

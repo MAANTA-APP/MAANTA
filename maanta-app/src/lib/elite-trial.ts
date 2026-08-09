@@ -16,7 +16,7 @@ export type EliteTrialOutcome = "granted" | "skipped_cap_reached" | "unknown";
 
 /**
  * Approve-notice copy, ruled 2026-08-09 (design brief v1.4, item A2 wording;
- * drift D77). Single-sourced here because the strings render twice — the
+ * drift D78). Single-sourced here because the strings render twice — the
  * approve API returns them and `approveOutcomeMessage` synthesises them when
  * the response body is incomplete — and two copies is how they drift apart.
  */
@@ -88,7 +88,7 @@ export function approveOutcomeMessage(input: {
 
 /**
  * Merchant-facing trial / grace state for the 10g Plan screen — frame 14n
- * wording, ruled 2026-08-09 (D79). Deliberately separate from
+ * wording, ruled 2026-08-09 (D80). Deliberately separate from
  * `formatAdminTrialStatus`: the admin string set names the nightly job, and
  * ops vocabulary must not reach a merchant surface — that leak is why this
  * formatter exists.

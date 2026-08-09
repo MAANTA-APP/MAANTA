@@ -53,7 +53,7 @@ describe("approveOutcomeMessage", () => {
   it("surfaces unknown rather than collapsing to skipped", () => {
     // Exact strings, written out rather than imported from elite-trial.ts —
     // asserting the constant against itself would pass any wording. This is
-    // the ruled copy (design brief v1.4 item A2, adopted 2026-08-09; D77).
+    // the ruled copy (design brief v1.4 item A2, adopted 2026-08-09; D78).
     expect(
       approveOutcomeMessage({
         grantRequested: true,
@@ -111,7 +111,7 @@ describe("formatAdminTrialStatus", () => {
   });
 });
 
-describe("formatMerchantTrialStatus (10g plan screen, 14n wording — D79)", () => {
+describe("formatMerchantTrialStatus (10g plan screen, 14n wording — D80)", () => {
   const now = Date.parse("2026-07-30T12:00:00Z");
 
   it("returns null when not on trial", () => {
