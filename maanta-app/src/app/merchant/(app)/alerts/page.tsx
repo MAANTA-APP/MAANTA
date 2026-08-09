@@ -63,7 +63,7 @@ export default async function MerchantAlertsPage() {
   }[]) {
     alerts.push({
       title: "Boost ended",
-      body: b.deals?.title ?? "Priority placement finished",
+      body: b.deals?.title ?? "Neighbourhood favourites placement finished",
       at: b.ends_at,
       unread: false,
     });

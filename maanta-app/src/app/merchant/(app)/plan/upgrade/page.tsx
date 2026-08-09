@@ -19,7 +19,7 @@ export default async function UpgradePage() {
         {[
           ["2 active deals at a time (vs 1 on Standard)", null],
           ["Flash deals, 1–24h", "bolt"],
-          ["Priority placement eligibility", null],
+          ["Boost deals into Neighbourhood favourites", null],
         ].map(([label, icon]) => (
           <div key={label as string} className="flex items-center gap-2.5">
             {icon === "bolt" ? (

@@ -7,9 +7,17 @@ import { distanceMeters } from "@/lib/what3words";
  * three per-rail orders frozen in Notion "Frozen Scope & Rules → Feed structure
  * (locked)", not one order applied to everything:
  *
- *   1 Flash              → soonest expiry first
- *   2 Priority Placements → most recently boosted first
- *   3 All Active Deals   → all-time verified redemptions descending
+ *   1 Top picks near you       (flash)    → soonest expiry first
+ *   2 Neighbourhood favourites (boosted)  → most recently boosted first
+ *   3 Deals near me            (standard) → all-time verified redemptions descending
+ *
+ * The rail names are the shopper-facing titles frozen by founder ruling R2
+ * (design brief v1.4; decisions log 2026-08-09). Notion's locked-structure
+ * labels — Flash / Priority Placements / All Active Deals — survive only as the
+ * `flash` / `boosted` / `standard` rail identifiers, never as UI copy. Rail 3's
+ * name does not imply distance ordering: the verified-redemptions order is the
+ * locked rule, and the label/order pairing is a recorded open question (drift
+ * D77), not a bug to fix here.
  *
  * It is deliberately not implementable by `sortDealRows`, which takes one
  * comparator for one flat list. The locked orders are applied per rail by
@@ -151,7 +159,7 @@ export function lockedFlashOrder(deals: DealRow[]): DealRow[] {
 }
 
 /**
- * Locked rail 2 — Priority Placements: most recently boosted first.
+ * Locked rail 2 — Neighbourhood favourites (boosted): most recently boosted first.
  *
  * `boostStartedAt` maps deal id → the active boost's `starts_at`. A boost moved
  * between deals by `move_boost` keeps its original `starts_at` (the RPC updates
@@ -176,7 +184,8 @@ export function lockedBoostedOrder(
 }
 
 /**
- * Locked rail 3 — All Active Deals: all-time verified redemptions descending.
+ * Locked rail 3 — Deals near me (standard): all-time verified redemptions
+ * descending, despite what the name suggests — see the module docblock.
  *
  * The count is per *merchant*, not per deal: the frozen rule ranks merchants by
  * all-time verified redemptions, which is the earned-placement incentive the
