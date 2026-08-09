@@ -25,9 +25,10 @@ import { stripComments } from "./helpers/comment-stripping";
  *
  * The rail *orders* are D1's, pinned by `locked-feed-order.test.ts` — R2 is
  * names only. That includes rail 3: titled "Deals near me", ordered by all-time
- * verified redemptions. That label/order pairing is a recorded open question
- * (drift D77) awaiting a founder ruling; this guard deliberately pins the
- * ruled title and says nothing about what the ordering should be.
+ * verified redemptions. That pairing was ruled 2026-08-09 (drift D77, closed):
+ * the name stays and the order stays — the label is copy, the rail is
+ * mall-scoped. This guard pins the title; `locked-feed-order.test.ts` pins the
+ * order, so either half of the ruling regressing fails a test.
  */
 
 const SRC = path.resolve(__dirname, "..", "..");

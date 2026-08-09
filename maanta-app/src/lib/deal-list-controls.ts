@@ -15,9 +15,11 @@ import { distanceMeters } from "@/lib/what3words";
  * (design brief v1.4; decisions log 2026-08-09). Notion's locked-structure
  * labels — Flash / Priority Placements / All Active Deals — survive only as the
  * `flash` / `boosted` / `standard` rail identifiers, never as UI copy. Rail 3's
- * name does not imply distance ordering: the verified-redemptions order is the
- * locked rule, and the label/order pairing is a recorded open question (drift
- * D77), not a bug to fix here.
+ * name does not imply distance ordering: ruled 2026-08-09 (decisions log; drift
+ * D77, closed), the label is copy — the rail is scoped to the shopper's
+ * selected mall, so "near" holds at rail scope — while placement within the
+ * rail stays the earned-placement verified-redemptions ranking. Not a bug, and
+ * no longer an open question.
  *
  * It is deliberately not implementable by `sortDealRows`, which takes one
  * comparator for one flat list. The locked orders are applied per rail by
