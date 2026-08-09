@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn, isNearExpiry } from "@/lib/ui";
 import { getDealExpiryState } from "@/lib/deal-expiry";
+import type { Sla, SlaState } from "@/lib/sla";
 import { IconLock } from "@/components/ui/icons";
 
 /**
@@ -325,6 +326,54 @@ export function FraudChip({ reason, className }: { reason: string; className?: s
       )}
     >
       {reason}
+    </span>
+  );
+}
+
+/**
+ * D81 support-SLA chip (11d / 11e / 11o / 13e) — the 72-hour clock's state.
+ * A non-action badge, so it is never amber; state is icon + word so it reads
+ * in greyscale; due-soon is rust (warning, never yellow/red); a missed
+ * deadline — overdue, or resolved late — is the dark ink-900 fill (failure is
+ * dark, not red; error red stays borders/icons). Resolved-late keeps its dark
+ * fill after resolution so missed commitments stay countable.
+ */
+const SLA_CHIP: Record<SlaState, { icon: string; word: string; cls: string }> = {
+  on_track: { icon: "●", word: "On track", cls: "border-[1.5px] border-muted bg-white text-secondary" },
+  due_soon: { icon: "●", word: "Due soon", cls: "border-[1.5px] border-rust bg-white text-rust" },
+  overdue: { icon: "✕", word: "Overdue", cls: "bg-ink-900 text-white" },
+  resolved_on_time: { icon: "✓", word: "On time", cls: "border-[1.5px] border-muted bg-white text-secondary" },
+  resolved_late: { icon: "✕", word: "Late", cls: "bg-ink-900 text-white" },
+};
+
+export function SlaChip({ state, className }: { state: SlaState; className?: string }) {
+  const c = SLA_CHIP[state];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-[0.04em]",
+        c.cls,
+        className
+      )}
+    >
+      <span aria-hidden className="text-[10px]">
+        {c.icon}
+      </span>
+      {c.word}
+    </span>
+  );
+}
+
+/**
+ * Chip + the literal D81 hours copy ("Due in N hours" / "Overdue by N hours" /
+ * "Resolved in N hours"). The copy is ink and never truncated — the full hours
+ * must stay readable on mobile (11o).
+ */
+export function SlaBadge({ sla, className }: { sla: Sla; className?: string }) {
+  return (
+    <span className={cn("inline-flex flex-wrap items-center gap-x-2 gap-y-1", className)}>
+      <SlaChip state={sla.state} />
+      <span className="whitespace-nowrap text-xs font-semibold text-ink">{sla.label}</span>
     </span>
   );
 }

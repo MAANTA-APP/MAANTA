@@ -7,7 +7,9 @@ import {
   FraudChip,
   GuardianChip,
   GuardianSeverityChip,
+  SlaBadge,
 } from "@/components/ui/chips";
+import { computeSla, slaDeadline, SUPPORT_SLA_HOURS } from "@/lib/sla";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconArrowLeft, IconChevronRight } from "@/components/ui/icons";
 import {
@@ -141,8 +143,13 @@ export default async function AdminRedemptionDetailPage({
   // recommendation/events, the fee ledger for this redemption, and any existing
   // reversal — all keyed on the redemption id, run together. The Guardian RPC is
   // best-effort so a redemption that predates Guardian still renders in full.
-  const [{ data: r }, { data: guardian }, { data: ledger }, { data: reversal }] =
-    await Promise.all([
+  const [
+    { data: r },
+    { data: guardian },
+    { data: ledger },
+    { data: reversal },
+    { data: releaseOp },
+  ] = await Promise.all([
       service
         .from("redemptions")
         .select(
@@ -163,6 +170,17 @@ export default async function AdminRedemptionDetailPage({
         .select("id, amount, created_at, incident_ref, note, users(full_name)")
         .eq("redemption_id", params.id)
         .maybeSingle(),
+      // D81 — the release moment for a previously-held redemption, from the
+      // durable admin_ops_log row the release route writes.
+      service
+        .from("admin_ops_log")
+        .select("action, created_at")
+        .eq("target_type", "redemption")
+        .eq("target_id", params.id)
+        .in("action", ["redemption.release_approve", "redemption.release_reject"])
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
     ]);
   if (!r) notFound();
 
@@ -181,9 +199,34 @@ export default async function AdminRedemptionDetailPage({
   const flags = (r.fraud_flags ?? []) as string[];
 
   const recommendation = guardian?.guardian_recommendation ?? null;
-  const checks = (guardian?.guardian_events ?? []).filter((e) => e.check_type !== "overall");
+  const allGuardianEvents = guardian?.guardian_events ?? [];
+  const checks = allGuardianEvents.filter((e) => e.check_type !== "overall");
   // Held = soft-blocked by Guardian: no fee has moved and an admin decides.
   const held = r.status === "flagged";
+
+  // D81 — 72h SLA clock. The case entered the held queue at the immutable
+  // guardian_events overall soft_block row (NOT redeemed_at: that defaults to
+  // claim time and is overwritten to release time on approve). Resolution is
+  // the admin_ops_log release row; on approve, redeemed_at (set by the RPC at
+  // release) is the fallback. A resolved case with neither renders no verdict
+  // rather than an invented one.
+  const heldSince =
+    allGuardianEvents.find(
+      (e) => e.check_type === "overall" && e.recommendation === "soft_block"
+    )?.created_at ?? null;
+  const releaseResolvedAt =
+    releaseOp?.created_at ??
+    (flags.includes("guardian_release_approved") ? r.redeemed_at : null);
+  const wasReleased =
+    flags.includes("guardian_release_approved") ||
+    flags.includes("guardian_release_rejected");
+  const sla = heldSince
+    ? held
+      ? computeSla(heldSince, { now: new Date() })
+      : wasReleased && releaseResolvedAt
+        ? computeSla(heldSince, { resolvedAt: releaseResolvedAt, now: new Date() })
+        : null
+    : null;
   // Appealable = Guardian hard-blocked (declined, no fee) and not yet upheld.
   // Mutually exclusive with held/success by status, so it never coincides with
   // the Release or reverse-fee amber action.
@@ -215,6 +258,28 @@ export default async function AdminRedemptionDetailPage({
           {recommendation ? <GuardianChip recommendation={recommendation} /> : null}
         </h1>
       </div>
+
+      {heldSince && (held || wasReleased) ? (
+        // D81 — read-only 72h SLA block: the shopper promise ("within 72
+        // hours") against this case's actual clock. It informs the admin and
+        // never gates the release / appeal / reversal actions below.
+        <section className="mt-4 rounded-card border border-line bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-bold text-ink">Support SLA</p>
+            {sla ? <SlaBadge sla={sla} /> : null}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Held {friendlyTime(heldSince)} · promise is resolution within {SUPPORT_SLA_HOURS}{" "}
+            hours · deadline {friendlyTime(slaDeadline(heldSince).toISOString())}
+            {!held && wasReleased && releaseResolvedAt
+              ? ` · resolved ${friendlyTime(releaseResolvedAt)}`
+              : ""}
+            {!held && wasReleased && !releaseResolvedAt
+              ? " · resolved (resolution time not recorded)"
+              : ""}
+          </p>
+        </section>
+      ) : null}
 
       {held ? (
         // Guardian held this redemption before any fee moved — the admin override.
