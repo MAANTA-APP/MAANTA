@@ -99,6 +99,17 @@
     },
     {
       "role": "shopper",
+      "route": "/my-deals",
+      "status": "live",
+      "design_frame": "8l claimed / 8ab Favourites (Shops tab) / 8t empty — 16a superseded",
+      "frontend": ["src/app/(shopper)/my-deals/page.tsx"],
+      "backend": ["merchant_favourites select", "getVerifiedCounts"],
+      "sql": ["redemptions", "merchant_favourites"],
+      "primary_action": "Open claimed ticket / open saved shop",
+      "notes": "Added 2026-08-09 (drift D79, closed): the Shops tab is the favourites surface; frame 16a (/you/favourites) is superseded by founder ruling — one list, not two. Shop cards carry the verified-redemptions count (frozen ranking rule), not a live-deal count. /you's Your favourites section links here. Guard: src/lib/__tests__/favourites-surface.test.ts."
+    },
+    {
+      "role": "shopper",
       "route": "/tickets/[id]",
       "status": "gated",
       "design_frame": "8i / 8j",
