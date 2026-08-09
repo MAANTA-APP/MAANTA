@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
-import { FraudChip, GuardianChip } from "@/components/ui/chips";
+import { computeSla } from "@/lib/sla";
+import { FraudChip, GuardianChip, SlaBadge } from "@/components/ui/chips";
 import { RedemptionRow } from "@/components/ui/cards";
 import { IconChevronRight } from "@/components/ui/icons";
 import { cn, formatCode, friendlyTime } from "@/lib/ui";
@@ -57,6 +58,22 @@ export default async function AdminRedemptionsPage({
       .limit(25),
   ]);
 
+  // D81 — the 72h SLA clock on a held redemption starts when it became held:
+  // the immutable guardian_events overall soft_block row. NOT redeemed_at,
+  // which defaults to claim time (an old claim would enter the queue already
+  // aged) and is overwritten on approve-release.
+  const heldIds = (held ?? []).map((h) => h.id);
+  const { data: heldEvents } = heldIds.length
+    ? await service
+        .from("guardian_events")
+        .select("redemption_id, created_at")
+        .in("redemption_id", heldIds)
+        .eq("check_type", "overall")
+        .eq("recommendation", "soft_block")
+    : { data: [] as { redemption_id: string; created_at: string }[] };
+  const heldSince = new Map((heldEvents ?? []).map((e) => [e.redemption_id, e.created_at]));
+  const now = new Date();
+
   const detailLabel = (type: string, details: Record<string, unknown> | null) => {
     if (!details) return "";
     if (type === "geofence" && details.distance_m != null) {
@@ -90,6 +107,7 @@ export default async function AdminRedemptionsPage({
             (held ?? []).map((h) => {
               const dist = h.distance_from_shop as number | null;
               const flags = (h.fraud_flags ?? []) as string[];
+              const openedAt = heldSince.get(h.id);
               return (
                 <Link
                   key={h.id}
@@ -109,7 +127,11 @@ export default async function AdminRedemptionsPage({
                       {dist != null ? ` · ${Math.round(dist)}m` : ""}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-muted">Review</span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {/* D81 SLA column — held list only; informs, never gates. */}
+                    {openedAt ? <SlaBadge sla={computeSla(openedAt, { now })} /> : null}
+                    <span className="text-xs font-semibold text-muted">Review</span>
+                  </div>
                   <IconChevronRight className="h-4 w-4 text-faint" />
                 </Link>
               );
