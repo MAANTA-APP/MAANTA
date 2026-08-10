@@ -575,3 +575,43 @@ beside it are full size.
 | 4 · Confirmation routes | The inline success state works and conversions are already measurable via `marketing_form_submitted`. A dedicated URL changes three conversion flows and wants its own review |
 | `/malls/bbs-mall` build-out | Needs founder-supplied mall detail — address, hours, floor guide |
 | 6, 14, 15, 20 | Deferred pending pilot evidence, a verified location, consenting merchants, and a founder asset |
+
+---
+
+## Production verification, 2026-08-10
+
+**Deployed and verified on the real domain.** Commit
+`77983b68cd8b6bc3af6cce000723c4ec0e55fdb1` (squash merge of PR #196 to `main`),
+Vercel deployment `dpl_5626CAFiu9zrNx6mjqJcZpAfuBWT`, target production, **READY
+2026-08-10 16:28:47 UTC**, holding the `www.maanta.app` and `maanta.app`
+aliases. Checked against `https://www.maanta.app` — not a preview alias, not
+localhost, not the repo. All 14 marketing routes returned HTTP 200 with `age: 0`.
+
+**Trading and operating claims: zero.** The deployed HTML — visible text *and*
+raw markup including the inlined RSC payload — was scanned for `live at`, `now
+live at`, `already live`, `is live in`, `live now`, `run in person`, `publishing
+deals today/now`, `offering right now`, `usually happens/takes`, `first deal
+today`, `is operating/running/trading`, and case-sensitive `LIVE NOW`. One match
+site-wide: `/shoppers` renders "Live now" as the name of an in-app feed filter
+chip, beside "Expiring soon", "Flash" and "Today". That is deal vocabulary, not
+a company claim, and is the documented exclusion.
+
+**Status indicators: gone, with one documented exception.**
+`rounded-full bg-verified` has zero occurrences site-wide — the `/malls/bbs-mall`
+badge dot is suppressed. The footer place line resolves its dot slot to `null` on
+every route (RSC children `[null,"BBS Mall, Eastleigh · Nairobi"]`), so no
+live-status dot precedes a place name anywhere. The exception is the amber dot in
+the home hero mockup: `aria-hidden="true"`, sitting under the rendered sentence
+"The shops and prices shown are invented examples, not real offers". It belongs
+to **D50** and removing it is a D50 decision.
+
+**Disclosure intact.** "MAANTA APP is not yet trading" renders on all 14 routes,
+with the regulatory-status block. `/privacy` is still `noindex, nofollow`. All
+12 expected pre-launch replacement phrases render.
+
+**Crawl policy live.** `robots.txt` went from 11 rules to 27, and `sitemap.xml`
+(`lastmod 2026-08-10T16:28:00.414Z`, 13 routes) advertises none of them — the
+two files agree in production.
+
+**D87, D89 and D90 are closed on this evidence. D88 stays open** — signed-out
+analytics attribution needs a founder decision, not code.
