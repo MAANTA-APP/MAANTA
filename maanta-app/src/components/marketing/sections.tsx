@@ -255,7 +255,7 @@ export function TrustBar({
  * The amber status dot beside a node status line.
  *
  * Renders nothing while `DEMO_MODE` holds (founder ruling 2026-08-10, drift
- * **D83**). The dot is a live-status indicator, so once the words "Live at" are
+ * **D87**). The dot is a live-status indicator, so once the words "Live at" are
  * gated it would be the only thing left asserting the node is trading — and it
  * would assert it in colour alone, which frozen UI rule 4 forbids: state is an
  * icon *and* a word, readable in greyscale. Dropping the sentence and keeping

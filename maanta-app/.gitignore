@@ -26,6 +26,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+#
+# `.env*.local` alone does not match a plain `.env` or `.env.production` — both
+# common local filenames — so those were one `git add -A` away from committing
+# live credentials (SEC-009). Ignore every .env variant and re-admit the one
+# file that is meant to be tracked.
+.env
+.env.*
+!.env.example
 .env*.local
 
 # vercel

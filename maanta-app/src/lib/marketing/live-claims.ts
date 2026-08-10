@@ -6,7 +6,7 @@ import { FACTS } from "./facts";
  *
  * ## Why they are all in one file
  *
- * Founder ruling 2026-08-10, closing drift **D83**: drop "Live at" everywhere
+ * Founder ruling 2026-08-10, closing drift **D87**: drop "Live at" everywhere
  * while the company is pre-launch. The claim was in twenty-one places across
  * nine files — four hero status lines, the footer of every page, two CTA
  * labels, a hero badge, five prose sentences, four metadata strings and an OG

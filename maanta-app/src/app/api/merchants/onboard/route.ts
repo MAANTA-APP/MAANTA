@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
+import { isValidKenyanPhone } from "@/lib/phone";
 import {
   checkRateLimit,
   ONBOARD_RATE_LIMIT,
@@ -43,6 +44,17 @@ export async function POST(request: Request) {
   if (!merchantName || !what3wordsAddress || !phone) {
     return NextResponse.json(
       { error: "Shop name, what3words address, and phone are required." },
+      { status: 400 }
+    );
+  }
+
+  // Format-check the phone, not just its presence (SEC-013). The top-up route
+  // already validates with this same helper; onboarding did not, so a malformed
+  // number persisted to the merchant record — and that record is what staff
+  // phone-linking (lib/merchant.ts) and merchant notifications key on later.
+  if (typeof phone !== "string" || !isValidKenyanPhone(phone)) {
+    return NextResponse.json(
+      { error: "Enter a valid Kenyan mobile number (e.g. 07XX XXX XXX)." },
       { status: 400 }
     );
   }

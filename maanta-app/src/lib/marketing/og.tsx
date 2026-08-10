@@ -50,7 +50,7 @@ const LINE = "#E5E2DA";
  * that the string is spec-sanctioned, which checked the string and not the
  * surface it renders on.
  *
- * **Generalised 2026-08-10 (the D83 ruling).** The reasoning above was right and
+ * **Generalised 2026-08-10 (the D87 ruling).** The reasoning above was right and
  * was applied in exactly one place, so the site shipped this carefully hedged
  * line at the foot of an image while the footer of every page asserted "Live at
  * BBS Mall" underneath it. The constant now re-exports the site-wide value from

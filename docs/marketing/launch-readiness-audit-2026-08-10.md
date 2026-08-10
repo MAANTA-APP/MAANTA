@@ -11,8 +11,8 @@ last READY production deployment `dpl_B7iuEWUkrn5cKue99WECD2uCRdtq`, `main` @
 This audit answers a 20-item pre-launch checklist.
 
 **The audit pass itself changed no application code** — it produced only this
-file and three rows in `docs/maanta-drift-register.md` (**D83**, **D84**,
-**D85**). A **remediation pass followed on the same branch**, and the checklist
+file and three rows in `docs/maanta-drift-register.md` (**D87**, **D88**,
+**D89**). A **remediation pass followed on the same branch**, and the checklist
 table below still describes production as it was measured, not as the branch now
 stands. What has since been fixed, and what deliberately has not, is in
 [Remediation status](#remediation-status) at the end. Nothing in that pass is
@@ -81,7 +81,7 @@ content" — `robots.ts` simply never acted on it.
 Second, **the pre-launch "not yet trading" discipline leaks in twenty-one
 places, and the guard that should catch it tests a different string than its
 name claims.** (This paragraph first said five, then ten; the final count from
-implementing the fix is twenty-one — see the D83 section at the end for why a
+implementing the fix is twenty-one — see the D87 section at the end for why a
 string search kept undercounting it.)
 The sharpest of them is that `SiteFooter.tsx` renders "Live at BBS Mall,
 Eastleigh · Nairobi" beside an amber status dot and, sixty-four lines later in
@@ -124,16 +124,16 @@ cost and no honesty cost.
 | 7 | At least five useful FAQs | Implemented | `(marketing)/faq/page.tsx` — 16 Q&A pairs, server-rendered as `<details>/<summary>`: 6 shopper, 6 merchant, 4 mall-operator | Well past the bar, and specific rather than filler (success fee, grace period, dishonoured deals, staff verification, top-ups, cancellation, POS integration, cost to the mall) | None for the copy. Add `FAQPage` JSON-LD — see item 17 | marketing |
 | 8 | Clear response-time promise for enquiries/support | Partial | `(marketing)/contact/page.tsx:154–159`, rendering `RESPONSE_TIMES`: same day (WhatsApp), 1 business day (form and email), 2 business days (mall operators), DPA-2019 period (privacy requests); founder ruling 2026-07-31 | The promise is specific and server-rendered — but `/help`, the other support entry point and a footer link, states no turnaround at all. Two support doors, two different implied commitments | Mirror the `RESPONSE_TIMES` block onto `/help` from the same constant. Copy already ruled; no new commitment needed | eng |
 | 9 | Sticky mobile CTA | Missing | No `fixed bottom-*` / `sticky bottom-*` element in `(marketing)/` or `components/marketing/`; confirmed absent in production HTML on all 17 routes. The only sticky element is the header (`sticky top-0 z-30`) | The hero CTA scrolls away on the long conversion pages (`/merchants` is ~440 lines). This market is mobile-dominant, so the primary action is off-screen for most of the scroll depth | Add a sticky bottom CTA to `/merchants` and `/shoppers` only, reusing each page's existing hero target. It must **replace** the visible amber CTA while shown, not add a second one — frozen UI rule 1 caps a screen at one amber action | design |
-| 10 | `robots.txt` | Partial | `maanta-app/src/app/robots.ts`; served correctly in production with absolute `Sitemap:` and `Host:`. Disallows `/api/`, `/admin`, `/agent`, `/founder`, `/merchant/`, `/onboarding`, `/otp`, `/select-mall`, `/verify-phone`, `/app-bootstrap`, `/sentry-example-page` | **The whole signed-out shopper surface is crawlable**: `/feed`, `/browse`, `/map`, `/deals`, `/deals/[id]`, `/my-deals`, `/tickets`, `/search`, `/shops/[id]`, `/you`, `/notifications`, `/profile`, `/login`, `/sign-up`, `/demo`. Measured: `/feed` → HTTP 200 anonymous, 156 `KES` strings of demo data, no `noindex`, homepage title. `sitemap.ts:18–20` already states these are not indexable content | Extend the disallow list to the shopper and auth surfaces, mirroring `sitemap.ts`'s stated rationale; belt-and-braces, `noindex` them while `DEMO_MODE`. Add a guard so the two files cannot disagree again. Opened as **D85** | eng |
+| 10 | `robots.txt` | Partial | `maanta-app/src/app/robots.ts`; served correctly in production with absolute `Sitemap:` and `Host:`. Disallows `/api/`, `/admin`, `/agent`, `/founder`, `/merchant/`, `/onboarding`, `/otp`, `/select-mall`, `/verify-phone`, `/app-bootstrap`, `/sentry-example-page` | **The whole signed-out shopper surface is crawlable**: `/feed`, `/browse`, `/map`, `/deals`, `/deals/[id]`, `/my-deals`, `/tickets`, `/search`, `/shops/[id]`, `/you`, `/notifications`, `/profile`, `/login`, `/sign-up`, `/demo`. Measured: `/feed` → HTTP 200 anonymous, 156 `KES` strings of demo data, no `noindex`, homepage title. `sitemap.ts:18–20` already states these are not indexable content | Extend the disallow list to the shopper and auth surfaces, mirroring `sitemap.ts`'s stated rationale; belt-and-braces, `noindex` them while `DEMO_MODE`. Add a guard so the two files cannot disagree again. Opened as **D89** | eng |
 | 11 | Unique page titles | Implemented | Verified in rendered production HTML for all 17 routes — all unique, all descriptive, none templated. Guarded by `marketing-a11y.test.ts:86` | Two caveats worth knowing: the guard checks *presence*, not *uniqueness* or length, so a future duplicate would pass; and `/download` is titled `Install Maanta`, the only route without the `— MAANTA` suffix and the only one lower-casing the wordmark | Fix the `/download` title for convention. Optionally tighten the guard to assert uniqueness | eng |
 | 12 | Unique meta descriptions | Implemented | Verified in rendered production HTML for all 17 routes — all present, all unique, none inheriting the root description | Uniqueness and presence are fully met; two quality issues sit behind that. **Length:** `/about` (171 chars) and `/waitlist` (170) exceed the ~160-char snippet window and truncate — in `/about`'s case cutting "Here is how it works and how we make money.", the sentence doing the persuading — while seven descriptions sit under 120 and waste the space. No guard checks length or uniqueness in either direction. **Content:** the `/` and `/about` descriptions assert "Live at BBS Mall, Eastleigh." while the footer says MAANTA is not yet trading — see blocker 2 | Trim `/about` and `/waitlist` to ≤160; extend the short ones on `/malls/bbs-mall` and `/help`. Resolve the "Live at" question separately (blocker 2) | eng |
-| 13 | Social-share / Open Graph image and metadata | Partial | `og:url`, `og:title`, `og:description`, `og:site_name=MAANTA`, `og:type=website`, `og:locale=en_KE`, `twitter:card/title/description` on **all 17**. `og:image` (1200×630, distinct `og:image:alt`, `twitter:image` mirrored) on **6 of 17**: `/`, `/shoppers`, `/merchants`, `/mall-operators`, `/about`, `/contact` | **11 routes declare `twitter:card=summary_large_image` and ship no image**, so a share renders an empty large card — including `/pricing` and `/merchants/join`, the two commercial conversion pages, in a market where `og.tsx`'s own docblock notes WhatsApp is how these pages get shared. Separately, `about/opengraph-image.tsx:13` hardcodes `subline: "Live at BBS Mall, Eastleigh, Nairobi."`, bypassing the `OG_STATUS_LINE` gate — opened as **D83** | Add `opengraph-image.tsx` for at least `/pricing`, `/merchants/join`, `/waitlist` and `/malls/bbs-mall` (five working templates already exist). Replace `/about`'s hardcoded subline with copy that makes no trading claim | eng |
+| 13 | Social-share / Open Graph image and metadata | Partial | `og:url`, `og:title`, `og:description`, `og:site_name=MAANTA`, `og:type=website`, `og:locale=en_KE`, `twitter:card/title/description` on **all 17**. `og:image` (1200×630, distinct `og:image:alt`, `twitter:image` mirrored) on **6 of 17**: `/`, `/shoppers`, `/merchants`, `/mall-operators`, `/about`, `/contact` | **11 routes declare `twitter:card=summary_large_image` and ship no image**, so a share renders an empty large card — including `/pricing` and `/merchants/join`, the two commercial conversion pages, in a market where `og.tsx`'s own docblock notes WhatsApp is how these pages get shared. Separately, `about/opengraph-image.tsx:13` hardcodes `subline: "Live at BBS Mall, Eastleigh, Nairobi."`, bypassing the `OG_STATUS_LINE` gate — opened as **D87** | Add `opengraph-image.tsx` for at least `/pricing`, `/merchants/join`, `/waitlist` and `/malls/bbs-mall` (five working templates already exist). Replace `/about`'s hardcoded subline with copy that makes no trading claim | eng |
 | 14 | Maps and directions, if MAANTA has a public physical location | Not applicable yet | MAANTA is **not incorporated** (`CO-DEMO-0000-NOT-INCORPORATED`, `src/lib/marketing/demo.ts:43`). Its only physical presence is a desk inside BBS Mall, a venue it does not own. `/malls/bbs-mall` carries no address, hours, floor guide or map | Publishing a map or address for MAANTA would assert a public place of business that does not exist | Add no map and no address for MAANTA. Once the pilot opens, directions to **BBS Mall** — clearly attributed to the mall, not to MAANTA — are a legitimate shopper aid on `/malls/bbs-mall`; the founder supplies the verified details | founder |
 | 15 | Real customer or partner reviews | Not applicable yet | No testimonial, review, rating or partner-logo content renders on any route. `src/lib/__tests__/held-claims.test.ts` actively scans page source and `src/content/legal/*.md` for claims the company has decided not to publish | Correct for the stage: there are no customers yet, so there is no review that could be real | Add none. Revisit only when the pilot yields named merchants who consent to be quoted — at which point the quote must be attributable and checkable | founder |
 | 16 | Meaningful alt text on all content images | Not applicable yet | There are **no content images**: zero `<img>`/`<Image>` in `(marketing)/` or `components/marketing/` source, and zero `<img>` in rendered HTML across all 17 production routes. All artwork is inline SVG | Nothing to caption. The SVG treatment is correct: the two shell logos are `aria-hidden="true"` inside `<a aria-label="MAANTA home">`, page glyphs are decorative `aria-hidden="true"`, and no `<svg role="img">` exists anywhere | No action. This item becomes live the moment the first photograph ships (see item 20) — add the alt-text requirement to that change, not before | eng |
 | 17 | Appropriate organization and local-business structured data/schema | Missing | Zero `application/ld+json` in `maanta-app/src/`, confirmed absent in rendered HTML on all 17 production routes. No `Organization`, no `WebSite`, no `FAQPage`, no `BreadcrumbList` | Free, honest search wins are unclaimed — most obviously `FAQPage` over 16 already-marked-up Q&A pairs. `LocalBusiness` is a separate matter and is **not applicable**: it requires a verified public address MAANTA does not have | Ship the honest subset: `FAQPage` on `/faq`, `WebSite` on `/`, and a minimal `Organization` carrying only `name`, `url` and `logo`. No `address`, no `LocalBusiness`, no `aggregateRating`. Defer any identifier-bearing schema until incorporation and ODPC registration land | eng |
 | 18 | Privacy Policy page | Partial | `(marketing)/privacy/page.tsx` rendering `src/content/legal/privacy-policy.md` — 15 substantive sections including lawful basis, automated processing, retention, rights, complaints, cross-border transfer and children. Linked from every footer. `noindex, nofollow` while `DEMO_MODE`, guarded by `marketing-a11y.test.ts:110` | The page is honest, not finished: it renders a visible DRAFT notice ("NO LEGAL STANDING… has **not** been reviewed by a lawyer… Registration and licence numbers shown are placeholders") and a visible `ODPC-DEMO-0000-NOT-REGISTERED`. Readiness tracker **`O5` is a blocked GATE**; **`O6`** (Kenya DPA cross-border basis for Supabase `eu-west-1`) is not started | Not an engineering task. Unblock `O5` via counsel review and the incorporation decision, and rule on `O6`. The disclosure machinery to flip at launch already exists and is gated on one flag | legal |
-| 19 | Analytics implementation, consent-aware if required | Partial | PostHog initialised site-wide in the root layout (`PostHogClientProvider` confirmed in the production RSC payload), proxied via `/ingest`; named marketing events in `src/lib/marketing/analytics-events.ts`. Consent posture is deliberate: `persistence: "memory"` (`src/components/posthog-provider.tsx:38`, founder ruling 2026-07-31), so nothing is written to an anonymous visitor's device — which is why no banner ships, and `src/content/legal/cookie-notice.md:41` says exactly that | Two gaps. (a) No mechanism exists for a signed-in user to exercise the choice `/cookies` and `/privacy` §7 describe. (b) **A live defect:** `src/lib/analytics-identity.ts:21–23` states it requires default cookie persistence and that `memory` leaves "no cookie to read" — which is the shipped config. So `serverPosthogDistinctId()` returns `null` on every signed-out request and server events fall to `distinct_id_source: 'none'`. Open row **D22** treats this as a future risk; it is already realised. Opened as **D84** | Do not add a banner or a provider without a founder decision on provider, measurement ID, lawful basis and jurisdictions. Do resolve D84: either restore cookie persistence with consent, or retire the cookie-reading path and accept unattributed signed-out events explicitly | eng |
+| 19 | Analytics implementation, consent-aware if required | Partial | PostHog initialised site-wide in the root layout (`PostHogClientProvider` confirmed in the production RSC payload), proxied via `/ingest`; named marketing events in `src/lib/marketing/analytics-events.ts`. Consent posture is deliberate: `persistence: "memory"` (`src/components/posthog-provider.tsx:38`, founder ruling 2026-07-31), so nothing is written to an anonymous visitor's device — which is why no banner ships, and `src/content/legal/cookie-notice.md:41` says exactly that | Two gaps. (a) No mechanism exists for a signed-in user to exercise the choice `/cookies` and `/privacy` §7 describe. (b) **A live defect:** `src/lib/analytics-identity.ts:21–23` states it requires default cookie persistence and that `memory` leaves "no cookie to read" — which is the shipped config. So `serverPosthogDistinctId()` returns `null` on every signed-out request and server events fall to `distinct_id_source: 'none'`. Open row **D22** treats this as a future risk; it is already realised. Opened as **D88** | Do not add a banner or a provider without a founder decision on provider, measurement ID, lawful basis and jurisdictions. Do resolve D88: either restore cookie persistence with consent, or retire the cookie-reading path and accept unattributed signed-out events explicitly | eng |
 | 20 | Authentic team/founder photo or an intentionally appropriate alternative | Implemented | `/about` carries a named, substantive founder section (Mohamed Elmi, Founder) — biography, why Eastleigh, and `admin@maanta.app` — with **no photograph**. The image-free treatment is demonstrably intentional, not unfinished: there is no `<img>` on any of the 17 routes, `public/` holds only `icon.svg` and the manifest, the hero is a CSS mockup rather than a screenshot, and the OG images are generated programmatically | Reads as the "intentionally appropriate alternative" the item allows: a real, named person with a specific story, on a consistently typographic site. The residual cost is mild — a named founder with no face on the page investors and mall operators read most | No engineering action. A real photograph remains an optional founder-supplied upgrade; if it is added, it needs meaningful alt text (item 16 re-opens with it). Do not source stock or generate a likeness | founder |
 
 **Status counts:** Implemented 6 · Partial 7 · Missing 2 · Needs founder input 0 ·
@@ -164,13 +164,13 @@ Genuine blockers for discoverability, trust, conversion or legal clarity.
    already states, and `noindex` them while `DEMO_MODE` holds. Without this, a
    crawler can index fabricated deals under MAANTA's brand — and indexed URLs
    outlive the demo data that produced them. Small diff, high consequence.
-   Drift **D85**.
+   Drift **D89**.
 2. **Resolve the "Live at" contradiction (items 12, 13).** Four surfaces assert
    trading while the footer of every page denies it, and the guard named for
    this catches none of them. Needs a founder ruling first (is "Live at BBS
    Mall" acceptable pre-launch?), then alignment of the homepage hero,
    `/about`'s description and OG description, and `/about`'s OG image — plus a
-   guard whose assertion matches its name. Drift **D83**.
+   guard whose assertion matches its name. Drift **D87**.
 3. **Unblock the legal gate (item 18).** `O5` is blocked on incorporation
    decisions. The drafts are correctly bannered and `noindex`ed today, which is
    honest but is not a public launch state.
@@ -228,12 +228,12 @@ returns HTTP 200, renders 156 `KES` price strings drawn from demo data
 target of the header CTA (`nav.ts:22`) and the homepage hero CTA
 (`(marketing)/page.tsx:90`), so it is the most linked destination on the site and
 the most likely to be crawled. `sitemap.ts:18–20` already articulates the
-correct policy; `robots.ts` never implemented it. Recorded as **D85**.
+correct policy; `robots.ts` never implemented it. Recorded as **D89**.
 
 **2 · Pre-launch trading claims leak past a mis-scoped guard.** Every page
 footer renders "MAANTA APP is not yet trading" alongside a regulatory-status
 disclosure, and the company is neither incorporated nor ODPC-registered. Against
-that, **twenty-one** surfaces assert the opposite — the ten below, plus eleven more found while implementing the ruling and listed in the D83 section at the end:
+that, **twenty-one** surfaces assert the opposite — the ten below, plus eleven more found while implementing the ruling and listed in the D87 section at the end:
 
 > **Correction, 2026-08-10.** The first version of this report said five, then
 > ten. The final count, from implementing the fix, is **twenty-one**. The one
@@ -277,7 +277,7 @@ the ungated claim 24 pixels above it.
 `prelaunch-consistency.test.ts:72` is named *"keeps 'Live at' out of every
 marketing page body while pre-launch"* but asserts
 `/\b(now live at|already live)\b/i`, which matches none of the four. This is the
-same vacuous-guard pattern as **D38**. Recorded as **D83**.
+same vacuous-guard pattern as **D38**. Recorded as **D87**.
 
 **3 · Legal documents are unreviewed drafts (blocked gate `O5`).** Disclosed
 correctly and `noindex`ed, so this is honest today — but publishing a site that
@@ -312,14 +312,14 @@ Ordered by benefit per unit of effort; none requires a product decision.
 
 | # | Decision or asset | Why it cannot be resolved in the repo |
 |---|---|---|
-| 1 | ~~**Is "Live at BBS Mall" acceptable pre-launch?**~~ — **answered** | A commercial and legal positioning call. **Ruled 2026-08-10: drop it everywhere.** Implemented and guarded on this branch; see the D83 section. Not live until the branch deploys |
+| 1 | ~~**Is "Live at BBS Mall" acceptable pre-launch?**~~ — **answered** | A commercial and legal positioning call. **Ruled 2026-08-10: drop it everywhere.** Implemented and guarded on this branch; see the D87 section. Not live until the branch deploys |
 | 2 | **Lawyer review of the four legal drafts, and the incorporation decision behind it** | Readiness tracker `O5`, blocked. Gates the removal of the DRAFT banners and the placeholder identifiers |
 | 3 | **Kenya DPA cross-border basis for Supabase `eu-west-1`** | Readiness tracker `O6`, not started. Determines what `/privacy` §12 may honestly say |
 | 4 | **Analytics consent posture for signed-in users** | Provider, measurement ID, lawful basis and target jurisdictions must be settled before any banner or opt-out is built. The current cookieless anonymous posture is already ruled and is fine |
 | 5 | **Founder photograph — optional upgrade, not a gap** | The text-only treatment already reads as intentional (item 20). A real photograph would strengthen `/about`; it is an asset the founder supplies or declines, and must not be sourced or generated |
 | 6 | **BBS Mall verified address, opening hours and floor detail** | Needed before `/malls/bbs-mall` can stop being a stub. Attributable to the mall, not to MAANTA |
 | 7 | **Whether the pilot may be written up, and by whom** | Determines when items 6 and 15 stop being deferred |
-| 8 | **Drift-row numbering** | **D83** and **D84** are also claimed by unmerged branches. Per the convention recorded on the PR #185 branch, whichever lands on `main` second renumbers; the contiguity guard in `drift-register.test.ts` forbids skipping ahead to avoid the clash |
+| 8 | ~~**Drift-row numbering**~~ — **resolved** | The rows opened here were D83–D86; `main` landed its own D83–D86 first (payments, identity, privacy, migrations), so per the convention recorded on the PR #185 branch — whichever lands second renumbers — **these became D87 (trading claims), D88 (analytics attribution), D89 (crawl policy) and D90 (present-tense operations)**. Every reference in this document and in the marketing source was renumbered with them; the security and migration rows on `main` were not touched |
 
 ---
 
@@ -345,11 +345,11 @@ Ordered by benefit per unit of effort; none requires a product decision.
 decision it does not need.**
 
 1. **`robots.ts` disallow list + `noindex` on shopper surfaces**, with a guard
-   pinning `robots.ts` and `sitemap.ts` to the same policy. *(blocker 1, D85)*
+   pinning `robots.ts` and `sitemap.ts` to the same policy. *(blocker 1, D89)*
 2. **Founder ruling on "Live at"**, then align the homepage hero, `/about`
    metadata and OG description, and `/about`'s OG image; fix
    `prelaunch-consistency.test.ts:72` so its assertion matches its name.
-   *(blocker 2, D83)*
+   *(blocker 2, D87)*
 3. **404 rebuild** — marketing shell, own metadata, real recovery links.
 4. **Four OG images** for the commercial and acquisition routes.
 5. **JSON-LD**: `FAQPage`, `WebSite`, minimal `Organization` — no address, no
@@ -359,7 +359,7 @@ decision it does not need.**
 8. **Sticky mobile CTA** on `/merchants` and `/shoppers`, replacing the visible
    amber action while shown.
 9. **Confirmation route** for the three forms, keeping the inline success state.
-10. **Resolve D84** — decide whether signed-out server-side attribution is
+10. **Resolve D88** — decide whether signed-out server-side attribution is
     restored or explicitly retired.
 11. **`/malls/bbs-mall` build-out** — gated on founder-supplied mall detail.
 12. **Legal review (`O5`) and the DPA decision (`O6`)** — parallel track,
@@ -448,7 +448,7 @@ either in `SITEMAP_ROUTES`, or a `noindex` legal route, or disallowed — so a n
 route cannot land in the gap `/feed` was in — and that no route claims a large
 social card without an image.
 
-### D83 — ruled and implemented, 2026-08-10
+### D87 — ruled and implemented, 2026-08-10
 
 The founder ruled: **drop "Live at" everywhere.** Implemented in the same
 branch, and the implementation corrected this report twice more.
@@ -490,7 +490,7 @@ chip is untouched. Verified non-vacuous by reintroducing the claim on
 NOW` returns **zero hits**, and the replacement copy renders on all six affected
 pages.
 
-**D83 is not closed by this commit, and its close conditions are now recorded**
+**D87 is not closed by this commit, and its close conditions are now recorded**
 (founder, 2026-08-10). All three are required, in order: the fix is deployed to
 production; the **deployed** HTML — not the repo, and not a preview alias
 standing in for it — is checked for the prohibited phrases and the live-status
@@ -500,20 +500,20 @@ what the public site serves. `pending-deploy` is not available as an
 intermediate here: the schema guard requires that status to name an unapplied
 migration, and this is a code fix, so `open` carries the not-yet-live meaning.
 
-**The residue became its own row, deliberately: D86.** The site still says in the
+**The residue became its own row, deliberately: D90.** The site still says in the
 present tense that MAANTA is operating at BBS Mall, in prose that never uses the
 word "live" — `/malls/bbs-mall`'s "where the product is run in person" and
 "shops here publish deals from a phone", and `/shoppers`' "the shops there are
 the ones publishing deals today". (A comparable line on `/about` sits inside the
 `SCENARIO.isScenario` branch, so production never renders it.) These assert
-current operation as plainly as "Live at BBS Mall" did, which means **the D83
+current operation as plainly as "Live at BBS Mall" did, which means **the D87
 guard passing does not mean the site has stopped claiming to trade.**
 
-It is not folded into D83 because it is not the same kind of problem. D83 was
+It is not folded into D87 because it is not the same kind of problem. D87 was
 one phrase with twenty-one instances and a single correct answer. This is the
 voice the site is written in, and it is a factual question before it is a copy
 question: *is MAANTA operating at BBS Mall today?* If no, the prose is rewritten
-as pilot or future tense and gated alongside the D83 wording so one flag still
+as pilot or future tense and gated alongside the D87 wording so one flag still
 governs launch state. If yes, it stands — but it then has to be consistent with
 **D14**, which has `demo_mode_enabled` true on production, so the deals a
 visitor actually sees are synthetic. Both cannot be presented as true without
@@ -523,7 +523,7 @@ saying which is which.
 
 | Item | Why |
 |---|---|
-| **D84** — signed-out analytics attribution | Needs a decision: restore cookie persistence behind consent, or retire the cookie-reading path and accept unattributed server events. A guard alone would go red immediately, which is a decision made by omission |
+| **D88** — signed-out analytics attribution | Needs a decision: restore cookie persistence behind consent, or retire the cookie-reading path and accept unattributed server events. A guard alone would go red immediately, which is a decision made by omission |
 | 18 · Legal drafts (`O5`, `O6`) | Blocked on counsel review and the incorporation decision. Not an engineering task |
 | 9 · Sticky mobile CTA | Frozen UI rule 1 caps a screen at one amber action, so a sticky bar must **replace** the visible CTA rather than add to it. That is a design decision about which surfaces get one |
 | 4 · Confirmation routes | The inline success state works and conversions are already measurable via `marketing_form_submitted`. A dedicated URL changes three conversion flows and wants its own review |

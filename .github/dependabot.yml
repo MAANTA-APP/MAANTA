@@ -1,0 +1,41 @@
+# Dependency update automation (SEC-012).
+#
+# Added because the 2026-08-10 security audit found six vulnerable packages —
+# including a direct, pinned `next` carrying 21 published advisories — that no
+# process in this repo would have surfaced. `npm audit` is only run when
+# somebody remembers to run it.
+#
+# Scoped to security updates for npm on purpose. This is a pre-launch pilot with
+# a deliberately pinned Next.js and a lockfile CI depends on, so a firehose of
+# routine version bumps would be noise that trains people to ignore the alerts
+# that matter. Version updates can be widened later; the security ones are the
+# ones nobody should have to remember.
+#
+# The github-actions ecosystem is included because every workflow currently pins
+# actions by floating major tag (`actions/checkout@v4`). Dependabot rewrites
+# those to commit SHAs with a version comment when it opens a PR, which is the
+# sustainable way to get SHA pinning without hand-maintaining digests.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /maanta-app
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security
+    commit-message:
+      prefix: "deps"
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci"

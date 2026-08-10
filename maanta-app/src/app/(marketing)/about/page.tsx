@@ -51,7 +51,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/about",
   title: "About — MAANTA",
   // Trimmed from 171 characters to fit the snippet window, and the "Live at
-  // BBS Mall" clause is gone under the D83 ruling of 2026-08-10 rather than as
+  // BBS Mall" clause is gone under the D87 ruling of 2026-08-10 rather than as
   // a side effect of the trim. This description and the `ogDescription` below
   // are two of the twenty-one surfaces that ruling covers; the rest resolve
   // through `lib/marketing/live-claims.ts`, which is where the gated wording

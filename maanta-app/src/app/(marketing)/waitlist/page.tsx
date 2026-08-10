@@ -7,7 +7,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/waitlist",
   title: "Join the MAANTA waitlist",
   // Trimmed from 170 characters to fit the snippet window without truncating.
-  // "launching at" is kept: it is future tense and so is not one of the D83
+  // "launching at" is kept: it is future tense and so is not one of the D87
   // trading claims, and it is the only place the launch mall appears in this
   // page's snippet.
   description:
