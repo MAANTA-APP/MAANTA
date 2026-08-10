@@ -24,7 +24,13 @@ export function TextField({
 }
 
 /** 3a Phone field — country code selectable, defaults Kenya +254.
- *  Full list with KE/NO/GB pinned first lives in `@/lib/country-codes`. */
+ *  Full list with KE/NO/GB pinned first lives in `@/lib/country-codes`.
+ *
+ *  Selection identity is the dial code (the component's external API), and
+ *  dial codes are shared across countries (+1, +7, +39, +44, +262…) — so every
+ *  row sharing the selected code shows the check. That is a known limit of
+ *  this API, not a bug; exact country semantics require moving selection to
+ *  `iso2` and deriving the dial code, which changes every call site. */
 export function PhoneField({
   countryCode,
   onCountryCode,
