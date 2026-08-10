@@ -1,3 +1,5 @@
+import { redactFreeText, redactWebhookPayload } from "@/lib/redact";
+
 const INTASEND_BASE_URL =
   process.env.INTASEND_ENV === "live"
     ? "https://payment.intasend.com/api/v1"
@@ -69,7 +71,16 @@ export async function initiateMpesaStkPush(params: {
     });
 
     if (!res.ok) {
-      console.error("IntaSend STK push failed:", res.status, await res.text());
+      // The provider echoes the request back on failure, including the
+      // phone_number posted above, so the body is scrubbed before it reaches a
+      // log. Free text has no keys to redact structurally — redactFreeText is
+      // a shape heuristic, which is why the parsed path below uses the
+      // key-aware redactor instead.
+      console.error(
+        "IntaSend STK push failed:",
+        res.status,
+        redactFreeText(await res.text())
+      );
       return null;
     }
 
@@ -77,7 +88,10 @@ export async function initiateMpesaStkPush(params: {
     const invoice = body?.invoice;
     const invoiceId = invoice?.invoice_id ?? invoice?.id;
     if (!invoiceId) {
-      console.error("IntaSend returned unexpected shape:", body);
+      console.error(
+        "IntaSend returned unexpected shape:",
+        redactWebhookPayload(body)
+      );
       return null;
     }
 

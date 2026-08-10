@@ -139,7 +139,8 @@ The remaining findings are narrower: one PostgREST filter-injection pattern on a
 admin-only search, one route leaking a raw Postgres error message to an admin
 client, unredacted phone numbers persisted into a webhook failure table, and no
 security headers (CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`)
-configured anywhere.
+configured anywhere. **Of those four, the first three were fixed on 2026-08-10**
+(SEC-004, SEC-005, SEC-006); the security headers remain open.
 
 Two findings were recorded in `docs/maanta-drift-register.md` as **D83** and
 **D84** before this narrative was written, per the repository's own rule that the
@@ -283,7 +284,7 @@ register is the state and the audit document is only a story.
 ### SEC-004 — PostgREST filter injection in admin customer search
 
 - **Severity:** Medium
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** — see *Fixed in this session* below.
 - **Affected surface:** `maanta-app/src/app/admin/customers/page.tsx:40`
 - **Evidence:** `query.or(\`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%\`)`
   — the only place in the codebase where `.or()` receives a raw, unescaped
@@ -334,7 +335,8 @@ register is the state and the audit document is only a story.
 ### SEC-006 — Unredacted webhook payloads (including phone numbers) persisted to the database
 
 - **Severity:** Medium
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** (tracked as drift **D85**, opened and closed
+  in the same change) — see *Fixed in this session* below.
 - **Affected surface:** `maanta-app/src/lib/merchant-ledger.ts:73-79`,
   `maanta-app/src/app/api/webhooks/intasend/route.ts:24-27,43-47,61-65`
 - **Evidence:** `redactWebhookPayload` redacts exactly one field — `challenge` —
@@ -531,8 +533,10 @@ Four items worth recording, none of which is a vulnerability:
 
 ## Fixed in this session
 
-Two findings were remediated after the audit was written, on the same branch.
-Both were verified by running the checks, not by inspection alone.
+Four findings were remediated after the audit was written, on the same branch —
+SEC-004, SEC-005 and SEC-006 in full, and the replay half of SEC-001. All were
+verified by running the checks and by confirming each new test fails against the
+old code, not by inspection alone.
 
 ### SEC-005 — fixed in full
 
@@ -573,7 +577,65 @@ across redeliveries, and is unaffected by the presence of an invoice id. All
 three fail against the previous code — verified by stashing the fix and
 re-running, not assumed.
 
-**What this does not fix.** `verifyWebhookChallenge` is still a static shared
+### SEC-004 — fixed in full
+
+The filter is now built by `ilikeAnyFilter` in the new
+`maanta-app/src/lib/postgrest-filter.ts`, which wraps the search term in double
+quotes and escapes backslashes before quotes. Inside a quoted PostgREST value
+the reserved characters — `,` `.` `(` `)` `:` — are data, so
+`q = "x,role.eq.admin"` becomes a search for that literal string instead of a
+second OR condition.
+
+**Quoting, not stripping**, deliberately. Stripping the reserved set is the
+obvious fix and is wrong here: every email contains a `.`, so stripping would
+silently break the email search that is half the point of the box. Quoting
+keeps "search for j.doe@example.com" working while neutralising the grammar.
+The helper also rejects any column name that is not a plain identifier, so it
+cannot itself become the vector it exists to close.
+
+Guard: `maanta-app/src/lib/__tests__/postgrest-filter.test.ts`. Twelve cases,
+including the backslash-before-quote ordering trap (escaping quotes first would
+let `\"` be un-escaped) and a **source-scan ratchet** that fails if any `.or()`
+call anywhere under `src/` interpolates a template literal again. That last one
+is the part that matters over time — it is the same lesson as the shared comment
+lexer (**D38**): a second private copy of an escaping rule is how the defect
+returns. Verified the ratchet fires by reverting the call site and watching it
+fail.
+
+### SEC-006 — fixed in full
+
+Redaction moved to `maanta-app/src/lib/redact.ts` and was inverted from a
+one-key denylist to an **allowlist**: only named diagnostic fields keep their
+value, so a provider adding a field tomorrow cannot start silently persisting
+it. Two design choices worth stating:
+
+- **Keys are preserved, values replaced.** Dropping unknown keys entirely would
+  hide the shape of an unfamiliar payload from whoever is debugging a failed
+  credit, which is the reason `payment_webhook_failures` exists. A reviewer
+  still sees which fields arrived, just not their values.
+- **Phones are masked, not redacted**, through the same `maskPhone` every
+  merchant-facing surface uses — enough to confirm which payment this was,
+  without storing the number, and one masking rule in the codebase rather than
+  two. A number too short for `maskPhone` to mask safely returns `null`, which
+  becomes a full redaction rather than a passthrough.
+
+Recursion covers nested objects and arrays with a depth cap. `redactFreeText`
+handles the unparsed-response case in `maanta-app/src/lib/intasend.ts:72`,
+documented in the code as a shape heuristic and not a real control — with no
+keys to go on, the only signal is a run of 7+ digits.
+
+Scope note found while fixing: `logWebhookFailure` is called from **eleven**
+places in the Stripe route, but none passes a `payload` — only `errorMessage`
+and `eventType`. The raw-body persistence was IntaSend-only, so the blast radius
+was narrower than the finding implied.
+
+Guard: `maanta-app/src/lib/__tests__/redact.test.ts`, 15 cases. Verified the old
+behavior by running the previous function against the same payload: it emitted
+the raw `+254712345678` and `jane@example.com`.
+
+---
+
+**What SEC-001 still does not fix.** `verifyWebhookChallenge` is still a static shared
 secret echoed in the request body, with no signature over the payload. A caller
 holding that secret can still mint fresh `api_ref` values and credit arbitrary
 amounts up to KES 1,000,000. Replay and accidental double-credit are closed;
@@ -594,7 +656,7 @@ both reasons.
 | 3 | Row Level Security | Pass | — | All 25 tables have RLS enabled; event trigger `rls_auto_enable` force-enables on future `CREATE TABLE`; policies bind through `current_user_id()`/`current_user_role()` from the verified JWT; write grants revoked from `authenticated` on core tables (`20260723120000`) | None |
 | 4 | Frontend-only authorization | Pass | — | All 39 API routes carry a server-side guard; money/trust RPCs re-check caller identity inside `SECURITY DEFINER` (`claim_deal`, `verify_redemption`, `merchant_verify_authorized`); no server actions exist | None |
 | 5 | Rate limiting and abuse controls | Finding | Low | DB-backed shared limiter (`src/lib/rate-limit.ts` → `check_rate_limit` RPC), on 10 endpoints; absent on `/api/deals` and `/api/push/subscribe`; no limit on webhooks | SEC-008 |
-| 6 | SQL injection prevention | Finding | Medium | No raw SQL anywhere; all `.rpc()` calls use bound named params; 3 dynamic-SQL sites in migrations all use `%I` with catalog-sourced identifiers. One raw `.or()` filter string | SEC-004 |
+| 6 | SQL injection prevention | Pass (fixed 2026-08-10) | — | No raw SQL anywhere; all `.rpc()` calls use bound named params; 3 dynamic-SQL sites in migrations all use `%I` with catalog-sourced identifiers. The one raw `.or()` filter string now builds through `lib/postgrest-filter.ts`, with a source-scan ratchet against recurrence | SEC-004 closed |
 | 7 | Input validation | Finding | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Gaps: phone on onboard, webhook amount unreconciled | SEC-013, SEC-001 |
 | 8 | User content rendered as HTML | Pass | — | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `srcdoc`. Legal markdown uses a hand-written parser emitting React children (`components/marketing/LegalDoc.tsx`). HTML emails escape via `src/lib/escape-html.ts` | None |
 | 9 | Password handling | Pass (N/A) | — | Fully passwordless — Clerk OTP or Supabase email OTP. Zero password code in `src/` or migrations; the 9 `password` matches are marketing/legal copy | None |
@@ -603,7 +665,7 @@ both reasons.
 | 12 | CORS configuration | Pass | — | Zero `Access-Control-Allow-*` anywhere; no `OPTIONS` handlers; no `headers()` in `next.config.mjs`; no `vercel.json`. Framework default = same-origin | Supabase Storage CORS needs manual check |
 | 13 | Email verification and account identity | Pass | — | Both strategies require a completed OTP before a session exists; self-role-escalation blocked by DB trigger with `EXECUTE` revoked from all roles; `admin`/`agent`/`cofounder` have no self-serve grant path | None |
 | 14 | Predictable identifiers and IDOR | Pass | — | All IDs are UUIDs; every object-access path scopes to the authenticated actor (`.eq("merchant_id", merchant.id)` etc.); OTP codes bound to `merchant_id` at unique-index and query level, so merchant A cannot verify merchant B's code | None |
-| 15 | Sensitive request-body logging | Finding | Medium | OTPs and tokens never logged; `maskPhone()` applied consistently at merchant-facing surfaces. Gaps: unredacted webhook payload persisted, email logged, no Sentry scrubber | SEC-006, SEC-010, SEC-011 |
+| 15 | Sensitive request-body logging | Finding (partly fixed) | Low | OTPs and tokens never logged; `maskPhone()` applied consistently at merchant-facing surfaces. Webhook payload redaction **fixed 2026-08-10** (allowlist + phone masking, `lib/redact.ts`). Remaining: waitlist email logged in plaintext, no Sentry `beforeSend` scrubber | SEC-010, SEC-011 |
 | 16 | Webhook signature validation | Finding (partly fixed) | **High** | Stripe: correct — `constructEvent` over `request.text()` raw body before parsing, signed timestamp, idempotent ledger. IntaSend: null-reference replay **fixed 2026-08-10**; static shared secret with no payload signature remains | SEC-001 — signature half |
 | 17 | Production error handling | Pass (fixed 2026-08-10) | — | All 5 error boundaries show static copy and never render `error.message`; source maps not shipped. The one route returning raw `error.message` now maps known failures and returns a generic message otherwise — all 14 RPC-backed routes are consistent | SEC-005 closed |
 | 18 | Dependency and supply-chain hygiene | Finding | **High** | 6 vulnerable packages (5 high, 1 moderate); `next@14.2.35` direct with 21 advisories; lockfile committed, registry-only, no git-URL deps, no app-authored install hooks; no Dependabot/CodeQL | SEC-002, SEC-012 |
@@ -687,9 +749,11 @@ and left `package.json` and `package-lock.json` unmodified — confirmed with
 |---|---|---|
 | `npm run lint` | 0 | `✔ No ESLint warnings or errors` |
 | `npm run typecheck` | 0 | Clean |
-| `npm test` | 0 | **597 tests in 79 files passed**, including the 14 new ones and `drift-register.test.ts`, which validates the D83/D84 rows |
+| `npm test` | 0 | **624 tests in 81 files passed** — 597 before the fixes, plus 27 new — including `drift-register.test.ts`, which validates the D83/D84/D85 rows |
 | `npm run build` | 0 | Compiled, and all three post-build gates clean: `check-tokens` (47 rendered files, 390 chunks), `check-canonicals` (16 marketing routes), `check-server-forms` |
-| Regression check: stash the two source fixes, re-run the new tests | 1 | **6 of 14 failed**, confirming the new tests fail against the old code rather than passing vacuously. Fixes restored with `git stash pop` and re-verified |
+| Regression check: stash the SEC-001/SEC-005 fixes, re-run their tests | 1 | **6 of 14 failed**, confirming they fail against the old code rather than passing vacuously. Restored and re-verified |
+| Regression check: revert the SEC-004 call site, re-run its tests | 1 | The source-scan ratchet fired on the reverted `.or()` template literal. Restored and re-verified |
+| Regression check: run the previous `redactWebhookPayload` against the test payload | — | Emitted `+254712345678` and `jane@example.com` verbatim — the leak the SEC-006 tests now forbid |
 
 **The audit pass itself could not run lint, typecheck or test** — that is
 recorded above and stands. Those results are from the remediation pass, after
@@ -721,9 +785,9 @@ changed, so nothing in the `db-tests` job is affected by these fixes.
 5. **SEC-003** — rule on whether `claim_deal` asserts phone verification itself;
    at minimum correct the comment so it stops asserting an invariant that does
    not exist.
-6. **SEC-004 and SEC-006** — the filter-injection pattern and the webhook
-   payload redaction. Both are small, local diffs. (**SEC-005**, the raw error
-   message, was fixed on 2026-08-10.)
+6. ~~**SEC-004 and SEC-006** — the filter-injection pattern and the webhook
+   payload redaction.~~ **Done 2026-08-10**, along with **SEC-005**. All three
+   are guarded by tests; SEC-004 additionally by a source-scan ratchet.
 7. **SEC-007** — security headers, CSP in report-only mode first.
 8. **SEC-008 through SEC-013** — rate limits, `.gitignore`, Sentry scrubbing,
    log PII, CI permissions and action pinning, Dependabot, onboarding phone
