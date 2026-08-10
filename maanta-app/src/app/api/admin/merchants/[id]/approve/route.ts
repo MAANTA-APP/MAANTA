@@ -41,9 +41,28 @@ export async function POST(
   });
 
   if (error) {
+    // Map the failures activate_merchant actually raises, and never return the
+    // raw message: a Postgres exception can carry table, column, constraint,
+    // trigger and policy names into the browser and the network tab. Same shape
+    // as the other admin routes (plans, release, appeal, reverse-fee) — known
+    // strings get a specific status and curated copy, everything else gets one
+    // generic sentence with the detail kept in the server log.
+    const message = error.message ?? "";
+    if (message.includes("merchant_not_found")) {
+      return NextResponse.json({ error: "Shop not found." }, { status: 404 });
+    }
+    if (message.includes("already_active")) {
+      return NextResponse.json(
+        { error: "This shop is already approved." },
+        { status: 409 }
+      );
+    }
+    if (message.includes("unauthorized")) {
+      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+    }
     console.error("Failed to activate merchant:", error);
     return NextResponse.json(
-      { error: error.message || "Could not approve this shop." },
+      { error: "Could not approve this shop." },
       { status: 500 }
     );
   }

@@ -121,6 +121,13 @@ the one place where the otherwise-consistent "the backend is the source of truth
 for money" discipline does not hold. The Stripe webhook, sitting right next to
 it, does this correctly.
 
+**Update, same session:** the replay half of that finding is now fixed and
+guarded by tests — the ledger keys on the app-minted `api_ref`, so a redelivery
+can no longer credit twice. The **authentication half is untouched**: a caller
+holding the static secret can still forge a credit. The finding therefore stays
+High and D83 stays open. SEC-005 is fixed in full. Details in *Fixed in this
+session*.
+
 Second is dependency exposure: `next@14.2.35` is a direct, pinned dependency
 carrying 21 published advisories, alongside five vulnerable transitive packages.
 This needs triage — several advisories are conditional on configurations MAANTA
@@ -145,7 +152,9 @@ register is the state and the audit document is only a story.
 ### SEC-001 — IntaSend top-up webhook: no payload signature, and replayable wallet credit
 
 - **Severity:** High
-- **Status:** Open (tracked as drift **D83**)
+- **Status:** **Partly fixed 2026-08-10** — the replay half is closed and
+  guarded; the missing-signature half is open (tracked as drift **D83**).
+  See *Fixed in this session* below for exactly what changed.
 - **Affected surface:** `maanta-app/src/app/api/webhooks/intasend/route.ts`,
   `maanta-app/src/lib/intasend.ts`,
   `maanta-app/supabase/migrations/20260709000151_merchant_transactions_provider_reference_unique.sql`
@@ -301,7 +310,7 @@ register is the state and the audit document is only a story.
 ### SEC-005 — Raw Postgres error message returned to the client on merchant approval
 
 - **Severity:** Medium
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** — see *Fixed in this session* below.
 - **Affected surface:** `maanta-app/src/app/api/admin/merchants/[id]/approve/route.ts:43-49`
 - **Evidence:** Returns `{ error: error.message || "Could not approve this shop." }`
   with the raw `activate_merchant` RPC failure and no allowlist mapping. Every
@@ -520,6 +529,62 @@ Four items worth recording, none of which is a vulnerability:
 
 ---
 
+## Fixed in this session
+
+Two findings were remediated after the audit was written, on the same branch.
+Both were verified by running the checks, not by inspection alone.
+
+### SEC-005 — fixed in full
+
+`maanta-app/src/app/api/admin/merchants/[id]/approve/route.ts` now maps the
+three failures `activate_merchant` actually raises — `merchant_not_found` → 404,
+`already_active` → 409, `unauthorized` → 403 — and returns one generic sentence
+for anything unrecognised, keeping the detail in `console.error`. That last
+branch is the one that mattered: it is where an unmapped Postgres exception used
+to carry relation, column and constraint names into the response.
+
+The admin client (`merchant-admin-actions.tsx:61`) reads `body.error`
+status-agnostically, so the curated copy renders as-is — an admin now sees
+"This shop is already approved." instead of a raw database string.
+
+Guard: `maanta-app/src/app/api/admin/merchants/[id]/approve/__tests__/route.test.ts`.
+Six cases, including an explicit assertion that a realistic foreign-key
+violation message does **not** appear in the response body.
+
+### SEC-001 — replay half fixed, signature half still open
+
+`maanta-app/src/app/api/webhooks/intasend/route.ts` now keys the ledger write on
+the app-minted `api_ref` rather than the provider's optional invoice id. That
+value is minted once per STK push as `topup:<merchant-uuid>:<uuid>`, is
+guaranteed present by the merchant-id regex that already gates the handler, and
+is stable across redeliveries — so the reference is always non-null and always
+identical for repeat deliveries of one payment.
+
+Worth recording why the obvious form was rejected: keying on
+`invoice_id ?? api_ref` would be **worse than either alone**. A first delivery
+carrying an invoice id and a retry without one would produce two different keys
+for a single payment, and double-credit. The fix ignores the invoice id entirely
+for idempotency purposes. Merchant-facing copy was left untouched — the wallet
+detail page renders `description`, so nothing there changed.
+
+Guard: `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts`. Eight
+cases; the three that pin the fix assert the reference is never null, is stable
+across redeliveries, and is unaffected by the presence of an invoice id. All
+three fail against the previous code — verified by stashing the fix and
+re-running, not assumed.
+
+**What this does not fix.** `verifyWebhookChallenge` is still a static shared
+secret echoed in the request body, with no signature over the payload. A caller
+holding that secret can still mint fresh `api_ref` values and credit arbitrary
+amounts up to KES 1,000,000. Replay and accidental double-credit are closed;
+**forgery is not**. Amount reconciliation is also still absent, and is a larger
+change than it first appears: `maanta-app/src/app/api/topup/route.ts` persists
+nothing at initiation, so there is no record of the initiated amount to
+reconcile against — it needs a pending-top-up row first. D83 stays open for
+both reasons.
+
+---
+
 ## Checklist: 20 controls
 
 | # | Control | Status | Severity | Evidence / location | Required action |
@@ -539,8 +604,8 @@ Four items worth recording, none of which is a vulnerability:
 | 13 | Email verification and account identity | Pass | — | Both strategies require a completed OTP before a session exists; self-role-escalation blocked by DB trigger with `EXECUTE` revoked from all roles; `admin`/`agent`/`cofounder` have no self-serve grant path | None |
 | 14 | Predictable identifiers and IDOR | Pass | — | All IDs are UUIDs; every object-access path scopes to the authenticated actor (`.eq("merchant_id", merchant.id)` etc.); OTP codes bound to `merchant_id` at unique-index and query level, so merchant A cannot verify merchant B's code | None |
 | 15 | Sensitive request-body logging | Finding | Medium | OTPs and tokens never logged; `maskPhone()` applied consistently at merchant-facing surfaces. Gaps: unredacted webhook payload persisted, email logged, no Sentry scrubber | SEC-006, SEC-010, SEC-011 |
-| 16 | Webhook signature validation | Finding | **High** | Stripe: correct — `constructEvent` over `request.text()` raw body before parsing, signed timestamp, idempotent ledger. IntaSend: static shared secret, no payload signature, null-reference replay | SEC-001 |
-| 17 | Production error handling | Finding | Medium | 13 of 14 RPC-backed routes map errors to curated messages; all 5 error boundaries show static copy and never render `error.message`; source maps not shipped. One route returns raw `error.message` | SEC-005 |
+| 16 | Webhook signature validation | Finding (partly fixed) | **High** | Stripe: correct — `constructEvent` over `request.text()` raw body before parsing, signed timestamp, idempotent ledger. IntaSend: null-reference replay **fixed 2026-08-10**; static shared secret with no payload signature remains | SEC-001 — signature half |
+| 17 | Production error handling | Pass (fixed 2026-08-10) | — | All 5 error boundaries show static copy and never render `error.message`; source maps not shipped. The one route returning raw `error.message` now maps known failures and returns a generic message otherwise — all 14 RPC-backed routes are consistent | SEC-005 closed |
 | 18 | Dependency and supply-chain hygiene | Finding | **High** | 6 vulnerable packages (5 high, 1 moderate); `next@14.2.35` direct with 21 advisories; lockfile committed, registry-only, no git-URL deps, no app-authored install hooks; no Dependabot/CodeQL | SEC-002, SEC-012 |
 | 19 | Password strength and account protections | Needs manual verification | — | N/A for passwords (passwordless). Code-side: rate limits on verify/claim/onboard, merchant status gate, core-table write revocation. MFA, lockout, OTP send limits and session lifetime are all provider-dashboard settings, documented nowhere as configured | Verify Clerk + Supabase auth settings |
 | 20 | File-upload security | Pass | — | One upload path; magic-byte validation (`src/lib/image-bytes.ts` — JPEG/PNG/WebP only, SVG excluded at both app and bucket layer); 5 MB cap in app and bucket; server-generated path `{merchant.id}/{randomUUID()}.{sniffed ext}`; bound to `requireMerchant("can_deals")` | Supabase Storage CORS/policies need manual check |
@@ -606,16 +671,30 @@ actually happened, including the ones that could not produce a useful signal.
 | `git log --all -S` probes for `sk_live_`, `whsec_`, `BEGIN PRIVATE KEY` | 0 | No commits matched the two literal PEM-header probes; the others matched only unrelated documentation prose |
 | Tree-wide greps for `service_role`, `sk_live`/`sk_test`, `whsec_`, `PRIVATE_KEY`, JWT-shaped strings | 0 | Every hit is a variable name, prose, or an explicit CI/test placeholder. **No live secret found** |
 | `npm audit --omit=dev --package-lock-only` | 1 | **6 vulnerabilities: 5 high, 1 moderate.** `next@14.2.35` (direct, 21 advisories), `postcss@8.5.16` (4), `nanoid@3.3.15` (2), `fast-uri@3.1.4`, `brace-expansion@5.0.8`, `dompurify@3.4.12`. Reads the committed lockfile; installs nothing |
-| `npm run lint` | 127 | **Did not run** — `sh: 1: next: not found`. `node_modules` is not installed in this environment |
-| `npm run typecheck` | 2 | **No useful signal** — 5,032 errors, all `Cannot find module` / `Cannot find name 'process'`, i.e. missing `node_modules` and `@types/node`, not type errors in app code |
-| `npm test` | 127 | **Did not run** — `sh: 1: vitest: not found` |
-| `make db-verify` | not run | Requires a local Supabase stack, unavailable here |
+| `npm run lint` (audit pass) | 127 | **Did not run** — `sh: 1: next: not found`. `node_modules` was not installed during the audit itself |
+| `npm run typecheck` (audit pass) | 2 | **No useful signal** — 5,032 errors, all `Cannot find module` / `Cannot find name 'process'`, i.e. missing `node_modules`, not type errors in app code |
+| `npm test` (audit pass) | 127 | **Did not run** — `sh: 1: vitest: not found` |
+| `make db-verify` | not run | Requires a local Supabase stack, unavailable here. No SQL was changed by the fixes, so the `db-tests` job is unaffected |
 | Drift-register schema validation (local script replicating `drift-register.test.ts`) | 0 | 84 rows parse, 8 cells each, D1–D84 contiguous, no duplicate IDs, all statuses/categories/dates valid, every path cited by D83/D84 resolves, `Last updated` stamp not older than the newest row |
 
-**No lint, typecheck, test or build result in this report is claimed as
-green — three of the four could not execute at all.** The dependency audit and
-the drift-register validation are the only two checks that genuinely ran and
-produced a real result. CI on this branch will run the full gate.
+### After the SEC-001 and SEC-005 fixes
+
+`npm ci` was run to remediate the two findings (it reads the committed lockfile
+and left `package.json` and `package-lock.json` unmodified — confirmed with
+`git status`). The full gate then ran and **passed**:
+
+| Command | Exit | Result |
+|---|---|---|
+| `npm run lint` | 0 | `✔ No ESLint warnings or errors` |
+| `npm run typecheck` | 0 | Clean |
+| `npm test` | 0 | **597 tests in 79 files passed**, including the 14 new ones and `drift-register.test.ts`, which validates the D83/D84 rows |
+| `npm run build` | 0 | Compiled, and all three post-build gates clean: `check-tokens` (47 rendered files, 390 chunks), `check-canonicals` (16 marketing routes), `check-server-forms` |
+| Regression check: stash the two source fixes, re-run the new tests | 1 | **6 of 14 failed**, confirming the new tests fail against the old code rather than passing vacuously. Fixes restored with `git stash pop` and re-verified |
+
+**The audit pass itself could not run lint, typecheck or test** — that is
+recorded above and stands. Those results are from the remediation pass, after
+dependencies were installed. `make db-verify` still has not run; no SQL was
+changed, so nothing in the `db-tests` job is affected by these fixes.
 
 ---
 
@@ -623,9 +702,10 @@ produced a real result. CI on this branch will run the full gate.
 
 ### Fix immediately
 
-1. **SEC-001 — IntaSend webhook.** Refuse to credit on a null provider
-   reference, and derive the reference from the app-minted `api_ref`. This half
-   is small, self-contained, and does not depend on anything IntaSend does.
+1. ~~**SEC-001 — IntaSend webhook.** Refuse to credit on a null provider
+   reference, and derive the reference from the app-minted `api_ref`.~~
+   **Done 2026-08-10.** The ledger now keys on `api_ref`; replay and accidental
+   double-credit are closed and guarded by tests.
 2. **SEC-002 — dependency triage.** Take the four non-breaking `npm audit fix`
    upgrades, and triage the 21 `next` advisories against MAANTA's actual
    configuration so the real exposure is known rather than counted.
@@ -641,8 +721,9 @@ produced a real result. CI on this branch will run the full gate.
 5. **SEC-003** — rule on whether `claim_deal` asserts phone verification itself;
    at minimum correct the comment so it stops asserting an invariant that does
    not exist.
-6. **SEC-004, SEC-005, SEC-006** — the filter-injection pattern, the raw error
-   message, and the webhook payload redaction. All three are small, local diffs.
+6. **SEC-004 and SEC-006** — the filter-injection pattern and the webhook
+   payload redaction. Both are small, local diffs. (**SEC-005**, the raw error
+   message, was fixed on 2026-08-10.)
 7. **SEC-007** — security headers, CSP in report-only mode first.
 8. **SEC-008 through SEC-013** — rate limits, `.gitignore`, Sentry scrubbing,
    log PII, CI permissions and action pinning, Dependabot, onboarding phone
