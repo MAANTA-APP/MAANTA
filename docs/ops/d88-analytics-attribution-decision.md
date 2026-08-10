@@ -1,7 +1,7 @@
 # D88 — Signed-out analytics attribution: decision brief
 
-**Date:** 2026-08-10 · **Mode:** Planner · **Status:** awaiting founder decision
-· **Drift row:** **D88** (open) · **Related:** **D22**, **O6**, **D14**
+**Date:** 2026-08-10 · **Mode:** Planner · **Status:** ✅ decided (option C), implemented and guarded 2026-08-10 — **D88 closed**
+· **Drift row:** **D88** (closed) · **Related:** **D22**, **O6**, **D14**
 
 ## The question
 
@@ -218,3 +218,54 @@ source. `@playwright/test` is not an installed dependency in this repo and the
 vitest environment is `node` with no jsdom, so no in-browser run was available
 without adding a dependency. Confirm event delivery on the preview or after
 deploy, when the implementation lands.
+
+---
+
+## Implementation record — 2026-08-10
+
+**Shipped**
+
+| Change | File |
+|---|---|
+| `deal_viewed` captured client-side, once per mounted deal, with `capture_side: "client"` | `maanta-app/src/app/(shopper)/deals/[id]/deal-viewed-tracker.tsx` (new) |
+| Server capture and its `currentClerkUserId()` fetch removed; node resolved server-side and passed down | `maanta-app/src/app/(shopper)/deals/[id]/page.tsx` |
+| `captureDealViewed`, `DistinctIdSource`, `UNATTRIBUTED_DISTINCT_ID` removed; `resolveNode` exported as `resolveAnalyticsNode` so client and server agree on the fallback | `maanta-app/src/lib/analytics.ts` |
+| Deleted — the module D88 was about, and its test | `analytics-identity.ts` + its suite |
+| Guard | `maanta-app/src/lib/__tests__/analytics-cookieless.test.ts` (new, 4 assertions) |
+
+**Every surviving `captureServerEvent` caller passes a real id** — a Clerk user
+id or a merchant id, because each fires from an authenticated action. That is
+why removing the anonymous fallback broke nothing: `guardian_outcome`,
+`deal_claimed`, `deal_published`, `merchant_onboarded`, `topup_initiated`,
+`topup_completed_mpesa`, `topup_completed_stripe`.
+
+**The guard is aimed higher than D88 asked.** The row wanted an assertion tying
+the deleted module's docblock to the shipped `persistence`. Since the module is
+gone, the guard instead pins `persistence: "memory"` **to the public claim in
+`/cookies`** — and asserts no server module reads a posthog cookie, and that
+`deal_viewed` is not captured server-side again. Proven non-vacuous by flipping
+persistence to `localStorage+cookie` and watching only that assertion fail.
+
+### What this closure exposed about D21
+
+The register guard failed the moment `analytics-identity.ts` was deleted:
+**D21 cited it as closure evidence.** D21 was closed 2026-07-30 on that module,
+and the cookieless ruling of 2026-07-31 neutralised it the next day — so D21 was
+a closed row describing a defect that was live again, and nothing noticed for
+ten days.
+
+That is the register's own failure mode, worked: **a row closed against a code
+path rather than against the behaviour, un-fixed by a config change elsewhere,
+with its citation still resolving.** D21's evidence has been corrected in place
+rather than left standing. The new guard is written to close that specific hole
+— the un-fixing move now fails CI.
+
+### Verification
+
+`npm run lint` clean · `npm run typecheck` clean · `npm test` **648/648 across
+86 files** · `npm run build` green including all four post-build gates ·
+drift-register schema guard green.
+
+Not run: `test:e2e` (needs `E2E_BASE_URL` + storage). Not verified in a browser,
+for the reason given above — confirm event delivery after deploy, and check that
+`deal_viewed` and a subsequent `deal_claimed` share a `distinct_id`.

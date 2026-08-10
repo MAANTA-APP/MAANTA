@@ -2,9 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing, chargeAmount, extrasLine } from "@/lib/pricing";
-import { currentClerkUserId } from "@/lib/auth";
-import { captureDealViewed } from "@/lib/analytics";
-import { serverPosthogDistinctId } from "@/lib/analytics-identity";
+import { resolveAnalyticsNode } from "@/lib/analytics";
+import { DealViewedTracker } from "./deal-viewed-tracker";
 import { isDealClaimable } from "@/lib/deal-expiry";
 import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
@@ -25,10 +24,13 @@ export default async function DealDetailPage({
   const deal = await getDeal(params.id);
   if (!deal || !deal.merchants) notFound();
 
-  const [verified, user, clerkUserId] = await Promise.all([
+  // `currentClerkUserId()` was fetched here only to attribute the server-side
+  // `deal_viewed`. That capture moved to the browser (D88), where posthog-js
+  // already knows who the session belongs to, so the call went with it rather
+  // than being left as an unused await on a page that renders per request.
+  const [verified, user] = await Promise.all([
     getVerifiedCounts([deal.merchant_id]),
     getAppUser(),
-    currentClerkUserId(),
   ]);
 
   // If this shopper already holds a live ticket, surface it — especially when
@@ -49,19 +51,13 @@ export default async function DealDetailPage({
     existingTicketId = existing?.id ?? null;
   }
 
-  void captureDealViewed({
-    clerkUserId,
-    // Most viewers here are signed out — browsing does not require an account —
-    // so without the browser's own distinct id the whole top of the funnel
-    // collapses onto one person. Reading it costs a cookie lookup; the page is
-    // already force-dynamic, so nothing is given up by touching cookies().
-    posthogDistinctId: serverPosthogDistinctId(),
-    dealId: deal.id,
-    merchantId: deal.merchant_id,
-    dealType: deal.deal_type ?? "standard",
-    priceKes: deal.price_kes ?? null,
-    node: deal.node,
-  });
+  // `deal_viewed` is captured in the browser (see `deal-viewed-tracker.tsx`,
+  // drift D88). Most viewers here are signed out, and a server event cannot name
+  // an anonymous actor without reading an identifier off the device — which the
+  // cookieless ruling of 2026-07-31 correctly forbids. posthog-js already holds
+  // one in memory, so the capture goes where the identity is. The node is
+  // resolved here so the client and the server events agree on its fallback.
+  const analyticsNode = resolveAnalyticsNode(deal.node);
   const verifiedCount = verified.get(deal.merchant_id) ?? 0;
 
   const paused = deal.is_paused === true;
@@ -78,6 +74,13 @@ export default async function DealDetailPage({
 
   return (
     <main className="pb-28">
+      <DealViewedTracker
+        dealId={deal.id}
+        merchantId={deal.merchant_id}
+        dealType={deal.deal_type ?? "standard"}
+        priceKes={deal.price_kes ?? null}
+        node={analyticsNode}
+      />
       <div className="relative h-64 bg-cream">
         <CoverImage src={deal.image_url} alt={deal.title} />
         <div className="absolute left-4 top-4">
