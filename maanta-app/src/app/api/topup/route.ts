@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { currentClerkUserId } from "@/lib/auth";
 import { initiateMpesaStkPush } from "@/lib/intasend";
@@ -55,6 +56,30 @@ export async function POST(request: Request) {
 
   const apiRef = `topup:${merchant.id}:${randomUUID()}`;
 
+  // Record what was asked for BEFORE the push, so a webhook that arrives fast
+  // still finds it. Without this row the webhook has nothing to reconcile
+  // against and has to believe whatever amount the payload names (SEC-001/D83).
+  //
+  // Fails the request if the row cannot be written: proceeding would create a
+  // payment whose amount can never be verified, which is the exact hole this
+  // closes. A merchant retrying costs nothing; an unreconcilable credit does.
+  const service = createServiceClient();
+  const { error: pendingError } = await service.from("pending_topups").insert({
+    api_ref: apiRef,
+    merchant_id: merchant.id,
+    amount,
+    currency: "KES",
+    payment_provider: "intasend",
+  });
+
+  if (pendingError) {
+    console.error("Could not record pending top-up:", pendingError);
+    return NextResponse.json(
+      { error: "Could not start M-Pesa payment. Please try again." },
+      { status: 500 }
+    );
+  }
+
   const result = await initiateMpesaStkPush({
     amount,
     phoneNumber: normalisedPhone,
@@ -64,11 +89,25 @@ export async function POST(request: Request) {
   });
 
   if (!result) {
+    // The push never started, so this row can never be reconciled against a
+    // webhook. Mark it rather than leaving it 'initiated' forever, so the
+    // outstanding view means something to whoever reads it.
+    await service
+      .from("pending_topups")
+      .update({ status: "abandoned" })
+      .eq("api_ref", apiRef);
+
     return NextResponse.json(
       { error: "Could not start M-Pesa payment. Please try again." },
       { status: 502 }
     );
   }
+
+  // Diagnostic only — idempotency keys on api_ref, never on the invoice id.
+  await service
+    .from("pending_topups")
+    .update({ invoice_id: result.invoiceId })
+    .eq("api_ref", apiRef);
 
   const clerkUserId = await currentClerkUserId();
   if (clerkUserId) {

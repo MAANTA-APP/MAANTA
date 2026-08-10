@@ -153,9 +153,11 @@ register is the state and the audit document is only a story.
 ### SEC-001 — IntaSend top-up webhook: no payload signature, and replayable wallet credit
 
 - **Severity:** High
-- **Status:** **Partly fixed 2026-08-10** — the replay half is closed and
-  guarded; the missing-signature half is open (tracked as drift **D83**).
-  See *Fixed in this session* below for exactly what changed.
+- **Status:** **Partly fixed 2026-08-10.** The replay half is closed and live.
+  The amount-reconciliation half is **written but not yet applied** — it adds a
+  migration, and migrations are handed to a human. The missing-signature half is
+  untouched. Tracked as drift **D83**; see *Fixed in this session* and
+  *Amount reconciliation* below.
 - **Affected surface:** `maanta-app/src/app/api/webhooks/intasend/route.ts`,
   `maanta-app/src/lib/intasend.ts`,
   `maanta-app/supabase/migrations/20260709000151_merchant_transactions_provider_reference_unique.sql`
@@ -718,6 +720,50 @@ One process note: `npm audit fix --omit=dev` prunes devDependencies from
 `node_modules` as a side effect. A plain `npm ci` restores them and leaves the
 fixed lockfile intact — confirmed before running the gate.
 
+## Amount reconciliation — written 2026-08-10, not yet applied
+
+The third of SEC-001's three parts. The webhook took its amount straight from
+the payload, bounded only by `MAX_TOPUP_AMOUNT`, and nothing cross-checked it
+against the STK push that started the payment — because nothing recorded that
+the push had happened. `POST /api/topup` minted an `api_ref`, called the
+provider, and persisted nothing.
+
+**What changed.** A new `pending_topups` table
+(`maanta-app/supabase/migrations/20260810120000_pending_topups.sql`) holds one
+row per initiated push, keyed by the same `api_ref` the webhook already parses
+the merchant id out of — so the two records join on exactly the value the
+webhook carries, with no second correlation key to drift. The top-up route
+writes that row **before** the push (so a fast callback still finds it) and
+fails the request if it cannot, because proceeding would create a payment whose
+amount can never be verified. The webhook now refuses to credit when there is no
+pending row, when the merchant id disagrees with the one embedded in the
+reference, or when the amount does not match — each refusal written to
+`payment_webhook_failures` with the redacted payload rather than dropped.
+
+**What it does and does not buy.** A caller holding the shared secret can still
+forge a webhook, but now only for an amount a real merchant really initiated —
+which turns "mint KES 1,000,000 at will" into "replay a specific pending
+top-up", and the ledger's `UNIQUE(provider_reference)` already makes that a
+no-op. The signature question is untouched and still needs IntaSend's answer.
+
+**Rollout trade, stated because it is a real cost.** A push initiated before
+this lands has no pending row, so its callback is refused and logged for manual
+settlement. That is deliberate: crediting unknown references instead would leave
+the hole permanently open for anyone able to forge one. The window is small
+(IntaSend is a prepared-not-assumed rail) and nothing is lost silently.
+
+**Deploy state — this is inert until a human applies it.** Claude does not apply
+migrations. `make db-verify` could not run in the authoring environment either
+(no Docker daemon, no Supabase CLI), so **the SQL in this change has never been
+executed**: the migration and `maanta-app/supabase/tests/pending_topups_test.sql`
+are both unrun. The TypeScript side is fully covered by
+`maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` — a payload
+naming KES 1,000,000 against an initiated 500 credits nothing — but that suite
+mocks the database, so it proves the route's logic and says nothing about the
+schema. Run `make db-verify`, then apply per `docs/ops/supabase-migrations.md`.
+
+---
+
 ## Adversarial verification pass — 2026-08-10
 
 The SEC-004 and SEC-006 fixes were put through an independent review whose
@@ -790,7 +836,7 @@ here so they are not re-raised: that quoting might silently break the search
 | 4 | Frontend-only authorization | Pass | — | All 39 API routes carry a server-side guard; money/trust RPCs re-check caller identity inside `SECURITY DEFINER` (`claim_deal`, `verify_redemption`, `merchant_verify_authorized`); no server actions exist | None |
 | 5 | Rate limiting and abuse controls | Pass (fixed 2026-08-10) | — | DB-backed shared limiter (`src/lib/rate-limit.ts` → `check_rate_limit` RPC), now on 12 endpoints — `/api/deals` and `/api/push/subscribe` added. Webhooks remain unlimited by design (signature/secret-gated, and providers retry) | SEC-008 closed |
 | 6 | SQL injection prevention | Pass (fixed 2026-08-10) | — | No raw SQL anywhere; all `.rpc()` calls use bound named params; 3 dynamic-SQL sites in migrations all use `%I` with catalog-sourced identifiers. The one raw `.or()` filter string now builds through `lib/postgrest-filter.ts`, with a source-scan ratchet against recurrence | SEC-004 closed |
-| 7 | Input validation | Finding (partly fixed) | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Onboard phone **fixed 2026-08-10**. Remaining: the IntaSend webhook amount is still unreconciled against the initiated top-up | SEC-001 |
+| 7 | Input validation | Finding (fix written, unapplied) | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Onboard phone **fixed 2026-08-10**. Webhook amount reconciliation written 2026-08-10 (`pending_topups`) but **the migration is unapplied**, so production still credits unreconciled amounts | SEC-001 — apply the migration |
 | 8 | User content rendered as HTML | Pass | — | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `srcdoc`. Legal markdown uses a hand-written parser emitting React children (`components/marketing/LegalDoc.tsx`). HTML emails escape via `src/lib/escape-html.ts` | None |
 | 9 | Password handling | Pass (N/A) | — | Fully passwordless — Clerk OTP or Supabase email OTP. Zero password code in `src/` or migrations; the 9 `password` matches are marketing/legal copy | None |
 | 10 | Auth storage and session handling | Pass | — | Cookie-based both strategies (`@supabase/ssr` `getAll`/`setAll`, or Clerk-managed); no token in `localStorage`/`sessionStorage`; both sign-out paths invalidate server-side; open-redirect guard on the auth callback | Confirm cookie flags in prod (manual) |
@@ -986,6 +1032,10 @@ rather than checked:
 - [ ] Supabase Auth settings — OTP rate limits, CAPTCHA, JWT/refresh expiry
 - [ ] Supabase SSR cookie flags as actually served (`Secure`, `SameSite`, `HttpOnly`)
 - [ ] Clerk — MFA for privileged roles, lockout, session lifetime
+- [ ] **Apply `20260810120000_pending_topups.sql`** — run `make db-verify` first
+      (it could not run in the authoring environment: no Docker daemon, no
+      Supabase CLI), then apply per `docs/ops/supabase-migrations.md`. Until this
+      lands, the amount-reconciliation fix is inert in production.
 - [ ] IntaSend — does a payload signature scheme exist?
 - [ ] Is `INTASEND_WEBHOOK_SECRET` set in production? (Unset means SEC-001 is not
       currently exploitable — and that M-Pesa credits do not work.)

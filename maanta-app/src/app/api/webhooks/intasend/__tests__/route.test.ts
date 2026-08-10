@@ -37,13 +37,45 @@ vi.mock("@/lib/analytics", () => ({
   captureTopupCompletedMpesa: vi.fn(),
 }));
 
+/**
+ * Pending-top-up store, keyed by api_ref. Tests set this to control what the
+ * merchant is recorded as having initiated; the default is a row that matches
+ * the payload, so the pre-existing cases below still exercise the happy path.
+ */
+const pendingRows = new Map<string, Record<string, unknown> | null>();
+const pendingUpdates: Array<Record<string, unknown>> = [];
+
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: { node: "node0" } }) }),
-      }),
-    }),
+    from: (table: string) => {
+      if (table === "pending_topups") {
+        let ref: string | undefined;
+        const builder: Record<string, unknown> = {
+          select: () => builder,
+          update: (patch: Record<string, unknown>) => {
+            pendingUpdates.push(patch);
+            return builder;
+          },
+          eq: (_col: string, value: string) => {
+            ref = value;
+            return builder;
+          },
+          maybeSingle: async () => ({
+            data: ref ? (pendingRows.get(ref) ?? null) : null,
+            error: null,
+          }),
+          then: (resolve: (v: unknown) => unknown) =>
+            resolve({ data: null, error: null }),
+        };
+        return builder;
+      }
+      // merchants lookup for the analytics node tag
+      return {
+        select: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: { node: "node0" } }) }),
+        }),
+      };
+    },
   }),
 }));
 
@@ -75,6 +107,15 @@ describe("POST /api/webhooks/intasend — crediting idempotency (SEC-001)", () =
     vi.clearAllMocks();
     process.env.INTASEND_WEBHOOK_SECRET = "test-challenge";
     recordMerchantTransactionMock.mockResolvedValue({ applied: true });
+    pendingRows.clear();
+    pendingUpdates.length = 0;
+    // Default: the merchant really did initiate this exact top-up.
+    pendingRows.set(API_REF, {
+      api_ref: API_REF,
+      merchant_id: MERCHANT,
+      amount: 500,
+      status: "initiated",
+    });
   });
 
   it("never passes a null provider reference when the payload has no invoice id", async () => {
@@ -144,6 +185,55 @@ describe("POST /api/webhooks/intasend — crediting idempotency (SEC-001)", () =
 
     expect(res.status).toBe(200);
     expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to credit an amount the merchant never initiated", async () => {
+    // The core of SEC-001's reconciliation half: the payload names 1,000,000,
+    // the merchant initiated 500. Before this, the payload won.
+    const res = await post(payloadWithoutInvoiceId({ value: 1_000_000 }));
+
+    expect(res.status).toBe(200);
+    expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+    expect(logWebhookFailureMock).toHaveBeenCalled();
+    const message = String(logWebhookFailureMock.mock.calls[0][1].errorMessage);
+    expect(message).toContain("Amount mismatch");
+  });
+
+  it("refuses to credit when no pending top-up exists for the reference", async () => {
+    pendingRows.clear();
+    const res = await post(payloadWithoutInvoiceId());
+
+    expect(res.status).toBe(200);
+    expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+    expect(logWebhookFailureMock).toHaveBeenCalled();
+    expect(String(logWebhookFailureMock.mock.calls[0][1].errorMessage)).toContain(
+      "No pending top-up"
+    );
+  });
+
+  it("refuses to credit when the pending row names a different merchant", async () => {
+    pendingRows.set(API_REF, {
+      api_ref: API_REF,
+      merchant_id: "99999999-9999-9999-9999-999999999999",
+      amount: 500,
+      status: "initiated",
+    });
+    const res = await post(payloadWithoutInvoiceId());
+
+    expect(res.status).toBe(200);
+    expect(recordMerchantTransactionMock).not.toHaveBeenCalled();
+    expect(String(logWebhookFailureMock.mock.calls[0][1].errorMessage)).toContain(
+      "Merchant mismatch"
+    );
+  });
+
+  it("settles the pending row after a credit is applied", async () => {
+    await post(payloadWithoutInvoiceId());
+
+    expect(recordMerchantTransactionMock).toHaveBeenCalledTimes(1);
+    const settle = pendingUpdates.find((u) => u.status === "completed");
+    expect(settle).toBeDefined();
+    expect(settle?.completed_at).toBeTruthy();
   });
 
   it("credits nothing on an out-of-range amount", async () => {

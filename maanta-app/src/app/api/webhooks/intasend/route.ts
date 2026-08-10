@@ -59,6 +59,64 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // Reconcile against what the merchant actually initiated (SEC-001 / D83).
+  // Until this existed the amount was whatever the payload said, bounded only
+  // by MAX_TOPUP_AMOUNT — so an authenticated-but-forged webhook could name any
+  // figure up to KES 1,000,000.
+  const { data: pending, error: pendingError } = await service
+    .from("pending_topups")
+    .select("api_ref, merchant_id, amount, status")
+    .eq("api_ref", apiRef)
+    .maybeSingle();
+
+  if (pendingError) {
+    // Fail closed on a lookup error. Crediting because the guard was
+    // unreachable would defeat the guard exactly when the DB is unhealthy.
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `Could not read pending top-up for ${apiRef}: ${pendingError.message}`,
+      payload: body,
+    });
+    return NextResponse.json({ received: true });
+  }
+
+  if (!pending) {
+    // No record of anyone starting this payment. Refuse rather than credit.
+    //
+    // Rollout note: an STK push initiated before this shipped has no row, so
+    // its callback lands here. That is the intended trade — the failure is
+    // logged to payment_webhook_failures with the full (redacted) payload, so
+    // an admin can settle it by hand, and nothing is lost silently. Crediting
+    // unknown references instead would leave the hole permanently open for
+    // anyone who can forge one.
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `No pending top-up for api_ref ${apiRef} — refusing to credit an unreconciled payment.`,
+      payload: body,
+    });
+    return NextResponse.json({ received: true });
+  }
+
+  if (pending.merchant_id !== merchantId) {
+    // api_ref embeds the merchant id and the row records it independently;
+    // disagreement means the reference was tampered with.
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `Merchant mismatch on ${apiRef}: webhook says ${merchantId}, pending row says ${pending.merchant_id}.`,
+      payload: body,
+    });
+    return NextResponse.json({ received: true });
+  }
+
+  if (Number(pending.amount) !== amount) {
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: `Amount mismatch on ${apiRef}: webhook says ${amount}, merchant initiated ${pending.amount}. Refusing to credit.`,
+      payload: body,
+    });
+    return NextResponse.json({ received: true });
+  }
+
   // Idempotency key is the app-minted `api_ref`, never the provider's invoice
   // id. Two reasons, both load-bearing:
   //
@@ -96,6 +154,15 @@ export async function POST(request: Request) {
   if (!applied) {
     return NextResponse.json({ received: true });
   }
+
+  // Mark the pending row settled. After the credit, deliberately: the ledger's
+  // UNIQUE(provider_reference) is what makes a redelivery a no-op, so if this
+  // update fails the worst case is a stale 'initiated' row, never a double
+  // credit or a lost one.
+  await service
+    .from("pending_topups")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("api_ref", apiRef);
 
   const { data: merchantMeta } = await service
     .from("merchants")
