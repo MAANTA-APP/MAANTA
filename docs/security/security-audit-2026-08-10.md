@@ -847,7 +847,19 @@ diverging from the repo filename's `20260810120000` — the exact mechanism behi
 **D24**. That mattered more than last time: this migration is **not** idempotent
 (bare `CREATE TABLE` / `CREATE POLICY`), so a later `supabase db push` would have
 re-run it and errored, rather than being harmlessly repeated. The ledger row was
-repaired to the repo version immediately and re-read. Tracked as **D86**.
+repaired to the repo version immediately and re-read.
+
+**That instance is fixed; the underlying gap is not, and D86 stays open.** The
+runbook recorded previous repairs as history but carried no instruction to
+perform one — so the control was five separate acts of someone happening to
+check. **Every MCP apply to date has needed this repair** (`20260730180000`,
+`20260730190000`, `20260807160000`, `20260807161000`, `20260810120000` — five
+for five). A standing procedure now exists as §7 of
+`docs/ops/supabase-migrations.md`, with the preference stated plainly: use
+`supabase db push`, which keys on the filename and never mints a version, and
+reach for the MCP only when a human-run push is unavailable. D86 closes when the
+next apply has actually gone through §7 — an unexercised runbook step is a
+claim, not a control.
 
 **Smoke test — passed, self-cleaning, nothing moved.** Run against an explicitly
 demo merchant (`c0000000-0000-4000-a000-000000000001`, "Nuur Fashion House",
