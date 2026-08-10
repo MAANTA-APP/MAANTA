@@ -25,7 +25,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL } from "@/lib/marketing/live-claims";
+import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_DOOR_BODY } from "@/lib/marketing/live-claims";
 
 /**
  * `/` — Home.
@@ -59,7 +59,7 @@ export const metadata: Metadata = pageMetadata({
 const DOORS = [
   {
     title: "Shoppers",
-    body: "See what the shops in your mall are offering right now. Free, no card, and nothing to download.",
+    body: SHOPPER_DOOR_BODY,
     label: "For shoppers",
     href: "/shoppers",
   },

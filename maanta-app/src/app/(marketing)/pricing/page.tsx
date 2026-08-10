@@ -5,6 +5,7 @@ import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/f
 import { IconCheck } from "@/components/ui/icons";
 import { CtaBand, Section } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { MERCHANT_CTA_TITLE } from "@/lib/marketing/live-claims";
 
 
 /**
@@ -194,7 +195,7 @@ export default function PricingPage() {
       ) : null}
 
       <CtaBand
-        title="Publish your first deal today."
+        title={MERCHANT_CTA_TITLE}
         body="No listing fee to join, and nothing to pay until a shopper's code is verified at your counter."
         primary={{ label: "List your shop", href: "/merchants/join" }}
         secondary={{ label: "How it works at your counter", href: "/merchants#counter" }}

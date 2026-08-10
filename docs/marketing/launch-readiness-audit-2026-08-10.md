@@ -519,6 +519,52 @@ governs launch state. If yes, it stands — but it then has to be consistent wit
 visitor actually sees are synthetic. Both cannot be presented as true without
 saying which is which.
 
+### D90 — ruled and implemented, 2026-08-10
+
+**Founder ruling: MAANTA is demo / pre-launch and is not currently operating a
+public deal, claim or redemption programme at BBS Mall.** The present-tense
+operating claims are rewritten as demo, preparation or future-tense copy, gated
+on `DEMO_MODE` through `live-claims.ts` like the D87 wording, so launch restores
+the operating voice in one flag.
+
+**Routes changed:** `/malls/bbs-mall` (intro, feed note, meta description, hero
+badge dot) · `/shoppers` (hero subheading, "Where it works" sentence) · `/`
+(shopper card in the three-door router) · `/pricing` (closing CTA title) ·
+`/faq` and `/mall-operators` (the "how long before we see anything meaningful"
+answer) · `/mall-operators` (Node 0 reference paragraph) · `SiteFooter`, which
+appears on every page.
+
+**Two things were found only by scanning built output, and both matter more than
+the copy edits.**
+
+The first: `/mall-operators` said "where the product is being run in **person**"
+with the phrase wrapped across two source lines. A `grep` missed it and the
+guard missed it, because the guard matched line by line — so whether a claim was
+caught depended on where Prettier happened to wrap the sentence. The guard now
+collapses whitespace and matches whole files. It caught this immediately.
+
+The second: `SiteFooter` wrote its own amber status dot instead of using
+`LiveDot`, so suppressing that component under D87 never reached it. Every page
+on the site kept rendering a live-status indicator beside the location, a few
+inches above `PrelaunchNotice` saying MAANTA is not yet trading. **A claim made
+in colour leaves no phrase to grep for** — it was found by scanning built HTML
+for the *markup*, not the copy, and that scan is now part of the checklist.
+
+**Deliberately excluded**, because they do not claim the company is operating:
+the `/shoppers` "Live now" deal-filter chip and "Browse live deals" (a *deal*
+being live is product vocabulary); "a mall goes live" as a future event; "the
+way it does today" about a merchant's existing till; and the "operating report"
+product name.
+
+**One residual, left on purpose.** The amber dot inside `HeroShot` on `/`
+survives. It sits in an `aria-hidden` mockup that carries an `sr-only`
+description and a visible "Illustration · example shops and prices" caption, and
+it is part of depicting the product's own UI — a screenshot of a live chip, not
+a claim. That mockup is founder-decided territory under **D50**, so changing it
+is a D50 decision rather than this one. Worth knowing that the visible caption
+is still the smallest, lowest-contrast text on the page while the synthetic rows
+beside it are full size.
+
 ### Deliberately not fixed
 
 | Item | Why |

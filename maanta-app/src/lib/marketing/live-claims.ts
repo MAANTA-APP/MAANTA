@@ -110,3 +110,99 @@ export const NODE_OG_SUBLINE = DEMO_MODE
 export const NODE_CTA_TITLE = DEMO_MODE
   ? "See what your mall is offering."
   : "See what is live in your mall right now.";
+
+/* ------------------------------------------------------------------ *
+ * D90 — present-tense operating claims.
+ *
+ * Founder ruling 2026-08-10: MAANTA is demo / pre-launch and is **not**
+ * currently operating a public deal, claim or redemption programme at BBS
+ * Mall. D87 removed the twenty-one claims that used the word "live"; these are
+ * the ones that said the same thing without it, and they are the reason the
+ * D87 guard passing did not mean the site had stopped claiming to trade.
+ *
+ * The pre-launch wording describes **how the product works** and **what is
+ * being prepared**, which is true today, rather than what is happening at a
+ * named mall right now, which is not. No pilot date, approval, partnership or
+ * performance figure is asserted in either state — none of those exists to
+ * assert, and inventing one is the failure `held-claims.test.ts` exists to
+ * prevent.
+ * ------------------------------------------------------------------ */
+
+/** `/malls/bbs-mall` — the opening paragraph. */
+export const NODE_PAGE_INTRO = DEMO_MODE
+  ? `MAANTA is built to be run on the floor: shops publish deals from a phone, shoppers claim them on theirs, and staff verify every redemption at the counter. ${FACTS.launchMall} is the first mall we are preparing to open in.`
+  : `${FACTS.launchMall} is where MAANTA started and where the product is run in person. Shops here publish deals from a phone, shoppers claim them on theirs, and every redemption is verified at the counter.`;
+
+/**
+ * `/malls/bbs-mall` — the line above the feed link.
+ *
+ * Pre-launch this has to say what the feed actually contains, because the
+ * demo-data banner is correctly scoped off marketing routes (risk R1) and the
+ * visitor meets it only after tapping through. Sending someone to a feed of
+ * synthetic deals while calling it "the live answer" is the claim this row is
+ * about, in its most direct form.
+ */
+export const NODE_FEED_NOTE = DEMO_MODE
+  ? "The feed shows demo deals while we prepare to open. They illustrate the shopper experience — they are not offers you can redeem today."
+  : "What is on offer changes through the day. The feed is the live answer.";
+
+/** `/malls/bbs-mall` — meta description. */
+export const NODE_PAGE_DESCRIPTION = DEMO_MODE
+  ? `${FACTS.launchMall} is ${FACTS.nodeLabel} — the first mall MAANTA is preparing to open in. See how a shopper claims a deal on a phone and redeems it at the counter.`
+  : `${FACTS.launchMall} is ${FACTS.nodeLabel} — the first mall MAANTA opens in. See what its shops are offering, claim a deal on your phone, and redeem it at the counter.`;
+
+/** `/shoppers` — hero subheading. */
+export const SHOPPER_HERO_SUB = DEMO_MODE
+  ? `Open the feed to see how it works: tap a deal, get a ${FACTS.codeLength}-digit code, and show it at the counter. You pay the deal price in person, the way you normally pay. The deals shown are demo examples while we prepare to open.`
+  : `Open the feed and see what the shops in your mall are offering right now. Tap a deal, get a ${FACTS.codeLength}-digit code, and show it at the counter. You pay the deal price in person, the way you normally pay.`;
+
+/** `/` — the shopper card in the three-door router. */
+export const SHOPPER_DOOR_BODY = DEMO_MODE
+  ? "See how MAANTA works for shoppers. Free, no card, and nothing to download."
+  : "See what the shops in your mall are offering right now. Free, no card, and nothing to download.";
+
+/** `/shoppers` — the "Where it works" sentence, after `NODE_PRESENCE_LEAD`. */
+export const NODE_SHOPS_SENTENCE = DEMO_MODE
+  ? "That is our first mall, and its shops will be the first publishing deals."
+  : "That is our first mall, and the shops there are the ones publishing deals today.";
+
+/** `/pricing` — closing CTA band title. */
+export const MERCHANT_CTA_TITLE = DEMO_MODE
+  ? "Get your shop ready for launch."
+  : "Publish your first deal today.";
+
+/**
+ * The "how long before we see anything meaningful?" answer, on `/faq` and
+ * `/mall-operators`.
+ *
+ * "The first redemption **usually happens** within a day of a shop going live"
+ * asserts observed operating history across enough malls for a norm to exist.
+ * There is none — the pilot has not run. The pre-launch wording states the
+ * design (a shop can publish immediately) without claiming a track record.
+ */
+export const FIRST_RESULTS_ANSWER = DEMO_MODE
+  ? "A shop can publish on the day it joins, so its first redemption can follow the same day. A month of data is enough to see patterns by floor and by hour."
+  : "The first redemption usually happens within a day of a shop going live. A month of data is enough to see patterns by floor and by hour.";
+
+/**
+ * The `/mall-operators` version of the same answer, which carries one extra
+ * sentence about a quarter's data.
+ *
+ * Kept as a second constant rather than folded into the one above: the two
+ * answers are deliberately different lengths for different readers, and
+ * flattening them to share a string would quietly rewrite operator-facing copy
+ * as a side effect of a claims fix.
+ */
+export const FIRST_RESULTS_ANSWER_OPERATOR = `${FIRST_RESULTS_ANSWER} A quarter is enough to see whether tenant behaviour has changed.`;
+
+/**
+ * `/mall-operators` — the Node 0 paragraph, non-scenario branch.
+ *
+ * This one was invisible to a `grep` and to the guard alike, because JSX
+ * wrapped it as "…is being run in\n person". It surfaced only in the built
+ * HTML, and it is why the guard now matches whitespace-collapsed whole files
+ * rather than single lines.
+ */
+export const NODE_REFERENCE_SENTENCE = DEMO_MODE
+  ? `${FACTS.nodeLabel} is our first node and the reference for how a node is deployed: tenants onboarded unit by unit, staff trained at their own counters, and every redemption verified at the till.`
+  : `${FACTS.nodeLabel} is our first node and where the product is being run in person: tenants onboarded unit by unit, staff trained at their own counters, and every redemption verified at the till. It is the reference for how a node is deployed and operated.`;

@@ -19,7 +19,7 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
+import { FIRST_RESULTS_ANSWER_OPERATOR, NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_REFERENCE_SENTENCE, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -37,8 +37,14 @@ import { NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_STATUS_LINE } from "@/li
  * mockup; published on `www.maanta.app` it is a public claim about a named third
  * party's commercial relationship with MAANTA. Per `demo-mode-spec.md` §2a the
  * four affected sections — `#hero` status, `#node` callout, `#stage`, `#report` —
- * carry production copy that makes no partner claim at all. BBS appears only as
- * the mall MAANTA is live in, which is true.
+ * carry production copy that makes no partner claim at all.
+ *
+ * This paragraph used to end "BBS appears only as the mall MAANTA is live in,
+ * which is true." It is not true, and was not when written: the founder ruled on
+ * 2026-08-10 (drift **D90**) that MAANTA is demo / pre-launch and is not
+ * operating a public deal, claim or redemption programme at BBS. The node
+ * wording now comes from `lib/marketing/live-claims.ts`, gated on `DEMO_MODE`,
+ * so the claim returns at launch rather than being asserted early.
  *
  * Also edited down from the deck:
  *  - `#report` describes what a pilot **includes**, not a deliverable already
@@ -225,10 +231,7 @@ export default function MallOperatorsPage() {
               <strong className="font-bold">
                 {FACTS.launchMall} — {FACTS.nodeLabel}.
               </strong>{" "}
-              {FACTS.nodeLabel} is our first node and where the product is being run in
-              person: tenants onboarded unit by unit, staff trained at their own counters,
-              and every redemption verified at the till. It is the reference for how a node
-              is deployed and operated.
+              {NODE_REFERENCE_SENTENCE}
             </p>
           )}
         </div>
@@ -471,7 +474,7 @@ export default function MallOperatorsPage() {
             },
             {
               q: "How long before we see anything meaningful?",
-              a: "The first redemption usually happens within a day of a shop going live. A month of data is enough to see patterns by floor and by hour. A quarter is enough to see whether tenant behaviour has changed.",
+              a: FIRST_RESULTS_ANSWER_OPERATOR,
             },
           ]}
         />

@@ -15,7 +15,7 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL } from "@/lib/marketing/live-claims";
+import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_SHOPS_SENTENCE, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_HERO_SUB } from "@/lib/marketing/live-claims";
 
 /**
  * `/shoppers` — 308 target for both `/for-shoppers` and `/how-it-works`.
@@ -58,11 +58,7 @@ export default function ShoppersPage() {
         eyebrow="For shoppers"
         title="The deals in your mall, before you get there."
         sub={
-          <>
-            Open the feed and see what the shops in your mall are offering right now. Tap a
-            deal, get a {FACTS.codeLength}-digit code, and show it at the counter. You pay
-            the deal price in person, the way you normally pay.
-          </>
+          SHOPPER_HERO_SUB
         }
         primary={{ label: "Browse live deals", href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
@@ -281,8 +277,7 @@ export default function ShoppersPage() {
             <strong className="font-semibold text-ink">
               {FACTS.launchMall}, {FACTS.city}
             </strong>
-            . That is our first mall, and the shops there are the ones publishing deals
-            today.
+            . {NODE_SHOPS_SENTENCE}
           </p>
           <p>
             More malls are coming. If you want yours next,{" "}

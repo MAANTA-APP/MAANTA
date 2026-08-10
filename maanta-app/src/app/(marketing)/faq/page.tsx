@@ -6,6 +6,7 @@ import { FaqAccordion, Section, SectionHeading } from "@/components/marketing/se
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { faqPageSchema, jsonLdDocument } from "@/lib/marketing/structured-data";
+import { FIRST_RESULTS_ANSWER } from "@/lib/marketing/live-claims";
 
 /**
  * `/faq` — restructured by audience (`website-footer-legal-docs-plan.md` §3:
@@ -153,7 +154,7 @@ export default function FaqPage() {
     },
     {
       q: "How long before we see anything meaningful?",
-      a: "The first redemption usually happens within a day of a shop going live. A month of data is enough to see patterns by floor and by hour.",
+      a: FIRST_RESULTS_ANSWER,
     },
   ];
 
