@@ -83,6 +83,70 @@ export const LEGAL_ROUTES = LEGAL_LINKS.map((l) => l.href);
  * Legal routes are excluded while they are drafts — they are `noindex`, and a
  * sitemap that advertises a `noindex` page sends a contradictory signal.
  */
+/**
+ * Route prefixes that must never be crawled, consumed by `app/robots.ts`.
+ *
+ * This list lives next to `SITEMAP_ROUTES` because the two are halves of one
+ * policy, and they were allowed to disagree. `sitemap.ts` had already written
+ * down the rule — app routes are "authenticated or shopper-session surfaces,
+ * not indexable content" — and excluded them. `robots.ts` disallowed the
+ * merchant, admin, agent and founder surfaces and left the whole signed-out
+ * shopper surface open, so `/feed` was crawlable, returned HTTP 200 to an
+ * anonymous client, and rendered demo deals under the homepage's own title
+ * while `demo_mode_enabled` was true. It is also the target of the header CTA
+ * and the home hero CTA, which makes it the most-linked page on the site.
+ *
+ * Two files, one policy, one place: `marketing-crawl-policy.test.ts` asserts
+ * that every route in the app is either listed in `SITEMAP_ROUTES`, or a legal
+ * route (which is `noindex` instead), or covered by a prefix here — so a new
+ * route cannot land in the gap the way `/feed` did.
+ *
+ * **`/deals` is disallowed deliberately, not by omission.** A public deal-detail
+ * page could eventually be worth indexing, but that is a product decision about
+ * content that is currently synthetic, and it needs the demo data gone first.
+ */
+export const NON_INDEXABLE_PREFIXES = [
+  // Operational and authenticated surfaces.
+  "/api/",
+  "/admin",
+  "/agent",
+  "/founder",
+  "/merchant/",
+  // `/merchant` exactly — the merchant app's landing page, which is an app
+  // surface and also competes with `/merchants/join` for the same query. It
+  // cannot be written as a bare `/merchant`, because robots.txt matching is
+  // pure prefix and that would also disallow `/merchants` and
+  // `/merchants/join`, two pages this site needs indexed. `$` anchors the
+  // match to the end of the path; it is a Google/Bing extension rather than
+  // part of the original standard, so a crawler that ignores it simply reads
+  // a rule that never matches — the failure mode is the status quo, not a
+  // wider block.
+  "/merchant$",
+  "/onboarding",
+  "/otp",
+  "/select-mall",
+  "/verify-phone",
+  "/app-bootstrap",
+  "/sentry-example-page",
+  // Shopper-session surfaces. Signed-out-readable, but not indexable content.
+  "/feed",
+  "/browse",
+  "/map",
+  "/search",
+  "/deals",
+  "/my-deals",
+  "/tickets",
+  "/shops",
+  "/notifications",
+  "/profile",
+  "/you",
+  // Auth entry points and the rehearsal index.
+  "/login",
+  "/sign-up",
+  "/auth",
+  "/demo",
+] as const;
+
 export const SITEMAP_ROUTES: ReadonlyArray<{ path: string; priority: number }> = [
   { path: "/", priority: 1.0 },
   { path: "/shoppers", priority: 0.9 },

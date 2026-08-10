@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getAppOrigin } from "@/lib/app-url";
+import { publicOrigin } from "@/lib/app-url";
+import { NON_INDEXABLE_PREFIXES } from "@/lib/marketing/nav";
 
 /**
  * `robots.txt` — did not exist before this change.
@@ -7,6 +8,13 @@ import { getAppOrigin } from "@/lib/app-url";
  * Disallows the authenticated and operational surfaces, which have no business in
  * search results and in some cases leak structure (`/admin`, `/agent`,
  * `/founder`). `/api` is disallowed for the same reason.
+ *
+ * **The list itself lives in `lib/marketing/nav.ts`** as `NON_INDEXABLE_PREFIXES`,
+ * next to `SITEMAP_ROUTES`. It was written out here, which let this file and
+ * `sitemap.ts` hold two different opinions about the same routes: the sitemap
+ * excluded the shopper surfaces on the stated grounds that they are not
+ * indexable content, while this file never disallowed them, so they were
+ * excluded from discovery and open to crawling at the same time.
  *
  * **The four legal routes are deliberately NOT disallowed** (founder ruling
  * 2026-08-01, `docs/maanta-decisions-log.md`; option B of `LEG-02` in
@@ -35,24 +43,10 @@ import { getAppOrigin } from "@/lib/app-url";
  * out.
  */
 export default function robots(): MetadataRoute.Robots {
-  const origin = getAppOrigin() ?? "https://www.maanta.app";
-
-  const disallow = [
-    "/api/",
-    "/admin",
-    "/agent",
-    "/founder",
-    "/merchant/",
-    "/onboarding",
-    "/otp",
-    "/select-mall",
-    "/verify-phone",
-    "/app-bootstrap",
-    "/sentry-example-page",
-  ];
+  const origin = publicOrigin();
 
   return {
-    rules: [{ userAgent: "*", allow: "/", disallow }],
+    rules: [{ userAgent: "*", allow: "/", disallow: [...NON_INDEXABLE_PREFIXES] }],
     sitemap: `${origin}/sitemap.xml`,
     host: origin,
   };

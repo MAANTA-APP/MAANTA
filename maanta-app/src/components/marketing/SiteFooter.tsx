@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Logomark } from "@/components/ui/icons";
 import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
-import { FACTS } from "@/lib/marketing/facts";
 import { PrelaunchNotice } from "./PrelaunchNotice";
 import { RegulatoryStatus } from "./RegulatoryStatus";
+import { NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
 
 /**
  * Five columns plus a legal base bar (`website-footer-legal-docs-plan.md` §2).
@@ -46,15 +46,27 @@ export function SiteFooter() {
               Live mall deals, claimed on your phone and verified at the counter.
             </p>
             {/*
-              Live-node line with a status dot. This is the other sanctioned use
-              of amber: a live-status indicator. It is a dot, not a fill.
+              The node line. Amber as a live-status indicator is the other
+              sanctioned use of the accent — a dot, not a fill — but only once
+              there is a live status to indicate, so both the dot and the
+              wording are gated (drift **D90**).
+
+              The dot is written out here rather than using <LiveDot />, which
+              is exactly why suppressing that component did not reach it: this
+              footer went on rendering an amber status indicator beside the
+              location on every page of the site, a few inches above
+              PrelaunchNotice saying MAANTA is not yet trading. Found by
+              scanning built HTML for the markup, not the copy — a claim made
+              in colour leaves no phrase to grep for.
             */}
             <p className="mt-4 flex items-center gap-2 text-[13px] font-semibold text-ink">
-              <span
-                aria-hidden="true"
-                className="inline-block h-2 w-2 shrink-0 rounded-full bg-brand"
-              />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {SHOW_LIVE_INDICATOR ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 shrink-0 rounded-full bg-brand"
+                />
+              ) : null}
+              {NODE_STATUS_LINE}
             </p>
             <Link
               href="/download"

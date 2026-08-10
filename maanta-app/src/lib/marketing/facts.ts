@@ -116,8 +116,12 @@ export const NODE_TEAM = {
   agentsMax: 4,
   managerRole:
     "coordinates with mall management so the node runs smoothly, and owns the relationship with the operator",
+  // Plural: both call sites read "The agents {agentRole}" (`/about` and
+  // `/mall-operators`), which rendered "the agents works the floor" on the two
+  // pages investors and mall operators are most likely to read. `managerRole`
+  // stays singular because its subject, "the node manager", is.
   agentRole:
-    "works the floor with shoppers and merchants — onboarding shops, setting up staff accounts, and helping at the counter",
+    "work the floor with shoppers and merchants — onboarding shops, setting up staff accounts, and helping at the counter",
 } as const;
 
 /**

@@ -6,8 +6,12 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
 export const metadata: Metadata = pageMetadata({
   path: "/waitlist",
   title: "Join the MAANTA waitlist",
+  // Trimmed from 170 characters to fit the snippet window without truncating.
+  // "launching at" is kept: it is future tense and so is not one of the D87
+  // trading claims, and it is the only place the launch mall appears in this
+  // page's snippet.
   description:
-    "MAANTA is launching at BBS Mall, Eastleigh — real in-mall deals, claimed on your phone and redeemed in person. Join the waitlist as a shopper, merchant, or mall operator.",
+    "MAANTA is launching at BBS Mall, Eastleigh — in-mall deals claimed on your phone and redeemed in person. Join the waitlist as a shopper or a merchant.",
 });
 
 /**

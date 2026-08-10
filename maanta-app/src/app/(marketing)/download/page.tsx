@@ -6,9 +6,13 @@ import {
 
 export const metadata: Metadata = pageMetadata({
   path: "/download",
-  title: "Install Maanta",
+  // "… — MAANTA" is the convention every other route follows, and this was the
+  // one page breaking it — also the only place the wordmark was cased "Maanta"
+  // in a title, which reads as a different product in a search result listing
+  // both.
+  title: "Install the app — MAANTA",
   description:
-    "Add Maanta to your phone home screen — shoppers, merchants, agents, and founders.",
+    "Add MAANTA to your phone home screen in a few taps. No app store, no download — it runs in your browser and works for shoppers, merchants and agents.",
 });
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 

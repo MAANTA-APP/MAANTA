@@ -1,4 +1,5 @@
 import { TrackedFaqItem, TrackedLink } from "./tracked";
+import { SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
 
 /**
  * Marketing page primitives.
@@ -250,8 +251,21 @@ export function TrustBar({
   );
 }
 
-/** "Live at BBS Mall" style line with the amber status dot. */
+/**
+ * The amber status dot beside a node status line.
+ *
+ * Renders nothing while `DEMO_MODE` holds (founder ruling 2026-08-10, drift
+ * **D87**). The dot is a live-status indicator, so once the words "Live at" are
+ * gated it would be the only thing left asserting the node is trading — and it
+ * would assert it in colour alone, which frozen UI rule 4 forbids: state is an
+ * icon *and* a word, readable in greyscale. Dropping the sentence and keeping
+ * the dot moves the claim somewhere harder to audit rather than removing it.
+ *
+ * Suppressed here rather than at the six call sites so there is one switch, and
+ * so a seventh call site cannot reintroduce the indicator by accident.
+ */
 export function LiveDot() {
+  if (!SHOW_LIVE_INDICATOR) return null;
   return (
     <span aria-hidden="true" className="inline-block h-2 w-2 shrink-0 rounded-full bg-brand" />
   );

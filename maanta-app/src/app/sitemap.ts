@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITEMAP_ROUTES } from "@/lib/marketing/nav";
-import { getAppOrigin } from "@/lib/app-url";
+import { publicOrigin } from "@/lib/app-url";
 
 /**
  * `sitemap.xml` — did not exist before this change (risk R5: new pages go
@@ -22,8 +22,9 @@ import { getAppOrigin } from "@/lib/app-url";
 export default function sitemap(): MetadataRoute.Sitemap {
   // Falls back to the canonical host: a sitemap with localhost URLs in it is
   // worse than no sitemap, and getAppOrigin() returns null in production when
-  // NEXT_PUBLIC_APP_URL is unset.
-  const origin = getAppOrigin() ?? "https://www.maanta.app";
+  // NEXT_PUBLIC_APP_URL is unset. Shared with robots.ts and the JSON-LD so all
+  // three public artifacts cannot disagree about the origin.
+  const origin = publicOrigin();
   const lastModified = new Date();
 
   return SITEMAP_ROUTES.map((route) => ({

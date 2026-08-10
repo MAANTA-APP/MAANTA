@@ -8,6 +8,12 @@ import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { HeroShot } from "@/components/marketing/HeroShot";
 import { LandingEarlyAccess } from "./landing-early-access";
 import { SectionInView, TrackedLink } from "@/components/marketing/tracked";
+import { JsonLd } from "@/components/marketing/JsonLd";
+import {
+  jsonLdDocument,
+  organizationSchema,
+  websiteSchema,
+} from "@/lib/marketing/structured-data";
 import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
 import {
   AudienceHero,
@@ -19,6 +25,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_DOOR_BODY } from "@/lib/marketing/live-claims";
 
 /**
  * `/` — Home.
@@ -43,7 +50,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/",
   title: "MAANTA — The mall, made live.",
   description:
-    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the shop in person. Live at BBS Mall, Eastleigh.",
+    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, and pay the shop in person. Launching at BBS Mall, Eastleigh.",
   ogTitle: "Every deal in your mall, live on your phone.",
   ogDescription:
     "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",
@@ -52,7 +59,7 @@ export const metadata: Metadata = pageMetadata({
 const DOORS = [
   {
     title: "Shoppers",
-    body: "See what the shops in your mall are offering right now. Free, no card, and nothing to download.",
+    body: SHOPPER_DOOR_BODY,
     label: "For shoppers",
     href: "/shoppers",
   },
@@ -77,6 +84,14 @@ export default function LandingPage() {
 
   return (
     <ScenarioNotice>
+      {/*
+        Site-level identity, carried here rather than in the root layout so it
+        appears once per site instead of once per route. Name, url and logo
+        only — see `lib/marketing/structured-data.ts` for what is deliberately
+        left out while the company is pre-incorporation.
+      */}
+      <JsonLd data={jsonLdDocument(organizationSchema(), websiteSchema())} />
+
       <AudienceHero
         eyebrow="The mall, made live"
         title="Every deal in your mall, live on your phone."
@@ -98,7 +113,7 @@ export default function LandingPage() {
             <p className="font-semibold text-ink">No sign-in needed to look around.</p>
             <p className="mt-2 inline-flex items-center gap-2">
               <LiveDot />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {NODE_STATUS_LINE}
             </p>
           </>
         }
@@ -287,7 +302,7 @@ export default function LandingPage() {
           href="/malls/bbs-mall"
           className="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
         >
-          See what&apos;s live at BBS Mall
+          {SEE_NODE_LINK_LABEL}
         </Link>
       </Section>
 
