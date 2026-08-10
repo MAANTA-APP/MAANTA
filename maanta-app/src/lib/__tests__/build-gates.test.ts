@@ -5,17 +5,21 @@ import path from "node:path";
 /**
  * The build-output gates must stay wired into `npm run build`.
  *
- * Two checks in this repo read **rendered output** rather than source — the only
- * two, and therefore the only ones that can catch the class of defect that has
+ * Four checks in this repo read **rendered output** rather than source — the only
+ * four, and therefore the only ones that can catch the class of defect that has
  * repeatedly reached production here: correct in JSX, wrong in the HTML.
+ * (This paragraph said "two" while listing three, from the last time a gate was
+ * added without updating the count. Derive it from `GATES` when reading.)
  *
  *  - `scripts/check-tokens.mjs` — no `{{TOKEN}}` survives into a rendered page.
  *  - `scripts/check-canonicals.mjs` — every marketing route carries a
  *    self-referencing canonical and `og:url`.
  *  - `scripts/check-server-forms.mjs` — every page that promises a form actually
  *    renders one server-side.
+ *  - `scripts/check-metadata.mjs` — no two public routes share a `<title>` or a
+ *    meta description, and no description falls outside the snippet window.
  *
- * Neither can live in this suite: CI runs `npm run test` **before**
+ * None of them can live in this suite: CI runs `npm run test` **before**
  * `npm run build`, so a test asserting on `.next/` would fail there. They run as
  * post-build steps instead.
  *
@@ -38,6 +42,7 @@ const GATES: Record<string, string> = {
   "scripts/check-tokens.mjs": "check:tokens",
   "scripts/check-canonicals.mjs": "check:canonicals",
   "scripts/check-server-forms.mjs": "check:forms",
+  "scripts/check-metadata.mjs": "check:metadata",
 };
 
 describe("build-output gates stay wired into the build", () => {

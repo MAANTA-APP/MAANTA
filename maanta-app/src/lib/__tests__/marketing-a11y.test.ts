@@ -106,6 +106,55 @@ describe("marketing accessibility and metadata", () => {
     ).toEqual([]);
   });
 
+  /**
+   * Every marketing image carries an `alt` attribute.
+   *
+   * **This asserts nothing today, and that is the point.** The launch-readiness
+   * audit (2026-08-10, item 16) found zero `<img>` and zero `<Image>` across all
+   * 17 marketing routes — all artwork is inline SVG, decorative and
+   * `aria-hidden`. So the item is "not applicable yet" rather than done, and its
+   * recommendation was explicit: attach the alt-text requirement to the change
+   * that ships the first photograph, not to a later audit that rediscovers it.
+   *
+   * A guard is the only form of that instruction which survives the author who
+   * read the audit leaving. The first founder-supplied `/about` portrait, or the
+   * first product screenshot replacing `HeroShot`'s CSS mockup, fails here until
+   * it is captioned.
+   *
+   * `alt=""` passes deliberately. An empty alt is the correct, meaningful markup
+   * for a decorative image — it tells a screen reader to skip it. What must never
+   * ship is an image with no `alt` at all, which makes assistive tech announce
+   * the file name.
+   */
+  it("gives every marketing image an alt attribute", () => {
+    const files = [...PAGES];
+    const components = path.join(SRC, "components", "marketing");
+    if (existsSync(components)) {
+      for (const name of readdirSync(components)) {
+        if (name.endsWith(".tsx")) files.push(path.join(components, name));
+      }
+    }
+
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = stripComments(read(f));
+      // Each opening <img …> / <Image …> tag, up to its own close. `.match` with
+      // /g rather than `matchAll`: this tsconfig target cannot iterate the
+      // iterator that returns, and the group is recoverable from the match text.
+      for (const tag of src.match(/<(?:img|Image)\s[^>]*?\/?>/g) ?? []) {
+        if (!/\balt\s*=/.test(tag)) {
+          offenders.push(`${rel(f)} — ${tag.slice(0, 40)}… has no alt attribute`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `Marketing images must carry alt text (alt="" if decorative). ` +
+        `Audit item 16 re-opens with the first image on this site:\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
   // A draft legal document indexed by Google outlives the draft.
   it("noindexes every legal route while DEMO_MODE", () => {
     for (const route of ["privacy", "terms", "merchant-terms", "cookies"]) {

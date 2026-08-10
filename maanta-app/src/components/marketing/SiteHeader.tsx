@@ -100,8 +100,15 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/*
+            `data-amber-cta` — see `StickyCta.tsx`. Below 640px this link is
+            `display: none`, so it has no box and never intersects; the sticky
+            bar renders in exactly that range. Above it, the bar is hidden and
+            this is the one amber action.
+          */}
           <Link
             href={HEADER_CTA.href}
+            data-amber-cta=""
             className="hidden rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink-soft transition hover:brightness-95 sm:inline-flex"
           >
             {HEADER_CTA.label}
@@ -133,6 +140,7 @@ export function SiteHeader() {
           <nav aria-label="Primary (mobile)" className="mx-auto max-w-6xl px-5 py-4">
             <Link
               href={HEADER_CTA.href}
+              data-amber-cta=""
               className="mb-3 block rounded-full bg-brand px-4 py-3 text-center text-sm font-bold text-ink-soft"
             >
               {HEADER_CTA.label}

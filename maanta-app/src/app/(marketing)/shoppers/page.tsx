@@ -14,6 +14,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { StickyCta } from "@/components/marketing/StickyCta";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_SHOPS_SENTENCE, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_HERO_SUB } from "@/lib/marketing/live-claims";
 
@@ -345,6 +346,13 @@ export default function ShoppersPage() {
         primary={{ label: "Browse live deals", href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
       />
+
+      {/*
+        Mobile-only sticky action, same target and label as the hero. See
+        `StickyCta.tsx` — it renders only while no in-flow amber action is on
+        screen, so this page never shows two.
+      */}
+      <StickyCta label="Browse live deals" href="/feed" />
     </>
   );
 }
