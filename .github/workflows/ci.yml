@@ -6,6 +6,13 @@ on:
   push:
     branches: [main]
 
+# SEC-012. Declared explicitly rather than inheriting the org default, which can
+# be broader than this job needs. CI only reads the checkout and runs checks —
+# it never comments, pushes or publishes. prod-branch-guard.yml and e2e.yml
+# already declared this; ci.yml was the one that did not.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: maanta-app

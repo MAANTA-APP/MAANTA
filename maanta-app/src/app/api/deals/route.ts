@@ -10,6 +10,11 @@ import {
 } from "@/lib/image-bytes";
 import { captureDealPublished } from "@/lib/analytics";
 import { currentClerkUserId } from "@/lib/auth";
+import {
+  checkRateLimit,
+  DEAL_CREATE_RATE_LIMIT,
+  DEAL_CREATE_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -30,6 +35,20 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Your shop is pending approval — you can publish once it's live." },
       { status: 403 }
+    );
+  }
+
+  // Rate-limited before the body is read, so an abusive loop does not get to
+  // buffer a 5MB upload per attempt (SEC-008).
+  const allowed = await checkRateLimit(
+    `deal-create:${merchant.id}`,
+    DEAL_CREATE_RATE_LIMIT,
+    DEAL_CREATE_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts — wait a moment and try again." },
+      { status: 429 }
     );
   }
 

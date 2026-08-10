@@ -210,7 +210,9 @@ register is the state and the audit document is only a story.
 ### SEC-002 — Direct dependency `next@14.2.35` carries 21 published advisories
 
 - **Severity:** High
-- **Status:** Open
+- **Status:** **Partly fixed 2026-08-10** — 4 of 6 vulnerable packages resolved
+  without a breaking change; `next` and its nested `postcss` remain and need a
+  decision (see *Second remediation pass*).
 - **Affected surface:** `maanta-app/package.json:23`, `maanta-app/package-lock.json`
 - **Evidence:** `npm audit --omit=dev --package-lock-only` (run in this session,
   exit code 1) reports **6 vulnerable packages: 5 high, 1 moderate**. `next` is
@@ -362,7 +364,7 @@ register is the state and the audit document is only a story.
 ### SEC-007 — No security headers configured (CSP, X-Frame-Options, nosniff, Referrer-Policy)
 
 - **Severity:** Medium
-- **Status:** Open / partly needs manual verification
+- **Status:** **Fixed 2026-08-10** — headers verified on a live response.
 - **Affected surface:** `maanta-app/next.config.mjs`
 - **Evidence:** The config defines `redirects()` (`:33-39`) and `rewrites()`
   (`:41-56`) but **no `headers()` export at all**, and no `vercel.json` exists to
@@ -387,7 +389,7 @@ register is the state and the audit document is only a story.
 ### SEC-008 — Missing rate limits on two authenticated write endpoints
 
 - **Severity:** Low
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10.**
 - **Affected surface:** `maanta-app/src/app/api/push/subscribe/route.ts`,
   `maanta-app/src/app/api/deals/route.ts`
 - **Evidence:** Ten endpoints call `checkRateLimit` (claim, redemption
@@ -408,7 +410,7 @@ register is the state and the audit document is only a story.
 ### SEC-009 — `.gitignore` does not cover a plain `.env` or `.env.production`
 
 - **Severity:** Low
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** — verified with `git check-ignore`.
 - **Affected surface:** `maanta-app/.gitignore`
 - **Evidence:** The file ignores `.env*.local` and `.env.local`. Neither pattern
   matches a plain `.env` or `.env.production`. No such file exists in the working
@@ -427,7 +429,7 @@ register is the state and the audit document is only a story.
 ### SEC-010 — No Sentry `beforeSend` scrubbing
 
 - **Severity:** Low
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10.**
 - **Affected surface:** `maanta-app/sentry.server.config.ts`,
   `maanta-app/sentry.edge.config.ts`, `maanta-app/src/instrumentation-client.ts`
 - **Evidence:** All three call `Sentry.init({ dsn, environment, tracesSampleRate })`
@@ -449,7 +451,8 @@ register is the state and the audit document is only a story.
 ### SEC-011 — PII in server logs
 
 - **Severity:** Low
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** — both the waitlist address and the two
+  IntaSend response logs.
 - **Affected surface:** `maanta-app/src/app/api/waitlist/route.ts:95`,
   `maanta-app/src/lib/intasend.ts:72,80`
 - **Evidence:** `console.error("waitlist: confirmation email failed for", result.data.email)`
@@ -466,7 +469,8 @@ register is the state and the audit document is only a story.
 ### SEC-012 — CI supply-chain hygiene: floating action tags, no permissions block, no automated dependency or code scanning
 
 - **Severity:** Low / Informational
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10** — permissions block and Dependabot added;
+  SHA pinning delegated to Dependabot rather than hand-maintained.
 - **Affected surface:** `.github/workflows/ci.yml`, `.github/workflows/e2e.yml`
 - **Evidence:** `actions/checkout@v4`, `actions/setup-node@v4` and
   `supabase/setup-cli@v1` are pinned by floating major tag, not commit SHA
@@ -489,7 +493,7 @@ register is the state and the audit document is only a story.
 ### SEC-013 — Phone number not format-validated on merchant onboarding
 
 - **Severity:** Low
-- **Status:** Open
+- **Status:** **Fixed 2026-08-10.**
 - **Affected surface:** `maanta-app/src/app/api/merchants/onboard/route.ts:43-48`
 - **Evidence:** The route checks only that `phone` is present. `isValidKenyanPhone`
   exists (`maanta-app/src/lib/phone.ts:2`) and *is* used by the top-up route
@@ -533,10 +537,17 @@ Four items worth recording, none of which is a vulnerability:
 
 ## Fixed in this session
 
-Four findings were remediated after the audit was written, on the same branch —
-SEC-004, SEC-005 and SEC-006 in full, and the replay half of SEC-001. All were
-verified by running the checks and by confirming each new test fails against the
-old code, not by inspection alone.
+Eleven of the sixteen findings were remediated after the audit was written, on
+the same branch: SEC-004, SEC-005, SEC-006, SEC-007, SEC-008, SEC-009, SEC-010,
+SEC-011, SEC-012 and SEC-013 in full, plus the replay half of SEC-001 and the
+non-breaking half of SEC-002. All were verified by running the checks — and
+where a behavioural claim was testable, by confirming the new test fails against
+the old code, not by inspection alone.
+
+**Still open and why:** SEC-001's signature half (needs an answer from IntaSend
+about whether a payload HMAC exists), SEC-002's `next` upgrade (breaking, two
+majors — your call), SEC-003 (a founder product decision, drift D84), and the
+SEC-014 informational items.
 
 ### SEC-005 — fixed in full
 
@@ -645,30 +656,92 @@ nothing at initiation, so there is no record of the initiated amount to
 reconcile against — it needs a pending-top-up row first. D83 stays open for
 both reasons.
 
+## Second remediation pass — 2026-08-10
+
+Seven further findings fixed, plus the non-breaking half of the dependency work.
+
+**SEC-007 — security headers.** A `headers()` block in
+`maanta-app/next.config.mjs` now sets `Content-Security-Policy: frame-ancestors 'none'`,
+`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin` and a `Permissions-Policy`.
+**Verified on a live response**, not by reading the config: built the app, ran
+`next start`, and confirmed all five headers on `/` and on `/api/healthz`.
+
+A **full** CSP is deliberately not set. The app loads Clerk, Sentry, Leaflet
+tiles and PostHog, and a strict `script-src` shipped blind would break a live
+surface in a way nothing in this repo would catch — CI has no browser and the
+e2e run is gated on `E2E_BASE_URL`. `frame-ancestors` is the one directive safe
+to ship without that testing, because it constrains who may frame the page and
+says nothing about what the page may load. HSTS is also deliberately absent:
+Vercel sets it at the edge for custom domains, and a second, weaker source of
+truth for a header with a long `max-age` is worse than none.
+
+**SEC-008 — rate limits.** `/api/deals` (10 per 5 min per merchant, checked
+*before* the body is read so an abusive loop cannot buffer a 5 MB upload per
+attempt) and `/api/push/subscribe` (20/hour per user).
+
+**SEC-009 — `.gitignore`.** Now ignores `.env` and `.env.*` with an explicit
+`!.env.example` re-admission. Verified with `git check-ignore -v`: `.env`,
+`.env.production` and `.env.local` all match a rule; `.env.example` does not.
+
+**SEC-010 — Sentry scrubbing.** `beforeSend` in all three configs, backed by one
+shared `maanta-app/src/lib/sentry-scrub.ts` rather than three copies.
+
+Worth recording: the first version tried to blank the fields and send the event
+anyway when scrubbing failed. Its own test caught that assigning to a
+getter-only property throws *again from inside the catch*, so the "fail safe"
+was not safe. The contract is now **discard the event** (`beforeSend` treats a
+null return as drop) — losing one error report beats transmitting a payload we
+could not inspect.
+
+**SEC-011 — PII in logs.** The waitlist failure logs the segment instead of the
+address; the two IntaSend response logs were already covered by the SEC-006
+redactors.
+
+**SEC-012 — CI supply chain.** `permissions: contents: read` added to `ci.yml`
+(the only workflow missing it), and `.github/dependabot.yml` added for npm
+(security updates, weekly) and github-actions (monthly). SHA pinning is
+delegated to Dependabot, which rewrites floating tags to digests when it opens a
+PR — sustainable, versus hand-maintained digests that go stale.
+
+**SEC-013 — onboarding phone.** Now format-checked with the same
+`isValidKenyanPhone` the top-up route already used.
+
+**SEC-002 — partly fixed.** `npm audit fix --omit=dev` resolved
+`brace-expansion`, `dompurify`, `fast-uri` and `nanoid`: **6 vulnerabilities
+(5 high, 1 moderate) down to 2 high**, `package.json` untouched, lockfile-only.
+The remaining two — `next` and its nested `postcss` — both require
+`next@16.3.0`, two majors up and breaking. **Not done: that is your call**, and
+it needs an App Router regression pass, not a drive-by upgrade.
+
+One process note: `npm audit fix --omit=dev` prunes devDependencies from
+`node_modules` as a side effect. A plain `npm ci` restores them and leaves the
+fixed lockfile intact — confirmed before running the gate.
+
 ---
 
 ## Checklist: 20 controls
 
 | # | Control | Status | Severity | Evidence / location | Required action |
 |---|---|---|---|---|---|
-| 1 | Environment files and repository secrets | Finding | Low | Only `maanta-app/.env.example` tracked (placeholders only); no `.env`/`.pem`/`.key` ever added in history; CI uses literal placeholders (`.github/workflows/ci.yml:47-54`). `.gitignore` misses plain `.env` | SEC-009 |
+| 1 | Environment files and repository secrets | Pass (fixed 2026-08-10) | — | Only `maanta-app/.env.example` tracked (placeholders only); no `.env`/`.pem`/`.key` ever added in history; CI uses literal placeholders (`.github/workflows/ci.yml:47-54`). `.gitignore` now ignores every `.env` variant while keeping `.env.example` tracked | SEC-009 closed |
 | 2 | API keys exposed to the frontend | Pass | — | 14 `NEXT_PUBLIC_` vars, all designed-public (Supabase anon, Clerk publishable, PostHog, Sentry DSN, VAPID public); 25 server-only vars traced; all 74 importers of `src/lib/supabase/service.ts` verified non-`'use client'`; `productionBrowserSourceMaps` unset | None. Confirm Vercel env scoping manually |
 | 3 | Row Level Security | Pass | — | All 25 tables have RLS enabled; event trigger `rls_auto_enable` force-enables on future `CREATE TABLE`; policies bind through `current_user_id()`/`current_user_role()` from the verified JWT; write grants revoked from `authenticated` on core tables (`20260723120000`) | None |
 | 4 | Frontend-only authorization | Pass | — | All 39 API routes carry a server-side guard; money/trust RPCs re-check caller identity inside `SECURITY DEFINER` (`claim_deal`, `verify_redemption`, `merchant_verify_authorized`); no server actions exist | None |
-| 5 | Rate limiting and abuse controls | Finding | Low | DB-backed shared limiter (`src/lib/rate-limit.ts` → `check_rate_limit` RPC), on 10 endpoints; absent on `/api/deals` and `/api/push/subscribe`; no limit on webhooks | SEC-008 |
+| 5 | Rate limiting and abuse controls | Pass (fixed 2026-08-10) | — | DB-backed shared limiter (`src/lib/rate-limit.ts` → `check_rate_limit` RPC), now on 12 endpoints — `/api/deals` and `/api/push/subscribe` added. Webhooks remain unlimited by design (signature/secret-gated, and providers retry) | SEC-008 closed |
 | 6 | SQL injection prevention | Pass (fixed 2026-08-10) | — | No raw SQL anywhere; all `.rpc()` calls use bound named params; 3 dynamic-SQL sites in migrations all use `%I` with catalog-sourced identifiers. The one raw `.or()` filter string now builds through `lib/postgrest-filter.ts`, with a source-scan ratchet against recurrence | SEC-004 closed |
-| 7 | Input validation | Finding | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Gaps: phone on onboard, webhook amount unreconciled | SEC-013, SEC-001 |
+| 7 | Input validation | Finding (partly fixed) | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Onboard phone **fixed 2026-08-10**. Remaining: the IntaSend webhook amount is still unreconciled against the initiated top-up | SEC-001 |
 | 8 | User content rendered as HTML | Pass | — | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `srcdoc`. Legal markdown uses a hand-written parser emitting React children (`components/marketing/LegalDoc.tsx`). HTML emails escape via `src/lib/escape-html.ts` | None |
 | 9 | Password handling | Pass (N/A) | — | Fully passwordless — Clerk OTP or Supabase email OTP. Zero password code in `src/` or migrations; the 9 `password` matches are marketing/legal copy | None |
 | 10 | Auth storage and session handling | Pass | — | Cookie-based both strategies (`@supabase/ssr` `getAll`/`setAll`, or Clerk-managed); no token in `localStorage`/`sessionStorage`; both sign-out paths invalidate server-side; open-redirect guard on the auth callback | Confirm cookie flags in prod (manual) |
 | 11 | Unprotected admin surfaces | Pass | — | `/admin`, `/agent`, `/founder` all behind async server-component layout guards with `force-dynamic`; all 8 `api/admin/*` routes open with `requireAdminApi()`; middleware matcher excludes only static assets; `healthz` detail gated behind admin | None |
-| 12 | CORS configuration | Pass | — | Zero `Access-Control-Allow-*` anywhere; no `OPTIONS` handlers; no `headers()` in `next.config.mjs`; no `vercel.json`. Framework default = same-origin | Supabase Storage CORS needs manual check |
+| 12 | CORS configuration | Pass | — | Zero `Access-Control-Allow-*` anywhere; no `OPTIONS` handlers; no `vercel.json`. Framework default = same-origin. A `headers()` block now sets the security headers (SEC-007), still no CORS relaxation | Supabase Storage CORS needs manual check |
 | 13 | Email verification and account identity | Pass | — | Both strategies require a completed OTP before a session exists; self-role-escalation blocked by DB trigger with `EXECUTE` revoked from all roles; `admin`/`agent`/`cofounder` have no self-serve grant path | None |
 | 14 | Predictable identifiers and IDOR | Pass | — | All IDs are UUIDs; every object-access path scopes to the authenticated actor (`.eq("merchant_id", merchant.id)` etc.); OTP codes bound to `merchant_id` at unique-index and query level, so merchant A cannot verify merchant B's code | None |
 | 15 | Sensitive request-body logging | Finding (partly fixed) | Low | OTPs and tokens never logged; `maskPhone()` applied consistently at merchant-facing surfaces. Webhook payload redaction **fixed 2026-08-10** (allowlist + phone masking, `lib/redact.ts`). Remaining: waitlist email logged in plaintext, no Sentry `beforeSend` scrubber | SEC-010, SEC-011 |
 | 16 | Webhook signature validation | Finding (partly fixed) | **High** | Stripe: correct — `constructEvent` over `request.text()` raw body before parsing, signed timestamp, idempotent ledger. IntaSend: null-reference replay **fixed 2026-08-10**; static shared secret with no payload signature remains | SEC-001 — signature half |
 | 17 | Production error handling | Pass (fixed 2026-08-10) | — | All 5 error boundaries show static copy and never render `error.message`; source maps not shipped. The one route returning raw `error.message` now maps known failures and returns a generic message otherwise — all 14 RPC-backed routes are consistent | SEC-005 closed |
-| 18 | Dependency and supply-chain hygiene | Finding | **High** | 6 vulnerable packages (5 high, 1 moderate); `next@14.2.35` direct with 21 advisories; lockfile committed, registry-only, no git-URL deps, no app-authored install hooks; no Dependabot/CodeQL | SEC-002, SEC-012 |
+| 18 | Dependency and supply-chain hygiene | Finding (partly fixed) | **High** | Was 6 vulnerable packages (5 high, 1 moderate); **now 2** after the non-breaking upgrades — `next@14.2.35` (direct, 21 advisories) and its nested `postcss` both need the breaking `next@16` jump. Lockfile committed, registry-only, no git-URL deps, no app-authored install hooks. Dependabot and a CI `permissions` block added 2026-08-10 | SEC-002 — `next` upgrade |
 | 19 | Password strength and account protections | Needs manual verification | — | N/A for passwords (passwordless). Code-side: rate limits on verify/claim/onboard, merchant status gate, core-table write revocation. MFA, lockout, OTP send limits and session lifetime are all provider-dashboard settings, documented nowhere as configured | Verify Clerk + Supabase auth settings |
 | 20 | File-upload security | Pass | — | One upload path; magic-byte validation (`src/lib/image-bytes.ts` — JPEG/PNG/WebP only, SVG excluded at both app and bucket layer); 5 MB cap in app and bucket; server-generated path `{merchant.id}/{randomUUID()}.{sniffed ext}`; bound to `requireMerchant("can_deals")` | Supabase Storage CORS/policies need manual check |
 
@@ -755,6 +828,18 @@ and left `package.json` and `package-lock.json` unmodified — confirmed with
 | Regression check: revert the SEC-004 call site, re-run its tests | 1 | The source-scan ratchet fired on the reverted `.or()` template literal. Restored and re-verified |
 | Regression check: run the previous `redactWebhookPayload` against the test payload | — | Emitted `+254712345678` and `jane@example.com` verbatim — the leak the SEC-006 tests now forbid |
 
+### After the second remediation pass
+
+| Command | Exit | Result |
+|---|---|---|
+| `npm run lint` | 0 | `✔ No ESLint warnings or errors` |
+| `npm run typecheck` | 0 | Clean (two real type errors found and fixed on the way: the Sentry generic could not index arbitrary keys, and `ErrorEvent` has no index signature) |
+| `npm test` | 0 | **633 tests in 82 files passed** |
+| `npm run build` | 0 | Compiled; all three post-build gates clean |
+| `next start` + `curl -sI` on `/` and `/api/healthz` | 0 | All five security headers present on both — SEC-007 verified against a served response, not the config |
+| `git check-ignore -v` on `.env`, `.env.production`, `.env.local`, `.env.example` | — | First three ignored, `.env.example` not — SEC-009 verified |
+| `npm audit --omit=dev --package-lock-only` | 1 | **2 high** remaining, down from 6 (5 high, 1 moderate) |
+
 **The audit pass itself could not run lint, typecheck or test** — that is
 recorded above and stands. Those results are from the remediation pass, after
 dependencies were installed. `make db-verify` still has not run; no SQL was
@@ -763,6 +848,11 @@ changed, so nothing in the `db-tests` job is affected by these fixes.
 ---
 
 ## Remediation plan
+
+> **Status as of 2026-08-10:** everything in *Fix immediately* and *Fix before
+> wider pilot* is done except the two items that need a decision rather than a
+> diff — SEC-001's signature half and SEC-002's `next` upgrade. The manual
+> dashboard checks are all still outstanding.
 
 ### Fix immediately
 
@@ -788,10 +878,12 @@ changed, so nothing in the `db-tests` job is affected by these fixes.
 6. ~~**SEC-004 and SEC-006** — the filter-injection pattern and the webhook
    payload redaction.~~ **Done 2026-08-10**, along with **SEC-005**. All three
    are guarded by tests; SEC-004 additionally by a source-scan ratchet.
-7. **SEC-007** — security headers, CSP in report-only mode first.
-8. **SEC-008 through SEC-013** — rate limits, `.gitignore`, Sentry scrubbing,
+7. ~~**SEC-007** — security headers, CSP in report-only mode first.~~
+   **Done 2026-08-10** — `frame-ancestors` and the rest shipped and verified on a
+   live response; a full CSP still wants a report-only rollout.
+8. ~~**SEC-008 through SEC-013** — rate limits, `.gitignore`, Sentry scrubbing,
    log PII, CI permissions and action pinning, Dependabot, onboarding phone
-   validation.
+   validation.~~ **All done 2026-08-10.**
 
 ### Verify manually in provider dashboards
 

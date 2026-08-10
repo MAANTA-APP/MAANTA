@@ -92,7 +92,15 @@ export async function POST(request: Request) {
   const email = waitlistConfirmationEmail(result.data.segment, result.data.fullName);
   const sent = await sendWaitlistEmail(result.data.email, email);
   if (!sent) {
-    console.error("waitlist: confirmation email failed for", result.data.email);
+    // Log the segment, not the address. The failure is already non-fatal to the
+    // request, so the address buys nothing a support person cannot get from the
+    // waitlist table — and server logs are the wrong place to accumulate it
+    // (SEC-011).
+    console.error(
+      "waitlist: confirmation email failed for a",
+      result.data.segment,
+      "signup"
+    );
   }
 
   return NextResponse.json({ ok: true, alreadyJoined: contact === "already_exists" });
