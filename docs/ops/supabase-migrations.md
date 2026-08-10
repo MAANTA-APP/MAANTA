@@ -208,6 +208,53 @@ echo/run the CLI above — **review before running against prod**:
 > Docker. To verify a **production** push, use the manual read-only SQL subset
 > in §5 above (grants, audit tables, spot-checks), not this target.
 
+## 7. Applying via the Supabase MCP — mandatory read-back
+
+`apply_migration` in the Supabase MCP takes **`name` and `query` only. There is
+no version parameter.** It mints its own version from the wall clock of the
+apply, so an MCP apply **always** records a ledger version that differs from the
+committed filename. This is a property of the channel, not an operator slip.
+
+The record is unambiguous — **every MCP apply so far has needed the same
+repair**: `20260730180000`, `20260730190000` (2026-08-04, repaired 08-05),
+`20260807160000`, `20260807161000` (2026-08-08, repaired same session), and
+`20260810120000` (2026-08-10, repaired same session). Five for five. Assume the
+next one will too.
+
+**Do this, in order, every time:**
+
+1. **Before the apply**, note the repo filename's version and name — e.g.
+   `20260810120000` / `pending_topups`.
+2. **Immediately after the apply**, read back what was actually minted:
+   ```sql
+   select version, name from supabase_migrations.schema_migrations
+    where version > '<previous latest version>' order by version;
+   ```
+3. **If it differs, repair before anything else** — before any further apply,
+   any `db push`, and before ending the session:
+   ```sql
+   update supabase_migrations.schema_migrations
+      set version = '<repo filename version>'
+    where version = '<minted version>' and name = '<migration name>';
+   ```
+   Then re-read to confirm, and check the ledger total matches
+   `ls supabase/migrations/*.sql | wc -l`.
+4. **Check whether the SQL is idempotent**, because it determines what an
+   unrepaired ledger costs you. `CREATE OR REPLACE` / `DROP … CREATE` migrations
+   survive being replayed under a mismatched version; a bare `CREATE TABLE`,
+   `CREATE INDEX` or `CREATE POLICY` does **not** — the next `supabase db push`
+   sees the repo file as unapplied, re-runs it, and **errors**. Treat a
+   non-idempotent migration's repair as urgent rather than tidy-up.
+5. **Record both versions**, the correction, the operator, the timestamp and the
+   read-back output — in the drift register and, for a security-relevant change,
+   the audit report.
+
+Why this is not automated: the divergence happens inside a hosted tool, so no
+test in this repo can assert on it. The control is this procedure. Tracked as
+**D86**; the standing preference is `supabase db push`, which keys on the
+filename and never mints a version — reach for the MCP only when a human-run
+push is not available.
+
 ## Safety recap
 
 - Confirm the ref matches Vercel before pushing; never push to

@@ -153,11 +153,12 @@ register is the state and the audit document is only a story.
 ### SEC-001 — IntaSend top-up webhook: no payload signature, and replayable wallet credit
 
 - **Severity:** High
-- **Status:** **Partly fixed 2026-08-10.** The replay half is closed and live.
-  The amount-reconciliation half is **written but not yet applied** — it adds a
-  migration, and migrations are handed to a human. The missing-signature half is
-  untouched. Tracked as drift **D83**; see *Fixed in this session* and
-  *Amount reconciliation* below.
+- **Status:** **Partly fixed 2026-08-10.** Two of three parts are closed and
+  **live in production**: the replay half, and the amount-reconciliation half
+  (migration applied 2026-08-10 15:45 UTC, evidence under *Production
+  deployment*). The **missing-signature half remains open** and is what keeps
+  drift **D83** open — a caller holding the static shared secret can still forge
+  a webhook, now bounded to an amount some merchant really initiated.
 - **Affected surface:** `maanta-app/src/app/api/webhooks/intasend/route.ts`,
   `maanta-app/src/lib/intasend.ts`,
   `maanta-app/supabase/migrations/20260709000151_merchant_transactions_provider_reference_unique.sql`
@@ -752,8 +753,10 @@ settlement. That is deliberate: crediting unknown references instead would leave
 the hole permanently open for anyone able to forge one. The window is small
 (IntaSend is a prepared-not-assumed rail) and nothing is lost silently.
 
-**Deploy state — this is inert until a human applies it.** Claude does not apply
-migrations, so the migration is unapplied regardless of what was verified below.
+**Deploy state — APPLIED to production 2026-08-10 15:45 UTC.** See
+*Production deployment* below for the full evidence. The paragraphs that follow
+describe the pre-deployment verification and are kept as the record of what was
+known before the apply.
 
 **`make db-verify` cannot run in this environment, and the reason is a policy
 denial, not a missing tool.** A Docker daemon was started successfully and the
@@ -803,6 +806,80 @@ The TypeScript side is separately covered by
 `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` — a payload
 naming KES 1,000,000 against an initiated 500 credits nothing — but that suite
 mocks the database, so it proves the route's logic, not the schema.
+
+---
+
+## Production deployment — 2026-08-10
+
+The `pending_topups` migration is **live**. Recorded here because a merged
+migration is not an applied one, and the difference is the whole point of
+SEC-001's reconciliation half.
+
+| Field | Value |
+|---|---|
+| Migration | `maanta-app/supabase/migrations/20260810120000_pending_topups.sql` |
+| Applied at | 2026-08-10 **15:45:13 UTC** (from the ledger's minted version) |
+| Operator | Claude, via the Supabase MCP, under explicit founder authorization — the same recorded-exception route used for **D25** |
+| Project | `axrrslqssmbngbataejg` |
+| Code merged at | `d1ae85e` (PR #187) |
+
+**Before-state, verified not assumed.** `to_regclass('public.pending_topups')`
+returned NULL, the ledger held **87** rows ending at
+`20260807161000_cofounder_read_policies`, and no row carried version
+`20260810120000`.
+
+**Read-back after apply** — all five checks, run against production:
+
+| Check | Expected | Actual |
+|---|---|---|
+| Ledger row `20260810120000` / `pending_topups` | 1 | **1** |
+| Ledger total | 88 (matches repo) | **88** |
+| `relrowsecurity` on `pending_topups` | true | **true** |
+| Policies on the table | 2, both SELECT with predicates | **2** (`pending_topups_admin_read`, `pending_topups_merchant_read`) |
+| `has_table_privilege('authenticated', …, 'INSERT')` | false | **false** |
+
+Also confirmed: `authenticated` UPDATE **false**, `anon` SELECT **false**,
+`authenticated` SELECT true (RLS-gated, intended), `service_role` INSERT true.
+
+**A D24 recurrence was caught and repaired during the apply.** The MCP's
+`apply_migration` takes no version parameter and minted **`20260810154513`**,
+diverging from the repo filename's `20260810120000` — the exact mechanism behind
+**D24**. That mattered more than last time: this migration is **not** idempotent
+(bare `CREATE TABLE` / `CREATE POLICY`), so a later `supabase db push` would have
+re-run it and errored, rather than being harmlessly repeated. The ledger row was
+repaired to the repo version immediately and re-read.
+
+**That instance is fixed; the underlying gap is not, and D86 stays open.** The
+runbook recorded previous repairs as history but carried no instruction to
+perform one — so the control was five separate acts of someone happening to
+check. **Every MCP apply to date has needed this repair** (`20260730180000`,
+`20260730190000`, `20260807160000`, `20260807161000`, `20260810120000` — five
+for five). A standing procedure now exists as §7 of
+`docs/ops/supabase-migrations.md`, with the preference stated plainly: use
+`supabase db push`, which keys on the filename and never mints a version, and
+reach for the MCP only when a human-run push is unavailable. D86 closes when the
+next apply has actually gone through §7 — an unexercised runbook step is a
+claim, not a control.
+
+**Smoke test — passed, self-cleaning, nothing moved.** Run against an explicitly
+demo merchant (`c0000000-0000-4000-a000-000000000001`, "Nuur Fashion House",
+`is_demo = true`) with a unique labelled reference
+(`…:smoketest-d83-20260810T1545Z-a7f3`), as a single atomic block so a failed
+assertion would roll the insert back rather than leave residue:
+
+- The webhook's happy-path lookup resolves: `merchant_id`, `amount = 500` and
+  `status = 'initiated'` all as inserted.
+- The refuse-to-credit predicates hold: an amount of 1,000,000 does not equal the
+  initiated 500, and an unknown `api_ref` resolves to no row.
+- Cleanup verified: the exact row deleted, `pending_topups` back to **0 rows**,
+  no `%smoketest%` residue anywhere in the table.
+- **Nothing moved**: demo merchant balance unchanged at **540.00**, zero ledger
+  rows created, no IntaSend call, no STK push.
+
+**What this does and does not close.** SEC-001's reconciliation half is now live
+and evidenced. **SEC-001 stays open** on the signature half —
+`verifyWebhookChallenge` is still a static shared secret with no HMAC over the
+payload — and so does **D83**.
 
 ---
 
@@ -878,7 +955,7 @@ here so they are not re-raised: that quoting might silently break the search
 | 4 | Frontend-only authorization | Pass | — | All 39 API routes carry a server-side guard; money/trust RPCs re-check caller identity inside `SECURITY DEFINER` (`claim_deal`, `verify_redemption`, `merchant_verify_authorized`); no server actions exist | None |
 | 5 | Rate limiting and abuse controls | Pass (fixed 2026-08-10) | — | DB-backed shared limiter (`src/lib/rate-limit.ts` → `check_rate_limit` RPC), now on 12 endpoints — `/api/deals` and `/api/push/subscribe` added. Webhooks remain unlimited by design (signature/secret-gated, and providers retry) | SEC-008 closed |
 | 6 | SQL injection prevention | Pass (fixed 2026-08-10) | — | No raw SQL anywhere; all `.rpc()` calls use bound named params; 3 dynamic-SQL sites in migrations all use `%I` with catalog-sourced identifiers. The one raw `.or()` filter string now builds through `lib/postgrest-filter.ts`, with a source-scan ratchet against recurrence | SEC-004 closed |
-| 7 | Input validation | Finding (fix written, unapplied) | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Onboard phone **fixed 2026-08-10**. Webhook amount reconciliation written 2026-08-10 (`pending_topups`) but **the migration is unapplied**, so production still credits unreconciled amounts | SEC-001 — apply the migration |
+| 7 | Input validation | Finding (partly fixed) | Low | Hand-rolled, no schema library. Money paths well-guarded (`isValidTopupAmount` rejects NaN/Infinity/overflow; magic-byte image check; UUID pre-check on onboard). Onboard phone **fixed 2026-08-10**. Webhook amount reconciliation **applied to production 2026-08-10** (`pending_topups`), so a webhook naming an amount the merchant never initiated is now refused. Remaining under this control: nothing — the open SEC-001 work is the signature, not validation | SEC-001 — signature half |
 | 8 | User content rendered as HTML | Pass | — | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `srcdoc`. Legal markdown uses a hand-written parser emitting React children (`components/marketing/LegalDoc.tsx`). HTML emails escape via `src/lib/escape-html.ts` | None |
 | 9 | Password handling | Pass (N/A) | — | Fully passwordless — Clerk OTP or Supabase email OTP. Zero password code in `src/` or migrations; the 9 `password` matches are marketing/legal copy | None |
 | 10 | Auth storage and session handling | Pass | — | Cookie-based both strategies (`@supabase/ssr` `getAll`/`setAll`, or Clerk-managed); no token in `localStorage`/`sessionStorage`; both sign-out paths invalidate server-side; open-redirect guard on the auth callback | Confirm cookie flags in prod (manual) |
@@ -1074,10 +1151,8 @@ rather than checked:
 - [ ] Supabase Auth settings — OTP rate limits, CAPTCHA, JWT/refresh expiry
 - [ ] Supabase SSR cookie flags as actually served (`Secure`, `SameSite`, `HttpOnly`)
 - [ ] Clerk — MFA for privileged roles, lockout, session lifetime
-- [ ] **Apply `20260810120000_pending_topups.sql`** — run `make db-verify` first
-      (it could not run in the authoring environment: no Docker daemon, no
-      Supabase CLI), then apply per `docs/ops/supabase-migrations.md`. Until this
-      lands, the amount-reconciliation fix is inert in production.
+- [x] ~~Apply `20260810120000_pending_topups.sql`~~ — **done 2026-08-10 15:45
+      UTC**, founder-authorized, evidence under *Production deployment*.
 - [ ] IntaSend — does a payload signature scheme exist?
 - [ ] Is `INTASEND_WEBHOOK_SECRET` set in production? (Unset means SEC-001 is not
       currently exploitable — and that M-Pesa credits do not work.)
