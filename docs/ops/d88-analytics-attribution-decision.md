@@ -1,7 +1,7 @@
 # D88 — Signed-out analytics attribution: decision brief
 
-**Date:** 2026-08-10 · **Mode:** Planner · **Status:** ✅ decided (option C), implemented and guarded 2026-08-10 — **D88 closed**
-· **Drift row:** **D88** (closed) · **Related:** **D22**, **O6**, **D14**
+**Date:** 2026-08-10 · **Mode:** Planner · **Status:** decided (option C), implemented and guarded 2026-08-10 — **D88 open, pending deploy verification**
+· **Drift row:** **D88** (open — pending deploy verification) · **Related:** **D22**, **O6**, **D14**
 
 ## The question
 
@@ -269,3 +269,101 @@ drift-register schema guard green.
 Not run: `test:e2e` (needs `E2E_BASE_URL` + storage). Not verified in a browser,
 for the reason given above — confirm event delivery after deploy, and check that
 `deal_viewed` and a subsequent `deal_claimed` share a `distinct_id`.
+
+---
+
+## Reviewer note for PR #199 — D88 change
+
+**Not posted to the PR.** Kept here so a reviewer can work from one place.
+
+**D88 is NOT closed.** It is `open`, pending deploy verification
+(`docs/analytics/d88-production-verification-checklist.md`). Everything below is
+verified from source and from CI; **none of it is browser or production
+evidence**, and the merge decision should be an explicit one to accept D88 as
+pending-verification rather than as done.
+
+### 1 · `deal-viewed-tracker.tsx`
+
+- **Fires once per intended view.** A `useRef` holds the last-sent `dealId` and
+  returns early on repeat. Confirm this survives: React StrictMode's development
+  double-invoke, a parent re-render, a route transition to another deal and back,
+  and hydration retry. The effect's dependency array includes all five props, so
+  a changed prop re-runs the effect — the ref, not the deps, is what prevents a
+  duplicate for the same deal.
+- **Properties sent:** `deal_id`, `merchant_id`, `deal_type`, `price_kes`,
+  `node`, `capture_side`. Confirm nothing shopper-identifying, and no ticket,
+  phone, token or redemption field, can reach it — note it takes **no user id
+  prop by design**; identity comes from posthog-js's own session.
+- **No new data dependency.** It receives already-fetched props and renders
+  `null`. It does not read Supabase, does not affect eligibility, claimability,
+  pausing or the claim flow.
+- **Cannot throw into the page.** The capture is wrapped in `try/catch`;
+  posthog-js is a no-op without a token.
+
+### 2 · The deleted server path
+
+- Removed: `analytics-identity.ts` + its test, and `captureDealViewed`,
+  `DistinctIdSource`, `UNATTRIBUTED_DISTINCT_ID` from `lib/analytics.ts`.
+- Also removed: the page's `currentClerkUserId()` call and the `@/lib/auth`
+  import, which existed **only** to attribute the server event. Confirm nothing
+  else on that page wanted them.
+- **Confirm no server event silently lost its actor.** The seven surviving
+  `captureServerEvent` callers — `guardian_outcome`, `deal_claimed`,
+  `deal_published`, `merchant_onboarded`, `topup_initiated`,
+  `topup_completed_mpesa`, `topup_completed_stripe` — each pass a real Clerk or
+  merchant id because each fires from an authenticated action. None used the
+  anonymous fallback.
+- **No error path references the deleted module.** `analytics-cookieless.test.ts`
+  asserts absence across `lib/` and `app/`, including `posthogCookieName` and the
+  `ph_*_posthog` cookie shape.
+
+### 3 · Browser persistence configuration
+
+- Inspect `components/posthog-provider.tsx` itself, not just the tracker:
+  `persistence: "memory"`, `defaults: "2026-01-30"`, `api_host: "/ingest"`,
+  `persistence_name` unset.
+- `defaults` matters — posthog-js turns on `split_storage` at `"2026-05-30"`,
+  which moves identity between stores. Confirm the pinned value.
+- Search for **all** reads/writes of PostHog cookies, `localStorage`,
+  `sessionStorage`, IndexedDB and any storage wrapper. The guard covers `lib/`
+  and `app/`; a reviewer should satisfy themselves it covers everything that
+  runs.
+- **Cookie Notice:** confirm `/cookies` remains factually accurate — "in memory
+  only", "None for anonymous visitors". If any claim needs softening, that is a
+  founder and legal item (`O5` is blocked), not an engineering edit.
+
+### 4 · Analytics semantics — all four are real and must be understood
+
+- `deal_viewed` now fires **after hydration**, not on server render.
+- **Absolute counts drop at cutover.** A bounce before hydration is no longer
+  counted. The meaning changed; it did not regress.
+- **Hard-refresh limitation:** memory persistence lasts the pageview, so a hard
+  refresh between view and claim mints a new `distinct_id` and breaks that join.
+  `next/link` navigation preserves it.
+- **Queries can separate the eras:** client-era events carry
+  `capture_side: "client"`; pre-2026-08-10 server events carry
+  `distinct_id_source` and, when signed out, the literal `distinct_id`
+  `"anonymous"`. Filter on `capture_side`; do not compare across the boundary.
+
+### 5 · Test-count change: 676 → 648 (−28), fully accounted
+
+Measured by running the suite on both trees, not inferred — an initial
+line-count said −13 and was **wrong**, because `it.each` tables generate several
+tests per line in both affected files.
+
+| File | Before | After | Δ |
+|---|---|---|---|
+| `analytics.test.ts` (deal_viewed attribution block removed) | 24 | 13 | −11 |
+| `analytics-identity.test.ts` (deleted with the module) | 21 | — | −21 |
+| `analytics-cookieless.test.ts` (new guard) | — | 4 | +4 |
+| **Total** | | | **−28** |
+
+File count is unchanged at **86** — one test file deleted, one added. **No
+unrelated suite was lost**, and every removed test covered code that no longer
+exists. A lower passing count here is expected and accounted for, not neutral.
+
+### What a reviewer cannot settle from the diff
+
+Whether the browser actually persists nothing, and whether the view→claim
+linkage holds live. Both are Part A/B of the verification checklist, and both
+are why D88 stays open.
