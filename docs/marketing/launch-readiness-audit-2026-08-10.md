@@ -490,11 +490,34 @@ chip is untouched. Verified non-vacuous by reintroducing the claim on
 NOW` returns **zero hits**, and the replacement copy renders on all six affected
 pages.
 
-**Still deliberately untouched:** broader present-tense operational prose — for
-example `/malls/bbs-mall`'s "where the product is run in person" and "shops here
-publish deals from a phone". That is a claim about operating today too, but
-rewriting it is a question about the whole site's voice rather than one phrase,
-and the ruling was about "Live at". Worth a separate decision.
+**D83 is not closed by this commit, and its close conditions are now recorded**
+(founder, 2026-08-10). All three are required, in order: the fix is deployed to
+production; the **deployed** HTML — not the repo, and not a preview alias
+standing in for it — is checked for the prohibited phrases and the live-status
+indicators; and the deployment SHA, timestamp and that evidence are written into
+the register. Commit `04324f9` proves the repo is fixed and proves nothing about
+what the public site serves. `pending-deploy` is not available as an
+intermediate here: the schema guard requires that status to name an unapplied
+migration, and this is a code fix, so `open` carries the not-yet-live meaning.
+
+**The residue became its own row, deliberately: D86.** The site still says in the
+present tense that MAANTA is operating at BBS Mall, in prose that never uses the
+word "live" — `/malls/bbs-mall`'s "where the product is run in person" and
+"shops here publish deals from a phone", and `/shoppers`' "the shops there are
+the ones publishing deals today". (A comparable line on `/about` sits inside the
+`SCENARIO.isScenario` branch, so production never renders it.) These assert
+current operation as plainly as "Live at BBS Mall" did, which means **the D83
+guard passing does not mean the site has stopped claiming to trade.**
+
+It is not folded into D83 because it is not the same kind of problem. D83 was
+one phrase with twenty-one instances and a single correct answer. This is the
+voice the site is written in, and it is a factual question before it is a copy
+question: *is MAANTA operating at BBS Mall today?* If no, the prose is rewritten
+as pilot or future tense and gated alongside the D83 wording so one flag still
+governs launch state. If yes, it stands — but it then has to be consistent with
+**D14**, which has `demo_mode_enabled` true on production, so the deals a
+visitor actually sees are synthetic. Both cannot be presented as true without
+saying which is which.
 
 ### Deliberately not fixed
 
