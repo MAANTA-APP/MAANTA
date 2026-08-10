@@ -777,14 +777,27 @@ scaffold of the objects this migration references (`anon`/`authenticated`/
 - The test was confirmed non-vacuous: granting `authenticated` INSERT/UPDATE
   made Scenario A fail with its own assertion message.
 
-**What that does not cover, and why CI still matters.** The other 87 migrations
-were not applied, so this says nothing about ordering conflicts or interaction
-with the real schema; the RLS policies were exercised against *stubbed*
-`current_user_id()`/`current_user_role()`, so policy behaviour under real JWT
-claims is unverified; and the real `auth`/`storage` schemas were absent. The
-`db-tests` CI job runs the full 88-migration chain against a real Supabase
-stack — note it triggers on `pull_request` to `main`, so **opening the PR is
-what actually exercises it**. Then apply per `docs/ops/supabase-migrations.md`.
+**The full chain is now verified too — by CI, on PR #187.** The isolated run
+above could not cover ordering against the other 87 migrations, RLS behaviour
+under real JWT claims (the helper functions were stubbed), or the real
+`auth`/`storage` schemas. The `db-tests` job covers all three, and it **passed**
+on the first run of PR #187
+([job 93487120035](https://github.com/MAANTA-APP/MAANTA/actions/runs/31398446494/job/93487120035)),
+with the new suite named explicitly in the log:
+
+```
+##[group]supabase/tests/pending_topups_test.sql
+  Scenario A passed: pending_topups grants are service_role-only for writes
+  Scenario B passed: RLS enabled
+  Scenario C passed: pending_topups constraints hold
+  Scenario D passed: pending_topups cascades on merchant delete
+  ALL pending_topups scenarios passed.
+```
+
+So the migration applies in order against the real schema and its guards hold
+under the project's normal JWT-claim model. **What remains is the apply itself**
+— a human step, per `docs/ops/supabase-migrations.md`. Until then the webhook
+still credits unreconciled amounts in production.
 
 The TypeScript side is separately covered by
 `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` — a payload
