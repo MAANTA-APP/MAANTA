@@ -1,4 +1,4 @@
-import { Logomark } from "@/components/ui/icons";
+import Image from "next/image";
 
 /**
  * Brand chrome wrapping whichever auth form the strategy selects, on both
@@ -16,14 +16,15 @@ import { Logomark } from "@/components/ui/icons";
  *
  * The `<main>` landmark lives here, so the routes must not declare their own.
  *
- * No amber. The accent belongs on the submit action inside the form, and a
- * logomark competing with it would spend it twice.
+ * The submit action inside the form is this screen's only amber *action*; the
+ * chrome adds no amber accents of its own beyond the brand logomark, so the
+ * accent isn't spent twice.
  */
 export function AuthChrome({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col items-center justify-center bg-stone px-5 py-14">
       <div className="mb-8 flex flex-col items-center text-center">
-        <Logomark className="h-10 w-10" />
+        <Image src="/maanta-logo.png" alt="MAANTA logo" width={38} height={40} priority />
         <span className="mt-3 text-xl font-black tracking-tight text-ink">MAANTA</span>
         <p className="mt-1.5 text-sm text-muted">The mall, made live.</p>
       </div>
