@@ -83,7 +83,15 @@ export function SectionHeading({
   );
 }
 
-/** Primary action. The one amber element on a page. */
+/**
+ * Primary action. The one amber element on a page.
+ *
+ * `amberCta` publishes `data-amber-cta` on the rendered anchor. `StickyCta`
+ * observes those, and renders only while none is on screen — so the mobile
+ * sticky bar replaces the visible amber action instead of becoming a second
+ * one. Marking it here rather than at each call site means a new page gets the
+ * behaviour by using the primitive, which is the point of the primitive.
+ */
 function CtaPrimary({
   href,
   children,
@@ -104,6 +112,7 @@ function CtaPrimary({
       href={href}
       name={name}
       location={location}
+      amberCta
       className={`inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-bold text-ink-soft shadow-card transition hover:-translate-y-px hover:brightness-95 active:translate-y-0 active:brightness-90 ${className}`}
     >
       {children}

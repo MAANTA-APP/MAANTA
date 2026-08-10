@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "next build && npm run check:tokens && npm run check:canonicals && npm run check:forms",
+    "build": "next build && npm run check:tokens && npm run check:canonicals && npm run check:forms && npm run check:metadata",
     "check:tokens": "node scripts/check-tokens.mjs",
     "start": "next start",
     "lint": "next lint",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:canonicals": "node scripts/check-canonicals.mjs",
-    "check:forms": "node scripts/check-server-forms.mjs"
+    "check:forms": "node scripts/check-server-forms.mjs",
+    "check:metadata": "node scripts/check-metadata.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.6",

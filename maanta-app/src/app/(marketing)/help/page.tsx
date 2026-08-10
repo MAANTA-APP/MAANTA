@@ -22,7 +22,9 @@ export const metadata: Metadata = pageMetadata({
   // Was 90 characters. The support commitment is the part a searcher is
   // deciding on, so it belongs in the snippet.
   description:
-    "How to claim and redeem a MAANTA deal, what the grace period is, and how to reach a person. We reply on WhatsApp the same day, and within 1 business day by email.",
+    // 160 chars. This description was extended into the snippet window by the
+    // 2026-08-10 audit pass and overshot it at 162; the gate now holds the line.
+    "How to claim and redeem a MAANTA deal, what the grace period is, and how to reach a person. We reply the same day on WhatsApp, next business day by email.",
 });
 
 export default function HelpPage() {

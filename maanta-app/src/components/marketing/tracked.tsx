@@ -21,6 +21,7 @@ export function TrackedLink({
   name,
   location,
   className,
+  amberCta = false,
   children,
 }: {
   href: string;
@@ -30,12 +31,20 @@ export function TrackedLink({
   /** Where on the page it sits, e.g. "hero", "cta-band". */
   location: string;
   className?: string;
+  /**
+   * Marks this as an **in-flow** amber action, so `StickyCta` can yield to it
+   * and the page never shows two at once (frozen UI rule 1). Set by
+   * `CtaPrimary`; see `StickyCta.tsx` for why the sticky bar itself does not
+   * set it.
+   */
+  amberCta?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       className={className}
+      data-amber-cta={amberCta ? "" : undefined}
       onClick={() => trackMarketing(event, { name, location, href })}
     >
       {children}

@@ -50,7 +50,9 @@ export const metadata: Metadata = pageMetadata({
   path: "/",
   title: "MAANTA — The mall, made live.",
   description:
-    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, and pay the shop in person. Launching at BBS Mall, Eastleigh.",
+    // 160 chars. `scripts/check-metadata.mjs` fails the build past that — this
+    // was 168 and truncated on "Eastleigh", losing the only place name in it.
+    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the shop. Launching at BBS Mall, Eastleigh.",
   ogTitle: "Every deal in your mall, live on your phone.",
   ogDescription:
     "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",

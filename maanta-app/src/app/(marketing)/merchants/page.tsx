@@ -15,6 +15,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
+import { StickyCta } from "@/components/marketing/StickyCta";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
@@ -436,6 +437,13 @@ export default function MerchantsPage() {
         secondary={{ label: "See pricing", href: "/pricing" }}
         reassurance={`No listing fee. No contract. ${fee} when a customer's code is verified at your counter.`}
       />
+
+      {/*
+        Mobile-only sticky action, same target as the hero. Rendered last so it
+        is last in the tab order, which matches where it sits on screen. It
+        yields to the hero CTA and to the band above it — see `StickyCta.tsx`.
+      */}
+      <StickyCta label="List your shop" href="/merchants/join" />
     </>
   );
 }

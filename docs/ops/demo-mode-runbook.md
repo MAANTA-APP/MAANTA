@@ -354,6 +354,24 @@ before a demo, run `make demo-reseed`.
 
 ## 4. Launch: disable and wipe
 
+> ### 🛑 For the **launch** flip, there is a gate in front of this section
+>
+> Founder ruling 2026-08-10 (**D14**): demo mode is not turned off to clear a
+> drift item. It is turned off when BBS has real inventory and staffed counters.
+> **Eight preflight gates must pass first** — real eligible deals, merchant
+> categories, confirmed offer terms, trained verifiers, a named operator on the
+> window, then the flip, the read-back, and an anonymous production `/feed`
+> check.
+>
+> **Go to `docs/ops/d14-launch-preflight-demo-disable.md` first.** It owns the
+> gates, the monitoring window, rollback posture and the D14 closure evidence
+> template. This section stays the mechanical procedure it has always been, and
+> that document calls back into 4.1 and 4.2.
+>
+> **Do not run 4.4–4.6 (the wipe) during a launch.** Turning the flag off
+> already hides every synthetic row — 4.3 says so. The wipe is irreversible
+> without PITR; do it on a calm day after launch has held.
+
 Run in order. **Do not reorder** — step 3's dry run is your last review point.
 
 ### 4.1 Turn demo mode off

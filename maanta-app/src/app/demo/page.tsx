@@ -1,10 +1,31 @@
 import type { Metadata } from "next";
 import { ButtonLink } from "@/components/ui/button";
 
+/**
+ * Internal rehearsal aid. Not part of the public conversion path — founder
+ * ruling on **D14**, 2026-08-10: demo mode may remain only as an explicitly
+ * labelled internal/sales/QA surface, excluded from the public shopper journey.
+ *
+ * `noindex, nofollow` is the half that was missing. `/demo` is `Disallow`ed in
+ * `robots.ts` via `NON_INDEXABLE_PREFIXES`, but `robots.ts`'s own docblock makes
+ * the argument that settles this for the legal routes and applies here
+ * unchanged: **`Disallow` stops a crawl, not an index.** A disallowed URL that
+ * is linked from anywhere can still be listed as a bare URL with no snippet —
+ * precisely because the crawler was forbidden from reading the page that would
+ * have said `noindex`. A page titled "Demo & rehearsal logins" listed under
+ * MAANTA's domain is exactly the impression this route must not make, so it
+ * needs the meta tag as well as the disallow, not instead of it.
+ *
+ * Not gated behind auth, deliberately and per the task's own constraint: it is
+ * a login *index* for seeded accounts, it exposes no data of its own, and every
+ * account it names is already gated by the real auth flow. Adding an auth wall
+ * here would be a new access-control system for a page that grants no access.
+ */
 export const metadata: Metadata = {
   title: "MAANTA — Demo & rehearsal logins",
   description:
     "Seeded demo accounts for the MAANTA Node 0 (BBS Mall) launch rehearsal.",
+  robots: { index: false, follow: false },
 };
 
 type Account = {
