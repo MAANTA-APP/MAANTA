@@ -753,14 +753,43 @@ the hole permanently open for anyone able to forge one. The window is small
 (IntaSend is a prepared-not-assumed rail) and nothing is lost silently.
 
 **Deploy state — this is inert until a human applies it.** Claude does not apply
-migrations. `make db-verify` could not run in the authoring environment either
-(no Docker daemon, no Supabase CLI), so **the SQL in this change has never been
-executed**: the migration and `maanta-app/supabase/tests/pending_topups_test.sql`
-are both unrun. The TypeScript side is fully covered by
+migrations, so the migration is unapplied regardless of what was verified below.
+
+**`make db-verify` cannot run in this environment, and the reason is a policy
+denial, not a missing tool.** A Docker daemon was started successfully and the
+Supabase CLI was installed at the exact version CI pins (2.109.1), but
+`supabase start` cannot pull its images: the agent proxy returns 403 for all
+three registry CDNs — `production.cloudfront.docker.com` (Docker Hub),
+`pkg-containers.githubusercontent.com` (GHCR) and `d2glxqk2uabbnd.cloudfront.net`
+(ECR Public). `supabase start` also reaches out to the Clerk OIDC endpoint
+configured in `supabase/config.toml`, which is denied by the same policy. Per
+`/root/.ccr/README.md` these are reported, not circumvented.
+
+**What was verified instead — real SQL execution, in isolation.** A throwaway
+PostgreSQL 16.13 cluster was started locally (no Docker), given a minimal
+scaffold of the objects this migration references (`anon`/`authenticated`/
+`service_role` roles, `public.users`, `public.merchants`, and stubs for
+`current_user_id()`/`current_user_role()`), and then:
+
+- `20260810120000_pending_topups.sql` applied cleanly — every statement, no errors.
+- `supabase/tests/pending_topups_test.sql` passed all four scenarios (grants,
+  RLS enabled, constraints, cascade-on-merchant-delete).
+- The test was confirmed non-vacuous: granting `authenticated` INSERT/UPDATE
+  made Scenario A fail with its own assertion message.
+
+**What that does not cover, and why CI still matters.** The other 87 migrations
+were not applied, so this says nothing about ordering conflicts or interaction
+with the real schema; the RLS policies were exercised against *stubbed*
+`current_user_id()`/`current_user_role()`, so policy behaviour under real JWT
+claims is unverified; and the real `auth`/`storage` schemas were absent. The
+`db-tests` CI job runs the full 88-migration chain against a real Supabase
+stack — note it triggers on `pull_request` to `main`, so **opening the PR is
+what actually exercises it**. Then apply per `docs/ops/supabase-migrations.md`.
+
+The TypeScript side is separately covered by
 `maanta-app/src/app/api/webhooks/intasend/__tests__/route.test.ts` — a payload
 naming KES 1,000,000 against an initiated 500 credits nothing — but that suite
-mocks the database, so it proves the route's logic and says nothing about the
-schema. Run `make db-verify`, then apply per `docs/ops/supabase-migrations.md`.
+mocks the database, so it proves the route's logic, not the schema.
 
 ---
 
