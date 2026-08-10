@@ -124,9 +124,24 @@ cost and no honesty cost.
 | 17 | Appropriate organization and local-business structured data/schema | Missing | Zero `application/ld+json` in `maanta-app/src/`, confirmed absent in rendered HTML on all 17 production routes. No `Organization`, no `WebSite`, no `FAQPage`, no `BreadcrumbList` | Free, honest search wins are unclaimed — most obviously `FAQPage` over 16 already-marked-up Q&A pairs. `LocalBusiness` is a separate matter and is **not applicable**: it requires a verified public address MAANTA does not have | Ship the honest subset: `FAQPage` on `/faq`, `WebSite` on `/`, and a minimal `Organization` carrying only `name`, `url` and `logo`. No `address`, no `LocalBusiness`, no `aggregateRating`. Defer any identifier-bearing schema until incorporation and ODPC registration land | eng |
 | 18 | Privacy Policy page | Partial | `(marketing)/privacy/page.tsx` rendering `src/content/legal/privacy-policy.md` — 15 substantive sections including lawful basis, automated processing, retention, rights, complaints, cross-border transfer and children. Linked from every footer. `noindex, nofollow` while `DEMO_MODE`, guarded by `marketing-a11y.test.ts:110` | The page is honest, not finished: it renders a visible DRAFT notice ("NO LEGAL STANDING… has **not** been reviewed by a lawyer… Registration and licence numbers shown are placeholders") and a visible `ODPC-DEMO-0000-NOT-REGISTERED`. Readiness tracker **`O5` is a blocked GATE**; **`O6`** (Kenya DPA cross-border basis for Supabase `eu-west-1`) is not started | Not an engineering task. Unblock `O5` via counsel review and the incorporation decision, and rule on `O6`. The disclosure machinery to flip at launch already exists and is gated on one flag | legal |
 | 19 | Analytics implementation, consent-aware if required | Partial | PostHog initialised site-wide in the root layout (`PostHogClientProvider` confirmed in the production RSC payload), proxied via `/ingest`; named marketing events in `src/lib/marketing/analytics-events.ts`. Consent posture is deliberate: `persistence: "memory"` (`src/components/posthog-provider.tsx:38`, founder ruling 2026-07-31), so nothing is written to an anonymous visitor's device — which is why no banner ships, and `src/content/legal/cookie-notice.md:41` says exactly that | Two gaps. (a) No mechanism exists for a signed-in user to exercise the choice `/cookies` and `/privacy` §7 describe. (b) **A live defect:** `src/lib/analytics-identity.ts:21–23` states it requires default cookie persistence and that `memory` leaves "no cookie to read" — which is the shipped config. So `serverPosthogDistinctId()` returns `null` on every signed-out request and server events fall to `distinct_id_source: 'none'`. Open row **D22** treats this as a future risk; it is already realised. Opened as **D84** | Do not add a banner or a provider without a founder decision on provider, measurement ID, lawful basis and jurisdictions. Do resolve D84: either restore cookie persistence with consent, or retire the cookie-reading path and accept unattributed signed-out events explicitly | eng |
-| 20 | Authentic team/founder photo or an intentionally appropriate alternative | Needs founder input | `/about` carries a named, substantive founder section (Mohamed Elmi, Founder) with biography and `admin@maanta.app`, and **no photograph** — there is no `<img>` anywhere on the site | A named founder with no face is a mild trust cost on the page investors and mall operators are most likely to read. It is an asset gap, not an engineering gap | Founder supplies a real photograph, or deliberately confirms the text-only treatment (which is coherent with the site's typographic design). Do not source stock or generate a likeness | founder |
+| 20 | Authentic team/founder photo or an intentionally appropriate alternative | Implemented | `/about` carries a named, substantive founder section (Mohamed Elmi, Founder) — biography, why Eastleigh, and `admin@maanta.app` — with **no photograph**. The image-free treatment is demonstrably intentional, not unfinished: there is no `<img>` on any of the 17 routes, `public/` holds only `icon.svg` and the manifest, the hero is a CSS mockup rather than a screenshot, and the OG images are generated programmatically | Reads as the "intentionally appropriate alternative" the item allows: a real, named person with a specific story, on a consistently typographic site. The residual cost is mild — a named founder with no face on the page investors and mall operators read most | No engineering action. A real photograph remains an optional founder-supplied upgrade; if it is added, it needs meaningful alt text (item 16 re-opens with it). Do not source stock or generate a likeness | founder |
 
-**Status counts:** Implemented 5 · Partial 7 · Missing 2 · Needs founder input 1 · Not applicable yet 5.
+**Status counts:** Implemented 6 · Partial 7 · Missing 2 · Needs founder input 0 ·
+Not applicable yet 5.
+
+No single checklist item is blocked purely on a missing asset — but eight
+decisions are open, and three of them gate a public launch. They are listed
+under *Needs founder content or decision* below; read that section as the real
+founder queue, not this row of counts.
+
+Two of these calls are judgment rather than measurement, and are flagged so they
+can be overruled cheaply. **Item 8** is marked Partial rather than Implemented
+because `/help` — a footer-linked support door — states no turnaround while
+`/contact` states four; the promise itself is unambiguous where it appears.
+**Item 20** is marked Implemented rather than Needs founder input because the
+image-free treatment is consistent across all 17 routes and paired with a real
+named founder story, which is what makes it an intentional alternative rather
+than an omission.
 
 ---
 
@@ -274,11 +289,11 @@ Ordered by benefit per unit of effort; none requires a product decision.
 
 | # | Decision or asset | Why it cannot be resolved in the repo |
 |---|---|---|
-| 1 | **Is "Live at BBS Mall" acceptable pre-launch?** | A commercial and legal positioning call. Engineering can align all four surfaces either way, but not choose. Blocks **D83** |
+| 1 | **Is "Live at BBS Mall" acceptable pre-launch?** | A commercial and legal positioning call. Engineering can align all five surfaces either way, but not choose. Blocks **D83** |
 | 2 | **Lawyer review of the four legal drafts, and the incorporation decision behind it** | Readiness tracker `O5`, blocked. Gates the removal of the DRAFT banners and the placeholder identifiers |
 | 3 | **Kenya DPA cross-border basis for Supabase `eu-west-1`** | Readiness tracker `O6`, not started. Determines what `/privacy` §12 may honestly say |
 | 4 | **Analytics consent posture for signed-in users** | Provider, measurement ID, lawful basis and target jurisdictions must be settled before any banner or opt-out is built. The current cookieless anonymous posture is already ruled and is fine |
-| 5 | **Founder photograph, or a deliberate decision to stay text-only** | An asset. Must not be sourced or generated |
+| 5 | **Founder photograph — optional upgrade, not a gap** | The text-only treatment already reads as intentional (item 20). A real photograph would strengthen `/about`; it is an asset the founder supplies or declines, and must not be sourced or generated |
 | 6 | **BBS Mall verified address, opening hours and floor detail** | Needed before `/malls/bbs-mall` can stop being a stub. Attributable to the mall, not to MAANTA |
 | 7 | **Whether the pilot may be written up, and by whom** | Determines when items 6 and 15 stop being deferred |
 | 8 | **Drift-row numbering** | **D83** and **D84** are also claimed by unmerged branches. Per the convention recorded on the PR #185 branch, whichever lands on `main` second renumbers; the contiguity guard in `drift-register.test.ts` forbids skipping ahead to avoid the clash |
