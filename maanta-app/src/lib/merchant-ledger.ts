@@ -97,15 +97,28 @@ export async function logWebhookFailure(
     "error"
   );
 
+  // Redact once, then use the same value for the row and for the failure log.
+  // Logging `params` here instead was the original defect surviving four lines
+  // below its own fix: redactWebhookPayload is pure, so `params.payload` is
+  // still the untouched provider body — and on the invalid-challenge branch
+  // that body's `challenge` field is the live INTASEND_WEBHOOK_SECRET.
+  const redactedPayload =
+    params.payload != null ? redactWebhookPayload(params.payload) : null;
+
   const { error } = await service.from("payment_webhook_failures").insert({
     payment_provider: params.paymentProvider,
     event_type: params.eventType ?? null,
     error_message: params.errorMessage,
-    payload: params.payload != null ? redactWebhookPayload(params.payload) : null,
+    payload: redactedPayload,
   });
 
   if (error) {
-    console.error("Failed to persist webhook failure:", error, params);
+    console.error("Failed to persist webhook failure:", error, {
+      paymentProvider: params.paymentProvider,
+      eventType: params.eventType,
+      errorMessage: params.errorMessage,
+      payload: redactedPayload,
+    });
     Sentry.captureMessage(
       `Could not persist payment_webhook_failures row: ${error.message}`,
       "error"

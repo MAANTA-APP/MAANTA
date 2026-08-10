@@ -111,6 +111,36 @@ describe("redactWebhookPayload", () => {
     expect(redactWebhookPayload("a string body")).toBe("a string body");
   });
 
+  it("fails closed at the depth cap under an allowlisted key", () => {
+    // Found by adversarial review, not by the tests above. At exactly MAX_DEPTH
+    // the diagnostic-key branch returned its subtree raw, while the
+    // non-diagnostic and array branches failed closed. `status` is allowlisted,
+    // so six wrappers put the PII exactly on the boundary.
+    let payload: Record<string, unknown> = {
+      status: { phone_number: "+254712345678", email: "jane@example.com" },
+    };
+    for (let i = 0; i < 6; i++) payload = { [`w${i}`]: payload };
+
+    const out = JSON.stringify(redactWebhookPayload(payload));
+    expect(out).not.toContain("712345678");
+    expect(out).not.toContain("jane@example.com");
+  });
+
+  it("fails closed at the depth cap for every wrapper count around the boundary", () => {
+    // The original bug leaked at exactly 6 and nowhere else, so a single-depth
+    // test could easily have missed it.
+    for (let wrappers = 0; wrappers <= 9; wrappers++) {
+      let payload: Record<string, unknown> = {
+        status: { phone_number: "+254712345678" },
+      };
+      for (let i = 0; i < wrappers; i++) payload = { [`w${i}`]: payload };
+      expect(
+        JSON.stringify(redactWebhookPayload(payload)),
+        `leaked at ${wrappers} wrappers`
+      ).not.toContain("712345678");
+    }
+  });
+
   it("terminates on a deeply nested payload", () => {
     let deep: Record<string, unknown> = { phone_number: "+254712345678" };
     for (let i = 0; i < 50; i++) deep = { nested: deep };
@@ -128,5 +158,26 @@ describe("redactFreeText", () => {
 
   it("leaves short numbers readable, so amounts and status codes still help", () => {
     expect(redactFreeText("status 400, amount 500")).toBe("status 400, amount 500");
+  });
+
+  it("masks phone numbers written with separators, the formats the app accepts", () => {
+    // A plain \d{7,} missed every one of these. The top-up route accepts them
+    // and, before the boundary normalisation, forwarded them verbatim.
+    for (const raw of [
+      "+254 712 345 678",
+      "0712 345 678",
+      "254-712-345-678",
+      "+254712345678",
+    ]) {
+      const out = redactFreeText(`{"error":"bad number ${raw}"}`);
+      expect(out, `leaked: ${raw}`).not.toContain("345678");
+      expect(out, `leaked: ${raw}`).not.toContain("345 678");
+    }
+  });
+
+  it("redacts email addresses, which the STK request also carries", () => {
+    const out = redactFreeText('{"email":"jane@example.com","name":"Jane"}');
+    expect(out).not.toContain("jane@example.com");
+    expect(out).toContain("[REDACTED]");
   });
 });

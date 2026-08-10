@@ -55,9 +55,14 @@ const DIAGNOSTIC_KEYS: ReadonlySet<string> = new Set([
 /**
  * Keys whose values are phone numbers. These are masked rather than fully
  * redacted: a masked number still lets a reviewer confirm they are looking at
- * the right payment without storing the number. Masking uses the same
- * `maskPhone` every merchant-facing surface uses, so there is one masking rule
- * in the codebase, not two.
+ * the right payment without storing the number.
+ *
+ * Masking uses `lib/phone-mask.ts`, which is now the only masker in the
+ * codebase. When this comment was first written that claim was false —
+ * `lib/ui.ts` carried a second implementation that returned the number
+ * completely unmasked for short inputs — so the two were consolidated rather
+ * than leaving the claim to age into a lie. `lib/ui.ts` is a presentation
+ * wrapper over this one now; only the mask character differs.
  */
 const PHONE_KEYS: ReadonlySet<string> = new Set([
   "phone",
@@ -98,6 +103,13 @@ function redactValue(key: string, value: unknown, depth: number): unknown {
   if (value !== null && typeof value === "object" && depth < MAX_DEPTH) {
     return redactContainer(value, depth + 1);
   }
+
+  // Fail CLOSED at the depth cap. An allowlisted key is allowlisted for its own
+  // scalar value, not for an arbitrary subtree hanging off it: returning the
+  // object here would emit it raw and unbounded, which is how a phone number
+  // nested exactly MAX_DEPTH levels under `status` survived redaction. The
+  // non-diagnostic and array branches already fail closed; this one did not.
+  if (value !== null && typeof value === "object") return REDACTED;
 
   return value;
 }
@@ -145,5 +157,29 @@ export function redactWebhookPayload(payload: unknown): unknown {
  * is parsed.
  */
 export function redactFreeText(text: string): string {
-  return text.replace(/\d{7,}/g, (run) => `${run.slice(0, 2)}${"x".repeat(run.length - 4)}${run.slice(-2)}`);
+  return text
+    .replace(EMAIL_PATTERN, "[REDACTED]")
+    .replace(SEPARATED_DIGITS, (run) => {
+      const digits = run.replace(/\D/g, "");
+      if (digits.length < 7) return run;
+      return `${digits.slice(0, 2)}${"x".repeat(digits.length - 4)}${digits.slice(-2)}`;
+    });
 }
+
+/**
+ * Emails, because the STK-push request posts the merchant's address and the
+ * provider echoes the request back on failure. Deliberately broad rather than
+ * RFC-correct: over-matching in a log line costs nothing.
+ */
+const EMAIL_PATTERN = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
+
+/**
+ * Digit runs that may carry spaces, hyphens or dots between groups.
+ *
+ * A plain `\d{7,}` misses the formats this app actually sends — the top-up
+ * route accepts "0712 345 678" and "+254-712-345-678", and `isValidKenyanPhone`
+ * strips separators from a copy without normalising the value that goes to the
+ * provider. Requiring a leading digit and allowing single separators between
+ * digits catches those without swallowing ordinary prose.
+ */
+const SEPARATED_DIGITS = /\d(?:[\s.-]?\d){6,}/g;

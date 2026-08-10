@@ -33,6 +33,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // Normalise once, here, before the number leaves the app. `isValidKenyanPhone`
+  // strips separators from a copy to validate, so "0712 345 678" passed the
+  // check and then went to the provider with the spaces intact. That is worth
+  // fixing on its own — the provider should get a clean MSISDN — and it also
+  // means the digits form an unbroken run, which is what the free-text
+  // redactor keys on if the provider echoes the request back in an error.
+  const normalisedPhone = phoneNumber.replace(/[\s-]/g, "");
+
   const allowed = await checkRateLimit(
     `topup-mpesa:${merchant.id}`,
     TOPUP_MPESA_RATE_LIMIT,
@@ -49,7 +57,7 @@ export async function POST(request: Request) {
 
   const result = await initiateMpesaStkPush({
     amount,
-    phoneNumber,
+    phoneNumber: normalisedPhone,
     apiRef,
     name: appUser.full_name ?? "MAANTA Merchant",
     email: appUser.email ?? "merchant@maanta.app",

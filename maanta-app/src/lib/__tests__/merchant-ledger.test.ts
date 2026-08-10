@@ -131,4 +131,36 @@ describe("logWebhookFailure", () => {
       payload: { id: "evt_1" },
     });
   });
+
+  it("never logs the raw payload when the insert itself fails", async () => {
+    // Found by adversarial review. The redaction was applied to the DB row but
+    // the failure branch four lines below console.error'd the caller's raw
+    // `params` — and on the invalid-challenge branch that object's `challenge`
+    // field is the live INTASEND_WEBHOOK_SECRET.
+    const insert = vi.fn(() =>
+      Promise.resolve({ data: null, error: { message: "insert exploded" } })
+    );
+    const from = vi.fn(() => ({ insert }));
+    const service = { from } as unknown as Parameters<typeof logWebhookFailure>[0];
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await logWebhookFailure(service, {
+      paymentProvider: "intasend",
+      errorMessage: "Invalid webhook challenge.",
+      payload: {
+        challenge: "the-live-shared-secret",
+        phone_number: "+254712345678",
+        state: "COMPLETE",
+      },
+    });
+
+    const logged = JSON.stringify(spy.mock.calls);
+    expect(logged).not.toContain("the-live-shared-secret");
+    expect(logged).not.toContain("712345678");
+    // Still useful: the diagnostic fields survive.
+    expect(logged).toContain("intasend");
+    expect(logged).toContain("COMPLETE");
+
+    spy.mockRestore();
+  });
 });

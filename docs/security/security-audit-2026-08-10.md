@@ -718,6 +718,66 @@ One process note: `npm audit fix --omit=dev` prunes devDependencies from
 `node_modules` as a side effect. A plain `npm ci` restores them and leaves the
 fixed lockfile intact — confirmed before running the gate.
 
+## Adversarial verification pass — 2026-08-10
+
+The SEC-004 and SEC-006 fixes were put through an independent review whose
+reviewers were instructed to **refute** rather than confirm. It was worth doing:
+it settled the one question this environment could not answer, and it found four
+real defects, two of them introduced by the fixes themselves.
+
+**Settled: the PostgREST quoting is correct.** A reviewer fetched PostgREST
+v12.2.3's parser source and traced the actual grammar rather than reasoning by
+analogy. `or=` params route to the logic-tree parser, whose values parse with
+`pLogicSingleVal`, which tries `pQuotedValue` — so double quotes are accepted
+**and stripped**, and its un-escaping (`char '\\' *> anyChar`) is byte-for-byte
+what `quoteFilterValue` implements, in the same order. **The admin customer
+search does not break.** This closes the verification gap this report previously
+flagged as open.
+
+It also sharpened *why* the fix is context-specific: quoting is only meaningful
+inside a logic tree or an `in.()` list. Top-level filters (`.eq()`, `.filter()`)
+take the rest of the parameter verbatim and never strip quotes — which is why
+postgrest-js's own `.ilike()` correctly emits no quotes. The helper is right for
+`.or()`; a caller who reused it on `.eq()` would get zero rows and no error.
+
+**Four defects found and fixed:**
+
+1. **`logWebhookFailure` logged the raw params on its own failure branch** —
+   four lines below the SEC-006 fix. `redactWebhookPayload` is pure, so
+   `params.payload` was still the untouched provider body, and on the
+   invalid-challenge branch that body's `challenge` field is the **live
+   `INTASEND_WEBHOOK_SECRET`**. Arguably worse than the finding it sat inside.
+   Now redacted once and reused for both the row and the log.
+2. **The redaction depth cap failed *open*** on the allowlisted branch: at
+   exactly `MAX_DEPTH`, a diagnostic key holding an object returned its subtree
+   raw. Demonstrated by execution against the compiled module — PII nested under
+   `status` at exactly six wrappers came back byte-identical. The sibling
+   branches already failed closed; this one did not. Now fails closed, with a
+   regression test sweeping wrapper counts 0–9 because the leak existed at
+   exactly one depth.
+3. **`redactFreeText` did not match the phone formats the app itself sends.**
+   `\d{7,}` needs an unbroken run, so `+254 712 345 678` and `0712 345 678`
+   passed through untouched — and the top-up route forwarded separators verbatim
+   because `isValidKenyanPhone` strips them from a *copy*. Fixed at both ends:
+   the number is normalised at the boundary before it leaves the app, and the
+   redactor now tolerates separators and redacts emails too.
+4. **"One masking rule in the codebase, not two" was false when written** — and
+   it had been written into D85's closing note as justification. There were two
+   `maskPhone` implementations, and the copy in `maanta-app/src/lib/ui.ts`
+   returned the number **completely unmasked** for inputs under 7 characters, on
+   admin, agent and merchant surfaces. Consolidated: `lib/ui.ts` is now a
+   presentation wrapper over the single masker, differing only in the mask
+   character, so no rendered output changed. D85's wording is corrected to say
+   the claim was made true rather than checked.
+
+All seven new regression tests were confirmed to fail against the reverted code.
+
+**Two findings were correctly rejected** as false positives, and are recorded
+here so they are not re-raised: that quoting might silently break the search
+(refuted by the parser trace above), and that `redactWebhookPayload` might throw
+(refuted by execution across `{}`, `[]`, nullish, scalars, `__proto__` and
+5000-deep chains — no throw, no stack overflow).
+
 ---
 
 ## Checklist: 20 controls
@@ -827,6 +887,9 @@ and left `package.json` and `package-lock.json` unmodified — confirmed with
 | Regression check: stash the SEC-001/SEC-005 fixes, re-run their tests | 1 | **6 of 14 failed**, confirming they fail against the old code rather than passing vacuously. Restored and re-verified |
 | Regression check: revert the SEC-004 call site, re-run its tests | 1 | The source-scan ratchet fired on the reverted `.or()` template literal. Restored and re-verified |
 | Regression check: run the previous `redactWebhookPayload` against the test payload | — | Emitted `+254712345678` and `jane@example.com` verbatim — the leak the SEC-006 tests now forbid |
+| Adversarial verification pass (5 refute lenses + adjudication) | — | Confirmed the PostgREST quoting against the real parser source; found 4 real defects, all fixed; rejected 2 false positives. See *Adversarial verification pass* |
+| Regression check: revert all 4 verification-pass fixes, re-run their tests | 1 | **7 of 7 new tests failed**, then passed again once restored |
+| `npm test` after the verification-pass fixes | 0 | **641 tests in 83 files passed** |
 
 ### After the second remediation pass
 
