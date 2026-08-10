@@ -6,6 +6,7 @@ import { ENTITY, ENTITY_LINE, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
 import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { CtaBand, Section, SectionHeading } from "@/components/marketing/sections";
+import { NODE_DURATION_LEAD, NODE_ONLY_MALL_SENTENCE } from "@/lib/marketing/live-claims";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
@@ -49,20 +50,18 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
 export const metadata: Metadata = pageMetadata({
   path: "/about",
   title: "About — MAANTA",
-  // Trimmed from 171 to 157 characters to fit the snippet window. At 171 the
-  // clause that truncated was the one doing the persuading.
-  //
-  // The "Live at" sentence is left exactly as it was, deliberately. It is one
-  // of the surfaces in drift D83 — the pre-launch trading claim that the
-  // footer's own PrelaunchNotice contradicts — and that set is waiting on a
-  // founder ruling. Dropping it here as a side effect of a length fix would
-  // have resolved one surface out of nine and left the rest, which is worse
-  // than leaving all nine consistent for one decision to settle at once.
+  // Trimmed from 171 characters to fit the snippet window, and the "Live at
+  // BBS Mall" clause is gone under the D83 ruling of 2026-08-10 rather than as
+  // a side effect of the trim. This description and the `ogDescription` below
+  // are two of the twenty-one surfaces that ruling covers; the rest resolve
+  // through `lib/marketing/live-claims.ts`, which is where the gated wording
+  // lives so one flag restores all of them at launch. These two are literals
+  // because a metadata string cannot read a value the page does not render.
   description:
-    "The deals inside a mall, visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh. How it works, and how MAANTA makes money.",
+    "The deals inside a mall, visible before you walk in and verifiable after you walk out. How it works, how MAANTA makes money, and where it opens first.",
   ogTitle: "What MAANTA is, and how it makes money.",
   ogDescription:
-    "The deals inside a mall, visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh.",
+    "The deals inside a mall, visible before you walk in and verifiable after you walk out.",
 });
 
 export default function AboutPage() {
@@ -232,7 +231,7 @@ export default function AboutPage() {
         <div className="mt-4 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
           {SCENARIO.isScenario ? (
             <p>
-              MAANTA has been live at {FACTS.launchMall} for{" "}
+              {NODE_DURATION_LEAD}{" "}
               <ScenarioStat value={SCENARIO.monthsLive} badge={false} /> months.{" "}
               <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops publish deals,
               and <ScenarioStat value={SCENARIO.verifiedRedemptions} /> redemptions have been
@@ -240,7 +239,7 @@ export default function AboutPage() {
             </p>
           ) : (
             <p>
-              MAANTA is live at {FACTS.launchMall} — our first mall, and the only one so far.
+              {NODE_ONLY_MALL_SENTENCE}
             </p>
           )}
           <p>

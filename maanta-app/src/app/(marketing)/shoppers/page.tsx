@@ -15,6 +15,7 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL } from "@/lib/marketing/live-claims";
 
 /**
  * `/shoppers` — 308 target for both `/for-shoppers` and `/how-it-works`.
@@ -70,7 +71,7 @@ export default function ShoppersPage() {
             <p className="font-semibold text-ink">Free. No card. No sign-in needed to look.</p>
             <p className="mt-2 inline-flex items-center gap-2">
               <LiveDot />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {NODE_STATUS_LINE}
             </p>
           </>
         }
@@ -276,7 +277,7 @@ export default function ShoppersPage() {
         <SectionHeading>Where it works</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
-            MAANTA is live at{" "}
+            {NODE_PRESENCE_LEAD}{" "}
             <strong className="font-semibold text-ink">
               {FACTS.launchMall}, {FACTS.city}
             </strong>
@@ -295,7 +296,7 @@ export default function ShoppersPage() {
           href="/malls/bbs-mall"
           className="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
         >
-          See what&apos;s live at BBS Mall
+          {SEE_NODE_LINK_LABEL}
         </Link>
       </Section>
 
@@ -344,7 +345,7 @@ export default function ShoppersPage() {
       </Section>
 
       <CtaBand
-        title="See what is live in your mall right now."
+        title={NODE_CTA_TITLE}
         body="No sign-up to look around."
         primary={{ label: "Browse live deals", href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}

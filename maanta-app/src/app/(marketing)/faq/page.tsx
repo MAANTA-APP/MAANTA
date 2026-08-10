@@ -30,7 +30,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/faq",
   title: "FAQ — MAANTA",
   description:
-    "Answers for shoppers, merchants and mall operators. What MAANTA costs, how a code is verified at the counter, and where it is live.",
+    "Answers for shoppers, merchants and mall operators. What MAANTA costs, how a code is verified at the counter, and which mall it opens in first.",
 });
 
 export default function FaqPage() {

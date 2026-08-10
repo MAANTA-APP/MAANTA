@@ -19,6 +19,7 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -85,7 +86,7 @@ export default function MallOperatorsPage() {
           SCENARIO.isScenario ? (
             <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
               <LiveDot />
-              Live at {FACTS.launchMall} since{" "}
+              {FACTS.launchMall} since{" "}
               <ScenarioStat value={SCENARIO.nodeLiveSince} /> ·{" "}
               <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops ·{" "}
               <ScenarioStat value={SCENARIO.verifiedRedemptions} /> verified redemptions
@@ -93,7 +94,7 @@ export default function MallOperatorsPage() {
           ) : (
             <span className="inline-flex items-center gap-2 font-semibold text-ink">
               <LiveDot />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {NODE_STATUS_LINE}
             </span>
           )
         }
@@ -416,7 +417,7 @@ export default function MallOperatorsPage() {
           {SCENARIO.isScenario ? (
             <>
               <p>
-                MAANTA has been live at BBS Mall for{" "}
+                {NODE_DURATION_LEAD}{" "}
                 <ScenarioStat value={SCENARIO.monthsLive} /> months. We are choosing the next
                 three malls carefully rather than collecting logos.
               </p>
@@ -434,7 +435,7 @@ export default function MallOperatorsPage() {
             </>
           ) : (
             <p>
-              MAANTA is live at {FACTS.launchMall} — our first node. We are choosing the next
+              {NODE_FIRST_NODE_LEAD} We are choosing the next
               malls carefully rather than collecting logos. A mall that joins now gets a
               node team on its floors, not a support queue, and a product shaped around
               problems its tenants actually have.

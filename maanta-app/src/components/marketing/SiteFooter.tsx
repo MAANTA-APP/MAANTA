@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Logomark } from "@/components/ui/icons";
 import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
-import { FACTS } from "@/lib/marketing/facts";
 import { PrelaunchNotice } from "./PrelaunchNotice";
 import { RegulatoryStatus } from "./RegulatoryStatus";
+import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * Five columns plus a legal base bar (`website-footer-legal-docs-plan.md` §2).
@@ -54,7 +54,7 @@ export function SiteFooter() {
                 aria-hidden="true"
                 className="inline-block h-2 w-2 shrink-0 rounded-full bg-brand"
               />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {NODE_STATUS_LINE}
             </p>
             <Link
               href="/download"

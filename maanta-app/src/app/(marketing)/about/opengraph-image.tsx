@@ -1,4 +1,5 @@
 import { ogImage, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/marketing/og";
+import { NODE_OG_SUBLINE } from "@/lib/marketing/live-claims";
 
 /** OG image for `/about`. Headline matches the page's copy deck. */
 export const runtime = "edge";
@@ -10,6 +11,6 @@ export default function Image() {
   return ogImage({
     eyebrow: "About",
     headline: "What MAANTA is, and how it makes money.",
-    subline: "Live at BBS Mall, Eastleigh, Nairobi.",
+    subline: NODE_OG_SUBLINE,
   });
 }

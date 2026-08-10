@@ -78,8 +78,11 @@ header and the homepage hero. `sitemap.ts` already states in its own comment
 that these are "authenticated or shopper-session surfaces, not indexable
 content" — `robots.ts` simply never acted on it.
 
-Second, **the pre-launch "not yet trading" discipline leaks in ten places, and
-the guard that should catch it tests a different string than its name claims.**
+Second, **the pre-launch "not yet trading" discipline leaks in twenty-one
+places, and the guard that should catch it tests a different string than its
+name claims.** (This paragraph first said five, then ten; the final count from
+implementing the fix is twenty-one — see the D83 section at the end for why a
+string search kept undercounting it.)
 The sharpest of them is that `SiteFooter.tsx` renders "Live at BBS Mall,
 Eastleigh · Nairobi" beside an amber status dot and, sixty-four lines later in
 the same component, "MAANTA APP is not yet trading" — so every page on the site
@@ -230,10 +233,11 @@ correct policy; `robots.ts` never implemented it. Recorded as **D85**.
 **2 · Pre-launch trading claims leak past a mis-scoped guard.** Every page
 footer renders "MAANTA APP is not yet trading" alongside a regulatory-status
 disclosure, and the company is neither incorporated nor ODPC-registered. Against
-that, **ten** surfaces assert the opposite:
+that, **twenty-one** surfaces assert the opposite — the ten below, plus eleven more found while implementing the ruling and listed in the D83 section at the end:
 
-> **Correction, 2026-08-10.** The first version of this report said five. The
-> full count is ten, and the one it missed matters most: `SiteFooter.tsx:57`
+> **Correction, 2026-08-10.** The first version of this report said five, then
+> ten. The final count, from implementing the fix, is **twenty-one**. The one
+> missed first matters most: `SiteFooter.tsx:57`
 > renders `Live at {FACTS.launchMall} · {FACTS.city}` beside an amber status
 > dot, and the same component renders `PrelaunchNotice` — "MAANTA APP is not
 > yet trading" — sixty-four lines further down. Both claims are in one
@@ -308,7 +312,7 @@ Ordered by benefit per unit of effort; none requires a product decision.
 
 | # | Decision or asset | Why it cannot be resolved in the repo |
 |---|---|---|
-| 1 | **Is "Live at BBS Mall" acceptable pre-launch?** | A commercial and legal positioning call. Engineering can align all ten surfaces either way, but not choose. Blocks **D83** |
+| 1 | ~~**Is "Live at BBS Mall" acceptable pre-launch?**~~ — **answered** | A commercial and legal positioning call. **Ruled 2026-08-10: drop it everywhere.** Implemented and guarded on this branch; see the D83 section. Not live until the branch deploys |
 | 2 | **Lawyer review of the four legal drafts, and the incorporation decision behind it** | Readiness tracker `O5`, blocked. Gates the removal of the DRAFT banners and the placeholder identifiers |
 | 3 | **Kenya DPA cross-border basis for Supabase `eu-west-1`** | Readiness tracker `O6`, not started. Determines what `/privacy` §12 may honestly say |
 | 4 | **Analytics consent posture for signed-in users** | Provider, measurement ID, lawful basis and target jurisdictions must be settled before any banner or opt-out is built. The current cookieless anonymous posture is already ruled and is fine |
@@ -444,11 +448,58 @@ either in `SITEMAP_ROUTES`, or a `noindex` legal route, or disallowed — so a n
 route cannot land in the gap `/feed` was in — and that no route claims a large
 social card without an image.
 
+### D83 — ruled and implemented, 2026-08-10
+
+The founder ruled: **drop "Live at" everywhere.** Implemented in the same
+branch, and the implementation corrected this report twice more.
+
+**The count was ten in this document and twenty-one in reality.** The missing
+eleven were the shapes a search for the literal string "Live at" does not
+find: two CTA labels ("See what's live at BBS Mall", on `/` and `/shoppers`),
+the `/shoppers` closing CTA band title, five prose sentences across `/shoppers`,
+`/about` and `/mall-operators`, the `/faq` meta description ("where it is
+live"), and `/malls/bbs-mall`'s "LIVE NOW" badge and "Live now · Nairobi" line —
+the same claim in different words. The lesson is the same one that produced the
+first undercount: auditing for a string rather than for the claim.
+
+**All twenty-one now resolve through `lib/marketing/live-claims.ts`,** gated on
+`DEMO_MODE`. That is deliberate rather than a find-and-replace: the claim spread
+because each instance was written as a literal at its point of use, which is how
+`og.tsx` came to carry a carefully hedged status line while the footer asserted
+the opposite directly beneath it. One flag now restores every one of them at
+launch — the rule `demo-mode-spec.md` §5 already applies to the disclosures that
+contradicted them.
+
+**The amber status dot went with the words.** `LiveDot` renders nothing while
+`DEMO_MODE` holds, and so does the dot in the OG image footer. A live-status
+indicator beside a bare place name carries the same claim in colour alone, which
+frozen UI rule 4 forbids — state is an icon *and* a word, readable in greyscale.
+Dropping the sentence and keeping the dot would have moved the claim somewhere
+harder to audit.
+
+**The guard is fixed, which was the other half of the row.**
+`prelaunch-consistency.test.ts` already had a correct `TRADING` regex — its
+body-walk test just did not use it, testing a narrower one instead. It now uses
+it, widened for the `Live now ·` and screaming-caps badge shapes, with the
+badge matched case-sensitively so `/shoppers`' legitimate "Live now" deal-filter
+chip is untouched. Verified non-vacuous by reintroducing the claim on
+`/merchants` and watching it fail on the right line.
+
+**Verified in rendered output, not source:** a scan of all built HTML for
+`live at`, `now live at`, `already live`, `is live in`, `live now ·` and `LIVE
+NOW` returns **zero hits**, and the replacement copy renders on all six affected
+pages.
+
+**Still deliberately untouched:** broader present-tense operational prose — for
+example `/malls/bbs-mall`'s "where the product is run in person" and "shops here
+publish deals from a phone". That is a claim about operating today too, but
+rewriting it is a question about the whole site's voice rather than one phrase,
+and the ruling was about "Live at". Worth a separate decision.
+
 ### Deliberately not fixed
 
 | Item | Why |
 |---|---|
-| **D83** — the ten "Live at" surfaces | Needs a founder ruling first. Engineering can align them either way but must not choose. One instance was touched incidentally by the `/about` description trim and was **restored**, so all ten stay consistent for one decision to settle at once |
 | **D84** — signed-out analytics attribution | Needs a decision: restore cookie persistence behind consent, or retire the cookie-reading path and accept unattributed server events. A guard alone would go red immediately, which is a decision made by omission |
 | 18 · Legal drafts (`O5`, `O6`) | Blocked on counsel review and the incorporation decision. Not an engineering task |
 | 9 · Sticky mobile CTA | Frozen UI rule 1 caps a screen at one amber action, so a sticky bar must **replace** the visible CTA rather than add to it. That is a design decision about which surfaces get one |

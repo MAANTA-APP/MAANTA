@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { DEMO_MODE } from "@/lib/marketing/demo";
+import { NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
 
 /**
  * Shared Open Graph image template.
@@ -49,10 +49,16 @@ const LINE = "#E5E2DA";
  * as "'Live at BBS Mall' vs prelaunch footer"). Dismissed once on the grounds
  * that the string is spec-sanctioned, which checked the string and not the
  * surface it renders on.
+ *
+ * **Generalised 2026-08-10 (the D83 ruling).** The reasoning above was right and
+ * was applied in exactly one place, so the site shipped this carefully hedged
+ * line at the foot of an image while the footer of every page asserted "Live at
+ * BBS Mall" underneath it. The constant now re-exports the site-wide value from
+ * `lib/marketing/live-claims.ts`, which puts all twenty-one trading claims under
+ * one flag. The name is kept because callers and `prelaunch-consistency.test.ts`
+ * refer to it.
  */
-export const OG_STATUS_LINE = DEMO_MODE
-  ? "BBS Mall, Eastleigh · Nairobi"
-  : "Live at BBS Mall, Eastleigh · Nairobi";
+export const OG_STATUS_LINE = NODE_STATUS_LINE;
 
 export function ogImage({
   eyebrow,
@@ -147,9 +153,23 @@ export function ogImage({
             color: SECONDARY,
           }}
         >
-          <div
-            style={{ width: 12, height: 12, borderRadius: 6, background: BRAND, display: "flex" }}
-          />
+          {/*
+            The amber dot is a live-status indicator, so it is gated with the
+            words it belongs to. Keeping it beside a bare place name would carry
+            the trading claim in colour alone — and an OG image is the one
+            surface where nobody can click through to find out otherwise.
+          */}
+          {SHOW_LIVE_INDICATOR ? (
+            <div
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 6,
+                background: BRAND,
+                display: "flex",
+              }}
+            />
+          ) : null}
           {OG_STATUS_LINE}
         </div>
       </div>

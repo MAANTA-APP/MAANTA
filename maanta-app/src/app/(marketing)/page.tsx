@@ -25,6 +25,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL } from "@/lib/marketing/live-claims";
 
 /**
  * `/` — Home.
@@ -49,7 +50,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/",
   title: "MAANTA — The mall, made live.",
   description:
-    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, pay the shop in person. Live at BBS Mall, Eastleigh.",
+    "See every deal in your mall before you get there. Claim on your phone, show a 6-digit code at the counter, and pay the shop in person. Launching at BBS Mall, Eastleigh.",
   ogTitle: "Every deal in your mall, live on your phone.",
   ogDescription:
     "Claim on your phone, show a 6-digit code at the counter, pay the shop in person.",
@@ -112,7 +113,7 @@ export default function LandingPage() {
             <p className="font-semibold text-ink">No sign-in needed to look around.</p>
             <p className="mt-2 inline-flex items-center gap-2">
               <LiveDot />
-              Live at {FACTS.launchMall} · {FACTS.city}
+              {NODE_STATUS_LINE}
             </p>
           </>
         }
@@ -301,7 +302,7 @@ export default function LandingPage() {
           href="/malls/bbs-mall"
           className="mt-6 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
         >
-          See what&apos;s live at BBS Mall
+          {SEE_NODE_LINK_LABEL}
         </Link>
       </Section>
 

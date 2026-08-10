@@ -16,6 +16,7 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * `/merchants` — merchant marketing page. 301 target for `/for-merchants`.
@@ -89,7 +90,7 @@ export default function MerchantsPage() {
         status={
           <span className="inline-flex items-center gap-2 font-semibold text-ink">
             <LiveDot />
-            Live at {FACTS.launchMall} · {FACTS.city}
+            {NODE_STATUS_LINE}
           </span>
         }
       />

@@ -3,6 +3,7 @@ import { FACTS } from "@/lib/marketing/facts";
 import { ButtonLink } from "@/components/ui/button";
 import { LiveDot } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { NODE_BADGE, NODE_CITY_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * 12k Featured node — BBS Mall, Eastleigh.
@@ -45,7 +46,7 @@ export default function BbsMallPage() {
       <section className="bg-ink px-5 py-16">
         <div className="mx-auto max-w-4xl">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
-            <span className="h-1.5 w-1.5 rounded-full bg-verified" /> LIVE NOW
+            <span className="h-1.5 w-1.5 rounded-full bg-verified" /> {NODE_BADGE}
           </span>
           <h1 className="mt-4 text-4xl font-black text-brand">{FACTS.launchMall}</h1>
           <p className="mt-2 text-sm text-white/70">
@@ -62,7 +63,7 @@ export default function BbsMallPage() {
         </p>
         <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <LiveDot />
-          Live now · {FACTS.city}
+          {NODE_CITY_LINE}
         </p>
         <p className="mt-8 max-w-2xl text-base leading-relaxed text-secondary">
           What is on offer changes through the day. The feed is the live answer.

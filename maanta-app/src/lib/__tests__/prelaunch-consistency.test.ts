@@ -31,7 +31,18 @@ import { OG_STATUS_LINE } from "@/lib/marketing/og";
 const SRC = path.resolve(__dirname, "..", "..");
 
 /** Phrasings that assert MAANTA is already trading. */
-const TRADING = /\b(now live at|live at|already live|trading now|open for business)\b/i;
+const TRADING =
+  /\b(now live at|live at|already live|is live in|trading now|open for business)\b|live now\s*·/i;
+
+/**
+ * The screaming-caps status badge, matched case-sensitively **on purpose**.
+ *
+ * "Live now" is also the name of a deal filter chip on `/shoppers`, and a deal
+ * being live is ordinary product vocabulary that says nothing about whether the
+ * company is trading. Case is what separates the two: the badge shouts, the
+ * chip does not.
+ */
+const TRADING_BADGE = /\bLIVE NOW\b/;
 
 describe("pre-launch consistency", () => {
   it("keeps the prelaunch notice and DEMO_MODE in step", () => {
@@ -78,7 +89,7 @@ describe("pre-launch consistency", () => {
       stripCommentLines(readFileSync(f, "utf8")).forEach((line, i) => {
         // Skip the constant's own definition and the ternary that gates it.
         if (/DEMO_MODE|OG_STATUS_LINE/.test(line)) return;
-        if (/\b(now live at|already live)\b/i.test(line)) {
+        if (TRADING.test(line) || TRADING_BADGE.test(line)) {
           offenders.push(`${relToSrc(SRC, f)}:${i + 1}  ${line.trim()}`);
         }
       });
@@ -86,7 +97,9 @@ describe("pre-launch consistency", () => {
     expect(
       offenders,
       `No marketing surface may claim MAANTA is already live while the footer ` +
-        `says it is not yet trading:\n${offenders.join("\n")}`
+        `says it is not yet trading. The gated wording lives in ` +
+        `lib/marketing/live-claims.ts — import it rather than writing the ` +
+        `sentence here:\n${offenders.join("\n")}`
     ).toEqual([]);
   });
 });
