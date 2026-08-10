@@ -4,6 +4,7 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { SearchField } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
 import { friendlyTime, maskPhone } from "@/lib/ui";
+import { ilikeAnyFilter } from "@/lib/postgrest-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,10 @@ export default async function AdminCustomersPage({
     .select("id, full_name, email, phone, role, is_blacklisted, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
-  if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+  // `q` is user input going into a PostgREST filter grammar, not a bound
+  // parameter — see lib/postgrest-filter.ts. Built through the shared helper so
+  // the quoting rule lives in one place.
+  if (q) query = query.or(ilikeAnyFilter(["full_name", "email", "phone"], q));
   if (role && ROLE_LABEL[role]) query = query.eq("role", role);
   const { data: users } = await query;
 

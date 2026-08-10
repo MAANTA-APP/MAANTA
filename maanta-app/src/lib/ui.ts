@@ -1,3 +1,5 @@
+import { maskPhone as maskPhoneServer } from "@/lib/phone-mask";
+
 /** Tiny class-name joiner (no dependency). */
 export function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -75,10 +77,22 @@ export function relativeAge(iso: string) {
   return `${Math.floor(h / 24)}d`;
 }
 
-/** Mask a phone: +254 7•• ••• 214 */
-export function maskPhone(phone: string | null | undefined) {
-  if (!phone) return "";
-  const p = phone.replace(/\s/g, "");
-  if (p.length < 7) return phone;
-  return `${p.slice(0, 4)} ${p.slice(4, 5)}•• ••• ${p.slice(-3)}`;
+/**
+ * Mask a phone for display: +254 7•• ••• 214
+ *
+ * Delegates to the single masker in `lib/phone-mask.ts` — this used to be a
+ * second implementation, and the copy had drifted somewhere that matters: it
+ * returned the number COMPLETELY UNMASKED when the input was under 7
+ * characters (`if (p.length < 7) return phone`), so a short or oddly-formatted
+ * number rendered in full on admin, agent and merchant surfaces.
+ *
+ * Only the mask character differs now, and that is presentation. Which digits
+ * are revealed — and the decision to show nothing rather than reveal too much —
+ * is decided once, in phone-mask.ts.
+ *
+ * Returns `null` (not `""`) when the number cannot be safely masked, so callers
+ * using `?? "No contact on file"` get their fallback instead of a blank.
+ */
+export function maskPhone(phone: string | null | undefined): string | null {
+  return maskPhoneServer(phone, "•");
 }

@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import type { createServiceClient } from "@/lib/supabase/service";
 import type { SupportedCurrency } from "@/lib/currency";
+import { redactWebhookPayload } from "@/lib/redact";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -70,14 +71,10 @@ export async function recordMerchantTransaction(
   return { applied: data?.applied ?? false };
 }
 
-function redactWebhookPayload(payload: unknown): unknown {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return payload;
-  }
-  const copy = { ...(payload as Record<string, unknown>) };
-  if ("challenge" in copy) copy.challenge = "[REDACTED]";
-  return copy;
-}
+// Redaction moved to lib/redact.ts so the rule has one home. The version that
+// lived here removed exactly one key (`challenge`) while its name implied
+// broader coverage, so IntaSend payloads persisted the payer's phone number
+// verbatim — drift D85.
 
 // Persists webhook failures that would otherwise only be visible in
 // ephemeral server logs (console.error), so a missed signature check or an
@@ -100,15 +97,28 @@ export async function logWebhookFailure(
     "error"
   );
 
+  // Redact once, then use the same value for the row and for the failure log.
+  // Logging `params` here instead was the original defect surviving four lines
+  // below its own fix: redactWebhookPayload is pure, so `params.payload` is
+  // still the untouched provider body — and on the invalid-challenge branch
+  // that body's `challenge` field is the live INTASEND_WEBHOOK_SECRET.
+  const redactedPayload =
+    params.payload != null ? redactWebhookPayload(params.payload) : null;
+
   const { error } = await service.from("payment_webhook_failures").insert({
     payment_provider: params.paymentProvider,
     event_type: params.eventType ?? null,
     error_message: params.errorMessage,
-    payload: params.payload != null ? redactWebhookPayload(params.payload) : null,
+    payload: redactedPayload,
   });
 
   if (error) {
-    console.error("Failed to persist webhook failure:", error, params);
+    console.error("Failed to persist webhook failure:", error, {
+      paymentProvider: params.paymentProvider,
+      eventType: params.eventType,
+      errorMessage: params.errorMessage,
+      payload: redactedPayload,
+    });
     Sentry.captureMessage(
       `Could not persist payment_webhook_failures row: ${error.message}`,
       "error"
