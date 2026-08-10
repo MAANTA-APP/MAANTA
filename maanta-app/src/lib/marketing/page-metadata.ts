@@ -64,6 +64,20 @@ export type PageMetadataInput = {
   ogDescription?: string;
   /** Passed straight through — used by the legal routes while `DEMO_MODE`. */
   robots?: Metadata["robots"];
+  /**
+   * Overrides the root layout's `summary_large_image`.
+   *
+   * A route only earns the large card if it has an `opengraph-image.tsx` of its
+   * own — those images do **not** cascade, so `/merchants` having one did
+   * nothing for `/merchants/join`, and the group-root image applies to `/`
+   * alone. Eleven of seventeen routes declared the large card and shipped no
+   * image, which unfurls as an empty rectangle.
+   *
+   * The four legal routes pass `"summary"`: they are `noindex, nofollow`
+   * unreviewed drafts, so the fix there is to stop claiming a card they should
+   * not be filling, rather than to brand a draft for sharing.
+   */
+  twitterCard?: "summary" | "summary_large_image";
 };
 
 export function pageMetadata({
@@ -73,6 +87,7 @@ export function pageMetadata({
   ogTitle,
   ogDescription,
   robots,
+  twitterCard,
 }: PageMetadataInput): Metadata {
   return {
     title,
@@ -85,5 +100,6 @@ export function pageMetadata({
       description: ogDescription ?? description,
     },
     ...(robots ? { robots } : {}),
+    ...(twitterCard ? { twitter: { card: twitterCard } } : {}),
   };
 }

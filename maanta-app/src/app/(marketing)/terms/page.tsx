@@ -20,6 +20,9 @@ export const metadata: Metadata = pageMetadata({
   description:
     "The terms on which shoppers use MAANTA to claim and redeem in-mall deals.",
   robots: DEMO_MODE ? { index: false, follow: false } : undefined,
+  // No opengraph-image for this route, and it should not have one — see
+  // `twitterCard` in page-metadata.ts.
+  twitterCard: "summary",
 });
 
 export default function Page() {

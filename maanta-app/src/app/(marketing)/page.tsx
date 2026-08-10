@@ -8,6 +8,12 @@ import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { HeroShot } from "@/components/marketing/HeroShot";
 import { LandingEarlyAccess } from "./landing-early-access";
 import { SectionInView, TrackedLink } from "@/components/marketing/tracked";
+import { JsonLd } from "@/components/marketing/JsonLd";
+import {
+  jsonLdDocument,
+  organizationSchema,
+  websiteSchema,
+} from "@/lib/marketing/structured-data";
 import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
 import {
   AudienceHero,
@@ -77,6 +83,14 @@ export default function LandingPage() {
 
   return (
     <ScenarioNotice>
+      {/*
+        Site-level identity, carried here rather than in the root layout so it
+        appears once per site instead of once per route. Name, url and logo
+        only — see `lib/marketing/structured-data.ts` for what is deliberately
+        left out while the company is pre-incorporation.
+      */}
+      <JsonLd data={jsonLdDocument(organizationSchema(), websiteSchema())} />
+
       <AudienceHero
         eyebrow="The mall, made live"
         title="Every deal in your mall, live on your phone."

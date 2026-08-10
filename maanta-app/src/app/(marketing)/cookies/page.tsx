@@ -20,6 +20,9 @@ export const metadata: Metadata = pageMetadata({
   description:
     "What MAANTA stores on your device and what we track, with the basis for each.",
   robots: DEMO_MODE ? { index: false, follow: false } : undefined,
+  // No opengraph-image for this route, and it should not have one — see
+  // `twitterCard` in page-metadata.ts.
+  twitterCard: "summary",
 });
 
 export default function Page() {

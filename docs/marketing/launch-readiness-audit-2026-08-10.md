@@ -1,16 +1,22 @@
 # MAANTA Marketing Site — Launch Readiness Audit
 
-**Date:** 2026-08-10 · **Mode:** Reviewer (audit only, no code changes) ·
+**Date:** 2026-08-10 · **Mode:** Reviewer, then Builder (audit first, remediation
+after — see the last section) ·
 **Repo state:** `main` @ `8b7f147`, audited from branch
 `claude/maanta-launch-audit-rn5a89` ·
 **Production measured:** `https://maanta-nuia.vercel.app` (the production alias;
 last READY production deployment `dpl_B7iuEWUkrn5cKue99WECD2uCRdtq`, `main` @
 `8b7f147`), build ID `TYB8C64eU03ti48YalbI6`.
 
-This audit answers a 20-item pre-launch checklist. It changed no application
-code, content, metadata or deployment configuration. Its only repo side effects
-are this file and three rows in `docs/maanta-drift-register.md` (**D83**,
-**D84**, **D85**), added per the mandatory session rule in `CLAUDE.md`.
+This audit answers a 20-item pre-launch checklist.
+
+**The audit pass itself changed no application code** — it produced only this
+file and three rows in `docs/maanta-drift-register.md` (**D83**, **D84**,
+**D85**). A **remediation pass followed on the same branch**, and the checklist
+table below still describes production as it was measured, not as the branch now
+stands. What has since been fixed, and what deliberately has not, is in
+[Remediation status](#remediation-status) at the end. Nothing in that pass is
+live: production is unchanged until the branch merges and deploys.
 
 ---
 
@@ -72,16 +78,17 @@ header and the homepage hero. `sitemap.ts` already states in its own comment
 that these are "authenticated or shopper-session surfaces, not indexable
 content" — `robots.ts` simply never acted on it.
 
-Second, **the pre-launch "not yet trading" discipline leaks in five places, and
+Second, **the pre-launch "not yet trading" discipline leaks in ten places, and
 the guard that should catch it tests a different string than its name claims.**
-The footer of every page says "MAANTA APP is not yet trading". The homepage hero
-says "Live at BBS Mall, Eastleigh · Nairobi" next to an amber live dot, and the
-homepage's own meta description ends with the same claim — overriding a root
-description that is correctly gated. `/about` repeats it in its meta description
-and its Open Graph description. And `/about`'s Open Graph image hardcodes it,
-bypassing the `OG_STATUS_LINE` constant that `src/lib/marketing/og.tsx` gates
-for exactly this reason, in a docblock that records two reviewers raising this
-on PR #153.
+The sharpest of them is that `SiteFooter.tsx` renders "Live at BBS Mall,
+Eastleigh · Nairobi" beside an amber status dot and, sixty-four lines later in
+the same component, "MAANTA APP is not yet trading" — so every page on the site
+carries both claims in its own footer. Four hero status lines, the home page's
+own meta description (overriding a root description that is correctly gated),
+`/about`'s description and Open Graph description, and `/about`'s Open Graph
+image repeat it. That last one bypasses the `OG_STATUS_LINE` constant that
+`src/lib/marketing/og.tsx` gates for exactly this reason, in a docblock that
+records two reviewers raising it on PR #153.
 
 Third, **the legal documents are unreviewed drafts and that is a blocked
 launch gate** (`O5` in the readiness tracker, blocked on incorporation
@@ -223,19 +230,31 @@ correct policy; `robots.ts` never implemented it. Recorded as **D85**.
 **2 · Pre-launch trading claims leak past a mis-scoped guard.** Every page
 footer renders "MAANTA APP is not yet trading" alongside a regulatory-status
 disclosure, and the company is neither incorporated nor ODPC-registered. Against
-that, **five** surfaces assert the opposite:
+that, **ten** surfaces assert the opposite:
 
-- `(marketing)/page.tsx` renders `Live at {FACTS.launchMall} · {FACTS.city}`
-  beside an amber `LiveDot`, ungated by `DEMO_MODE`;
-- `(marketing)/page.tsx:46` — the **homepage's own** meta description — ends
-  "Live at BBS Mall, Eastleigh.";
-- `(marketing)/about/page.tsx:53` does the same in `/about`'s meta description —
-  the search-result snippet, read before the page and its disclaimer;
-- the same file's `ogDescription` at `:56` repeats it;
-- `(marketing)/about/opengraph-image.tsx:13` hardcodes
-  `subline: "Live at BBS Mall, Eastleigh, Nairobi."`.
+> **Correction, 2026-08-10.** The first version of this report said five. The
+> full count is ten, and the one it missed matters most: `SiteFooter.tsx:57`
+> renders `Live at {FACTS.launchMall} · {FACTS.city}` beside an amber status
+> dot, and the same component renders `PrelaunchNotice` — "MAANTA APP is not
+> yet trading" — sixty-four lines further down. Both claims are in one
+> component, so **every page on the site carries the contradiction in its own
+> footer**, not just the four pages originally listed. The undercount came from
+> auditing the pages and not the shell they all mount.
 
-The second is worth dwelling on, because the root layout's description **is**
+| # | Surface | Where |
+|---|---|---|
+| 1 | Footer status line — **on every page** | `components/marketing/SiteFooter.tsx:57` |
+| 2 | Home meta description | `(marketing)/page.tsx:52` |
+| 3 | Home hero status line | `(marketing)/page.tsx:115` |
+| 4 | `/shoppers` hero status line | `(marketing)/shoppers/page.tsx:73` |
+| 5 | `/merchants` hero status line | `(marketing)/merchants/page.tsx:92` |
+| 6 | `/mall-operators` hero status line | `(marketing)/mall-operators/page.tsx:96` |
+| 7 | `/mall-operators` "Live at … since" line | `(marketing)/mall-operators/page.tsx:88` |
+| 8 | `/about` meta description | `(marketing)/about/page.tsx` |
+| 9 | `/about` `ogDescription` | `(marketing)/about/page.tsx:58` |
+| 10 | `/about` OG image subline | `(marketing)/about/opengraph-image.tsx:13` |
+
+Number 2 is worth dwelling on, because the root layout's description **is**
 correctly `DEMO_MODE`-branched (`src/app/layout.tsx`) and guarded by
 `prelaunch-consistency.test.ts`. A per-route description overrides the root one,
 so the homepage — the most-served page on the site — reintroduces in its own
@@ -243,7 +262,7 @@ metadata precisely the claim the root was gated to avoid. This is the shape
 **D46** closed on 2026-08-01 for the OG status line and the root description,
 recurring one layer down.
 
-The fifth is the sharpest. `src/lib/marketing/og.tsx:28–53` gates
+Number 10 is the sharpest. `src/lib/marketing/og.tsx:28–53` gates
 `OG_STATUS_LINE` specifically so that an OG image — "the one surface where the
 disclosure provably cannot follow the claim" — makes no trading claim while
 `DEMO_MODE` holds, and the docblock records that two reviewers raised this on
@@ -289,7 +308,7 @@ Ordered by benefit per unit of effort; none requires a product decision.
 
 | # | Decision or asset | Why it cannot be resolved in the repo |
 |---|---|---|
-| 1 | **Is "Live at BBS Mall" acceptable pre-launch?** | A commercial and legal positioning call. Engineering can align all five surfaces either way, but not choose. Blocks **D83** |
+| 1 | **Is "Live at BBS Mall" acceptable pre-launch?** | A commercial and legal positioning call. Engineering can align all ten surfaces either way, but not choose. Blocks **D83** |
 | 2 | **Lawyer review of the four legal drafts, and the incorporation decision behind it** | Readiness tracker `O5`, blocked. Gates the removal of the DRAFT banners and the placeholder identifiers |
 | 3 | **Kenya DPA cross-border basis for Supabase `eu-west-1`** | Readiness tracker `O6`, not started. Determines what `/privacy` §12 may honestly say |
 | 4 | **Analytics consent posture for signed-in users** | Provider, measurement ID, lawful basis and target jurisdictions must be settled before any banner or opt-out is built. The current cookieless anonymous posture is already ruled and is fine |
@@ -392,3 +411,47 @@ marketing route · unique titles and descriptions throughout · `og:locale=en_KE
 and `og:site_name` consistent · skip-to-content link and `aria-label="Primary"`
 nav on every page · no `{{TOKEN}}` placeholder in any rendered output · no
 orphan routes.
+
+---
+
+## Remediation status
+
+Everything below is **on `claude/maanta-launch-audit-rn5a89` and not live.** The
+checklist table above still describes production, which is unchanged until this
+branch merges and deploys. Verified locally: `next lint` clean, `tsc --noEmit`
+clean, vitest **589/589 across 78 files**, and `npm run build` green including
+all three post-build gates.
+
+### Fixed
+
+| Item | What changed | Verified by |
+|---|---|---|
+| 10 · robots.txt | `NON_INDEXABLE_PREFIXES` now lives in `nav.ts` beside `SITEMAP_ROUTES`, and `robots.ts` reads it. The shopper surfaces (`/feed`, `/browse`, `/map`, `/search`, `/deals`, `/my-deals`, `/tickets`, `/shops`, `/notifications`, `/profile`, `/you`), the auth entry points and `/demo` are disallowed | Built `robots.txt` read back; new `marketing-crawl-policy.test.ts` |
+| 10 · robots.txt | The guard found a route the audit missed: bare `/merchant` was uncovered, because the existing `/merchant/` rule needs its trailing slash to avoid also disallowing `/merchants`. Fixed with the `$` end-anchor | `marketing-crawl-policy.test.ts` |
+| 17 · Structured data | `FAQPage` on `/faq` (all 16 Q&A), `Organization` + `WebSite` on `/`. Organization carries name, url and logo only — no address, no `LocalBusiness`, no identifiers, no `aggregateRating` | JSON-LD parsed out of the built HTML and validated |
+| 13 · Social cards | OG images added for `/pricing`, `/merchants/join`, `/waitlist`, `/malls/bbs-mall`, `/faq`, `/help`, `/download`. The four `noindex` legal routes now declare `twitter:card=summary` instead of claiming a large card they should not fill | Built HTML: **0 routes** declare a large card without an image, down from 11 |
+| 1 · Custom 404 | Rebuilt with the marketing shell, its own title and description, four recovery links and a skip link. `openGraph: null` clears the inherited home-page card | Built `_not-found.html`: own title, one `robots` tag, zero `og:` tags |
+| 8 · Response time | `/help` now states the same commitment as `/contact`, read from `RESPONSE_TIMES` | Source + build |
+| — | `/help` had no `<h1>` (its first heading was an `<h2>`) | Built HTML |
+| 11 · Titles | `/download` was `Install Maanta` — the only route off the `… — MAANTA` convention and the only one lower-casing the wordmark | Built HTML |
+| 12 · Descriptions | `/about` and `/waitlist` trimmed under the snippet window; `/help` and `/malls/bbs-mall` extended into it | Recomputed lengths |
+| — | `NODE_TEAM.agentRole` was singular behind a plural subject, rendering "the agents works the floor" on `/about` and `/mall-operators` | Both call sites read "The agents {agentRole}" |
+
+Two guards were added rather than one fix each, because in both cases the defect
+was two files disagreeing rather than one file being wrong:
+`marketing-crawl-policy.test.ts` asserts that **every** route in the app is
+either in `SITEMAP_ROUTES`, or a `noindex` legal route, or disallowed — so a new
+route cannot land in the gap `/feed` was in — and that no route claims a large
+social card without an image.
+
+### Deliberately not fixed
+
+| Item | Why |
+|---|---|
+| **D83** — the ten "Live at" surfaces | Needs a founder ruling first. Engineering can align them either way but must not choose. One instance was touched incidentally by the `/about` description trim and was **restored**, so all ten stay consistent for one decision to settle at once |
+| **D84** — signed-out analytics attribution | Needs a decision: restore cookie persistence behind consent, or retire the cookie-reading path and accept unattributed server events. A guard alone would go red immediately, which is a decision made by omission |
+| 18 · Legal drafts (`O5`, `O6`) | Blocked on counsel review and the incorporation decision. Not an engineering task |
+| 9 · Sticky mobile CTA | Frozen UI rule 1 caps a screen at one amber action, so a sticky bar must **replace** the visible CTA rather than add to it. That is a design decision about which surfaces get one |
+| 4 · Confirmation routes | The inline success state works and conversions are already measurable via `marketing_form_submitted`. A dedicated URL changes three conversion flows and wants its own review |
+| `/malls/bbs-mall` build-out | Needs founder-supplied mall detail — address, hours, floor guide |
+| 6, 14, 15, 20 | Deferred pending pilot evidence, a verified location, consenting merchants, and a founder asset |

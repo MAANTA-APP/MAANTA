@@ -49,8 +49,17 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
 export const metadata: Metadata = pageMetadata({
   path: "/about",
   title: "About — MAANTA",
+  // Trimmed from 171 to 157 characters to fit the snippet window. At 171 the
+  // clause that truncated was the one doing the persuading.
+  //
+  // The "Live at" sentence is left exactly as it was, deliberately. It is one
+  // of the surfaces in drift D83 — the pre-launch trading claim that the
+  // footer's own PrelaunchNotice contradicts — and that set is waiting on a
+  // founder ruling. Dropping it here as a side effect of a length fix would
+  // have resolved one surface out of nine and left the rest, which is worse
+  // than leaving all nine consistent for one decision to settle at once.
   description:
-    "MAANTA makes the deals inside a mall visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh. Here is how it works and how we make money.",
+    "The deals inside a mall, visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh. How it works, and how MAANTA makes money.",
   ogTitle: "What MAANTA is, and how it makes money.",
   ogDescription:
     "The deals inside a mall, visible before you walk in and verifiable after you walk out. Live at BBS Mall, Eastleigh.",

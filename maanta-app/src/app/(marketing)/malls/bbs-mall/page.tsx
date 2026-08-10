@@ -33,8 +33,10 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
 export const metadata: Metadata = pageMetadata({
   path: "/malls/bbs-mall",
   title: "BBS Mall, Eastleigh — MAANTA",
+  // Was 99 characters, leaving most of the snippet window unused on the Node 0
+  // page every footer links to.
   description:
-    "BBS Mall, Eastleigh is Node 0 — MAANTA's launch mall in Nairobi. See what shops are offering today.",
+    "BBS Mall, Eastleigh is Node 0 — the first mall MAANTA opens in. See what its shops are offering, claim a deal on your phone, and redeem it at the counter.",
 });
 
 export default function BbsMallPage() {
