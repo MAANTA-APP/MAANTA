@@ -8,7 +8,7 @@ export default function ShopperLayout({ children }: { children: React.ReactNode 
     <AppProviders>
       <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-stone">
         <DemoModeBanner />
-        <OfflineBanner />
+        <OfflineBanner context="shopper" />
         <div className="flex-1 pb-24">{children}</div>
         <ShopperBottomBar />
       </div>

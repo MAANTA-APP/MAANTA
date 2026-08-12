@@ -27,9 +27,11 @@ app is an open decision, not an oversight — see **D91** and
 `docs/ops/pwa-status-2026-08-12.md`.
 
 The service worker does **not** cache anything (`push` + `notificationclick`
-only), so the app has no offline capability, and it is unverified whether Chrome
-ever fires `beforeinstallprompt` without a `fetch` handler — i.e. whether step 2
-above ever happens in production. See **D92** and **D93**.
+only), so the app has no offline capability — deferred by founder instruction
+2026-08-12, tracked as **D95**. The offline banner's copy was corrected to match
+(**D92**, closed and guarded). It is separately unverified whether Chrome ever
+fires `beforeinstallprompt` without a `fetch` handler — i.e. whether step 2
+above ever happens in production. See **D93**.
 
 ## Role bootstrap
 

@@ -82,8 +82,56 @@ export function DealCardSkeleton() {
   );
 }
 
-/** 7d Offline banner — black strip, auto-shows when the browser goes offline. */
-export function OfflineBanner() {
+/**
+ * Which shell is rendering the banner. It decides the reconnect instruction
+ * only — never whether the banner appears.
+ */
+export type OfflineContext = "shopper" | "merchant" | "generic";
+
+/**
+ * The only offline copy in the product.
+ *
+ * Every string here states a blocked state and the next step, and none of them
+ * claims anything MAANTA cannot do. MAANTA has **no offline capability**:
+ * `public/sw.js` handles `push` and `notificationclick` and has no `fetch`
+ * handler or Cache Storage, so nothing is stored for offline use, and a claim
+ * or a redemption cannot complete without the network in any case —
+ * `claim_deal` and `verify_redemption` are RPCs. The banner previously read
+ * "showing saved deals", which promised exactly the thing that does not exist,
+ * on the merchant shell as well as the shopper one (drift D92).
+ *
+ * So: no wording here may imply deals are saved, previously loaded deals
+ * survive, a claim or redemption works offline, or that anything will be
+ * retried later. Any future offline caching work changes the service worker
+ * first and this map second, never the other way round.
+ */
+export const OFFLINE_MESSAGE: Record<OfflineContext, string> = {
+  shopper: "You're offline. Reconnect to load live deals.",
+  merchant: "You're offline. Reconnect before verifying a redemption.",
+  generic: "You're offline. Reconnect to continue.",
+};
+
+/**
+ * 7d Offline banner — black strip, auto-shows when the browser goes offline.
+ *
+ * `context` is a prop rather than something the component sniffs from the
+ * route, so each shell states its own truth and the component never guesses.
+ * It defaults to the generic line, which is safe anywhere.
+ *
+ * The live region is mounted at all times and only its *text* changes.
+ * Conditionally rendering the strip — what this did before — inserts a live
+ * region and its content in the same tick, which assistive tech announces
+ * unreliably, so the state was effectively silent for screen-reader users.
+ * `aria-live="polite"` queues the announcement behind whatever the user is
+ * doing, so a connectivity flap never interrupts. When online the wrapper has
+ * no classes and no children, so it adds no height to either shell's flex
+ * column and the layout is byte-identical to before.
+ */
+export function OfflineBanner({
+  context = "generic",
+}: {
+  context?: OfflineContext;
+}) {
   const [offline, setOffline] = useState(false);
   useEffect(() => {
     setOffline(!navigator.onLine);
@@ -96,10 +144,13 @@ export function OfflineBanner() {
       window.removeEventListener("offline", off);
     };
   }, []);
-  if (!offline) return null;
   return (
-    <div className="bg-ink px-4 py-2 text-center text-xs font-semibold text-white">
-      You&apos;re offline — showing saved deals
+    <div role="status" aria-live="polite">
+      {offline ? (
+        <div className="bg-ink px-4 py-2 text-center text-xs font-semibold text-white">
+          {OFFLINE_MESSAGE[context]}
+        </div>
+      ) : null}
     </div>
   );
 }
