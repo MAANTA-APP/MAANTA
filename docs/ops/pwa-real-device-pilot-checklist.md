@@ -30,6 +30,23 @@ analytics, no production configuration, no database. This is a measurement
 session. If a test reveals a defect, write it down and stop — fixing it is a
 separate change with its own review.
 
+**Take no live business action.** This runs against production, where the fee
+machinery is real:
+
+> Do not create, claim, redeem, verify, top up, purchase, or otherwise consume
+> a live offer while completing this checklist.
+>
+> Do not create merchant fees, redemption records, financial events, or
+> operational data merely to test installation, routing, push reachability, or
+> offline messaging.
+>
+> If a step would require a live business action, stop and record it as a
+> blocker rather than performing it.
+
+Every test below is satisfied by signing in and navigating. None of them needs
+a claim or a redemption, and a KES 30 success fee raised to prove an icon
+rendered is a real debit against a real merchant wallet.
+
 You need:
 
 - One **Android phone** with **Chrome**.
@@ -125,8 +142,12 @@ converts this whole section from an inference into a quote.
 
 **iPhone**
 
-4. Share → **Add to Home Screen**. Record the name pre-filled in the dialog.
-5. Confirm and record whether the icon reached the home screen.
+4. In Safari, tap the **Share** button in the browser toolbar, then scroll the
+   share sheet if necessary and choose **"Add to Home Screen."** If the option
+   is absent, record that outcome and the device/iOS version; do not infer the
+   cause.
+5. Record the name pre-filled in the dialog.
+6. Confirm and record whether the icon reached the home screen.
 
 **Record:** completed or not, on each device, plus the name shown.
 
@@ -261,6 +282,26 @@ above, what happened, and a screenshot. **"Didn't work" is not evidence.**
    far better row than the open question it replaces.
 4. Anything found that is not about install goes in the register as its own
    row, not folded into D93.
+
+### The evidence threshold for closing D93
+
+> D93 may be closed only after results are recorded from both:
+>
+> 1. at least one Android device using Chrome; and
+> 2. at least one iPhone using Safari.
+>
+> Evidence from only one platform is useful but does not close D93.
+
+The two platforms install by materially different mechanisms — Chrome fires
+`beforeinstallprompt` and can offer installation through its own menu, while
+iOS has no install event at all and depends entirely on a manual Share → Add to
+Home Screen. A pass on one says nothing about the other, so a single-platform
+run leaves half the funnel unmeasured.
+
+If installation **fails, or cannot be offered at all, on either platform**, D93
+stays open. The exact device and browser evidence then becomes the basis for a
+separate remediation decision — not a closure, and not a fix improvised during
+the session.
 
 ## Related
 
