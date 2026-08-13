@@ -44,10 +44,49 @@ function apiKey(): string | null {
 }
 
 /**
+ * Default ceiling on any call to what3words.
+ *
+ * Every request here previously ran unbounded — `await fetch(url)` with no
+ * signal — so a slow or unreachable provider held the calling serverless
+ * invocation until the platform killed it. On the claim path that turned a
+ * committed claim into a non-JSON 504 and, to the shopper, a bogus network
+ * error. A third party must never be able to consume a whole invocation:
+ * see docs/ops/claim-failure-investigation-2026-08-14.md.
+ *
+ * Generous enough for interactive validation (merchant onboarding, `/api/w3w`);
+ * the claim path passes something much tighter, because there the lookup is
+ * enrichment and the shopper is waiting on a ticket.
+ */
+export const W3W_DEFAULT_TIMEOUT_MS = 5000;
+
+/** Timeout for the claim-path geofence lookup — enrichment, not the answer. */
+export const W3W_CLAIM_TIMEOUT_MS = 1500;
+
+/**
+ * `AbortSignal.timeout` where available, undefined otherwise.
+ *
+ * Node 18+ and every target browser have it; the guard exists so a runtime
+ * without it degrades to the previous unbounded behavior rather than throwing
+ * on the money path.
+ */
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  return typeof AbortSignal?.timeout === "function"
+    ? AbortSignal.timeout(ms)
+    : undefined;
+}
+
+/**
  * Convert a 3-word address to WGS84 coordinates.
  * Server-only — reads W3W_API_KEY. Never call from client components.
+ *
+ * An abort surfaces as `upstream`, the same as any other provider failure —
+ * callers already treat that as non-fatal, and the distinction is a server-log
+ * concern, not a caller concern.
  */
-export async function convertToCoordinates(w3w: string): Promise<W3wCoordsResult> {
+export async function convertToCoordinates(
+  w3w: string,
+  timeoutMs: number = W3W_DEFAULT_TIMEOUT_MS
+): Promise<W3wCoordsResult> {
   const words = normalizeWhat3Words(w3w);
   if (!words) {
     return {
@@ -70,7 +109,7 @@ export async function convertToCoordinates(w3w: string): Promise<W3wCoordsResult
     const url = new URL(W3W_CONVERT_TO_COORDS);
     url.searchParams.set("words", words);
     url.searchParams.set("key", key);
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: timeoutSignal(timeoutMs) });
     const body = await res.json().catch(() => null);
 
     if (!res.ok || typeof body?.coordinates?.lat !== "number") {
@@ -156,16 +195,22 @@ export async function convertTo3Words(
 }
 
 /**
- * Legacy helper used by claim geofence — returns null on any failure.
+ * Claim-geofence helper — returns null on any failure, including a timeout.
+ *
+ * Bounded by `W3W_CLAIM_TIMEOUT_MS` rather than the interactive default: on the
+ * claim path this is enrichment behind an already-committed redemption, so a
+ * slow provider must cost the shopper a missing distance figure, never their
+ * ticket. Every failure mode — timeout, provider down, malformed body, missing
+ * key — collapses to `null` and is logged server-side with the reason code
+ * only; the address and the shopper's coordinates are never logged.
  */
 export async function convertWhat3WordsToCoordinates(
-  words: string
+  words: string,
+  timeoutMs: number = W3W_CLAIM_TIMEOUT_MS
 ): Promise<{ lat: number; lng: number } | null> {
-  const result = await convertToCoordinates(words);
+  const result = await convertToCoordinates(words, timeoutMs);
   if (!result.ok) {
-    if (result.code === "missing_key") {
-      console.error("W3W_API_KEY is not set");
-    }
+    console.error("what3words lookup unavailable:", { code: result.code });
     return null;
   }
   return { lat: result.lat, lng: result.lng };
