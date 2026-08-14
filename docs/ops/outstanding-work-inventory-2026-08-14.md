@@ -224,3 +224,26 @@ state argues for moving the Preview decision first:
 - **Not run:** no build, no test suite, no migration, no deployment.
 - **Not changed:** no merge, no push to `main`, no Vercel setting, no Clerk
   configuration, no probe of any live route.
+
+## Addendum — founder rulings received later on 2026-08-14
+
+The open-decisions table above is superseded as follows:
+
+1. **Preview remediation: Option A ruled** — publishable key to Preview scope
+   only, one write, operator-executed, stop-on-failure, Option B explicitly
+   rejected. Full authorization text, pre-verified preconditions and the
+   outcome-interpretation table (including the split-brain scenario where a
+   200 would mislead): `docs/ops/preview-auth-parity-option-a-2026-08-14.md`.
+2. **Sequencing ruled**: Preview fix first (it gates #201), then rebase +
+   merge #201, then the D93 device measurement — with the D93 icon/metadata
+   work held apart as a distinct implementation task.
+3. **B2 and the Clerk production-instance assessment: held** until #201/D93
+   complete. Decision 4 (B2 authorization) therefore remains open by design.
+4. Decision 2's premise ("no decisions-log entry exists either way") was
+   accurate when written and is now tracked properly: **D98** (Preview env
+   parity) and **D99** (production on the Clerk development instance) opened
+   in `docs/maanta-drift-register.md`, and the ruling itself is recorded in
+   `docs/maanta-decisions-log.md` (2026-08-14 entry). D99 also surfaced that
+   the 2026-07-28 log entry and two status docs record an earlier `pk_live`
+   read-back — so the dev-instance measurement contradicts prior recorded
+   state, not just `.env.example` intent.
