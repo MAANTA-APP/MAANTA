@@ -1,6 +1,8 @@
 # Claude stack setup for MAANTA
 
-Last updated: 2026-07-30 · Status: **recommendation, not installed state.**
+Last updated: 2026-08-14 · Status: **recommendation, not installed state** — except
+the "already wired in-repo" table below, which is installed state and is where the
+2026-08-14 design-engineering skills landed.
 
 What to install and how to start a Claude session so it works on this repo at a
 consistent standard. The behavioral rules live in root `CLAUDE.md`; this file is
@@ -11,6 +13,7 @@ about tooling and the opening prompt.
 | Thing | Where | Notes |
 |---|---|---|
 | Supabase agent skills | `.agents/skills/`, pinned in `skills-lock.json` | `supabase` + `supabase-postgres-best-practices`. Keep the lock file honest — re-pin, don't hand-edit. |
+| Design-engineering skills | `.agents/skills/`, symlinked from `.claude/skills/`, pinned in `skills-lock.json` | All ten of `emilkowalski/skills`, installed 2026-08-14 by founder ruling. **Read `docs/skills/design-engineering-skills.md` before applying any of them** — it carries the precedence order and the three places their defaults collide with the frozen UI rules. |
 | Supabase MCP | `.cursor/mcp.json` | Points at prod project `axrrslqssmbngbataejg`. **Read-only use from Claude** — migrations are applied by a human (`supabase-migrations.md`). |
 | Agent build/run notes | `AGENTS.md` | Local DB, Clerk key requirements, seeding, known gotchas. |
 | Product/ops rules | `CLAUDE.md` | Source-of-truth rules, UI bar, guardrails, execution format. |
@@ -42,10 +45,19 @@ Install these first. Each line says what it is actually for **on MAANTA**.
 
 ## Avoid for now
 
-- **Motion, video, animation and 3D skills** — unless a specific task calls for
-  it. The frozen UI rules ban celebratory motion on money surfaces outright, and
-  the aesthetic target is calm. A motion skill will push against the house style
-  every time.
+- ~~**Motion, video, animation and 3D skills**~~ — **superseded 2026-08-14
+  (founder ruling, decisions log; drift D98).** The ten `emilkowalski/skills`
+  design-engineering skills are now installed in-repo, so this is no longer a
+  "avoid" but a "govern": the reasoning that produced the original line still
+  holds — the frozen UI rules ban celebratory motion on money surfaces outright,
+  and the aesthetic target is calm — so a motion skill *will* push against the
+  house style, and the house style wins. The precedence order, MAANTA's existing
+  five-animation vocabulary, and the specific collisions (`ask-sonner` vs frozen
+  rule 3; `animate` / `find-animation-opportunities` / `prototype` vs money
+  surfaces; any skill that recommends a new dependency) are in
+  `docs/skills/design-engineering-skills.md`. Video and 3D skills stay off the
+  list. Note that motion restraint is carried by review, not by CI —
+  `frozen-ui-rules.test.ts` enforces colour and copy, not animation.
 - **Growth, content, SEO and research skills** — until Node 0 product surfaces
   are stable. Growth work has its own track and its own docs
   (`maanta-marketing-agency-brief.md`, the email sequences); mixing it into a
