@@ -202,6 +202,25 @@ Unchanged in both strategies:
 4. Redeploy.
 5. Smoke-test `/login` (email + phone) and `/verify-phone` claim gate.
 
+## CI guard for the Clerk branch
+
+Every CI job and local run resolves to the **supabase** default, so the branch
+production actually executes was historically never tested — which is how both
+**D70** and the 2026-08-14 client-construction P0 (PR #203) reached production
+green. The guard for that class is
+`maanta-app/src/__smoke__/clerk/clerk-strategy-smoke.test.ts`, run as the named
+**Clerk-strategy smoke** step in `.github/workflows/ci.yml` (and inside
+`npm run test`, since the suite sets the Clerk env vars itself). It exercises
+**real** env-var strategy resolution and the **real** server client factory —
+not mocks of them — and asserts: `authStrategy()` resolves `clerk` from the
+variables; the server client constructs via `supabase-js` with `accessToken`
+only; a Clerk claim reaches `claim_deal`; merchant verification reaches
+`verify_redemption` and maps an invalid code to a rejection rather than a 500;
+and the unset-env default still resolves to `supabase` with the SSR cookie
+client. Its known limit: it cannot cover D70's browser half (build-time env
+inlining + hydration) — `auth-strategy-boundary.test.ts` guards the
+import-graph side of that.
+
 ## Files
 
 | Path | Role |

@@ -41,6 +41,17 @@ jobs:
       - name: Test
         run: npm run test
 
+      # The Clerk-strategy smoke leg. Every other check runs the Supabase
+      # default, so the branch production actually executes — real env-var
+      # strategy resolution plus the Clerk server-client shape — was never
+      # exercised in CI. That gap shipped two production failures (D70 and the
+      # 2026-08-14 client-construction P0, PR #203). The suite sets the Clerk
+      # env vars itself, so it also runs inside `npm run test`; this named step
+      # exists so a Clerk-path failure is visible as its own line rather than
+      # buried in the full run.
+      - name: Clerk-strategy smoke
+        run: npm run test:clerk-smoke
+
       - name: Build
         run: npm run build
         env:
