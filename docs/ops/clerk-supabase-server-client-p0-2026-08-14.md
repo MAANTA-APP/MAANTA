@@ -173,6 +173,35 @@ After merge and deploy, in order:
    its client without error — **without** completing a real redemption, since
    that charges the success fee.
 
+## Production verification — executed (updated 2026-08-14)
+
+Steps 1–4 are **done**. Step 5 (the B2 till probe) remains **unapproved and
+unexecuted** — it is deliberately not represented as completed.
+
+- **Steps 1–2, non-transactional (Phase A):** deployment `READY` and serving
+  the merged commit on both production aliases; runtime-log sweeps for the
+  `onAuthStateChange` signature returned zero hits, with the stated caveat that
+  a zero-result search only became affirmative once step 3 ran.
+- **Steps 3–4, the B1 probe (founder-performed, founder-authorized):** one
+  deliberate claim on a demo deal (Eastleigh Spices (Demo A), "family grill
+  platter" — explicitly demo/rehearsal data), no retry.
+  `POST /api/redemptions` → **HTTP 200 at 05:48:59 UTC, 2026-08-14** on
+  `dpl_3Gcjmogc1KQt9v7cHe15D93QPxPe` (the #204-era build). The CLAIMED ticket
+  rendered in My Deals with an active countdown. A dedicated log search across
+  the window found **zero** `onAuthStateChange` occurrences. No fee, redemption
+  verification, boost, wallet or push action occurred during B1.
+- **B1 also observed the D97 behavior working as designed:** the sole log line
+  inside the invocation was `what3words lookup unavailable: { code: 'not_found' }`
+  — the demo merchant's synthetic 3-word address did not resolve at the
+  provider, the lookup degraded to a null distance under its bound, only the
+  reason code was logged (no address, no coordinates), and the response was a
+  200 regardless. Under the pre-#202 code this same lookup ran unbounded on the
+  response path; under the pre-#203 code the request would never have reached it.
+- **Incident classification (founder, 2026-08-14):** *shopper claim resolved
+  and verified; merchant verification fixed but pending non-destructive
+  production confirmation.* The register rows are **D96** (this incident) and
+  **D97** (the claim-response reliability fix).
+
 ## Remaining risks
 
 - **The four non-claim routes are fixed but unproven in production.** Same
@@ -181,7 +210,9 @@ After merge and deploy, in order:
   This class of defect — correct in the branch CI runs, broken in the branch
   production runs — has now occurred twice (D70 and this). The durable answer is
   running some part of CI under the Clerk strategy, which is larger than a P0
-  fix and not attempted here.
+  fix and not attempted here. *(Since addressed, 2026-08-14: PR #204's
+  Clerk-strategy smoke suite now runs as a blocking CI step — see
+  `docs/ops/auth-strategies.md` §CI guard for the Clerk branch.)*
 - **The Vercel Preview deployment failure is still undiagnosed** and unrelated
   to this. It remains a deferred audit.
 - The original shopper's first failed claim (the bangle deal) produced no
@@ -189,12 +220,13 @@ After merge and deploy, in order:
 
 ## Drift register
 
-**No row added yet, deliberately.** `drift-register.test.ts` enforces unique and
-contiguous D-numbers; `main` ends at **D90** and unmerged PR #200 adds
-**D91–D95**, so `D91` would collide and `D96` would leave a hole. This document
-is the durable incident record until the next contiguous ID can be allocated
-after #200 merges. Two rows will be owed then: this one, and the claim-response
-row drafted in `docs/ops/claim-response-reliability-fix-2026-08-14.md`.
+**Resolved 2026-08-14: rows D96 (this incident) and D97 (claim-response
+reliability) are now in `docs/maanta-drift-register.md`.** They were held back
+deliberately while PR #200's unmerged D91–D95 blocked the contiguous-ID guard
+in `drift-register.test.ts`; #200 merged as `ee89b09` and freed the sequence.
+Historical note kept for the record: until then, this document was the durable
+incident record, with the claim-response row drafted in
+`docs/ops/claim-response-reliability-fix-2026-08-14.md`.
 
 ## Related
 
