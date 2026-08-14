@@ -1,8 +1,11 @@
 # Claim Response Reliability Fix — 2026-08-14
 
-P0. Fixes the confirmed response-path defects found in
-`docs/ops/claim-failure-investigation-2026-08-14.md`. No production state was
-touched, no claim was retried, and the root cause is **not** treated as proven.
+P0. Fixes the confirmed response-path defects in the shopper claim loop. No
+production state was touched, no claim was retried, and the root cause is
+**not** treated as proven.
+
+A separate read-only investigation was completed first; this document is
+self-contained and carries its findings, so it can be read without it.
 
 **What changed, in one line:** a committed claim can no longer be reported to
 the shopper as a failure, and when the outcome genuinely is unknown the app says
@@ -14,9 +17,10 @@ A user completed phone OTP with a Norwegian number, pressed **Claim deal** on a
 demo deal (Gold-plated bangle set, Pearl Beauty, BBS Mall) and saw
 `Network error — please try again.`
 
-The investigation established that this message is unreachable from any handled
-backend rejection. It fires only when `fetch` rejects **or** when the response
-body is not JSON — and the client parsed the body inside the same `try`, before
+Tracing the claim path established that this message is unreachable from any
+handled backend rejection — every one of those returns JSON with its own
+specific wording. It fires only when `fetch` rejects **or** when the response
+body is not JSON, and the client parsed the body inside the same `try`, before
 checking `res.ok`, so every platform 500 and every function timeout landed there
 too. The claim may well have committed first.
 
@@ -44,9 +48,18 @@ eventually say.
    swallowed. The response goes out regardless.
 
 3. **The what3words call was unbounded.** `await fetch(url)` with no signal.
-   → `AbortSignal.timeout()` on every call: 5000 ms default for interactive
-   validation, **1500 ms on the claim path**, where the lookup is enrichment
-   behind a ticket the shopper is waiting for.
+   → A timeout on every call: 5000 ms default for interactive validation,
+   **1500 ms on the claim path**, where the lookup is enrichment behind a ticket
+   the shopper is waiting for.
+   → **The timeout does not depend on `AbortSignal.timeout` being present.**
+   This repository does not pin the runtime Vercel serves — no `engines` field,
+   no `.nvmrc`, no `.node-version`, no `vercel.json`; CI's Node 20 pin governs
+   GitHub Actions only. A bare feature check would therefore have failed *open*
+   on the exact thing the bound exists to prevent, and failed silently, since no
+   test can observe a runtime the repo cannot name. `timeoutSignal()` uses
+   `AbortSignal.timeout` where available and falls back to `AbortController` +
+   `setTimeout` — same observable behavior, no dependency added — and both paths
+   are tested.
 
 4. **`deal_not_active` was unmapped.** Raised by `claim_deal`, matched by no
    branch, so an inactive deal read as an unexplained server error.
@@ -74,8 +87,8 @@ incident is still open**, and nothing here should be read as closing it:
 - **A genuine transport failure** — the one case where the old message was
   accurate.
 
-Only the Vercel log line for that invocation can separate these. Until then the
-investigation finding stays open.
+Only the Vercel log line for that invocation can separate these. **Production log
+review is still required, and the incident is not closed by this fix.**
 
 ## Response-path boundary, before and after
 
@@ -177,6 +190,11 @@ New coverage, 18 + 12 cases:
   word "network" never reaches the shopper; transport failure. Uses the real
   `Response` class — a stub that always parses cleanly would have passed against
   the old code too.
+- `maanta-app/src/lib/__tests__/timeout-signal.test.ts` — both timeout paths.
+  The second test deletes `AbortSignal.timeout` for its duration and asserts a
+  signal is still produced and still aborts, which is exactly what a runtime
+  lacking the method would do. Testing only the modern path would prove nothing
+  about the case the fallback exists for.
 - `maanta-app/src/app/api/redemptions/__tests__/route.test.ts` — `deal_not_active`
   → 410; permission-denied → typed 401 with the DB wording asserted absent;
   `unauthorized` → same; signed-out 401 typed; duplicate claim → 409;
@@ -224,8 +242,9 @@ Low risk, and revertible in pieces:
 - **Client** (`claim-response.ts`, `claim-flow.tsx`) — pure presentation and
   routing. Reverting restores the old masking; nothing else depends on it.
 - **Timeouts** (`what3words.ts`) — reverting restores unbounded calls, which is
-  the defect. `AbortSignal.timeout` is feature-detected, so a runtime without it
-  degrades to the previous behavior rather than throwing.
+  the defect itself. The bound holds on any runtime with `fetch`, via
+  `AbortSignal.timeout` or the `AbortController` fallback, so there is no
+  runtime on which reverting is the safer option.
 - **Route** (`redemptions/route.ts`) — the enrichment body is unchanged, only
   wrapped. Reverting the wrapper restores the old ordering.
 - **No migration, no RLS, no RPC, no schema change**, so there is nothing to roll
@@ -269,6 +288,5 @@ settled — text drafted below, ready to paste with the correct number.
 
 ## Related
 
-- `docs/ops/claim-failure-investigation-2026-08-14.md` — the read-only diagnosis
 - `docs/skills/paused-deal-semantics.md` — pause enforcement, unchanged here
 - `docs/skills/money-trust-engineering-guardrails.md`

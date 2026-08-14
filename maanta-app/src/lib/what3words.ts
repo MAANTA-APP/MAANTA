@@ -63,16 +63,45 @@ export const W3W_DEFAULT_TIMEOUT_MS = 5000;
 export const W3W_CLAIM_TIMEOUT_MS = 1500;
 
 /**
- * `AbortSignal.timeout` where available, undefined otherwise.
+ * A signal that aborts after `ms`, by whichever mechanism the runtime offers.
  *
- * Node 18+ and every target browser have it; the guard exists so a runtime
- * without it degrades to the previous unbounded behavior rather than throwing
- * on the money path.
+ * **Why this is not simply `AbortSignal.timeout(ms)`.** That method is the
+ * right primitive and exists in Node 18+, but this repository does not pin the
+ * runtime that actually serves production: there is no `engines` field in
+ * `package.json`, no `.nvmrc`, no `.node-version` and no `vercel.json`. CI pins
+ * Node 20, and that governs GitHub Actions only. The deployed version is a
+ * dashboard setting, invisible from here.
+ *
+ * A bare feature check would therefore have failed *open* on the one thing this
+ * helper exists to prevent — an unbounded call on the claim path — and it would
+ * have failed silently, because no test can observe a runtime the repository
+ * cannot name. So the fallback is real rather than a degradation:
+ * `AbortController` plus `setTimeout` is available in every runtime that has
+ * `fetch` at all, and it produces the same observable behavior.
+ *
+ * `undefined` is returned only if a runtime has neither, which would mean it
+ * also has no `fetch` — at which point the call fails on its own terms.
+ *
+ * One accepted cost in the fallback path: the timer is not cleared when the
+ * request finishes first, so it survives at most `ms` past a fast response.
+ * `unref()` is called where supported so it can never hold a process open, and
+ * the longest timer here is 5 seconds.
  */
-function timeoutSignal(ms: number): AbortSignal | undefined {
-  return typeof AbortSignal?.timeout === "function"
-    ? AbortSignal.timeout(ms)
-    : undefined;
+export function timeoutSignal(ms: number): AbortSignal | undefined {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+
+  if (typeof AbortController !== "function") return undefined;
+
+  const controller = new AbortController();
+  const timer: unknown = setTimeout(() => controller.abort(), ms);
+  // Node timers can be unref'd so a pending abort never keeps the process
+  // alive; browser timers are plain numbers and simply skip this.
+  if (timer && typeof (timer as { unref?: () => void }).unref === "function") {
+    (timer as { unref: () => void }).unref();
+  }
+  return controller.signal;
 }
 
 /**
