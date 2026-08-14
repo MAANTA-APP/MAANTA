@@ -127,7 +127,11 @@ a `maanta-decisions-log.md` entry, not a polish diff:
   the outcome buzz sits closest to "Money moved; it is not a party").
 - **Contact form** is a no-op returning a false "we'll get back within 24 hours".
 - **PWA install quality** (raster 192/512 icons; `sw.js` `/favicon.ico` vs
-  `/icon.svg`; OfflineBanner promises "saved deals" but the SW has no caching).
+  `/icon.svg`) — now tracked as **D93**, which also holds the on-device install
+  measurement. The OfflineBanner half of this item is **done**: it no longer
+  promises "saved deals" (**D92**, closed 2026-08-12, guarded by
+  `maanta-app/src/components/ui/__tests__/offline-banner.test.ts`). The SW still
+  has no caching, deferred as **D95**. See `docs/ops/pwa-status-2026-08-12.md`.
 - **Route first-run users into `/onboarding`** (the 3-pane intro looks orphaned).
 - **Public conversion + imagery**: hero `/feed` vs nav `/sign-up` target, the
   secondary (non-amber) merchant CTA, marketing "screenshot" placeholders, and a

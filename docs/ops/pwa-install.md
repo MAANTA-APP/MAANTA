@@ -1,6 +1,6 @@
 # PWA install & role bootstrap
 
-Last updated: 2026-07-27
+Last updated: 2026-08-12
 
 ## Routes
 
@@ -18,12 +18,28 @@ Last updated: 2026-07-27
 4. Service worker: `public/sw.js` (push + notification click only; registered by the hook).
 5. Manifest: `public/manifest.webmanifest` — `start_url: /app-bootstrap`, `display: standalone`.
 
-Home still mounts `InstallPrompt` (auto bottom sheet) which reuses the same hook and links to `/download` for tips.
+**`/download` is the only install surface.** The auto bottom sheet that used to
+appear on home — `src/components/install-prompt.tsx`, exporting `InstallPrompt` —
+was deleted whole in the 2026-08-06 dead-code sweep because nothing imported it
+(`docs/ops/dead-code-cleanup-2026-08-06.md`). `usePwaInstall` kept its one live
+consumer, the `/download` panel. Whether install should be re-offered inside the
+app is an open decision, not an oversight — see **D91** and
+`docs/ops/pwa-status-2026-08-12.md`.
+
+The service worker does **not** cache anything (`push` + `notificationclick`
+only), so the app has no offline capability — deferred by founder instruction
+2026-08-12, tracked as **D95**. The offline banner's copy was corrected to match
+(**D92**, closed and guarded). It is separately unverified whether Chrome ever
+fires `beforeinstallprompt` without a `fetch` handler — i.e. whether step 2
+above ever happens in production. See **D93**.
 
 ## Role bootstrap
 
 After Clerk sign-in/sign-up, fallback redirect is **`/app-bootstrap`**
-(`NEXT_PUBLIC_CLERK_SIGN_*_FALLBACK_REDIRECT_URL`, defaults in `src/app/layout.tsx`).
+(`NEXT_PUBLIC_CLERK_SIGN_*_FALLBACK_REDIRECT_URL`, defaults in
+`src/components/auth/auth-providers.tsx`). Not `src/app/layout.tsx` — that layout
+deliberately mounts no auth provider, so a marketing visitor never downloads the
+auth SDK.
 
 `/app-bootstrap` (client):
 
