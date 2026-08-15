@@ -88,6 +88,45 @@ This is the D80 class exactly, and D80's resolution is the precedent: the fix wa
 a formatter split with the import boundary pinned by a test, not a reworded
 literal. Founder ruling first — see D104.
 
+## Where the programme's premises actually came from (2026-08-15, Notion read)
+
+The programme document is **not in Notion**. Four searches — by title, by phase
+vocabulary, by screen vocabulary, by its own decision IDs — return the operating
+pages and `Design Brief v1.4 — frozen scope + 2026-08-03 rulings`, never the
+programme. Per the Decisions Log it lives in the Claude Design project
+("Maanta production wireframes"), which is not reachable from this session.
+
+Reading the brief changed two conclusions:
+
+**The brief is right about the agent question, and the programme misread it.**
+§ "Onboarding — the one conditional question" is precise:
+
+> The form asks **one** conditional question: "Were you helped by a Maanta agent?"
+> — Yes / No.
+> **No** → no agent field is shown at all. A self-serve merchant is never asked
+> for an agent name or ID, and never required to supply one.
+> **Yes** → reveals "Select or enter the assisting agent."
+
+Read whole, that is exactly what the wizard does. Read fast, the bolded No-branch
+sentence — "no agent field is shown at all… never asked for an agent name or ID" —
+is a sentence about a *branch* that reads like a sentence about the *form*. That
+is the premise D103 recorded, and its source is a skim, not an error. So there is
+nothing false to correct in the brief: the conditional is already there.
+
+**D-a was pointing at something real, in a place it did not name.** The brief's §9
+wallet-state table specifies a **new-merchant opening-credit state** with exact
+copy — "KES 300 starting credit — your first 10 verified redemptions covered;
+thereafter a transparent KES 30 success fee." The wallet renders three states
+(arrears, empty, low balance) and no such string exists anywhere in `src`. The
+ledger row exists and is now labelled (D104), but the state the brief asks for is
+absent. Registered as **D105**, open, pending a founder ruling: the specified copy
+derives "10" from KES 300 over the KES 30 fee, and hardcoding that would violate
+the never-hardcode-a-fee rule while both values live in `app_config`.
+
+Worth noting the brief's own open-questions section asks for exactly this — item
+10 requests ledger row types for the boost, the Elite subscription and the opening
+credit. D104 settled one of the three.
+
 ## Programme claims this repo cannot settle
 
 - **D-08 does not exist here.** It is a design-side identifier; the repo register
