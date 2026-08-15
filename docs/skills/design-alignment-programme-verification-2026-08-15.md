@@ -53,6 +53,10 @@ Nothing in this repo should change to match the premise.
 
 ### D104 — the opening credit reaches the merchant, wearing an internal name
 
+**Closed 2026-08-15, same day, in the follow-up change described at the end of
+this document.** The finding as written below stands as the record of what was
+wrong.
+
 The programme records the credit as founder-side with no merchant-side surface,
 and infers a missing screen. The inference points at something real but describes
 it backwards: the grant *does* reach the merchant. `activate_merchant` credits
@@ -107,9 +111,58 @@ literal. Founder ruling first — see D104.
 - No code changed. Both findings need a founder ruling before a diff, and D104's
   fix spans a migration and a component.
 
+## The D104 fix (2026-08-15)
+
+Founder asked for the merchant-voice label, so D104 was fixed the same day. The
+shape of the fix matters more than the copy, and three choices are worth keeping:
+
+**The read side owns the vocabulary, not the write side.** `activate_merchant`
+still writes its operator description. Correcting that literal in a new migration
+would have fixed nothing that already exists — ledger rows are never rewritten,
+so every credit granted to date would keep the old string, and the fix would
+depend on a production apply. Detection keys on the `node0_opening_credit:`
+provider-reference prefix instead, which is also what the per-node cap counts, so
+it cannot drift from the promo without the cap drifting too. Rows already in the
+production ledger render correctly with no migration at all.
+
+**The internal reference is suppressed, not shortened.** The detail screen showed
+`provider_reference` verbatim, which for this row is the config key joined to the
+merchant's own id. A manual grant has no external payment behind it, so there is
+no reference worth showing; the transaction id remains what support asks for, on
+the ledger row and in the detail URL.
+
+**One formatter, two screens.** Both wallet screens had their own type maps. The
+list's had seven entries, the detail's had five of the eight ledger types — so a
+`success_fee_arrears` row rendered the raw enum `success_fee_arrears` on the
+detail screen. That is a second, smaller instance of the same defect class, found
+only because the fix consolidated the maps, and it is fixed by the same change.
+
+Files: `maanta-app/src/lib/merchant-ledger-copy.ts` (new),
+`maanta-app/src/app/merchant/(app)/wallet/page.tsx`,
+`maanta-app/src/app/merchant/(app)/wallet/[id]/page.tsx`,
+`maanta-app/src/lib/__tests__/merchant-ledger-copy.test.ts` (new).
+
+The guard asserts the leak, not the wording: a copy change stays free, while
+re-exposing the config key fails. It also pins that both queries still select
+`provider_reference` — dropping that column would typecheck, look harmless, and
+silently restore the leak, which is the failure mode most likely to come back.
+
 ## Verification run
 
-`npx vitest run src/lib/__tests__/drift-register.test.ts` from `maanta-app/` —
-the schema and evidence guard for the two new rows. Result recorded in the session
-summary. No other suite was run: the change is documentation only, and claiming a
-green run that did not happen is the one thing this repo's rules forbid outright.
+The verification pass itself was documentation only, and was checked with
+`npx vitest run src/lib/__tests__/drift-register.test.ts` (12 passed) plus the
+full `npm test` (90 files, 708 tests) from `maanta-app/`.
+
+The D104 fix that followed touches shipped merchant surfaces, so it ran the full
+CI gate set from `maanta-app/`:
+
+- `npm run lint` — no ESLint warnings or errors
+- `npm run typecheck` — clean
+- `npm test` — 91 files, 719 tests passing (the 11 new ones are the D104 guard)
+- `npm run build` — succeeded, including all three chained post-build gates:
+  `check:tokens` clean over 47 rendered files and 402 chunks, `check:canonicals`
+  clean over 16 marketing routes, `check:forms` clean
+
+`make db-verify` was **not** run and is not required here: no SQL changed. That is
+the point of the fix's shape — the migration is untouched, so there is nothing to
+apply to production and nothing for a human to gate.
