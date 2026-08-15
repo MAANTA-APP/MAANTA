@@ -37,6 +37,9 @@ Per `CLAUDE.md`, the register rows came first: **D103** and **D104**.
 
 ### D103 — the agent field is already there
 
+**Closed 2026-08-15.** The finding below stands; what changed is the diagnosis of
+where the premise came from — see "The D103 fix" near the end.
+
 The programme's *guarantee* is exactly what the code does: the merchant is always
 the authenticated submitter, the agent id travels as attribution only, and an
 absent, malformed or inactive id degrades to `self_serve` rather than blocking or
@@ -48,8 +51,9 @@ rendered. One is, and it is the mechanism the guarantee is *about*. A phase buil
 on "there is no such field" will either remove a ruled surface or draw a second
 one next to it, which is how a rule ends up enforced in two places.
 
-The correction belongs to the programme document, which lives on the design side.
-Nothing in this repo should change to match the premise.
+Nothing in this repo should change to match the premise — attribution is ruled
+behaviour, not a design leftover. But see below: the repo did have something to
+fix, just not the wizard.
 
 ### D104 — the opening credit reaches the merchant, wearing an internal name
 
@@ -111,6 +115,42 @@ literal. Founder ruling first — see D104.
 - No code changed. Both findings need a founder ruling before a diff, and D104's
   fix spans a migration and a component.
 
+## The D103 fix (2026-08-15)
+
+The first reading of D103 concluded the repo needed no change, because the false
+premise lives in a design-side document. That was right about the document and
+wrong about the cause. Asking *where would a design session have got this idea*
+points at an artifact this repo owns.
+
+`maanta-app/design/current-reality/frames.json` is what `CLAUDE.md` sends a
+session to for "is this shipped, or design-ahead". Its `/merchant/onboard` entry
+said:
+
+> "Merchant-authored; agent attribution only."
+
+and listed one file, `page.tsx` — a server component that fetches the agent list
+and renders none of it. Every word is true. It also reads as a *guarantee*
+("attribution happens, nothing more") with no surface behind it, which is exactly
+the premise the programme formed. The inventory did not lie; it described a
+property where a design reader needed a screen.
+
+The entry now says the review step renders the question, names
+`onboard-wizard.tsx`, keeps the guarantee underneath it, and says plainly not to
+design the field away. The `/merchant/wallet` entry got the same treatment for
+D104's sibling premise — that the opening credit has no merchant surface — since
+both premises came from the same programme and the same silence.
+
+**The guard is a biconditional, deliberately.** `parity-sync.test.ts` asserts the
+inventory documents the agent step *if and only if* the wizard asks the question.
+Asserting only the forward direction would let a stale entry pass forever after
+the field is removed — documentation outliving its surface, which is this drift's
+exact shape. It was checked by restoring the old wording and watching the ratchet
+fail with the message naming D103, then restoring.
+
+**What this does not fix.** The programme document still carries the false
+premise, and it is not in this repo. D80 closed on the same terms and the same
+residue. What changed is that the repo can no longer supply the misreading.
+
 ## The D104 fix (2026-08-15)
 
 Founder asked for the merchant-voice label, so D104 was fixed the same day. The
@@ -153,8 +193,8 @@ The verification pass itself was documentation only, and was checked with
 `npx vitest run src/lib/__tests__/drift-register.test.ts` (12 passed) plus the
 full `npm test` (90 files, 708 tests) from `maanta-app/`.
 
-The D104 fix that followed touches shipped merchant surfaces, so it ran the full
-CI gate set from `maanta-app/`:
+The D103 and D104 fixes that followed touch shipped merchant surfaces, so they ran
+the full CI gate set from `maanta-app/`:
 
 - `npm run lint` — no ESLint warnings or errors
 - `npm run typecheck` — clean

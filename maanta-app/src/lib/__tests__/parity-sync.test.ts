@@ -76,3 +76,75 @@ describe("parity sync ratchets (2026-07-30)", () => {
     );
   });
 });
+
+/**
+ * Ratchet for drift D103.
+ *
+ * The inventory described `/merchant/onboard` as "Merchant-authored; agent
+ * attribution only" and listed only `page.tsx`. Every word of that is true and
+ * it reads as a *guarantee* — attribution happens, nothing more — with no hint
+ * that the wizard renders an agent question the merchant answers. A design
+ * programme read it as a description of absence and resolved a brief conflict on
+ * the premise that no agent name or ID field exists. It has existed since #68.
+ *
+ * The inventory is the artifact `CLAUDE.md` points design sessions at, so the
+ * fix is to make it say what renders, and to pin the two sides together: if the
+ * wizard stops asking, or the inventory stops documenting it, this fails rather
+ * than letting the two drift apart again and re-form the same premise.
+ *
+ * Deliberately a biconditional, not a pair of one-way assertions. Asserting only
+ * that the inventory mentions agents would leave a stale entry passing forever
+ * after the field is removed, which is the exact failure mode being fixed —
+ * documentation outliving the surface it describes.
+ */
+describe("onboarding agent attribution is documented where design reads (D103)", () => {
+  const wizard = readApp("src/app/merchant/onboard/onboard-wizard.tsx");
+  const frames = JSON.parse(readApp("design/current-reality/frames.json")) as {
+    surfaces: {
+      route: string;
+      frontend?: string[];
+      notes?: string | null;
+    }[];
+  };
+  const onboard = frames.surfaces.find((s) => s.route === "/merchant/onboard");
+
+  const wizardAsksAboutAgents = /Were you helped by a Maanta agent\?/.test(wizard);
+  const inventoryDocumentsTheStep = /agent/i.test(onboard?.notes ?? "");
+
+  it("keeps the wizard and the inventory in step with each other", () => {
+    expect(onboard, "/merchant/onboard missing from the inventory").toBeTruthy();
+    expect(
+      inventoryDocumentsTheStep,
+      wizardAsksAboutAgents
+        ? "the wizard asks the agent question but the inventory does not record it — that gap is D103"
+        : "the wizard no longer asks the agent question, so the inventory entry is now stale"
+    ).toBe(wizardAsksAboutAgents);
+  });
+
+  it("names the file the question actually lives in", () => {
+    // page.tsx alone sends a reader to a 60-line server component that fetches
+    // the agent list and renders nothing; the field is in the wizard.
+    expect(onboard?.frontend ?? []).toContain("src/app/merchant/onboard/onboard-wizard.tsx");
+  });
+
+  it("records that the merchant, never the agent, is the submitter", () => {
+    // The guarantee is the part the programme got right. It stays pinned so a
+    // future edit cannot quietly turn attribution into impersonation.
+    expect(onboard?.notes ?? "").toMatch(/submitter|submitting|merchant-authored/i);
+    expect(wizard).toMatch(/You&apos;re\s*\n?\s*still submitting this yourself/);
+  });
+
+  it("resolves every src path the two amended entries cite", () => {
+    // Scoped to the entries this change touched: other surfaces still carry
+    // loose paths from the 2026-07-30 pass ("wallet/page.tsx"), and fixing all
+    // 30 is a separate job from closing D103.
+    const wallet = frames.surfaces.find((s) => s.route === "/merchant/wallet");
+    const cited = [...(onboard?.frontend ?? []), ...(wallet?.frontend ?? [])].filter((p) =>
+      p.startsWith("src/")
+    );
+    expect(cited.length).toBeGreaterThan(3);
+    for (const p of cited) {
+      expect(() => readApp(p), `inventory cites missing ${p}`).not.toThrow();
+    }
+  });
+});
