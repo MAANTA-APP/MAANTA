@@ -32,7 +32,7 @@ export default async function MerchantAppLayout({
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-white lg:max-w-3xl">
       <DemoModeBanner />
-      <OfflineBanner />
+      <OfflineBanner context="merchant" />
       <MerchantTopBar
         merchantName={merchant.merchant_name}
         balance={merchant.account_balance}

@@ -44,10 +44,78 @@ function apiKey(): string | null {
 }
 
 /**
+ * Default ceiling on any call to what3words.
+ *
+ * Every request here previously ran unbounded — `await fetch(url)` with no
+ * signal — so a slow or unreachable provider held the calling serverless
+ * invocation until the platform killed it. On the claim path that turned a
+ * committed claim into a non-JSON 504 and, to the shopper, a bogus network
+ * error. A third party must never be able to consume a whole invocation:
+ * see docs/ops/claim-failure-investigation-2026-08-14.md.
+ *
+ * Generous enough for interactive validation (merchant onboarding, `/api/w3w`);
+ * the claim path passes something much tighter, because there the lookup is
+ * enrichment and the shopper is waiting on a ticket.
+ */
+export const W3W_DEFAULT_TIMEOUT_MS = 5000;
+
+/** Timeout for the claim-path geofence lookup — enrichment, not the answer. */
+export const W3W_CLAIM_TIMEOUT_MS = 1500;
+
+/**
+ * A signal that aborts after `ms`, by whichever mechanism the runtime offers.
+ *
+ * **Why this is not simply `AbortSignal.timeout(ms)`.** That method is the
+ * right primitive and exists in Node 18+, but this repository does not pin the
+ * runtime that actually serves production: there is no `engines` field in
+ * `package.json`, no `.nvmrc`, no `.node-version` and no `vercel.json`. CI pins
+ * Node 20, and that governs GitHub Actions only. The deployed version is a
+ * dashboard setting, invisible from here.
+ *
+ * A bare feature check would therefore have failed *open* on the one thing this
+ * helper exists to prevent — an unbounded call on the claim path — and it would
+ * have failed silently, because no test can observe a runtime the repository
+ * cannot name. So the fallback is real rather than a degradation:
+ * `AbortController` plus `setTimeout` is available in every runtime that has
+ * `fetch` at all, and it produces the same observable behavior.
+ *
+ * `undefined` is returned only if a runtime has neither, which would mean it
+ * also has no `fetch` — at which point the call fails on its own terms.
+ *
+ * One accepted cost in the fallback path: the timer is not cleared when the
+ * request finishes first, so it survives at most `ms` past a fast response.
+ * `unref()` is called where supported so it can never hold a process open, and
+ * the longest timer here is 5 seconds.
+ */
+export function timeoutSignal(ms: number): AbortSignal | undefined {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+
+  if (typeof AbortController !== "function") return undefined;
+
+  const controller = new AbortController();
+  const timer: unknown = setTimeout(() => controller.abort(), ms);
+  // Node timers can be unref'd so a pending abort never keeps the process
+  // alive; browser timers are plain numbers and simply skip this.
+  if (timer && typeof (timer as { unref?: () => void }).unref === "function") {
+    (timer as { unref: () => void }).unref();
+  }
+  return controller.signal;
+}
+
+/**
  * Convert a 3-word address to WGS84 coordinates.
  * Server-only — reads W3W_API_KEY. Never call from client components.
+ *
+ * An abort surfaces as `upstream`, the same as any other provider failure —
+ * callers already treat that as non-fatal, and the distinction is a server-log
+ * concern, not a caller concern.
  */
-export async function convertToCoordinates(w3w: string): Promise<W3wCoordsResult> {
+export async function convertToCoordinates(
+  w3w: string,
+  timeoutMs: number = W3W_DEFAULT_TIMEOUT_MS
+): Promise<W3wCoordsResult> {
   const words = normalizeWhat3Words(w3w);
   if (!words) {
     return {
@@ -70,7 +138,7 @@ export async function convertToCoordinates(w3w: string): Promise<W3wCoordsResult
     const url = new URL(W3W_CONVERT_TO_COORDS);
     url.searchParams.set("words", words);
     url.searchParams.set("key", key);
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: timeoutSignal(timeoutMs) });
     const body = await res.json().catch(() => null);
 
     if (!res.ok || typeof body?.coordinates?.lat !== "number") {
@@ -156,16 +224,22 @@ export async function convertTo3Words(
 }
 
 /**
- * Legacy helper used by claim geofence — returns null on any failure.
+ * Claim-geofence helper — returns null on any failure, including a timeout.
+ *
+ * Bounded by `W3W_CLAIM_TIMEOUT_MS` rather than the interactive default: on the
+ * claim path this is enrichment behind an already-committed redemption, so a
+ * slow provider must cost the shopper a missing distance figure, never their
+ * ticket. Every failure mode — timeout, provider down, malformed body, missing
+ * key — collapses to `null` and is logged server-side with the reason code
+ * only; the address and the shopper's coordinates are never logged.
  */
 export async function convertWhat3WordsToCoordinates(
-  words: string
+  words: string,
+  timeoutMs: number = W3W_CLAIM_TIMEOUT_MS
 ): Promise<{ lat: number; lng: number } | null> {
-  const result = await convertToCoordinates(words);
+  const result = await convertToCoordinates(words, timeoutMs);
   if (!result.ok) {
-    if (result.code === "missing_key") {
-      console.error("W3W_API_KEY is not set");
-    }
+    console.error("what3words lookup unavailable:", { code: result.code });
     return null;
   }
   return { lat: result.lat, lng: result.lng };

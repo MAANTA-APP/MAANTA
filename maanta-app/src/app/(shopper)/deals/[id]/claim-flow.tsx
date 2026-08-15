@@ -6,6 +6,10 @@ import { Button, StickyCtaBar } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/overlays";
 import { W3wChip } from "@/components/ui/chips";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import {
+  claimTransportFailure,
+  interpretClaimResponse,
+} from "@/lib/claim-response";
 import posthog from "posthog-js";
 
 /**
@@ -56,8 +60,15 @@ export function ClaimFlow({
     const pos = await getPosition();
     if (cancelled) return;
 
+    // Transport and interpretation are separated deliberately. Only a rejected
+    // `fetch` is a transport failure; a response that arrived but could not be
+    // parsed is a *server* failure, and conflating the two is what told a
+    // shopper "Network error" for a claim that had already committed. See
+    // `@/lib/claim-response` and
+    // docs/ops/claim-response-reliability-fix-2026-08-14.md.
+    let res: Response;
     try {
-      const res = await fetch("/api/redemptions", {
+      res = await fetch("/api/redemptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -66,26 +77,36 @@ export function ClaimFlow({
           lng: pos?.coords.longitude,
         }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setChecking(false);
-        // Phone-required-at-claim gate: an email-only session must add a phone
-        // (SMS OTP) first, then land back on this deal to finish claiming.
-        if (body.code === "phone_required") {
-          router.push(
-            `/verify-phone?next=${encodeURIComponent(`/deals/${dealId}`)}`
-          );
-          return;
-        }
-        setError(body.error ?? "Could not claim this deal.");
-        return;
-      }
-      router.push(`/tickets/${body.redemptionId}?claimed=1`);
-      router.refresh();
     } catch {
       setChecking(false);
-      setError("Network error — please try again.");
+      setError(claimTransportFailure().message);
+      return;
     }
+
+    const outcome = await interpretClaimResponse(res);
+
+    if (outcome.kind === "success") {
+      router.push(`/tickets/${outcome.redemptionId}?claimed=1`);
+      router.refresh();
+      return;
+    }
+
+    setChecking(false);
+
+    if (outcome.kind === "redirect") {
+      // Phone-required-at-claim gate: an email-only session must add a phone
+      // (SMS OTP) first, then land back on this deal to finish claiming. A
+      // lapsed session goes to login and returns the same way.
+      const next = encodeURIComponent(`/deals/${dealId}`);
+      router.push(
+        outcome.to === "phone"
+          ? `/verify-phone?next=${next}`
+          : `/login?next=${next}`
+      );
+      return;
+    }
+
+    setError(outcome.message);
   }
 
   if (checking) {
