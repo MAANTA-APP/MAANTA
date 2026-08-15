@@ -226,6 +226,38 @@ re-exposing the config key fails. It also pins that both queries still select
 `provider_reference` — dropping that column would typecheck, look harmless, and
 silently restore the leak, which is the failure mode most likely to come back.
 
+## The D105 build (2026-08-15)
+
+Founder ruled the count derived, so the state shipped. Three things a reviewer
+should check, because each was a judgement rather than a transcription:
+
+**All three numerals are computed, not typed.** The brief's sentence survives
+clause for clause — "KES 300 starting credit — your first 10 verified redemptions
+covered; thereafter a transparent KES 30 success fee" — but every number in it
+comes from data: the credit from the merchant's own ledger row, the fee from
+`app_config`, the count from flooring one over the other. A test strips comments
+(via the shared D38 lexer, since the module's docblock quotes the brief) and fails
+if any of the three literals reappears in code.
+
+**The credit is read from the row, not from `app_config`.** The config value is
+today's promo; the row is what this merchant was actually granted. Reading config
+would silently restate an older merchant's credit the day the amount changes.
+
+**The trigger was mine to choose, and is recorded as such.** The brief scopes the
+state to a "new merchant" and never says when it stops. It renders only while the
+credit is unspent — no success fee charged yet — because the sentence claims "your
+first N redemptions covered" and that stops being true at the first charge. The
+alternative was writing an unruled sentence for the partly-spent case, which is
+inventing product copy. If the intent was different, this is the line to change.
+
+Two smaller calls: the state renders **last** in the wallet's state chain so a
+real warning always wins and no merchant ever sees two states at once; and it uses
+a new neutral `info` variant of `InlineAlert` rather than the rust warning tone,
+because good news in a be-careful colour is the colour-semantics error D80
+corrected on the trial pill. The `info` variant is also not `role="alert"` — an
+assertive live region is for a state that changed, not a note that is true on
+arrival.
+
 ## Verification run
 
 The verification pass itself was documentation only, and was checked with
@@ -237,7 +269,7 @@ the full CI gate set from `maanta-app/`:
 
 - `npm run lint` — no ESLint warnings or errors
 - `npm run typecheck` — clean
-- `npm test` — 91 files, 719 tests passing (the 11 new ones are the D104 guard)
+- `npm test` — 91 files, 732 tests passing (20 of them the D104 and D105 guards)
 - `npm run build` — succeeded, including all three chained post-build gates:
   `check:tokens` clean over 47 rendered files and 402 chunks, `check:canonicals`
   clean over 16 marketing routes, `check:forms` clean

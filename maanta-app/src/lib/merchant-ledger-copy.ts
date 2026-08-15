@@ -107,6 +107,82 @@ export function formatMerchantLedgerDescription(row: LedgerRowCopy): string | nu
 }
 
 /**
+ * How many verified redemptions an opening credit covers (drift D105).
+ *
+ * Design Brief v1.4 §9 specifies the copy as "your first 10 verified redemptions
+ * covered", and 10 is KES 300 over the KES 30 success fee — a derived number
+ * written down as a literal. Both inputs live in `app_config`
+ * (`node0_opening_credit_kes`, `success_fee_kes`), so the literal would be a
+ * hardcoded fee under a different name, and would go quietly wrong the day either
+ * value moves. Founder ruled 2026-08-15 to derive it.
+ *
+ * Floors, because a partly-covered redemption is not covered. Returns 0 when the
+ * fee is missing or zero rather than dividing by it.
+ */
+export function openingCreditRedemptionsCovered(
+  creditAmount: number,
+  successFee: number
+): number {
+  if (!(creditAmount > 0) || !(successFee > 0)) return 0;
+  return Math.floor(creditAmount / successFee);
+}
+
+/**
+ * The new-merchant opening-credit wallet state.
+ *
+ * The sentence is the brief's, kept clause for clause, with its three numerals
+ * derived instead of typed. Returns null when there is nothing honest to say —
+ * no credit, or a fee that would make the count meaningless — because a state
+ * that cannot state a true number should not render at all.
+ *
+ * `formatMoney` is injected so this module stays free of UI imports and the
+ * caller keeps one money formatter.
+ */
+export function formatOpeningCreditNotice(
+  creditAmount: number,
+  successFee: number,
+  formatMoney: (amount: number) => string
+): string | null {
+  const covered = openingCreditRedemptionsCovered(creditAmount, successFee);
+  if (covered < 1) return null;
+  const redemptions = covered === 1 ? "redemption" : "redemptions";
+  return (
+    `${formatMoney(creditAmount)} starting credit — your first ${covered} verified ` +
+    `${redemptions} covered; thereafter a transparent ${formatMoney(successFee)} success fee.`
+  );
+}
+
+/**
+ * True while the opening credit is still unspent: the grant is in the ledger and
+ * no success fee has been charged against it yet.
+ *
+ * The brief scopes the state to a *new merchant*, and the sentence it specifies
+ * makes a claim about "your first N redemptions" that stops being true the moment
+ * one is charged. Tying the state to an unspent credit keeps the claim honest
+ * without inventing a second, unruled sentence for the partly-spent case.
+ */
+export function hasUnspentOpeningCredit<T extends LedgerRowCopy>(rows: T[]): boolean {
+  if (!rows.some(isOpeningCredit)) return false;
+  return !rows.some(
+    (r) =>
+      r.transaction_type === "success_fee" || r.transaction_type === "success_fee_arrears"
+  );
+}
+
+/** The granted amount from the merchant's own credit row, or null if there is none. */
+export function openingCreditAmount<T extends LedgerRowCopy & { amount: number | string }>(
+  rows: T[]
+): number | null {
+  const row = rows.find(isOpeningCredit);
+  if (!row) return null;
+  // The row is what this merchant was actually granted. Reading the current
+  // app_config value instead would misstate an older merchant's credit the day
+  // the promo amount changes.
+  const amount = typeof row.amount === "string" ? parseFloat(row.amount) : row.amount;
+  return Number.isFinite(amount) ? amount : null;
+}
+
+/**
  * Whether `provider_reference` is a reference the merchant can use.
  *
  * For a card or M-Pesa top-up it is the provider's own reference and belongs on

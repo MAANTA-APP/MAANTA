@@ -4,6 +4,13 @@ import { cn } from "@/lib/ui";
  * InlineAlert (registry §3) — persistent, undismissible money/state notice.
  * `warning` is rust (never yellow, L6); `error` is the dark-red error tone.
  * Icon + word so the state survives greyscale (L12). Never a Toast for money.
+ *
+ * `info` is neutral: line border, secondary icon, ink body. It exists because
+ * not every persistent money state is a be-careful state — the opening credit is
+ * good news, and rendering it rust would say "act" about a balance that needs no
+ * action, which is the colour-semantics error D80 corrected on the trial pill.
+ * Neutral is also why it is not `role="alert"`: an assertive live region is for a
+ * state that changed, not for a note that is simply true on arrival.
  */
 export function InlineAlert({
   variant = "warning",
@@ -11,15 +18,20 @@ export function InlineAlert({
   children,
   className,
 }: {
-  variant?: "warning" | "error";
+  variant?: "warning" | "error" | "info";
   title?: string;
   children?: React.ReactNode;
   className?: string;
 }) {
-  const tone = variant === "error" ? "border-flame text-flame" : "border-rust text-rust";
+  const tone =
+    variant === "error"
+      ? "border-flame text-flame"
+      : variant === "info"
+        ? "border-line text-secondary"
+        : "border-rust text-rust";
   return (
     <div
-      role="alert"
+      role={variant === "info" ? "note" : "alert"}
       className={cn(
         "flex gap-2.5 rounded-card border-[1.5px] border-l-[5px] bg-white p-3",
         tone,
@@ -32,7 +44,7 @@ export function InlineAlert({
           tone
         )}
       >
-        !
+        {variant === "info" ? "i" : "!"}
       </span>
       <div className="text-sm leading-snug text-ink">
         {title ? <span className="font-bold">{title}</span> : null}
