@@ -24,7 +24,7 @@ Repro: block `**clerk**` network requests → `/sign-up` renders `bodyLen: 0`; `
    - Failure-state links stay relative (`/sign-up`, `/login`, `/feed`) — tested in `clerk-auth-shell.test.ts`.
 
 ## ClerkFailed on preview URLs
-Production `pk_live_` keys only allow origins configured in the Clerk dashboard (`maanta.app`, `www.maanta.app`). `*.vercel.app` preview deploys will hit `ClerkFailed` unless the preview origin is allowlisted or preview uses `pk_test_` dev keys.
+Production `pk_live_` keys only allow origins configured in the Clerk dashboard (`maanta.app`, `www.maanta.app`). `*.vercel.app` preview deploys will hit `ClerkFailed` unless the preview origin is allowlisted — **development `pk_test_` keys alone do not prevent this** (measured 2026-08-15 on the #201 Preview: dev keys present and server middleware healthy, widget still origin-blocked; the instance's origin allowlist was enabled with an empty list). See drift row D101 and the accepted Option C Preview posture in `docs/maanta-decisions-log.md`.
 
 ## Verify
 - Hero: `Get started` → `/feed` shows mall picker + deals/empty state.
