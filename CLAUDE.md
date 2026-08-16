@@ -11,10 +11,15 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger is reconciled as of 2026-08-08** (**D24**
+still on. **The migration ledger was reconciled at 87/87 on 2026-08-08** (**D24**
 closed 2026-08-05): production's `schema_migrations` and this repo's
-`supabase/migrations/` agree on all 87 version/name pairs, read back after
-the 2026-08-08 applies. The `claim_deal` pause gate is **live** (**D25**
+`supabase/migrations/` agreed on all 87 version/name pairs, read back after
+the 2026-08-08 applies. **It is one row out again as of 2026-08-16** —
+`20260816020000_admin_assisted_onboarding_attribution.sql` is applied and
+verified live but has no ledger row, because the DDL went through
+`execute_sql` to dodge D86's minted versions and the hand-written ledger
+INSERT was refused by the environment. That is **D107**, open, and one
+statement closes it. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
 assigning it is founder-held, Q14). The role's DB policy layer is **live**
@@ -68,7 +73,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod at 87/87 as of 2026-08-08 — drift **D24** closed 2026-08-05; the **D73** per-node cap reland `20260807160000` and **D74** cofounder read policies `20260807161000` applied to production 2026-08-08 and read back) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod at 87/87 on 2026-08-08 — drift **D24** closed 2026-08-05; the **D73** per-node cap reland `20260807160000` and **D74** cofounder read policies `20260807161000` applied to production 2026-08-08 and read back. **One row out again since 2026-08-16: `20260816020000` is applied but unrecorded — D107**) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |

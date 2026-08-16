@@ -30,8 +30,11 @@ to `maanta-decisions-log.md`, not this file.
 >
 > The schema-side reconciliation (E17) is **done**, and its residue cleared on
 > 2026-08-08: **D73** (per-node cap reland) and **D74** (cofounder policy
-> layer) both applied to production with read-backs — ledger 87/87. The open
-> residue is now only the deployment-side promote guard (**D71** — narrowed
+> layer) both applied to production with read-backs — ledger 87/87 *on that
+> date*. It has since gone one row out: **D107** (opened 2026-08-16) — the
+> D106 attribution migration `20260816020000` is applied and verified live but
+> unrecorded in `schema_migrations`, and one INSERT closes it. The open
+> residue is now the deployment-side promote guard (**D71** — narrowed
 > 2026-08-05: Vercel Authentication is enabled at scope
 > `all_except_custom_domains`, so branch/preview URLs are no longer public;
 > the promote path itself remains ungated). The register rows are the detail.
