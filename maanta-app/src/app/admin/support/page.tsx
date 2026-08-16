@@ -25,9 +25,18 @@ export default async function AdminSupportPage({
 
   return (
     <main className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-ink">
-        {view === "open" ? `Open issues (${(tasks ?? []).length})` : "Resolved issues"}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-ink">
+          {view === "open" ? `Open issues (${(tasks ?? []).length})` : "Resolved issues"}
+        </h1>
+        {/* Quiet, not amber: the queue's override buttons carry the amber budget. */}
+        <Link
+          href="/admin/support/new"
+          className="rounded-full border border-ink bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-cream"
+        >
+          Log an issue
+        </Link>
+      </div>
 
       <div className="mt-5 flex gap-2">
         {(["open", "resolved"] as const).map((v) => (

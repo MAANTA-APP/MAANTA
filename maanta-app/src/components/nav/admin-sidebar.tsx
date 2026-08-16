@@ -19,6 +19,7 @@ const ITEMS = [
   { href: "/admin/agents", label: "Agents" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/billing", label: "Billing" },
+  { href: "/admin/resources", label: "Resources" },
 ];
 
 function isActive(pathname: string, href: string) {
