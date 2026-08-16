@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { stripComments } from "./helpers/comment-stripping";
 
 /**
  * Guards for admin-assisted onboarding.
@@ -137,23 +138,32 @@ describe("phone validation is wider here, and only here", () => {
     "utf8"
   );
 
+  // Comments are stripped before asserting, via the one shared lexer (D38).
+  // These routes explain their own choice of validator in prose and name the
+  // other one while doing it, so a raw substring check reads a *mention* as a
+  // *call* — which is how the first version of this suite failed on a comment
+  // that documented the very rule it was guarding.
+  const adminCode = stripComments(route);
+  const merchantCode = stripComments(merchantRoute);
+  const topupCode = stripComments(topupRoute);
+
   it("accepts an international shop number on the admin path", () => {
-    expect(route).toContain("isValidInternationalPhone");
-    expect(route).not.toContain("isValidKenyanPhone");
+    expect(adminCode).toContain("isValidInternationalPhone");
+    expect(adminCode).not.toContain("isValidKenyanPhone");
   });
 
   it("keeps the merchant-authored path Kenya-only", () => {
     // A shop owner standing in BBS Mall entering a foreign number is far more
     // likely a typo than a fact. Widening this route is a separate decision.
-    expect(merchantRoute).toContain("isValidKenyanPhone");
-    expect(merchantRoute).not.toContain("isValidInternationalPhone");
+    expect(merchantCode).toContain("isValidKenyanPhone");
+    expect(merchantCode).not.toContain("isValidInternationalPhone");
   });
 
   it("keeps the M-Pesa top-up path Kenya-only", () => {
     // This number goes to the provider for an STK push. A non-Kenyan MSISDN
     // cannot receive one, so widening here would trade a clear 400 for a
     // failed payment.
-    expect(topupRoute).toContain("isValidKenyanPhone");
-    expect(topupRoute).not.toContain("isValidInternationalPhone");
+    expect(topupCode).toContain("isValidKenyanPhone");
+    expect(topupCode).not.toContain("isValidInternationalPhone");
   });
 });

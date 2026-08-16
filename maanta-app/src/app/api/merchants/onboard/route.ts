@@ -50,8 +50,22 @@ export async function POST(request: Request) {
 
   // Format-check the phone, not just its presence (SEC-013). The top-up route
   // already validates with this same helper; onboarding did not, so a malformed
-  // number persisted to the merchant record — and that record is what staff
-  // phone-linking (lib/merchant.ts) and merchant notifications key on later.
+  // number persisted to the merchant record.
+  //
+  // This comment used to add "and that record is what staff phone-linking
+  // (lib/merchant.ts) and merchant notifications key on later" — neither is
+  // true, and the false version is what made the rule look load-bearing when it
+  // was not (drift D109). `getMerchantContext` links staff by matching
+  // `merchant_staff.phone` against `users.phone`, a different column entirely,
+  // and no notification path reads `merchants.phone` at all. What the column
+  // actually does: it is displayed as the shop's contact, and it *prefills* the
+  // M-Pesa top-up field — a prefill only, since `/api/topup` re-validates the
+  // submitted number.
+  //
+  // The rule stays here anyway, on its own merits: this is the merchant-authored
+  // wizard, filled in by an owner standing in BBS Mall, where a foreign number is
+  // more likely a typo than a fact. The admin-assisted route is deliberately
+  // wider — see `isValidInternationalPhone`.
   if (typeof phone !== "string" || !isValidKenyanPhone(phone)) {
     return NextResponse.json(
       { error: "Enter a valid Kenyan mobile number (e.g. 07XX XXX XXX)." },

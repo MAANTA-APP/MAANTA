@@ -51,3 +51,32 @@ describe("TopupFlow — Phase 1 Stripe-first honesty", () => {
     expect(stkIdx).toBeGreaterThan(cardIdx);
   });
 });
+
+describe("TopupFlow — the phone prefill (D110)", () => {
+  function renderWithPhone(merchantPhone: string) {
+    return renderToStaticMarkup(
+      createElement(TopupFlow, {
+        balance: 500,
+        merchantPhone,
+        initialAmount: 3000,
+        stripeResult: null,
+        mpesaAvailable: true,
+      })
+    );
+  }
+
+  it("prefills a Kenyan shop number, which M-Pesa can reach", () => {
+    expect(renderWithPhone("+254712345678")).toContain('value="+254712345678"');
+  });
+
+  it("leaves the field empty for a shop number M-Pesa cannot reach", () => {
+    // Admin-assisted onboarding accepts international shop phones — that field
+    // is a contact — while /api/topup validates the submitted number as Kenyan,
+    // because a non-Kenyan MSISDN cannot receive an STK push. Seeding the field
+    // with a number the next click rejects reads as a broken payment rather
+    // than a mismatched contact detail.
+    const html = renderWithPhone("+4796951162");
+    expect(html).not.toContain("+4796951162");
+    expect(html).toContain('value=""');
+  });
+});
