@@ -243,12 +243,21 @@ if any of the three literals reappears in code.
 today's promo; the row is what this merchant was actually granted. Reading config
 would silently restate an older merchant's credit the day the amount changes.
 
-**The trigger was mine to choose, and is recorded as such.** The brief scopes the
-state to a "new merchant" and never says when it stops. It renders only while the
-credit is unspent — no success fee charged yet — because the sentence claims "your
-first N redemptions covered" and that stops being true at the first charge. The
-alternative was writing an unruled sentence for the partly-spent case, which is
-inventing product copy. If the intent was different, this is the line to change.
+**The trigger was mine to choose at ship time — and was ruled on 2026-08-16.** The
+brief scopes the state to a "new merchant" and never says when it stops. It renders
+only while the credit is unspent — no success fee charged yet — because the sentence
+claims "your first N redemptions covered" and that stops being true at the first
+charge. The alternative was writing an unruled sentence for the partly-spent case,
+which is inventing product copy.
+
+The founder closed the question on the shipped behaviour rather than commissioning
+that second sentence, so the predicate is now the rule and **there is deliberately
+no partly-spent state**: a merchant who has redeemed once sees the ordinary wallet,
+and the credit remains visible as its ledger row. Recorded in
+`docs/maanta-decisions-log.md` under 2026-08-16, and in the `hasUnspentOpeningCredit`
+docblock, which is where someone would go to widen it. Widening it would make the
+product assert something untrue, so it needs a new ruling and new copy from the
+brief — not a predicate tweak.
 
 Two smaller calls: the state renders **last** in the wallet's state chain so a
 real warning always wins and no merchant ever sees two states at once; and it uses
