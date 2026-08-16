@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
+import { IconChevronRight } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +48,10 @@ export default async function AdminAgentsPage() {
             const u = a.users as unknown as { full_name: string | null; phone: string | null } | null;
             const done = convertedByAgent.get(a.id) ?? 0;
             return (
-              <div
+              <Link
                 key={a.id}
-                className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+                href={`/admin/agents/${a.id}`}
+                className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5 hover:bg-stone-soft"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-ink">
@@ -65,7 +68,8 @@ export default async function AdminAgentsPage() {
                   />
                 </div>
                 {!a.is_active ? <StatusChip status="paused" label="Inactive" /> : null}
-              </div>
+                <IconChevronRight className="h-4 w-4 text-muted" aria-hidden />
+              </Link>
             );
           })
         )}
