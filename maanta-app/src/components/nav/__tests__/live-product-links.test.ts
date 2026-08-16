@@ -69,6 +69,56 @@ describe("live product links", () => {
   });
 });
 
+describe("admin sidebar — what leaves the console sits below the rule", () => {
+  const itemsStart = sidebar.indexOf("const ITEMS = [");
+  const itemsBlock = sidebar.slice(itemsStart, sidebar.indexOf("];", itemsStart));
+  const dividerAt = sidebar.indexOf("border-t border-white/15");
+  const founderAt = sidebar.indexOf('href="/founder"');
+  const liveLabelAt = sidebar.indexOf("Live product");
+
+  it("keeps ITEMS to routes that stay inside the admin shell", () => {
+    // /founder used to sit between Reports and Agents, styled identically to
+    // eleven routes that never leave the console. It reads as a section of the
+    // console, which it is not — it is a different shell with its own layout.
+    expect(itemsBlock).not.toContain("/founder");
+    for (const href of itemsBlock.match(/href: "([^"]+)"/g) ?? []) {
+      expect(href, "every console item is under /admin").toContain('"/admin');
+    }
+  });
+
+  it("still offers the founder dashboard, below the rule and above Live product", () => {
+    expect(founderAt).toBeGreaterThan(-1);
+    expect(dividerAt).toBeGreaterThan(-1);
+    expect(founderAt, "below the rule that marks 'leaving the console'").toBeGreaterThan(
+      dividerAt
+    );
+    expect(founderAt, "not filed under the live-product heading").toBeLessThan(liveLabelAt);
+  });
+
+  it("switches shells in place, unlike the live-product glance links", () => {
+    const founderLink = sidebar.slice(founderAt, liveLabelAt);
+    expect(founderLink).not.toContain('target="_blank"');
+  });
+
+  it("claims no active state it could never show", () => {
+    // /founder renders FounderHeader in its own layout, so this sidebar is never
+    // mounted on a /founder path and an isActive branch for it is unreachable.
+    const founderLink = sidebar.slice(founderAt, liveLabelAt);
+    expect(founderLink).not.toContain("isActive");
+    const founderLayout = readFileSync(
+      path.resolve(NAV_DIR, "..", "..", "app", "founder", "layout.tsx"),
+      "utf8"
+    );
+    expect(founderLayout).not.toContain("AdminSidebar");
+  });
+
+  it("is reachable by every role that can see the sidebar", () => {
+    // The sidebar only ever renders inside the admin shell.
+    expect(canAccessAdminConsole("admin")).toBe(true);
+    expect(canAccessFounderDashboard("admin")).toBe(true);
+  });
+});
+
 describe("FounderHeader admin link", () => {
   it("renders for an admin", () => {
     const html = renderToStaticMarkup(

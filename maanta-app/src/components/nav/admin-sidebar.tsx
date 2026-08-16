@@ -7,7 +7,15 @@ import { cn } from "@/lib/ui";
 import { IconMenu, IconX } from "@/components/ui/icons";
 import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-links";
 
-/** 5e Admin left sidebar (black, yellow active item) — collapses to ☰ on mobile (11k). */
+/**
+ * 5e Admin left sidebar (black, yellow active item) — collapses to ☰ on mobile (11k).
+ *
+ * The list is only the admin console's own sections. Everything below the rule
+ * is somewhere else: `/founder` is a different shell, and the live-product links
+ * are the public product. `/founder` used to sit between Reports and Agents,
+ * styled identically to eleven routes that stay inside this shell, which read as
+ * if the founder dashboard were a section of the console.
+ */
 const ITEMS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/approvals", label: "Approvals" },
@@ -16,7 +24,6 @@ const ITEMS = [
   { href: "/admin/deals", label: "Deals" },
   { href: "/admin/redemptions", label: "Redemptions" },
   { href: "/admin/reports", label: "Reports" },
-  { href: "/founder", label: "Founder" },
   { href: "/admin/agents", label: "Agents" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/billing", label: "Billing" },
@@ -50,13 +57,32 @@ export function AdminSidebar() {
         </Link>
       ))}
 
-      {/* Live product — separated, quiet, and never amber: amber marks the active
-          console item, and these are somewhere to look, not the work. Plain <a>
-          rather than <Link> because leaving the console app shell is the point. */}
+      {/* Everything past this rule leaves the admin console.
+
+          `/founder` needs no group label — its own name is the label — and it keeps
+          <Link> and the same tab, because switching shells is a deliberate move,
+          unlike the live-product links below where the point is to glance without
+          losing your place in a queue. Every role that can see this sidebar can
+          reach it: `canAccessAdminConsole` is `admin` alone and
+          `canAccessFounderDashboard` admits `admin`, so it is never a link into a
+          wall. It carries **no active state** on purpose — `/founder` renders
+          `FounderHeader` in its own layout, not this sidebar, so an `isActive`
+          branch here could never be true. */}
       <div className="mt-3 border-t border-white/15 pt-3">
-        {/* white/70, not /40: at 11px on ink, 40% composites to ~3.3:1 and fails
+        <Link
+          href="/founder"
+          onClick={() => setOpen(false)}
+          className="block rounded-lg px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+        >
+          Founder
+        </Link>
+
+        {/* Live product — quiet, and never amber: amber marks the active console
+            item, and these are somewhere to look, not the work. Plain <a> rather
+            than <Link> because leaving the app shell entirely is the point.
+            white/70, not /40: at 11px on ink, 40% composites to ~3.3:1 and fails
             the 4.5:1 floor for small text. */}
-        <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
+        <p className="mt-3 px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
           Live product
         </p>
         {LIVE_PRODUCT_LINKS.map(({ href, label, Icon }) => (
