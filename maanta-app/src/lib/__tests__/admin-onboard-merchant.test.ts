@@ -130,3 +130,30 @@ describe("the migration keeps every attribution rule it inherited", () => {
     expect(migration).toMatch(/p_onboarding_agent_id does not reference an active agent/);
   });
 });
+
+describe("phone validation is wider here, and only here", () => {
+  const topupRoute = readFileSync(
+    path.join(ROOT, "src", "app", "api", "topup", "route.ts"),
+    "utf8"
+  );
+
+  it("accepts an international shop number on the admin path", () => {
+    expect(route).toContain("isValidInternationalPhone");
+    expect(route).not.toContain("isValidKenyanPhone");
+  });
+
+  it("keeps the merchant-authored path Kenya-only", () => {
+    // A shop owner standing in BBS Mall entering a foreign number is far more
+    // likely a typo than a fact. Widening this route is a separate decision.
+    expect(merchantRoute).toContain("isValidKenyanPhone");
+    expect(merchantRoute).not.toContain("isValidInternationalPhone");
+  });
+
+  it("keeps the M-Pesa top-up path Kenya-only", () => {
+    // This number goes to the provider for an STK push. A non-Kenyan MSISDN
+    // cannot receive one, so widening here would trade a clear 400 for a
+    // failed payment.
+    expect(topupRoute).toContain("isValidKenyanPhone");
+    expect(topupRoute).not.toContain("isValidInternationalPhone");
+  });
+});
