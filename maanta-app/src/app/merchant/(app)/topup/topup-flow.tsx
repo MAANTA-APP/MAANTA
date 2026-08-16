@@ -6,6 +6,7 @@ import { AmountField, TextField } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { isValidKenyanPhone } from "@/lib/phone";
 import { formatKes } from "@/lib/ui";
 import posthog from "posthog-js";
 
@@ -39,7 +40,17 @@ export function TopupFlow({
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(initialAmount);
-  const [phone, setPhone] = useState(merchantPhone);
+  // Prefill only a number M-Pesa can actually reach. The shop's contact number
+  // may be foreign — the admin-assisted onboarding route accepts international
+  // numbers, since that field is a contact and a pilot shop's owner need not be
+  // in Kenya — while /api/topup validates the *submitted* number as Kenyan,
+  // because a non-Kenyan MSISDN cannot receive an STK push. Seeding the field
+  // with a number the next click rejects is a dead end that reads as a bug in
+  // the payment, not as a mismatched contact detail. Empty is honest: it asks
+  // for the M-Pesa number rather than pretending to know it.
+  const [phone, setPhone] = useState(
+    isValidKenyanPhone(merchantPhone) ? merchantPhone : ""
+  );
   const [stage, setStage] = useState<Stage>(() =>
     stripeResult === "cancelled"
       ? { kind: "failed", message: "The card payment was cancelled. No money left your account." }
