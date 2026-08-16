@@ -19,6 +19,23 @@ The friends-and-family pilot at Node 0 is the live gate, and the person most
 exposed is the admin — an orphaned shopper loses their claim history, an
 orphaned admin loses the console.
 
+> **Status 2026-08-16 — the working admin account is NOT orphaned, and the
+> decisive test below is moot for it.** Row
+> `d8c1aa1e-f89e-4aeb-8ec1-e42b06101409` (`admin@maanta.app`) has **29**
+> `admin_ops_log` rows, **4 written after 14:51 UTC on 2026-08-16** — when D99
+> measured production serving the *production* Clerk instance — most recent
+> 18:53 UTC. `logAdminOp` is reachable only through `requireAdminApi()` →
+> `ensureAppUser()` → `currentClerkUserId()`, and a Clerk session is verified
+> against the serving instance's keys, so a `sub` minted by the retired
+> development instance could not have produced those writes. Clerk user ids are
+> stable per instance per user, so a fresh sign-in returns the same id.
+>
+> **Do not run the sign-out/sign-in test on that account as though the question
+> were open** — signing out to prove something already proven is how you turn a
+> non-problem into a lockout at a bad moment. The rest of this document stands
+> for the other 8 Clerk-linked rows, and for any future instance change. See
+> **D108**.
+
 ## What is already true in production (measured 2026-08-16)
 
 - **9** `public.users` rows carry a `clerk_user_id`; **3** are `admin`.
@@ -60,6 +77,9 @@ ORDER BY created_at;
 Keep this. Repair is much easier when you know which row was the real one.
 
 ### The cheap decisive test
+
+**Not needed for `admin@maanta.app` as of 2026-08-16** — see the status note at
+the top. Use it for an account whose provenance is genuinely untested.
 
 Nothing in the database records which instance minted a `sub`, so the only way
 to know whether the current instance still matches is to sign in.
