@@ -29,7 +29,13 @@ export function OperationsLinks({
 }) {
   const items = [
     { href: "/admin/support", title: "Support queue", sub: "Review and resolve agent tasks" },
-    { href: "/admin", title: "Merchant approvals", sub: `${pendingMerchants} shops waiting` },
+    // /admin is the console overview since 2026-08-16; the queue this card names
+    // lives at /admin/approvals, and the card must go where its label says.
+    {
+      href: "/admin/approvals",
+      title: "Merchant approvals",
+      sub: `${pendingMerchants} shops waiting`,
+    },
     { href: "/admin/reports", title: "Platform reports", sub: "14-day redemption chart + KPIs" },
     {
       href: "/admin/redemptions",
