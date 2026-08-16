@@ -9,8 +9,11 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...rest }, children as never),
 }));
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/admin" }));
+
 import { LIVE_PRODUCT_LINKS } from "../live-product-links";
 import { FounderHeader } from "../founder-header";
+import { AdminSidebar } from "../admin-sidebar";
 import { canAccessAdminConsole, canAccessFounderDashboard } from "@/lib/roles";
 
 /**
@@ -110,6 +113,25 @@ describe("admin sidebar — what leaves the console sits below the rule", () => 
       "utf8"
     );
     expect(founderLayout).not.toContain("AdminSidebar");
+  });
+
+  it("renders in that order, not merely in that source order", () => {
+    // The assertions above read source text, so they would still pass if the
+    // founder link were moved into a wrapper rendered somewhere else. This one
+    // reads the markup the operator actually gets.
+    const html = renderToStaticMarkup(createElement(AdminSidebar));
+    const hrefs = (html.match(/href="[^"]+"/g) ?? []).map((h) => h.slice(6, -1));
+
+    const founder = hrefs.indexOf("/founder");
+    const lastConsoleItem = hrefs.reduce(
+      (last, h, i) => (h.startsWith("/admin") ? i : last),
+      -1
+    );
+    const firstLiveProduct = hrefs.indexOf(LIVE_PRODUCT_LINKS[0].href);
+
+    expect(founder).toBeGreaterThan(-1);
+    expect(founder, "after every console section").toBeGreaterThan(lastConsoleItem);
+    expect(founder, "before the live-product links").toBeLessThan(firstLiveProduct);
   });
 
   it("is reachable by every role that can see the sidebar", () => {
