@@ -37,6 +37,29 @@
 -- Everything else — the merchant-authored guarantee on the authenticated path,
 -- the already_merchant / merchant_exists guards, the role promotion, the
 -- 'pending' status and 'standard' tier — is unchanged.
+--
+-- ## Overload handling, which this repo has already been bitten by once
+--
+-- `CREATE OR REPLACE FUNCTION` does NOT replace a function when the argument
+-- list changes: Postgres treats a different signature as a NEW overload. The
+-- 2026-07-02 redesign could note "no overload risk since the parameter list is
+-- unchanged"; this migration changes it, so the risk is live and
+-- `20260702084041_onboard_merchant_drop_stale_overload.sql` is the precedent for
+-- handling it. Two consequences, both handled at the bottom of this file:
+--
+--   1. **The old 11-argument function must be dropped.** Left in place it is not
+--      merely dead code — an 11-argument call matches the old signature exactly
+--      AND the new one via its default, which Postgres rejects as ambiguous
+--      (42725). That would break the merchant-authored onboarding route, which
+--      calls with exactly those 11 arguments. `COMMENT ON FUNCTION` without an
+--      argument list is ambiguous for the same reason, so it is qualified below.
+--
+--   2. **The new function object does not inherit the anon lockdown.** It is a
+--      fresh object and receives Postgres's default PUBLIC execute grant, not
+--      the revoke from `20260701132109_revoke_anon_execute_all_functions.sql`.
+--      Without the explicit REVOKE below, this migration would hand `anon` the
+--      ability to call an onboarding function — a privilege regression shipped
+--      under the banner of an attribution fix.
 
 CREATE OR REPLACE FUNCTION public.onboard_merchant(
   p_user_id uuid,
@@ -200,5 +223,27 @@ BEGIN
 END;
 $function$;
 
-COMMENT ON FUNCTION public.onboard_merchant IS
+-- Drop the now-stale 11-argument overload. Order matters only in that both must
+-- happen in this migration: leaving it would make every existing 11-argument
+-- call ambiguous rather than merely redundant.
+DROP FUNCTION IF EXISTS public.onboard_merchant(
+  uuid, text, text, text, text, text, text, text, text, text, uuid
+);
+
+-- Re-lock the new function object. A fresh object carries the default PUBLIC
+-- grant, not the earlier anon lockdown, so this is not ceremony.
+REVOKE EXECUTE ON FUNCTION public.onboard_merchant(
+  uuid, text, text, text, text, text, text, text, text, text, uuid, uuid
+) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.onboard_merchant(
+  uuid, text, text, text, text, text, text, text, text, text, uuid, uuid
+) TO authenticated, service_role;
+
+-- Qualified by signature: an unqualified COMMENT ON FUNCTION would be ambiguous
+-- if any overload ever coexists again, which is precisely how this file first
+-- failed CI.
+COMMENT ON FUNCTION public.onboard_merchant(
+  uuid, text, text, text, text, text, text, text, text, text, uuid, uuid
+) IS
   'Creates a pending merchant and promotes the user to merchant_admin. Attribution is never inferred from who happens to be calling: on the authenticated path the merchant must be the caller (self_serve, or agent_assisted when an active agent id is supplied), or an admin caller records admin_assisted under their own id. On the service_role path attribution comes from validated parameters only — p_admin_user_id must reference a real admin, p_onboarding_agent_id an active agent, and the two are mutually exclusive. p_admin_user_id added 2026-08-16 so admin-assisted onboarding is recordable from a Next.js route handler, which has no user-scoped Postgres identity under Clerk.';

@@ -98,6 +98,32 @@ describe("the migration keeps every attribution rule it inherited", () => {
     expect(migration).toMatch(/p_admin_user_id uuid DEFAULT NULL\s*\)/);
   });
 
+  it("drops the stale overload the signature change creates", () => {
+    // CREATE OR REPLACE does not replace across a changed argument list — it
+    // adds an overload. Left in place, an 11-argument call (what the
+    // merchant-authored route sends) matches the old signature exactly and the
+    // new one by default, which Postgres rejects as ambiguous. CI caught this.
+    expect(migration).toMatch(/DROP FUNCTION IF EXISTS public\.onboard_merchant\(/);
+    expect(migration).toMatch(
+      /DROP FUNCTION IF EXISTS public\.onboard_merchant\(\s*uuid,(\s*text,){9}\s*uuid\s*\)/
+    );
+  });
+
+  it("re-locks the new function object away from anon", () => {
+    // A new function object carries Postgres's default PUBLIC execute grant
+    // rather than inheriting 20260701132109's lockdown — so without this, an
+    // attribution fix would have handed anon an onboarding function.
+    expect(migration).toMatch(/REVOKE EXECUTE ON FUNCTION[\s\S]*?FROM PUBLIC, anon/);
+    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION[\s\S]*?TO authenticated, service_role/);
+  });
+
+  it("qualifies the COMMENT by signature", () => {
+    // An unqualified COMMENT ON FUNCTION is ambiguous whenever an overload
+    // exists — the exact statement that failed CI.
+    expect(migration).not.toMatch(/COMMENT ON FUNCTION public\.onboard_merchant IS/);
+    expect(migration).toMatch(/COMMENT ON FUNCTION public\.onboard_merchant\(/);
+  });
+
   it("leaves self-serve and agent-assisted attribution as they were", () => {
     expect(migration).toContain("v_onboarding_mode := 'self_serve'");
     expect(migration).toContain("v_onboarding_mode := 'agent_assisted'");
