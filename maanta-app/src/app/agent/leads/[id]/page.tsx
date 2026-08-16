@@ -101,9 +101,25 @@ export default async function LeadDetailPage({
           </div>
         </Link>
       ) : (
-        <p className="mt-5 rounded-card border border-line bg-white px-4 py-3 text-sm text-muted">
-          Not yet a merchant.
-        </p>
+        <div className="mt-5 rounded-card border border-line bg-white px-4 py-3.5">
+          <p className="text-sm font-bold text-ink">Not yet a merchant.</p>
+          {/* The onboarding handoff (G1): merchant-authored, agent-attributed.
+              The agent opens the wizard and hands the device over — the OWNER
+              signs in and submits, and the wizard's "Were you helped by a
+              Maanta agent?" step records the assist. Ghost, not amber: the
+              screen's one amber action is Link to merchant below. */}
+          <p className="mt-1 text-xs text-muted">
+            Ready to sign up? Open onboarding with the shop name filled in, then hand this
+            device to the owner — they sign in and submit it themselves, and the form&apos;s
+            agent question records your assist.
+          </p>
+          <Link
+            href={`/merchant/onboard?shop=${encodeURIComponent(lead.shop_name)}`}
+            className="mt-3 inline-flex h-10 items-center rounded-full border border-ink bg-white px-5 text-sm font-semibold text-ink hover:bg-cream"
+          >
+            Onboard this shop
+          </Link>
+        </div>
       )}
 
       {/* Lead details */}
