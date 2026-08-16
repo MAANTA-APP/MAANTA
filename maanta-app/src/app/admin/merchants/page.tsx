@@ -34,7 +34,17 @@ export default async function AdminMerchantsPage({
 
   return (
     <main className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-ink">Merchants</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-ink">Merchants</h1>
+        {/* Ghost, not amber: the directory's amber budget belongs to the row
+            actions, and onboarding is a considered act, not the default one. */}
+        <Link
+          href="/admin/merchants/new"
+          className="inline-flex h-10 items-center rounded-full border border-ink bg-white px-5 text-sm font-semibold text-ink hover:bg-cream"
+        >
+          Onboard a shop
+        </Link>
+      </div>
       <form className="mt-5 max-w-md" action="/admin/merchants">
         <SearchField name="q" defaultValue={q} placeholder="Search shops…" />
       </form>
