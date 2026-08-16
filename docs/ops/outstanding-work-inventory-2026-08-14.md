@@ -152,6 +152,18 @@ were modified.**
 
 ## 4. Clerk — production is serving a *development* instance (confirmed)
 
+> **Superseded 2026-08-16 — no longer the deployed state.** Production was
+> re-measured at 14:51 UTC on 2026-08-16 and serves the **production**
+> instance: `pk_live_Y2xlcmsubWFhbnRhLmFwcCQ` (`clerk.maanta.app$`), clerk-js
+> from `clerk.maanta.app`, and `x-clerk-auth-reason: session-token-and-uat-missing`
+> instead of the `dev-browser-missing` header below. Drift row **D99** is
+> closed on that measurement. The section below is left exactly as written
+> because it is a dated record of what was true on 2026-08-14, not a live
+> status page — but do not act on it. When the keys changed, and whether the
+> change was deliberate, is still unrecorded anywhere; and the identity
+> consequence of the change — a new instance mints new `sub`s, which
+> `src/lib/auth.ts` cannot match to existing rows — is open as **D108**.
+
 Read back from `https://www.maanta.app/login`, 2026-08-14 15:00 UTC, HTTP 200:
 
 - `data-clerk-publishable-key="pk_test_Y2hlZXJmdWwtc2FpbGZpc2gtMy5jbGVyay5hY2NvdW50cy5kZXYk"`

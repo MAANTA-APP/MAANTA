@@ -39,9 +39,12 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 **Scope: Preview only.** Not Production, not Development.
 
-Value: the same public `pk_test_…` publishable key currently served by the live
-Production Clerk development instance. Pre-verified by read-back of
-`https://www.maanta.app/login` (HTTP 200, 2026-08-14 15:00 UTC):
+Value: the same public `pk_test_…` publishable key served by the live
+Production Clerk development instance **at the time of this ruling**. Pre-verified
+by read-back of `https://www.maanta.app/login` (HTTP 200, 2026-08-14 15:00 UTC):
+Production has since moved to the production instance (**D99**, closed
+2026-08-16), so Preview and Production no longer share an instance — see the
+dated note under "Accepted residual" below.
 
 ```text
 pk_test_Y2hlZXJmdWwtc2FpbGZpc2gtMy5jbGVyay5hY2NvdW50cy5kZXYk
@@ -219,6 +222,18 @@ entry is authorized while Production shares the development instance (D99).
 Preview's proven coverage: build, Clerk server middleware, SSR, anonymous
 browsing — the D96 class. Widget/hydration coverage waits on the post-D99
 origin-allowlist or staging-domain decision.
+
+> **Premise changed 2026-08-16 — the blocker above is void, the decision is
+> not.** That sentence gates the origin-allowlist entry on Production sharing
+> the development instance. Production now serves the **production** instance
+> (D99, closed on re-measurement), so Preview's `pk_test_` dev instance and
+> Production's `pk_live_` instance are separate: an origin added to the
+> *development* instance's allowlist no longer touches the instance that serves
+> real shoppers, which is a materially weaker objection than the one recorded
+> here. That removes the stated reason to refuse; it does not decide the
+> question — the origin-allowlist vs staging-domain choice is still founder's,
+> and nothing here authorizes a dashboard change. Recorded so the next session
+> does not read a void blocker as a standing one.
 
 **Incident during execution (D100):** at 23:07/23:11 UTC the production
 controls were used instead of the Preview redeploy — the production aliases
