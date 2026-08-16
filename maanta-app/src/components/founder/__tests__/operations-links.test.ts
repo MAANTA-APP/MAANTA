@@ -31,7 +31,14 @@ const render = (canOpenAdminConsole: boolean) =>
 describe("founder Operations block", () => {
   it("links into the console for an admin", () => {
     const html = render(true);
-    for (const href of ["/admin/support", "/admin", "/admin/reports", "/admin/redemptions"]) {
+    // Note /admin/approvals, not /admin: the console's front door is the
+    // overview dashboard, and this card names the approvals queue.
+    for (const href of [
+      "/admin/support",
+      "/admin/approvals",
+      "/admin/reports",
+      "/admin/redemptions",
+    ]) {
       expect(html).toContain(`href="${href}"`);
     }
   });

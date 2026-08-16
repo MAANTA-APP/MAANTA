@@ -9,7 +9,8 @@ import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-
 
 /** 5e Admin left sidebar (black, yellow active item) — collapses to ☰ on mobile (11k). */
 const ITEMS = [
-  { href: "/admin", label: "Approvals" },
+  { href: "/admin", label: "Overview" },
+  { href: "/admin/approvals", label: "Approvals" },
   { href: "/admin/merchants", label: "Merchants" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/deals", label: "Deals" },
