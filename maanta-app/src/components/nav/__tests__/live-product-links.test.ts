@@ -9,8 +9,11 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...rest }, children as never),
 }));
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/admin" }));
+
 import { LIVE_PRODUCT_LINKS } from "../live-product-links";
 import { FounderHeader } from "../founder-header";
+import { AdminSidebar } from "../admin-sidebar";
 import { canAccessAdminConsole, canAccessFounderDashboard } from "@/lib/roles";
 
 /**
@@ -66,6 +69,75 @@ describe("live product links", () => {
     );
     expect(html).not.toContain("text-brand");
     expect(html).not.toContain("bg-brand");
+  });
+});
+
+describe("admin sidebar — what leaves the console sits below the rule", () => {
+  const itemsStart = sidebar.indexOf("const ITEMS = [");
+  const itemsBlock = sidebar.slice(itemsStart, sidebar.indexOf("];", itemsStart));
+  const dividerAt = sidebar.indexOf("border-t border-white/15");
+  const founderAt = sidebar.indexOf('href="/founder"');
+  const liveLabelAt = sidebar.indexOf("Live product");
+
+  it("keeps ITEMS to routes that stay inside the admin shell", () => {
+    // /founder used to sit between Reports and Agents, styled identically to
+    // eleven routes that never leave the console. It reads as a section of the
+    // console, which it is not — it is a different shell with its own layout.
+    expect(itemsBlock).not.toContain("/founder");
+    for (const href of itemsBlock.match(/href: "([^"]+)"/g) ?? []) {
+      expect(href, "every console item is under /admin").toContain('"/admin');
+    }
+  });
+
+  it("still offers the founder dashboard, below the rule and above Live product", () => {
+    expect(founderAt).toBeGreaterThan(-1);
+    expect(dividerAt).toBeGreaterThan(-1);
+    expect(founderAt, "below the rule that marks 'leaving the console'").toBeGreaterThan(
+      dividerAt
+    );
+    expect(founderAt, "not filed under the live-product heading").toBeLessThan(liveLabelAt);
+  });
+
+  it("switches shells in place, unlike the live-product glance links", () => {
+    const founderLink = sidebar.slice(founderAt, liveLabelAt);
+    expect(founderLink).not.toContain('target="_blank"');
+  });
+
+  it("claims no active state it could never show", () => {
+    // /founder renders FounderHeader in its own layout, so this sidebar is never
+    // mounted on a /founder path and an isActive branch for it is unreachable.
+    const founderLink = sidebar.slice(founderAt, liveLabelAt);
+    expect(founderLink).not.toContain("isActive");
+    const founderLayout = readFileSync(
+      path.resolve(NAV_DIR, "..", "..", "app", "founder", "layout.tsx"),
+      "utf8"
+    );
+    expect(founderLayout).not.toContain("AdminSidebar");
+  });
+
+  it("renders in that order, not merely in that source order", () => {
+    // The assertions above read source text, so they would still pass if the
+    // founder link were moved into a wrapper rendered somewhere else. This one
+    // reads the markup the operator actually gets.
+    const html = renderToStaticMarkup(createElement(AdminSidebar));
+    const hrefs = (html.match(/href="[^"]+"/g) ?? []).map((h) => h.slice(6, -1));
+
+    const founder = hrefs.indexOf("/founder");
+    const lastConsoleItem = hrefs.reduce(
+      (last, h, i) => (h.startsWith("/admin") ? i : last),
+      -1
+    );
+    const firstLiveProduct = hrefs.indexOf(LIVE_PRODUCT_LINKS[0].href);
+
+    expect(founder).toBeGreaterThan(-1);
+    expect(founder, "after every console section").toBeGreaterThan(lastConsoleItem);
+    expect(founder, "before the live-product links").toBeLessThan(firstLiveProduct);
+  });
+
+  it("is reachable by every role that can see the sidebar", () => {
+    // The sidebar only ever renders inside the admin shell.
+    expect(canAccessAdminConsole("admin")).toBe(true);
+    expect(canAccessFounderDashboard("admin")).toBe(true);
   });
 });
 
