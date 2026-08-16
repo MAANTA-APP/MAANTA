@@ -18,8 +18,12 @@
 -- blocks run.
 -- ============================================================
 
+-- Only the JWT claim, never `SET ROLE`. `auth.role()` reads this claim, so the
+-- function takes its service_role branch while the session keeps the owner
+-- privileges the fixtures below need. Actually switching to the `service_role`
+-- database role loses INSERT on public.users — which is how the first run of
+-- this file failed, with "permission denied for table users".
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false);
-SELECT set_config('role', 'service_role', false);
 
 -- Fixtures: one admin, one agent-owner, one active agent, and prospective
 -- merchant users. Recognisable ids so cleanup is exact.
