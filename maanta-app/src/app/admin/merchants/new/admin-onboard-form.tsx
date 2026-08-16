@@ -92,7 +92,21 @@ export function AdminOnboardForm({ candidates }: { candidates: Candidate[] }) {
       </div>
 
       <TextField name="merchantName" label="Shop name" required />
-      <TextField name="phone" label="Shop phone" placeholder="+2547…" required />
+      <div>
+        <TextField
+          name="phone"
+          label="Shop phone"
+          placeholder="+254712345678"
+          required
+        />
+        {/* Says what is accepted rather than letting the operator discover it from
+            a rejection. The merchant-authored wizard is Kenya-only and says so
+            there; this route is wider on purpose. */}
+        <p className="mt-1 text-xs text-muted">
+          Include the country code. Non-Kenyan numbers are accepted here — useful for a
+          test shop — but a real shop should carry the number a shopper would call.
+        </p>
+      </div>
 
       <div>
         <label htmlFor="node" className="text-xs font-semibold text-muted">

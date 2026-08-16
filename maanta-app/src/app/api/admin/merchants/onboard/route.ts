@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminApi } from "@/lib/admin";
 import { logAdminOp } from "@/lib/admin-audit";
-import { isValidKenyanPhone } from "@/lib/phone";
+import { isValidInternationalPhone } from "@/lib/phone";
 import { NODES } from "@/lib/nodes";
 
 /**
@@ -51,9 +51,16 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (!isValidKenyanPhone(phone)) {
+  // International, unlike the merchant-authored route — see the note on
+  // isValidInternationalPhone. The shop's number is a contact, and a pilot
+  // tester abroad has no Kenyan one; the M-Pesa path is unaffected because it
+  // takes the paying number from its own request body.
+  if (!isValidInternationalPhone(phone)) {
     return NextResponse.json(
-      { error: "A valid Kenyan phone number is required.", code: "phone_invalid" },
+      {
+        error: "A valid phone number is required — include the country code, e.g. +254712345678.",
+        code: "phone_invalid",
+      },
       { status: 400 }
     );
   }
