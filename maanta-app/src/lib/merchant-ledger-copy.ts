@@ -160,6 +160,13 @@ export function formatOpeningCreditNotice(
  * makes a claim about "your first N redemptions" that stops being true the moment
  * one is charged. Tying the state to an unspent credit keeps the claim honest
  * without inventing a second, unruled sentence for the partly-spent case.
+ *
+ * **Founder ruling, 2026-08-16 (decisions log):** this predicate is the rule, not
+ * a placeholder. There is deliberately no partly-spent state — a merchant who has
+ * redeemed once sees the ordinary wallet, and the credit remains visible as its
+ * ledger row. Widening this to keep the notice past the first success fee would
+ * make the product assert something untrue, so it needs a new ruling and new copy
+ * from the brief rather than a change here.
  */
 export function hasUnspentOpeningCredit<T extends LedgerRowCopy>(rows: T[]): boolean {
   if (!rows.some(isOpeningCredit)) return false;
