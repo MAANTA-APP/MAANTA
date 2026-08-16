@@ -3,6 +3,11 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext } from "@/lib/merchant";
 import { formatCode, formatKesSigned, friendlyTime } from "@/lib/ui";
+import {
+  formatMerchantLedgerDescription,
+  formatMerchantLedgerType,
+  showsProviderReference,
+} from "@/lib/merchant-ledger-copy";
 import { IconArrowLeft } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +31,12 @@ export default async function TransactionDetailPage({
     .maybeSingle();
   if (!txn) notFound();
 
-  const typeLabel: Record<string, string> = {
-    topup: "Top-up",
-    success_fee: "Success fee",
-    boost_fee: "Boost",
-    subscription: "Elite subscription",
-    refund: "Refund",
-  };
+  // Type line, description and reference visibility all come from
+  // lib/merchant-ledger-copy — the local map here listed five of the eight
+  // ledger types and printed the raw enum for the rest, and the description was
+  // rendered verbatim, which is how the opening credit's operator string
+  // reached a merchant (D104).
+  const description = formatMerchantLedgerDescription(txn);
 
   // For success fees, look up the redemption's deal + code.
   let deal: string | null = null;
@@ -63,8 +67,7 @@ export default async function TransactionDetailPage({
         {formatKesSigned(Number(txn.amount))}
       </p>
       <p className="mt-1 text-center text-sm text-muted">
-        {typeLabel[txn.transaction_type] ?? txn.transaction_type} ·{" "}
-        {friendlyTime(txn.created_at)}
+        {formatMerchantLedgerType(txn.transaction_type)} · {friendlyTime(txn.created_at)}
       </p>
 
       <div className="mt-8 space-y-3">
@@ -80,16 +83,16 @@ export default async function TransactionDetailPage({
             <span className="font-code text-sm font-bold text-ink">{formatCode(code)}</span>
           </div>
         ) : null}
-        {txn.provider_reference ? (
+        {txn.provider_reference && showsProviderReference(txn) ? (
           <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
             <span className="text-xs text-muted">Reference</span>
             <span className="font-code text-sm text-ink">{txn.provider_reference}</span>
           </div>
         ) : null}
-        {txn.description ? (
+        {description ? (
           <div className="flex items-center justify-between gap-4 rounded-card border border-line bg-white px-4 py-3.5">
             <span className="text-xs text-muted">Description</span>
-            <span className="text-right text-sm text-ink">{txn.description}</span>
+            <span className="text-right text-sm text-ink">{description}</span>
           </div>
         ) : null}
       </div>

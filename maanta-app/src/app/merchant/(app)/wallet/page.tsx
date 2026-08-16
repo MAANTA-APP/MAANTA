@@ -6,6 +6,12 @@ import { ButtonLink } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { WalletBalance } from "@/components/ui/wallet-balance";
 import { ReferenceId } from "@/components/ui/reference-id";
+import {
+  formatMerchantLedgerLabel,
+  formatOpeningCreditNotice,
+  hasUnspentOpeningCredit,
+  openingCreditAmount,
+} from "@/lib/merchant-ledger-copy";
 import { cn, formatKes, formatKesSigned, friendlyTime } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +29,9 @@ type Row = {
   transaction_type: string;
   description: string | null;
   reference_id: string | null;
+  /** Selected for label purposes only — it is how the opening credit is
+      recognised (D104), never rendered on this screen. */
+  provider_reference: string | null;
   created_at: string;
 };
 
@@ -48,7 +57,9 @@ export default async function WalletPage({
   const service = createServiceClient();
   const { data: allRows } = await service
     .from("merchant_transactions")
-    .select("id, amount, transaction_type, description, reference_id, created_at")
+    .select(
+      "id, amount, transaction_type, description, reference_id, provider_reference, created_at"
+    )
     .eq("merchant_id", merchant.id)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -73,16 +84,17 @@ export default async function WalletPage({
   const remaining = fee > 0 ? Math.floor(balance / fee) : 0;
   const low = arrears <= 0 && balance > 0 && balance <= fee * 3;
 
-  const label = (t: string, desc: string | null) => {
-    if (desc) return desc;
-    if (t === "topup") return "Top-up";
-    if (t === "success_fee") return "Success fee";
-    if (t === "success_fee_arrears") return "Success fee (arrears)";
-    if (t === "boost_fee") return "Boost";
-    if (t === "subscription") return "Elite subscription";
-    if (t === "refund") return "Refund";
-    return t;
-  };
+  // New-merchant opening credit (D105). The count comes from the granted amount
+  // over the app_config success fee, never a literal — see merchant-ledger-copy.
+  const credit = hasUnspentOpeningCredit(withBalance)
+    ? openingCreditAmount(withBalance)
+    : null;
+  const openingCredit =
+    credit === null ? null : formatOpeningCreditNotice(credit, fee, formatKes);
+
+  // Row titles come from lib/merchant-ledger-copy so this screen and the detail
+  // screen speak one vocabulary, and so the stored description is not trusted
+  // blindly — the opening credit's is written for operators (D104).
   const rateContext = (t: string) =>
     t === "success_fee" || t === "success_fee_arrears"
       ? `MAANTA success fee · flat ${formatKes(fee)}`
@@ -114,6 +126,13 @@ export default async function WalletPage({
         <InlineAlert variant="warning" title="Low balance." className="mt-4">
           Enough for about {remaining} more redemption{remaining === 1 ? "" : "s"}. Top up
           to avoid interruption.
+        </InlineAlert>
+      ) : openingCredit ? (
+        /* Last in the chain so a merchant never sees two states at once, and so a
+           real warning always wins. Neutral, not rust: the credit is good news and
+           needs no action. */
+        <InlineAlert variant="info" className="mt-4">
+          {openingCredit}
         </InlineAlert>
       ) : null}
 
@@ -156,7 +175,7 @@ export default async function WalletPage({
               <div key={t.id} className="rounded-card border border-line bg-white p-3.5">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-sm font-bold text-ink">
-                    {label(t.transaction_type, t.description)}
+                    {formatMerchantLedgerLabel(t)}
                   </span>
                   <span className="tnum text-sm font-bold text-ink">
                     {formatKesSigned(Number(t.amount))}
