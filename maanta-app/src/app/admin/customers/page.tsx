@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { ROLE_LABELS } from "@/lib/roles";
@@ -114,9 +115,12 @@ export default async function AdminCustomersPage({
               (users ?? []).map((u) => (
                 <tr key={u.id} className="border-b border-line last:border-0">
                   <td className="px-4 py-3">
-                    <span className="font-semibold text-ink">
+                    <Link
+                      href={`/admin/customers/${u.id}`}
+                      className="font-semibold text-ink hover:underline"
+                    >
                       {u.full_name ?? "—"}
-                    </span>
+                    </Link>
                     {u.is_blacklisted ? (
                       <StatusChip
                         status="flagged"
@@ -153,8 +157,8 @@ export default async function AdminCustomersPage({
       </div>
 
       <p className="mt-3 text-xs text-faint">
-        Showing up to 100 most-recent accounts. Pagination and per-user detail are
-        follow-up work.
+        Showing up to 100 most-recent accounts. Pagination is follow-up work; each name
+        opens that account&apos;s record.
       </p>
     </main>
   );
