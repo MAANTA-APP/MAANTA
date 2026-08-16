@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
+import { clerkSendCodeMessage } from "@/lib/clerk-errors";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { PhoneField } from "@/components/ui/inputs";
 import { OtpInput } from "@/components/ui/otp-input";
@@ -89,8 +90,8 @@ function ClerkVerifyPhoneInner() {
       setPhoneId(created.id);
       setStage("code");
       setResendIn(30);
-    } catch {
-      setError("Couldn't send the code. Check the number and try again.");
+    } catch (err) {
+      setError(clerkSendCodeMessage(err));
     } finally {
       setBusy(false);
     }
@@ -106,8 +107,8 @@ function ClerkVerifyPhoneInner() {
       if (!record) throw new Error("phone record missing");
       await record.prepareVerification();
       setResendIn(30);
-    } catch {
-      setError("Couldn't send the code. Check the number and try again.");
+    } catch (err) {
+      setError(clerkSendCodeMessage(err));
     } finally {
       setBusy(false);
     }
