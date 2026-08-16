@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui";
 import { IconMenu, IconX } from "@/components/ui/icons";
+import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-links";
 
 /** 5e Admin left sidebar (black, yellow active item) — collapses to ☰ on mobile (11k). */
 const ITEMS = [
@@ -46,6 +47,31 @@ export function AdminSidebar() {
           {i.label}
         </Link>
       ))}
+
+      {/* Live product — separated, quiet, and never amber: amber marks the active
+          console item, and these are somewhere to look, not the work. Plain <a>
+          rather than <Link> because leaving the console app shell is the point. */}
+      <div className="mt-3 border-t border-white/15 pt-3">
+        {/* white/70, not /40: at 11px on ink, 40% composites to ~3.3:1 and fails
+            the 4.5:1 floor for small text. */}
+        <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
+          Live product
+        </p>
+        {LIVE_PRODUCT_LINKS.map(({ href, label, Icon }) => (
+          <a
+            key={href}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+            <span className="sr-only">{NEW_TAB_HINT}</span>
+          </a>
+        ))}
+      </div>
     </nav>
   );
 

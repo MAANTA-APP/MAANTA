@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { requireFounderPage } from "@/lib/founder";
+import { canAccessAdminConsole } from "@/lib/roles";
+import { OperationsLinks } from "@/components/founder/operations-links";
 import { createServiceClient } from "@/lib/supabase/service";
 import { HeadingLg, Body, Page, Section } from "@/components/ui/claude";
 import { KpiCard } from "@/components/ui/cards";
@@ -10,7 +11,9 @@ export const dynamic = "force-dynamic";
 
 /** Founder/co-founder executive dashboard — high-level ops at a glance. */
 export default async function FounderDashboardPage() {
-  await requireFounderPage();
+  // The guard returns the user; the Operations block gates on the same role read
+  // rather than assuming a founder-dashboard reader can open the admin console.
+  const user = await requireFounderPage();
 
   const service = createServiceClient();
   const since7d = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
@@ -112,36 +115,11 @@ export default async function FounderDashboardPage() {
       </Section>
 
       <Section title="Operations" subtitle={`${openTasks ?? 0} open tasks`} className="mt-6">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Link
-            href="/admin/support"
-            className="rounded-card border border-line bg-white px-4 py-4 shadow-card transition hover:bg-stone-soft"
-          >
-            <p className="text-sm font-semibold text-ink">Support queue</p>
-            <p className="mt-0.5 text-xs text-muted">Review and resolve agent tasks</p>
-          </Link>
-          <Link
-            href="/admin"
-            className="rounded-card border border-line bg-white px-4 py-4 shadow-card transition hover:bg-stone-soft"
-          >
-            <p className="text-sm font-semibold text-ink">Merchant approvals</p>
-            <p className="mt-0.5 text-xs text-muted">{pendingMerchants ?? 0} shops waiting</p>
-          </Link>
-          <Link
-            href="/admin/reports"
-            className="rounded-card border border-line bg-white px-4 py-4 shadow-card transition hover:bg-stone-soft"
-          >
-            <p className="text-sm font-semibold text-ink">Platform reports</p>
-            <p className="mt-0.5 text-xs text-muted">14-day redemption chart + KPIs</p>
-          </Link>
-          <Link
-            href="/admin/redemptions"
-            className="rounded-card border border-line bg-white px-4 py-4 shadow-card transition hover:bg-stone-soft"
-          >
-            <p className="text-sm font-semibold text-ink">Redemptions</p>
-            <p className="mt-0.5 text-xs text-muted">Guardian, disputes, fee reversals</p>
-          </Link>
-        </div>
+        {/* Gated: every card points into /admin/*, which a co-founder cannot open. */}
+        <OperationsLinks
+          canOpenAdminConsole={canAccessAdminConsole(user.role)}
+          pendingMerchants={pendingMerchants ?? 0}
+        />
       </Section>
     </Page>
   );
