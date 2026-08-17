@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HelpFaqs, HelpWhatsAppButton } from "@/components/marketing/help-content";
+import { HelpStatePanels } from "@/components/marketing/HelpStatePanels";
 import { Section } from "@/components/marketing/sections";
 import { RESPONSE_TIMES } from "@/lib/marketing/facts";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -41,7 +42,13 @@ export default function HelpPage() {
       </p>
       <div className="mt-8 max-w-2xl">
         <HelpFaqs />
-        <HelpWhatsAppButton className="mt-6" />
+        {/*
+          Drawn *outside* HelpFaqs on purpose: that component is shared with
+          `(shopper)/you/help` in the app shell, where a signed-in shopper can
+          open the real screen instead of looking at a picture of it.
+        */}
+        <HelpStatePanels />
+        <HelpWhatsAppButton className="mt-8" />
         {/*
           The same commitment `/contact` publishes, from the same constant.
           `/help` is the other support door — it is in the footer as "Help
