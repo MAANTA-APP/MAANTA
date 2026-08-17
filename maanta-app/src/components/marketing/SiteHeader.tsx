@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logomark } from "@/components/ui/icons";
+import { BrandLockup } from "@/components/marketing/BrandLockup";
 import { HEADER_CTA, HEADER_LINKS } from "@/lib/marketing/nav";
 
 /**
@@ -74,9 +74,10 @@ export function SiteHeader() {
       }`}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="MAANTA home">
-          <Logomark className="h-7 w-7" />
-          <span className="text-lg font-black tracking-tight text-ink">MAANTA</span>
+        <Link href="/" className="flex shrink-0 items-center" aria-label="MAANTA home">
+          {/* One asset, not a mark plus an approximated wordmark. `priority`
+              because this is above the fold on every marketing page. */}
+          <BrandLockup className="h-8 w-auto" priority />
         </Link>
 
         <nav

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logomark } from "@/components/ui/icons";
+import { BrandLockup } from "@/components/marketing/BrandLockup";
 import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
 import { PrelaunchNotice } from "./PrelaunchNotice";
@@ -38,9 +38,8 @@ export function SiteFooter() {
         <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-5">
           {/* Column 1 — brand */}
           <div className="lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2" aria-label="MAANTA home">
-              <Logomark className="h-7 w-7" />
-              <span className="text-lg font-black tracking-tight text-ink">MAANTA</span>
+            <Link href="/" className="flex items-center" aria-label="MAANTA home">
+              <BrandLockup className="h-8 w-auto" />
             </Link>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-secondary">
               Live mall deals, claimed on your phone and verified at the counter.

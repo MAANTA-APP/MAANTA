@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { markSvg, MARK_COLORS, MARK_PATHS } from "@/lib/brand/mark";
 
@@ -19,6 +19,7 @@ import { markSvg, MARK_COLORS, MARK_PATHS } from "@/lib/brand/mark";
 const APP = path.resolve(__dirname, "..", "..");
 const ROOT = path.resolve(APP, "..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
+const code = (abs: string) => readFileSync(abs, "utf8");
 
 describe("committed icons are rebuilt from the mark module", () => {
   it("public/icon.svg matches markSvg()", () => {
@@ -117,5 +118,84 @@ describe("web manifest icon purposes", () => {
   it("offers a real maskable variant", () => {
     const maskable = manifest.icons.find((i) => i.purpose === "maskable");
     expect(maskable?.src).toBe("/icon-maskable.svg");
+  });
+});
+
+/**
+ * D114 — two marks ship at once, and the register must say so for exactly as
+ * long as that is true.
+ *
+ * The header and footer render the new supplied lockup while the favicon,
+ * manifest icons, iOS touch icon and `Logomark` still draw the previous shield,
+ * because the supplied icon has its rounding baked in and is too small to
+ * repackage. That is a deliberate, founder-instructed gap — but a deliberate gap
+ * with no expiry is just drift with a good excuse.
+ *
+ * So this binds the two together in both directions. Repoint `mark.ts` at the
+ * new artwork and forget to close D114, and this fails. Close D114 while the old
+ * shield is still being drawn, and it fails too.
+ */
+describe("D114 stays open exactly as long as the marks differ", () => {
+  const OLD_SHIELD = "M24 9.5 35 14v9c0 7.5-4.7 12.6-11 15-6.3-2.4-11-7.5-11-15v-9l11-4.5z";
+  const register = readFileSync(
+    path.resolve(ROOT, "..", "docs", "maanta-drift-register.md"),
+    "utf8"
+  );
+  const row = register.split("\n").find((l) => l.startsWith("| D114 |"));
+  const stillOldMark = code(path.join(ROOT, "src", "lib", "brand", "mark.ts")).includes(
+    OLD_SHIELD
+  );
+
+  it("has a D114 row at all", () => {
+    expect(row, "D114 should exist while the site ships two marks").toBeTruthy();
+  });
+
+  it("matches the row's status to what mark.ts actually draws", () => {
+    const isOpen = row?.startsWith("| D114 | open |");
+    expect(
+      isOpen,
+      stillOldMark
+        ? "mark.ts still draws the previous shield, so D114 must stay open"
+        : "mark.ts no longer draws the previous shield — close D114, the marks now agree"
+    ).toBe(stillOldMark);
+  });
+});
+
+describe("the marketing shells render the supplied lockup", () => {
+  const header = code(path.join(ROOT, "src", "components", "marketing", "SiteHeader.tsx"));
+  const footer = code(path.join(ROOT, "src", "components", "marketing", "SiteFooter.tsx"));
+
+  it("uses one lockup asset rather than a mark plus an approximated wordmark", () => {
+    for (const [name, src] of [
+      ["SiteHeader", header],
+      ["SiteFooter", footer],
+    ] as const) {
+      expect(src, `${name} should render BrandLockup`).toContain("<BrandLockup");
+      expect(
+        src.includes("<Logomark"),
+        `${name} should not render both a lockup and a separate mark`
+      ).toBe(false);
+    }
+  });
+
+  it("does not announce the brand twice to a screen reader", () => {
+    // Both links already carry aria-label="MAANTA home", so the image is alt="".
+    const lockup = code(
+      path.join(ROOT, "src", "components", "marketing", "BrandLockup.tsx")
+    );
+    expect(lockup).toContain('alt=""');
+    expect(header).toContain('aria-label="MAANTA home"');
+    expect(footer).toContain('aria-label="MAANTA home"');
+  });
+
+  it("ships both light and dark variants of the lockup", () => {
+    // Shipping only the variant in use today is how the other one is forgotten
+    // and someone renders a black wordmark on an ink surface.
+    expect(existsSync(path.join(ROOT, "public", "brand", "maanta-lockup-horizontal.png"))).toBe(
+      true
+    );
+    expect(
+      existsSync(path.join(ROOT, "public", "brand", "maanta-lockup-horizontal-white.png"))
+    ).toBe(true);
   });
 });
