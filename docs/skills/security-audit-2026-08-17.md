@@ -17,7 +17,10 @@ non-destructive proof, repo reporting discipline — is in
 
 ## Headline
 
-**One critical, exploitable finding. Everything else was sound or minor.**
+**Round 1: one critical, exploitable finding (D115).** A second pass the same day
+(see *Round 2* below) added **D116** — an authenticated privilege escalation to
+merchant staff via a self-written phone — and **D117** (least-privilege on demo
+RPCs). Three fixes written, all verified non-destructively, none applied.
 
 `public.merchants_public_browse` is a writable back door into `public.merchants`
 for **any signed-in user**. It defeats the write lockdown that
@@ -233,15 +236,89 @@ Recorded so the next audit does not redo it.
 
 ---
 
+---
+
+## Round 2 (same day) — RLS, SECURITY DEFINER, staff-linking, storage
+
+A second pass, driven by the Prompt-pack security prompt, went behavioural on the
+surfaces the first pass only inventoried: every write-capable RLS policy, every
+SECURITY DEFINER function's self-authorization, the storage policies, and the
+staff-linking path. Two new findings, both fixed-not-applied, both with guards.
+
+### D116 — identity self-write → merchant_staff-seat hijack (the real one)
+
+`users_own_row` is `FOR ALL USING (id = current_user_id())` with **no WITH
+CHECK**, and `authenticated` holds the default UPDATE grant on `users`. Only
+`role` was trigger-protected. So a signed-in shopper can PATCH their own
+`phone`, `clerk_user_id` or `auth_uid` through PostgREST.
+
+`phone` is the dangerous one. `getMerchantContext`
+(`src/lib/merchant.ts:53-70`) links a user into a **pre-invited** `merchant_staff`
+seat when `users.phone` matches a `merchant_staff.phone` whose `user_id` is still
+NULL, and promotes them to `merchant_staff` with that seat's permissions. Chain:
+
+1. Attacker signs up as an ordinary shopper.
+2. `PATCH /rest/v1/users?id=eq.<self>` with `{"phone":"<a shop's pre-invited staff phone>"}` — allowed by RLS + the UPDATE grant, and the phone is free of `users_phone_key` until the real staff member first signs in.
+3. Next merchant request → linked as staff → `can_verify` (charge the merchant KES 30 per verified redemption) and `can_purchase` (spend the merchant's wallet on boosts), at a shop they have no relationship with.
+
+Proven read-only on production under `SET LOCAL ROLE authenticated`: own-phone
+UPDATE = 1 row; cross-user UPDATE = 0 (RLS); direct `role` change still raises.
+The direct-write of `merchant_staff` is **not** the vector — `staff_owner_manage`'s
+WITH CHECK confines inserts to merchants the caller owns. The phone column is the
+gap.
+
+**Fix** `20260817130000` — a BEFORE UPDATE trigger mirroring
+`prevent_self_role_escalation`, freezing `phone`/`clerk_user_id`/`auth_uid`
+against non-service_role, non-admin callers. Column-scoped, so `push_subscription`
+(the only column the authenticated client self-writes) and every service-role
+write survive — verified by reading all 20 `users` writers in `src/`. Guard:
+`users_identity_immutable_test.sql` (identity frozen · hijack blocked end-to-end ·
+service_role/admin unaffected).
+
+### D117 — demo-mutation RPCs are internet-callable
+
+`wipe_demo_data`, `reseed_demo_flash_deals`, `refresh_demo_seed_deals` were never
+`REVOKE`d from `PUBLIC`, so anon/authenticated inherit execute — the D115
+default-grant class, on functions. Bounded today: `wipe_demo_data(TRUE)` refuses
+while demo mode is ON, and reseed/refresh self-gate to demo mode and cap to an
+`app_config` ceiling. But a destructive op shouldn't be safe only because of a
+mode flag — at the demo-off launch cutover, an anonymous `wipe_demo_data(TRUE)`
+becomes a live DELETE of every `is_demo` row. **Fix** `20260817140000` revokes to
+service_role + postgres (cron + Makefile keep working). Guard:
+`demo_mutation_rpc_grants_test.sql`.
+
+### Round-2 checked and sound
+
+| Area | Verdict |
+|---|---|
+| **SECURITY DEFINER self-auth** | Swept all 39. `reverse_success_fee`, `activate_merchant`, `admin_redemption_detail`, `admin_*` — all executable by `authenticated` but each self-gates to `admin`/service_role internally. No broken-access-control RPC. `onboard_merchant` self-serve requires `caller = p_user_id` and takes no tier/status/balance param, so no self-provisioning of Elite or opening credit |
+| **search_path** | Every SECURITY DEFINER function pins `search_path = public, pg_temp` (or `pg_catalog`). No search_path-injection surface |
+| **Write-capable RLS** | `fee_reversals`, `guardian_events`, `notifications`, `merchant_favourites`, `merchant_staff`, `app_config`, `boost_flags`, `tier_flags`, `organizations`, `pending_topups` — all either admin-only, owner-scoped, or SELECT-only with correct WITH-CHECK defaults. `notifications` insert is admin-only; a merchant cannot forge a `pending_topup` (no write grant) to trick the webhook |
+| **Storage** | `deal-images` is intentionally public-read; INSERT/DELETE are folder-scoped to the caller's own merchant id via `storage.foldername(name)[1]`. A merchant cannot write into another's folder. No UPDATE policy (deny) |
+| **`app_config`** | Admin-only for ALL (WITH CHECK defaults to the admin USING) — a merchant cannot flip `demo_mode_enabled` or rewrite `success_fee_kes` |
+| **`api_rate_limit_buckets`** | RLS on, zero policies = deny-all for anon/authenticated; only `check_rate_limit` (service_role) touches it. Correct |
+
+---
+
 ## For the founder — in order
 
-1. **Apply `20260817120000`.** This is the only item that is a live hole. Prefer
-   `supabase db push` — **D86** records that an MCP `apply_migration` mints its
-   own ledger version, and **D107** already has the ledger one row out. If it
-   goes through MCP, write the ledger row by hand with the filename version.
-2. **Read back and close D115**: re-run Scenario G's query and confirm zero
-   offending grants.
-3. **Run `make db-verify`** (or let the CI `db-tests` job run) so Scenarios E/F/G
-   are executed rather than merely written.
+1. **Apply the three security migrations**, in order:
+   `20260817120000` (D115, the writable browse view — the live hole),
+   `20260817130000` (D116, the identity/staff-hijack trigger), and
+   `20260817140000` (D117, the demo-RPC revoke). Prefer `supabase db push` —
+   **D86** records that an MCP `apply_migration` mints its own ledger version, and
+   **D107** already has the ledger one row out. If any goes through MCP, write the
+   ledger row by hand with the filename version.
+2. **Read back and close D115 / D116 / D117**: zero offending view grants
+   (Scenario G); the `prevent_identity_self_change` trigger present and a
+   `SET LOCAL ROLE authenticated` phone-write raising; the anon/authenticated
+   execute privilege gone from the three demo RPCs.
+3. **Run `make db-verify`** (or let the CI `db-tests` job run) so every new
+   Scenario is executed rather than merely written — the SQL suites have not been
+   run by a runner here (no Supabase CLI in this container).
 4. **Schedule the OTP entropy fix** as its own diff — before, not after, any
    change that widens who can verify a code.
+5. **Consider whether staff-by-phone should require a verified phone.** D116's
+   trigger closes the write primitive; separately, `getMerchantContext` trusting
+   `users.phone` for staff identity is worth a product look — a verified-phone
+   check at link time would be defence in depth.
