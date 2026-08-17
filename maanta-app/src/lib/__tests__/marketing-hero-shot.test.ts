@@ -277,3 +277,78 @@ describe("merchant counter walkthrough (D50, third surface)", () => {
     expect(merchants, "HeroShot stays Home-only").not.toContain("HeroShot");
   });
 });
+
+/**
+ * Guard for the fourth illustrated surface — the `/help` failure states.
+ *
+ * Different job from the other three. These draw what a shopper sees when
+ * something has gone wrong, and the thing that must survive is the reassurance:
+ * an expired code with no red on it, and an under-review notice saying nothing is
+ * needed from them. Strip either and the page shows two error screens with no
+ * answer, which is worse than showing nothing.
+ */
+describe("help failure-state illustrations (D50, fourth surface)", () => {
+  const HELP_PANELS = path.join(SRC, "components", "marketing", "HelpStatePanels.tsx");
+  const HELP = path.join(SRC, "app", "(marketing)", "help", "page.tsx");
+  const HELP_CONTENT = path.join(SRC, "components", "marketing", "help-content.tsx");
+
+  it("renders a visible illustration disclosure", () => {
+    expect(/Illustration\s*·\s*example code/.test(code(HELP_PANELS))).toBe(true);
+  });
+
+  it("describes both states, and the invented code, to assistive tech", () => {
+    const src = code(HELP_PANELS);
+    expect(src).toContain('aria-hidden="true"');
+    expect(/sr-only/.test(src) && /invented example/.test(src)).toBe(true);
+  });
+
+  it("keeps the reassurance, which is the whole point", () => {
+    const src = code(HELP_PANELS);
+    expect(src).toContain("Nothing is needed from you right now");
+    expect(src).toContain("72 hours");
+  });
+
+  it("shows failure without red, and review in rust — frozen rules 4 and 5", () => {
+    const src = code(HELP_PANELS);
+    // Failure is greyscale-legible: chip icon + word, struck code. Not an error.
+    expect(src, "an expired code is not an error state").not.toContain("text-flame");
+    expect(src, "warning is rust, never red or yellow").toContain("border-rust");
+  });
+
+  it("shows no money on a page about things going wrong", () => {
+    const src = code(HELP_PANELS);
+    expect(src).not.toContain("formatKes");
+    expect(src).not.toContain("KES");
+  });
+
+  it("adds no amber, so /help keeps one amber action", () => {
+    // The real screens end in amber CTAs; the panels crop them deliberately, so
+    // the page's single amber action stays its WhatsApp button.
+    expect(code(HELP_PANELS)).not.toContain("bg-brand");
+  });
+
+  it("stays out of the shared FAQ component, which the app shell also renders", () => {
+    // (shopper)/you/help renders HelpFaqs. A signed-in shopper should open the
+    // real screen, not look at a drawing of it.
+    expect(code(HELP)).toContain("<HelpStatePanels />");
+    expect(
+      code(HELP_CONTENT),
+      "HelpStatePanels must not leak into the app shell via HelpFaqs"
+    ).not.toContain("HelpStatePanels");
+  });
+});
+
+describe("grace period is single-sourced, like the success fee", () => {
+  const FACTS_FILE = path.join(SRC, "lib", "marketing", "facts.ts");
+
+  it("re-exports DEAL_GRACE_MINUTES rather than redeclaring the number", () => {
+    // `successFeeKes` re-exports SUCCESS_FEE_KES and pricing-copy.test.ts fails on
+    // a second declaration. `graceMinutes` carried a literal 15 while
+    // DEAL_GRACE_MINUTES in @/lib/deal-expiry is what the expiry logic actually
+    // computes with — so a grace change moved behaviour and left the copy behind.
+    const src = code(FACTS_FILE);
+    expect(src).toContain("DEAL_GRACE_MINUTES");
+    expect(src).toContain("graceMinutes: DEAL_GRACE_MINUTES");
+    expect(src, "no literal grace value in FACTS").not.toMatch(/graceMinutes:\s*\d/);
+  });
+});

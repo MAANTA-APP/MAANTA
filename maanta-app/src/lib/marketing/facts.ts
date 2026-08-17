@@ -1,4 +1,5 @@
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
+import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 
 /**
  * Verified product facts — the single source for every number on the marketing
@@ -26,7 +27,12 @@ export const FACTS = {
   boostPer24hKes: 500,
   boostHours: 24,
   codeLength: 6,
-  graceMinutes: 15,
+  /**
+   * Re-exported, never redeclared — `DEAL_GRACE_MINUTES` is what the expiry
+   * logic actually computes with, so a literal here would be a second copy that
+   * a grace change would silently leave behind. Same rule as `successFeeKes`.
+   */
+  graceMinutes: DEAL_GRACE_MINUTES,
   standardActiveDeals: 1,
   eliteActiveDeals: 2,
   launchMall: "BBS Mall, Eastleigh",
