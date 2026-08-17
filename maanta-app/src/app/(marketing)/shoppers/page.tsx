@@ -10,9 +10,9 @@ import {
   PointGrid,
   Section,
   SectionHeading,
-  StepRail,
   TrustBar,
 } from "@/components/marketing/sections";
+import { ShopperWalkthrough } from "@/components/marketing/ShopperWalkthrough";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_SHOPS_SENTENCE, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_HERO_SUB } from "@/lib/marketing/live-claims";
@@ -119,22 +119,12 @@ export default function ShoppersPage() {
 
       <Section id="how">
         <SectionHeading>Three steps</SectionHeading>
-        <StepRail
-          steps={[
-            {
-              title: "Find a deal",
-              body: "Open the feed for your mall. Deals are sorted by what is closest to you and what is ending soonest.",
-            },
-            {
-              title: "Claim it",
-              body: `Tap the deal. It is held for you and a ${FACTS.codeLength}-digit code appears on your phone.`,
-            },
-            {
-              title: "Show the code",
-              body: `Give the ${FACTS.codeLength} digits to the person at the counter. They check it, you pay the deal price, you leave.`,
-            },
-          ]}
-        />
+        {/*
+          The step copy moved into ShopperWalkthrough verbatim so each sentence
+          sits under the screen it describes — a text rail above a picture rail
+          would state the same three steps twice. Home keeps the plain StepRail.
+        */}
+        <ShopperWalkthrough />
         <p className="mt-8 max-w-3xl text-base leading-relaxed text-ink">
           No printing. No screenshots. No queue for a separate desk.
         </p>
