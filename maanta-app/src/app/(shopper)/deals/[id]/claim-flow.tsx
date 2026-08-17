@@ -11,6 +11,7 @@ import {
   interpretClaimResponse,
 } from "@/lib/claim-response";
 import posthog from "posthog-js";
+import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 
 /**
  * 8h Claim confirm (bottom sheet) → 8y location check in progress → ticket.
@@ -168,8 +169,8 @@ export function ClaimFlow({
           Claim: {dealTitle} — {merchantName}
         </h2>
         <p className="mt-2 text-center text-sm text-muted">
-          Your code will be valid until the deal expires, plus a 15-minute grace
-          period.
+          Your code will be valid until the deal expires, plus a {DEAL_GRACE_MINUTES}-minute
+          grace period.
         </p>
         <Button full className="mt-5" onClick={confirmClaim}>
           Confirm

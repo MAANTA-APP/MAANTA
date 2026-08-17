@@ -8,6 +8,7 @@ import { CountdownChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
 import { DealActions } from "./deal-actions";
+import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,7 @@ export default async function MerchantDealDetailPage({
           </p>
           <p className="mt-1 text-xs text-muted">
             Paused for new claims; existing claimed tickets remain redeemable
-            until expiry (deal end plus a 15-minute grace). Resume to put the
+            until expiry (deal end plus a {DEAL_GRACE_MINUTES}-minute grace). Resume to put the
             deal back in feed, browse, and map.
           </p>
         </div>
