@@ -119,4 +119,100 @@ BEGIN
   RAISE NOTICE 'Scenario D passed: paused deals excluded from deals_public_browse';
 END $$;
 
+-- Scenario E: grant posture — the browse views are readable, never writable
+-- (20260817120000_revoke_authenticated_writes_browse_views.sql).
+--
+-- The base tables were locked down in 20260723120000, but the REVOKE named the
+-- TABLE and the views kept Supabase's default ALL grant. Since
+-- merchants_public_browse is auto-updatable and runs security_invoker = false,
+-- that grant was a full write path into public.merchants for any signed-in
+-- user, RLS included. Assert the grants directly: this is the check that was
+-- missing, not a restatement of Scenario A.
+DO $$
+DECLARE
+  v_role TEXT;
+  v_view TEXT;
+  v_priv TEXT;
+BEGIN
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    FOREACH v_view IN ARRAY ARRAY['public.merchants_public_browse', 'public.deals_public_browse'] LOOP
+      ASSERT has_table_privilege(v_role, v_view, 'SELECT'),
+        format('E: %s must retain SELECT on %s', v_role, v_view);
+      FOREACH v_priv IN ARRAY ARRAY['INSERT', 'UPDATE', 'DELETE'] LOOP
+        ASSERT NOT has_table_privilege(v_role, v_view, v_priv),
+          format('E: %s must not %s %s', v_role, v_priv, v_view);
+      END LOOP;
+    END LOOP;
+  END LOOP;
+  RAISE NOTICE 'Scenario E passed: browse views are read-only for anon/authenticated';
+END $$;
+
+-- Scenario F: behavioural — the write is refused, and the base row is unchanged.
+--
+-- A grant assertion alone would not catch a future view that re-acquires the
+-- privilege by some other route, so exercise the exact statement the hole
+-- allowed: tier escalation through the view, as `authenticated`.
+DO $$
+DECLARE
+  v_mid UUID;
+  v_tier TEXT;
+  v_blocked BOOLEAN := FALSE;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_browse_write', 'test.browse.write', '+254700000405', 'BBS Mall', 'active', TRUE, 999, 'standard')
+    RETURNING id INTO v_mid;
+
+  SET ROLE authenticated;
+  BEGIN
+    UPDATE public.merchants_public_browse
+      SET tier = 'elite', is_featured = TRUE
+      WHERE id = v_mid;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      v_blocked := TRUE;
+  END;
+  RESET ROLE;
+
+  ASSERT v_blocked, 'F: UPDATE through merchants_public_browse must be refused for authenticated';
+
+  SELECT tier INTO v_tier FROM public.merchants WHERE id = v_mid;
+  ASSERT v_tier = 'standard', format('F: base tier must be unchanged, got %s', v_tier);
+
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario F passed: authenticated cannot escalate tier through the browse view';
+END $$;
+
+-- Scenario G: the ratchet. No view in `public` may grant a write to anon or
+-- authenticated — not just the two named above.
+--
+-- This is the guard that would have caught the original defect. Supabase's
+-- default privileges grant ALL on every new object in `public` to
+-- anon/authenticated, so a view added later starts life writable, and whether
+-- that is exploitable depends on two properties nobody checks when editing a
+-- view: whether it is auto-updatable, and whether security_invoker is set.
+-- Both flipped silently here across three unrelated migrations. Assert the
+-- grant instead, because the grant is the thing that is always load-bearing.
+DO $$
+DECLARE
+  v_offenders TEXT;
+BEGIN
+  SELECT string_agg(format('%s:%s:%s', grantee, table_name, privilege_type), ', ' ORDER BY table_name)
+    INTO v_offenders
+    FROM information_schema.role_table_grants g
+   WHERE g.table_schema = 'public'
+     AND g.grantee IN ('anon', 'authenticated')
+     AND g.privilege_type IN ('INSERT', 'UPDATE', 'DELETE')
+     AND EXISTS (
+       SELECT 1 FROM information_schema.views v
+        WHERE v.table_schema = g.table_schema AND v.table_name = g.table_name
+     );
+
+  ASSERT v_offenders IS NULL,
+    format('G: views in public must not grant writes to anon/authenticated — found %s. '
+           'Add a REVOKE to the migration that created the view.', v_offenders);
+  RAISE NOTICE 'Scenario G passed: no public view grants a write to anon/authenticated';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL browse_views scenarios passed.'; END $$;
