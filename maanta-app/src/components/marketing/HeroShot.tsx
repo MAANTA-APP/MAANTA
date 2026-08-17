@@ -1,5 +1,6 @@
 import { formatKes } from "@/lib/ui";
 import { FACTS } from "@/lib/marketing/facts";
+import { SAMPLE_DEALS } from "@/lib/marketing/sample-deals";
 
 /**
  * Hero device mockup — the shopper feed, drawn rather than screenshotted.
@@ -30,32 +31,13 @@ import { FACTS } from "@/lib/marketing/facts";
  * Frozen UI rules apply here as everywhere — it depicts the product. Money is
  * ink and never amber, the only amber is the live-status dot, and there is no
  * second amber action competing with the hero CTA beside it.
+ *
+ * The invented rows now live in `@/lib/marketing/sample-deals` because a second
+ * illustration exists — the `/shoppers` walkthrough — and two copies of the
+ * invented names would be two places to check for a collision with a real BBS
+ * Mall tenant. This component still owns *its* disclosure; the shared module owns
+ * only the data.
  */
-
-/** Invented. See the docblock — no name here is a real BBS Mall tenant. */
-const SAMPLE_DEALS = [
-  {
-    shop: "Riverside Fabrics",
-    deal: "3 metres of cotton print",
-    was: 2_000,
-    now: 1_200,
-    away: "40 m",
-  },
-  {
-    shop: "Junction Shoes",
-    deal: "Leather sandals",
-    was: 1_400,
-    now: 850,
-    away: "1st floor",
-  },
-  {
-    shop: "Amana Electronics",
-    deal: "Wireless earbuds",
-    was: 3_200,
-    now: 2_400,
-    away: "80 m",
-  },
-] as const;
 
 export function HeroShot() {
   return (

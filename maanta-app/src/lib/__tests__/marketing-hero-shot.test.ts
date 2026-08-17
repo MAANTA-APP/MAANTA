@@ -98,3 +98,89 @@ describe("hero device mockup (D50)", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Guard for the second illustrated surface — the `/shoppers` walkthrough.
+ *
+ * The hero guard above asserts `HeroShot` is Home-only, with the note that
+ * adding it elsewhere "needs its own decision rather than inherited silently".
+ * That decision was taken on 2026-08-16: a *separate* component, illustrated
+ * rather than screenshotted, shopper flow, `/shoppers` only. So the exception
+ * D50 records now covers two surfaces, and the disclosure that keeps the first
+ * honest has to keep the second honest too — by the same one line of JSX that
+ * nothing else would miss if it vanished.
+ */
+describe("shopper walkthrough illustrations (D50, second surface)", () => {
+  const WALKTHROUGH = path.join(SRC, "components", "marketing", "ShopperWalkthrough.tsx");
+  const SHOPPERS = path.join(SRC, "app", "(marketing)", "shoppers", "page.tsx");
+
+  it("renders a visible illustration disclosure", () => {
+    expect(
+      /Illustration\s*·\s*example shops and prices/.test(code(WALKTHROUGH)),
+      "The walkthrough shows invented shops and prices and must say so visibly."
+    ).toBe(true);
+  });
+
+  it("describes the flow, and its invented content, to assistive tech", () => {
+    const src = code(WALKTHROUGH);
+    expect(src, "the mockups should be aria-hidden").toContain('aria-hidden="true"');
+    expect(
+      /sr-only/.test(src) && /invented examples, not real offers/.test(src),
+      "an sr-only sentence must state the shops and prices are invented"
+    ).toBe(true);
+  });
+
+  it("never renders the sample prices in amber", () => {
+    // Frozen rule 3, same as the hero: this depicts money.
+    const offenders = code(WALKTHROUGH)
+      .split("\n")
+      .filter((l) => l.includes("text-brand") && /formatKes|tnum/.test(l));
+    expect(offenders, `Money is ink, never amber:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("keeps money out of the code card — frozen rule 6", () => {
+    // "The 6-digit code is the only bare numeral; no price inside the code card."
+    // The real card has no price and the illustration must not invent one, or it
+    // teaches a screen the product does not have.
+    const src = code(WALKTHROUGH);
+    const cardStart = src.indexOf("function CodePanel");
+    const cardEnd = src.indexOf("function VerifiedPanel");
+    expect(cardStart, "CodePanel should exist").toBeGreaterThan(-1);
+    expect(cardEnd, "VerifiedPanel should follow it").toBeGreaterThan(cardStart);
+    const card = src.slice(cardStart, cardEnd);
+    expect(card).not.toContain("formatKes");
+    expect(card).not.toContain("KES");
+  });
+
+  it("adds no amber action to the page", () => {
+    // Frozen rule 1: the page's single amber action is its CTA. The only amber
+    // here is the code card's border and the mall dot — both the real UI.
+    const src = code(WALKTHROUGH);
+    expect(src).not.toContain("bg-brand text-black");
+    expect(src.includes("bg-brand"), "bg-brand is allowed only for the mall status dot").toBe(
+      true
+    );
+    const brandFills = src
+      .split("\n")
+      .filter((l) => l.includes("bg-brand") && !l.includes("rounded-full"));
+    expect(brandFills, `amber fill outside the status dot:\n${brandFills.join("\n")}`).toEqual([]);
+  });
+
+  it("invents no names of its own — one shared list, one place to check", () => {
+    // A second hardcoded shop name is a second place for an invented name to
+    // collide with a real BBS Mall tenant unnoticed.
+    const src = code(WALKTHROUGH);
+    expect(src).toContain("SAMPLE_DEALS");
+    for (const invented of ["Riverside Fabrics", "Junction Shoes", "Amana Electronics"]) {
+      expect(src, `${invented} should come from the shared list, not be retyped`).not.toContain(
+        invented
+      );
+    }
+  });
+
+  it("is mounted on /shoppers, and HeroShot still is not", () => {
+    const shoppers = code(SHOPPERS);
+    expect(shoppers).toContain("<ShopperWalkthrough />");
+    expect(shoppers, "HeroShot stays Home-only").not.toContain("HeroShot");
+  });
+});
