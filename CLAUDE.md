@@ -263,6 +263,7 @@ below. They are stated once, there. This section is how to work near them.
 - `docs/skills/prod-auth-deals-recovery.md`
 - `docs/skills/supabase-prod-email-auth.md`
 - `docs/skills/node0-seed-bbs-mall.md`
+- `docs/skills/avatars-and-notifications.md`
 - `docs/maanta-staged-readiness-now-launch-10k-100k.md` — now / launch / 10k / 100k readiness
 - `docs/ops/IMPLEMENTATION-REPORT.md` — what the marketing-site build shipped,
   its 17 recorded deviations, and what it deliberately did not implement
