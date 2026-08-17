@@ -1,5 +1,5 @@
 {
-  "name": "Maanta — The mall, made live.",
+  "name": "Maanta \u2014 The mall, made live.",
   "short_name": "Maanta",
   "description": "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
   "start_url": "/app-bootstrap",
@@ -11,7 +11,13 @@
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

@@ -1,4 +1,10 @@
 import { cn } from "@/lib/ui";
+import {
+  MARK_COLORS,
+  MARK_PATHS,
+  MARK_RADIUS,
+  MARK_VIEWBOX,
+} from "@/lib/brand/mark";
 
 type IconProps = { className?: string; strokeWidth?: number };
 
@@ -200,23 +206,40 @@ export const IconImage = (p: IconProps) => (
   </Svg>
 );
 
-/** Maanta logomark — rounded-square badge with a check-shield (from wireframe splash). */
+/**
+ * Maanta logomark — rounded-square badge with a check-shield.
+ *
+ * Geometry comes from `@/lib/brand/mark`, which is the single definition the
+ * favicon, the manifest icons and the iOS touch icon all derive from. Editing
+ * the shape here rather than there would put the header out of step with the
+ * app icon, which is exactly what this component used to do.
+ */
 export function Logomark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={cn("h-10 w-10", className)} aria-hidden>
-      <rect x="2" y="2" width="44" height="44" rx="12" fill="#FDBF2D" />
-      <path
-        d="M24 9.5 35 14v9c0 7.5-4.7 12.6-11 15-6.3-2.4-11-7.5-11-15v-9l11-4.5z"
-        fill="#000"
+    <svg
+      viewBox={`0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`}
+      className={cn("h-10 w-10", className)}
+      aria-hidden
+    >
+      <rect
+        x="0"
+        y="0"
+        width={MARK_VIEWBOX}
+        height={MARK_VIEWBOX}
+        rx={MARK_RADIUS}
+        fill={MARK_COLORS.badge}
       />
-      <path
-        d="m18.2 24.2 4 4 7.6-8.4"
-        stroke="#FDBF2D"
-        strokeWidth="3.2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {MARK_PATHS.map((p) => (
+        <path
+          key={p.d}
+          d={p.d}
+          fill={p.stroke ? "none" : p.fill}
+          stroke={p.stroke}
+          strokeWidth={p.strokeWidth}
+          strokeLinecap={p.stroke ? "round" : undefined}
+          strokeLinejoin={p.stroke ? "round" : undefined}
+        />
+      ))}
     </svg>
   );
 }
