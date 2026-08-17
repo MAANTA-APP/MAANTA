@@ -46,7 +46,12 @@ export const metadata: Metadata = {
     ? "Discover, claim and redeem live mall deals. Launching at BBS Mall, Eastleigh."
     : "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg" },
+  // An explicit `icons` object OVERRIDES Next's file-convention discovery, so
+  // `src/app/apple-icon.tsx` generates its PNG but never gets linked unless it is
+  // named here too. That is exactly how the iOS Add to Home Screen icon went
+  // missing: the route existed in the build output and the HTML carried only
+  // `rel="icon"`, which iOS Safari ignores for the Home Screen.
+  icons: { icon: "/icon.svg", apple: "/apple-icon" },
   openGraph: {
     type: "website",
     siteName: "MAANTA",

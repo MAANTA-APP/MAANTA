@@ -13,7 +13,8 @@
     "test:clerk-smoke": "vitest run src/__smoke__/clerk",
     "test:e2e": "playwright test",
     "check:canonicals": "node scripts/check-canonicals.mjs",
-    "check:forms": "node scripts/check-server-forms.mjs"
+    "check:forms": "node scripts/check-server-forms.mjs",
+    "brand:icons": "node scripts/write-brand-icons.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.39.6",
