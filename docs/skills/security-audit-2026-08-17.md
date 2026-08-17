@@ -8,6 +8,11 @@ payment webhooks, and secret handling. **Target:** the repo at
 Findings are recorded in `docs/maanta-drift-register.md` as **D115**. This file
 is the narrative; the register is the state. Read the register first.
 
+The reusable prompt that drives an audit like this one — adversarial mindset,
+non-destructive proof, repo reporting discipline — is in
+`docs/maanta-claude-operating-system.md` → **Prompt pack → Security-audit prompt
+(Reviewer, adversarial)**.
+
 ---
 
 ## Headline

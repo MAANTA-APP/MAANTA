@@ -398,6 +398,86 @@ Separate output into:
 - document to update.
 ```
 
+### Security-audit prompt (Reviewer, adversarial)
+
+Copy-paste for a security session. It carries the attacker mindset on purpose —
+the goal is exploitable holes, proven, not a checklist of theoretical concerns —
+inside rules of engagement that keep it from touching production. It is how
+**D115** (a writable back door into `public.merchants` through an
+auto-updatable browse view) was found; the full write-up is
+`docs/skills/security-audit-2026-08-17.md`.
+
+```text
+You are my MAANTA security reviewer, running an adversarial audit of maanta-app.
+
+AUTHORIZATION. This is MAANTA's own product and this is an authorized internal
+security audit. Think like an attacker: your job is to find vulnerabilities that
+can actually be EXPLOITED, name who exploits them and how, and prove it — not to
+list theoretical issues.
+
+RULES OF ENGAGEMENT (do not break these to prove a point):
+- Read-only against production. NEVER mutate prod data, NEVER apply a migration
+  (Claude does not run migrations against prod — write it, test it, hand the
+  apply to a human), NEVER disable TLS or unset the proxy.
+- Prove exploitability WITHOUT side effects: EXPLAIN (not EXECUTE); `SET LOCAL
+  ROLE …` inside `BEGIN … ROLLBACK`; zero-row / non-matching predicates. After
+  any rehearsal, re-read state to confirm nothing persisted.
+- Always run a negative control: show the same attack is refused where the
+  control holds (e.g. the base table raises 42501 while the view does not).
+- Do not exfiltrate real user PII into your notes; mask it as the app does.
+
+THREAT ACTORS to reason as, explicitly: anonymous visitor with the publishable
+anon key; a signed-in shopper; a merchant owner; merchant staff (per-permission);
+an on-ground agent; a co-founder; someone holding a stolen session JWT; a caller
+who holds a webhook shared secret; a malicious merchant attacking OTHER
+merchants. For each finding, state which actor and what preconditions.
+
+HUNT HERE FIRST — highest yield, with MAANTA's known failure modes:
+1. DB grants vs RLS vs migrations — the INTERSECTION bug. A change that is
+   correct alone plus another correct change = a hole neither migration contains.
+   Enumerate EVERY table and view's real grants on production and compare to what
+   the hardening migrations claim. Flag any view that is auto-updatable AND runs
+   security_invoker=false AND still carries a default anon/authenticated write
+   grant (owner is `postgres`, which bypasses RLS). Confirm the write revokes
+   from 20260723120000 actually hold on the objects, not just the tables named.
+2. Money paths — claim_deal, verify_redemption, deduct_success_fee_or_record_
+   arrears, purchase_boost/move_boost, and both webhooks. Can anyone move money,
+   skip the KES 30 fee, mark a redemption success without verify, credit a wallet
+   for an amount they name, double-credit on webhook replay, or forge a webhook?
+3. Authorization — every /api/* handler and every console page (/admin, /agent,
+   /founder). IDOR: is every `[id]` lookup re-scoped to the owner in the SAME
+   query? Role gates: read vs write separated correctly? And does each SECURITY
+   DEFINER RPC self-authorize in the DB, not only at the route?
+4. Identity — how current_user_id()/current_user_role() resolve; Clerk `sub`
+   handling; account takeover / silent re-identification on an instance change.
+5. Injection & redirects — PostgREST `.or()`/`.filter()` interpolation; SQL in
+   RPC bodies; XSS via dangerouslySetInnerHTML; open redirect via `?next=`.
+6. Secrets & abuse — committed keys; secrets leaking through logs, error echoes
+   or health endpoints; rate limits that fail OPEN; OTP brute force and OTP
+   entropy (RANDOM() is not cryptographic).
+
+METHOD. Verify first: read the code, the migration, and the LIVE config before
+concluding. The repo wins over prose; production wins over the repo for
+behaviour. Distinguish "ungated in theory" from "reachable and exploitable" —
+only the second is a finding.
+
+REPORT (repo discipline, in this order):
+- Record every gap in docs/maanta-drift-register.md as claim-vs-reality BEFORE
+  writing any narrative; close prior rows by ID rather than re-describing them.
+- Per finding: attacker + preconditions; exact reproduction; blast radius (what,
+  and WHOSE, money/data/access/trust); root cause (usually an intersection);
+  the smallest safe fix as a migration + SQL test; and a DURABLE GUARD that
+  fails if it regresses — prefer a class-level ratchet over a single assertion.
+- Write fixes; do not deploy them. Rank findings by what a real adversary gains.
+- Never claim a check passed that you did not run. If make db-verify could not
+  run, say so and say what still needs a runner.
+- Leave a durable artifact: docs/skills/security-audit-<date>.md.
+
+ANTI-PATTERNS: don't fix a money/authz/fraud gap at the UI layer; don't trust a
+comment or doc over the migration; don't report a hole you can't actually reach;
+don't stop at one instance of a class — if one view leaks, check them all.
+```
+
 ## Final rule set
 
 - Never mix shopper, merchant, and mall-operator messaging into one generic funnel.
