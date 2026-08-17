@@ -2,6 +2,7 @@ import { getSuccessFee } from "@/lib/data";
 import { ENTITY } from "@/lib/marketing/demo";
 import { ButtonLink } from "@/components/ui/button";
 import { IconWhatsApp } from "@/components/ui/icons";
+import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ function faqs(fee: number) {
     },
     {
       q: "My redemption was rejected — why?",
-      a: "Codes are rejected when they've expired past the 15-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes. If you Confirm on a location mismatch instead (verify-anyway), the redemption still succeeds, the fee is taken, and admin reviews the dispute afterward.",
+      a: `Codes are rejected when they've expired past the ${DEAL_GRACE_MINUTES}-minute grace period, were already used, or you chose Reject on a location-mismatch warning. No fee is charged for rejected codes. If you Confirm on a location mismatch instead (verify-anyway), the redemption still succeeds, the fee is taken, and admin reviews the dispute afterward.`,
     },
   ];
 }

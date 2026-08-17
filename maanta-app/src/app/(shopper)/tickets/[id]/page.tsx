@@ -10,6 +10,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
+import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -156,8 +157,8 @@ export default async function TicketPage({
           This code has expired
         </h1>
         <p className="mt-2 text-center text-sm text-secondary">
-          The deal ended and the 15-minute grace period has passed. Expired codes
-          cannot be redeemed.
+          The deal ended and the {DEAL_GRACE_MINUTES}-minute grace period has passed.
+          Expired codes cannot be redeemed.
         </p>
         <ButtonLink href="/feed" full className="mt-8">
           See live deals

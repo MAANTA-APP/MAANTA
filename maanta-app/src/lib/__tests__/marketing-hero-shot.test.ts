@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
 
@@ -350,5 +350,59 @@ describe("grace period is single-sourced, like the success fee", () => {
     expect(src).toContain("DEAL_GRACE_MINUTES");
     expect(src).toContain("graceMinutes: DEAL_GRACE_MINUTES");
     expect(src, "no literal grace value in FACTS").not.toMatch(/graceMinutes:\s*\d/);
+  });
+});
+
+describe("no surface restates the grace period as prose (D113)", () => {
+  // `DEAL_GRACE_MINUTES` in @/lib/deal-expiry is what the expiry logic computes
+  // with. Any other source that spells the number out is a copy that a grace
+  // change would silently leave behind — telling a shopper at the claim screen,
+  // or a merchant in their support FAQ, something the product no longer does.
+  //
+  // Comments are stripped through the shared lexer (D38) before scanning. That is
+  // not a loophole: `deal-expiry.ts` documents its own constant, `chips.tsx`
+  // explains a countdown, and two marketing docblocks narrate this very
+  // correction — prose in a comment cannot mislead a user, and a guard that
+  // failed on its own explanation would be deleted rather than obeyed.
+  const APP = path.resolve(SRC, "app");
+  const COMPONENTS = path.resolve(SRC, "components");
+
+  function sourcesUnder(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "__tests__") continue;
+        out.push(...sourcesUnder(full));
+      } else if (/\.tsx?$/.test(entry.name)) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  it("spells 15 nowhere in rendered copy across app/ and components/", () => {
+    const offenders = [...sourcesUnder(APP), ...sourcesUnder(COMPONENTS)].filter((f) =>
+      /15[\s-]minutes?/.test(code(f))
+    );
+    expect(
+      offenders.map((f) => path.relative(SRC, f)),
+      "interpolate DEAL_GRACE_MINUTES instead of writing the number:\n" +
+        offenders.join("\n")
+    ).toEqual([]);
+  });
+
+  it("has the four swept surfaces importing the constant", () => {
+    const swept = [
+      path.join(APP, "(shopper)", "deals", "[id]", "claim-flow.tsx"),
+      path.join(APP, "(shopper)", "tickets", "[id]", "page.tsx"),
+      path.join(APP, "merchant", "(app)", "deals", "[id]", "page.tsx"),
+      path.join(APP, "merchant", "(app)", "support", "page.tsx"),
+    ];
+    for (const f of swept) {
+      expect(code(f), `${path.relative(SRC, f)} should read the constant`).toContain(
+        "DEAL_GRACE_MINUTES"
+      );
+    }
   });
 });
