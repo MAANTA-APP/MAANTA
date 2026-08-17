@@ -11,9 +11,9 @@ import {
   PointGrid,
   Section,
   SectionHeading,
-  StepRail,
   TrustBar,
 } from "@/components/marketing/sections";
+import { MerchantWalkthrough } from "@/components/marketing/MerchantWalkthrough";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
@@ -191,7 +191,13 @@ export default function MerchantsPage() {
         <SectionHeading lead="Four steps. Your staff learn it once.">
           How it works at your counter
         </SectionHeading>
-        <StepRail
+        {/*
+          The same four steps, each under a drawing of the screen it describes.
+          The fee panel is the one that earns this: "we show the fee before the
+          button that charges it" is a sentence nobody believes and a picture
+          everybody reads.
+        */}
+        <MerchantWalkthrough
           steps={[
             {
               title: "Post a deal",

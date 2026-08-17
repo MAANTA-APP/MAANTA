@@ -184,3 +184,96 @@ describe("shopper walkthrough illustrations (D50, second surface)", () => {
     expect(shoppers, "HeroShot stays Home-only").not.toContain("HeroShot");
   });
 });
+
+/**
+ * Guard for the third illustrated surface — the `/merchants` counter walkthrough.
+ *
+ * Same disclosure discipline as the other two, plus one assertion the others do
+ * not need. This walkthrough contains **exactly one amber fill**: the drawn
+ * `Confirm redemption — KES 30 fee` button. That is deliberate and load-bearing —
+ * the panel's entire job is to show that a single, named, deliberate action is the
+ * only thing that charges, and stripping its amber to tidy the palette would
+ * delete the thing being taught. Pinning it at *exactly one* is what stops that
+ * justification being borrowed for a second amber element later.
+ */
+describe("merchant counter walkthrough (D50, third surface)", () => {
+  const MERCHANT = path.join(SRC, "components", "marketing", "MerchantWalkthrough.tsx");
+  const MERCHANTS = path.join(SRC, "app", "(marketing)", "merchants", "page.tsx");
+
+  it("renders a visible illustration disclosure", () => {
+    expect(
+      /Illustration\s*·\s*example shop, prices and code/.test(code(MERCHANT)),
+      "The merchant walkthrough shows an invented shop, prices and code and must say so."
+    ).toBe(true);
+  });
+
+  it("describes the flow, and its invented content, to assistive tech", () => {
+    const src = code(MERCHANT);
+    expect(src, "the mockups should be aria-hidden").toContain('aria-hidden="true"');
+    expect(
+      /sr-only/.test(src) && /invented examples, not real offers/.test(src),
+      "an sr-only sentence must state the shop, prices and code are invented"
+    ).toBe(true);
+  });
+
+  it("never renders money in amber", () => {
+    const offenders = code(MERCHANT)
+      .split("\n")
+      .filter((l) => l.includes("text-brand") && /formatKes|tnum/.test(l));
+    expect(offenders, `Money is ink, never amber:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
+  it("keeps money out of the shopper's code card — frozen rule 6", () => {
+    const src = code(MERCHANT);
+    const start = src.indexOf("function ShopperCodePanel");
+    const end = src.indexOf("function KeypadPanel");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const card = src.slice(start, end);
+    expect(card).not.toContain("formatKes");
+    expect(card).not.toContain("KES");
+  });
+
+  it("shows the fee before the button that charges it", () => {
+    // The reason this component exists. If the disclosure copy or the fee on the
+    // button label goes, the panel stops teaching "no surprise debit" and becomes
+    // a picture of a keypad.
+    const src = code(MERCHANT);
+    expect(src).toContain("This redemption costs");
+    expect(src).toContain("MAANTA success fee");
+    expect(src).toContain("Wallet balance after");
+    expect(src, "the Confirm must name the fee, as the real button does").toContain(
+      "Confirm redemption — {formatKes(fee)} fee"
+    );
+  });
+
+  it("carries exactly one amber fill, and it is the Confirm", () => {
+    const fills = code(MERCHANT)
+      .split("\n")
+      .filter((l) => l.includes("bg-brand"));
+    expect(fills, `expected one amber fill, got:\n${fills.join("\n")}`).toHaveLength(1);
+    expect(fills[0], "the amber fill must be the Confirm button").toContain("text-black");
+  });
+
+  it("reads the fee from FACTS rather than typing it", () => {
+    // The frozen KES 30 is single-sourced; a literal here would be a second copy
+    // that no fee change would ever reach.
+    const src = code(MERCHANT);
+    expect(src).toContain("FACTS.successFeeKes");
+    expect(src).not.toMatch(/KES\s*30/);
+  });
+
+  it("invents no names of its own", () => {
+    const src = code(MERCHANT);
+    expect(src).toContain("SAMPLE_DEALS");
+    for (const invented of ["Riverside Fabrics", "Junction Shoes", "Amana Electronics"]) {
+      expect(src).not.toContain(invented);
+    }
+  });
+
+  it("is mounted on /merchants, and HeroShot still is not", () => {
+    const merchants = code(MERCHANTS);
+    expect(merchants).toContain("<MerchantWalkthrough");
+    expect(merchants, "HeroShot stays Home-only").not.toContain("HeroShot");
+  });
+});
