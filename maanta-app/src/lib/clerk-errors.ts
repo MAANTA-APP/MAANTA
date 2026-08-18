@@ -40,6 +40,14 @@ export function clerkSendCodeMessage(err: unknown): string {
     case "too_many_requests":
     case "rate_limit_exceeded":
       return "Too many attempts. Wait a minute, then try again.";
+    case "session_reverification_required":
+      // Clerk protects createPhoneNumber/prepareVerification behind a session
+      // freshness check. The screen wraps those calls in useReverification, so
+      // normally the re-confirm modal opens and this code never reaches the
+      // catch — this mapping is the backstop for any path where it still does
+      // (the modal failed to mount, an unwrapped call). Blaming the number or
+      // the country here is wrong: neither was ever looked at.
+      return "For security, Maanta needs you to confirm it's you before adding a phone. If no prompt appears, sign out, sign back in, and try again.";
     default:
       // Country restrictions, SMS quota and provider outages all land here and
       // are indistinguishable from the client — the code is the only handle on

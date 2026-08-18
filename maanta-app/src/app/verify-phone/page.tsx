@@ -2,7 +2,14 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUser, SignedIn, SignedOut, RedirectToSignIn } from "@clerk/nextjs";
+import {
+  useUser,
+  useReverification,
+  SignedIn,
+  SignedOut,
+  RedirectToSignIn,
+} from "@clerk/nextjs";
+import { isReverificationCancelledError } from "@clerk/nextjs/errors";
 import { clerkSendCodeMessage } from "@/lib/clerk-errors";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { PhoneField } from "@/components/ui/inputs";
@@ -80,18 +87,45 @@ function ClerkVerifyPhoneInner() {
 
   const fullPhone = `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`;
 
+  // createPhoneNumber and prepareVerification are reverification-protected:
+  // once the session's sign-in is older than Clerk's freshness window, the
+  // Frontend API refuses them with 403 `session_reverification_required` — a
+  // refusal about the session, not the number, so it hits anyone who signed in
+  // a while before claiming, whatever digits they typed. The wrapper opens
+  // Clerk's re-confirm modal and retries the original call on success; closing
+  // the modal rejects with a cancellation error handled in the catch below.
+  const createAndPrepare = useReverification(async (phoneNumber: string) => {
+    if (!user) throw new Error("no user");
+    const created = await user.createPhoneNumber({ phoneNumber });
+    await created.prepareVerification();
+    return created;
+  });
+
+  const reprepare = useReverification(async (id: string) => {
+    if (!user) throw new Error("no user");
+    await user.reload();
+    const record = user.phoneNumbers.find((p) => p.id === id);
+    if (!record) throw new Error("phone record missing");
+    await record.prepareVerification();
+  });
+
+  function sendCodeError(err: unknown): string {
+    return isReverificationCancelledError(err)
+      ? "Adding a phone needs a quick identity check first. Tap Send code again and complete it."
+      : clerkSendCodeMessage(err);
+  }
+
   async function sendCode() {
     if (!isLoaded || !user) return;
     setBusy(true);
     setError(null);
     try {
-      const created = await user.createPhoneNumber({ phoneNumber: fullPhone });
-      await created.prepareVerification();
+      const created = await createAndPrepare(fullPhone);
       setPhoneId(created.id);
       setStage("code");
       setResendIn(30);
     } catch (err) {
-      setError(clerkSendCodeMessage(err));
+      setError(sendCodeError(err));
     } finally {
       setBusy(false);
     }
@@ -102,13 +136,10 @@ function ClerkVerifyPhoneInner() {
     setBusy(true);
     setError(null);
     try {
-      await user.reload();
-      const record = user.phoneNumbers.find((p) => p.id === phoneId);
-      if (!record) throw new Error("phone record missing");
-      await record.prepareVerification();
+      await reprepare(phoneId);
       setResendIn(30);
     } catch (err) {
-      setError(clerkSendCodeMessage(err));
+      setError(sendCodeError(err));
     } finally {
       setBusy(false);
     }

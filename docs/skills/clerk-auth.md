@@ -144,6 +144,14 @@ shopper board.
   Clerk account (client SDK: `createPhoneNumber` → `prepareVerification` →
   `attemptVerification`), then returns to the deal. Test:
   `src/app/api/redemptions/__tests__/route.test.ts`.
+- `createPhoneNumber`/`prepareVerification` are **reverification-protected**: a
+  session older than the instance's freshness window gets 403
+  `session_reverification_required` from Clerk regardless of the number typed.
+  The page wraps both in `useReverification` (opens Clerk's re-confirm modal,
+  retries on success), and `src/lib/clerk-errors.ts` maps the code as a backstop
+  so the failure is never misreported as a bad number or a country restriction
+  (drift **D115**; error-copy test: `src/lib/__tests__/verify-phone-errors.test.ts`).
+  The freshness window itself is Clerk dashboard config, not repo state.
 
 ## Required manual steps (nothing authenticates until these are done)
 
