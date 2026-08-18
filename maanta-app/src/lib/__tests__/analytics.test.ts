@@ -147,9 +147,12 @@ describe("analytics", () => {
   });
 
   describe("deal_viewed attribution", () => {
-    // Before this, every signed-out view was sent as the literal "anonymous", so
-    // all of them shared one PostHog person: uniq(person_id) read 1 regardless of
-    // real traffic, and a deal_viewed → deal_claimed funnel could never join.
+    // A signed-out view is sent as the literal "anonymous" (UNATTRIBUTED_DISTINCT_ID),
+    // so all of them share one PostHog person — volume is sound, but per-user
+    // metrics exclude source "none". A signed-in view is attributed to the Clerk
+    // id. There is deliberately no cookie-derived id: anonymous analytics is
+    // cookieless/in-memory by founder ruling, so the server has nothing to read
+    // for a signed-out shopper (the cookie-read path was retired — D88/D22).
     const DEAL = {
       dealId: "d1",
       merchantId: "m1",
@@ -166,32 +169,24 @@ describe("analytics", () => {
       return { distinctId: body.distinct_id, props: body.properties };
     }
 
-    it("uses the browser's posthog distinct id when the shopper is signed out", async () => {
+    it("marks a signed-out view unattributed rather than inventing an identity", async () => {
       process.env[KEY] = "phc_test";
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
-      await captureDealViewed({
-        clerkUserId: null,
-        posthogDistinctId: "browser-person-1",
-        ...DEAL,
-      });
+      await captureDealViewed({ clerkUserId: null, ...DEAL });
 
       const { distinctId, props } = sent(fetchMock);
-      expect(distinctId).toBe("browser-person-1");
-      expect(props.distinct_id_source).toBe("posthog_cookie");
+      expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
+      expect(props.distinct_id_source).toBe("none");
     });
 
-    it("prefers the Clerk id when signed in, since that is what identify() sets", async () => {
+    it("attributes a signed-in view to the Clerk id, the same id identify() sets", async () => {
       process.env[KEY] = "phc_test";
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
-      await captureDealViewed({
-        clerkUserId: "user_123",
-        posthogDistinctId: "stale-pre-signup-id",
-        ...DEAL,
-      });
+      await captureDealViewed({ clerkUserId: "user_123", ...DEAL });
 
       const { distinctId, props } = sent(fetchMock);
       expect(distinctId).toBe("user_123");
@@ -199,18 +194,17 @@ describe("analytics", () => {
     });
 
     it.each([
-      ["omitted", undefined],
       ["null", null],
       ["blank", ""],
       ["whitespace", "   "],
     ])(
-      "marks the event unattributed when the cookie id is %s, rather than passing it off as a person",
-      async (_label, posthogDistinctId) => {
+      "treats a %s Clerk id as absent and falls to the unattributed bucket",
+      async (_label, clerkUserId) => {
         process.env[KEY] = "phc_test";
         const fetchMock = vi.fn().mockResolvedValue({ ok: true });
         vi.stubGlobal("fetch", fetchMock);
 
-        await captureDealViewed({ clerkUserId: null, posthogDistinctId, ...DEAL });
+        await captureDealViewed({ clerkUserId, ...DEAL });
 
         const { distinctId, props } = sent(fetchMock);
         expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
@@ -218,37 +212,15 @@ describe("analytics", () => {
       }
     );
 
-    // The two values used to be derived independently — `source` on truthiness,
-    // `distinct_id` on `??` — so a blank id was falsy but not nullish and went out
-    // as distinct_id: "" while source said otherwise. These pin that they agree.
-    it.each([
-      ["blank", ""],
-      ["whitespace", "   "],
-    ])("treats a %s Clerk id as absent and falls through to the cookie id", async (
-      _label,
-      clerkUserId
-    ) => {
+    it("never emits a blank distinct_id — source and id always agree", async () => {
+      // The two used to be derived independently (`source` on truthiness,
+      // `distinct_id` on `??`), so a blank id went out as distinct_id: "" while
+      // source said otherwise. Pin that they agree on the honest fallback.
       process.env[KEY] = "phc_test";
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
-      await captureDealViewed({
-        clerkUserId,
-        posthogDistinctId: "browser-person-1",
-        ...DEAL,
-      });
-
-      const { distinctId, props } = sent(fetchMock);
-      expect(distinctId).toBe("browser-person-1");
-      expect(props.distinct_id_source).toBe("posthog_cookie");
-    });
-
-    it("never emits a blank distinct_id, whatever the inputs", async () => {
-      process.env[KEY] = "phc_test";
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-      vi.stubGlobal("fetch", fetchMock);
-
-      await captureDealViewed({ clerkUserId: "", posthogDistinctId: "  ", ...DEAL });
+      await captureDealViewed({ clerkUserId: "  ", ...DEAL });
 
       const { distinctId, props } = sent(fetchMock);
       expect(distinctId).toBe(UNATTRIBUTED_DISTINCT_ID);
@@ -256,7 +228,7 @@ describe("analytics", () => {
       expect(props.distinct_id_source).toBe("none");
     });
 
-    it("trims a padded identity rather than sending it through as-is", async () => {
+    it("trims a padded Clerk id rather than sending it through as-is", async () => {
       process.env[KEY] = "phc_test";
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
@@ -274,11 +246,7 @@ describe("analytics", () => {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true });
       vi.stubGlobal("fetch", fetchMock);
 
-      await captureDealViewed({
-        clerkUserId: null,
-        posthogDistinctId: "browser-person-1",
-        ...DEAL,
-      });
+      await captureDealViewed({ clerkUserId: null, ...DEAL });
 
       const { props } = sent(fetchMock);
       expect(props).toMatchObject({
@@ -289,7 +257,7 @@ describe("analytics", () => {
         node: "BBS Mall",
         is_demo: true,
         environment: "demo",
-        distinct_id_source: "posthog_cookie",
+        distinct_id_source: "none",
       });
     });
   });

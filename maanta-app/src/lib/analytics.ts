@@ -297,14 +297,21 @@ export function captureTopupCompletedStripe(args: {
  * analysis can tell whether it is standing on a real identity or a placeholder,
  * instead of discovering that the hard way.
  *
- *   clerk          — a signed-in user id; the same id posthog.identify() uses,
- *                    so client and server events land on one person.
- *   posthog_cookie — the browser's own anonymous distinct id, read from the
- *                    posthog-js cookie. Stitches to the client's person, and to
- *                    the signed-in person later via identify()'s aliasing.
- *   none           — nothing to attribute to. Lands in UNATTRIBUTED_DISTINCT_ID.
+ *   clerk — a signed-in user id; the same id posthog.identify() uses, so client
+ *           and server events land on one person.
+ *   none  — nothing to attribute to (a signed-out shopper). Lands in
+ *           UNATTRIBUTED_DISTINCT_ID.
+ *
+ * There is deliberately no cookie-derived source. Anonymous analytics is
+ * cookieless and in-memory (`persistence: "memory"` in components/posthog-provider.tsx,
+ * founder ruling 2026-07-31), so the server has no browser distinct id to read for
+ * a signed-out shopper — their server-side `deal_viewed` is volume-only, while the
+ * client's own posthog-js still attributes the pageview and aliases it on sign-in.
+ * The server cookie-read that assumed the old default persistence was retired
+ * (D88); its silent-drift risk was D22. Guarded by
+ * `__tests__/analytics-cookieless-posture.test.ts`.
  */
-export type DistinctIdSource = "clerk" | "posthog_cookie" | "none";
+export type DistinctIdSource = "clerk" | "none";
 
 /**
  * Where unattributable views land. Every one shares a single PostHog person, so
@@ -322,36 +329,23 @@ export const UNATTRIBUTED_DISTINCT_ID = "anonymous";
 /** Shopper views a deal detail page (top of the claim funnel). */
 export function captureDealViewed(args: {
   clerkUserId: string | null;
-  /**
-   * The browser's PostHog distinct id, for signed-out shoppers — from
-   * `serverPosthogDistinctId()` in lib/analytics-identity.ts. Without it, every
-   * signed-out view collapses onto one person and the claim funnel cannot join.
-   */
-  posthogDistinctId?: string | null;
   dealId: string;
   merchantId: string;
   dealType: string;
   priceKes: number | null;
   node?: string | null;
 }): Promise<void> {
-  // Normalise once, then derive both values from the same pair. Deriving them
-  // independently let them disagree: a blank id is falsy (so `source` became
-  // "none") but not nullish (so `??` kept it, and distinct_id went out as ""),
-  // producing an event that contradicted itself and an empty distinct_id, which
-  // is worse than the honest fallback. Not reachable through today's only caller
-  // — Clerk hands back a real id or null, and the cookie parser already rejects
-  // blanks — but this is an exported function whose types permit "".
+  // A signed-in shopper is attributed to their Clerk id (the id identify() sets,
+  // so server and client events agree). A signed-out shopper has no
+  // server-readable identity — anonymous analytics is cookieless and in-memory by
+  // founder ruling (components/posthog-provider.tsx) — so the event is honestly
+  // unattributed (source "none") rather than pinned to an invented or empty id.
+  // A blank Clerk id is normalised to null so `source` and `distinct_id` can never
+  // disagree (a blank is falsy for `source` but not nullish for `??`, which used
+  // to send distinct_id: "" against source "none").
   const clerkId = args.clerkUserId?.trim() || null;
-  const cookieId = args.posthogDistinctId?.trim() || null;
-
-  // Clerk id first: it is what identify() sets, so a signed-in shopper's server
-  // and client events agree even if the cookie still holds a pre-signup id.
-  const source: DistinctIdSource = clerkId
-    ? "clerk"
-    : cookieId
-      ? "posthog_cookie"
-      : "none";
-  const distinctId = clerkId ?? cookieId ?? UNATTRIBUTED_DISTINCT_ID;
+  const source: DistinctIdSource = clerkId ? "clerk" : "none";
+  const distinctId = clerkId ?? UNATTRIBUTED_DISTINCT_ID;
 
   return captureServerEvent("deal_viewed", distinctId, {
     deal_id: args.dealId,
