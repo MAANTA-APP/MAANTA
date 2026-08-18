@@ -1,7 +1,18 @@
+/**
+ * Canonical Kenyan mobile in E.164 (`+2547XXXXXXXX`), or null when the input is
+ * not a Kenyan mobile. Accepts exactly the set `isValidKenyanPhone` documents —
+ * `07…`, bare `7…`, `254…`, `+254…` — and collapses them to one form so two
+ * spellings of the same number compare equal.
+ */
+export function normalizeKenyanPhone(phone: string): string | null {
+  const stripped = phone.replace(/[\s-]/g, "");
+  const match = stripped.match(/^(?:\+?254|0)?(7\d{8})$/);
+  return match ? `+254${match[1]}` : null;
+}
+
 /** Kenyan mobile: 07XXXXXXXX, +2547XXXXXXXX, or 2547XXXXXXXX. */
 export function isValidKenyanPhone(phone: string): boolean {
-  const normalized = phone.replace(/[\s-]/g, "");
-  return /^(\+?254|0)?7\d{8}$/.test(normalized);
+  return normalizeKenyanPhone(phone) !== null;
 }
 
 /**
@@ -34,4 +45,27 @@ export function isValidKenyanPhone(phone: string): boolean {
 export function isValidInternationalPhone(phone: string): boolean {
   const normalized = phone.replace(/[\s-()]/g, "");
   return /^\+?\d{8,15}$/.test(normalized);
+}
+
+/**
+ * Canonical E.164 for a `merchant_staff` invite phone, or null.
+ *
+ * `merchant_staff.phone` is compared for exact string equality against
+ * `public.users.phone` — `getMerchantContext` links a pre-invited seat that way,
+ * and `users.phone` is the E.164 number Clerk provisioned (verified-only since
+ * D118). The invite form is hand-typed, so the server must store the canonical
+ * E.164 rather than the raw string: otherwise "0712 345 678" is saved verbatim,
+ * never matches Clerk's "+254712345678", and the seat silently never links.
+ *
+ * Kenyan mobiles collapse to `+254…`; any other plausible international E.164
+ * keeps a single leading `+`; junk is rejected so the caller gets a clear 400
+ * instead of an unlinkable row. Not a numbering-plan validator — same shape-only
+ * limit as {@link isValidInternationalPhone}.
+ */
+export function normalizeStaffPhone(phone: string): string | null {
+  const kenyan = normalizeKenyanPhone(phone);
+  if (kenyan) return kenyan;
+  if (!isValidInternationalPhone(phone)) return null;
+  const digits = phone.replace(/[\s-()]/g, "");
+  return digits.startsWith("+") ? digits : `+${digits}`;
 }

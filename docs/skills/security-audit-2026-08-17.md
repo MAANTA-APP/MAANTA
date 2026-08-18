@@ -336,9 +336,11 @@ reconcile at **93/93**. Verification captured on each row.
    `primaryPhoneNumber` unconditionally. `ensureAppUserFromClerk` now persists the
    phone only when Clerk has verified it (`verifiedPrimaryPhone`, guarded by
    `verified-phone.test.ts`), so `users.phone` is verified-or-null by construction.
-   Remaining product question, not security: staff invites match a raw owner-typed
-   phone string against the E.164 Clerk number, so a format mismatch silently fails
-   to link — worth normalising, but it fails safe (no link), it does not over-link.
+   Follow-on (D119, fixed 2026-08-18): staff invites matched a raw owner-typed
+   phone against the E.164 Clerk number, so a non-canonical spelling silently
+   failed to link. `normalizeStaffPhone` now canonicalises to E.164 server-side and
+   rejects junk with a 400 (`phone-validation.test.ts`). Fails safe as before; now
+   it also links reliably.
 3. **The three `security_definer_view` advisor ERRORs are expected**, not
    regressions: `merchants_public_browse` / `deals_public_browse` /
    `demo_data_census` run `security_invoker = false` by design (it is what lets
