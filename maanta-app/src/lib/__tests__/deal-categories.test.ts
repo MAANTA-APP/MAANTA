@@ -82,23 +82,26 @@ describe("the demo reseed catalogue files itself under the same taxonomy", () =>
   // flash deals. Catching it in CI is the difference between a red test and a
   // marketplace that stops restocking overnight.
   const reseed = read("supabase/migrations/20260818130000_demo_reseed_categories.sql");
-  const keys = [...reseed.matchAll(/"k":\s*(null|"([a-z]+)")/g)];
+  // `String.match` with /g rather than spreading `matchAll`: this tsconfig sets
+  // no `target`, so tsc defaults to ES5 and spreading an iterator needs
+  // `--downlevelIteration`. vitest transpiles through esbuild and does not care,
+  // which is exactly how that reaches CI green-looking and fails `tsc --noEmit`.
+  const raw = reseed.match(/"k":\s*(?:null|"[a-z]+")/g) ?? [];
+  const keys = raw.map((m) => /"k":\s*"([a-z]+)"/.exec(m)?.[1] ?? null);
 
   it("gives every catalogue item a key", () => {
     expect(keys.length, "expected all 16 catalogue items to carry a k").toBe(16);
   });
 
   it("uses only keys the taxonomy and the CHECK constraint accept", () => {
-    const bad = keys
-      .map((m) => m[2])
-      .filter((k) => k !== undefined && !isDealCategory(k));
+    const bad = keys.filter((k) => k !== null && !isDealCategory(k));
     expect(bad, `unknown category keys in the demo catalogue: ${bad.join(", ")}`).toEqual(
       []
     );
   });
 
   it("covers all three buckets, so the chip row actually appears in demo mode", () => {
-    const used = new Set(keys.map((m) => m[2]).filter(Boolean));
+    const used = new Set(keys.filter((k): k is string => k !== null));
     for (const c of DEAL_CATEGORIES) {
       expect(used.has(c.key), `no demo deal is filed under ${c.key}`).toBe(true);
     }
@@ -108,7 +111,7 @@ describe("the demo reseed catalogue files itself under the same taxonomy", () =>
     // A suitcase is not fashion, beauty or food. Forcing it into one to make the
     // demo look tidy would be lying with fixture data — and it would hide the
     // uncategorised path, which is the state every real pre-taxonomy deal is in.
-    expect(keys.some((m) => m[1] === "null")).toBe(true);
+    expect(keys.some((k) => k === null)).toBe(true);
   });
 });
 
@@ -157,8 +160,14 @@ describe("uncategorised deals show under All and under no chip", () => {
   it("treats a missing field the same as an explicit null", () => {
     // Before the migration is applied, the column is absent from the select and
     // the field is `undefined`, not `null`.
-    expect(filterDealRowsByCategory([{ id: "x" }], "food")).toEqual([]);
-    expect(filterDealRowsByCategory([{ id: "x" }], "all")).toHaveLength(1);
+    //
+    // Typed rather than inlined: with no `category` property to infer from, the
+    // generic falls back to its constraint and an inline literal's `id` becomes
+    // an excess property. The annotation is what says "a row that legitimately
+    // has no category field", which is the case under test.
+    const noField: { id: string; category?: string | null }[] = [{ id: "x" }];
+    expect(filterDealRowsByCategory(noField, "food")).toEqual([]);
+    expect(filterDealRowsByCategory(noField, "all")).toHaveLength(1);
   });
 });
 

@@ -71,10 +71,14 @@ DECLARE
   v_category TEXT;
   v_paused_visible INT;
 BEGIN
+  -- Elite so two active deals are allowed: enforce_deal_limit caps Standard at 1,
+  -- and this scenario needs a live deal and a paused deal side by side to tell
+  -- the two view outcomes apart. Same reason, same fix as Scenario D of
+  -- browse_views_test.sql.
   INSERT INTO public.merchants (
-    merchant_name, what3words_address, phone, node, status, is_visible, account_balance
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
   )
-    VALUES ('__test_category_view', 'test.category.view', '+254700000802', 'BBS Mall', 'active', TRUE, 999)
+    VALUES ('__test_category_view', 'test.category.view', '+254700000802', 'BBS Mall', 'active', TRUE, 999, 'elite')
     RETURNING id INTO v_mid;
 
   INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, category)
