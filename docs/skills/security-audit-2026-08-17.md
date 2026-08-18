@@ -146,7 +146,18 @@ CI `db-tests` job.
 
 ## Other findings
 
-### 2. Redemption OTPs use a non-cryptographic PRNG — low today, latent
+### 2. Redemption OTPs use a non-cryptographic PRNG — low today, latent → FIXED 2026-08-18
+
+> **Fixed 2026-08-18** by `20260818120000_claim_deal_csprng_otp.sql` (applied to
+> production, founder-authorized MCP apply; ledger recorded, 93/93). `claim_deal`
+> now mints the code from pgcrypto's CSPRNG via the one-line change below —
+> surgical `CREATE OR REPLACE`, body byte-identical to the pause-gate version
+> otherwise. Verified live by read-back: the body uses `gen_random_bytes` and no
+> `floor(random(...))`, the `deal_paused` gate and caller-authz check are intact,
+> and anon still cannot execute it. Guard: `maanta-app/supabase/tests/claim_deal_otp_csprng_test.sql`
+> (source ratchet — must use `gen_random_bytes`, must not use `floor(random` —
+> plus an end-to-end claim asserting a well-formed 6-digit code). The original
+> finding is preserved below for the record.
 
 `claim_deal` mints the 6-digit code with
 `LPAD(FLOOR(RANDOM() * 1000000)::TEXT, 6, '0')`
@@ -300,28 +311,30 @@ service_role + postgres (cron + Makefile keep working). Guard:
 
 ---
 
-## Status — applied 2026-08-17
+## Status — applied 2026-08-17 / 2026-08-18
 
-All three migrations were applied to production (`axrrslqssmbngbataejg`) via a
-founder-authorized MCP apply, in order `20260817120000` → `130000` → `140000`,
+The three security migrations were applied to production (`axrrslqssmbngbataejg`)
+via founder-authorized MCP apply, in order `20260817120000` → `130000` → `140000`,
 each `execute_sql` DDL followed by a filename-versioned ledger row. **D115, D116,
 D117 closed** on read-back; the D107 ledger straggler (`20260816020000`) was
-recorded in the same pass and **D107 closed** too. The repo migration files and
-`schema_migrations` now reconcile at **92/92**. Verification captured on each row.
+recorded in the same pass and **D107 closed** too. The OTP-entropy hardening
+(`20260818120000_claim_deal_csprng_otp.sql`, *Other findings §2*) was applied and
+verified 2026-08-18. The repo migration files and `schema_migrations` now
+reconcile at **93/93**. Verification captured on each row.
 
 ## Still for the founder — in order
 
 1. **Run `make db-verify`** (or let the CI `db-tests` job run) so every new SQL
    Scenario is executed by a runner, not just proven by production read-back —
    there is no Supabase CLI in the audit container, so the suites themselves have
-   not been run here.
-2. **Schedule the OTP entropy fix** as its own diff — before, not after, any
-   change that widens who can verify a code.
-3. **Consider whether staff-by-phone should require a verified phone.** D116's
+   not been run here. New suites this audit: `browse_views_test.sql` (E/F/G),
+   `users_identity_immutable_test.sql`, `demo_mutation_rpc_grants_test.sql`,
+   `claim_deal_otp_csprng_test.sql`.
+2. **Consider whether staff-by-phone should require a verified phone.** D116's
    trigger closes the write primitive; separately, `getMerchantContext` trusting
    `users.phone` for staff identity is worth a product look — a verified-phone
    check at link time would be defence in depth.
-4. **The three `security_definer_view` advisor ERRORs are expected**, not
+3. **The three `security_definer_view` advisor ERRORs are expected**, not
    regressions: `merchants_public_browse` / `deals_public_browse` /
    `demo_data_census` run `security_invoker = false` by design (it is what lets
    anon browse without base-table grants). D115 revoked their writes rather than

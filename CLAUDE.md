@@ -11,14 +11,15 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 92/92 as of 2026-08-17** (**D24**
+still on. **The migration ledger reconciles at 93/93 as of 2026-08-18** (**D24**
 closed 2026-08-05; **D107** closed 2026-08-17): production's `schema_migrations`
-and this repo's `supabase/migrations/` agree on all 92 version/name pairs, read
-back after a founder-authorized MCP apply that landed the three 2026-08-17
+and this repo's `supabase/migrations/` agree on all 93 version/name pairs, read
+back after founder-authorized MCP applies that landed the three 2026-08-17
 security migrations (`20260817120000`/`130000`/`140000` — **D115**/**D116**/**D117**,
-all closed) and finally recorded the `20260816020000` ledger row D107 was open on.
-Like deployment alignment, treat this as a thing to re-check, not a settled
-state — the earlier 87/87 reconciliation drifted twice before this. The `claim_deal` pause gate is **live** (**D25**
+all closed), recorded the `20260816020000` ledger row D107 was open on, and added
+`20260818120000` (claim_deal CSPRNG OTP). Like deployment alignment, treat this
+as a thing to re-check, not a settled state — the earlier 87/87 reconciliation
+drifted twice before this. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
 assigning it is founder-held, Q14). The role's DB policy layer is **live**
@@ -72,7 +73,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciles with prod at **92/92 as of 2026-08-17** — **D24** closed 2026-08-05, **D107** closed 2026-08-17. The three 2026-08-17 security migrations `20260817120000`/`130000`/`140000` (**D115**/**D116**/**D117**) applied to production and read back, and the `20260816020000` ledger row was recorded in the same pass) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciles with prod at **93/93 as of 2026-08-18** — **D24** closed 2026-08-05, **D107** closed 2026-08-17. The three 2026-08-17 security migrations `20260817120000`/`130000`/`140000` (**D115**/**D116**/**D117**) applied and read back with the `20260816020000` ledger row recorded in the same pass; `20260818120000` (claim_deal CSPRNG OTP) applied 2026-08-18) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
