@@ -85,10 +85,22 @@ export async function POST(request: Request) {
   // Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth lets a
   // shopper sign up with email OR phone, but a claim requires a verified phone.
   // An email-only session is bounced here with a typed `phone_required` code so
-  // the client can route through phone OTP and return to the deal — the claim
-  // RPC is never reached without a phone. PHONE_REQUIRED_AT_CLAIM is a frozen
-  // TRUE across every launch-auth mix (email+phone or phone-only) — the gate is
-  // never relaxed by the mix flag; only the sign-up methods offered differ.
+  // the client can route through phone OTP and return to the deal.
+  //
+  // This route is the ONLY phone gate: `claim_deal` asserts no phone check of its
+  // own (grep `phone` over its definition returns nothing). So the invariant holds
+  // for the shipped shopper path, but it is app-layer, not RPC-enforced — a direct
+  // RPC caller with a valid shopper JWT would claim without a verified phone. That
+  // is accepted for the pilot (this gated route is the only caller, and production
+  // runs the Clerk strategy where the check is real); the durable form is an
+  // RPC-level check against a persisted verified-phone flag — a founder call whose
+  // analysis is recorded as D84. Note too that under the Supabase auth strategy (dev/CI)
+  // `currentUserHasVerifiedPhone()` returns true unconditionally, so this single
+  // gate is also strategy-dependent (D59).
+  //
+  // PHONE_REQUIRED_AT_CLAIM is a frozen TRUE across every launch-auth mix
+  // (email+phone or phone-only) — the gate is never relaxed by the mix flag;
+  // only the sign-up methods offered differ.
   const hasPhone = await currentUserHasVerifiedPhone();
   if (PHONE_REQUIRED_AT_CLAIM && !hasPhone) {
     return NextResponse.json(
