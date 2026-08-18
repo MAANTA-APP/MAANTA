@@ -3,14 +3,30 @@
 Last updated: 2026-08-18
 
 Founder ruling 2026-08-18, from an annotated `/feed` screenshot: shoppers filter
-the deal feed by category. The taxonomy is **three buckets** and it is attached
-to the **deal**, not the merchant.
+the deal feed by category. The taxonomy is **ten buckets** and it is attached to
+the **deal**, not the merchant.
+
+It started at three — the three the pilot merchants sell (Nuur Fashion House,
+Bilan Beauty & Cosmetics, Macmacaan Sweets & Café). Building against it showed
+three was too few within the hour: four of the sixteen demo catalogue items fit
+no bucket at all. Widened to ten the same day (**D117**, closed). The original
+three keep their keys and their labels unchanged.
 
 | Stored key | Shopper label |
 |---|---|
 | `fashion` | Fashion & fabric |
 | `beauty` | Beauty & perfume |
 | `food` | Food |
+| `electronics` | Phones & electronics |
+| `shoes` | Shoes & bags |
+| `home` | Home & living |
+| `jewellery` | Jewellery & watches |
+| `health` | Health & pharmacy |
+| `kids` | Kids & baby |
+| `services` | Services |
+
+Order is chip order and is deliberate: the three the pilot sells first, then the
+rest by how much of a mall floor they occupy.
 
 Source of truth for the taxonomy is `maanta-app/src/lib/deal-categories.ts` and
 the `CHECK` constraint in
@@ -135,10 +151,12 @@ word cannot mean two axes in one app.
   them the filter is invisible on production. This is a human `db push` step
   (`docs/ops/supabase-migrations.md`), in order: `20260818120000` then
   `20260818130000`.
-- **D117** — three buckets cannot describe the floor. Four of the sixteen demo
-  catalogue items (screen protector, earbuds, prayer mat, suitcase) fit none of
-  them. Whether the pilot needs a fourth and fifth is a **founder ruling**.
-  Adding one is one entry in `DEAL_CATEGORIES` plus one value in the CHECK.
+- ~~**D117**~~ — **closed 2026-08-18.** Three buckets could not describe the
+  floor; the founder widened the set to ten. The four orphans now sit in Phones
+  & electronics (screen protector, earbuds), Home & living (prayer mat) and
+  Shoes & bags (suitcase). Adding an eleventh is still one entry in
+  `DEAL_CATEGORIES` plus one value in the CHECK, and a test fails if only one of
+  the two is widened.
 - **D118** — the filter runs after the feed's per-rail row limits (20/20/40), so
   past those counts at one node a category under-reports. Dormant at Node 0; the
   fix is to push the predicate into `selectLiveDealBucket` and into the cache key.

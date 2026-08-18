@@ -125,7 +125,7 @@ export function MapClient({
               "Deal type", not "Category". This control has always filtered
               Flash / Boosted / Standard — the deal's rail — and calling that a
               category was fine only while the product had no categories. It has
-              them now (fashion / beauty / food), and two different axes cannot
+              them now (ten of them, fashion through services), and two axes cannot
               share one word on the same app.
             */}
             <FilterDropdown

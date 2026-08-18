@@ -7,15 +7,23 @@
 -- invisible until real merchants started publishing — a feature that only
 -- exists in a branch is a feature nobody can review.
 --
--- FOUR of the sixteen items are deliberately left NULL: a screen protector,
--- earbuds, a prayer mat and a suitcase are not fashion, beauty or food, and
--- forcing them into a bucket to make the demo look tidy would be lying with
--- fixture data. They keep the uncategorised path honest and on screen — which
--- is the state every pre-taxonomy deal is in anyway.
+-- All sixteen items now carry a key. An earlier draft of this migration left
+-- FOUR of them NULL — a screen protector, earbuds, a prayer mat and a suitcase
+-- are not fashion, beauty or food, and forcing them into one of those three to
+-- make the demo look tidy would have been lying with fixture data. That gap was
+-- the evidence for drift D117, and the founder resolved it by widening the
+-- taxonomy from three buckets to ten rather than by mis-filing the orphans. They
+-- now sit in Phones & electronics, Home & living and Shoes & bags.
 --
--- That the demo catalogue needs a fourth and fifth bucket to describe itself is
--- a real signal about the taxonomy, not a defect in this migration. Recorded as
--- drift D117 for a founder ruling rather than resolved here.
+-- The catalogue spans NINE of the ten buckets; nothing here is a Health &
+-- pharmacy deal. That is fine and deliberately not padded — fixture data exists
+-- to exercise the code, not to hit every enum value, and inventing a pharmacy
+-- deal for a mall whose three pilot merchants sell clothes, perfume and food
+-- would put a shop on the demo feed that does not exist.
+--
+-- The uncategorised path is NOT untested as a result: `deals.category` stays
+-- NULLable, every pre-taxonomy deal is in that state, and
+-- `deal-categories.test.ts` covers it directly.
 --
 -- The rest of the function is copied VERBATIM from
 -- 20260729180000_demo_reseed_retire_expired.sql — the current definition. Only
@@ -44,15 +52,15 @@ DECLARE
     {"t":"Somali tea and sambusa combo",         "d":"Two sambusa and spiced shaah.",                               "p":180,  "c":250, "k":"food"},
     {"t":"Camel milk — 1 litre, chilled",        "d":"Fresh delivery, limited each morning.",                       "p":320,  "c":420, "k":"food"},
     {"t":"Halwa tray — quarter kilo",            "d":"Cut fresh at the counter.",                                   "p":480,  "c":650, "k":"food"},
-    {"t":"Phone screen protector fitted free",   "d":"Fitting included with any purchase.",                         "p":350,  "c":600, "k":null},
-    {"t":"Wireless earbuds — counter demo",      "d":"Try before you pay. One-year shop warranty.",                 "p":1900, "c":2800, "k":null},
-    {"t":"Prayer mat with carry bag",            "d":"Padded, machine-washable.",                                   "p":890,  "c":1300, "k":null},
-    {"t":"Leather sandals — mens",               "d":"Sizes 39 to 45 in stock today.",                              "p":1450, "c":2100, "k":"fashion"},
-    {"t":"Kids uniform bundle",                  "d":"Two shirts and one trouser.",                                 "p":1650, "c":2400, "k":"fashion"},
+    {"t":"Phone screen protector fitted free",   "d":"Fitting included with any purchase.",                         "p":350,  "c":600, "k":"electronics"},
+    {"t":"Wireless earbuds — counter demo",      "d":"Try before you pay. One-year shop warranty.",                 "p":1900, "c":2800, "k":"electronics"},
+    {"t":"Prayer mat with carry bag",            "d":"Padded, machine-washable.",                                   "p":890,  "c":1300, "k":"home"},
+    {"t":"Leather sandals — mens",               "d":"Sizes 39 to 45 in stock today.",                              "p":1450, "c":2100, "k":"shoes"},
+    {"t":"Kids uniform bundle",                  "d":"Two shirts and one trouser.",                                 "p":1650, "c":2400, "k":"kids"},
     {"t":"Henna cones — pack of five",           "d":"Fresh batch, dark stain.",                                    "p":260,  "c":380, "k":"beauty"},
-    {"t":"Gold-plated bangle set",               "d":"Six bangles, gift boxed.",                                    "p":2200, "c":3100, "k":"fashion"},
-    {"t":"Suitcase — 24 inch spinner",           "d":"Travel season stock.",                                        "p":4200, "c":5900, "k":null},
-    {"t":"Barber cut and beard trim",            "d":"Walk-in, no booking needed.",                                 "p":400,  "c":550, "k":"beauty"}
+    {"t":"Gold-plated bangle set",               "d":"Six bangles, gift boxed.",                                    "p":2200, "c":3100, "k":"jewellery"},
+    {"t":"Suitcase — 24 inch spinner",           "d":"Travel season stock.",                                        "p":4200, "c":5900, "k":"shoes"},
+    {"t":"Barber cut and beard trim",            "d":"Walk-in, no booking needed.",                                 "p":400,  "c":550, "k":"services"}
   ]'::JSONB;
 
   -- Mirrors enforce_deal_limit()'s Elite allowance. Named for where the number

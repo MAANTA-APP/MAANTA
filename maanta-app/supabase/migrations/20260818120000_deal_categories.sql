@@ -1,10 +1,24 @@
 -- Shopper-facing deal categories (founder ruling 2026-08-18).
 --
--- Three buckets, locked: fashion (Fashion & fabric), beauty (Beauty & perfume),
--- food (Food). The column stores the KEY, never the label — relabelling a chip
--- must not require rewriting rows. The app mirror is
+-- TEN buckets, locked. The column stores the KEY, never the label — relabelling
+-- a chip must not require rewriting rows. The app mirror is
 -- `maanta-app/src/lib/deal-categories.ts`; the CHECK below and that array are
--- the two places a fourth bucket has to be added, and a test pins them together.
+-- the two places a bucket has to be added, and a test pins them together.
+--
+--   fashion     Fashion & fabric        beauty   Beauty & perfume
+--   food        Food                    shoes    Shoes & bags
+--   electronics Phones & electronics    home     Home & living
+--   jewellery   Jewellery & watches     health   Health & pharmacy
+--   kids        Kids & baby             services Services
+--
+-- This migration was authored with three buckets and widened to ten the same
+-- day (drift D117) — BEFORE it was ever applied, which is why the widening is an
+-- edit here rather than a follow-up migration. **If this file was somehow
+-- already applied while it still listed three keys, editing it is not enough:**
+-- the ledger will consider it done and `db push` will skip it, leaving
+-- production refusing seven of the ten keys with a check_violation. In that case
+-- widen the live constraint by hand with the DROP/ADD pair below, and record it.
+-- See docs/ops/supabase-migrations.md.
 --
 -- The category is attached to the DEAL, not the merchant: a fabric shop that
 -- also sells snacks files each deal where a shopper would look for it, and a
@@ -30,10 +44,13 @@ ALTER TABLE public.deals
   DROP CONSTRAINT IF EXISTS deals_category_check;
 ALTER TABLE public.deals
   ADD CONSTRAINT deals_category_check
-  CHECK (category IS NULL OR category IN ('fashion', 'beauty', 'food'));
+  CHECK (category IS NULL OR category IN (
+    'fashion', 'beauty', 'food', 'electronics', 'shoes',
+    'home', 'jewellery', 'health', 'kids', 'services'
+  ));
 
 COMMENT ON COLUMN public.deals.category IS
-  'Shopper-facing category key: fashion | beauty | food. NULL = uncategorised (pre-2026-08-18 deals); shows under All only. Labels live in src/lib/deal-categories.ts — this column stores keys, never labels.';
+  'Shopper-facing category key: fashion | beauty | food | electronics | shoes | home | jewellery | health | kids | services. NULL = uncategorised (pre-2026-08-18 deals); shows under All only. Labels live in src/lib/deal-categories.ts — this column stores keys, never labels.';
 
 -- NO INDEX ON category, deliberately.
 --
@@ -104,6 +121,6 @@ WITH (security_invoker = false) AS
     AND (NOT m.is_demo OR public.is_demo_mode());
 
 COMMENT ON VIEW public.deals_public_browse IS
-  'Public discovery deals: active, unpaused, unexpired, merchant publicly visible. Pause hides from discovery only — claimed tickets remain redeemable via verify_redemption until ticket expiry. Carries category (fashion | beauty | food | NULL).';
+  'Public discovery deals: active, unpaused, unexpired, merchant publicly visible. Pause hides from discovery only — claimed tickets remain redeemable via verify_redemption until ticket expiry. Carries category (one of ten keys, or NULL — see deals.category).';
 
 GRANT SELECT ON public.deals_public_browse TO anon, authenticated;

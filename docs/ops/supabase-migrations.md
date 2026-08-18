@@ -326,8 +326,25 @@ Two migrations are committed and **not on production**. Apply in this order —
 the second writes into the column the first creates:
 
 1. `20260818120000_deal_categories.sql` — adds `deals.category` (NULLable) with
-   the named CHECK `deals_category_check`, a partial index, and a **DROP +
-   CREATE** of `deals_public_browse` carrying the new column. The recreate
+   the named CHECK `deals_category_check` listing **ten** keys, and a **DROP +
+   CREATE** of `deals_public_browse` carrying the new column. No index: the
+   category predicate lives in the app, so one could never be used (see D118).
+
+   **Check the key count before you apply.** This file was authored with three
+   keys and widened to ten on the same day, before any apply. If it somehow
+   reached production while it still listed three, applying it again is a no-op
+   — the ledger has it — and production will refuse seven of the ten keys with a
+   `check_violation` the moment a merchant picks one. Verify with:
+
+   ```sql
+   select pg_get_constraintdef(oid) from pg_constraint
+    where conname = 'deals_category_check';
+   ```
+
+   It must list: fashion, beauty, food, electronics, shoes, home, jewellery,
+   health, kids, services. If it lists three, widen it by hand with the
+   `DROP CONSTRAINT IF EXISTS` / `ADD CONSTRAINT` pair from the migration, then
+   record the manual fix in the drift register. The recreate
    copies the pause predicate verbatim; `supabase/tests/deal_categories_test.sql`
    re-asserts it, so run the SQL suites after the apply rather than assuming.
 2. `20260818130000_demo_reseed_categories.sql` — `CREATE OR REPLACE` of

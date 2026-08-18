@@ -1,7 +1,15 @@
 import type { DealRow } from "@/lib/data";
 
 /**
- * The shopper-facing deal taxonomy — three buckets, founder-locked 2026-08-18.
+ * The shopper-facing deal taxonomy — ten buckets, founder-locked 2026-08-18.
+ *
+ * It started at three (Fashion & fabric / Beauty & perfume / Food), which is
+ * what the three pilot merchants sell — Nuur Fashion House, Bilan Beauty &
+ * Cosmetics, Macmacaan Sweets & Café. Building against it immediately showed
+ * three was too few: four of the sixteen demo catalogue items fit no bucket at
+ * all (a phone screen protector, earbuds, a prayer mat, a suitcase), and a mall
+ * floor is not three verticals. Widened to ten on the same day (D117). The
+ * original three keep their keys and their labels untouched.
  *
  * Two things are deliberately separate here and must stay separate:
  *
@@ -16,10 +24,15 @@ import type { DealRow } from "@/lib/data";
  * turns into a silent data migration and every old deal falls out of its own
  * category.
  *
- * This is also the whole list. Adding a fourth bucket is: one entry here, one
- * value in the SQL CHECK constraint, one line in the migration that widens it.
- * The app derives everything else — chips, validation, the merchant picker — from
- * this array, so nothing else has to be found and edited.
+ * This is also the whole list. Adding a bucket is: one entry here and one value
+ * in the SQL CHECK constraint. The app derives everything else — chips,
+ * validation, the merchant picker, the URL parser — from this array, so nothing
+ * else has to be found and edited, and a test fails if only one of those two
+ * places is widened.
+ *
+ * Order is chip order, and it is deliberate rather than alphabetical: the three
+ * the pilot actually sells come first, then the rest by how much of a mall floor
+ * they occupy. Shoppers scan a chip row left to right and stop early.
  *
  * Categories are attached to the DEAL, not the merchant (founder ruling
  * 2026-08-18). A fabric shop that sells snacks at the counter can file each deal
@@ -30,6 +43,13 @@ export const DEAL_CATEGORIES = [
   { key: "fashion", label: "Fashion & fabric" },
   { key: "beauty", label: "Beauty & perfume" },
   { key: "food", label: "Food" },
+  { key: "electronics", label: "Phones & electronics" },
+  { key: "shoes", label: "Shoes & bags" },
+  { key: "home", label: "Home & living" },
+  { key: "jewellery", label: "Jewellery & watches" },
+  { key: "health", label: "Health & pharmacy" },
+  { key: "kids", label: "Kids & baby" },
+  { key: "services", label: "Services" },
 ] as const;
 
 export type DealCategory = (typeof DEAL_CATEGORIES)[number]["key"];

@@ -19,7 +19,14 @@ BEGIN
     VALUES ('__test_deal_category', 'test.deal.category', '+254700000801', 'BBS Mall', 'active', TRUE, 999)
     RETURNING id INTO v_mid;
 
-  FOREACH v_key IN ARRAY ARRAY['fashion', 'beauty', 'food'] LOOP
+  -- All ten keys, not a sample: the CHECK is the only thing standing between the
+  -- app's taxonomy and the column, so every key the app can send must be proven
+  -- to land. Inserted and deleted one at a time so enforce_deal_limit (Standard
+  -- allows 1 active deal) is never approached.
+  FOREACH v_key IN ARRAY ARRAY[
+    'fashion', 'beauty', 'food', 'electronics', 'shoes',
+    'home', 'jewellery', 'health', 'kids', 'services'
+  ] LOOP
     INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, category)
       VALUES (v_mid, '__test category ' || v_key, 'x', TRUE, NOW() + INTERVAL '2 hours', 100, v_key)
       RETURNING id INTO v_did;
@@ -35,9 +42,15 @@ BEGIN
   -- A key outside the taxonomy must not reach the table. Without the CHECK the
   -- filter would silently accumulate buckets no chip renders, and those deals
   -- would be discoverable only under "All" with nothing saying why.
+  --
+  -- The rejected key is deliberately nonsense rather than plausible. This line
+  -- used to say 'electronics', which became a REAL key when the taxonomy widened
+  -- from three buckets to ten — at which point the test would have failed
+  -- claiming the CHECK was broken. A negative case must name something that can
+  -- never be promoted into the taxonomy.
   BEGIN
     INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, category)
-      VALUES (v_mid, '__test category bogus', 'x', TRUE, NOW() + INTERVAL '2 hours', 100, 'electronics');
+      VALUES (v_mid, '__test category bogus', 'x', TRUE, NOW() + INTERVAL '2 hours', 100, '__not_a_category__');
     RAISE EXCEPTION 'A: an unknown category key was accepted';
   EXCEPTION
     WHEN check_violation THEN
@@ -56,7 +69,7 @@ BEGIN
 
   DELETE FROM public.deals WHERE merchant_id = v_mid;
   DELETE FROM public.merchants WHERE id = v_mid;
-  RAISE NOTICE 'Scenario A passed: category CHECK accepts the three locked keys and NULL only';
+  RAISE NOTICE 'Scenario A passed: category CHECK accepts all ten locked keys and NULL only';
 END $$;
 
 -- Scenario B: the browse view exposes category AND still hides paused deals.

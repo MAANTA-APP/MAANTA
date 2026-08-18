@@ -31,7 +31,9 @@ const code = (rel: string) => stripComments(read(rel));
  * Shopper deal categories — the taxonomy, the two places it is written down, and
  * the ways a filter can lie to a shopper.
  *
- * Founder ruling 2026-08-18: three buckets, attached to the DEAL.
+ * Founder ruling 2026-08-18: ten buckets (widened from three the same day — the
+ * three the pilot merchants sell could not describe a mall floor), attached to
+ * the DEAL rather than the merchant.
  */
 
 describe("the taxonomy is written down twice and must agree", () => {
@@ -109,18 +111,41 @@ describe("the demo reseed catalogue files itself under the same taxonomy", () =>
     );
   });
 
-  it("covers all three buckets, so the chip row actually appears in demo mode", () => {
+  it("spans enough buckets that the chip row actually appears in demo mode", () => {
+    // Not "every bucket": fixture data exists to exercise the code, not to hit
+    // every enum value, and inventing a Health & pharmacy deal would put a shop
+    // on the demo feed that does not exist at BBS Mall. What matters is that the
+    // catalogue produces a multi-bucket feed, since `dealCategoryChips` withholds
+    // the row entirely when every live deal sits in one bucket.
     const used = new Set(keys.filter((k): k is string => k !== null));
-    for (const c of DEAL_CATEGORIES) {
-      expect(used.has(c.key), `no demo deal is filed under ${c.key}`).toBe(true);
+    expect(used.size, `demo catalogue spans only ${used.size} categories`).toBeGreaterThanOrEqual(
+      5
+    );
+  });
+
+  it("files the four one-time orphans in the buckets the widening created", () => {
+    // These are why the taxonomy went from three to ten (D117). If any of them
+    // reverts to null, or the bucket that received it disappears, the widening
+    // has been partly undone.
+    for (const [title, key] of [
+      ["Phone screen protector", "electronics"],
+      ["Wireless earbuds", "electronics"],
+      ["Prayer mat", "home"],
+      ["Suitcase", "shoes"],
+    ] as const) {
+      const line = reseed.split("\n").find((l) => l.includes(`"t":"${title}`));
+      expect(line, `${title} missing from the catalogue`).toBeTruthy();
+      expect(line, `${title} should be filed under ${key}`).toContain(`"k":"${key}"`);
+      expect(isDealCategory(key)).toBe(true);
     }
   });
 
-  it("leaves the items that fit no bucket uncategorised rather than mis-filing them", () => {
-    // A suitcase is not fashion, beauty or food. Forcing it into one to make the
-    // demo look tidy would be lying with fixture data — and it would hide the
-    // uncategorised path, which is the state every real pre-taxonomy deal is in.
-    expect(keys.some((k) => k === null)).toBe(true);
+  it("leaves nothing uncategorised now that every item has an honest bucket", () => {
+    // The inverse of the assertion this replaced. With three buckets, four items
+    // fit nowhere and NULL was the honest answer; with ten, mis-filing is no
+    // longer the only alternative to NULL, so a null here means an item was
+    // missed rather than a judgement call.
+    expect(keys.filter((k) => k === null)).toEqual([]);
   });
 });
 
@@ -211,13 +236,15 @@ describe("the chip row is only offered when it can change the screen", () => {
 
   it("keeps taxonomy order, not order of appearance", () => {
     // Chips that reshuffle as merchants publish are chips a returning shopper
-    // has to re-read every time.
-    const chips = dealCategoryChips([
-      { category: "food" },
-      { category: "fashion" },
-      { category: "beauty" },
-    ]);
-    expect(chips.map((c) => c.key)).toEqual(DEAL_CATEGORIES.map((c) => c.key));
+    // has to re-read every time. Deliberately fed in reverse taxonomy order, and
+    // compared against the taxonomy filtered to what was fed — comparing against
+    // the WHOLE taxonomy would only pass while every bucket happened to be live,
+    // which stopped being true the moment there were ten of them.
+    const fed = ["services", "food", "fashion"];
+    const chips = dealCategoryChips(fed.map((category) => ({ category })));
+    expect(chips.map((c) => c.key)).toEqual(
+      DEAL_CATEGORIES.map((c) => c.key).filter((k) => fed.includes(k))
+    );
   });
 });
 
@@ -227,7 +254,11 @@ describe("labels", () => {
   });
 
   it("returns null rather than echoing an unknown key at a shopper", () => {
-    expect(dealCategoryLabel("electronics")).toBeNull();
+    // `electronics` used to be the example here and is now a real bucket, which
+    // is the hazard with picking a plausible-sounding word as the negative case.
+    // `__not_a_category__` can never become one.
+    expect(dealCategoryLabel("__not_a_category__")).toBeNull();
+    expect(dealCategoryLabel("")).toBeNull();
     expect(dealCategoryLabel(null)).toBeNull();
   });
 });
