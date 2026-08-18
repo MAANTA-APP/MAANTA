@@ -118,7 +118,7 @@ export type DealRow = {
   /**
    * Shopper-facing category key (`fashion` | `beauty` | `food`), or null for
    * deals created before the taxonomy existed. Optional at the type level, not
-   * just nullable: until `20260818120000_deal_categories.sql` is applied the
+   * just nullable: until `20260818150000_deal_categories.sql` is applied the
    * column is absent from the select and the field is genuinely `undefined`, and
    * a type that promised `string | null` would make that state unrepresentable
    * while it is exactly the state production is in.
@@ -178,7 +178,7 @@ export function dealSelectWithoutCategory(select: string): string {
  * when the remote schema is behind this deploy.
  *
  * Two columns can be absent independently: `merchants.lat/lng`
- * (`20260726120000`) and `deals.category` (`20260818120000`). Claude never
+ * (`20260726120000`) and `deals.category` (`20260818150000`). Claude never
  * applies migrations to production, so code that reads a column always ships
  * before the column exists, for a window nobody can predict. A 500 on the
  * shopper feed for that window is a much worse product than a missing distance

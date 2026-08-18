@@ -1,5 +1,5 @@
 -- ============================================================
--- Test: deal categories (20260818120000_deal_categories.sql)
+-- Test: deal categories (20260818150000_deal_categories.sql)
 --
 -- Self-contained and self-cleaning. Run after full migration chain:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/deal_categories_test.sql

@@ -47,7 +47,7 @@ describe("the taxonomy is written down twice and must agree", () => {
   // `--` comment lines stripped first: the migration's own header explains the
   // taxonomy in words, and a guard that scanned them would fail for documenting
   // the thing it is guarding — the D38 lesson, in SQL.
-  const migration = read("supabase/migrations/20260818120000_deal_categories.sql")
+  const migration = read("supabase/migrations/20260818150000_deal_categories.sql")
     .split("\n")
     .filter((l) => !l.trimStart().startsWith("--"))
     .join("\n");
@@ -84,7 +84,7 @@ describe("the demo reseed catalogue files itself under the same taxonomy", () =>
   // cron job with a check_violation and quietly starving the demo feed of
   // flash deals. Catching it in CI is the difference between a red test and a
   // marketplace that stops restocking overnight.
-  const reseed = read("supabase/migrations/20260818130000_demo_reseed_categories.sql");
+  const reseed = read("supabase/migrations/20260818160000_demo_reseed_categories.sql");
   // `String.match` with /g rather than spreading `matchAll`: this tsconfig sets
   // no `target`, so tsc defaults to ES5 and spreading an iterator needs
   // `--downlevelIteration`. vitest transpiles through esbuild and does not care,

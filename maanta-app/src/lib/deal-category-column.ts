@@ -7,7 +7,7 @@ type QueryResult<T> = { data: T | null; error: PostgrestLikeError | null };
 
 /**
  * Everything in this module exists for one reason: `deals.category` arrives with
- * `20260818120000_deal_categories.sql`, and Claude never applies migrations to
+ * `20260818150000_deal_categories.sql`, and Claude never applies migrations to
  * production. Code that reads or writes the column therefore ships BEFORE the
  * column exists, for a window whose length is a human's decision, not this
  * code's. Every entry point that touches the column degrades through here, so
@@ -49,7 +49,7 @@ export async function insertDealDroppingUnknownCategory<T>(
   if (!isMissingDealCategoryColumnError(first.error)) return first;
 
   console.error(
-    "deals.category is absent on this database — publishing the deal uncategorised. Apply supabase/migrations/20260818120000_deal_categories.sql."
+    "deals.category is absent on this database — publishing the deal uncategorised. Apply supabase/migrations/20260818150000_deal_categories.sql."
   );
   const withoutCategory = { ...values };
   delete withoutCategory.category;

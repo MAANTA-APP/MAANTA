@@ -24,7 +24,7 @@ export function isMissingLatLngColumnError(error: PostgrestLikeError): boolean {
 /**
  * True when PostgREST/Postgres rejects a select because `deals.category` is absent.
  *
- * The column arrives with `20260818120000_deal_categories.sql`, and Claude does
+ * The column arrives with `20260818150000_deal_categories.sql`, and Claude does
  * not apply migrations to production — so there is a window, of unknown length,
  * where this code is deployed against a database that has never heard of it.
  * Without this probe the shopper feed would 500 for that entire window, which is

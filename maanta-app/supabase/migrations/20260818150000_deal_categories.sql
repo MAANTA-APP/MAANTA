@@ -31,8 +31,19 @@
 -- requires a category on new deals, so the uncategorised set only shrinks.
 -- NOT NULL is a later migration, once the tail is zero — not this one.
 --
--- Version: after 20260816020000 (admin-assisted onboarding attribution).
--- See docs/ops/supabase-migrations.md before choosing a version number.
+-- Version: 20260818150000, NOT 20260818120000 as first authored.
+--
+-- Production's ledger already holds 20260818120000 (claim_deal_csprng_otp) and
+-- 20260818130000 (deals_expires_at_not_null) — both applied from the unmerged
+-- `claude/security-audit-maanta-peeazf` branch, so `main` does not contain them
+-- and a repo-only reader cannot see the clash. Reusing either version would have
+-- meant `db push` seeing this file's version already in the ledger and SKIPPING
+-- it forever: the column would never be created on a fresh environment, silently.
+--
+-- Renumbered above production's high-water mark before the apply. Read the
+-- ledger, not just `ls supabase/migrations/`, before choosing a version — the
+-- repo is not the whole truth while migrations can be applied from a branch.
+-- See docs/ops/supabase-migrations.md §7.
 
 ALTER TABLE public.deals
   ADD COLUMN IF NOT EXISTS category TEXT;
@@ -121,6 +132,25 @@ WITH (security_invoker = false) AS
     AND (NOT m.is_demo OR public.is_demo_mode());
 
 COMMENT ON VIEW public.deals_public_browse IS
-  'Public discovery deals: active, unpaused, unexpired, merchant publicly visible. Pause hides from discovery only — claimed tickets remain redeemable via verify_redemption until ticket expiry. Carries category (one of ten keys, or NULL — see deals.category).';
+  'Anon/authenticated browse projection over public.deals, filtered to live, unpaused, unexpired deals of active merchants. security_invoker = false; writes revoked from anon and authenticated (20260817120000, re-asserted 20260818150000). Read-only by grant — do not re-grant a write here. Pause hides from discovery only — claimed tickets remain redeemable via verify_redemption until ticket expiry. Carries category (one of ten keys, or NULL — see deals.category).';
 
+-- Read-only by grant. This REVOKE is NOT redundant, and removing it reopens a
+-- security hole:
+--
+-- `20260817120000_revoke_authenticated_writes_browse_views.sql` closed a
+-- writable back door — this view is auto-updatable, so INSERT/UPDATE/DELETE on
+-- it write straight through to public.deals. That fix was a REVOKE on the view
+-- OBJECT. DROP VIEW destroys the object and its ACL with it, and this database's
+-- default privileges (pg_default_acl, granted by supabase_admin) hand
+-- `arwdDxtm` on every new relation in `public` to BOTH anon and authenticated.
+-- So a bare DROP + CREATE + GRANT SELECT silently restores anon write access to
+-- the deals table through the view.
+--
+-- Verified on production before this migration was applied: anon held SELECT
+-- only, authenticated held REFERENCES/SELECT/TRIGGER. That must still be true
+-- afterwards.
+--
+-- Any future recreate of this view must carry this REVOKE too.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.deals_public_browse
+  FROM anon, authenticated;
 GRANT SELECT ON public.deals_public_browse TO anon, authenticated;

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Demo reseed: file each catalogue item under the shopper taxonomy.
 --
--- Categories landed in 20260818120000_deal_categories.sql. Every deal on
+-- Categories landed in 20260818150000_deal_categories.sql. Every deal on
 -- production is demo data (demo mode is still on), so with an uncategorised
 -- catalogue the chip row would never render there and the filter would be
 -- invisible until real merchants started publishing — a feature that only
@@ -31,7 +31,7 @@
 -- retire-expired UPDATE, the Elite/flash guard, the zero-balance gate and the
 -- deal-limit count are load-bearing and must survive this replace intact.
 --
--- Version: after 20260818120000 (the column this depends on).
+-- Version: after 20260818150000 (the column this depends on).
 -- Rollback: re-apply 20260729180000_demo_reseed_retire_expired.sql.
 -- ============================================================================
 

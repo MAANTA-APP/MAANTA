@@ -52,7 +52,7 @@
       "backend": ["getLiveDeals"],
       "sql": ["deals", "boost_flags", "verified_counts_by_merchant"],
       "primary_action": "Browse rails / open deal",
-      "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded. Category chips (ten buckets: Fashion & fabric / Beauty & perfume / Food / Phones & electronics / Shoes & bags / Home & living / Jewellery & watches / Health & pharmacy / Kids & baby / Services) render only when at least one live deal carries a category AND they are not all in one bucket, so on a database without deals.category (production, until 20260818120000 is applied — drift D116) the row does not render and the surface is unchanged. The 'Deal type' dropdown filters rails, not categories."
+      "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded. Category chips (ten buckets: Fashion & fabric / Beauty & perfume / Food / Phones & electronics / Shoes & bags / Home & living / Jewellery & watches / Health & pharmacy / Kids & baby / Services) render only when at least one live deal carries a category AND they are not all in one bucket, so on a database without deals.category (production, until 20260818150000 is applied — drift D116) the row does not render and the surface is unchanged. The 'Deal type' dropdown filters rails, not categories."
     },
     {
       "role": "shopper",

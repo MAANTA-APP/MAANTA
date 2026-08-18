@@ -320,12 +320,12 @@ without IPv6 should use the session pooler URI
 (`make db-seed-nairobi-150` / `make db-seed-test-accounts`). The 100-deal seed
 alone is the Discover/Browse density floor for BBS Mall.
 
-## Awaiting a human apply (as of 2026-08-18)
+## Applied 2026-08-18 (was: awaiting a human apply)
 
 Two migrations are committed and **not on production**. Apply in this order —
 the second writes into the column the first creates:
 
-1. `20260818120000_deal_categories.sql` — adds `deals.category` (NULLable) with
+1. `20260818150000_deal_categories.sql` — adds `deals.category` (NULLable) with
    the named CHECK `deals_category_check` listing **ten** keys, and a **DROP +
    CREATE** of `deals_public_browse` carrying the new column. No index: the
    category predicate lives in the app, so one could never be used (see D118).
@@ -347,13 +347,40 @@ the second writes into the column the first creates:
    record the manual fix in the drift register. The recreate
    copies the pause predicate verbatim; `supabase/tests/deal_categories_test.sql`
    re-asserts it, so run the SQL suites after the apply rather than assuming.
-2. `20260818130000_demo_reseed_categories.sql` — `CREATE OR REPLACE` of
+2. `20260818160000_demo_reseed_categories.sql` — `CREATE OR REPLACE` of
    `reseed_demo_flash_deals()` so the demo catalogue files itself under the
    taxonomy. Idempotent; safe to replay.
 
-Both are idempotent (`ADD COLUMN IF NOT EXISTS`, `DROP … CREATE`,
-`CREATE OR REPLACE`), so an unrepaired MCP-minted ledger version costs a
-mismatched row rather than a failed re-push — but repair it anyway, per §7.
-Until they are applied the app degrades rather than breaking: no chip row, and
-new deals publish uncategorised. Tracked as drift **D116**; close it by
-read-back, not by merging.
+**Both were applied on 2026-08-18** under explicit founder authorisation, in
+order, via the Supabase MCP, and read back (**D116** closed). The MCP minted its
+own versions for the **sixth** consecutive time — `20260818223721` and
+`20260818223934` — and both were repaired to the filenames above.
+
+Two things went wrong first and are the reason this section exists:
+
+1. **The versions collided.** They were authored as `20260818120000` /
+   `20260818130000`, both of which production's ledger already held from the
+   unmerged `claude/security-audit-maanta-peeazf` branch. Renumbered before
+   applying. See §0 below.
+2. **`DROP VIEW` nearly reopened a security hole.** Recreating
+   `deals_public_browse` destroys the ACL that `20260817120000` installed, and
+   this database's default privileges (`pg_default_acl`, granted by
+   `supabase_admin`) hand `arwdDxtm` on every new `public` relation to **anon and
+   authenticated**. A bare DROP + CREATE + `GRANT SELECT` would have restored
+   anon write access to `public.deals` through the auto-updatable view. The
+   migration now carries an explicit `REVOKE INSERT, UPDATE, DELETE, TRUNCATE`,
+   and grants were read back identical to before. **Any migration that recreates
+   a browse view must carry that REVOKE.**
+
+## 0. Read the ledger before choosing a version
+
+`ls supabase/migrations/` is **not** the high-water mark. A branch can apply
+migrations to production without ever merging to `main`, and five such
+migrations were live and invisible to the repo on 2026-08-18 (**D121**). Always:
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+ order by version desc limit 10;
+```
+
+Pick a version above what that returns, not above what `ls` returns.

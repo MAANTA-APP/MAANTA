@@ -30,7 +30,7 @@ rest by how much of a mall floor they occupy.
 
 Source of truth for the taxonomy is `maanta-app/src/lib/deal-categories.ts` and
 the `CHECK` constraint in
-`maanta-app/supabase/migrations/20260818120000_deal_categories.sql`. Those two
+`maanta-app/supabase/migrations/20260818150000_deal_categories.sql`. Those two
 must agree; `deal-categories.test.ts` fails if only one of them is widened.
 
 ## Read this before you change anything here
@@ -124,8 +124,12 @@ without the category, the sheet stays open and says so, and an edit that was
 *only* a category it could not store returns **503 with the deal unchanged**
 rather than bumping a timestamp and answering `ok`.
 
-Delete this machinery once both migrations are applied everywhere. Until then, a
-plain `.select("… category …")` anywhere is a page that 500s on production.
+**The migrations are applied to production as of 2026-08-18**, so on that
+database the degradation paths are now dormant. Do NOT delete them yet: they are
+what keeps a fresh environment, a `db reset`, or a preview branch working before
+its own apply, and **D121** showed that "applied to production" and "applied
+everywhere" are different claims. Until every environment has the column, a plain
+`.select("… category …")` outside these helpers is a page that 500s.
 
 ## Where it is wired
 
@@ -138,8 +142,8 @@ plain `.select("… category …")` anywhere is a page that 500s on production.
 | Merchant create (required) | `maanta-app/src/app/merchant/(app)/deals/new/new-deal-wizard.tsx`, `maanta-app/src/app/api/deals/route.ts` |
 | Merchant correction | `maanta-app/src/app/merchant/(app)/deals/[id]/deal-actions.tsx`, `maanta-app/src/app/api/deals/[id]/route.ts` |
 | Repost carries it forward | `maanta-app/src/app/api/deals/repost/route.ts` |
-| Column, CHECK, index, view | `maanta-app/supabase/migrations/20260818120000_deal_categories.sql` |
-| Demo catalogue | `maanta-app/supabase/migrations/20260818130000_demo_reseed_categories.sql` |
+| Column, CHECK, index, view | `maanta-app/supabase/migrations/20260818150000_deal_categories.sql` |
+| Demo catalogue | `maanta-app/supabase/migrations/20260818160000_demo_reseed_categories.sql` |
 
 `Category` is no longer the label on any deal-type control. `/map`, `/feed` and
 `/browse` all read **"Deal type"** for the Flash / Boosted / Standard filter. One
@@ -147,10 +151,20 @@ word cannot mean two axes in one app.
 
 ## Open, and not for a session to decide
 
-- **D116** — both migrations are written and **not applied**. Until a human runs
-  them the filter is invisible on production. This is a human `db push` step
-  (`docs/ops/supabase-migrations.md`), in order: `20260818120000` then
-  `20260818130000`.
+- ~~**D116**~~ — **closed 2026-08-18. Both migrations are applied to production
+  and read back**: the column, the ten-key CHECK, `deals_public_browse` carrying
+  `category` and still filtering `is_paused`, and the reseed function inserting
+  it. Ledger versions repaired to the filenames.
+- **D122** — **applied is not the same as visible.** 0 of 260 live discoverable
+  deals carry a category, so `dealCategoryChips` returns `[]` and no chip row
+  renders. It will not self-heal fast: the reseed only tops up *below* the flash
+  floor (27 live against a floor of 12), so it returns 0. Three options are
+  recorded on the row — wait, force one reseed cycle, or back-fill the demo rows.
+  A real merchant is categorised from their first deal, because the wizard
+  requires it.
+- **D121** — production was five migrations ahead of `main`, two of them owning
+  the version numbers these files first used. **Read the ledger, not the
+  migrations directory, before choosing a version.**
 - ~~**D117**~~ — **closed 2026-08-18.** Three buckets could not describe the
   floor; the founder widened the set to ten. The four orphans now sit in Phones
   & electronics (screen protector, earbuds), Home & living (prayer mat) and

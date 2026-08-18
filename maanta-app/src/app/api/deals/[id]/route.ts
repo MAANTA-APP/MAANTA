@@ -82,7 +82,7 @@ export async function PATCH(
   let categoryApplied = categoryRequested && !error;
 
   // Same degradation as the create path: on a database that has not had
-  // 20260818120000 applied, the rest of the edit still lands rather than the
+  // 20260818150000 applied, the rest of the edit still lands rather than the
   // merchant being told their title change failed.
   //
   // But the create path and this one are NOT the same trade. There, dropping the
@@ -96,7 +96,7 @@ export async function PATCH(
   // reports what it actually did, and the sheet says so.
   if (error && "category" in patch && isMissingDealCategoryColumnError(error)) {
     console.error(
-      "deals.category is absent on this database — applying the edit without it. Apply supabase/migrations/20260818120000_deal_categories.sql."
+      "deals.category is absent on this database — applying the edit without it. Apply supabase/migrations/20260818150000_deal_categories.sql."
     );
     const rest = { ...patch };
     delete rest.category;
