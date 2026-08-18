@@ -319,3 +319,24 @@ without IPv6 should use the session pooler URI
 `nairobi_nodes_150_merchants.sql` then `test_accounts_maanta_2026_07.sql`
 (`make db-seed-nairobi-150` / `make db-seed-test-accounts`). The 100-deal seed
 alone is the Discover/Browse density floor for BBS Mall.
+
+## Awaiting a human apply (as of 2026-08-18)
+
+Two migrations are committed and **not on production**. Apply in this order —
+the second writes into the column the first creates:
+
+1. `20260818120000_deal_categories.sql` — adds `deals.category` (NULLable) with
+   the named CHECK `deals_category_check`, a partial index, and a **DROP +
+   CREATE** of `deals_public_browse` carrying the new column. The recreate
+   copies the pause predicate verbatim; `supabase/tests/deal_categories_test.sql`
+   re-asserts it, so run the SQL suites after the apply rather than assuming.
+2. `20260818130000_demo_reseed_categories.sql` — `CREATE OR REPLACE` of
+   `reseed_demo_flash_deals()` so the demo catalogue files itself under the
+   taxonomy. Idempotent; safe to replay.
+
+Both are idempotent (`ADD COLUMN IF NOT EXISTS`, `DROP … CREATE`,
+`CREATE OR REPLACE`), so an unrepaired MCP-minted ledger version costs a
+mismatched row rather than a failed re-push — but repair it anyway, per §7.
+Until they are applied the app degrades rather than breaking: no chip row, and
+new deals publish uncategorised. Tracked as drift **D116**; close it by
+read-back, not by merging.

@@ -26,6 +26,12 @@ import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
 import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
+import { DealCategoryChips } from "@/components/browse/deal-category-chips";
+import {
+  filterDealsByCategory,
+  type DealCategory,
+  type DealCategoryFilter,
+} from "@/lib/deal-categories";
 
 export type BrowseDealPayload = DealRow;
 
@@ -71,6 +77,8 @@ export function BrowseClient({
   sort,
   filter,
   chip,
+  category,
+  categoryOptions,
   isSignedIn,
 }: {
   node: string;
@@ -80,6 +88,8 @@ export function BrowseClient({
   sort: DealListSort;
   filter: DealListFilter;
   chip: BrowseChipFilter;
+  category: DealCategoryFilter;
+  categoryOptions: readonly { key: DealCategory; label: string }[];
   isSignedIn: boolean;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
@@ -99,13 +109,16 @@ export function BrowseClient({
   );
 
   const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
-      rail: "all",
-      chip,
-      favouriteMerchantIds: favSet,
-    });
+    const base = filterBrowseDeals(
+      filterDealsByCategory(filterDealRowsByRail(deals, filter), category),
+      {
+        rail: "all",
+        chip,
+        favouriteMerchantIds: favSet,
+      }
+    );
     return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, chip, favSet, sort, origin, applySearch]);
+  }, [deals, filter, category, chip, favSet, sort, origin, applySearch]);
 
   const empty = browseEmptyState({
     chip,
@@ -145,6 +158,9 @@ export function BrowseClient({
           <IconSearch className="h-4 w-4" />
         </Link>
       </div>
+      <Suspense fallback={null}>
+        <DealCategoryChips options={categoryOptions} />
+      </Suspense>
       <Suspense fallback={null}>
         <BrowseChips />
       </Suspense>

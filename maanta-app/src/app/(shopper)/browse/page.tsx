@@ -7,6 +7,7 @@ import {
   getSelectedNode,
 } from "@/lib/data";
 import { parseBrowseChip } from "@/lib/browse";
+import { dealCategoryChips, parseDealCategory } from "@/lib/deal-categories";
 import {
   DEAL_SORT_OPTIONS,
   DEFAULT_BROWSE_SORT,
@@ -28,6 +29,7 @@ export default async function BrowsePage({
     sort?: string;
     filter?: string;
     chip?: string;
+    category?: string;
   };
 }) {
   // Legacy deep links from deal detail → standalone map.
@@ -47,6 +49,7 @@ export default async function BrowsePage({
   const sort = parseDealListSort(searchParams?.sort, DEFAULT_BROWSE_SORT, DEAL_SORT_OPTIONS);
   const filter = parseDealListFilter(searchParams?.filter);
   const chip = parseBrowseChip(searchParams?.chip);
+  const category = parseDealCategory(searchParams?.category);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
@@ -63,6 +66,9 @@ export default async function BrowsePage({
       sort={sort}
       filter={filter}
       chip={chip}
+      category={category}
+      // From the whole live set, not the filtered one — see DealCategoryChips.
+      categoryOptions={dealCategoryChips(deals)}
       isSignedIn={!!user}
     />
   );

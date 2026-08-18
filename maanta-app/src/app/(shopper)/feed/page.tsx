@@ -11,6 +11,13 @@ import {
   type DealRow,
 } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
+import { DealCategoryChips } from "@/components/browse/deal-category-chips";
+import {
+  dealCategoryChips,
+  dealCategoryLabel,
+  filterDealsByCategory,
+  parseDealCategory,
+} from "@/lib/deal-categories";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
@@ -68,7 +75,7 @@ function cardProps(
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams?: { sort?: string; filter?: string };
+  searchParams?: { sort?: string; filter?: string; category?: string };
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node);
@@ -77,18 +84,28 @@ export default async function FeedPage({
   // would empty every rail and claim there are no deals.
   const sort = parseDealListSort(searchParams?.sort, DEFAULT_FEED_SORT, FEED_SORT_OPTIONS);
   const filter = parseDealListFilter(searchParams?.filter);
+  const category = parseDealCategory(searchParams?.category);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
     getLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);
 
+  // Chips are derived from every live deal at this node, BEFORE the category
+  // filter narrows anything — otherwise picking one chip removes the others and
+  // the shopper cannot get back without editing the URL.
+  const categoryOptions = dealCategoryChips([...flash, ...boosted, ...nearMe]);
+
   // `getLiveDeals` already returns each rail in its locked order, so the default
   // path leaves them alone — `sortDealRows` is a pass-through for "featured".
   // Only an explicit shopper choice re-sorts, and then it applies to all rails.
-  let flashDeals = sortDealRows(flash, sort, origin);
-  let boostedDeals = sortDealRows(boosted, sort, origin);
-  let nearDeals = sortDealRows(nearMe, sort, origin);
+  // Category narrows before the rail sort, not after: the locked orders are
+  // orders WITHIN a rail, so they hold on any subset of it. Sorting first and
+  // filtering after would give the same list here, but only by accident — the
+  // rank of a deal must not depend on which deals were filtered away.
+  let flashDeals = sortDealRows(filterDealsByCategory(flash, category), sort, origin);
+  let boostedDeals = sortDealRows(filterDealsByCategory(boosted, category), sort, origin);
+  let nearDeals = sortDealRows(filterDealsByCategory(nearMe, category), sort, origin);
 
   if (filter !== "all") {
     flashDeals = filter === "flash" ? flashDeals : [];
@@ -126,13 +143,34 @@ export default async function FeedPage({
       <Suspense fallback={null}>
         <FeedControls />
       </Suspense>
+      {categoryOptions.length > 0 ? (
+        <Suspense fallback={null}>
+          <div className="px-4 pb-3">
+            <DealCategoryChips options={categoryOptions} />
+          </div>
+        </Suspense>
+      ) : null}
       {user ? <NotificationOptIn /> : null}
 
       {total === 0 ? (
-        <EmptyState
-          title="No deals live right now"
-          sub="Merchants drop new deals through the day."
-        />
+        // Two different facts, two different sentences. A category chip that
+        // empties the screen is the shopper's filter, not a quiet mall, and
+        // saying "no deals live right now" there tells them the market is dead
+        // when it is not — and gives them nothing to undo.
+        // `categoryOptions` is empty only when the node has no live deals at
+        // all, so this guard is what stops the filtered copy from promising
+        // other categories on a genuinely quiet mall.
+        category !== "all" && categoryOptions.length > 0 ? (
+          <EmptyState
+            title={`No ${(dealCategoryLabel(category) ?? "").toLowerCase()} deals right now`}
+            sub="Other categories have live deals — tap All to see them."
+          />
+        ) : (
+          <EmptyState
+            title="No deals live right now"
+            sub="Merchants drop new deals through the day."
+          />
+        )
       ) : (
         <>
           {flashDeals.length > 0 ? (

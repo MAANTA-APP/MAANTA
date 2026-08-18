@@ -52,7 +52,7 @@
       "backend": ["getLiveDeals"],
       "sql": ["deals", "boost_flags", "verified_counts_by_merchant"],
       "primary_action": "Browse rails / open deal",
-      "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded."
+      "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded. Category chips (Fashion & fabric / Beauty & perfume / Food) render only when at least one live deal carries a category AND they are not all in one bucket, so on a database without deals.category (production, until 20260818120000 is applied — drift D116) the row does not render and the surface is unchanged. The 'Deal type' dropdown filters rails, not categories."
     },
     {
       "role": "shopper",
@@ -63,7 +63,7 @@
       "backend": ["getLiveDeals"],
       "sql": ["deals"],
       "primary_action": "Filter/list deals",
-      "notes": "Canonical list surface. DEFAULT_BROWSE_SORT=nearest. Lat/lng deep links redirect to /map."
+      "notes": "Canonical list surface. DEFAULT_BROWSE_SORT=nearest. Lat/lng deep links redirect to /map. Same category chip row as /feed, from the same component. The 'Deal type' dropdown filters rails, not categories."
     },
     {
       "role": "shopper",
@@ -74,7 +74,7 @@
       "backend": ["getLiveDeals"],
       "sql": ["deals", "merchants.lat/lng"],
       "primary_action": "Map pins",
-      "notes": "Separate from feed (Notion do-not-build: map inside feed). Does NOT redirect to /browse — both are first-class nav peers."
+      "notes": "Separate from feed (Notion do-not-build: map inside feed). Does NOT redirect to /browse — both are first-class nav peers. Its dropdown is labelled 'Deal type' and filters Flash/Boosted/Standard; it read 'Category' until 2026-08-18, which is now a different axis. /map has no category filter."
     },
     {
       "role": "shopper",
@@ -173,7 +173,7 @@
       "backend": ["POST /api/deals"],
       "sql": ["zero_balance_gate", "enforce_deal_limit", "enforce_deal_success_fee"],
       "primary_action": "Create deal",
-      "notes": "Not design-ahead — wizard + YOU PAY + extras are live. Zero balance → top-up CTA + API 402."
+      "notes": "Not design-ahead — wizard + YOU PAY + extras are live. Zero balance → top-up CTA + API 402. Category is a REQUIRED single-select on the details step (Fashion & fabric / Beauty & perfume / Food); Continue is disabled without one and /api/deals returns 400. Correction path is the deal edit sheet, not admin."
     },
     {
       "role": "merchant",

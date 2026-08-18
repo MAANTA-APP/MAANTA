@@ -9,6 +9,7 @@ import { IconArrowLeft, IconBolt, IconPlus, IconX, IconCheck } from "@/component
 import { PlanChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasLine, extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
+import { DEAL_CATEGORIES, dealCategoryLabel, type DealCategory } from "@/lib/deal-categories";
 
 type Step = "type" | "details" | "price" | "schedule" | "review";
 type ChargeDraft = { id: string; label: string; type: "fixed" | "percent"; value: string };
@@ -31,6 +32,7 @@ export function NewDealWizard({
   const [dealType, setDealType] = useState<"standard" | "flash">("standard");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<DealCategory | null>(null);
   const [maxClaims, setMaxClaims] = useState("100");
   const [flashHours, setFlashHours] = useState(6);
   const [cover, setCover] = useState<File | null>(null);
@@ -104,6 +106,7 @@ export function NewDealWizard({
     form.set("title", title.trim());
     form.set("description", description.trim());
     form.set("dealType", dealType);
+    if (category) form.set("category", category);
     form.set("flashHours", String(flashHours));
     form.set("maxClaims", maxClaims);
     form.set("cover", cover);
@@ -284,13 +287,58 @@ export function NewDealWizard({
                 className={cn(inputClass, "h-auto py-3")}
               />
             </label>
+            <fieldset>
+              <legend className="mb-1.5 block text-xs font-medium text-muted">
+                Category
+              </legend>
+              {/*
+                Single-select and required. It decides which chip on the shopper
+                feed surfaces this deal, so an optional field here would mean a
+                deal that a shopper filtering for exactly this can never find.
+
+                Selection reads as border weight plus a check, not colour: the
+                frozen rules require state to survive greyscale, and the screen's
+                one amber action is spoken for by the CTA.
+              */}
+              <div className="flex flex-wrap gap-2">
+                {DEAL_CATEGORIES.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setCategory(c.key)}
+                    aria-pressed={category === c.key}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition",
+                      category === c.key
+                        ? "border-2 border-ink bg-white text-ink"
+                        : "border border-line bg-white text-muted"
+                    )}
+                  >
+                    {category === c.key ? <IconCheck className="h-3.5 w-3.5" /> : null}
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                Shoppers filter the feed by category. Pick where they would look for
+                this deal.
+              </p>
+            </fieldset>
           </div>
           <div className="mt-auto pt-8">
-            <Button full disabled={!cover || !title.trim()} onClick={() => setStep("price")}>
+            <Button
+              full
+              disabled={!cover || !title.trim() || !category}
+              onClick={() => setStep("price")}
+            >
               Continue
             </Button>
             <p className="mt-2 text-center text-xs text-ink">
-              {!cover || !title.trim() ? "Add a cover image and title to continue" : " "}
+              {!cover || !title.trim()
+                ? "Add a cover image and title to continue"
+                : !category
+                  ? "Pick a category to continue"
+                  : " "}
             </p>
           </div>
         </>
@@ -519,6 +567,9 @@ export function NewDealWizard({
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-ink">{title}</p>
               <p className="mt-0.5 text-xs text-muted">
+                {dealCategoryLabel(category)
+                  ? dealCategoryLabel(category) + " \u00b7 "
+                  : ""}
                 {dealType === "flash" ? `Flash · ${flashHours}h` : "Standard · 24h"}
                 {maxClaims ? ` · max ${maxClaims} claims` : ""}
               </p>

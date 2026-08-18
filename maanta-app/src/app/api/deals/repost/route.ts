@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { parseCharges } from "@/lib/pricing";
+import { isDealCategory } from "@/lib/deal-categories";
+import { insertDealDroppingUnknownCategory } from "@/lib/deal-category-column";
 
 /**
  * Repost an archived deal (wireframe 10q/10p): re-insert from the
@@ -47,6 +49,10 @@ export async function POST(request: Request) {
   const compareAtKes =
     isNaN(compareRaw) || compareRaw <= 0 ? null : Math.min(compareRaw, 10_000_000);
   const charges = parseCharges(snap.charges ?? []);
+  // Carried forward when the snapshot has one. Snapshots taken before the
+  // taxonomy existed carry nothing, and a repost is not the place to invent a
+  // category — the merchant can set it from the deal's edit sheet.
+  const category = isDealCategory(snap.category) ? snap.category : null;
 
   if (isNaN(priceKes) || priceKes < 0 || priceKes > 10_000_000) {
     return NextResponse.json(
@@ -55,23 +61,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: deal, error } = await service
-    .from("deals")
-    .insert({
+  const { data: deal, error } = await insertDealDroppingUnknownCategory<{ id: string }>(
+    {
       merchant_id: merchant.id,
       node: (snap.node as string) ?? merchant.node,
       title: snap.title,
       description: snap.description ?? null,
       image_url: snap.image_url,
       deal_type: snap.deal_type ?? "standard",
+      category,
       flash_duration_hours: snap.flash_duration_hours ?? 6,
       max_claims: snap.max_claims ?? null,
       price_kes: priceKes,
       compare_at_kes: compareAtKes && compareAtKes > priceKes ? compareAtKes : null,
       charges,
-    })
-    .select("id")
-    .single();
+    },
+    (values) => service.from("deals").insert(values).select("id").single()
+  );
 
   if (error || !deal) {
     const message = error?.message ?? "";

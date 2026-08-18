@@ -45,8 +45,14 @@ export function BrowseControls() {
         options={DEAL_SORT_OPTIONS}
         onChange={(v) => update("sort", v)}
       />
+      {/*
+        "Deal type", not "Filter". With a category chip row on the same screen
+        there are now two filters, and the bare word said which of them this was
+        only by being the only one. Its options have always been the rails —
+        Flash / Boosted / Standard.
+      */}
       <FilterDropdown
-        label="Filter"
+        label="Deal type"
         value={filter}
         options={DEAL_FILTER_OPTIONS}
         onChange={(v) => update("filter", v)}
