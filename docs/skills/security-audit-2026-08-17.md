@@ -330,10 +330,15 @@ reconcile at **93/93**. Verification captured on each row.
    not been run here. New suites this audit: `browse_views_test.sql` (E/F/G),
    `users_identity_immutable_test.sql`, `demo_mutation_rpc_grants_test.sql`,
    `claim_deal_otp_csprng_test.sql`.
-2. **Consider whether staff-by-phone should require a verified phone.** D116's
-   trigger closes the write primitive; separately, `getMerchantContext` trusting
-   `users.phone` for staff identity is worth a product look — a verified-phone
-   check at link time would be defence in depth.
+2. **Staff-by-phone verified-phone gap — FIXED 2026-08-18 (D118).** D116's
+   trigger closed the write primitive, but its own header assumed `users.phone`
+   was a Clerk-verified number and provisioning never enforced that — it wrote
+   `primaryPhoneNumber` unconditionally. `ensureAppUserFromClerk` now persists the
+   phone only when Clerk has verified it (`verifiedPrimaryPhone`, guarded by
+   `verified-phone.test.ts`), so `users.phone` is verified-or-null by construction.
+   Remaining product question, not security: staff invites match a raw owner-typed
+   phone string against the E.164 Clerk number, so a format mismatch silently fails
+   to link — worth normalising, but it fails safe (no link), it does not over-link.
 3. **The three `security_definer_view` advisor ERRORs are expected**, not
    regressions: `merchants_public_browse` / `deals_public_browse` /
    `demo_data_census` run `security_invoker = false` by design (it is what lets
