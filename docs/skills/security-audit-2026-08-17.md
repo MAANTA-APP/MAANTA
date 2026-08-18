@@ -300,25 +300,29 @@ service_role + postgres (cron + Makefile keep working). Guard:
 
 ---
 
-## For the founder — in order
+## Status — applied 2026-08-17
 
-1. **Apply the three security migrations**, in order:
-   `20260817120000` (D115, the writable browse view — the live hole),
-   `20260817130000` (D116, the identity/staff-hijack trigger), and
-   `20260817140000` (D117, the demo-RPC revoke). Prefer `supabase db push` —
-   **D86** records that an MCP `apply_migration` mints its own ledger version, and
-   **D107** already has the ledger one row out. If any goes through MCP, write the
-   ledger row by hand with the filename version.
-2. **Read back and close D115 / D116 / D117**: zero offending view grants
-   (Scenario G); the `prevent_identity_self_change` trigger present and a
-   `SET LOCAL ROLE authenticated` phone-write raising; the anon/authenticated
-   execute privilege gone from the three demo RPCs.
-3. **Run `make db-verify`** (or let the CI `db-tests` job run) so every new
-   Scenario is executed rather than merely written — the SQL suites have not been
-   run by a runner here (no Supabase CLI in this container).
-4. **Schedule the OTP entropy fix** as its own diff — before, not after, any
+All three migrations were applied to production (`axrrslqssmbngbataejg`) via a
+founder-authorized MCP apply, in order `20260817120000` → `130000` → `140000`,
+each `execute_sql` DDL followed by a filename-versioned ledger row. **D115, D116,
+D117 closed** on read-back; the D107 ledger straggler (`20260816020000`) was
+recorded in the same pass and **D107 closed** too. The repo migration files and
+`schema_migrations` now reconcile at **92/92**. Verification captured on each row.
+
+## Still for the founder — in order
+
+1. **Run `make db-verify`** (or let the CI `db-tests` job run) so every new SQL
+   Scenario is executed by a runner, not just proven by production read-back —
+   there is no Supabase CLI in the audit container, so the suites themselves have
+   not been run here.
+2. **Schedule the OTP entropy fix** as its own diff — before, not after, any
    change that widens who can verify a code.
-5. **Consider whether staff-by-phone should require a verified phone.** D116's
+3. **Consider whether staff-by-phone should require a verified phone.** D116's
    trigger closes the write primitive; separately, `getMerchantContext` trusting
    `users.phone` for staff identity is worth a product look — a verified-phone
    check at link time would be defence in depth.
+4. **The three `security_definer_view` advisor ERRORs are expected**, not
+   regressions: `merchants_public_browse` / `deals_public_browse` /
+   `demo_data_census` run `security_invoker = false` by design (it is what lets
+   anon browse without base-table grants). D115 revoked their writes rather than
+   changing the flag, so the advisor persists intentionally.
