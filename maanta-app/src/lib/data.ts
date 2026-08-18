@@ -191,16 +191,20 @@ export function dealSelectWithoutCategory(select: string): string {
  * error actually named; three attempts is enough to shed both and still make the
  * real request.
  *
- * The FIRST error is what gets thrown, not the last: it is the one that
- * describes the real failure, while a later one may just be the narrowed query
- * hitting the same wall.
+ * The LAST error is what gets thrown. An earlier one is, by construction, a
+ * missing column this function deliberately decided to work around — surfacing
+ * "column deals.category does not exist" while the query is actually failing on
+ * "permission denied" points the operator at the wrong problem. This is a
+ * correction: it originally threw the first error, on the reasoning that a later
+ * one might be noise, which had it backwards. The two sibling helpers in
+ * `@/lib/deal-category-column` already behaved this way, so all three now agree.
  */
 export async function selectDealsWithMerchants(
   run: (select: string) => PromiseLike<DealSelectResult>
 ): Promise<DealRow[]> {
   let withLatLng = true;
   let withCategory = true;
-  let firstError: PostgrestLikeError | null = null;
+  let lastError: PostgrestLikeError | null = null;
 
   // 3 = one attempt, plus one narrowing per droppable column.
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -224,7 +228,7 @@ export async function selectDealsWithMerchants(
           }));
     }
 
-    firstError ??= result.error;
+    lastError = result.error;
     if (withCategory && isMissingDealCategoryColumnError(result.error)) {
       withCategory = false;
       continue;
@@ -233,9 +237,9 @@ export async function selectDealsWithMerchants(
       withLatLng = false;
       continue;
     }
-    throw firstError;
+    throw result.error;
   }
-  throw firstError;
+  throw lastError;
 }
 
 /**

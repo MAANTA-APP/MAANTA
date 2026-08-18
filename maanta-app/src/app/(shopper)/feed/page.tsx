@@ -14,10 +14,10 @@ import { dealPricing } from "@/lib/pricing";
 import { DealCategoryChips } from "@/components/browse/deal-category-chips";
 import {
   dealCategoryChips,
-  dealCategoryLabel,
   filterDealsByCategory,
   parseDealCategory,
 } from "@/lib/deal-categories";
+import { feedEmptyState } from "@/lib/feed-empty-state";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
@@ -107,6 +107,12 @@ export default async function FeedPage({
   let boostedDeals = sortDealRows(filterDealsByCategory(boosted, category), sort, origin);
   let nearDeals = sortDealRows(filterDealsByCategory(nearMe, category), sort, origin);
 
+  // Counts at each stage, so an empty screen can name the filter that actually
+  // emptied it instead of guessing. `liveTotal` is before any shopper filter;
+  // `afterCategoryTotal` is after the category and before the deal type.
+  const liveTotal = flash.length + boosted.length + nearMe.length;
+  const afterCategoryTotal = flashDeals.length + boostedDeals.length + nearDeals.length;
+
   if (filter !== "all") {
     flashDeals = filter === "flash" ? flashDeals : [];
     boostedDeals = filter === "boosted" ? boostedDeals : [];
@@ -143,7 +149,7 @@ export default async function FeedPage({
       <Suspense fallback={null}>
         <FeedControls />
       </Suspense>
-      {categoryOptions.length > 0 ? (
+      {categoryOptions.length > 0 || category !== "all" ? (
         <Suspense fallback={null}>
           <div className="px-4 pb-3">
             <DealCategoryChips options={categoryOptions} />
@@ -153,24 +159,7 @@ export default async function FeedPage({
       {user ? <NotificationOptIn /> : null}
 
       {total === 0 ? (
-        // Two different facts, two different sentences. A category chip that
-        // empties the screen is the shopper's filter, not a quiet mall, and
-        // saying "no deals live right now" there tells them the market is dead
-        // when it is not — and gives them nothing to undo.
-        // `categoryOptions` is empty only when the node has no live deals at
-        // all, so this guard is what stops the filtered copy from promising
-        // other categories on a genuinely quiet mall.
-        category !== "all" && categoryOptions.length > 0 ? (
-          <EmptyState
-            title={`No ${(dealCategoryLabel(category) ?? "").toLowerCase()} deals right now`}
-            sub="Other categories have live deals — tap All to see them."
-          />
-        ) : (
-          <EmptyState
-            title="No deals live right now"
-            sub="Merchants drop new deals through the day."
-          />
-        )
+        <EmptyState {...feedEmptyState({ liveTotal, afterCategoryTotal, category, filter })} />
       ) : (
         <>
           {flashDeals.length > 0 ? (

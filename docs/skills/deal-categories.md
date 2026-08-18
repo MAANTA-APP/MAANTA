@@ -37,15 +37,30 @@ A fabric shop that sells snacks at the counter files each deal where a shopper
 would look for it. Deriving the category from the merchant would also mean a
 merchant changing what they sell silently re-files their whole history.
 
-**4. The chip row is withheld when it cannot change the screen.**
+**4. The chip row is withheld when it cannot change the screen — with one exception.**
 `dealCategoryChips()` returns `[]` when no live deal has a category, or when
 every live deal is in the same bucket. Two things follow:
 
-- A chip never leads to an empty screen. "No deals live right now" should mean
-  the mall is quiet, not that the shopper picked the one bucket nobody is
-  selling into.
+- A chip never leads to an empty screen from a standing start.
 - It is what makes the feature safe on a database that has not had the migration
   applied — no column, no categories, no chips, feed unchanged.
+
+The exception is **an active `?category=` with no options behind it** — a shared
+link, a bookmark, or a refresh after the last deal in that bucket expired.
+`DealCategoryChips` renders a lone **All** chip there rather than nothing.
+Withholding the row in that state removes the only control that can clear the
+filter, leaving an empty screen with nothing on it to undo.
+
+**7. The empty state is derived from counts, never inferred from the UI.**
+`feedEmptyState()` in `src/lib/feed-empty-state.ts` takes the deal counts at each
+filtering stage and names the filter that actually emptied the screen. It exists
+as its own module so it can be tested directly. The first version lived in the
+page, decided between "quiet mall" and "your category" by asking whether any
+chips were on offer, and was guarded by a test that grepped the page source for
+that conditional. The conditional was present and wrong: a node with five live
+fashion deals and `?category=food` rendered "No deals live right now" on a mall
+that was open. `browseEmptyState` in `browse-client.tsx` takes the same input for
+the same reason.
 
 **5. Chips are derived from the UNFILTERED set.**
 Both `/feed` and `/browse` compute the options from every live deal before
@@ -69,15 +84,29 @@ decision. Everything that touches the column degrades:
 | `selectDealsWithMerchants` (`src/lib/data.ts`) | Retries the select without `category`; can also shed `merchants.lat/lng` in either order |
 | `insertDealDroppingUnknownCategory` (`src/lib/deal-category-column.ts`) | Publishes the deal **uncategorised** rather than failing at Review |
 | `selectDroppingUnknownCategory` (same module) | Re-runs a select with a caller-supplied fallback column list |
-| `PATCH /api/deals/[id]` | Applies the rest of the edit without the category |
+| `PATCH /api/deals/[id]` | Applies the rest of the edit and reports `categorySaved: false`; refuses with 503 if the category was the whole edit |
 
-Two rules those share, both pinned by tests:
+Two rules those share:
 
 - The retry fires **only** on an error that names the column. A permissions
   error, a dead connection, the zero-balance gate, the deal limit and the
   Elite-only flash rule are returned untouched — a commercial refusal must never
-  be laundered into a second attempt.
-- The **first** error is what surfaces, not the last.
+  be laundered into a second attempt. Pinned by `deal-categories.test.ts`.
+- The **last** error surfaces, not the first. An earlier one is by construction a
+  missing column the code deliberately worked around, so reporting it while the
+  query is really failing on permissions points the operator at the wrong
+  problem. `selectDealsWithMerchants` originally threw the first error, on the
+  reasoning that a later one might be noise; that had it backwards, and all
+  three helpers now agree.
+
+**The edit path does not simply drop and continue.** The create path publishes a
+deal uncategorised because the alternative is a deal that does not exist, which
+is worth the trade. An edit is not the same bargain — this sheet is the
+correction path, so the category may be the whole point of the request. So
+`PATCH /api/deals/[id]` returns `categorySaved: false` when it applied the rest
+without the category, the sheet stays open and says so, and an edit that was
+*only* a category it could not store returns **503 with the deal unchanged**
+rather than bumping a timestamp and answering `ok`.
 
 Delete this machinery once both migrations are applied everywhere. Until then, a
 plain `.select("… category …")` anywhere is a page that 500s on production.

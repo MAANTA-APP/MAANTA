@@ -35,7 +35,12 @@ export function DealCategoryChips({
   const params = useSearchParams();
   const active = parseDealCategory(params.get("category"));
 
-  if (options.length === 0) return null;
+  // Normally: no categories worth offering, so render nothing. The exception is
+  // an active `?category=` with no options behind it — a shared link, a bookmark,
+  // or a refresh after the last deal in that bucket expired. Withholding the row
+  // there removes the only control that can clear the filter, so the shopper sees
+  // an empty screen with nothing on it to undo. One "All" chip is the escape.
+  if (options.length === 0 && active === "all") return null;
 
   function select(next: DealCategory | "all") {
     const query = new URLSearchParams(params.toString());

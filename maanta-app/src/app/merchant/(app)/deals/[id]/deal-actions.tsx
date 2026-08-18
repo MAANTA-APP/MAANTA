@@ -50,6 +50,8 @@ export function DealActions({
   const [sheet, setSheet] = useState<"none" | "boost" | "move" | "edit" | "archive">("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Partial-success message: the request returned 200 but not everything applied. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [category, setCategory] = useState<DealCategory | null>(
@@ -60,6 +62,7 @@ export function DealActions({
   async function call(fn: () => Promise<Response>) {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fn();
       const body = await res.json().catch(() => ({}));
@@ -69,6 +72,17 @@ export function DealActions({
         return false;
       }
       setBusy(false);
+      // A 200 does not always mean everything asked for happened. The route
+      // reports `categorySaved: false` when it applied the rest of the edit but
+      // had to drop the category — keep the sheet open and say so, rather than
+      // closing on the success animation and letting the merchant believe a
+      // correction landed that did not.
+      if (body.categorySaved === false) {
+        setNotice(
+          "Saved — but the category could not be stored yet. Everything else was updated."
+        );
+        return true;
+      }
       setSheet("none");
       router.refresh();
       return true;
@@ -278,6 +292,7 @@ export function DealActions({
           </fieldset>
         </div>
         {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+        {notice ? <p className="mt-3 text-sm font-medium text-ink">{notice}</p> : null}
         <Button
           full
           className="mt-5"

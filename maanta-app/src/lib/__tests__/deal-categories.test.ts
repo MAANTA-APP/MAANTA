@@ -20,6 +20,7 @@ import {
   DEAL_SELECT_WITHOUT_LAT_LNG,
   selectDealsWithMerchants,
 } from "@/lib/data";
+import { feedEmptyState } from "@/lib/feed-empty-state";
 import { stripComments } from "./helpers/comment-stripping";
 
 const APP = path.resolve(__dirname, "..", "..", "..");
@@ -90,7 +91,15 @@ describe("the demo reseed catalogue files itself under the same taxonomy", () =>
   const keys = raw.map((m) => /"k":\s*"([a-z]+)"/.exec(m)?.[1] ?? null);
 
   it("gives every catalogue item a key", () => {
-    expect(keys.length, "expected all 16 catalogue items to carry a k").toBe(16);
+    // Counted against the ITEMS, not against a fixed 16. Asserting a literal
+    // count only catches a missing key while the catalogue is exactly the size
+    // it is today — grow it to seventeen with one item unkeyed and a `toBe(16)`
+    // passes while that item publishes uncategorised every night.
+    const items = (reseed.match(/\{"t":/g) ?? []).length;
+    expect(items, "no catalogue items found — the regex or the format changed").toBeGreaterThan(
+      0
+    );
+    expect(keys.length, `${items} catalogue items but ${keys.length} keys`).toBe(items);
   });
 
   it("uses only keys the taxonomy and the CHECK constraint accept", () => {
@@ -292,15 +301,18 @@ describe("reads degrade when deals.category is not on the remote yet", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("throws the first error, not the last", async () => {
-    // The first one describes the real failure; a later one is often just the
-    // narrowed query hitting the same wall with less context.
+  it("throws the last error, so the surfaced failure is the real blocker", async () => {
+    // An earlier error is by construction a missing column this function chose
+    // to work around. Reporting "column deals.category does not exist" while the
+    // query is really failing on permissions sends the operator after the wrong
+    // problem — and would make D116 look like the cause of every outage until it
+    // is applied.
     const second = { code: "42501", message: "permission denied" };
     const run = vi
       .fn()
       .mockResolvedValueOnce({ data: null, error: missingCategory })
       .mockResolvedValueOnce({ data: null, error: second });
-    await expect(selectDealsWithMerchants(run)).rejects.toBe(missingCategory);
+    await expect(selectDealsWithMerchants(run)).rejects.toBe(second);
   });
 
   it("keeps both select strings naming category exactly once", () => {
@@ -369,6 +381,50 @@ describe("writes drop the category, never the deal", () => {
   });
 });
 
+/**
+ * The edit route has to say what it actually did.
+ *
+ * The create path drops the category and publishes anyway, and that trade is
+ * right: it saves a deal that would otherwise not exist. The edit path is not
+ * the same bargain — this sheet is the documented correction path for
+ * pre-taxonomy deals, so the category may be the ONLY thing the merchant came to
+ * change. Returning a bare `ok` after discarding it reported a correction as
+ * saved when nothing was written, and because the client keeps its local
+ * selection across `router.refresh()`, re-opening the sheet showed the chip
+ * still chosen and the loss never surfaced.
+ *
+ * Source-level, because the route is a Next handler wired to Clerk auth and a
+ * service client — but pinned at the specific lines that carry the promise,
+ * so removing the honesty fails rather than passing on a shape that no longer
+ * means anything.
+ */
+describe("the deal edit route reports what happened to the category", () => {
+  const route = code("src/app/api/deals/[id]/route.ts");
+  const sheet = code("src/app/merchant/(app)/deals/[id]/deal-actions.tsx");
+
+  it("tells the client when the category did not save", () => {
+    expect(route).toContain("categorySaved");
+    expect(route).toMatch(/categoryApplied = false/);
+  });
+
+  it("does not report success for an edit that was only a category it could not store", () => {
+    // Bumping updated_at and answering ok would be the same lie with an extra
+    // write, so this case gets its own status and its own sentence.
+    expect(route).toMatch(/status:\s*503/);
+    expect(route).toContain("the deal is unchanged");
+  });
+
+  it("distinguishes an unrecognised category from an empty edit", () => {
+    // "Nothing to update" is false when a category WAS sent and rejected.
+    expect(route).toContain("That category isn't one we recognise.");
+  });
+
+  it("keeps the sheet open and says so rather than closing on success", () => {
+    expect(sheet).toContain("body.categorySaved === false");
+    expect(sheet).toContain("could not be stored yet");
+  });
+});
+
 describe("the missing-column probes stay narrow", () => {
   it("does not mistake an unrelated error for a schema gap", () => {
     expect(
@@ -417,10 +473,86 @@ describe("the surfaces are wired to the shared taxonomy", () => {
     expect(code("src/app/(shopper)/browse/page.tsx")).toMatch(/dealCategoryChips\(deals\)/);
   });
 
-  it("a filtered-empty feed does not tell the shopper the mall is empty", () => {
+  it("the feed derives its empty state from counts rather than from the chip row", () => {
+    // The behaviour itself is covered below by exercising `feedEmptyState`
+    // directly. This only pins that the page still routes through it: an inlined
+    // conditional here is how the copy and the counts drift apart again.
     const feed = code("src/app/(shopper)/feed/page.tsx");
-    expect(feed).toMatch(/category !== "all" && categoryOptions\.length > 0/);
-    expect(feed).toContain("Other categories have live deals");
+    expect(feed).toContain("feedEmptyState({");
+    expect(feed).toMatch(/const liveTotal =/);
+    expect(feed).toMatch(/const afterCategoryTotal =/);
+  });
+});
+
+/**
+ * The empty-state copy, tested as behaviour rather than as a string in a file.
+ *
+ * The first version of this decided between "the mall is quiet" and "your
+ * category" by asking whether any chips were on offer, and its guard asserted
+ * that conditional was present in the source. Both passed. Both were wrong: the
+ * chip row is withheld when every live deal sits in one bucket, so a node with
+ * five live fashion deals and `?category=food` told the shopper the mall was
+ * empty. A guard that greps for a conditional cannot catch a conditional that is
+ * present and incorrect.
+ */
+describe("feedEmptyState names the filter that actually emptied the feed", () => {
+  const CAT = { liveTotal: 5, afterCategoryTotal: 0, category: "food", filter: "all" } as const;
+
+  it("says the mall is quiet only when the mall is actually quiet", () => {
+    const out = feedEmptyState({
+      liveTotal: 0,
+      afterCategoryTotal: 0,
+      category: "all",
+      filter: "all",
+    });
+    expect(out.title).toBe("No deals live right now");
+  });
+
+  it("does NOT say the mall is quiet when a category emptied a live node", () => {
+    // The exact case that shipped broken: live deals at the node, all in one
+    // bucket, and a category selected that has none.
+    const out = feedEmptyState(CAT);
+    expect(out.title).not.toBe("No deals live right now");
+    expect(out.title).toContain("food");
+    expect(out.sub).toContain("All");
+  });
+
+  it("blames the deal type when the deal type is what emptied it", () => {
+    // Deals survived the category filter, so the category is not the cause and
+    // telling the shopper to tap All would not un-empty the screen.
+    const out = feedEmptyState({
+      liveTotal: 5,
+      afterCategoryTotal: 5,
+      category: "food",
+      filter: "flash",
+    });
+    expect(out.title).toContain("flash");
+    expect(out.sub).toContain("Deal type");
+  });
+
+  it("never promises other categories exist when nothing is live at all", () => {
+    // With no live deals, "tap All to see everything" is an empty promise.
+    const out = feedEmptyState({
+      liveTotal: 0,
+      afterCategoryTotal: 0,
+      category: "food",
+      filter: "flash",
+    });
+    expect(out.title).toBe("No deals live right now");
+    expect(out.sub).not.toContain("All");
+  });
+
+  it("falls back to the quiet-mall copy rather than inventing a cause", () => {
+    // liveTotal > 0 with no filters set should not be reachable (the feed would
+    // have rendered deals), but if it is, the copy must not name a filter that
+    // was never applied.
+    const out = feedEmptyState({
+      liveTotal: 3,
+      afterCategoryTotal: 3,
+      category: "all",
+      filter: "all",
+    });
+    expect(out.title).toBe("No deals live right now");
   });
 });
 

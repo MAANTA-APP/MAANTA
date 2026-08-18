@@ -35,13 +35,22 @@ ALTER TABLE public.deals
 COMMENT ON COLUMN public.deals.category IS
   'Shopper-facing category key: fashion | beauty | food. NULL = uncategorised (pre-2026-08-18 deals); shows under All only. Labels live in src/lib/deal-categories.ts — this column stores keys, never labels.';
 
--- Partial index matching the shopper read: live, unpaused, unexpired deals for
--- one node, narrowed to a category. Partial because uncategorised and inactive
--- rows are never the target of this predicate, and the pilot's live set is a
--- small slice of the table.
-CREATE INDEX IF NOT EXISTS idx_deals_node_category_live
-  ON public.deals (node, category, expires_at DESC)
-  WHERE is_active = TRUE AND is_paused IS NOT TRUE AND category IS NOT NULL;
+-- NO INDEX ON category, deliberately.
+--
+-- An earlier draft of this migration created a partial index on
+-- (node, category, expires_at DESC) WHERE is_active AND is_paused IS NOT TRUE
+-- AND category IS NOT NULL. It could never be used. The app does not filter by
+-- category in SQL — `selectLiveDealBucket` fetches the node's live deals and
+-- narrows by category in JavaScript — so no query carries a `category`
+-- predicate, and a partial index whose predicate (`category IS NOT NULL`) is not
+-- implied by the query is not a candidate for the planner at all. It would have
+-- cost write amplification on every deal insert and update, forever, in exchange
+-- for nothing.
+--
+-- The index becomes correct at the same moment the predicate moves into SQL,
+-- which is the fix recorded as drift D118 (the category filter currently runs
+-- after the feed's per-rail row limits). Add it in that change, where it can be
+-- measured against the query it is for.
 
 -- ------------------------------------------------------------------
 -- deals_public_browse must carry the column too.

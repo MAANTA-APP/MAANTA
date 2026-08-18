@@ -63,9 +63,12 @@ describe("cash-only guardrail — no in-app shopper payment UI", () => {
 
 describe("key user-facing copy is locked", () => {
   it("feed empty state copy", () => {
-    expect(read("src/app/(shopper)/feed/page.tsx")).toContain(
-      "No deals live right now"
-    );
+    // The string moved out of the page on 2026-08-18: the feed now has three
+    // empty states, not one, and choosing between them is logic worth testing
+    // as logic (`deal-categories.test.ts`), so it lives in its own module. This
+    // guard follows the copy rather than the file — "the mall is quiet" is still
+    // the sentence a shopper reads when nothing is live, which is what it locks.
+    expect(read("src/lib/feed-empty-state.ts")).toContain("No deals live right now");
   });
 
   it("feed error state copy (retryable, not empty)", () => {
