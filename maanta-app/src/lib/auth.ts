@@ -92,6 +92,38 @@ export function verifiedPrimaryPhone(
 }
 
 /**
+ * The email to persist on `public.users.email`, and the identity key for the
+ * relink fallback below — or null. Only a Clerk-VERIFIED primary email counts.
+ *
+ * Founder ruling 2026-08-19 (D108 prevention half, decision-queue Q1 option A):
+ * when a Clerk JWT `sub` matches no row, provisioning may fall back to a
+ * verified-email match before inserting a new account. That makes this column an
+ * access-control input under exactly D126's rule for phone: a value the person
+ * has NOT proven they control must never land here, or a signup carrying someone
+ * else's unverified address becomes a row a real person later relinks into.
+ *
+ * Lowercased for matching. The match itself uses `.eq`, never `ilike` — `_` is a
+ * single-character wildcard in ilike and a common character in real addresses,
+ * so a pattern match could equate two different mailboxes. Clerk and Supabase
+ * Auth both store emails lowercased, so `.eq` on the lowercased value is exact
+ * in practice; a legacy mixed-case row would fail to match and fall through to a
+ * fresh insert, which degrades to today's behaviour rather than mis-linking.
+ */
+export function verifiedPrimaryEmail(
+  cu: {
+    primaryEmailAddress?: {
+      emailAddress?: string | null;
+      verification?: { status?: string | null } | null;
+    } | null;
+  } | null
+): string | null {
+  const primary = cu?.primaryEmailAddress;
+  if (!primary || primary.verification?.status !== "verified") return null;
+  const raw = primary.emailAddress?.trim().toLowerCase();
+  return raw || null;
+}
+
+/**
  * Resolve the public.users row for the signed-in identity, provisioning on
  * first sight. Returns null only when the request is unauthenticated.
  */
@@ -105,7 +137,9 @@ export async function ensureAppUser<T = { id: string; role: AppRole }>(
 }
 
 async function ensureAppUserFromClerk<T>(
-  columns: string
+  columns: string,
+  /** One-shot recursion guard for the verified-email relink below. */
+  relinkAttempted = false
 ): Promise<T | null> {
   const userId = await currentClerkUserId();
   if (!userId) return null;
@@ -174,10 +208,83 @@ async function ensureAppUserFromClerk<T>(
   }
 
   const cu = await currentUser();
+
+  // ---- Verified-email relink (D108 prevention half; founder ruling A, 2026-08-19).
+  //
+  // A Clerk `sub` is scoped to the instance that minted it, so after an instance
+  // change every returning person arrives with a `sub` that matches nothing and
+  // used to get one of two accidents, chosen by a UNIQUE constraint: a silent
+  // second empty account, or — once D129 populated `users.phone` — a
+  // `users_phone_key` violation and no account at all. D99 measured a real
+  // instance change on this very product, so this is not hypothetical.
+  //
+  // The rule, exactly as ruled and no wider:
+  //   * the caller's email must be Clerk-VERIFIED on the CURRENT instance —
+  //     current control of the mailbox is the trust anchor, the same model as
+  //     email-based account recovery everywhere;
+  //   * the match pool is real rows only (`is_demo = false`) — a person must
+  //     never be identity-linked into a synthetic seed row;
+  //   * exactly ONE row may match. Zero → genuinely new person, fall through to
+  //     the insert. More than one → HARD FAILURE: return null (no account this
+  //     request, loud) rather than guess. Never a "closest match" — a wrong link
+  //     hands someone another person's claims, wallet access or admin role.
+  //
+  // Measured 2026-08-19, so the next reader knows the ambiguous case is real:
+  // two real admin rows share one email, and one customer email spans two real
+  // rows. Those people hard-fail here until the duplicates are resolved by an
+  // admin (D108 records them); everyone else relinks. The overwrite of a dead
+  // `clerk_user_id` is the repair — requiring it to be NULL would exclude
+  // precisely the rows an instance change strands. Runs as service_role, which
+  // the D124 trigger permits.
+  const verifiedEmail = verifiedPrimaryEmail(cu);
+  if (verifiedEmail && !relinkAttempted) {
+    const { data: matches } = await service
+      .from("users")
+      .select("id")
+      .eq("email", verifiedEmail)
+      .eq("is_demo", false)
+      .limit(2);
+
+    if (matches && matches.length === 1) {
+      const { data: relinked, error: relinkError } = await service
+        .from("users")
+        .update({ clerk_user_id: userId })
+        .eq("id", matches[0].id)
+        .select("id")
+        .maybeSingle();
+      // Re-enter the normal path rather than returning the row directly: the sub
+      // now matches, so the existing-row logic — the D129 NULL-only phone
+      // backfill included — runs unchanged, and the person who just recovered
+      // their account does not need a second request before their staff seat can
+      // link. The one-shot flag bounds the recursion: a second miss goes
+      // straight to the insert instead of relinking again.
+      if (relinked) return ensureAppUserFromClerk<T>(columns, true);
+      // Two tabs racing: the winner already wrote this same sub, so the loser's
+      // update raced or collided on users_clerk_user_id_key. Re-read by sub.
+      const { data: raced } = await service
+        .from("users")
+        .select(select)
+        .eq("clerk_user_id", userId)
+        .maybeSingle();
+      if (raced) return raced as T;
+      // Code only, never the address (D85): email is PII.
+      console.error("verified-email relink failed", { code: relinkError?.code });
+      return null;
+    }
+
+    if (matches && matches.length > 1) {
+      // Ambiguity is a hard failure by ruling. Log the shape, never the address.
+      console.error("verified-email relink ambiguous", { matches: matches.length });
+      return null;
+    }
+  }
+
   // Verified-only: `users.phone` gates merchant_staff linking (see
-  // verifiedPrimaryPhone). An unverified Clerk phone is not persisted.
+  // verifiedPrimaryPhone), and `users.email` is now the relink key above — both
+  // are access-control inputs, so an unverified value is not persisted (D126's
+  // rule, applied to each column the moment it became load-bearing).
   const phone = verifiedPrimaryPhone(cu);
-  const email = cu?.primaryEmailAddress?.emailAddress ?? null;
+  const email = verifiedPrimaryEmail(cu);
   const fullName =
     [cu?.firstName, cu?.lastName].filter(Boolean).join(" ").trim() || null;
 

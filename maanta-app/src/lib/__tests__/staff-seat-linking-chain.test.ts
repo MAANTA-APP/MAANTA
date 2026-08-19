@@ -19,8 +19,9 @@ import { getMerchantContext } from "@/lib/merchant";
  */
 
 const currentUserMock = vi.fn();
+let clerkSub = "clerk_user_1";
 vi.mock("@clerk/nextjs/server", () => ({
-  auth: () => Promise.resolve({ userId: "clerk_user_1" }),
+  auth: () => Promise.resolve({ userId: clerkSub }),
   currentUser: () => currentUserMock(),
 }));
 
@@ -58,14 +59,23 @@ vi.mock("@/lib/supabase/service", () => ({
         }
         return { data: hits[0] ?? null, error: null };
       };
+      let limit: number | null = null;
       const builder: Record<string, unknown> = {};
       builder.select = () => builder;
       builder.eq = (c: string, v: unknown) => (filters.push([c, v]), builder);
       builder.is = (c: string, v: unknown) => (filters.push([c, v]), builder);
+      builder.limit = (n: number) => ((limit = n), builder);
       builder.update = (payload: Row) => ((pending = payload), builder);
       builder.maybeSingle = () => Promise.resolve(run());
       builder.single = () => Promise.resolve(run());
-      builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(run()).then(resolve);
+      // Awaiting the builder without a terminal returns the LIST, the shape the
+      // verified-email relink's match query consumes.
+      builder.then = (resolve: (v: unknown) => unknown) => {
+        const hits = matches();
+        if (pending) for (const hit of hits) Object.assign(hit, pending);
+        const rows = limit === null ? hits : hits.slice(0, limit);
+        return Promise.resolve({ data: rows, error: null }).then(resolve);
+      };
       return builder;
     },
   }),
@@ -74,6 +84,7 @@ vi.mock("@/lib/supabase/service", () => ({
 
 beforeEach(() => {
   currentUserMock.mockReset();
+  clerkSub = "clerk_user_1";
   store = {
     users: [
       {
@@ -85,6 +96,7 @@ beforeEach(() => {
         email: "assistant@example.com",
         full_name: "Shop Assistant",
         role: "customer",
+        is_demo: false,
       },
     ],
     merchants: [
@@ -143,5 +155,42 @@ describe("staff seat linking, end to end (D129)", () => {
     expect(store.users[0].phone).toBeNull();
     expect(store.merchant_staff[0].user_id).toBeNull();
     expect(store.users[0].role).toBe("customer");
+  });
+
+  /**
+   * The D108 composition, end to end — founder ruling A (2026-08-19). The same
+   * person returns after a Clerk INSTANCE change: their old `sub` matches
+   * nothing, their email is verified on the new instance, and their phone is
+   * verified too. Before the ruling this minted a silent second account (or,
+   * post-D129, no account at all). Now: the verified-email relink recovers their
+   * OWN row, the phone backfill fills it, and the pre-invited staff seat links —
+   * all in the one sign-in, with no second row created.
+   */
+  it("recovers the account across a Clerk instance change and still links the seat", async () => {
+    clerkSub = "sub_from_new_instance"; // the old row holds clerk_user_1 — dead
+    currentUserMock.mockResolvedValue({
+      primaryEmailAddress: {
+        emailAddress: "Assistant@Example.com", // case differs; matching is lowercased
+        verification: { status: "verified" },
+      },
+      primaryPhoneNumber: {
+        phoneNumber: "+254712345678",
+        verification: { status: "verified" },
+      },
+      firstName: "Shop",
+      lastName: "Assistant",
+    });
+
+    const result = await getMerchantContext();
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.ctx.permissions.can_verify).toBe(true);
+    // The ONE original row was relinked — no duplicate was inserted.
+    expect(store.users).toHaveLength(1);
+    expect(store.users[0].id).toBe("u1");
+    expect(store.users[0].clerk_user_id).toBe("sub_from_new_instance");
+    expect(store.users[0].phone).toBe("+254712345678");
+    expect(store.merchant_staff[0].user_id).toBe("u1");
   });
 });
