@@ -5,6 +5,7 @@ import {
   currentSupabaseAuthEmail,
   currentSupabaseAuthUserId,
 } from "@/lib/auth/supabase-session";
+import { normalizeStaffPhone } from "@/lib/phone";
 
 /**
  * Identity layer: Clerk for launch (production), Supabase Auth for dev/test
@@ -47,7 +48,7 @@ export async function currentUserHasVerifiedPhone(): Promise<boolean> {
 
 /**
  * The phone to persist on `public.users.phone`, or null — only a Clerk-VERIFIED
- * primary phone is stored.
+ * primary phone is stored, in canonical E.164.
  *
  * This column is an access-control input, not just contact detail:
  * `getMerchantContext` (src/lib/merchant.ts) links a signed-in user into a
@@ -60,6 +61,17 @@ export async function currentUserHasVerifiedPhone(): Promise<boolean> {
  * that `users.phone` "is assumed to be the Clerk-verified number written once at
  * provisioning". That assumption was not actually enforced — provisioning wrote
  * `primaryPhoneNumber` unconditionally (D126). This makes the assumption true.
+ *
+ * **Canonicalisation (D129).** The value is put through `normalizeStaffPhone` —
+ * the same function the staff-invite route stores `merchant_staff.phone` with
+ * (D127) — so the two sides of that match are canonical *by contract* rather
+ * than by both happening to be E.164. D127's closure note is explicit that the
+ * link previously worked "by luck, not by contract"; one shared canonicaliser is
+ * what removes the luck. It is a no-op for every well-formed E.164 Clerk
+ * actually returns. A number it cannot canonicalise falls through unchanged
+ * rather than being dropped: an un-normalizable value could never equal a
+ * normalised invite row anyway, so nulling it would lose an admin's contact
+ * detail and buy nothing.
  *
  * Exported as a pure function so the rule is tested in one place rather than
  * mocked through the whole provisioning path.
@@ -74,7 +86,9 @@ export function verifiedPrimaryPhone(
 ): string | null {
   const primary = cu?.primaryPhoneNumber;
   if (!primary || primary.verification?.status !== "verified") return null;
-  return primary.phoneNumber ?? null;
+  const raw = primary.phoneNumber ?? null;
+  if (!raw) return null;
+  return normalizeStaffPhone(raw) ?? raw;
 }
 
 /**
@@ -97,14 +111,67 @@ async function ensureAppUserFromClerk<T>(
   if (!userId) return null;
 
   const service = createServiceClient();
-  const select = ensureColumns(columns);
+  const wanted = wantedColumns(columns);
+  const select = columnList(wanted);
 
   const { data: existing } = await service
     .from("users")
     .select(select)
     .eq("clerk_user_id", userId)
     .maybeSingle();
-  if (existing) return existing as T;
+
+  if (existing) {
+    // `users.phone` is written once, on the insert below. A user who signs up by
+    // EMAIL has no verified phone at that moment, so the column is written NULL —
+    // and this lookup used to return here, so verifying a phone in Clerk later
+    // never reached the column again. It stayed NULL for the life of the account:
+    // on production, 2026-08-19, all 10 real users rows have `phone` NULL.
+    //
+    // That column is what `getMerchantContext` matches a pre-invited
+    // `merchant_staff` seat on (D127 canonicalised the invite side). A NULL
+    // short-circuits `if (!staff && user.phone)`, so a shop assistant invited by
+    // phone signs in, verifies their number to get past the claim gate, and lands
+    // as an ordinary shopper with no verify keypad — nothing errors, nothing logs.
+    //
+    // Backfill ONLY when the column is NULL and Clerk holds a VERIFIED primary
+    // phone (D126's rule, reused through `verifiedPrimaryPhone` rather than
+    // restated). Never overwrite a non-NULL value: the column is an
+    // access-control input that D124 froze against its own holder, and a change
+    // of number is an identity event that belongs to an admin, not to a sign-in.
+    //
+    // Attempted only when the caller asked for `phone`. That covers every caller
+    // that can act on it — `getAppUser`, and so `getMerchantContext` — while
+    // keeping a Clerk Backend API round trip off the narrow paths
+    // (`ensureAppUser("id")` on claim, favourites, push) for the phone-less
+    // majority. Dropping `phone` from `getAppUser`'s column list would disable
+    // the backfill, but it would break staff linking outright either way; the
+    // coupling is pinned in `src/lib/__tests__/phone-backfill.test.ts`.
+    if (wanted.has("phone") && (existing as { phone?: string | null }).phone == null) {
+      const phone = verifiedPrimaryPhone(await currentUser());
+      if (phone) {
+        const { data: updated, error: backfillError } = await service
+          .from("users")
+          .update({ phone })
+          .eq("clerk_user_id", userId)
+          // Concurrency guard: two requests racing to backfill the same row leave
+          // one winner, and the loser matches nothing and keeps the row it read.
+          .is("phone", null)
+          .select(select)
+          .maybeSingle();
+        if (backfillError) {
+          // The realistic failure is a `users_phone_key` (UNIQUE) collision —
+          // another account already holds this verified number, the D108 shape.
+          // Degrade to the un-backfilled row rather than throwing, but say so:
+          // a silent version of exactly this is the defect the backfill removes.
+          // Code only — never the number itself (D85).
+          console.error("users.phone backfill skipped", { code: backfillError.code });
+        } else if (updated) {
+          return updated as T;
+        }
+      }
+    }
+    return existing as T;
+  }
 
   const cu = await currentUser();
   // Verified-only: `users.phone` gates merchant_staff linking (see
@@ -174,7 +241,12 @@ async function ensureAppUserFromSupabaseAuth<T>(
   return created as T;
 }
 
-function ensureColumns(columns: string): string {
+/**
+ * The columns to select: whatever the caller asked for, plus `id` and `role`,
+ * which every consumer of an app user needs. Returned as a set so the Clerk path
+ * can ask whether `phone` was requested before deciding to backfill it.
+ */
+function wantedColumns(columns: string): Set<string> {
   const wanted = new Set(
     columns
       .split(",")
@@ -183,5 +255,13 @@ function ensureColumns(columns: string): string {
   );
   wanted.add("id");
   wanted.add("role");
+  return wanted;
+}
+
+function columnList(wanted: Set<string>): string {
   return Array.from(wanted).join(", ");
+}
+
+function ensureColumns(columns: string): string {
+  return columnList(wantedColumns(columns));
 }

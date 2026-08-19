@@ -52,10 +52,13 @@ export async function getMerchantContext(): Promise<
 
   // Linking a pre-invited seat by phone is an access-control decision, so it must
   // trust only a phone the user has proven they control. `user.phone` is safe to
-  // match on because it is a Clerk-VERIFIED number by construction: it is written
-  // only by provisioning, through `verifiedPrimaryPhone` (src/lib/auth.ts), and is
-  // immutable to the holder thereafter (D124 trigger). Both halves are load-bearing
-  // — do not match staff on a column that could hold an unverified value.
+  // match on because it is a Clerk-VERIFIED number by construction: every write to
+  // it goes through `verifiedPrimaryPhone` (src/lib/auth.ts) — at provisioning, and
+  // since D129 also as a NULL-only backfill on a later sign-in, which is what makes
+  // this branch reachable for an email-first signup at all — and it is immutable to
+  // the holder thereafter (D124 trigger). Both halves are load-bearing — do not
+  // match staff on a column that could hold an unverified value, and do not add a
+  // second writer that skips `verifiedPrimaryPhone`.
   if (!staff && user.phone) {
     const { data: byPhone } = await service
       .from("merchant_staff")
