@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { PostHogClientProvider } from "@/components/posthog-provider";
-import { DEMO_MODE } from "@/lib/marketing/demo";
+import { SITE_DESCRIPTION } from "@/lib/marketing/live-claims";
 import "./globals.css";
 
 // Claude-calm shopper type: DM Sans for UI hierarchy; Inter kept as fallback
@@ -42,9 +42,14 @@ export const metadata: Metadata = {
   // before the visitor reaches the page carrying "MAANTA is not yet trading".
   // A description that says "now live" while the site says pre-launch is a
   // contradiction resolved in favour of whichever surface the reader saw first.
-  description: DEMO_MODE
-    ? "Discover, claim and redeem live mall deals. Launching at BBS Mall, Eastleigh."
-    : "Discover, claim and redeem live mall deals. Now live at BBS Mall, Eastleigh.",
+  //
+  // The ternary used to live here. It moved to `live-claims.ts` (D138) because
+  // the web manifest renders the same sentence at the Android install prompt and
+  // had a frozen post-launch copy of it — two literals for one claim is exactly
+  // what D87 addressed by giving every trading claim a single address.
+  description: SITE_DESCRIPTION,
+  // Served by `src/app/manifest.ts` (the Next file convention) at this same URL
+  // since D138; it was a static file in `public/` and could not read DEMO_MODE.
   manifest: "/manifest.webmanifest",
   // An explicit `icons` object OVERRIDES Next's file-convention discovery, so
   // `src/app/apple-icon.tsx` generates its PNG but never gets linked unless it is
@@ -52,6 +57,18 @@ export const metadata: Metadata = {
   // missing: the route existed in the build output and the HTML carried only
   // `rel="icon"`, which iOS Safari ignores for the Home Screen.
   icons: { icon: "/icon.svg", apple: "/apple-icon" },
+  // iOS Add to Home Screen reads these, not the web manifest (D93). Without the
+  // block the home-screen title falls back to the full `<title>` — "Maanta — The
+  // mall, made live." — which iOS truncates to a few characters under the icon,
+  // and the status bar renders in its default style rather than matching the
+  // app's own chrome. `capable` is what makes the launched app standalone,
+  // mirroring the manifest's `display: "standalone"` for the platform that
+  // ignores the manifest.
+  appleWebApp: {
+    capable: true,
+    title: "Maanta",
+    statusBarStyle: "default",
+  },
   openGraph: {
     type: "website",
     siteName: "MAANTA",
