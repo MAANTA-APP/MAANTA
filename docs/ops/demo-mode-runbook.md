@@ -564,3 +564,29 @@ real migration chain:
 6. **No `is_demo` on `leads`.** Waitlist signups are all treated as real. Given
    `leads` is currently empty this costs nothing, but a demo waitlist entry
    would need tagging by hand.
+
+
+## Launch flip verification — the two switches, paired (D18)
+
+Added 2026-08-19, adopted from the external review of the same date. The
+isolation itself is DB-enforced — `deals_public_browse` carries
+`(NOT d.is_demo OR is_demo_mode())` on both the deal and its merchant, read back
+from production 2026-08-19 — so the launch risk is not the view, it is the
+**pairing**: `app_config.demo_mode_enabled` and the Vercel env var
+`MAANTA_DEMO_MODE` flipped independently is how real events get tagged demo
+(the exact inversion the tagging exists to prevent).
+
+Run all four steps, in order, and record the timestamps:
+
+1. **Flip both together**: `app_config.demo_mode_enabled = 'false'` (DB) AND
+   `MAANTA_DEMO_MODE = false` on Vercel **Production** (D19: set Preview too).
+2. **Redeploy** — a Vercel deployment bakes its env at creation (the D98
+   lesson: save-then-redeploy is the only valid order).
+3. **Verify tagging**: perform one real action and read back that the resulting
+   event/row carries `is_demo = false`.
+4. **Verify isolation**: as an anonymous shopper, confirm no demo deal is
+   retrievable — `/feed`, `/browse`, `/search`, and a direct
+   `deals_public_browse` read should all return zero demo rows.
+
+Scope: this gates **public launch**. The controlled pilot runs with demo mode
+ON, as every rehearsal has — nothing here blocks the first real redemption.
