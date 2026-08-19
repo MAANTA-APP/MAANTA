@@ -133,8 +133,11 @@ BEGIN
     VALUES ('__test_hijack_shop', 'test.hijack.shop', '+254799000452', 'BBS Mall', 'active', TRUE, v_owner_uid, 500)
     RETURNING id INTO v_mid;
   -- Pre-invited staff seat: phone set, not yet linked to a user, can_verify on.
-  INSERT INTO public.merchant_staff (merchant_id, phone, user_id, can_verify, can_deals, can_topup, can_purchase)
-    VALUES (v_mid, v_staff_phone, NULL, TRUE, TRUE, TRUE, TRUE);
+  -- staff_name is NOT NULL with no default (20260709175532). Omitting it is what
+  -- this suite did before it had ever been run anywhere; the insert aborted the
+  -- scenario before the hijack attempt it exists to make.
+  INSERT INTO public.merchant_staff (merchant_id, staff_name, phone, user_id, can_verify, can_deals, can_topup, can_purchase)
+    VALUES (v_mid, '__test invited staff', v_staff_phone, NULL, TRUE, TRUE, TRUE, TRUE);
 
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
