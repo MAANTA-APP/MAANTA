@@ -53,7 +53,7 @@ export function isValidInternationalPhone(phone: string): boolean {
  * `merchant_staff.phone` is compared for exact string equality against
  * `public.users.phone` — `getMerchantContext` links a pre-invited seat that way,
  * and `users.phone` is the E.164 number Clerk provisioned (verified-only since
- * D118). The invite form is hand-typed, so the server must store the canonical
+ * D126). The invite form is hand-typed, so the server must store the canonical
  * E.164 rather than the raw string: otherwise "0712 345 678" is saved verbatim,
  * never matches Clerk's "+254712345678", and the seat silently never links.
  *

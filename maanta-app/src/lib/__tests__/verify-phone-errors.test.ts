@@ -48,6 +48,19 @@ describe("clerkSendCodeMessage", () => {
     expect(msg).toContain("Wait a minute");
   });
 
+  it("names the stale-session case instead of blaming the number or the country", () => {
+    // Clerk refuses createPhoneNumber once the sign-in is older than its
+    // freshness window. This landed in the fallback branch during the pilot and
+    // told a tester with a perfectly good Kenyan number that "the number, or
+    // SMS to that country" might be the problem (D115). The screen now wraps
+    // the call in useReverification so the modal handles it; this mapping is
+    // the backstop, and it must not mention the number.
+    const msg = clerkSendCodeMessage(clerkError("session_reverification_required"));
+    expect(msg).toContain("confirm it's you");
+    expect(msg).not.toContain("number");
+    expect(msg).not.toContain("country");
+  });
+
   it("surfaces an unrecognised code instead of hiding it", () => {
     // The country-restriction and SMS-quota cases land here and are
     // indistinguishable from the client, so the code is the only handle on

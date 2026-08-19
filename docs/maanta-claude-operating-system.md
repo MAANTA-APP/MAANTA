@@ -403,7 +403,7 @@ Separate output into:
 Copy-paste for a security session. It carries the attacker mindset on purpose —
 the goal is exploitable holes, proven, not a checklist of theoretical concerns —
 inside rules of engagement that keep it from touching production. It is how
-**D115** (a writable back door into `public.merchants` through an
+**D123** (a writable back door into `public.merchants` through an
 auto-updatable browse view) was found; the full write-up is
 `docs/skills/security-audit-2026-08-17.md`.
 

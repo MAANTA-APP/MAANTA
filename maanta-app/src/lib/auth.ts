@@ -55,11 +55,11 @@ export async function currentUserHasVerifiedPhone(): Promise<boolean> {
  * the user has NOT proven they control must never land here. An unverified
  * primary phone → null.
  *
- * This is the source-side half of the same invariant D116 protects: migration
+ * This is the source-side half of the same invariant D124 protects: migration
  * 20260817130000 froze the column against self-writes via PostgREST *and* states
  * that `users.phone` "is assumed to be the Clerk-verified number written once at
  * provisioning". That assumption was not actually enforced — provisioning wrote
- * `primaryPhoneNumber` unconditionally (D118). This makes the assumption true.
+ * `primaryPhoneNumber` unconditionally (D126). This makes the assumption true.
  *
  * Exported as a pure function so the rule is tested in one place rather than
  * mocked through the whole provisioning path.

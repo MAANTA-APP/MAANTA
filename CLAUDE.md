@@ -11,16 +11,25 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 94/94 as of 2026-08-18** (**D24**
-closed 2026-08-05; **D107** closed 2026-08-17): production's `schema_migrations`
-and this repo's `supabase/migrations/` agree on all 94 version/name pairs, read
-back after founder-authorized MCP applies that landed the three 2026-08-17
-security migrations (`20260817120000`/`130000`/`140000` — **D115**/**D116**/**D117**,
-all closed), recorded the `20260816020000` ledger row D107 was open on, and added
-`20260818120000` (claim_deal CSPRNG OTP) and `20260818130000` (deals.expires_at
-NOT NULL — **D29** closed). Like deployment alignment, treat this as a thing to
-re-check, not a settled state — the earlier 87/87 reconciliation drifted twice
-before this. The `claim_deal` pause gate is **live** (**D25**
+still on. **The migration ledger reconciles at 96/96 as of 2026-08-19** (**D24**
+closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19):
+production's `schema_migrations` and this repo's `supabase/migrations/` agree on
+all 96 version/name pairs, verified by a full read-back diff. Getting there took
+two founder-authorized MCP apply rounds — the three 2026-08-17 security
+migrations (`20260817120000`/`130000`/`140000` — **D123**/**D124**/**D125**), the
+CSPRNG OTP and `deals.expires_at NOT NULL` pair (**D29**), and the category pair
+`20260818150000`/`20260818160000` (**D116**) — plus merging the branch those
+first five had been applied from.
+
+**Two rules earned the hard way, both still load-bearing.** (1) **Read
+`supabase_migrations.schema_migrations`, not `ls supabase/migrations/`, before
+choosing a version.** For two days production held five migrations that existed
+only on an unmerged branch, so the repo directory under-reported the real
+high-water mark and two files were authored on top of already-taken versions
+(**D121**). (2) **Every MCP apply mints its own version** — six for six — so read
+back and repair the ledger to the repo filename before doing anything else.
+Treat this alignment as a thing to re-check, not a settled state: the earlier
+87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
 assigning it is founder-held, Q14). The role's DB policy layer is **live**
@@ -74,7 +83,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciles with prod at **94/94 as of 2026-08-18** — **D24** closed 2026-08-05, **D107** closed 2026-08-17. The three 2026-08-17 security migrations `20260817120000`/`130000`/`140000` (**D115**/**D116**/**D117**) applied and read back with the `20260816020000` ledger row recorded in the same pass; `20260818120000` (claim_deal CSPRNG OTP) and `20260818130000` (deals.expires_at NOT NULL, **D29**) applied 2026-08-18) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 96/96 as of 2026-08-19**, verified by full read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
@@ -106,6 +115,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 | How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
 | Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
 | Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
+| Am I touching deal categories? | `docs/skills/deal-categories.md` — the ten-bucket taxonomy is founder-locked and uncategorised is a real state. Live on production since 2026-08-18, but no live deal carries a category yet, so no chip row renders (**D122**) |
 
 ## Working style
 

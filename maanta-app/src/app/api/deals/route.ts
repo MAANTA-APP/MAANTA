@@ -9,6 +9,8 @@ import {
   fileExtensionForImage,
 } from "@/lib/image-bytes";
 import { captureDealPublished } from "@/lib/analytics";
+import { isDealCategory } from "@/lib/deal-categories";
+import { insertDealDroppingUnknownCategory } from "@/lib/deal-category-column";
 import { currentClerkUserId } from "@/lib/auth";
 import {
   checkRateLimit,
@@ -60,6 +62,11 @@ export async function POST(request: Request) {
     24,
     Math.max(1, parseInt(String(form.get("flashHours") ?? "6"), 10) || 6)
   );
+  // Validated against the taxonomy, not trusted: the CHECK constraint would
+  // reject an unknown key with a 500-shaped database error, and a client that
+  // sent nothing would publish a deal no category chip can ever surface.
+  const categoryRaw = String(form.get("category") ?? "").trim();
+  const category = isDealCategory(categoryRaw) ? categoryRaw : null;
   const maxClaimsRaw = parseInt(String(form.get("maxClaims") ?? ""), 10);
   const maxClaims =
     isNaN(maxClaimsRaw) || maxClaimsRaw <= 0 ? null : Math.min(maxClaimsRaw, 10000);
@@ -85,6 +92,12 @@ export async function POST(request: Request) {
 
   if (!title) {
     return NextResponse.json({ error: "A title is required." }, { status: 400 });
+  }
+  if (!category) {
+    return NextResponse.json(
+      { error: "Choose a category so shoppers can find this deal." },
+      { status: 400 }
+    );
   }
   if (isNaN(priceKes) || priceKes < 0 || priceKes > 10_000_000) {
     return NextResponse.json(
@@ -131,24 +144,27 @@ export async function POST(request: Request) {
     data: { publicUrl },
   } = service.storage.from("deal-images").getPublicUrl(path);
 
-  const { data: deal, error } = await service
-    .from("deals")
-    .insert({
+  const { data: deal, error } = await insertDealDroppingUnknownCategory<{
+    id: string;
+    expires_at: string | null;
+  }>(
+    {
       merchant_id: merchant.id,
       node: merchant.node,
       title,
       description: description || null,
       image_url: publicUrl,
       deal_type: dealType,
+      category,
       flash_duration_hours: flashHours,
       max_claims: maxClaims,
       price_kes: priceKes,
       // Only show a struck "Was" when it is genuinely higher than the base price.
       compare_at_kes: compareAtKes && compareAtKes > priceKes ? compareAtKes : null,
       charges,
-    })
-    .select("id, expires_at")
-    .single();
+    },
+    (values) => service.from("deals").insert(values).select("id, expires_at").single()
+  );
 
   if (error || !deal) {
     const message = error?.message ?? "";

@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
 import {
+  isMissingDealCategoryColumnError,
   isMissingLatLngColumnError,
   type PostgrestLikeError,
 } from "@/lib/supabase/postgrest-errors";
@@ -114,6 +115,15 @@ export type DealRow = {
   description: string | null;
   image_url: string;
   deal_type: "standard" | "flash";
+  /**
+   * Shopper-facing category key (`fashion` | `beauty` | `food`), or null for
+   * deals created before the taxonomy existed. Optional at the type level, not
+   * just nullable: until `20260818150000_deal_categories.sql` is applied the
+   * column is absent from the select and the field is genuinely `undefined`, and
+   * a type that promised `string | null` would make that state unrepresentable
+   * while it is exactly the state production is in.
+   */
+  category?: string | null;
   flash_duration_hours: number;
   is_active: boolean;
   /** When true, deal is hidden from shopper feed/browse/map and new claims fail. */
@@ -142,10 +152,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;
@@ -158,32 +168,78 @@ function asDealRows(data: unknown): DealRow[] {
   return (rows as DealRow[]).filter((d) => d?.merchants);
 }
 
+/** `select` minus `category`, for a remote that has not had the column added yet. */
+export function dealSelectWithoutCategory(select: string): string {
+  return select.replace(", category,", ",");
+}
+
 /**
- * Run a deals+merchants select; if the remote is missing lat/lng columns,
- * retry once without them so Discover/Browse still load (distance stays null).
+ * Run a deals+merchants select, degrading the column list rather than failing
+ * when the remote schema is behind this deploy.
+ *
+ * Two columns can be absent independently: `merchants.lat/lng`
+ * (`20260726120000`) and `deals.category` (`20260818150000`). Claude never
+ * applies migrations to production, so code that reads a column always ships
+ * before the column exists, for a window nobody can predict. A 500 on the
+ * shopper feed for that window is a much worse product than a missing distance
+ * label or an absent category chip, so each missing column costs its own
+ * feature and nothing else.
+ *
+ * A loop rather than a nested pair of fallbacks because the two gaps are not
+ * ordered: Postgres names one unknown column per error, and which one it names
+ * first is not something to rely on. Each attempt drops exactly the column the
+ * error actually named; three attempts is enough to shed both and still make the
+ * real request.
+ *
+ * The LAST error is what gets thrown. An earlier one is, by construction, a
+ * missing column this function deliberately decided to work around — surfacing
+ * "column deals.category does not exist" while the query is actually failing on
+ * "permission denied" points the operator at the wrong problem. This is a
+ * correction: it originally threw the first error, on the reasoning that a later
+ * one might be noise, which had it backwards. The two sibling helpers in
+ * `@/lib/deal-category-column` already behaved this way, so all three now agree.
  */
 export async function selectDealsWithMerchants(
   run: (select: string) => PromiseLike<DealSelectResult>
 ): Promise<DealRow[]> {
-  const primary = await run(DEAL_SELECT);
-  if (!primary.error) {
-    return asDealRows(primary.data);
+  let withLatLng = true;
+  let withCategory = true;
+  let lastError: PostgrestLikeError | null = null;
+
+  // 3 = one attempt, plus one narrowing per droppable column.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const base = withLatLng ? DEAL_SELECT : DEAL_SELECT_WITHOUT_LAT_LNG;
+    const select = withCategory ? base : dealSelectWithoutCategory(base);
+    const result = await run(select);
+
+    if (!result.error) {
+      const rows = asDealRows(result.data);
+      return withLatLng
+        ? rows
+        : rows.map((d) => ({
+            ...d,
+            merchants: d.merchants
+              ? {
+                  ...d.merchants,
+                  lat: typeof d.merchants.lat === "number" ? d.merchants.lat : null,
+                  lng: typeof d.merchants.lng === "number" ? d.merchants.lng : null,
+                }
+              : null,
+          }));
+    }
+
+    lastError = result.error;
+    if (withCategory && isMissingDealCategoryColumnError(result.error)) {
+      withCategory = false;
+      continue;
+    }
+    if (withLatLng && isMissingLatLngColumnError(result.error)) {
+      withLatLng = false;
+      continue;
+    }
+    throw result.error;
   }
-  if (!isMissingLatLngColumnError(primary.error)) {
-    throw primary.error;
-  }
-  const fallback = await run(DEAL_SELECT_WITHOUT_LAT_LNG);
-  if (fallback.error) throw primary.error;
-  return asDealRows(fallback.data).map((d) => ({
-    ...d,
-    merchants: d.merchants
-      ? {
-          ...d.merchants,
-          lat: typeof d.merchants.lat === "number" ? d.merchants.lat : null,
-          lng: typeof d.merchants.lng === "number" ? d.merchants.lng : null,
-        }
-      : null,
-  }));
+  throw lastError;
 }
 
 /**

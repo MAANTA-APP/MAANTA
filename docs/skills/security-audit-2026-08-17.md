@@ -5,7 +5,15 @@ role guards, API route handlers, DB grants, RLS policies, the money RPCs, both
 payment webhooks, and secret handling. **Target:** the repo at
 `7fba31e`, read against **live production** `axrrslqssmbngbataejg`.
 
-Findings are recorded in `docs/maanta-drift-register.md` as **D115**. This file
+Findings are recorded in `docs/maanta-drift-register.md` as **D123**.
+
+> **Row numbers changed on merge.** This audit opened its findings as D115–D119
+> while its branch sat unmerged. `main` had meanwhile issued those same numbers
+> to unrelated rows (a Clerk reverification fix and the deal-category work), and
+> the register is append-only, so the branch renumbered on the way in:
+> **D115→D123, D116→D124, D117→D125, D118→D126, D119→D127.** Anything quoting the
+> old numbers from before 2026-08-19 means the security rows; the register is the
+> authority. This file
 is the narrative; the register is the state. Read the register first.
 
 The reusable prompt that drives an audit like this one — adversarial mindset,
@@ -17,9 +25,9 @@ non-destructive proof, repo reporting discipline — is in
 
 ## Headline
 
-**Round 1: one critical, exploitable finding (D115).** A second pass the same day
-(see *Round 2* below) added **D116** — an authenticated privilege escalation to
-merchant staff via a self-written phone — and **D117** (least-privilege on demo
+**Round 1: one critical, exploitable finding (D123).** A second pass the same day
+(see *Round 2* below) added **D124** — an authenticated privilege escalation to
+merchant staff via a self-written phone — and **D125** (least-privilege on demo
 RPCs). Three fixes written, all verified non-destructively, none applied.
 
 `public.merchants_public_browse` is a writable back door into `public.merchants`
@@ -256,7 +264,7 @@ surfaces the first pass only inventoried: every write-capable RLS policy, every
 SECURITY DEFINER function's self-authorization, the storage policies, and the
 staff-linking path. Two new findings, both fixed-not-applied, both with guards.
 
-### D116 — identity self-write → merchant_staff-seat hijack (the real one)
+### D124 — identity self-write → merchant_staff-seat hijack (the real one)
 
 `users_own_row` is `FOR ALL USING (id = current_user_id())` with **no WITH
 CHECK**, and `authenticated` holds the default UPDATE grant on `users`. Only
@@ -286,10 +294,10 @@ write survive — verified by reading all 20 `users` writers in `src/`. Guard:
 `users_identity_immutable_test.sql` (identity frozen · hijack blocked end-to-end ·
 service_role/admin unaffected).
 
-### D117 — demo-mutation RPCs are internet-callable
+### D125 — demo-mutation RPCs are internet-callable
 
 `wipe_demo_data`, `reseed_demo_flash_deals`, `refresh_demo_seed_deals` were never
-`REVOKE`d from `PUBLIC`, so anon/authenticated inherit execute — the D115
+`REVOKE`d from `PUBLIC`, so anon/authenticated inherit execute — the D123
 default-grant class, on functions. Bounded today: `wipe_demo_data(TRUE)` refuses
 while demo mode is ON, and reseed/refresh self-gate to demo mode and cap to an
 `app_config` ceiling. But a destructive op shouldn't be safe only because of a
@@ -315,8 +323,8 @@ service_role + postgres (cron + Makefile keep working). Guard:
 
 The three security migrations were applied to production (`axrrslqssmbngbataejg`)
 via founder-authorized MCP apply, in order `20260817120000` → `130000` → `140000`,
-each `execute_sql` DDL followed by a filename-versioned ledger row. **D115, D116,
-D117 closed** on read-back; the D107 ledger straggler (`20260816020000`) was
+each `execute_sql` DDL followed by a filename-versioned ledger row. **D123, D124,
+D125 closed** on read-back; the D107 ledger straggler (`20260816020000`) was
 recorded in the same pass and **D107 closed** too. The OTP-entropy hardening
 (`20260818120000_claim_deal_csprng_otp.sql`, *Other findings §2*) was applied and
 verified 2026-08-18. The repo migration files and `schema_migrations` now
@@ -330,13 +338,13 @@ reconcile at **93/93**. Verification captured on each row.
    not been run here. New suites this audit: `browse_views_test.sql` (E/F/G),
    `users_identity_immutable_test.sql`, `demo_mutation_rpc_grants_test.sql`,
    `claim_deal_otp_csprng_test.sql`.
-2. **Staff-by-phone verified-phone gap — FIXED 2026-08-18 (D118).** D116's
+2. **Staff-by-phone verified-phone gap — FIXED 2026-08-18 (D126).** D124's
    trigger closed the write primitive, but its own header assumed `users.phone`
    was a Clerk-verified number and provisioning never enforced that — it wrote
    `primaryPhoneNumber` unconditionally. `ensureAppUserFromClerk` now persists the
    phone only when Clerk has verified it (`verifiedPrimaryPhone`, guarded by
    `verified-phone.test.ts`), so `users.phone` is verified-or-null by construction.
-   Follow-on (D119, fixed 2026-08-18): staff invites matched a raw owner-typed
+   Follow-on (D127, fixed 2026-08-18): staff invites matched a raw owner-typed
    phone against the E.164 Clerk number, so a non-canonical spelling silently
    failed to link. `normalizeStaffPhone` now canonicalises to E.164 server-side and
    rejects junk with a 400 (`phone-validation.test.ts`). Fails safe as before; now
@@ -344,5 +352,5 @@ reconcile at **93/93**. Verification captured on each row.
 3. **The three `security_definer_view` advisor ERRORs are expected**, not
    regressions: `merchants_public_browse` / `deals_public_browse` /
    `demo_data_census` run `security_invoker = false` by design (it is what lets
-   anon browse without base-table grants). D115 revoked their writes rather than
+   anon browse without base-table grants). D123 revoked their writes rather than
    changing the flag, so the advisor persists intentionally.

@@ -4,7 +4,7 @@ import { verifiedPrimaryPhone } from "@/lib/auth";
 /**
  * `public.users.phone` is the column getMerchantContext links a pre-invited
  * merchant_staff seat on, so provisioning must persist it only when Clerk has
- * verified the number (D118). This pins the one rule that makes that safe.
+ * verified the number (D126). This pins the one rule that makes that safe.
  */
 describe("verifiedPrimaryPhone", () => {
   it("returns the number when the primary phone is verified", () => {

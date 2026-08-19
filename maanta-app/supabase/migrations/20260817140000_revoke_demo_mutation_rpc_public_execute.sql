@@ -2,7 +2,7 @@
 --
 -- `wipe_demo_data`, `reseed_demo_flash_deals` and `refresh_demo_seed_deals` are
 -- SECURITY DEFINER and were never `REVOKE`d from PUBLIC, so — like the default
--- table grants behind D115 — `anon` and `authenticated` inherit the implicit
+-- table grants behind D123 — `anon` and `authenticated` inherit the implicit
 -- execute grant Postgres gives every function. Confirmed on production 2026-08-17
 -- (`has_function_privilege('anon', …, 'EXECUTE') = true` for all three).
 --

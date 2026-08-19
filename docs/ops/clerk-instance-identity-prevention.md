@@ -50,15 +50,15 @@ them `admin`; 8 of 9 have `phone` NULL (path a), 1 has a phone (path b). The
 instance already changed once (D99). At pilot scale the blast radius is small;
 at launch scale, an instance change without a fix re-identifies everyone.
 
-### What D118 already changed (and why it matters here)
+### What D126 already changed (and why it matters here)
 
-Since **D118**, `users.phone` is **verified-or-null** (only a Clerk-verified
+Since **D126**, `users.phone` is **verified-or-null** (only a Clerk-verified
 primary phone is persisted, via `verifiedPrimaryPhone`) **and** immutable to the
 row's holder (the `prevent_identity_self_change` trigger blocks holder writes to
 `phone`/`clerk_user_id`/`auth_uid`). That makes **phone a trustworthy identity
 key**: a stored phone can only have been placed there by someone who proved
 control of it, and the holder cannot repoint it. `email` has neither property —
-it is stored unverified and is still self-writable (the D118 trigger does **not**
+it is stored unverified and is still self-writable (the D126 trigger does **not**
 cover `email`). That asymmetry drives the recommendation below.
 
 ---
@@ -95,20 +95,20 @@ instance change, which is exactly Option 1.)
 On a `clerk_user_id` miss, **before** inserting a new row:
 
 1. Compute the session's verified primary phone: `verifiedPrimaryPhone(cu)`
-   (already exists, D118). Null for email-only users.
+   (already exists, D126). Null for email-only users.
 2. If non-null, look up `users WHERE phone = <phone>` — `phone` is UNIQUE, so at
    most one row.
 3. **Found** → repoint and return it:
    `UPDATE users SET clerk_user_id = <new sub> WHERE id = <found.id>` (via the
-   service client, which bypasses the D118 trigger — legitimate provisioning).
+   service client, which bypasses the D126 trigger — legitimate provisioning).
    The old `sub` is dead; the new `sub` is on no row, so no UNIQUE conflict.
 4. **Not found / phone null** → insert a new row, exactly as today.
 
 Why it is safe:
 
 - The match key is a phone **the current session verified now** (the new
-  instance's SMS OTP). The stored phone is itself verified (D118) and
-  holder-immutable (D118), so "two parties with verified control of phone P" ⇒
+  instance's SMS OTP). The stored phone is itself verified (D126) and
+  holder-immutable (D126), so "two parties with verified control of phone P" ⇒
   same person — the standard assumption behind any SMS-based recovery (SIM-swap
   is the ambient risk, unchanged).
 - `phone` is UNIQUE, so the match is unambiguous.
@@ -136,7 +136,7 @@ plus unit tests. **No migration** (uses existing verified+immutable `phone`).
 Needed only if email-only users must survive an instance change automatically.
 It cannot be built safely on today's schema. Prerequisites, in order:
 
-1. **Lock `users.email` against holder writes** — extend the D118
+1. **Lock `users.email` against holder writes** — extend the D126
    `prevent_identity_self_change` trigger to include `email`. Without this, an
    attacker sets their own row's `email` to a victim's, and when the victim signs
    in on the new instance with a verified matching email, the fallback repoints
