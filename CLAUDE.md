@@ -11,23 +11,25 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger was reconciled at 87/87 on 2026-08-08** (**D24**
-closed 2026-08-05): production's `schema_migrations` and this repo's
-`supabase/migrations/` agreed on all 87 version/name pairs, read back after
-the 2026-08-08 applies. **It is out in two directions as of 2026-08-18.**
-**As of 2026-08-18 the ledger holds 96 rows against 91 files on this branch.**
-`20260816020000_admin_assisted_onboarding_attribution.sql` now HAS its ledger row
-(**D107** closed 2026-08-18 by read-back — it was repaired outside this session).
-The category migrations `20260818150000` and `20260818160000` are applied and
-read back (**D116** closed). The remaining gap is **five migrations live on
-production that exist only on the unmerged branch
-`claude/security-audit-maanta-peeazf`** — `20260817120000`, `20260817130000`,
-`20260817140000`, `20260818120000` and `20260818130000`. That is **D121**, open,
-and it has a sharp edge: **`ls supabase/migrations/` does not show the real
-high-water mark.** Two migrations were authored here on top of already-taken
-versions and had to be renumbered before applying. **Read
-`supabase_migrations.schema_migrations` before choosing a version** — a branch
-can apply to production without ever reaching `main`. The `claim_deal` pause gate is **live** (**D25**
+still on. **The migration ledger reconciles at 96/96 as of 2026-08-19** (**D24**
+closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19):
+production's `schema_migrations` and this repo's `supabase/migrations/` agree on
+all 96 version/name pairs, verified by a full read-back diff. Getting there took
+two founder-authorized MCP apply rounds — the three 2026-08-17 security
+migrations (`20260817120000`/`130000`/`140000` — **D123**/**D124**/**D125**), the
+CSPRNG OTP and `deals.expires_at NOT NULL` pair (**D29**), and the category pair
+`20260818150000`/`20260818160000` (**D116**) — plus merging the branch those
+first five had been applied from.
+
+**Two rules earned the hard way, both still load-bearing.** (1) **Read
+`supabase_migrations.schema_migrations`, not `ls supabase/migrations/`, before
+choosing a version.** For two days production held five migrations that existed
+only on an unmerged branch, so the repo directory under-reported the real
+high-water mark and two files were authored on top of already-taken versions
+(**D121**). (2) **Every MCP apply mints its own version** — six for six — so read
+back and repair the ledger to the repo filename before doing anything else.
+Treat this alignment as a thing to re-check, not a settled state: the earlier
+87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
 assigning it is founder-held, Q14). The role's DB policy layer is **live**
@@ -81,7 +83,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod at 87/87 on 2026-08-08 — drift **D24** closed 2026-08-05; the **D73** per-node cap reland `20260807160000` and **D74** cofounder read policies `20260807161000` applied to production 2026-08-08 and read back. **96 ledger rows vs 91 files as of 2026-08-18: five migrations are live on production but exist only on the unmerged `claude/security-audit-maanta-peeazf` branch — D121. Read the ledger, not this directory, before picking a version**) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 96/96 as of 2026-08-19**, verified by full read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |

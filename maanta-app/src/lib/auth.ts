@@ -46,6 +46,38 @@ export async function currentUserHasVerifiedPhone(): Promise<boolean> {
 }
 
 /**
+ * The phone to persist on `public.users.phone`, or null — only a Clerk-VERIFIED
+ * primary phone is stored.
+ *
+ * This column is an access-control input, not just contact detail:
+ * `getMerchantContext` (src/lib/merchant.ts) links a signed-in user into a
+ * pre-invited `merchant_staff` seat by matching `public.users.phone`, so a number
+ * the user has NOT proven they control must never land here. An unverified
+ * primary phone → null.
+ *
+ * This is the source-side half of the same invariant D124 protects: migration
+ * 20260817130000 froze the column against self-writes via PostgREST *and* states
+ * that `users.phone` "is assumed to be the Clerk-verified number written once at
+ * provisioning". That assumption was not actually enforced — provisioning wrote
+ * `primaryPhoneNumber` unconditionally (D126). This makes the assumption true.
+ *
+ * Exported as a pure function so the rule is tested in one place rather than
+ * mocked through the whole provisioning path.
+ */
+export function verifiedPrimaryPhone(
+  cu: {
+    primaryPhoneNumber?: {
+      phoneNumber?: string | null;
+      verification?: { status?: string | null } | null;
+    } | null;
+  } | null
+): string | null {
+  const primary = cu?.primaryPhoneNumber;
+  if (!primary || primary.verification?.status !== "verified") return null;
+  return primary.phoneNumber ?? null;
+}
+
+/**
  * Resolve the public.users row for the signed-in identity, provisioning on
  * first sight. Returns null only when the request is unauthenticated.
  */
@@ -75,7 +107,9 @@ async function ensureAppUserFromClerk<T>(
   if (existing) return existing as T;
 
   const cu = await currentUser();
-  const phone = cu?.primaryPhoneNumber?.phoneNumber ?? null;
+  // Verified-only: `users.phone` gates merchant_staff linking (see
+  // verifiedPrimaryPhone). An unverified Clerk phone is not persisted.
+  const phone = verifiedPrimaryPhone(cu);
   const email = cu?.primaryEmailAddress?.emailAddress ?? null;
   const fullName =
     [cu?.firstName, cu?.lastName].filter(Boolean).join(" ").trim() || null;

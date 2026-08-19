@@ -3,9 +3,10 @@ import { POST } from "../route";
 
 // Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth allows
 // email-only sign-in, but a claim needs a verified phone. This locks the server
-// gate: a phone-less session is rejected with a typed `phone_required` 403 and
-// the claim RPC is NEVER reached; a session with a verified phone passes through
-// to claim_deal.
+// gate at THIS ROUTE: a phone-less session is rejected with a typed
+// `phone_required` 403 and claim_deal is not called; a verified-phone session
+// passes through. The gate is app-layer only — claim_deal has no phone check of
+// its own (D84) — so this guards the enforcement point, not an RPC-level invariant.
 
 const ensureAppUserMock = vi.fn();
 const hasPhoneMock = vi.fn();

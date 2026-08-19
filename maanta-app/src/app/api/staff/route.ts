@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext } from "@/lib/merchant";
+import { normalizeStaffPhone } from "@/lib/phone";
 
 /** Add a staff member (wireframe 10y/10ac/10aa). Owner only. */
 export async function POST(request: Request) {
@@ -18,8 +19,22 @@ export async function POST(request: Request) {
 
   const { staffName, phone, canVerify, canDeals, canTopup, canPurchase } =
     await request.json();
-  if (!staffName || !phone) {
+  if (!staffName || !String(staffName).trim()) {
     return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+  }
+
+  // Store the canonical E.164, not the raw typed string: getMerchantContext links
+  // this seat by matching merchant_staff.phone against the Clerk-provisioned
+  // users.phone exactly, so a non-canonical number would never link (see
+  // normalizeStaffPhone). Rejecting an unnormalizable number here turns a silent
+  // never-links row into a clear error at the point the owner can fix it.
+  const normalizedPhone =
+    typeof phone === "string" ? normalizeStaffPhone(phone) : null;
+  if (!normalizedPhone) {
+    return NextResponse.json(
+      { error: "Enter a valid mobile number so they can sign in." },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
@@ -28,7 +43,7 @@ export async function POST(request: Request) {
     .insert({
       merchant_id: merchant.id,
       staff_name: String(staffName).trim(),
-      phone: String(phone).trim(),
+      phone: normalizedPhone,
       can_verify: canVerify !== false,
       can_deals: !!canDeals,
       can_topup: !!canTopup,

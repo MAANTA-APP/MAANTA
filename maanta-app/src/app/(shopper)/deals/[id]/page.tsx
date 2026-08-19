@@ -4,7 +4,6 @@ import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing, chargeAmount, extrasLine } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
-import { serverPosthogDistinctId } from "@/lib/analytics-identity";
 import { isDealClaimable } from "@/lib/deal-expiry";
 import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
@@ -49,13 +48,12 @@ export default async function DealDetailPage({
     existingTicketId = existing?.id ?? null;
   }
 
+  // Most viewers here are signed out — browsing does not require an account. By
+  // founder ruling anonymous analytics is cookieless/in-memory, so a signed-out
+  // view is attributed as "none" server-side (volume-only); the client's posthog-js
+  // attributes the pageview itself and aliases it on sign-in. See analytics.ts.
   void captureDealViewed({
     clerkUserId,
-    // Most viewers here are signed out — browsing does not require an account —
-    // so without the browser's own distinct id the whole top of the funnel
-    // collapses onto one person. Reading it costs a cookie lookup; the page is
-    // already force-dynamic, so nothing is given up by touching cookies().
-    posthogDistinctId: serverPosthogDistinctId(),
     dealId: deal.id,
     merchantId: deal.merchant_id,
     dealType: deal.deal_type ?? "standard",

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isValidKenyanPhone, isValidInternationalPhone } from "@/lib/phone";
+import {
+  isValidKenyanPhone,
+  isValidInternationalPhone,
+  normalizeKenyanPhone,
+  normalizeStaffPhone,
+} from "@/lib/phone";
 
 /**
  * The two phone checks, and the line between them.
@@ -67,5 +72,66 @@ describe("isValidInternationalPhone", () => {
     expect(isValidInternationalPhone(`+${"9".repeat(16)}`)).toBe(false);
     expect(isValidInternationalPhone("9".repeat(8))).toBe(true);
     expect(isValidInternationalPhone("9".repeat(7))).toBe(false);
+  });
+});
+
+/**
+ * merchant_staff.phone must be stored in the same E.164 shape Clerk gives
+ * users.phone, or getMerchantContext never links the seat. These pin the
+ * canonicalisation the staff route relies on.
+ */
+describe("normalizeKenyanPhone", () => {
+  it("collapses every accepted Kenyan spelling to one +254 form", () => {
+    for (const p of [
+      "0712345678",
+      "712345678",
+      "254712345678",
+      "+254712345678",
+      "0712 345 678",
+      "+254-712-345-678",
+    ]) {
+      expect(normalizeKenyanPhone(p), p).toBe("+254712345678");
+    }
+  });
+
+  it("returns null for non-Kenyan or malformed numbers", () => {
+    expect(normalizeKenyanPhone("+47 969 51 162")).toBeNull();
+    expect(normalizeKenyanPhone("0812345678")).toBeNull(); // not a 7… mobile
+    expect(normalizeKenyanPhone("Zak")).toBeNull();
+    expect(normalizeKenyanPhone("")).toBeNull();
+  });
+
+  it("agrees exactly with isValidKenyanPhone", () => {
+    for (const p of ["0712345678", "+254712345678", "+47 969 51 162", "TOP G", "+254"]) {
+      expect(normalizeKenyanPhone(p) !== null, p).toBe(isValidKenyanPhone(p));
+    }
+  });
+});
+
+describe("normalizeStaffPhone", () => {
+  it("canonicalises Kenyan mobiles to +254 E.164 so the seat links", () => {
+    // The exact bug: a hand-typed local number must become the +254 form Clerk
+    // stores, or merchant_staff.phone never equals users.phone.
+    expect(normalizeStaffPhone("0712 345 678")).toBe("+254712345678");
+    expect(normalizeStaffPhone("254712345678")).toBe("+254712345678");
+    expect(normalizeStaffPhone("+254712345678")).toBe("+254712345678");
+  });
+
+  it("keeps a plausible international number, with a single leading +", () => {
+    expect(normalizeStaffPhone("+47 969 51 162")).toBe("+4796951162");
+    expect(normalizeStaffPhone("20 103 800 6802")).toBe("+201038006802");
+  });
+
+  it("rejects junk so the owner sees a 400, not a silent unlinkable row", () => {
+    expect(normalizeStaffPhone("Zak")).toBeNull();
+    expect(normalizeStaffPhone("")).toBeNull();
+    expect(normalizeStaffPhone("+254")).toBeNull();
+    expect(normalizeStaffPhone("1234567")).toBeNull();
+  });
+
+  it("is idempotent — normalising an already-canonical number is a no-op", () => {
+    const once = normalizeStaffPhone("0712345678");
+    expect(once).toBe("+254712345678");
+    expect(normalizeStaffPhone(once!)).toBe(once);
   });
 });
