@@ -108,6 +108,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 |---|---|
 | Is this shipped, or design-ahead? | `maanta-app/design/current-reality/frames.json` |
 | Is this a known gap already? | `docs/maanta-drift-register.md` (search before you re-report) |
+| What is waiting on a founder ruling? | `docs/maanta-decision-queue-2026-08-19.md` — ranked, with each question, its evidence and its options. A derived view of the register, not a second tracker |
 | Is this rule frozen? | Frozen business rules below → `docs/maanta-decisions-log.md` |
 | What is gating launch? | `docs/maanta-launch-readiness-tracker.md` |
 | How does money actually move? | `docs/skills/payments-rails.md`, `docs/skills/money-trust-engineering-guardrails.md`, the `claim_deal` / `verify_redemption` migrations |
