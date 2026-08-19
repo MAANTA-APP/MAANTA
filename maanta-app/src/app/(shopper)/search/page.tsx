@@ -32,11 +32,17 @@ export default async function SearchPage({
   let results: DealRow[] = [];
   if (q || type !== "all") {
     results = await selectDealsWithMerchants(async (select) => {
+      // Paused deals leave shopper discovery immediately (PR #150,
+      // docs/skills/paused-deal-semantics.md, D25) — `claim_deal` raises
+      // `deal_paused` and would 409 the tap. `/feed`, `/browse` and `/map` get
+      // this from `getLiveDeals`; search builds its own query, so it carries the
+      // same predicate as `selectLiveDealBucket` rather than inheriting it. D119.
       let query = withPublicMerchant(
         service
           .from("deals")
           .select(select)
           .eq("is_active", true)
+          .eq("is_paused", false)
           .gt("expires_at", new Date().toISOString()),
         { includeDemo }
       ).limit(30);
@@ -51,11 +57,13 @@ export default async function SearchPage({
     // Also match shop names when a text query is present.
     if (q) {
       const byShop = await selectDealsWithMerchants(async (select) => {
+        // Same pause filter as the title query above — both are discovery.
         let shopQuery = withPublicMerchant(
           service
             .from("deals")
             .select(select)
             .eq("is_active", true)
+            .eq("is_paused", false)
             .gt("expires_at", new Date().toISOString()),
           { includeDemo }
         )
