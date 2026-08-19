@@ -1,7 +1,7 @@
 {
   "$schema_note": "MAANTA design current-reality inventory — 2026-07-30 parity audit. Not pixel truth; classifies routes vs code/SQL.",
   "generated": "2026-07-30",
-  "amended": "2026-08-15 — /merchant/onboard and /merchant/wallet corrected against shipped code (drift D103, D104). Both entries described a guarantee where a design reader needed a rendered surface, and a design programme read them as descriptions of absence.",
+  "amended": "2026-08-15 — /merchant/onboard and /merchant/wallet corrected against shipped code (drift D103, D104). Both entries described a guarantee where a design reader needed a rendered surface, and a design programme read them as descriptions of absence. 2026-08-19 — /download and /app-bootstrap added (drift D94): the inventory omitted the installed product's entry point, and CLAUDE.md calls this file the canonical surface inventory. Both carry drift cross-references in `notes`, which is what makes the D26 guardrail buildable. Two unfollowable `frontend` citations were also corrected: /contact's retired `(public)/` route group, and /merchant/deals' bare `deals/page.tsx`, which matches four files in the tree and pointed a reader at none of them. 2026-08-19 (later the same day) — every `frontend` entry normalised to one convention, rooted at maanta-app/ (drift D140): the file had mixed three rooting styles, which is what let a citation of a retired route group and a four-way-ambiguous basename sit unnoticed. The guard in frames-inventory.test.ts is now a plain existence check.",
   "source_of_truth_order": [
     "Notion / product decisions",
     "Repo implementation (Next.js + SQL migrations)",
@@ -15,9 +15,15 @@
       "route": "/login",
       "status": "live",
       "design_frame": null,
-      "frontend": ["src/app/login/[[...sign-in]]/page.tsx"],
-      "backend": ["Clerk SignIn or SupabaseEmailLogin via MAANTA_AUTH_STRATEGY"],
-      "sql": ["public.users via ensureAppUser"],
+      "frontend": [
+        "src/app/login/[[...sign-in]]/page.tsx"
+      ],
+      "backend": [
+        "Clerk SignIn or SupabaseEmailLogin via MAANTA_AUTH_STRATEGY"
+      ],
+      "sql": [
+        "public.users via ensureAppUser"
+      ],
       "primary_action": "Sign in",
       "notes": "Interactive browser needs real Clerk keys; placeholder keys fail FAPI handshake."
     },
@@ -26,8 +32,12 @@
       "route": "/otp",
       "status": "superseded",
       "design_frame": "S2 / phone OTP",
-      "frontend": ["src/app/otp/page.tsx"],
-      "backend": ["redirect → /verify-phone"],
+      "frontend": [
+        "src/app/otp/page.tsx"
+      ],
+      "backend": [
+        "redirect → /verify-phone"
+      ],
       "sql": null,
       "primary_action": "Alias to phone verify",
       "notes": "Canonical OTP UI is /verify-phone. Alias added 2026-07-30."
@@ -37,8 +47,12 @@
       "route": "/verify-phone",
       "status": "gated",
       "design_frame": "S2",
-      "frontend": ["src/app/verify-phone/page.tsx"],
-      "backend": ["Clerk phone SMS; claim API phone_required"],
+      "frontend": [
+        "src/app/verify-phone/page.tsx"
+      ],
+      "backend": [
+        "Clerk phone SMS; claim API phone_required"
+      ],
       "sql": null,
       "primary_action": "Verify phone for claim",
       "notes": "Rehearsal (Supabase auth) skips phone gate intentionally."
@@ -48,9 +62,17 @@
       "route": "/feed",
       "status": "live",
       "design_frame": "S1 / locked Flash→Priority→All Active",
-      "frontend": ["src/app/(shopper)/feed/page.tsx"],
-      "backend": ["getLiveDeals"],
-      "sql": ["deals", "boost_flags", "verified_counts_by_merchant"],
+      "frontend": [
+        "src/app/(shopper)/feed/page.tsx"
+      ],
+      "backend": [
+        "getLiveDeals"
+      ],
+      "sql": [
+        "deals",
+        "boost_flags",
+        "verified_counts_by_merchant"
+      ],
       "primary_action": "Browse rails / open deal",
       "notes": "DEFAULT_FEED_SORT=featured. UI titles are marketing (Top picks / Neighbourhood favourites / Deals near me); locked names remain in code comments + Notion. Paused deals excluded. Category chips (ten buckets: Fashion & fabric / Beauty & perfume / Food / Phones & electronics / Shoes & bags / Home & living / Jewellery & watches / Health & pharmacy / Kids & baby / Services) render only when at least one live deal carries a category AND they are not all in one bucket, so on a database without deals.category (production, until 20260818150000 is applied — drift D116) the row does not render and the surface is unchanged. The 'Deal type' dropdown filters rails, not categories."
     },
@@ -59,9 +81,15 @@
       "route": "/browse",
       "status": "live",
       "design_frame": "Discover browse list",
-      "frontend": ["src/app/(shopper)/browse/page.tsx"],
-      "backend": ["getLiveDeals"],
-      "sql": ["deals"],
+      "frontend": [
+        "src/app/(shopper)/browse/page.tsx"
+      ],
+      "backend": [
+        "getLiveDeals"
+      ],
+      "sql": [
+        "deals"
+      ],
       "primary_action": "Filter/list deals",
       "notes": "Canonical list surface. DEFAULT_BROWSE_SORT=nearest. Lat/lng deep links redirect to /map. Same category chip row as /feed, from the same component. The 'Deal type' dropdown filters rails, not categories."
     },
@@ -70,9 +98,16 @@
       "route": "/map",
       "status": "live",
       "design_frame": null,
-      "frontend": ["src/app/(shopper)/map/page.tsx"],
-      "backend": ["getLiveDeals"],
-      "sql": ["deals", "merchants.lat/lng"],
+      "frontend": [
+        "src/app/(shopper)/map/page.tsx"
+      ],
+      "backend": [
+        "getLiveDeals"
+      ],
+      "sql": [
+        "deals",
+        "merchants.lat/lng"
+      ],
       "primary_action": "Map pins",
       "notes": "Separate from feed (Notion do-not-build: map inside feed). Does NOT redirect to /browse — both are first-class nav peers. Its dropdown is labelled 'Deal type' and filters Flash/Boosted/Standard; it read 'Category' until 2026-08-18, which is now a different axis. /map has no category filter."
     },
@@ -81,9 +116,18 @@
       "route": "/deals/[id]",
       "status": "live",
       "design_frame": "8g / 8ae / 8h",
-      "frontend": ["src/app/(shopper)/deals/[id]/page.tsx", "claim-flow.tsx"],
-      "backend": ["POST /api/redemptions → claim_deal"],
-      "sql": ["claim_deal", "you_pay_kes", "is_paused gate"],
+      "frontend": [
+        "src/app/(shopper)/deals/[id]/page.tsx",
+        "src/app/(shopper)/deals/[id]/claim-flow.tsx"
+      ],
+      "backend": [
+        "POST /api/redemptions → claim_deal"
+      ],
+      "sql": [
+        "claim_deal",
+        "you_pay_kes",
+        "is_paused gate"
+      ],
       "primary_action": "Claim deal",
       "notes": "YOU PAY = price + extras. New claims live-only; pause CTA honest; phone gate under Clerk."
     },
@@ -92,8 +136,12 @@
       "route": "/tickets",
       "status": "superseded",
       "design_frame": null,
-      "frontend": ["src/app/(shopper)/tickets/page.tsx"],
-      "backend": ["redirect → /my-deals"],
+      "frontend": [
+        "src/app/(shopper)/tickets/page.tsx"
+      ],
+      "backend": [
+        "redirect → /my-deals"
+      ],
       "sql": null,
       "primary_action": "List claimed deals",
       "notes": "Canonical list is /my-deals (nav label Deals)."
@@ -103,9 +151,17 @@
       "route": "/my-deals",
       "status": "live",
       "design_frame": "8l claimed / 8ab Favourites (Shops tab) / 8t empty — 16a superseded",
-      "frontend": ["src/app/(shopper)/my-deals/page.tsx"],
-      "backend": ["merchant_favourites select", "getVerifiedCounts"],
-      "sql": ["redemptions", "merchant_favourites"],
+      "frontend": [
+        "src/app/(shopper)/my-deals/page.tsx"
+      ],
+      "backend": [
+        "merchant_favourites select",
+        "getVerifiedCounts"
+      ],
+      "sql": [
+        "redemptions",
+        "merchant_favourites"
+      ],
       "primary_action": "Open claimed ticket / open saved shop",
       "notes": "Added 2026-08-09 (drift D79, closed): the Shops tab is the favourites surface; frame 16a (/you/favourites) is superseded by founder ruling — one list, not two. Shop cards carry the verified-redemptions count (frozen ranking rule), not a live-deal count. /you's Your favourites section links here. Guard: src/lib/__tests__/favourites-surface.test.ts."
     },
@@ -114,9 +170,16 @@
       "route": "/tickets/[id]",
       "status": "gated",
       "design_frame": "8i / 8j",
-      "frontend": ["src/app/(shopper)/tickets/[id]/page.tsx", "claimed-code.tsx"],
-      "backend": ["redemptions read"],
-      "sql": ["redemptions.expires_at = deal.expires_at + 15m"],
+      "frontend": [
+        "src/app/(shopper)/tickets/[id]/page.tsx",
+        "src/app/(shopper)/tickets/[id]/claimed-code.tsx"
+      ],
+      "backend": [
+        "redemptions read"
+      ],
+      "sql": [
+        "redemptions.expires_at = deal.expires_at + 15m"
+      ],
       "primary_action": "Show OTP at counter",
       "notes": "Grace is for claimed codes only."
     },
@@ -125,8 +188,12 @@
       "route": "/merchant/onboarding",
       "status": "superseded",
       "design_frame": null,
-      "frontend": ["src/app/merchant/onboarding/page.tsx"],
-      "backend": ["redirect → /merchant/onboard"],
+      "frontend": [
+        "src/app/merchant/onboarding/page.tsx"
+      ],
+      "backend": [
+        "redirect → /merchant/onboard"
+      ],
       "sql": null,
       "primary_action": "Alias",
       "notes": "Canonical wizard /merchant/onboard with ?shop= prefill."
@@ -136,9 +203,18 @@
       "route": "/merchant/onboard",
       "status": "gated",
       "design_frame": "Merchant onboarding",
-      "frontend": ["src/app/merchant/onboard/page.tsx", "src/app/merchant/onboard/onboard-wizard.tsx"],
-      "backend": ["onboarding API / ensure merchant", "src/app/api/merchants/onboard/route.ts forwards the selected agent id as attribution only"],
-      "sql": ["merchants status pending→active via admin", "onboard_merchant derives onboarding_mode agent_assisted or self_serve"],
+      "frontend": [
+        "src/app/merchant/onboard/page.tsx",
+        "src/app/merchant/onboard/onboard-wizard.tsx"
+      ],
+      "backend": [
+        "onboarding API / ensure merchant",
+        "src/app/api/merchants/onboard/route.ts forwards the selected agent id as attribution only"
+      ],
+      "sql": [
+        "merchants status pending→active via admin",
+        "onboard_merchant derives onboarding_mode agent_assisted or self_serve"
+      ],
       "primary_action": "Submit shop",
       "notes": "Merchant-authored, and the agent attribution is a RENDERED STEP, not only a stored property: the review step of onboard-wizard.tsx asks \"Were you helped by a Maanta agent?\" and offers a picker of active agents by display name. Shipped in #68 (2026-07-24) — see docs/skills/agent-attribution.md. The guarantee sits underneath the field, not instead of it: the merchant is always the authenticated submitter, the agent id travels as attribution only, and an absent, malformed or inactive id degrades to self_serve. Do not design this field away or draw a second one beside it. The earlier wording here — \"agent attribution only\" — read as a guarantee with no surface behind it, and a design programme took it as evidence that no agent field existed (drift D103)."
     },
@@ -147,9 +223,17 @@
       "route": "/merchant/redeem",
       "status": "gated",
       "design_frame": "9k / 9t / 9l / 9m",
-      "frontend": ["redeem/page.tsx", "redeem-keypad.tsx"],
-      "backend": ["preflight + verify APIs"],
-      "sql": ["verify_redemption", "deduct_success_fee_or_record_arrears"],
+      "frontend": [
+        "src/app/merchant/(app)/redeem/page.tsx",
+        "src/app/merchant/(app)/redeem/redeem-keypad.tsx"
+      ],
+      "backend": [
+        "preflight + verify APIs"
+      ],
+      "sql": [
+        "verify_redemption",
+        "deduct_success_fee_or_record_arrears"
+      ],
       "primary_action": "Confirm redemption (KES 30)",
       "notes": "Resolve-then-charge; can_verify gate; verify-anyway for balance + location override path."
     },
@@ -158,9 +242,16 @@
       "route": "/merchant/deals",
       "status": "gated",
       "design_frame": "10b / 10ab",
-      "frontend": ["deals/page.tsx"],
-      "backend": ["deals CRUD"],
-      "sql": ["enforce_deal_limit", "is_paused"],
+      "frontend": [
+        "src/app/merchant/(app)/deals/page.tsx"
+      ],
+      "backend": [
+        "deals CRUD"
+      ],
+      "sql": [
+        "enforce_deal_limit",
+        "is_paused"
+      ],
       "primary_action": "Manage deals",
       "notes": "List keeps grace-window deals for till management."
     },
@@ -169,9 +260,18 @@
       "route": "/merchant/deals/new",
       "status": "gated",
       "design_frame": "Deal create wizard",
-      "frontend": ["deals/new/page.tsx", "new-deal-wizard.tsx"],
-      "backend": ["POST /api/deals"],
-      "sql": ["zero_balance_gate", "enforce_deal_limit", "enforce_deal_success_fee"],
+      "frontend": [
+        "src/app/merchant/(app)/deals/new/page.tsx",
+        "src/app/merchant/(app)/deals/new/new-deal-wizard.tsx"
+      ],
+      "backend": [
+        "POST /api/deals"
+      ],
+      "sql": [
+        "zero_balance_gate",
+        "enforce_deal_limit",
+        "enforce_deal_success_fee"
+      ],
       "primary_action": "Create deal",
       "notes": "Not design-ahead — wizard + YOU PAY + extras are live. Zero balance → top-up CTA + API 402. Category is a REQUIRED single-select on the details step (ten buckets: Fashion & fabric / Beauty & perfume / Food / Phones & electronics / Shoes & bags / Home & living / Jewellery & watches / Health & pharmacy / Kids & baby / Services); Continue is disabled without one and /api/deals returns 400. Correction path is the deal edit sheet, not admin."
     },
@@ -180,9 +280,20 @@
       "route": "/merchant/wallet",
       "status": "gated",
       "design_frame": "Wallet",
-      "frontend": ["src/app/merchant/(app)/wallet/page.tsx", "src/app/merchant/(app)/wallet/[id]/page.tsx", "src/lib/merchant-ledger-copy.ts"],
-      "backend": ["ledger read"],
-      "sql": ["account_balance", "arrears", "topup_settles_arrears_first", "activate_merchant writes the Node 0 opening credit as a manual topup row"],
+      "frontend": [
+        "src/app/merchant/(app)/wallet/page.tsx",
+        "src/app/merchant/(app)/wallet/[id]/page.tsx",
+        "src/lib/merchant-ledger-copy.ts"
+      ],
+      "backend": [
+        "ledger read"
+      ],
+      "sql": [
+        "account_balance",
+        "arrears",
+        "topup_settles_arrears_first",
+        "activate_merchant writes the Node 0 opening credit as a manual topup row"
+      ],
       "primary_action": "View balance / arrears",
       "notes": "Honest verify-anyway + new-deal pause copy. The KES 300 Node 0 opening credit DOES have a merchant surface: it lands as a wallet row labelled \"Opening credit\", with a merchant-voice description on the transaction detail screen and no internal reference. Row titles come from src/lib/merchant-ledger-copy.ts rather than the stored description, because the grant's stored description is written for operators and carries the app_config key that controls the promo (drift D104)."
     },
@@ -191,9 +302,17 @@
       "route": "/merchant/topup",
       "status": "gated",
       "design_frame": "Top-up",
-      "frontend": ["topup/page.tsx", "topup-flow.tsx"],
-      "backend": ["/api/topup/stripe", "/api/topup STK"],
-      "sql": ["wallet credit + arrears settle"],
+      "frontend": [
+        "src/app/merchant/(app)/topup/page.tsx",
+        "src/app/merchant/(app)/topup/topup-flow.tsx"
+      ],
+      "backend": [
+        "/api/topup/stripe",
+        "/api/topup STK"
+      ],
+      "sql": [
+        "wallet credit + arrears settle"
+      ],
       "primary_action": "Pay with card (Stripe Phase 1)",
       "notes": "STK secondary when IntaSend configured. Notion: Stripe primary."
     },
@@ -202,8 +321,12 @@
       "route": "/merchant/alerts",
       "status": "gated",
       "design_frame": "10x Alerts",
-      "frontend": ["alerts/page.tsx"],
-      "backend": ["derived from wallet/deals/boosts"],
+      "frontend": [
+        "src/app/merchant/(app)/alerts/page.tsx"
+      ],
+      "backend": [
+        "derived from wallet/deals/boosts"
+      ],
       "sql": null,
       "primary_action": "Read derived alerts",
       "notes": "Not a push inbox. Low-balance copy aligned with verify-anyway (2026-07-30)."
@@ -213,9 +336,15 @@
       "route": "/merchant/staff",
       "status": "gated",
       "design_frame": "Staff",
-      "frontend": ["staff/page.tsx"],
-      "backend": ["/api/staff"],
-      "sql": ["merchant_staff permissions"],
+      "frontend": [
+        "src/app/merchant/(app)/staff/page.tsx"
+      ],
+      "backend": [
+        "/api/staff"
+      ],
+      "sql": [
+        "merchant_staff permissions"
+      ],
       "primary_action": "Manage staff perms",
       "notes": "Owner-only; can_verify gates redeem."
     },
@@ -224,9 +353,16 @@
       "route": "/admin",
       "status": "gated",
       "design_frame": "11 merchant queue",
-      "frontend": ["admin/page.tsx"],
-      "backend": ["approve APIs"],
-      "sql": ["activate_merchant", "elite trial cap"],
+      "frontend": [
+        "src/app/admin/page.tsx"
+      ],
+      "backend": [
+        "approve APIs"
+      ],
+      "sql": [
+        "activate_merchant",
+        "elite trial cap"
+      ],
       "primary_action": "Approve merchants",
       "notes": "Optional Elite trial; cap enforced in SQL."
     },
@@ -235,9 +371,16 @@
       "route": "/admin/redemptions/[id]",
       "status": "gated",
       "design_frame": "Dispute / reverse",
-      "frontend": ["admin/redemptions/[id]/page.tsx"],
-      "backend": ["hold/release/reverse-fee"],
-      "sql": ["fee_reversals", "guardian"],
+      "frontend": [
+        "src/app/admin/redemptions/[id]/page.tsx"
+      ],
+      "backend": [
+        "hold/release/reverse-fee"
+      ],
+      "sql": [
+        "fee_reversals",
+        "guardian"
+      ],
       "primary_action": "Hold / release / reverse fee",
       "notes": "Reverse requires note + audit."
     },
@@ -246,9 +389,15 @@
       "route": "/admin/support",
       "status": "gated",
       "design_frame": null,
-      "frontend": ["admin/support/page.tsx"],
-      "backend": ["agent_tasks"],
-      "sql": ["agent_tasks"],
+      "frontend": [
+        "src/app/admin/support/page.tsx"
+      ],
+      "backend": [
+        "agent_tasks"
+      ],
+      "sql": [
+        "agent_tasks"
+      ],
       "primary_action": "Support override queue",
       "notes": null
     },
@@ -257,9 +406,16 @@
       "route": "/admin/billing",
       "status": "gated",
       "design_frame": "11j plans",
-      "frontend": ["admin/billing/page.tsx"],
-      "backend": ["plans APIs", "elite_trial_cap_status"],
-      "sql": ["20260730130000 elite trial cap"],
+      "frontend": [
+        "src/app/admin/billing/page.tsx"
+      ],
+      "backend": [
+        "plans APIs",
+        "elite_trial_cap_status"
+      ],
+      "sql": [
+        "20260730130000 elite trial cap"
+      ],
       "primary_action": "Grant trial / mark paid / downgrade",
       "notes": "Cap line surfaced in UI."
     },
@@ -268,9 +424,15 @@
       "route": "/admin/deals",
       "status": "gated",
       "design_frame": "11c",
-      "frontend": ["admin/deals/page.tsx"],
-      "backend": ["fraud_events → deals"],
-      "sql": ["fraud_events"],
+      "frontend": [
+        "src/app/admin/deals/page.tsx"
+      ],
+      "backend": [
+        "fraud_events → deals"
+      ],
+      "sql": [
+        "fraud_events"
+      ],
       "primary_action": "Moderate flagged deals",
       "notes": "Reason taxonomy design-ahead; cosmetic reason filters removed 2026-07-30."
     },
@@ -279,9 +441,16 @@
       "route": "/agent",
       "status": "gated",
       "design_frame": null,
-      "frontend": ["agent/page.tsx"],
-      "backend": ["leads KPIs"],
-      "sql": ["leads", "48h lock"],
+      "frontend": [
+        "src/app/agent/page.tsx"
+      ],
+      "backend": [
+        "leads KPIs"
+      ],
+      "sql": [
+        "leads",
+        "48h lock"
+      ],
       "primary_action": "Agent home",
       "notes": "agent|admin layout gate."
     },
@@ -290,9 +459,16 @@
       "route": "/agent/leads",
       "status": "gated",
       "design_frame": null,
-      "frontend": ["agent/leads/page.tsx"],
-      "backend": ["/api/leads"],
-      "sql": ["capture_lead", "locked_until"],
+      "frontend": [
+        "src/app/agent/leads/page.tsx"
+      ],
+      "backend": [
+        "/api/leads"
+      ],
+      "sql": [
+        "capture_lead",
+        "locked_until"
+      ],
       "primary_action": "List leads",
       "notes": "48h lead lock ≠ commission attribution window."
     },
@@ -301,9 +477,15 @@
       "route": "/agent/leads/[id]",
       "status": "gated",
       "design_frame": null,
-      "frontend": ["agent/leads/[id]/page.tsx"],
-      "backend": ["lead detail / link"],
-      "sql": ["leads"],
+      "frontend": [
+        "src/app/agent/leads/[id]/page.tsx"
+      ],
+      "backend": [
+        "lead detail / link"
+      ],
+      "sql": [
+        "leads"
+      ],
       "primary_action": "Lead detail",
       "notes": "Onboarding attribution label-only (no money-path effect)."
     },
@@ -312,9 +494,15 @@
       "route": "/founder",
       "status": "gated",
       "design_frame": null,
-      "frontend": ["founder/page.tsx"],
-      "backend": ["KPI reads"],
-      "sql": ["aggregates"],
+      "frontend": [
+        "src/app/founder/page.tsx"
+      ],
+      "backend": [
+        "KPI reads"
+      ],
+      "sql": [
+        "aggregates"
+      ],
       "primary_action": "Founder dashboard",
       "notes": "requireFounderPage ≡ admin role."
     },
@@ -323,8 +511,12 @@
       "route": "/founder/reports",
       "status": "superseded",
       "design_frame": null,
-      "frontend": ["founder/reports/page.tsx"],
-      "backend": ["redirect → /admin/reports"],
+      "frontend": [
+        "src/app/founder/reports/page.tsx"
+      ],
+      "backend": [
+        "redirect → /admin/reports"
+      ],
       "sql": null,
       "primary_action": "Platform reports alias",
       "notes": "Canonical charts at /admin/reports."
@@ -334,11 +526,46 @@
       "route": "/contact",
       "status": "design-ahead",
       "design_frame": null,
-      "frontend": ["(public)/contact/page.tsx"],
+      "frontend": [
+        "src/app/(marketing)/contact/page.tsx"
+      ],
       "backend": null,
       "sql": null,
       "primary_action": "Send message (client-only)",
       "notes": "Fake success — no API. Do not treat as shipped support channel."
+    },
+    {
+      "role": "public",
+      "route": "/download",
+      "status": "live",
+      "design_frame": null,
+      "frontend": [
+        "src/app/(marketing)/download/page.tsx",
+        "src/app/(marketing)/download/download-install-panel.tsx",
+        "src/lib/pwa/usePwaInstall.ts"
+      ],
+      "backend": null,
+      "sql": null,
+      "primary_action": "Add Maanta to my phone (falls back to manual Android/iOS instructions)",
+      "notes": "Added 2026-08-19 (drift D94). The install landing, linked from SiteFooter.tsx and three marketing CTAs. Shipped, but the install funnel is UNPROVEN rather than working: the primary CTA renders only when `beforeinstallprompt` has fired and been captured, and whether it ever fires in production is a device question nothing in CI observes (drift D93). public/sw.js still registers only `push` and `notificationclick` with no `fetch` handler (drift D92 closed on copy; the capability question is drift D95, founder-owned), and Chrome's installability criteria have historically required one. Repo-side icon work is done: the manifest declares `any` and `maskable` at SVG plus raster 192/512, and appleWebApp metadata is set. Do not read the primary action as evidence that anyone has installed the app."
+    },
+    {
+      "role": "shopper",
+      "route": "/app-bootstrap",
+      "status": "live",
+      "design_frame": null,
+      "frontend": [
+        "src/app/app-bootstrap/page.tsx",
+        "src/lib/pwa/app-bootstrap.ts"
+      ],
+      "backend": [
+        "ensureAppUser then role-based redirect"
+      ],
+      "sql": [
+        "public.users.role"
+      ],
+      "primary_action": "Route the signed-in user to their role's home (no rendered action)",
+      "notes": "Added 2026-08-19 (drift D94). The web manifest `start_url` (src/app/manifest.ts) and the post-login fallback for every role, so it is the FIRST screen an installed user sees and the one they land on with no route back if it breaks. It has no UI of its own — a broken bootstrap presents as a blank or stuck screen, not an error. Cross-references: drift D93 (the install funnel it terminates is unproven on devices) and drift D92/D95 (no service-worker fetch handler, so nothing here works without a network)."
     }
   ]
 }

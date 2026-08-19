@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { markSvg, MARK_COLORS, MARK_PATHS } from "@/lib/brand/mark";
+import manifest from "@/app/manifest";
+import { stripComments } from "./helpers/comment-stripping";
+import { APP_ICON_NAMES } from "@/lib/brand/app-icons";
 
 /**
  * Guards for the logomark — one definition, every surface.
@@ -104,20 +107,80 @@ describe("the iOS Add to Home Screen icon exists", () => {
 });
 
 describe("web manifest icon purposes", () => {
-  const manifest = JSON.parse(read("public/manifest.webmanifest")) as {
-    icons: { src: string; purpose: string }[];
-  };
+  // Reads the generated manifest, not `public/manifest.webmanifest` — that file
+  // was deleted when the manifest became code so its description could be gated
+  // on DEMO_MODE (D138). Asserting the module is strictly better: it is what the
+  // route actually serves.
+  const icons = manifest().icons ?? [];
 
   it("does not declare a full-bleed icon maskable", () => {
     // `purpose: "any maskable"` on the edge-to-edge badge is what cropped the
     // corners on Android. The two purposes need two different drawings.
-    const anyIcon = manifest.icons.find((i) => i.src === "/icon.svg");
+    const anyIcon = icons.find((i) => i.src === "/icon.svg");
     expect(anyIcon?.purpose).toBe("any");
   });
 
   it("offers a real maskable variant", () => {
-    const maskable = manifest.icons.find((i) => i.purpose === "maskable");
+    const maskable = icons.find((i) => i.purpose === "maskable");
     expect(maskable?.src).toBe("/icon-maskable.svg");
+  });
+
+  /**
+   * D93's remaining repo-side half: `public/` held two SVGs and no raster at
+   * all, so an install target that will not take SVG had nothing to fall back
+   * to. Both purposes must now be offered at the two sizes Android asks for.
+   */
+  it("offers raster PNGs at 192 and 512 for both purposes", () => {
+    for (const purpose of ["any", "maskable"] as const) {
+      const sizes = icons
+        .filter((i) => i.purpose === purpose && i.type === "image/png")
+        .map((i) => i.sizes);
+      expect(sizes, `no raster ${purpose} icon declared`).toContain("192x192");
+      expect(sizes, `no raster ${purpose} icon declared`).toContain("512x512");
+    }
+  });
+
+  /**
+   * Every raster the manifest names must be one the route can actually produce.
+   * A typo in a `src` would otherwise ship a manifest pointing at a 404, which
+   * is invisible until someone installs the app.
+   */
+  it("declares only rasters the icon route generates", () => {
+    const declared = icons
+      .filter((i) => i.type === "image/png")
+      .map((i) => (i.src as string).replace("/icons/", ""));
+    expect(declared.length).toBeGreaterThan(0);
+    for (const name of declared) {
+      expect(APP_ICON_NAMES).toContain(name);
+    }
+  });
+
+  it("draws the rasters from the shared mark, not a committed binary", () => {
+    // Comment-stripped through the shared D38 lexer: this file's own docblock
+    // names the supplied artwork to explain why it is not used, and a raw
+    // substring check would report that explanation as the violation.
+    const route = stripComments(
+      code(path.join(APP, "app", "icons", "[icon]", "route.tsx"))
+    );
+    expect(route).toContain("markDataUri");
+    expect(route).toContain("@/lib/brand/mark");
+    // D114: the newly supplied artwork waits for a square opaque export, so no
+    // icon surface may point at it yet. Matched as a URL string — the leading
+    // quote is what separates `src="/brand/maanta-icon.png"` from the module
+    // path `@/lib/brand/mark`, which is exactly what this route should import.
+    expect(route).not.toContain('"/brand/');
+  });
+});
+
+describe("the iOS home-screen metadata is declared", () => {
+  // D93: without `appleWebApp`, the home-screen title and status-bar style are
+  // undefined and iOS falls back to the full document title.
+  const layout = read("src/app/layout.tsx");
+
+  it("names appleWebApp with a short title", () => {
+    expect(layout).toMatch(/appleWebApp:\s*\{/);
+    expect(layout).toMatch(/title:\s*"Maanta"/);
+    expect(layout).toMatch(/capable:\s*true/);
   });
 });
 

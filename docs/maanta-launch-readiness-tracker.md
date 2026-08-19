@@ -151,6 +151,9 @@ Status legend: ✅ done · 🟡 in progress / needs verification · 🔴 blocker
 | O4 | BBS Mall reporting expectations + operator comms | Founder | ⬜ not started | — | |
 | O5 | Legal docs lawyer-reviewed and published | Founder + lawyer | 🔴 blocked | GATE | Drafts in `maanta-app/legal/`; blocked on incorporation decisions (Nov Nairobi trip) |
 | O6 | Kenya DPA cross-border data decision (Supabase `eu-west-1`) | Founder + lawyer | ⬜ not started | GATE | Adequacy/contractual basis or region migration |
+| O7 | Privacy operational package — retention schedule mapped to tables/jobs, deletion/anonymisation procedure, DSR access/export procedure, breach/incident procedure, processor inventory | Founder + lawyer | ⬜ not started | GATE (public launch) | The published privacy policy already promises "Erasure — within 14 days" and a retention table nothing implements — drift **D144**. Distinct from O5 (review of the documents) and O6 (cross-border basis): this is the machinery the documents promise. Does NOT gate the controlled pilot |
+| O8 | Backup posture read back and a full restore TESTED to a scratch project, restore runbook written from the drill | Founder + eng | ⬜ not started | GATE (commercial launch) | "Supabase managed backups on" is claimed in `docs/maanta-staged-readiness-now-launch-10k-100k.md` and has never been verified; no restore has ever been performed — drift **D145**. A backup never restored is an assumption. Does NOT gate the controlled pilot |
+| O9 | ODPC registration status established, recorded with evidence, and owned | Founder | ⬜ not started | GATE (public launch) | The site states "Data protection registration with the ODPC is in progress" on every page (`REGULATORY_STATUS`) and nothing owns the truth of that sentence — drift **D146**. Notion check owed. Does NOT gate the controlled pilot |
 
 ## Blockers
 

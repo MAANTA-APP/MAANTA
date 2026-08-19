@@ -35,6 +35,26 @@ import { FACTS } from "./facts";
 export const NODE_LOCATION = `${FACTS.launchMall} · ${FACTS.city}`;
 
 /**
+ * The one-sentence description of MAANTA — drift **D138**.
+ *
+ * Two surfaces render it, and both reach a reader *before* any page and its
+ * `PrelaunchNotice` can: the root metadata description, which is the
+ * search-result snippet, and the **web app manifest description**, which is what
+ * the Android install prompt and the app listing show at the moment someone
+ * installs. That is the same argument D46 made for the OG image and D87 made for
+ * the root description, one surface further out.
+ *
+ * It lived as a `DEMO_MODE` ternary inside `src/app/layout.tsx` and as a frozen
+ * post-launch string inside `public/manifest.webmanifest` — a static JSON file
+ * that cannot read a flag, which is very likely why the manifest kept saying
+ * "Now live at BBS Mall, Eastleigh" for as long as it did. Both now resolve
+ * here, which is the address this file exists to be.
+ */
+export const SITE_DESCRIPTION = DEMO_MODE
+  ? `Discover, claim and redeem live mall deals. Launching at ${FACTS.launchMall}.`
+  : `Discover, claim and redeem live mall deals. Now live at ${FACTS.launchMall}.`;
+
+/**
  * The status line under every audience hero and in the site footer.
  *
  * Pre-launch this is the location alone. The `LiveDot` that used to sit beside

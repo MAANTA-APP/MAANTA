@@ -328,9 +328,12 @@ Validate each on prod after deploy.
    **display** figure, not a charge.
 2. **KES 30 success fee unchanged** — one fee per verified redemption, debited at
    merchant verification, recorded as arrears if the wallet can't cover it.
-   *Validate:* one real redemption → exactly one fee ledger entry; confirm a
-   zero-balance merchant records arrears (not a double debit) and the
-   zero-balance gate still blocks new deal creation.
+   *Validate:* one real redemption → exactly one fee ledger entry **unless the
+   returned `fee_charge_status` was `unknown`**, which writes no
+   `merchant_transactions` row at all and opens a `fraud_review` task instead —
+   check for that task before treating a missing fee row as a defect (drift
+   **D130**). Confirm a zero-balance merchant records arrears (not a double
+   debit) and the zero-balance gate still blocks new deal creation.
 3. **Node 0 opening credit, Guardian thresholds, arrears logic behave exactly as
    before.** These now live in the just-applied migrations (`guardian_v1`,
    `guardian_thresholds_config`, `guardian_hard_block_appeal`,

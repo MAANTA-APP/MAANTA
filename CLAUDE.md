@@ -108,6 +108,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 |---|---|
 | Is this shipped, or design-ahead? | `maanta-app/design/current-reality/frames.json` |
 | Is this a known gap already? | `docs/maanta-drift-register.md` (search before you re-report) |
+| What is waiting on a founder ruling? | `docs/maanta-decision-queue-2026-08-19.md` — ranked, with each question, its evidence and its options. A derived view of the register, not a second tracker |
 | Is this rule frozen? | Frozen business rules below → `docs/maanta-decisions-log.md` |
 | What is gating launch? | `docs/maanta-launch-readiness-tracker.md` |
 | How does money actually move? | `docs/skills/payments-rails.md`, `docs/skills/money-trust-engineering-guardrails.md`, the `claim_deal` / `verify_redemption` migrations |
@@ -311,7 +312,11 @@ for the SQL browse-view filter).
   remains verifiable until normal ticket expiry (`verify_redemption` ignores
   `is_paused`).
 - Pausing a deal **immediately** removes it from shopper discovery (feed,
-  browse, map) and from `deals_public_browse`; new claims are blocked.
+  browse, map, **search**) and from `deals_public_browse`; new claims are
+  blocked. `/search` was the one surface that did not filter it until
+  2026-08-19 — it builds its own query rather than reading `getLiveDeals`, so it
+  carries the predicate itself (**D119**, closed; guard
+  `maanta-app/src/lib/__tests__/search-paused-filter.test.ts`).
 - Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
   layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
 - Resume (while the deal is otherwise valid) restores discovery and claimability.

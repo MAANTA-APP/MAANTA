@@ -5,6 +5,8 @@ import { walk, relToSrc } from "./helpers/source-files";
 import { stripCommentLines } from "./helpers/comment-stripping";
 import { DEMO_MODE } from "@/lib/marketing/demo";
 import { OG_STATUS_LINE } from "@/lib/marketing/og";
+import { SITE_DESCRIPTION } from "@/lib/marketing/live-claims";
+import manifest from "@/app/manifest";
 
 /**
  * While the site says it is pre-launch, no surface may say it is trading.
@@ -29,6 +31,7 @@ import { OG_STATUS_LINE } from "@/lib/marketing/og";
  */
 
 const SRC = path.resolve(__dirname, "..", "..");
+const PUBLIC = path.resolve(SRC, "..", "public");
 
 /** Phrasings that assert MAANTA is already trading. */
 const TRADING =
@@ -99,19 +102,55 @@ describe("pre-launch consistency", () => {
     ).toBe(false);
   });
 
-  it("does not assert trading in the root metadata description while pre-launch", () => {
+  /**
+   * Asserts the value, not the text of the file that used to hold it.
+   *
+   * This previously read `layout.tsx` and split it on `DEMO_MODE` to isolate the
+   * pre-launch branch of a ternary. That worked while the ternary lived there and
+   * would have gone **vacuously green** the moment it moved — the split would
+   * have found the import line instead and matched nothing. The ternary has now
+   * moved to `live-claims.ts` (D138), so the check reads the resolved constant
+   * both surfaces actually render.
+   */
+  it("does not assert trading in the site description while pre-launch", () => {
     if (!DEMO_MODE) return;
-    const layout = stripCommentLines(
-      readFileSync(path.join(SRC, "app", "layout.tsx"), "utf8")
-    ).join("\n");
-    // Only the pre-launch branch is checked: the file legitimately carries the
-    // post-launch string too, behind the DEMO_MODE ternary.
-    const preLaunchBranch = layout.split("DEMO_MODE")[1]?.split(":")[0] ?? "";
     expect(
-      TRADING.test(preLaunchBranch),
-      "The pre-launch metadata description must not claim MAANTA is live — it is " +
-        "the search-result snippet, shown before the page and its footer."
+      TRADING.test(SITE_DESCRIPTION),
+      `The site description says "${SITE_DESCRIPTION}" while the footer says ` +
+        "MAANTA is not yet trading. It is the search-result snippet AND the " +
+        "web-manifest description, both shown before any page and its footer."
     ).toBe(false);
+    // Still the root metadata description, not just a constant nobody uses.
+    expect(
+      stripCommentLines(readFileSync(path.join(SRC, "app", "layout.tsx"), "utf8")).join("\n")
+    ).toContain("description: SITE_DESCRIPTION");
+  });
+
+  /**
+   * The web manifest — drift **D138**, and the reason `public/` is walked below.
+   *
+   * `public/manifest.webmanifest` said "Now live at BBS Mall, Eastleigh" for as
+   * long as it did because a static JSON file cannot read `DEMO_MODE`, and
+   * because this suite's coverage was defined as two `.tsx` directories. The
+   * manifest is generated now, so the check reads what is actually served: the
+   * Android install prompt renders this description at the moment of install, on
+   * a surface `PrelaunchNotice` provably cannot follow.
+   */
+  it("does not assert trading anywhere in the generated web manifest", () => {
+    if (!DEMO_MODE) return;
+    const m = manifest();
+    const strings = [m.name, m.short_name, m.description].filter(
+      (v): v is string => typeof v === "string"
+    );
+    const offenders = strings.filter((v) =>
+      [TRADING, TRADING_BADGE, OPERATING_CLAIM].some((p) => p.test(v))
+    );
+    expect(
+      offenders,
+      "The manifest description is what the Android install prompt shows. It " +
+        "must come from lib/marketing/live-claims.ts and be gated like every " +
+        `other claim site:\n${offenders.join("\n")}`
+    ).toEqual([]);
   });
 
   /**
@@ -155,6 +194,51 @@ describe("pre-launch consistency", () => {
         `operating at a named mall, while the footer says it is not yet ` +
         `trading. The gated wording lives in lib/marketing/live-claims.ts — ` +
         `import it rather than writing the sentence here:\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
+
+  /**
+   * `public/` — the directory this suite could not see, drift **D138**.
+   *
+   * Everything above reads `.tsx` under two `src/` directories. That definition
+   * of "every surface" is what let `public/manifest.webmanifest` ship "Now live
+   * at BBS Mall, Eastleigh" — a string this file's own `TRADING` regex matches —
+   * straight to the Android install prompt. The gap was not the pattern; it was
+   * the **scope**.
+   *
+   * So the directory is enumerated, never listed. A hand-maintained array only
+   * checks what somebody remembered to add, and that is precisely how **D52**
+   * and **D38** each closed. Anything served verbatim from `public/` in a text
+   * format is in scope by existing, including files nobody has written yet.
+   *
+   * `.js` is included for `sw.js`, which is shipped code that a user's browser
+   * registers and which no other guard reads. If a minified vendor bundle ever
+   * lands here and trips a pattern, narrow by path with a stated reason —
+   * do not drop the extension, which would re-open the hole this closes.
+   */
+  it("keeps trading claims out of every text file served from public/", () => {
+    if (!DEMO_MODE) return;
+    const files = walk(PUBLIC, [".webmanifest", ".json", ".txt", ".svg", ".js", ".md"]);
+    expect(
+      files.length,
+      "walked public/ and found nothing — the path is wrong and this asserts nothing"
+    ).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const f of files) {
+      const flat = readFileSync(f, "utf8").replace(/\s+/g, " ");
+      for (const pattern of [TRADING, TRADING_BADGE, OPERATING_CLAIM]) {
+        const hit = flat.match(pattern);
+        if (hit) offenders.push(`${path.relative(PUBLIC, f)}  →  "${hit[0]}"`);
+      }
+    }
+
+    expect(
+      offenders,
+      "A static file in public/ is served verbatim and cannot read DEMO_MODE, so " +
+        "a claim written here can never be un-said by flipping the flag. Move the " +
+        "surface into the app so it can read lib/marketing/live-claims.ts — the " +
+        `web manifest was moved to src/app/manifest.ts for exactly this reason:\n${offenders.join("\n")}`
     ).toEqual([]);
   });
 });

@@ -1,6 +1,8 @@
 -- ============================================================
 -- Test: identity columns on public.users are immutable to the row holder
--- (20260817130000_prevent_users_identity_self_change.sql)
+-- (20260817130000_prevent_users_identity_self_change.sql, extended by
+-- 20260819200000_freeze_users_email_identity.sql — email joined the guarded set
+-- when the verified-email relink made it an access-control input, D142)
 --
 -- Self-contained and self-cleaning. Run after the full migration chain:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/users_identity_immutable_test.sql
@@ -50,11 +52,13 @@ DECLARE
   v_phone_blocked BOOLEAN := FALSE;
   v_clerk_blocked BOOLEAN := FALSE;
   v_authuid_blocked BOOLEAN := FALSE;
+  v_email_blocked BOOLEAN := FALSE;
   v_push_rows INT;
   v_phone_after TEXT;
+  v_email_after TEXT;
 BEGIN
-  INSERT INTO public.users (role, auth_uid, phone)
-    VALUES ('customer', v_auth, NULL) RETURNING id INTO v_uid;
+  INSERT INTO public.users (role, auth_uid, phone, email)
+    VALUES ('customer', v_auth, NULL, '__test_own@identity.test') RETURNING id INTO v_uid;
 
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
@@ -96,21 +100,38 @@ BEGIN
       v_authuid_blocked := TRUE;
   END;
 
+  -- email joined the guarded set with the verified-email relink (D142): a
+  -- self-written address is either a poisoned relink target or, duplicated onto
+  -- a second row, a manufactured ambiguity that locks the real holder out.
+  BEGIN
+    UPDATE public.users SET email = '__test_victim@identity.test' WHERE id = v_uid;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE EXCEPTION 'A: refused by table GRANTs, not by the trigger — the precondition block failed, so this scenario proves nothing';
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%cannot change identity columns%' THEN
+        RAISE EXCEPTION 'A: blocked by an unexpected error, not the identity guard: %', SQLERRM;
+      END IF;
+      v_email_blocked := TRUE;
+  END;
+
   -- Non-identity self-write must still work (proves the trigger is column-scoped).
   UPDATE public.users SET push_subscription = '{"endpoint":"x"}'::jsonb WHERE id = v_uid;
   GET DIAGNOSTICS v_push_rows = ROW_COUNT;
 
   RESET ROLE;
-  SELECT phone INTO v_phone_after FROM public.users WHERE id = v_uid;
+  SELECT phone, email INTO v_phone_after, v_email_after FROM public.users WHERE id = v_uid;
 
   ASSERT v_phone_blocked,   'A: authenticated must NOT change own phone';
   ASSERT v_clerk_blocked,   'A: authenticated must NOT change own clerk_user_id';
   ASSERT v_authuid_blocked, 'A: authenticated must NOT change own auth_uid';
+  ASSERT v_email_blocked,   'A: authenticated must NOT change own email (relink key — D142)';
   ASSERT v_phone_after IS NULL, format('A: phone must be unchanged, got %s', v_phone_after);
+  ASSERT v_email_after = '__test_own@identity.test', format('A: email must be unchanged, got %s', v_email_after);
   ASSERT v_push_rows = 1, 'A: authenticated must still update own push_subscription';
 
   DELETE FROM public.users WHERE id = v_uid;
-  RAISE NOTICE 'Scenario A passed: identity columns frozen to holder; push_subscription still writable';
+  RAISE NOTICE 'Scenario A passed: identity columns (email included) frozen to holder; push_subscription still writable';
 END $$;
 
 -- Scenario B: the staff-seat hijack itself is blocked end to end. A shopper who
@@ -185,6 +206,12 @@ BEGIN
   UPDATE public.users SET phone = '+254799000461' WHERE id = v_uid;
   SELECT phone INTO v_after_service FROM public.users WHERE id = v_uid;
   ASSERT v_after_service = '+254799000461', 'C: service_role must be able to set phone (provisioning path)';
+
+  -- The relink itself is a service_role email/clerk_user_id write — it must pass.
+  UPDATE public.users SET email = '__test_relinked@identity.test', clerk_user_id = '__test_sub_relink'
+    WHERE id = v_uid;
+  ASSERT (SELECT email FROM public.users WHERE id = v_uid) = '__test_relinked@identity.test',
+    'C: service_role must be able to set email (provisioning / relink path)';
 
   -- admin branch: an admin JWT updating another user via the users_admin policy.
   PERFORM set_config('request.jwt.claims',

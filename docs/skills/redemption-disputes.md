@@ -109,6 +109,40 @@ unresolved dispute hold already covers the money. Idempotency by
 4. Merchant-behavior patterns (repeated unknowns, expired-code retries) feed the
    trust metric (`recalculate_trust_metric`) and the weekly ops review.
 
+## The trust metric, as it actually runs
+
+Stated here because no repo document carried the formula, and a rule nobody can
+read is a rule that gets re-guessed. Read back from production
+`axrrslqssmbngbataejg` on 2026-08-19 via `pg_get_functiondef`, so this is the
+shipped behaviour, not a proposal:
+
+```
+trust = clamp( (0.5 × R) + (0.3 × A) − (0.2 × F), 0.0, 1.0 )
+```
+
+- **R** — success ratio over the last 30 days: `success ÷ total`, counting
+  **terminal states only** (`success`, `failed`, `flagged`). `pending` is
+  excluded by the function's own filter, which is why the never-swept expired
+  claims in drift **D134** are invisible to it. No redemptions in the window → R
+  is 1.0.
+- **A** — mean `audit_logs.composite_score` over the last 90 days; no audits →
+  1.0.
+- **F** — flagged ratio over the same 30-day window; no redemptions → 0.0.
+
+Two thresholds are applied on every recalculation, unconditionally:
+
+- `trust < 0.50` → `is_visible = false` (the merchant leaves shopper discovery).
+- `trust > 0.90` → `is_featured = true`, otherwise `is_featured = false`.
+
+The **first** crossing below 0.50 also inserts a high-priority `retraining` row
+in `agent_tasks` ("Trust fell to *x*. Merchant hidden."); subsequent
+recalculations while already below do not re-open one.
+
+Recalculation is reached from `update_kpi_counters` (redemption outcomes) and
+`recalculate_trust_after_audit`. Because the `is_featured` write is
+unconditional, it also overwrites an admin's Feature action from
+`/admin/merchants/[id]` — tracked as drift **D133**, founder to rule.
+
 ## Dispute SLA + success-fee reversal (2026-07-22)
 
 **SLA (founder ruling 2026-07-22): admin resolves a disputed / flagged redemption
