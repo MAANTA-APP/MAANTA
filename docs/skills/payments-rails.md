@@ -80,8 +80,25 @@ arrears on top-up — a divergence from the frozen rule; the code now matches it
 
 Charged inside `verify_redemption` → `deduct_success_fee_or_record_arrears`.
 Fee amount is a config row hardened to **KES 30.00** with a hard fallback in the
-function (migration `20260702094145`). Insufficient balance → arrears entry, not
-a failed redemption. Details in `docs/skills/redemption-disputes.md`.
+function (migration `20260702094145`). Details in
+`docs/skills/redemption-disputes.md`.
+
+**Three outcomes, not two — and the third writes no ledger row.** `verify_redemption`
+wraps the fee call in `BEGIN … EXCEPTION WHEN OTHERS THEN v_fee_status := 'unknown'`:
+
+| `fee_charge_status` | Ledger row | Merchant effect |
+|---|---|---|
+| `charged` | `success_fee` (−30) | Balance down 30 |
+| `owed` | `success_fee_arrears` (+30 marker) | Arrears up 30; **not** a failed redemption |
+| `unknown` | **none** | Nothing debited, nothing recorded as arrears |
+
+The `unknown` handler writes **only** a high-priority `fraud_review` row in
+`agent_tasks`, whose own message says the fee "was neither charged nor recorded as
+arrears — investigate and reconcile against the merchant_transactions ledger". So
+reconciliation over `merchant_transactions` will show a verified redemption with no
+fee row, and that is correct behaviour, not a missing write. Verify-anyway is
+unaffected: the shopper's redemption still succeeds in all three cases (drift
+**D130**).
 
 ## Failure handling
 

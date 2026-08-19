@@ -56,6 +56,13 @@ Act as a careful engineer, not a designer:
   recorded as `success_fee` (or `success_fee_arrears` when the wallet can't
   cover it) through the ledger — it must never appear *only* in a webhook, a
   toast, or a log.
+- **There is a third outcome, and it writes no ledger row.** When the fee step
+  itself throws, `verify_redemption` returns `fee_charge_status: 'unknown'` and
+  writes **only** a `fraud_review` `agent_tasks` row — nothing is debited and
+  nothing is recorded as arrears. Do not write a doc, a comment or a
+  reconciliation query that assumes every verified redemption produced a
+  `merchant_transactions` row. Table of all three in
+  `docs/skills/payments-rails.md` (drift **D130**).
 
 ### 3. Money + code readability
 
