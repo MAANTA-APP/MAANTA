@@ -319,3 +319,68 @@ without IPv6 should use the session pooler URI
 `nairobi_nodes_150_merchants.sql` then `test_accounts_maanta_2026_07.sql`
 (`make db-seed-nairobi-150` / `make db-seed-test-accounts`). The 100-deal seed
 alone is the Discover/Browse density floor for BBS Mall.
+
+## Applied 2026-08-18 (was: awaiting a human apply)
+
+Two migrations are committed and **not on production**. Apply in this order —
+the second writes into the column the first creates:
+
+1. `20260818150000_deal_categories.sql` — adds `deals.category` (NULLable) with
+   the named CHECK `deals_category_check` listing **ten** keys, and a **DROP +
+   CREATE** of `deals_public_browse` carrying the new column. No index: the
+   category predicate lives in the app, so one could never be used (see D118).
+
+   **Check the key count before you apply.** This file was authored with three
+   keys and widened to ten on the same day, before any apply. If it somehow
+   reached production while it still listed three, applying it again is a no-op
+   — the ledger has it — and production will refuse seven of the ten keys with a
+   `check_violation` the moment a merchant picks one. Verify with:
+
+   ```sql
+   select pg_get_constraintdef(oid) from pg_constraint
+    where conname = 'deals_category_check';
+   ```
+
+   It must list: fashion, beauty, food, electronics, shoes, home, jewellery,
+   health, kids, services. If it lists three, widen it by hand with the
+   `DROP CONSTRAINT IF EXISTS` / `ADD CONSTRAINT` pair from the migration, then
+   record the manual fix in the drift register. The recreate
+   copies the pause predicate verbatim; `supabase/tests/deal_categories_test.sql`
+   re-asserts it, so run the SQL suites after the apply rather than assuming.
+2. `20260818160000_demo_reseed_categories.sql` — `CREATE OR REPLACE` of
+   `reseed_demo_flash_deals()` so the demo catalogue files itself under the
+   taxonomy. Idempotent; safe to replay.
+
+**Both were applied on 2026-08-18** under explicit founder authorisation, in
+order, via the Supabase MCP, and read back (**D116** closed). The MCP minted its
+own versions for the **sixth** consecutive time — `20260818223721` and
+`20260818223934` — and both were repaired to the filenames above.
+
+Two things went wrong first and are the reason this section exists:
+
+1. **The versions collided.** They were authored as `20260818120000` /
+   `20260818130000`, both of which production's ledger already held from the
+   unmerged `claude/security-audit-maanta-peeazf` branch. Renumbered before
+   applying. See §0 below.
+2. **`DROP VIEW` nearly reopened a security hole.** Recreating
+   `deals_public_browse` destroys the ACL that `20260817120000` installed, and
+   this database's default privileges (`pg_default_acl`, granted by
+   `supabase_admin`) hand `arwdDxtm` on every new `public` relation to **anon and
+   authenticated**. A bare DROP + CREATE + `GRANT SELECT` would have restored
+   anon write access to `public.deals` through the auto-updatable view. The
+   migration now carries an explicit `REVOKE INSERT, UPDATE, DELETE, TRUNCATE`,
+   and grants were read back identical to before. **Any migration that recreates
+   a browse view must carry that REVOKE.**
+
+## 0. Read the ledger before choosing a version
+
+`ls supabase/migrations/` is **not** the high-water mark. A branch can apply
+migrations to production without ever merging to `main`, and five such
+migrations were live and invisible to the repo on 2026-08-18 (**D121**). Always:
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+ order by version desc limit 10;
+```
+
+Pick a version above what that returns, not above what `ls` returns.

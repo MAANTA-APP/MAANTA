@@ -7,6 +7,11 @@ import { BottomSheet } from "@/components/ui/overlays";
 import { TextField, inputClass } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
+import {
+  DEAL_CATEGORIES,
+  isDealCategory,
+  type DealCategory,
+} from "@/lib/deal-categories";
 import posthog from "posthog-js";
 
 /**
@@ -17,6 +22,7 @@ export function DealActions({
   dealId,
   title: initialTitle,
   description: initialDescription,
+  category: initialCategory,
   status,
   boosted,
   boostEndsAt,
@@ -29,6 +35,8 @@ export function DealActions({
   dealId: string;
   title: string;
   description: string;
+  /** Null on deals created before the taxonomy — the edit sheet is where they get one. */
+  category: string | null;
   status: "active" | "paused" | "ended";
   boosted: boolean;
   boostEndsAt: string | null;
@@ -42,13 +50,19 @@ export function DealActions({
   const [sheet, setSheet] = useState<"none" | "boost" | "move" | "edit" | "archive">("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Partial-success message: the request returned 200 but not everything applied. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
+  const [category, setCategory] = useState<DealCategory | null>(
+    isDealCategory(initialCategory) ? initialCategory : null
+  );
   const [moveTarget, setMoveTarget] = useState<string | null>(null);
 
   async function call(fn: () => Promise<Response>) {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fn();
       const body = await res.json().catch(() => ({}));
@@ -58,6 +72,17 @@ export function DealActions({
         return false;
       }
       setBusy(false);
+      // A 200 does not always mean everything asked for happened. The route
+      // reports `categorySaved: false` when it applied the rest of the edit but
+      // had to drop the category — keep the sheet open and say so, rather than
+      // closing on the success animation and letting the merchant believe a
+      // correction landed that did not.
+      if (body.categorySaved === false) {
+        setNotice(
+          "Saved — but the category could not be stored yet. Everything else was updated."
+        );
+        return true;
+      }
       setSheet("none");
       router.refresh();
       return true;
@@ -233,14 +258,54 @@ export function DealActions({
               className={cn(inputClass, "h-auto py-3")}
             />
           </label>
+          <fieldset>
+            <legend className="mb-1.5 block text-xs font-medium text-muted">Category</legend>
+            {/*
+              The correction path. A deal filed in the wrong bucket, or one
+              created before the taxonomy existed, is fixed here by the merchant
+              rather than by an admin ticket.
+            */}
+            <div className="flex flex-wrap gap-2">
+              {DEAL_CATEGORIES.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => setCategory(c.key)}
+                  aria-pressed={category === c.key}
+                  className={cn(
+                    "rounded-full px-3.5 py-2 text-[13px] font-semibold transition",
+                    category === c.key
+                      ? "border-2 border-ink bg-white text-ink"
+                      : "border border-line bg-white text-muted"
+                  )}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            {!category ? (
+              <p className="mt-2 text-xs text-muted">
+                Uncategorised — this deal shows under All, but under no category
+                filter.
+              </p>
+            ) : null}
+          </fieldset>
         </div>
         {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+        {notice ? <p className="mt-3 text-sm font-medium text-ink">{notice}</p> : null}
         <Button
           full
           className="mt-5"
           loading={busy}
           disabled={!title.trim()}
-          onClick={() => patch({ action: "edit", title, description })}
+          onClick={() =>
+            patch({
+              action: "edit",
+              title,
+              description,
+              ...(category ? { category } : {}),
+            })
+          }
         >
           Save changes
         </Button>

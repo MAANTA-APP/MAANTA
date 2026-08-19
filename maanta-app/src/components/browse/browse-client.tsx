@@ -26,6 +26,13 @@ import { IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
 import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
+import { DealCategoryChips } from "@/components/browse/deal-category-chips";
+import {
+  dealCategoryLabel,
+  filterDealsByCategory,
+  type DealCategory,
+  type DealCategoryFilter,
+} from "@/lib/deal-categories";
 
 export type BrowseDealPayload = DealRow;
 
@@ -33,7 +40,20 @@ function browseEmptyState(opts: {
   chip: BrowseChipFilter;
   isSignedIn: boolean;
   favouritesCount: number;
+  category: DealCategoryFilter;
+  categoryEmptied: boolean;
 }): { title: string; sub: string; actionLabel?: string; actionHref?: string } {
+  // Checked before the favourites branch, because the favourites branch makes a
+  // claim about the merchant ("your saved merchants have no live deals in this
+  // node") that is false when a category filter is what removed them. Naming the
+  // filter that actually emptied the list is both truer and more useful than
+  // naming the one the shopper happens to be standing in.
+  if (opts.categoryEmptied && opts.category !== "all") {
+    return {
+      title: `No ${(dealCategoryLabel(opts.category) ?? "").toLowerCase()} deals right now`,
+      sub: "Tap All to see everything live at this mall.",
+    };
+  }
   if (opts.chip === "favourites") {
     if (!opts.isSignedIn) {
       return {
@@ -71,6 +91,8 @@ export function BrowseClient({
   sort,
   filter,
   chip,
+  category,
+  categoryOptions,
   isSignedIn,
 }: {
   node: string;
@@ -80,6 +102,8 @@ export function BrowseClient({
   sort: DealListSort;
   filter: DealListFilter;
   chip: BrowseChipFilter;
+  category: DealCategoryFilter;
+  categoryOptions: readonly { key: DealCategory; label: string }[];
   isSignedIn: boolean;
 }) {
   const favSet = useMemo(() => new Set(favourites), [favourites]);
@@ -99,18 +123,28 @@ export function BrowseClient({
   );
 
   const listDeals = useMemo(() => {
-    const base = filterBrowseDeals(filterDealRowsByRail(deals, filter), {
-      rail: "all",
-      chip,
-      favouriteMerchantIds: favSet,
-    });
+    const base = filterBrowseDeals(
+      filterDealsByCategory(filterDealRowsByRail(deals, filter), category),
+      {
+        rail: "all",
+        chip,
+        favouriteMerchantIds: favSet,
+      }
+    );
     return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, chip, favSet, sort, origin, applySearch]);
+  }, [deals, filter, category, chip, favSet, sort, origin, applySearch]);
+
+  // True when this node has live deals but none in the chosen category, so the
+  // empty state can say which filter emptied the list instead of guessing.
+  const categoryEmptied =
+    deals.length > 0 && filterDealsByCategory(deals, category).length === 0;
 
   const empty = browseEmptyState({
     chip,
     isSignedIn,
     favouritesCount: favourites.length,
+    category,
+    categoryEmptied,
   });
 
   const subtitle =
@@ -145,6 +179,9 @@ export function BrowseClient({
           <IconSearch className="h-4 w-4" />
         </Link>
       </div>
+      <Suspense fallback={null}>
+        <DealCategoryChips options={categoryOptions} />
+      </Suspense>
       <Suspense fallback={null}>
         <BrowseChips />
       </Suspense>

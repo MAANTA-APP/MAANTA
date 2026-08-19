@@ -121,8 +121,15 @@ export function MapClient({
             </IconButton>
           </div>
           <div className="pointer-events-auto flex gap-2">
+            {/*
+              "Deal type", not "Category". This control has always filtered
+              Flash / Boosted / Standard — the deal's rail — and calling that a
+              category was fine only while the product had no categories. It has
+              them now (ten of them, fashion through services), and two axes cannot
+              share one word on the same app.
+            */}
             <FilterDropdown
-              label="Category"
+              label="Deal type"
               value={rail}
               options={RAIL_FILTERS}
               onChange={(v) => setRail(v as BrowseRailFilter)}

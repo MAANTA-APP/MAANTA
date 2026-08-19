@@ -14,12 +14,20 @@ dispute handling), admins/founder (approval, billing, fraud review).
 still on. **The migration ledger was reconciled at 87/87 on 2026-08-08** (**D24**
 closed 2026-08-05): production's `schema_migrations` and this repo's
 `supabase/migrations/` agreed on all 87 version/name pairs, read back after
-the 2026-08-08 applies. **It is one row out again as of 2026-08-16** —
-`20260816020000_admin_assisted_onboarding_attribution.sql` is applied and
-verified live but has no ledger row, because the DDL went through
-`execute_sql` to dodge D86's minted versions and the hand-written ledger
-INSERT was refused by the environment. That is **D107**, open, and one
-statement closes it. The `claim_deal` pause gate is **live** (**D25**
+the 2026-08-08 applies. **It is out in two directions as of 2026-08-18.**
+**As of 2026-08-18 the ledger holds 96 rows against 91 files on this branch.**
+`20260816020000_admin_assisted_onboarding_attribution.sql` now HAS its ledger row
+(**D107** closed 2026-08-18 by read-back — it was repaired outside this session).
+The category migrations `20260818150000` and `20260818160000` are applied and
+read back (**D116** closed). The remaining gap is **five migrations live on
+production that exist only on the unmerged branch
+`claude/security-audit-maanta-peeazf`** — `20260817120000`, `20260817130000`,
+`20260817140000`, `20260818120000` and `20260818130000`. That is **D121**, open,
+and it has a sharp edge: **`ls supabase/migrations/` does not show the real
+high-water mark.** Two migrations were authored here on top of already-taken
+versions and had to be renumbered before applying. **Read
+`supabase_migrations.schema_migrations` before choosing a version** — a branch
+can apply to production without ever reaching `main`. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
 `cofounder` role CHECK (**D69** closed 2026-08-05; no user holds the role —
 assigning it is founder-held, Q14). The role's DB policy layer is **live**
@@ -73,7 +81,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod at 87/87 on 2026-08-08 — drift **D24** closed 2026-08-05; the **D73** per-node cap reland `20260807160000` and **D74** cofounder read policies `20260807161000` applied to production 2026-08-08 and read back. **One row out again since 2026-08-16: `20260816020000` is applied but unrecorded — D107**) |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior (ledger reconciled with prod at 87/87 on 2026-08-08 — drift **D24** closed 2026-08-05; the **D73** per-node cap reland `20260807160000` and **D74** cofounder read policies `20260807161000` applied to production 2026-08-08 and read back. **96 ledger rows vs 91 files as of 2026-08-18: five migrations are live on production but exist only on the unmerged `claude/security-audit-maanta-peeazf` branch — D121. Read the ledger, not this directory, before picking a version**) |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
@@ -105,6 +113,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 | How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
 | Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
 | Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
+| Am I touching deal categories? | `docs/skills/deal-categories.md` — the ten-bucket taxonomy is founder-locked and uncategorised is a real state. Live on production since 2026-08-18, but no live deal carries a category yet, so no chip row renders (**D122**) |
 
 ## Working style
 

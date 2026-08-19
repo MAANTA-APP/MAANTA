@@ -116,6 +116,8 @@ describe("Shopper UI polish", () => {
         favourites: [],
         sort: "nearest",
         filter: "all",
+        category: "all",
+        categoryOptions: [],
         chip: "all",
         isSignedIn: true,
       })
@@ -147,6 +149,8 @@ describe("Shopper UI polish", () => {
         favourites: [],
         sort: "nearest",
         filter: "all",
+        category: "all",
+        categoryOptions: [],
         chip: "favourites",
         isSignedIn: false,
       })

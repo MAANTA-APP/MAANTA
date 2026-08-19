@@ -9,6 +9,7 @@ import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
 import { DealActions } from "./deal-actions";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
+import { selectDroppingUnknownCategory } from "@/lib/deal-category-column";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +25,36 @@ export default async function MerchantDealDetailPage({
   await expireStaleBoosts(merchant.id);
 
   const service = createServiceClient();
-  const { data: deal } = await service
-    .from("deals")
-    .select(
-      "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, max_claims, success_fee, expires_at"
-    )
-    .eq("id", params.id)
-    .eq("merchant_id", merchant.id)
-    .maybeSingle();
+  const DEAL_COLUMNS =
+    "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, max_claims, success_fee, expires_at";
+  // Degrades rather than 500s while `deals.category` is unapplied on the remote
+  // (see @/lib/deal-category-column). A merchant losing the category row in the
+  // edit sheet for a few days is survivable; losing the whole deal page is not.
+  const { data: deal } = await selectDroppingUnknownCategory<{
+    id: string;
+    title: string;
+    description: string | null;
+    image_url: string;
+    deal_type: string;
+    is_active: boolean;
+    is_paused: boolean;
+    boost_active: boolean;
+    claims_count: number;
+    max_claims: number | null;
+    success_fee: number;
+    expires_at: string | null;
+    category?: string | null;
+  }>(
+    `${DEAL_COLUMNS}, category`,
+    DEAL_COLUMNS,
+    (select) =>
+      service
+        .from("deals")
+        .select(select)
+        .eq("id", params.id)
+        .eq("merchant_id", merchant.id)
+        .maybeSingle()
+  );
   if (!deal) notFound();
 
   const [{ count: verifiedCount }, { data: boost }, { data: otherDeals }, boostFee] =
@@ -122,6 +145,7 @@ export default async function MerchantDealDetailPage({
         dealId={deal.id}
         title={deal.title}
         description={deal.description ?? ""}
+        category={deal.category ?? null}
         status={status}
         boosted={!!boost}
         boostEndsAt={boost?.ends_at ?? null}
