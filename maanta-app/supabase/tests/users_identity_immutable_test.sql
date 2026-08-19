@@ -12,6 +12,34 @@
 -- columns are frozen to the holder while the legitimate self-write survives.
 -- ============================================================
 
+-- ------------------------------------------------------------------
+-- PRECONDITION, made explicit rather than inherited from the environment.
+--
+-- Every scenario below writes public.users as `authenticated`. Whether that role
+-- can UPDATE the table at all is decided by GRANTs, and NO migration in this repo
+-- grants or revokes them: on production `authenticated` holds full DML (from
+-- ALTER DEFAULT PRIVILEGES configured on that database, bounded to the caller's
+-- own row by the users_own_row RLS policy), while a fresh `supabase start` /
+-- `db reset` grants nothing. That divergence is drift D128.
+--
+-- It matters here for a reason worse than a failing test. The identity-change
+-- attempts below were caught by `EXCEPTION WHEN OTHERS`, and "permission denied"
+-- is an OTHERS too — so on any database without the grant this suite reported
+-- the trigger working when the trigger had never run. It passed for the wrong
+-- reason. The handlers are now narrowed to the trigger's own error, and this
+-- block guarantees the role can reach the table so that error is reachable.
+--
+-- Granted only if absent, and revoked at the end of the file if granted here, so
+-- the suite leaves the database as it found it.
+-- ------------------------------------------------------------------
+DO $$
+BEGIN
+  IF NOT has_table_privilege('authenticated', 'public.users', 'UPDATE') THEN
+    EXECUTE 'GRANT UPDATE ON public.users TO authenticated';
+    CREATE TEMP TABLE _users_update_granted_by_test ();
+  END IF;
+END $$;
+
 -- Scenario A: an authenticated user cannot change their OWN phone, clerk_user_id
 -- or auth_uid — but CAN still update push_subscription (the one column the
 -- anon/authenticated client legitimately self-writes).
@@ -34,17 +62,38 @@ BEGIN
 
   BEGIN
     UPDATE public.users SET phone = '+254799000123' WHERE id = v_uid;
-  EXCEPTION WHEN OTHERS THEN v_phone_blocked := TRUE;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE EXCEPTION 'A: refused by table GRANTs, not by the trigger — the precondition block failed, so this scenario proves nothing';
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%cannot change identity columns%' THEN
+        RAISE EXCEPTION 'A: blocked by an unexpected error, not the identity guard: %', SQLERRM;
+      END IF;
+      v_phone_blocked := TRUE;
   END;
 
   BEGIN
     UPDATE public.users SET clerk_user_id = 'user_hijack' WHERE id = v_uid;
-  EXCEPTION WHEN OTHERS THEN v_clerk_blocked := TRUE;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE EXCEPTION 'A: refused by table GRANTs, not by the trigger — the precondition block failed, so this scenario proves nothing';
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%cannot change identity columns%' THEN
+        RAISE EXCEPTION 'A: blocked by an unexpected error, not the identity guard: %', SQLERRM;
+      END IF;
+      v_clerk_blocked := TRUE;
   END;
 
   BEGIN
     UPDATE public.users SET auth_uid = gen_random_uuid() WHERE id = v_uid;
-  EXCEPTION WHEN OTHERS THEN v_authuid_blocked := TRUE;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE EXCEPTION 'A: refused by table GRANTs, not by the trigger — the precondition block failed, so this scenario proves nothing';
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%cannot change identity columns%' THEN
+        RAISE EXCEPTION 'A: blocked by an unexpected error, not the identity guard: %', SQLERRM;
+      END IF;
+      v_authuid_blocked := TRUE;
   END;
 
   -- Non-identity self-write must still work (proves the trigger is column-scoped).
@@ -92,7 +141,14 @@ BEGIN
   SET LOCAL ROLE authenticated;
   BEGIN
     UPDATE public.users SET phone = v_staff_phone WHERE id = v_uid;
-  EXCEPTION WHEN OTHERS THEN v_blocked := TRUE;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE EXCEPTION 'B: refused by table GRANTs, not by the trigger — the precondition block failed, so this scenario proves nothing';
+    WHEN raise_exception THEN
+      IF SQLERRM NOT LIKE '%cannot change identity columns%' THEN
+        RAISE EXCEPTION 'B: blocked by an unexpected error, not the identity guard: %', SQLERRM;
+      END IF;
+      v_blocked := TRUE;
   END;
   RESET ROLE;
 
@@ -141,3 +197,17 @@ BEGIN
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL users_identity_immutable scenarios passed.'; END $$;
+
+-- ------------------------------------------------------------------
+-- Restore the privilege state this suite found. No-op unless the
+-- precondition block above had to add the grant.
+-- ------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE c.relname = '_users_update_granted_by_test'
+                AND n.nspname LIKE 'pg_temp%') THEN
+    EXECUTE 'REVOKE UPDATE ON public.users FROM authenticated';
+    DROP TABLE _users_update_granted_by_test;
+  END IF;
+END $$;
