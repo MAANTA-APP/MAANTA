@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -18,7 +18,8 @@ import path from "node:path";
  *     `(public)/contact/page.tsx` long after the route group was renamed to
  *     `(marketing)`, so the one design-ahead surface in the file pointed at a
  *     directory that does not exist. A path check catches that class without
- *     anyone having to remember to look.
+ *     anyone having to remember to look. Entries are rooted at `maanta-app/`
+ *     since D140 normalised them, so the check is exact rather than a search.
  *
  * Deliberately **not** asserted here: that every `design-ahead` surface cites an
  * open drift row. That guardrail is **D26**, and whether it should be mandatory
@@ -37,39 +38,17 @@ type Surface = {
 
 
 /**
- * The file's `frontend` entries follow no single convention: some are rooted at
- * `maanta-app/` (`src/app/(marketing)/download/page.tsx`), some at `src/app/`
- * (`admin/page.tsx`), and some are bare basenames (`claim-flow.tsx`). Rather
- * than rewrite twenty-one unrelated entries in a change about two new ones, the
- * resolver tries those forms in order and, failing all of them, looks for a
- * single file anywhere under `src/` whose path ends with the entry.
- *
- * It is deliberately *not* a wildcard: a unique tail match is a real file the
- * reader can open, while an ambiguous or absent one is exactly the stale
- * citation this test exists to catch. `(public)/contact/page.tsx` failed every
- * branch, which is how the retired route group surfaced. The inconsistent
- * convention itself is tracked as drift **D140**.
+ * Every `frontend` entry is rooted at `maanta-app/` — one convention, so the
+ * check is a plain existence test. It was not always so: the file mixed three
+ * rooting styles, and this test's first version resolved each entry through all
+ * of them plus a unique-tail search. That resolver earned its keep once — it
+ * caught a citation of the retired `(public)/` route group and a bare basename
+ * matching four files — and then the entries were normalised (drift **D140**)
+ * and the resolver deleted, because a lenient matcher kept beyond its purpose
+ * teaches the next author that any spelling is fine.
  */
-const SRC = path.join(APP, "src");
-
-function allSourceFiles(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === "__tests__") continue;
-    const full = path.join(dir, name);
-    if (statSync(full).isDirectory()) allSourceFiles(full, out);
-    else out.push(full);
-  }
-  return out;
-}
-
-const SOURCE_FILES = allSourceFiles(SRC);
-
 function resolves(rel: string): boolean {
-  const clean = rel.replace(/^\.\//, "");
-  if (existsSync(path.join(APP, clean))) return true;
-  if (existsSync(path.join(APP, "src", "app", clean))) return true;
-  const suffix = `${path.sep}${clean.split("/").join(path.sep)}`;
-  return SOURCE_FILES.filter((f) => f.endsWith(suffix)).length === 1;
+  return existsSync(path.join(APP, rel));
 }
 
 const inventory = JSON.parse(readFileSync(FRAMES, "utf8")) as {
@@ -102,10 +81,11 @@ describe("frames.json — the canonical surface inventory", () => {
     }
     expect(
       missing,
-      "frames.json points at files that do not exist. A stale path makes the " +
-        "inventory read as coverage while pointing a reader nowhere — the " +
-        "`(public)/` route group survived in the /contact entry long after it " +
-        `was renamed to (marketing):\n${missing.join("\n")}`
+      "frames.json points at files that do not exist. Entries are rooted at " +
+        "maanta-app/ (one convention — D140); a stale path makes the inventory " +
+        "read as coverage while pointing a reader nowhere, which is how the " +
+        "retired (public)/ route group survived in the /contact entry:\n" +
+        missing.join("\n")
     ).toEqual([]);
   });
 });

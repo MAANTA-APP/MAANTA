@@ -69,6 +69,18 @@ export function ProfileCard({
 
   const displayName = fullName?.trim() || "Maanta shopper";
 
+  // Until-dirty Save gate (16c / drift D82's standalone half): Save is inert
+  // until something actually changed, so it cannot fire a no-op PATCH and the
+  // disabled state tells the truth — "there is nothing to save yet". Compared
+  // against the same parsing openEdit seeds the fields from, so reopening the
+  // editor always starts clean. The frozen Button already renders disabled as
+  // grey, never dimmed amber (L9b), so no styling is needed here.
+  const savedParts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  const dirty =
+    firstName.trim() !== (savedParts[0] ?? "") ||
+    lastName.trim() !== savedParts.slice(1).join(" ") ||
+    mall !== node;
+
   return (
     <div className="rounded-card border border-line bg-white p-4 shadow-card">
       <div className="flex items-start gap-4">
@@ -129,7 +141,12 @@ export function ProfileCard({
           </label>
           {error ? <Body className="text-sm text-rust">{error}</Body> : null}
           <div className="flex gap-2 pt-1">
-            <PrimaryButton type="button" onClick={save} disabled={pending} className="flex-1">
+            <PrimaryButton
+              type="button"
+              onClick={save}
+              disabled={pending || !dirty}
+              className="flex-1"
+            >
               {pending ? "Saving…" : "Save"}
             </PrimaryButton>
             <SecondaryButton

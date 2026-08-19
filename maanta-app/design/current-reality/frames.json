@@ -1,7 +1,7 @@
 {
   "$schema_note": "MAANTA design current-reality inventory — 2026-07-30 parity audit. Not pixel truth; classifies routes vs code/SQL.",
   "generated": "2026-07-30",
-  "amended": "2026-08-15 — /merchant/onboard and /merchant/wallet corrected against shipped code (drift D103, D104). Both entries described a guarantee where a design reader needed a rendered surface, and a design programme read them as descriptions of absence. 2026-08-19 — /download and /app-bootstrap added (drift D94): the inventory omitted the installed product's entry point, and CLAUDE.md calls this file the canonical surface inventory. Both carry drift cross-references in `notes`, which is what makes the D26 guardrail buildable. Two unfollowable `frontend` citations were also corrected: /contact's retired `(public)/` route group, and /merchant/deals' bare `deals/page.tsx`, which matches four files in the tree and pointed a reader at none of them.",
+  "amended": "2026-08-15 — /merchant/onboard and /merchant/wallet corrected against shipped code (drift D103, D104). Both entries described a guarantee where a design reader needed a rendered surface, and a design programme read them as descriptions of absence. 2026-08-19 — /download and /app-bootstrap added (drift D94): the inventory omitted the installed product's entry point, and CLAUDE.md calls this file the canonical surface inventory. Both carry drift cross-references in `notes`, which is what makes the D26 guardrail buildable. Two unfollowable `frontend` citations were also corrected: /contact's retired `(public)/` route group, and /merchant/deals' bare `deals/page.tsx`, which matches four files in the tree and pointed a reader at none of them. 2026-08-19 (later the same day) — every `frontend` entry normalised to one convention, rooted at maanta-app/ (drift D140): the file had mixed three rooting styles, which is what let a citation of a retired route group and a four-way-ambiguous basename sit unnoticed. The guard in frames-inventory.test.ts is now a plain existence check.",
   "source_of_truth_order": [
     "Notion / product decisions",
     "Repo implementation (Next.js + SQL migrations)",
@@ -118,7 +118,7 @@
       "design_frame": "8g / 8ae / 8h",
       "frontend": [
         "src/app/(shopper)/deals/[id]/page.tsx",
-        "claim-flow.tsx"
+        "src/app/(shopper)/deals/[id]/claim-flow.tsx"
       ],
       "backend": [
         "POST /api/redemptions → claim_deal"
@@ -172,7 +172,7 @@
       "design_frame": "8i / 8j",
       "frontend": [
         "src/app/(shopper)/tickets/[id]/page.tsx",
-        "claimed-code.tsx"
+        "src/app/(shopper)/tickets/[id]/claimed-code.tsx"
       ],
       "backend": [
         "redemptions read"
@@ -224,8 +224,8 @@
       "status": "gated",
       "design_frame": "9k / 9t / 9l / 9m",
       "frontend": [
-        "redeem/page.tsx",
-        "redeem-keypad.tsx"
+        "src/app/merchant/(app)/redeem/page.tsx",
+        "src/app/merchant/(app)/redeem/redeem-keypad.tsx"
       ],
       "backend": [
         "preflight + verify APIs"
@@ -261,8 +261,8 @@
       "status": "gated",
       "design_frame": "Deal create wizard",
       "frontend": [
-        "deals/new/page.tsx",
-        "new-deal-wizard.tsx"
+        "src/app/merchant/(app)/deals/new/page.tsx",
+        "src/app/merchant/(app)/deals/new/new-deal-wizard.tsx"
       ],
       "backend": [
         "POST /api/deals"
@@ -303,8 +303,8 @@
       "status": "gated",
       "design_frame": "Top-up",
       "frontend": [
-        "topup/page.tsx",
-        "topup-flow.tsx"
+        "src/app/merchant/(app)/topup/page.tsx",
+        "src/app/merchant/(app)/topup/topup-flow.tsx"
       ],
       "backend": [
         "/api/topup/stripe",
@@ -322,7 +322,7 @@
       "status": "gated",
       "design_frame": "10x Alerts",
       "frontend": [
-        "alerts/page.tsx"
+        "src/app/merchant/(app)/alerts/page.tsx"
       ],
       "backend": [
         "derived from wallet/deals/boosts"
@@ -337,7 +337,7 @@
       "status": "gated",
       "design_frame": "Staff",
       "frontend": [
-        "staff/page.tsx"
+        "src/app/merchant/(app)/staff/page.tsx"
       ],
       "backend": [
         "/api/staff"
@@ -354,7 +354,7 @@
       "status": "gated",
       "design_frame": "11 merchant queue",
       "frontend": [
-        "admin/page.tsx"
+        "src/app/admin/page.tsx"
       ],
       "backend": [
         "approve APIs"
@@ -372,7 +372,7 @@
       "status": "gated",
       "design_frame": "Dispute / reverse",
       "frontend": [
-        "admin/redemptions/[id]/page.tsx"
+        "src/app/admin/redemptions/[id]/page.tsx"
       ],
       "backend": [
         "hold/release/reverse-fee"
@@ -390,7 +390,7 @@
       "status": "gated",
       "design_frame": null,
       "frontend": [
-        "admin/support/page.tsx"
+        "src/app/admin/support/page.tsx"
       ],
       "backend": [
         "agent_tasks"
@@ -407,7 +407,7 @@
       "status": "gated",
       "design_frame": "11j plans",
       "frontend": [
-        "admin/billing/page.tsx"
+        "src/app/admin/billing/page.tsx"
       ],
       "backend": [
         "plans APIs",
@@ -425,7 +425,7 @@
       "status": "gated",
       "design_frame": "11c",
       "frontend": [
-        "admin/deals/page.tsx"
+        "src/app/admin/deals/page.tsx"
       ],
       "backend": [
         "fraud_events → deals"
@@ -442,7 +442,7 @@
       "status": "gated",
       "design_frame": null,
       "frontend": [
-        "agent/page.tsx"
+        "src/app/agent/page.tsx"
       ],
       "backend": [
         "leads KPIs"
@@ -460,7 +460,7 @@
       "status": "gated",
       "design_frame": null,
       "frontend": [
-        "agent/leads/page.tsx"
+        "src/app/agent/leads/page.tsx"
       ],
       "backend": [
         "/api/leads"
@@ -478,7 +478,7 @@
       "status": "gated",
       "design_frame": null,
       "frontend": [
-        "agent/leads/[id]/page.tsx"
+        "src/app/agent/leads/[id]/page.tsx"
       ],
       "backend": [
         "lead detail / link"
@@ -495,7 +495,7 @@
       "status": "gated",
       "design_frame": null,
       "frontend": [
-        "founder/page.tsx"
+        "src/app/founder/page.tsx"
       ],
       "backend": [
         "KPI reads"
@@ -512,7 +512,7 @@
       "status": "superseded",
       "design_frame": null,
       "frontend": [
-        "founder/reports/page.tsx"
+        "src/app/founder/reports/page.tsx"
       ],
       "backend": [
         "redirect → /admin/reports"

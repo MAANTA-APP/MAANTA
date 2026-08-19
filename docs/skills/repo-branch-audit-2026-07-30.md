@@ -70,7 +70,7 @@ Skill: `docs/skills/notification-prefs-canonical-2026-07-30.md`.
 
 **D-12 (still closed):** withdrew the **ungoverned** copy “Launch offer: first month of Elite **free**” (no cap, no node, implied fee waiver). That wording must not return.
 
-**Copy/guard alignment:** public `/pricing` may advertise the governed first-100 trial. Cash-only tests block only ungoverned “free month” phrasing — not the governed trial line. `#131` already carries this after the prior main merge; docs that still say “launch offer removed entirely” should be read as “ungoverned free-month line removed.”
+**Copy/guard alignment:** public `/pricing` may advertise the governed first-100 trial. Cash-only tests block only ungoverned “free month” phrasing — not the governed trial line. `#131` already carries this after the prior main merge. **Corrected 2026-08-19 (drift D31):** an earlier version of this line instructed readers to *reinterpret* documents still saying “launch offer removed entirely” — instructing reinterpretation rather than correcting is the failure the drift register exists to end. The position, stated once: **only the ungoverned free-month wording was withdrawn (D4/D7); the governed first-100 trial stands.** The single authoritative source for the offer is `maanta-app/src/lib/marketing/facts.ts` (`OFFERS.eliteTrial`) plus the decisions-log launch-offer entry — any document that disagrees is wrong and should be corrected against those, not reinterpreted. A sweep on 2026-08-19 found no other live document carrying the “removed entirely” claim; this instruction was the last surviving artifact of it.
 
 ---
 
