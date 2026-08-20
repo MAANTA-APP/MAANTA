@@ -1,0 +1,76 @@
+-- SEC: close the READ twin of 20260817120000 — strip anon/authenticated base-table
+-- SELECT on public.merchants and public.deals, and drop the row-level
+-- *_customer_read policies that exposed every column of every active merchant.
+--
+-- ## The hole
+--
+-- 20260817120000 revoked WRITES through the four public views. It did not touch
+-- the READ path into the base tables underneath them, which is a separate hole
+-- of the same class:
+--
+--   * `authenticated` holds base-table SELECT on public.merchants (granted by
+--     20260723120000, "kept if ever needed") and public.deals.
+--   * public.merchants carries policy `merchants_customer_read`
+--       FOR SELECT USING (status='active' AND is_visible AND NOT is_shadow_banned)
+--     and public.deals carries the analogous `deals_customer_read`. Both are
+--     roles=public and PERMISSIVE, so they apply to `authenticated`.
+--   * RLS is row-level: it can gate WHICH rows are visible, never WHICH columns.
+--     So a policy meant to expose the storefront ("this shop is public") in fact
+--     exposes ALL 38 columns of every active merchant — including
+--     account_balance, outstanding_arrears, phone, email, whatsapp and
+--     trust_metric — to any signed-in shopper.
+--
+-- Net effect on production, measured 2026-08-20 on axrrslqssmbngbataejg: a
+-- signed-in shopper with no merchant of their own read another merchant's wallet
+-- balance (777.00), arrears, phone and email straight off public.merchants via
+-- PostgREST with the publishable anon key and their own session JWT. redemptions
+-- and merchant_transactions did NOT leak (their policies are user-scoped), which
+-- is the tell: the defect is specific to the two projection tables that have a
+-- public *_browse view — the intended read path — sitting beside a base-table
+-- grant + broad policy that the view design made redundant.
+--
+-- `anon` was accidentally spared: evaluating the merchants policy set also
+-- evaluates `merchants_own`/`merchants_agent_read`, which call current_user_id(),
+-- and anon lacks EXECUTE on it — so anon's base read raised 42501 instead of
+-- leaking. That is an accident of a function grant, not a control. It is exactly
+-- what made browse_views_test.sql Scenario B green for the wrong reason: it
+-- asserts anon cannot read the base table and gets insufficient_privilege from
+-- the function grant, while never testing `authenticated`, where the leak was.
+--
+-- The intended public projection is public.merchants_public_browse
+-- (security_invoker = false; columns: id, merchant_name, tier, status, node,
+-- what3words_address, mall_name, floor, unit_number, is_visible, is_featured,
+-- trust_metric, lat, lng — no wallet, no contact PII) and deals_public_browse.
+-- Because those views run as owner, they keep serving with NO base-table grant to
+-- anon/authenticated — verified in a rolled-back rehearsal (211 merchant rows,
+-- 273 deal rows still served after this exact change).
+--
+-- ## The fix
+--
+-- 1. Revoke base-table SELECT from anon and authenticated on both projection
+--    tables. Reads for signed-out and signed-in users go through the views,
+--    which is the design 20260723130000 established ("browse views work without
+--    base-table grants"). This supersedes the anon re-grant in 20260720000644,
+--    now vestigial: the feed ranks from the views, not the base tables.
+-- 2. Drop the two *_customer_read policies. They were the row-level mechanism of
+--    the leak and serve no other purpose: the public read path is the view, and
+--    the owner/agent/admin/cofounder policies (correctly scoped) remain for any
+--    future, deliberately column-scoped, authenticated read.
+--
+-- Nothing in src/ reads these tables through the anon/authenticated client — every
+-- server route uses createServiceClient() (service_role, RLS-exempt) or a
+-- SECURITY DEFINER RPC. Verified against src/ on 2026-08-20 (the same basis as
+-- 20260723120000's write revoke).
+--
+-- Any future need for an RLS-governed authenticated read must add a COLUMN-scoped
+-- grant (GRANT SELECT (col, ...)) plus a scoped policy — never a table-wide grant
+-- with a broad policy, which is this defect. The durable guard is Scenarios H/I/J
+-- in supabase/tests/browse_views_test.sql, which fail on ANY base table that owns
+-- a public *_browse view yet grants base SELECT to anon/authenticated, and which
+-- test `authenticated` (not just anon) against the wallet and PII columns.
+
+REVOKE SELECT ON public.merchants FROM anon, authenticated;
+REVOKE SELECT ON public.deals     FROM anon, authenticated;
+
+DROP POLICY IF EXISTS merchants_customer_read ON public.merchants;
+DROP POLICY IF EXISTS deals_customer_read     ON public.deals;
