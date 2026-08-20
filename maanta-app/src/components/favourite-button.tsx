@@ -43,8 +43,14 @@ export function FavouriteButton({
       type="button"
       onClick={toggle}
       aria-pressed={on}
+      aria-busy={busy}
       aria-label={on ? "Remove from saved shops" : "Save shop"}
-      className={cn("p-2", className)}
+      // after:-inset-1.5 keeps the visible heart small on card overlays while
+      // extending the tap area to ≥44px (32px at the tightest p-1.5 override).
+      className={cn(
+        "relative p-2 after:absolute after:-inset-1.5 after:content-['']",
+        className
+      )}
     >
       <IconHeart
         filled={on}
