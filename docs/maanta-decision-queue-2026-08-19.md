@@ -59,8 +59,11 @@ All read live on **2026-08-19**, not inferred.
 > applied under founder authorization at 22:51 UTC, read back, and the ledger
 > reconciles at **97/97**. **D108 and D142 are closed** — the register is the
 > state. Still true from the table: demo mode on, 1 real merchant, 0 real staff
-> seats, no sign-up since 2026-08-16, and the two all-real duplicate-email
-> groups remain a founder data decision.
+> seats, no sign-up since 2026-08-16. The two all-real duplicate-email groups
+> were **resolved 2026-08-20 on founder instruction** — email retired (NULL) on
+> the shadow admin row and the Supabase-era customer duplicate, keepers chosen
+> on measured activity; zero real duplicate groups remain (evidence in D108's
+> residual note).
 
 ---
 
