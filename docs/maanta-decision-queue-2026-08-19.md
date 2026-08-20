@@ -51,6 +51,17 @@ All read live on **2026-08-19**, not inferred.
 | Real merchants / real staff seats | 1 / **0** | SKANDI SKAN has no staff seat |
 | `app_config.demo_mode_enabled` | `'true'` | — |
 
+> **Superseded the same evening (2026-08-19, after 22:35 UTC) — the two
+> deploy-state rows above are stale.** Q1 was ruled **A** and shipped: PR #235
+> merged through `main` as squash `693ca47` on a fully green CI run; production
+> went READY at 22:43 UTC serving `target: production` from `main`, so **D129
+> and the verified-email fallback are live**. Migration `20260819200000` was
+> applied under founder authorization at 22:51 UTC, read back, and the ledger
+> reconciles at **97/97**. **D108 and D142 are closed** — the register is the
+> state. Still true from the table: demo mode on, 1 real merchant, 0 real staff
+> seats, no sign-up since 2026-08-16, and the two all-real duplicate-email
+> groups remain a founder data decision.
+
 ---
 
 # 1. Has a deadline
@@ -407,8 +418,9 @@ not a decision.
 
 # 6. If you only answer three
 
-**Q1 (D108 prevention)** — because the window is open, free, and closes the moment
-D129 reaches production.
+**Q1 (D108 prevention)** — ~~because the window is open, free, and closes the
+moment D129 reaches production.~~ **Answered A and live in production the same
+evening (2026-08-19); D108 closed.** Q3 and Q7 move up.
 
 **Q3 (D135 ledger flag)** — because it is the one item that silently corrupts a
 number in every report anyone will read, and the constraint half is not even a
@@ -427,3 +439,7 @@ clean on that front right now and has been for its last three deploys; the four
 commits on `claude/work-in-progress-7nudnu` are previews carrying `target: null`.
 Merging through `main` is what keeps **Q8** an open question rather than a sixth
 occurrence.
+
+**Satisfied 2026-08-19 evening:** D129 reached production exactly this way —
+squash `693ca47` through `main`, deployment `target: production`, no promote.
+Q8 stays an open question rather than a sixth occurrence.
