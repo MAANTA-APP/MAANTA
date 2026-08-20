@@ -6,11 +6,21 @@
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/revoke_authenticated_writes_core_tables_test.sql
 -- ============================================================
 
--- Scenario A: grant posture — authenticated may SELECT but not write.
+-- Scenario A: grant posture on the core tables.
+--
+-- Writes (INSERT/UPDATE/DELETE) are revoked for authenticated on all three
+-- (20260723120000). READS diverge as of 20260820120000 (the read twin of the
+-- browse-view write revoke): base-table SELECT is now revoked on merchants and
+-- deals — anon/authenticated read those only through the *_public_browse views,
+-- because the row-level customer_read policy could not restrict columns and so
+-- leaked wallet/PII — while redemptions keeps SELECT (its RLS scopes rows to the
+-- caller). Updated here because 20260820120000 changed the read half of the
+-- posture this scenario pins.
 DO $$
 BEGIN
-  ASSERT has_table_privilege('authenticated', 'public.merchants', 'SELECT'),
-    'A: authenticated must retain SELECT on merchants';
+  -- merchants/deals: base-table SELECT revoked; reads go through the browse views.
+  ASSERT NOT has_table_privilege('authenticated', 'public.merchants', 'SELECT'),
+    'A: authenticated must NOT hold base SELECT on merchants (20260820120000 — reads via merchants_public_browse)';
   ASSERT NOT has_table_privilege('authenticated', 'public.merchants', 'INSERT'),
     'A: authenticated must not INSERT merchants';
   ASSERT NOT has_table_privilege('authenticated', 'public.merchants', 'UPDATE'),
@@ -18,8 +28,8 @@ BEGIN
   ASSERT NOT has_table_privilege('authenticated', 'public.merchants', 'DELETE'),
     'A: authenticated must not DELETE merchants';
 
-  ASSERT has_table_privilege('authenticated', 'public.deals', 'SELECT'),
-    'A: authenticated must retain SELECT on deals';
+  ASSERT NOT has_table_privilege('authenticated', 'public.deals', 'SELECT'),
+    'A: authenticated must NOT hold base SELECT on deals (20260820120000 — reads via deals_public_browse)';
   ASSERT NOT has_table_privilege('authenticated', 'public.deals', 'INSERT'),
     'A: authenticated must not INSERT deals';
   ASSERT NOT has_table_privilege('authenticated', 'public.deals', 'UPDATE'),
@@ -27,6 +37,7 @@ BEGIN
   ASSERT NOT has_table_privilege('authenticated', 'public.deals', 'DELETE'),
     'A: authenticated must not DELETE deals';
 
+  -- redemptions: SELECT retained (unchanged by 20260820120000; RLS scopes rows).
   ASSERT has_table_privilege('authenticated', 'public.redemptions', 'SELECT'),
     'A: authenticated must retain SELECT on redemptions';
   ASSERT NOT has_table_privilege('authenticated', 'public.redemptions', 'INSERT'),
@@ -36,7 +47,7 @@ BEGIN
   ASSERT NOT has_table_privilege('authenticated', 'public.redemptions', 'DELETE'),
     'A: authenticated must not DELETE redemptions';
 
-  RAISE NOTICE 'Scenario A passed: authenticated write grants revoked on core tables';
+  RAISE NOTICE 'Scenario A passed: writes revoked on core tables; base SELECT revoked on merchants/deals (20260820120000), retained on redemptions';
 END $$;
 
 -- Scenario B (C-1): merchant owner cannot PATCH wallet/tier/status via PostgREST.

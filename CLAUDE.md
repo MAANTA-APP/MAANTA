@@ -11,17 +11,22 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 97/97 as of 2026-08-19** (**D24**
+still on. **The migration ledger reconciles at 98/98 as of 2026-08-20** (**D24**
 closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19,
-**D142** closed 2026-08-19): production's `schema_migrations` and this repo's
-`supabase/migrations/` agree on all 97 version/name pairs, verified by a full
-read-back diff. Getting there took three founder-authorized MCP apply rounds —
+**D142** closed 2026-08-19, **D147** closed 2026-08-20): production's
+`schema_migrations` and this repo's `supabase/migrations/` agree on all 98
+version/name pairs, verified by a full read-back diff. Getting there took three founder-authorized MCP apply rounds —
 the three 2026-08-17 security migrations (`20260817120000`/`130000`/`140000` —
 **D123**/**D124**/**D125**), the CSPRNG OTP and `deals.expires_at NOT NULL` pair
 (**D29**), and the category pair `20260818150000`/`20260818160000` (**D116**),
 plus merging the branch those first five had been applied from; then the email
 identity freeze `20260819200000` (**D142**, applied 2026-08-19 minutes after the
-fallback it hardens went live).
+fallback it hardens went live). The 98th is the read-side revoke
+`20260820120000` (**D147** — strip anon/authenticated base-table SELECT on
+`merchants`/`deals` and drop the `*_customer_read` policies, the read twin of
+D123's write revoke), applied to production 2026-08-20 and the one row prod held
+that `main` still lacked until this change; its fresh-DB `make db-verify` on a CI
+runner is the remaining owed check.
 
 **Two rules earned the hard way, both still load-bearing.** (1) **Read
 `supabase_migrations.schema_migrations`, not `ls supabase/migrations/`, before
@@ -85,7 +90,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 97/97 as of 2026-08-19**, verified by full read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 98/98 as of 2026-08-20**, verified by full read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000`, the read-side base-table revoke, 2026-08-20). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
