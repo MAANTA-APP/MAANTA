@@ -32,6 +32,58 @@ Install these first. Each line says what it is actually for **on MAANTA**.
 | **TASTE-SKILL** | Judgment on spacing, hierarchy, type and restraint. This is what keeps surfaces off the generic-AI-gradient default and at the premium/calm bar. |
 | **IMPECCABLE** *(later)* | High-rigor review pass. Add it once Node 0 surfaces are stable and the work shifts from building to hardening — running it now would mostly re-report already-tracked drift rows. |
 
+## Running UI-UX-PRO-MAX on this repo (added 2026-08-20)
+
+Source: `nextlevelbuilder/ui-ux-pro-max-skill` (public GitHub). It is a
+BM25 search engine over local CSV data — 79 UI styles, 192 product reasoning
+rules, 119 UX guidelines, font/color/chart/stack datasets — plus a
+`--design-system` generator. Python 3, no external dependencies.
+
+**Install (pick one):**
+
+- Claude Code plugin (preferred — keeps this repo clean):
+  `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` then
+  `/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`.
+- Or clone the repo anywhere and call the script directly:
+  `python3 <clone>/.claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --domain <domain>`.
+- Do **not** run `uipro init` inside this repo and do not commit its
+  `design-system/` output — MAANTA's design system already exists and is
+  enforced (`tailwind.config.ts` tokens, `src/components/ui/claude/`,
+  `frozen-ui-rules.test.ts`).
+
+**The precedence rule, concretely.** The skill's *style/color/typography/
+landing* domains propose palettes, fonts and hero patterns. On MAANTA those
+decisions are already made and CI-enforced, so those domains are read-only
+inspiration at best. What is safe and high-value everywhere is the **`ux`
+domain** (119 guidelines: contrast, touch targets, focus, forms, error
+placement, responsive, reduced-motion), the **`chart` domain** for admin
+density, and `--stack nextjs`. Anything the skill suggests that touches an
+enforced rule loses: amber CTA + black label, money never coloured, error
+body text `#111`, closed vocabulary, no celebratory motion. Its own
+anti-pattern data (no AI gradients, no emoji icons, no colour-only state)
+happens to agree with the CLAUDE.md "do not" list — that agreement is why
+the skill is worth running, not a licence to adopt its palettes.
+
+**Per-surface query recipes** (2–5 terms, one intent per query; retry once
+narrower, never persist unverified output):
+
+| Surface | Useful queries |
+|---|---|
+| Shopper (`/feed`, `/browse`, `/map`, `/my-deals`, tickets) | `"bottom navigation mobile" --domain ux` · `"card list scannable hierarchy" --domain ux` · `"countdown urgency honest" --domain ux` · `"empty state next action" --domain ux` |
+| Merchant (wallet, top-up, deals, verify) | `"form inline validation error" --domain ux` · `"destructive action confirmation" --domain ux` · `"progressive disclosure wizard" --domain ux` · `"loading feedback optimistic" --domain ux` |
+| Admin / agent / founder | `"data table dense dashboard" --domain ux` · `"real-time dashboard" --domain chart` · `"filter search table" --domain ux` |
+| Marketing (17 routes under `(marketing)/`) | `"marketplace local deals" --domain product` · `"hero social-proof" --domain landing` · `"pricing table clarity" --domain ux` — copy/number rules still apply: facts from `lib/marketing/facts.ts`, held-claims and token gates run in CI |
+| Any surface, pre-delivery | `"focus not obscured" --domain ux` · `"contrast dark mode" --domain ux` · then the skill's `references/pro-rules.md` checklist |
+
+**Session shape.** One surface family per session (the role system's rule).
+Read `frames.json` first so polish lands on `live`/`gated` surfaces, not
+`design-ahead` ones. Apply changes through the primitives in
+`src/components/ui/claude/` and tokens in `tailwind.config.ts` — the skill's
+"no raw hex in components" rule is already MAANTA law. Verify with
+`npm run lint`, `npm run typecheck`, `npm test` (frozen-ui-rules must stay
+green), `npm run build` (token/canonical/form gates) — same gates as any UI
+diff.
+
 ## Nice to have
 
 | Skill | When it earns its place |
