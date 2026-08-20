@@ -215,4 +215,108 @@ BEGIN
   RAISE NOTICE 'Scenario G passed: no public view grants a write to anon/authenticated';
 END $$;
 
+-- Scenario H: grant posture — the READ twin of Scenario E
+-- (20260820120000_revoke_customer_base_table_reads_merchants_deals.sql).
+--
+-- The projection tables merchants and deals must grant NO base-table SELECT to
+-- anon or authenticated: signed-out and signed-in reads both go through the
+-- *_public_browse views. Scenario A proved the views work without base grants;
+-- this asserts the base grants are actually gone, in both roles. It is the check
+-- that 20260723120000 left out when it kept authenticated SELECT "if ever
+-- needed" — the grant that, with the broad merchants_customer_read policy, let
+-- any signed-in shopper read every merchant's wallet and contact PII.
+DO $$
+DECLARE
+  v_role TEXT;
+  v_tbl TEXT;
+BEGIN
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    FOREACH v_tbl IN ARRAY ARRAY['public.merchants', 'public.deals'] LOOP
+      ASSERT NOT has_table_privilege(v_role, v_tbl, 'SELECT'),
+        format('H: %s must NOT hold base-table SELECT on %s — reads go through '
+               'the *_public_browse view. Revoke it in the migration.', v_role, v_tbl);
+    END LOOP;
+  END LOOP;
+  -- The views themselves stay readable (belt-and-braces against an over-broad revoke).
+  ASSERT has_table_privilege('anon', 'public.merchants_public_browse', 'SELECT')
+     AND has_table_privilege('authenticated', 'public.deals_public_browse', 'SELECT'),
+    'H: browse views must remain SELECTable';
+  RAISE NOTICE 'Scenario H passed: merchants/deals base tables grant no anon/authenticated SELECT';
+END $$;
+
+-- Scenario I: behavioural — `authenticated`, not just anon, is refused the wallet
+-- and PII columns off the base merchants table.
+--
+-- Scenario B tests anon and passes for the WRONG reason: anon holds (held) the
+-- base grant, and its read failed only because policy evaluation calls
+-- current_user_id(), which anon cannot EXECUTE — an accident, not a control. The
+-- live leak was `authenticated`, which CAN execute it, so the broad
+-- merchants_customer_read policy returned every column. Exercise that exact path.
+DO $$
+DECLARE
+  v_mid UUID;
+  v_view_rows INT;
+  v_balance NUMERIC := NULL;
+  v_denied BOOLEAN := FALSE;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, email, node, status, is_visible, account_balance
+  )
+    VALUES ('__test_base_read', 'test.base.read', '+254700000406', 'leak@example.com',
+            'BBS Mall', 'active', TRUE, 4242)
+    RETURNING id INTO v_mid;
+
+  SET ROLE authenticated;
+  BEGIN
+    -- No base grant → 42501 before policies are evaluated (v_denied). If a future
+    -- design keeps a grant but scopes the policy, a non-owner gets 0 rows and
+    -- v_balance stays NULL. Either is safe; a returned 4242 is the leak.
+    SELECT account_balance INTO v_balance FROM public.merchants WHERE id = v_mid;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      v_denied := TRUE;
+  END;
+  -- The storefront row is still reachable through the view (no PII columns there).
+  SELECT COUNT(*) INTO v_view_rows FROM public.merchants_public_browse WHERE id = v_mid;
+  RESET ROLE;
+
+  ASSERT v_denied OR v_balance IS NULL,
+    format('I: authenticated must NOT read a merchant balance off the base table (got %s)', v_balance);
+  ASSERT v_view_rows = 1,
+    format('I: the merchant must remain visible via the browse view, got %s', v_view_rows);
+
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario I passed: authenticated cannot read merchant wallet/PII off the base table';
+END $$;
+
+-- Scenario J: the read-side ratchet. ANY base table that a public *_public_browse
+-- view reads from must not grant base SELECT to anon/authenticated — not just the
+-- two named above. Mirrors Scenario G for reads, and generalises via the
+-- view→table dependency so a projection table added later is covered
+-- automatically.
+DO $$
+DECLARE
+  v_offenders TEXT;
+BEGIN
+  SELECT string_agg(format('%s:%s', g.grantee, g.table_name), ', ' ORDER BY g.table_name)
+    INTO v_offenders
+    FROM information_schema.role_table_grants g
+   WHERE g.table_schema = 'public'
+     AND g.grantee IN ('anon', 'authenticated')
+     AND g.privilege_type = 'SELECT'
+     AND g.table_name IN (
+       SELECT DISTINCT u.table_name
+         FROM information_schema.view_table_usage u
+        WHERE u.view_schema = 'public'
+          AND u.view_name LIKE '%\_public\_browse'
+          AND u.table_schema = 'public'
+     );
+
+  ASSERT v_offenders IS NULL,
+    format('J: a base table feeding a *_public_browse view must not grant base '
+           'SELECT to anon/authenticated — found %s. Public reads go through the '
+           'view; revoke the base grant (or use a column-scoped grant).', v_offenders);
+  RAISE NOTICE 'Scenario J passed: no *_public_browse source table grants base SELECT to anon/authenticated';
+END $$;
+
 DO $$ BEGIN RAISE NOTICE 'ALL browse_views scenarios passed.'; END $$;
