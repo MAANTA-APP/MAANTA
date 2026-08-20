@@ -109,7 +109,7 @@ export function DealActions({
   return (
     <>
       {error && sheet === "none" ? (
-        <p className="mt-4 text-sm font-medium text-ink">{error}</p>
+        <p className="mt-4 text-sm font-medium text-ink" role="alert">{error}</p>
       ) : null}
 
       <div className="mt-5 space-y-3">
@@ -163,10 +163,12 @@ export function DealActions({
         <p className="mt-1 text-sm text-muted">
           {formatKes(boostFee)} / 24h · appears in Neighbourhood favourites
         </p>
-        <span className="mt-3 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">
-          Pay from wallet ({Math.round(balance).toLocaleString("en-KE")})
+        {/* Neutral chip: the sheet's one amber action is Confirm below (R1),
+            and a wallet amount never sits on a brand fill (R3). */}
+        <span className="tnum mt-3 inline-block rounded-full bg-cream px-3 py-1 text-xs font-bold text-ink">
+          Pay from wallet ({formatKes(balance)})
         </span>
-        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink" role="alert">{error}</p> : null}
         <Button
           full
           className="mt-5"
@@ -222,7 +224,7 @@ export function DealActions({
             </button>
           ))}
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink" role="alert">{error}</p> : null}
         <Button
           full
           className="mt-5"
@@ -291,8 +293,8 @@ export function DealActions({
             ) : null}
           </fieldset>
         </div>
-        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
-        {notice ? <p className="mt-3 text-sm font-medium text-ink">{notice}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink" role="alert">{error}</p> : null}
+        {notice ? <p className="mt-3 text-sm font-medium text-ink" role="status">{notice}</p> : null}
         <Button
           full
           className="mt-5"
@@ -318,7 +320,7 @@ export function DealActions({
           The deal comes off the feed and moves to Archived deals (you can repost it later).
           Codes already claimed stay valid until they expire.
         </p>
-        {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm font-medium text-ink" role="alert">{error}</p> : null}
         <Button
           variant="destructive"
           full

@@ -130,7 +130,12 @@ export function NewDealWizard({
     }
   }
 
+  const STEP_ORDER: Step[] = ["type", "details", "price", "schedule", "review"];
+
   function Header({ title: t, back }: { title: string; back: Step | null }) {
+    // Five screens with no position marker read as an endless form — the
+    // step count tells the merchant how far Publish is.
+    const stepNumber = STEP_ORDER.indexOf(step) + 1;
     return (
       <div className="mb-6 flex items-center gap-3">
         {back ? (
@@ -142,7 +147,12 @@ export function NewDealWizard({
             <IconArrowLeft className="h-5 w-5" />
           </Link>
         )}
-        <h1 className="flex-1 text-center text-lg font-bold text-ink">{t}</h1>
+        <div className="flex-1 text-center">
+          <h1 className="text-lg font-bold text-ink">{t}</h1>
+          <p className="text-[11px] font-medium text-faint">
+            Step {stepNumber} of {STEP_ORDER.length}
+          </p>
+        </div>
         <span className="w-7" />
       </div>
     );
@@ -610,7 +620,7 @@ export function NewDealWizard({
             </div>
           ) : null}
           {error ? (
-            <div className="mt-3 rounded-card border border-line bg-white p-3.5">
+            <div className="mt-3 rounded-card border border-line bg-white p-3.5" role="alert">
               <p className="text-sm font-medium text-ink">{error}</p>
               {needsTopUp ? (
                 <ButtonLink href="/merchant/topup" variant="secondary" full className="mt-3">

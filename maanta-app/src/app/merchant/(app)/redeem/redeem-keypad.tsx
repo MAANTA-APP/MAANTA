@@ -355,7 +355,9 @@ export function RedeemKeypad({
           aria-hidden
           className="h-8 w-8 animate-spin rounded-full border-[3px] border-line border-t-ink"
         />
-        <p className="mt-5 text-sm font-semibold text-ink">Confirming…</p>
+        <p className="mt-5 text-sm font-semibold text-ink" role="status">
+          Confirming…
+        </p>
       </main>
     );
   }
@@ -423,7 +425,9 @@ export function RedeemKeypad({
         </div>
 
         {checking ? (
-          <p className="mt-4 text-center text-sm font-semibold text-ink">Checking…</p>
+          <p className="mt-4 text-center text-sm font-semibold text-ink" role="status">
+            Checking…
+          </p>
         ) : null}
 
         <div className="mt-8">

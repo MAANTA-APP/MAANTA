@@ -208,7 +208,11 @@ export function TopupFlow({
         <AmountField value={amount} onChange={setAmount} />
       </div>
 
-      {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+      {error ? (
+        <p className="mt-3 text-sm font-medium text-ink" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <Button
         full
@@ -245,7 +249,10 @@ export function TopupFlow({
             Send STK push
           </Button>
           {stage.kind === "waiting" ? (
-            <div className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted">
+            <div
+              className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-line text-sm font-semibold text-muted"
+              role="status"
+            >
               <span
                 aria-hidden
                 className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink"
