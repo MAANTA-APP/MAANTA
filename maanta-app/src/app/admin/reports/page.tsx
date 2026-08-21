@@ -101,9 +101,17 @@ export default async function AdminReportsPage({
 
       <div className="mt-6 rounded-card border border-line bg-white p-5">
         <p className="text-xs font-semibold text-muted">Redemptions per day — last 14 days</p>
-        <div className="mt-4 flex h-40 items-end gap-1.5">
+        {/* Bar heights carried the values via hover title only — the aria-label
+            is the non-visual reading of the same series. */}
+        <div
+          className="mt-4 flex h-40 items-end gap-1.5"
+          role="img"
+          aria-label={`Redemptions per day, last 14 days: ${days
+            .map((d) => `${d.label}: ${d.count}`)
+            .join(", ")}`}
+        >
           {days.map((d, i) => (
-            <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <div key={i} aria-hidden className="flex flex-1 flex-col items-center gap-1">
               <div
                 className="w-full rounded-t-md bg-brand"
                 style={{ height: `${Math.max(2, (d.count / max) * 100)}%` }}

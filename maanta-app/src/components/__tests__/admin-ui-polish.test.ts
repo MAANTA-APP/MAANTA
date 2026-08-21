@@ -51,6 +51,21 @@ describe("Admin UI polish", () => {
     expect(link).toContain("aria-pressed={selected === m.id}");
   });
 
+  it("founder fee revenue sums in SQL, never in JS (D149)", () => {
+    // PostgREST caps un-paginated reads at 1000 rows, so a JS reduce over
+    // merchant_transactions silently under-reports the money figure. The RPC
+    // exists precisely so no surface ever sums fee rows client-side.
+    const src = read("src/app/founder/page.tsx");
+    expect(src).toContain("admin_success_fee_revenue");
+    expect(src).not.toContain('.select("amount")');
+  });
+
+  it("founder dashboard distinguishes read failure from zeroed metrics", () => {
+    const src = read("src/app/founder/page.tsx");
+    expect(src).toContain("readFailed");
+    expect(src).toContain("LeadsReadError");
+  });
+
   it("agent weekly-target bar guards a zero target", () => {
     // Unguarded, 0/0 divides to Infinity and paints a full bar over
     // "0 / 0 shops".

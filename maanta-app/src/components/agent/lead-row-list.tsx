@@ -38,7 +38,14 @@ export function isLockLive(lead: Pick<LeadRow, "status" | "locked_until">): bool
  * for a co-founder it is the difference between "we have no pipeline" and "we
  * could not ask".
  */
-export function LeadsReadError({ what = "leads" }: { what?: string }) {
+export function LeadsReadError({
+  what = "leads",
+  sub = "This is a read error, not an empty pipeline. Reload the page; if it keeps failing, tell the Maanta team.",
+}: {
+  what?: string;
+  /** Second line — overridable so non-pipeline surfaces (founder KPIs) can reuse this without borrowing pipeline copy. */
+  sub?: string;
+}) {
   return (
     <div role="alert" className="rounded-card border border-line bg-white px-4 py-6">
       {/*
@@ -52,10 +59,7 @@ export function LeadsReadError({ what = "leads" }: { what?: string }) {
         <IconAlert aria-hidden className="h-4 w-4 shrink-0 text-flame" />
         Could not load {what}.
       </p>
-      <p className="mt-1 text-xs text-muted">
-        This is a read error, not an empty pipeline. Reload the page; if it keeps
-        failing, tell the Maanta team.
-      </p>
+      <p className="mt-1 text-xs text-muted">{sub}</p>
     </div>
   );
 }
