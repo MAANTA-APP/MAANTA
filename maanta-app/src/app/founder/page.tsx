@@ -1,5 +1,6 @@
 import { requireFounderPage } from "@/lib/founder";
 import { canAccessAdminConsole } from "@/lib/roles";
+import { LeadsReadError } from "@/components/agent/lead-row-list";
 import { OperationsLinks } from "@/components/founder/operations-links";
 import { createServiceClient } from "@/lib/supabase/service";
 import { HeadingLg, Body, Page, Section } from "@/components/ui/claude";
@@ -20,16 +21,18 @@ export default async function FounderDashboardPage() {
   const now = new Date().toISOString();
 
   const [
-    { count: totalUsers },
-    { count: shoppers },
-    { count: merchants },
-    { count: liveDeals },
-    { count: claims7d },
-    { count: verified7d },
-    { data: fees7d },
-    { count: openTasks },
-    { count: pendingMerchants },
-    { data: dealsByNode },
+    totalUsersRes,
+    shoppersRes,
+    merchantsRes,
+    liveDealsRes,
+    claims7dRes,
+    verified7dRes,
+    // SQL SUM via RPC — same rule as /admin/reports: never pull fee rows into
+    // JS, PostgREST's 1000-row cap silently under-reports the sum (D149).
+    revenue7dRes,
+    openTasksRes,
+    pendingMerchantsRes,
+    dealsByNodeRes,
   ] = await Promise.all([
     service.from("users").select("id", { count: "exact", head: true }),
     service.from("users").select("id", { count: "exact", head: true }).eq("role", "customer"),
@@ -51,11 +54,7 @@ export default async function FounderDashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("status", "success")
       .gte("redeemed_at", since7d),
-    service
-      .from("merchant_transactions")
-      .select("amount")
-      .eq("transaction_type", "success_fee")
-      .gte("created_at", since7d),
+    service.rpc("admin_success_fee_revenue", { p_since: since7d }),
     service
       .from("agent_tasks")
       .select("id", { count: "exact", head: true })
@@ -71,9 +70,47 @@ export default async function FounderDashboardPage() {
       .gt("expires_at", now),
   ]);
 
-  const revenue7d = (fees7d ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
+  // Same rule the agent console follows: a failed read must not render as ten
+  // zeroed KPIs — "Total users: 0 · Fee revenue: KES 0" is a false statement
+  // about the business, not a loading state.
+  const readFailed = [
+    totalUsersRes,
+    shoppersRes,
+    merchantsRes,
+    liveDealsRes,
+    claims7dRes,
+    verified7dRes,
+    revenue7dRes,
+    openTasksRes,
+    pendingMerchantsRes,
+    dealsByNodeRes,
+  ].find((r) => r.error)?.error;
+  if (readFailed) {
+    return (
+      <Page className="min-h-dvh bg-stone px-4 pb-16 pt-8">
+        <HeadingLg>Founder dashboard</HeadingLg>
+        <div className="mt-6">
+          <LeadsReadError
+            what="the dashboard"
+            sub="This is a read error, not zeroed metrics. Reload the page; if it keeps failing, tell the Maanta team."
+          />
+        </div>
+      </Page>
+    );
+  }
+
+  const totalUsers = totalUsersRes.count;
+  const shoppers = shoppersRes.count;
+  const merchants = merchantsRes.count;
+  const liveDeals = liveDealsRes.count;
+  const claims7d = claims7dRes.count;
+  const verified7d = verified7dRes.count;
+  const openTasks = openTasksRes.count;
+  const pendingMerchants = pendingMerchantsRes.count;
+
+  const revenue7d = Number(revenue7dRes.data ?? 0) || 0;
   const nodeCounts = new Map<string, number>();
-  for (const d of dealsByNode ?? []) {
+  for (const d of dealsByNodeRes.data ?? []) {
     nodeCounts.set(d.node, (nodeCounts.get(d.node) ?? 0) + 1);
   }
 
