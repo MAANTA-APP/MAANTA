@@ -1,6 +1,6 @@
 # Claude stack setup for MAANTA
 
-Last updated: 2026-07-30 · Status: **recommendation, not installed state.**
+Last updated: 2026-08-21 · Status: **recommendation, not installed state.**
 
 What to install and how to start a Claude session so it works on this repo at a
 consistent standard. The behavioral rules live in root `CLAUDE.md`; this file is
@@ -25,12 +25,67 @@ Install these first. Each line says what it is actually for **on MAANTA**.
 
 | Skill | What it does for this repo |
 |---|---|
-| **SUPERPOWERS** | Broad capability pack — better search, planning and multi-file work. The baseline for audit-style sessions that have to read across `docs/`, `src/` and `supabase/` before touching anything. |
+| **SUPERPOWERS** | `obra/superpowers` — skills library + enforced dev methodology. Useful **selectively**; its mandatory pipeline conflicts with this repo's own operating system. See the dedicated section below (added 2026-08-21) before installing. |
 | **CAVEMAN** | Forces short, blunt output. MAANTA sessions produce long documents already; this keeps the *chat* terse so the durable artifact carries the detail. |
 | **I-HAVE-ADHD** | Keeps a session on one objective. This repo's failure mode is scope drift mid-session — the role system exists for the same reason. Pair it with one Planner/Builder/Reviewer/Operator mode. |
 | **UI-UX-PRO-MAX** | The workhorse for shopper/merchant/admin surface work. Use it *with* the frozen UI rules in `CLAUDE.md` — where they disagree, the frozen rules win, because they are enforced in CI by `frozen-ui-rules.test.ts`. |
 | **TASTE-SKILL** | Judgment on spacing, hierarchy, type and restraint. This is what keeps surfaces off the generic-AI-gradient default and at the premium/calm bar. |
 | **IMPECCABLE** *(later)* | High-rigor review pass. Add it once Node 0 surfaces are stable and the work shifts from building to hardening — running it now would mostly re-report already-tracked drift rows. |
+
+## Running Superpowers on this repo (added 2026-08-21)
+
+Source: `obra/superpowers` (public GitHub, v6.3.0 at time of writing; installs
+as a Claude Code plugin). It is two things at once: a library of individually
+good skills (test-driven-development, systematic-debugging,
+verification-before-completion, writing-plans / executing-plans,
+subagent-driven-development, brainstorming, using-git-worktrees, code-review
+skills) **and** an enforced methodology — its own words: "mandatory workflows,
+not suggestions" — that sequences every task through brainstorm → worktree →
+plan → subagent execution → TDD → review → branch finish.
+
+**The verdict: useful, but adopt the skills, not the pipeline.** MAANTA already
+has a mandatory process — the CLAUDE.md execution format, the one-mode-per-
+session role system, the drift register, the durable-artifact rule. Running a
+second mandatory pipeline alongside it is the same failure CLAUDE.md warns
+about in code: a second place to enforce a rule is a second place to drift.
+Where the two disagree, **CLAUDE.md wins**, always.
+
+What earns its place here:
+
+- **systematic-debugging** — 4-phase root-cause discipline. Directly supports
+  "verify first" and is the right tool for prod-incident and drift-hunt
+  sessions.
+- **verification-before-completion** — the same rule as "never claim green you
+  didn't see", enforced from the skill side. Pure alignment.
+- **test-driven-development** — matches how this repo already guards behavior
+  (SQL assertion suites in `supabase/tests/`, ratchet tests like
+  `frozen-ui-rules.test.ts` and `drift-register.test.ts`). Good default for
+  money-path and guard work.
+- **writing-plans / executing-plans** — fine inside a Planner session; the plan
+  artifact doubles as the session's durable artifact.
+
+What to treat with care:
+
+- **brainstorming** (Socratic design refinement) — never point it at a frozen
+  business rule or anything founder-held. MAANTA's rule is the opposite of
+  brainstorming: if the answer isn't in the decisions log / tracker / register /
+  a migration, it is an *open question to surface*, not a design space to
+  explore. Safe for genuinely open technical shape questions only.
+- **subagent-driven-development** — fan-out is for audit/read sessions. Build
+  sessions here want small, high-confidence diffs from one pair of hands.
+
+What has low value here:
+
+- **using-git-worktrees / finishing-a-development-branch** — remote sessions
+  already work on a designated branch with a prescribed push flow, and
+  migrations are applied by a human regardless. Parallel worktrees solve a
+  problem this repo's workflow doesn't have.
+
+Install as a per-machine plugin, same as everything else in this file — it is
+not a repo dependency and nothing in CI depends on it. If its skill-check
+preamble tries to route a MAANTA task into its full pipeline, the session
+bootstrap prompt below still governs: one mode, one objective, smallest safe
+diff, CLAUDE.md precedence.
 
 ## Running UI-UX-PRO-MAX on this repo (added 2026-08-20)
 
