@@ -57,7 +57,7 @@ export function ReverseFeeAction({
   return (
     <div className="mt-6">
       {error && !open ? (
-        <p className="mb-3 text-sm font-medium text-ink">{error}</p>
+        <p className="mb-3 text-sm font-medium text-ink" role="alert">{error}</p>
       ) : null}
 
       <Button size="md" onClick={() => setOpen(true)}>
@@ -93,7 +93,7 @@ export function ReverseFeeAction({
         </div>
 
         {error ? (
-          <p className="mt-3 text-sm font-medium text-ink">{error}</p>
+          <p className="mt-3 text-sm font-medium text-ink" role="alert">{error}</p>
         ) : null}
 
         <Button

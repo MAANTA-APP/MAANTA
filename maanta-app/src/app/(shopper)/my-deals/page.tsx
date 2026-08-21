@@ -90,6 +90,7 @@ export default async function MyDealsPage({
           {rows.length === 0 ? (
             <EmptyState
               title="No saved shops yet"
+              sub="Tap the heart on a deal to save its shop here."
               actionLabel="Browse deals"
               actionHref="/feed"
             />
@@ -168,8 +169,15 @@ export default async function MyDealsPage({
 
       <Section className="mt-5">
         {shown.length === 0 ? (
+          // Past-tab copy must not claim the shopper has never claimed — they
+          // may hold active tickets on the other segment.
           <EmptyState
-            title="No claimed deals yet"
+            title={when === "past" ? "No past deals" : "No claimed deals yet"}
+            sub={
+              when === "past"
+                ? "Redeemed and expired deals will show here."
+                : undefined
+            }
             actionLabel="Browse deals"
             actionHref="/feed"
           />

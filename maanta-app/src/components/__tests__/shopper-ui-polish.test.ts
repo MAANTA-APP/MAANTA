@@ -23,6 +23,7 @@ import {
   SegmentedLinks,
 } from "@/components/ui/claude";
 import { LanguageCard, ProfileCard } from "@/app/(shopper)/profile/profile-card";
+import { FavouriteButton } from "@/components/favourite-button";
 import { BrowseClient } from "@/components/browse/browse-client";
 import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 import type { DealRow } from "@/lib/data";
@@ -49,6 +50,18 @@ describe("Shopper UI polish", () => {
     expect(html).toContain("Shops");
     expect(html).toContain('aria-selected="true"');
     expect(html).toContain('href="/my-deals?tab=shops"');
+  });
+
+  it("FavouriteButton extends its tap target and exposes toggle state", () => {
+    const html = renderToStaticMarkup(
+      createElement(FavouriteButton, { merchantId: "m1", initial: false })
+    );
+    // The card overlays shrink the visible heart below 44px; the invisible
+    // ::after inset is what keeps the touch target at spec. Removing it
+    // regresses every deal card's heart to a ~32px target.
+    expect(html).toContain("after:-inset-1.5");
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain("Save shop");
   });
 
   it("ProfileCard exposes Edit profile affordance", () => {

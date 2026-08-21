@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/ui";
 import { COUNTRY_OPTIONS } from "@/lib/country-codes";
 import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
@@ -48,12 +48,30 @@ export function PhoneField({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
   const filtered = COUNTRY_OPTIONS.filter(
     (c) => c.name.toLowerCase().includes(q) || c.dialCode.includes(q)
   );
+  // The list previously closed only on selection — trapped open for anyone who
+  // tapped the code by mistake. Same dismissal contract as FilterDropdown.
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   return (
-    <div>
+    <div ref={rootRef}>
       {label ? (
         <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
       ) : null}
@@ -402,6 +420,9 @@ export function Toggle({
       type="button"
       role="switch"
       aria-checked={checked}
+      // The visible label is a sibling, not a <label> — without this the
+      // switch announces as an unnamed control.
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
         "relative h-7 w-12 shrink-0 rounded-full transition-colors",

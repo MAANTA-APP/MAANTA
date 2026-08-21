@@ -52,7 +52,7 @@ export function ReleaseActions({ redemptionId }: { redemptionId: string }) {
           Reject
         </Button>
       </div>
-      {note ? <p className="text-xs text-ink">{note}</p> : null}
+      {note ? <p className="text-xs text-ink" role="alert">{note}</p> : null}
     </div>
   );
 }

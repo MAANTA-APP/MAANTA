@@ -9,6 +9,9 @@ import { DealCardSkeleton, Skeleton } from "@/components/ui/states";
 export default function ShopperLoading() {
   return (
     <main className="px-4 pt-5">
+      <p className="sr-only" role="status">
+        Loading deals
+      </p>
       <Skeleton className="h-7 w-40" />
       <div className="mt-6 space-y-4">
         <DealCardSkeleton />

@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/ui/states";
 export default function AgentLoading() {
   return (
     <main className="mx-auto min-h-dvh max-w-mobile border-x border-line bg-white px-5 pt-6">
+      <p className="sr-only" role="status">
+        Loading
+      </p>
       <Skeleton className="h-7 w-40" />
       <Skeleton className="mt-4 h-20 w-full" />
       <Skeleton className="mt-6 h-5 w-28" />

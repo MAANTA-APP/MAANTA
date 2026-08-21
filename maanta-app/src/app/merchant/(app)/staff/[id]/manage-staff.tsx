@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BottomSheet } from "@/components/ui/overlays";
 import { Toggle } from "@/components/ui/inputs";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { maskPhone } from "@/lib/ui";
@@ -25,6 +26,7 @@ export function ManageStaff({
   const [perms, setPerms] = useState<Perms>(initial);
   const [busy, setBusy] = useState<"save" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   async function save() {
     setBusy("save");
@@ -51,6 +53,7 @@ export function ManageStaff({
     setBusy(null);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
+      setConfirmRemove(false);
       setError(body.error ?? "Could not remove.");
       return;
     }
@@ -98,7 +101,11 @@ export function ManageStaff({
         />
       </div>
       <p className="mt-3 text-xs text-faint">The owner always keeps full access.</p>
-      {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+      {error ? (
+        <p className="mt-3 text-sm font-medium text-ink" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="mt-auto space-y-3 pt-8">
         <Button full onClick={save} loading={busy === "save"}>
@@ -107,12 +114,38 @@ export function ManageStaff({
         <Button
           variant="destructive-outline"
           full
-          onClick={remove}
-          loading={busy === "remove"}
+          onClick={() => setConfirmRemove(true)}
         >
           Remove staff member
         </Button>
       </div>
+
+      {/* One tap used to fire the DELETE directly — removal now confirms first,
+          matching the archive-deal pattern. */}
+      <BottomSheet open={confirmRemove} onClose={() => setConfirmRemove(false)}>
+        <h2 className="text-lg font-bold text-ink">Remove {name}?</h2>
+        <p className="mt-2 text-sm text-muted">
+          They lose access to this shop immediately, including verifying codes at
+          the counter. You can add them again later.
+        </p>
+        <Button
+          variant="destructive"
+          full
+          className="mt-5"
+          loading={busy === "remove"}
+          onClick={remove}
+        >
+          Remove staff member
+        </Button>
+        <Button
+          variant="ghost"
+          full
+          className="mt-3"
+          onClick={() => setConfirmRemove(false)}
+        >
+          Cancel
+        </Button>
+      </BottomSheet>
     </main>
   );
 }
