@@ -124,7 +124,15 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
 
       <div className="w-full rounded-card border border-line bg-white p-5 shadow-card sm:p-6">
         {stage === "email" ? (
-          <div className="space-y-4">
+          // A real <form> so Enter in the single field submits — without it the
+          // keyboard path dead-ends on a visible Send button.
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!busy) void sendCode();
+            }}
+          >
             <label className="block text-sm font-medium text-ink">
               Email address
               <input
@@ -137,12 +145,18 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
               />
             </label>
             {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-            <Button full onClick={sendCode} loading={busy} disabled={!email.trim()}>
+            <Button type="submit" full loading={busy} disabled={!email.trim()}>
               Send code
             </Button>
-          </div>
+          </form>
         ) : (
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!busy) void verifyCode();
+            }}
+          >
             <p className="text-center text-sm text-muted">
               Enter the 6-digit code we sent to{" "}
               <strong className="text-ink">{email}</strong>. Prefer the code
@@ -161,15 +175,11 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
               />
             </label>
             {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-            <Button
-              full
-              onClick={verifyCode}
-              loading={busy}
-              disabled={code.trim().length < 6}
-            >
+            <Button type="submit" full loading={busy} disabled={code.trim().length < 6}>
               Verify &amp; continue
             </Button>
             <Button
+              type="button"
               variant="ghost"
               full
               onClick={() => {
@@ -181,7 +191,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
             >
               Use a different email
             </Button>
-          </div>
+          </form>
         )}
       </div>
     </div>
