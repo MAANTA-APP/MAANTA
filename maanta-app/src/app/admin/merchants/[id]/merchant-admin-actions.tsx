@@ -94,7 +94,7 @@ export function MerchantAdminActions({
 
   return (
     <div className="mt-6">
-      {error ? <p className="mb-3 text-sm font-medium text-ink">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm font-medium text-ink" role="alert">{error}</p> : null}
       {notice ? (
         <InlineAlert variant="warning" className="mb-3" title={notice} />
       ) : null}
@@ -188,7 +188,7 @@ export function MerchantAdminActions({
             Confirming will activate on Standard. The trial box is a request, not a guarantee once the first 100 slots are gone.
           </InlineAlert>
         ) : null}
-        {error ? <p className="mt-2 text-sm font-medium text-ink">{error}</p> : null}
+        {error ? <p className="mt-2 text-sm font-medium text-ink" role="alert">{error}</p> : null}
         <Button full className="mt-4" onClick={approve} loading={busy === "approve"}>
           Confirm approval
         </Button>

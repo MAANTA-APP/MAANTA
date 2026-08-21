@@ -37,7 +37,7 @@ export function PlanActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {error ? <span className="text-xs text-ink">{error}</span> : null}
+      {error ? <span className="text-xs text-ink" role="alert">{error}</span> : null}
       {onTrial ? (
         <>
           <Button size="sm" variant="ghost" loading={busy === "mark-paid"} onClick={() => act("mark-paid")}>
