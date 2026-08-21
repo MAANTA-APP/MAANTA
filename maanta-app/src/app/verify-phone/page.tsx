@@ -176,7 +176,15 @@ function ClerkVerifyPhoneInner() {
       </p>
 
       {stage === "enter" ? (
-        <div className="mt-8 space-y-4">
+        // A real <form> so Enter in the phone field submits (same contract as
+        // the Supabase email form).
+        <form
+          className="mt-8 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!busy) void sendCode();
+          }}
+        >
           <PhoneField
             label="Phone number"
             countryCode={cc}
@@ -185,18 +193,26 @@ function ClerkVerifyPhoneInner() {
             onChange={setPhone}
           />
           {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-          <Button full onClick={sendCode} loading={busy} disabled={!phone.trim()}>
+          <Button type="submit" full loading={busy} disabled={!phone.trim()}>
             Send code
           </Button>
-        </div>
+        </form>
       ) : stage === "code" ? (
-        <div className="mt-8 space-y-4">
-          <label className="block text-center text-xs font-medium text-muted">
+        <form
+          className="mt-8 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!busy) void verify();
+          }}
+        >
+          {/* A <p>, not a bare <label>: OtpInput names itself via ariaLabel and
+              an unassociated label element is dead weight to assistive tech. */}
+          <p className="block text-center text-xs font-medium text-muted">
             Enter the 6-digit code
-          </label>
+          </p>
           <OtpInput value={code} onChange={setCode} autoFocus ariaLabel="6-digit code" />
           {error ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-          <Button full onClick={verify} loading={busy} disabled={code.trim().length !== 6}>
+          <Button type="submit" full loading={busy} disabled={code.trim().length !== 6}>
             Verify &amp; continue
           </Button>
           <button
@@ -208,6 +224,7 @@ function ClerkVerifyPhoneInner() {
             {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
           </button>
           <Button
+            type="button"
             variant="ghost"
             full
             onClick={() => {
@@ -220,7 +237,7 @@ function ClerkVerifyPhoneInner() {
           >
             Use a different number
           </Button>
-        </div>
+        </form>
       ) : (
         <div className="mt-10 flex flex-col items-center gap-3 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-verified/10">
