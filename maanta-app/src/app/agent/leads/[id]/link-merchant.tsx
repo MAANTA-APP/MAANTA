@@ -63,6 +63,9 @@ export function LinkMerchant({
                 key={m.id}
                 type="button"
                 onClick={() => setSelected(m.id)}
+                // The selection dot is aria-hidden — without this, which shop
+                // is picked is visual-only.
+                aria-pressed={selected === m.id}
                 className={
                   "flex w-full items-center justify-between rounded-card border px-4 py-3 text-left " +
                   (selected === m.id
@@ -82,7 +85,11 @@ export function LinkMerchant({
             ))}
           </div>
 
-          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+          {error ? (
+            <p className="mt-3 text-sm font-medium text-ink" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <Button
             full

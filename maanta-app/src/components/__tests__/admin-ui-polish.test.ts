@@ -39,4 +39,22 @@ describe("Admin UI polish", () => {
     const src = read("src/app/admin/customers/page.tsx");
     expect(src).toMatch(/overflow-x-auto[^\n]*\n\s*<table/);
   });
+
+  it("agent lead actions announce errors and expose selection state", () => {
+    const form = read("src/app/agent/leads/new/new-lead-form.tsx");
+    expect(form).toContain('role="alert"');
+
+    const link = read("src/app/agent/leads/[id]/link-merchant.tsx");
+    expect(link).toContain('role="alert"');
+    // The candidate picker's selection dot is aria-hidden — aria-pressed is
+    // what makes the chosen shop perceivable at all without vision.
+    expect(link).toContain("aria-pressed={selected === m.id}");
+  });
+
+  it("agent weekly-target bar guards a zero target", () => {
+    // Unguarded, 0/0 divides to Infinity and paints a full bar over
+    // "0 / 0 shops".
+    const src = read("src/app/agent/page.tsx");
+    expect(src).toContain("agent.weekly_target > 0");
+  });
 });

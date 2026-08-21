@@ -109,7 +109,15 @@ export default async function AgentDashboardPage() {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream">
           <div
             className="h-full bg-brand"
-            style={{ width: `${Math.min(100, (done / agent.weekly_target) * 100)}%` }}
+            // A zero target would divide to Infinity and paint a full bar over
+            // "0 / 0 shops" — an unset target shows an empty bar instead.
+            style={{
+              width: `${
+                agent.weekly_target > 0
+                  ? Math.min(100, (done / agent.weekly_target) * 100)
+                  : 0
+              }%`,
+            }}
           />
         </div>
       </div>
