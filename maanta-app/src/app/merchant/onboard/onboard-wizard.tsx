@@ -156,7 +156,20 @@ export function OnboardWizard({
     }
   }
 
+  // Which numbered step (of STEPS) each screen belongs to — "location" and
+  // "floor" are both halves of step 2, "Location & floor".
+  const STEP_NUMBER: Partial<Record<Step, number>> = {
+    business: 1,
+    location: 2,
+    floor: 2,
+    wallet: 3,
+    review: 4,
+  };
+
   function Header({ title, back }: { title: string; back: Step | null }) {
+    // The intro promises "4 steps to go live"; the step headers now say where
+    // in those 4 the merchant is, same as the new-deal wizard.
+    const stepNumber = STEP_NUMBER[step];
     return (
       <div className="mb-6 flex items-center gap-3">
         {back ? (
@@ -164,7 +177,14 @@ export function OnboardWizard({
             <IconArrowLeft className="h-5 w-5" />
           </button>
         ) : null}
-        <h1 className="flex-1 text-center text-lg font-bold text-ink">{title}</h1>
+        <div className="flex-1 text-center">
+          <h1 className="text-lg font-bold text-ink">{title}</h1>
+          {stepNumber ? (
+            <p className="text-[11px] font-medium text-faint">
+              Step {stepNumber} of {STEPS.length}
+            </p>
+          ) : null}
+        </div>
         {back ? <span className="w-7" /> : null}
       </div>
     );
@@ -210,6 +230,8 @@ export function OnboardWizard({
             />
             <TextField
               label="Shop WhatsApp"
+              type="tel"
+              inputMode="tel"
               value={shopWhatsapp}
               onChange={(e) => setShopWhatsapp(e.target.value)}
               placeholder="+254 7XX XXX XXX"
@@ -249,19 +271,24 @@ export function OnboardWizard({
       {step === "location" ? (
         <>
           <Header title="Location" back="business" />
-          <label className="mb-1.5 block text-xs font-medium text-muted">
-            what3words address <span className="font-semibold text-ink">*required</span>
+          {/* The label wraps the input — as siblings it never reached the
+              field, leaving the wizard's one required free-text input unnamed
+              to assistive tech. */}
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted">
+              what3words address <span className="font-semibold text-ink">*required</span>
+            </span>
+            <input
+              value={w3w}
+              onChange={(e) => {
+                setW3w(e.target.value);
+                setResolved(null);
+              }}
+              placeholder="///stove.cactus.rally"
+              className={cn(inputClass, "font-mono")}
+              autoFocus
+            />
           </label>
-          <input
-            value={w3w}
-            onChange={(e) => {
-              setW3w(e.target.value);
-              setResolved(null);
-            }}
-            placeholder="///stove.cactus.rally"
-            className={cn(inputClass, "font-mono")}
-            autoFocus
-          />
           {!resolved ? (
             <>
               <Button
@@ -293,7 +320,11 @@ export function OnboardWizard({
               </span>
             </div>
           )}
-          {error ? <p className="mt-3 text-sm font-medium text-ink">{error}</p> : null}
+          {error ? (
+            <p className="mt-3 text-sm font-medium text-ink" role="alert">
+              {error}
+            </p>
+          ) : null}
           <div className="mt-auto pt-8">
             <Button full disabled={!resolved} onClick={() => setStep("floor")}>
               Continue
@@ -449,7 +480,11 @@ export function OnboardWizard({
               ) : null}
             </div>
           ) : null}
-          {error ? <p className="mt-4 text-sm font-medium text-ink">{error}</p> : null}
+          {error ? (
+            <p className="mt-4 text-sm font-medium text-ink" role="alert">
+              {error}
+            </p>
+          ) : null}
           <div className="mt-auto pt-8">
             <Button
               full

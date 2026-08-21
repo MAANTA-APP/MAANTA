@@ -44,4 +44,30 @@ describe("Merchant UI polish", () => {
     const src = read("src/app/merchant/(app)/deals/new/new-deal-wizard.tsx");
     expect(src).toContain("Step {stepNumber} of {STEP_ORDER.length}");
   });
+
+  it("onboard wizard shows step progress and announces errors", () => {
+    const src = read("src/app/merchant/onboard/onboard-wizard.tsx");
+    expect(src).toContain("Step {stepNumber} of {STEPS.length}");
+    expect(src).toContain('role="alert"');
+  });
+
+  it("onboard wizard's what3words input keeps its label attached", () => {
+    // The label must wrap the input (or reference it) — as a bare sibling the
+    // wizard's one required free-text field is unnamed to assistive tech.
+    const src = read("src/app/merchant/onboard/onboard-wizard.tsx");
+    const labelBlock = src.slice(
+      src.indexOf("what3words address"),
+      src.indexOf("Validate address")
+    );
+    expect(labelBlock).toContain("</label>");
+    expect(labelBlock.indexOf("<input")).toBeLessThan(labelBlock.indexOf("</label>"));
+  });
+
+  it("onboard wizard keeps the rendered agent-attribution step (G1)", () => {
+    // frames.json: the attribution question is a RENDERED STEP, not only a
+    // stored property. Polishing must never design it away.
+    const src = read("src/app/merchant/onboard/onboard-wizard.tsx");
+    expect(src).toContain("Were you helped by a Maanta agent?");
+    expect(src).toContain("attributionAnswered");
+  });
 });
