@@ -148,6 +148,59 @@ Read `frames.json` first so polish lands on `live`/`gated` surfaces, not
 green), `npm run build` (token/canonical/form gates) — same gates as any UI
 diff.
 
+## Combining the two: the UI optimization loop (added 2026-08-21)
+
+UI-UX-PRO-MAX and the vendored superpowers skills are complementary halves
+of one loop. **PRO-MAX proposes the *what*** — it is a knowledge base that
+surfaces candidate improvements. **The `.claude/skills/` set enforces the
+*how*** — plan, test-first, verify, so the improvement lands without
+breaking an enforced rule. Neither outranks the frozen rules; those filter
+everything in both directions.
+
+Run it as two sessions per surface family (the role system's
+one-mode-one-objective rule):
+
+**Session A — Planner: find and filter.**
+
+1. Read `frames.json`; scope to `live`/`gated` surfaces only. Skim the
+   drift register so known gaps aren't re-proposed as new findings.
+2. Query PRO-MAX with the per-surface recipes above (app surfaces: `ux` and
+   `chart` domains; marketing routes may also use `product`/`landing` as
+   inspiration). Collect candidate findings.
+3. Filter each finding through three gates, in order:
+   - **Frozen UI rules** (`frozen-ui-rules.test.ts` list) — a colliding
+     finding dies here, whatever PRO-MAX says.
+   - **CLAUDE.md do-nots and the quality bar** — calm, honest states, closed
+     vocabulary; no gradients/motion/emoji-on-money.
+   - **Layer check** — anything touching money, access or claims is not a
+     UI finding; it routes to the money-trust guardrails doc and the RPC
+     layer, or becomes a founder question.
+4. Write the survivors into a plan with the `implementation-plans` skill →
+   `docs/plans/YYYY-MM-DD-<surface>-polish.md`. Each task cites the PRO-MAX
+   guideline it implements and the frozen rules it must not touch; each is
+   TDD-shaped with real code and real commands. The plan is the session's
+   durable artifact.
+
+**Session B — Builder: land and verify.**
+
+5. Execute the plan with `test-driven-development`: failing test first
+   (a new enforced rule gets a new guard test beside the existing ratchets),
+   then minimal implementation through `src/components/ui/claude/`
+   primitives and `tailwind.config.ts` tokens only.
+6. Anything breaks — a guard test, a build gate, an unexpected render —
+   switch to `systematic-debugging` before touching more code.
+7. Close with `verification-before-completion`: `npm run lint`,
+   `npm run typecheck`, `npm test` (frozen-ui-rules green), `npm run build`
+   (token/canonical/form gates). Pre-delivery, run PRO-MAX's own checklist
+   queries (`"focus not obscured"`, `"contrast dark mode"`) as a last sweep.
+8. Standard session close: check off the plan, record any drift found,
+   update the tracker if a gate moved.
+
+The division of authority, in one line: **PRO-MAX suggests, the frozen
+rules veto, the vendored skills prove.** A finding that survives step 3 and
+ships through steps 5–7 is an optimization; anything that skips either half
+is either taste (unproven) or risk (unfiltered).
+
 ## Nice to have
 
 | Skill | When it earns its place |
