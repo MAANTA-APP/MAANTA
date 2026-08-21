@@ -81,11 +81,20 @@ What has low value here:
   migrations are applied by a human regardless. Parallel worktrees solve a
   problem this repo's workflow doesn't have.
 
-Install as a per-machine plugin, same as everything else in this file — it is
-not a repo dependency and nothing in CI depends on it. If its skill-check
-preamble tries to route a MAANTA task into its full pipeline, the session
-bootstrap prompt below still governs: one mode, one objective, smallest safe
-diff, CLAUDE.md precedence.
+**Status 2026-08-21: the aligned bits are vendored in-repo.** The four
+adopt-list skills now live as MAANTA-adapted project skills under
+`.claude/skills/` — `systematic-debugging`, `verification-before-completion`,
+`test-driven-development`, and `implementation-plans` (writing-plans +
+executing-plans merged, pipeline handoffs removed) — so every Claude Code
+session on this repo loads them with no plugin install. Each is rewritten
+around this repo's real gates (`npm run lint|typecheck|test|build`,
+`make db-verify`), the drift register, and CLAUDE.md precedence; attribution
+and the MIT license text are in `.claude/skills/LICENSE-superpowers.md`.
+Installing the full plugin per-machine remains optional for the rest of its
+library — it is not a repo dependency and nothing in CI depends on it. If
+its skill-check preamble tries to route a MAANTA task into its full
+pipeline, the session bootstrap prompt below still governs: one mode, one
+objective, smallest safe diff, CLAUDE.md precedence.
 
 ## Running UI-UX-PRO-MAX on this repo (added 2026-08-20)
 
