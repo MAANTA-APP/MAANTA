@@ -93,7 +93,9 @@ export function DealCard({
         ) : null}
         <Link href={href} className="block">
           <div className="relative h-44 bg-stone-soft">
-            <CoverImage src={imageUrl} alt={title} />
+            {/* alt="" — the same title renders as the h3 below, inside the
+                same link; naming the image too would announce it twice. */}
+            <CoverImage src={imageUrl} alt="" />
             <div className="absolute left-3 top-3 flex gap-1.5">
               <RailBadge tag={tag ?? null} />
             </div>
@@ -142,7 +144,7 @@ export function DealCard({
     return (
       <article
         className={cn(
-          "relative flex items-center gap-3 rounded-card bg-white p-3 shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
+          "relative flex items-start gap-3 rounded-card bg-white p-3 shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
           className
         )}
       >
@@ -151,8 +153,13 @@ export function DealCard({
             <CoverImage src={imageUrl} alt="" />
           </div>
           <div className="min-w-0 flex-1">
+            {tag === "flash" || tag === "boosted" ? (
+              <div className="mb-1">
+                <RailBadge tag={tag} />
+              </div>
+            ) : null}
             <Meta as="p" className="truncate">
-              {[merchantName, distanceLabel ?? mallName].filter(Boolean).join(" · ")}
+              {[merchantName, mallName, distanceLabel].filter(Boolean).join(" · ")}
             </Meta>
             <HeadingSm as="h3" className="mt-0.5 truncate">
               {title}
@@ -168,16 +175,25 @@ export function DealCard({
               </p>
             ) : null}
             {pay != null && extras != null && extras > 0 ? (
-              <p className="tnum text-[11px] text-secondary">{extrasLine(extras)}</p>
+              <p className="tnum truncate text-[11px] text-secondary">{extrasLine(extras)}</p>
+            ) : null}
+            {/* The countdown must stay inside the link (it is part of the
+                link's accessible name) and inside the min-w-0 column — a long
+                label ("Grace period: N minutes left") in a shrink-0 side
+                column would starve the title at 360px. The static expiryLabel
+                is unused on rows: the chip is the live form of the same fact. */}
+            {expiresAt ? (
+              <div className="mt-1.5">
+                <CountdownChip expiresAt={expiresAt} />
+              </div>
             ) : null}
           </div>
         </Link>
-        <div className="flex shrink-0 flex-col items-end justify-between gap-1.5 self-stretch py-0.5">
-          {showFavourite ? (
-            <FavouriteButton merchantId={merchantId} initial={isFavourite} className="p-1.5" />
-          ) : null}
-          {expiresAt ? <CountdownChip expiresAt={expiresAt} /> : null}
-        </div>
+        {showFavourite ? (
+          <div className="shrink-0">
+            <FavouriteButton merchantId={merchantId} initial={isFavourite} />
+          </div>
+        ) : null}
       </article>
     );
   }
