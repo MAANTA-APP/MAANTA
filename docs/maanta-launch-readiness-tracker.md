@@ -52,6 +52,15 @@ to `maanta-decisions-log.md`, not this file.
 > record and the guard work (a 30-minute tripwire; prevention remains a
 > dashboard/RBAC task).
 
+> **Node 0 field validation (2026-08-22):** the pilot sequence — field
+> activation → Merchant 01 → Staff 01 → first physical attribution → 5 → 20
+> redemptions → merchant repost → controlled expansion — is
+> [`docs/maanta-node0-field-validation-timeline.md`](maanta-node0-field-validation-timeline.md).
+> It closes **E2/E3/E4** by running them with real people rather than asserting
+> them. Read its "before Week 1" section first: it names the opening-credit
+> wall at 10 redemptions, the demo-mode claim hazard, and the one Clerk
+> dashboard fact the plan's email premise rests on.
+
 > **Staged readiness (now / launch / 10k / 100k):** see
 > [`docs/maanta-staged-readiness-now-launch-10k-100k.md`](maanta-staged-readiness-now-launch-10k-100k.md)
 > for CTO/ops checklists and scale matrices. This tracker remains the gate
