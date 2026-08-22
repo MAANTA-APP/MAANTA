@@ -158,23 +158,28 @@ export function ClaimFlow({
             {error}
           </InlineAlert>
         ) : null}
-        <div className="flex items-center justify-between gap-4">
+        {/* Money never breaks mid-figure (`whitespace-nowrap`), so when the
+            price and the action cannot share a line the ROW wraps and the
+            button drops to its own line. Without the wrap the nowrap figure
+            would overflow its column and paint over the amber fill — the
+            shape of drift D148. Nothing is clipped and nothing overlaps at
+            any width or text-zoom level. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           {pay != null ? (
             <div className="min-w-0">
               <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
                 You pay
               </div>
-              {/* Wraps rather than squeezing: a five-figure price plus a
-                  was-price must never push the action off a 360px screen, and
-                  a money figure must never break mid-number. The was-price
-                  drops to its own line before anything else gives. */}
               <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="tnum whitespace-nowrap text-xl font-bold leading-tight text-ink">
+                <span className="tnum whitespace-nowrap text-2xl font-bold leading-tight text-ink">
                   KES {pay.toLocaleString("en-KE")}
                 </span>
                 {was != null ? (
-                  <span className="tnum whitespace-nowrap text-xs font-normal text-secondary line-through">
-                    KES {was.toLocaleString("en-KE")}
+                  /* "Was …", as the body and the ticket say it — the same
+                     screen must not word the same fact two ways depending on
+                     whether the deal happens to be claimable. */
+                  <span className="tnum whitespace-nowrap text-sm font-normal text-secondary line-through">
+                    Was KES {was.toLocaleString("en-KE")}
                   </span>
                 ) : null}
               </div>

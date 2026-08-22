@@ -216,11 +216,11 @@ export default async function TicketPage({
               one baseline — matching the decision bar on deal detail. The
               figure itself is unchanged (frozen rule 7: identical on tile,
               detail and claimed code), and it stays outside the code card. */}
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+            <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
               You pay
             </span>
-            <span className="tnum text-2xl font-bold text-ink">
+            <span className="tnum whitespace-nowrap text-2xl font-bold text-ink">
               KES {pay.toLocaleString("en-KE")}
             </span>
           </div>

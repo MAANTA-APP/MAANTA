@@ -150,7 +150,7 @@ export default async function DealDetailPage({
           ) : null}
         </section>
 
-        {pay != null ? (
+        {pay != null && (!claimable || extras > 0) ? (
           <div className="mt-5">
             {/* Direction A: on a claimable deal the figure lives in the
                 anchored decision bar beside the action, so it is not repeated
