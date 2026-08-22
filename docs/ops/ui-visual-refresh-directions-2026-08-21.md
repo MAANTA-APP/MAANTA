@@ -61,7 +61,24 @@ Slices:
    the credential below the fold on a small phone is a real risk at the
    counter, and the code-as-hero is the S5 design. Only the price treatment
    was taken from the board.
-4. Marketing landing Direction A slice — pending (own accent budget).
+4. **Marketing site — shipped 2026-08-22**: Direction A applied through the
+   shared primitives (`components/marketing/sections.tsx`, `SiteHeader`,
+   `HeroShot`), so all 17 marketing pages move together — stone ground instead
+   of the paper/white alternation, borderless white cards on `shadow-card`,
+   editorial hero and section type, a larger borderless phone mockup. The
+   accent budget is unchanged (header CTA, hero CTA, merchant-band rule + CTA,
+   waitlist submit), verified by a computed-style audit of the rendered page:
+   exactly those four amber elements and nothing else. Every marketing guard
+   still passes — copy, held claims, demo-mode honesty, scenario wrapper,
+   a11y/metadata, and the three post-build gates.
+
+   The `direction-a-cards` ratchet **dropped its marketing exemption** in the
+   same change, so the borderless rule now walks the whole site.
+
+   Verified by rendering, not only by assertion: the production build was
+   served and screenshotted at 1280 and 390 — no horizontal overflow at either
+   width, hero H1 60px/700 desktop and 36px/700 mobile, hero section on
+   `#F4F2ED`, trust and step cards white with shadow and no border.
 
 Related drift closed while recreating surfaces: **D150** (Home docblock's
 amber enumeration undercounted the shipped page — comment-only fix).

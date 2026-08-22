@@ -90,7 +90,7 @@ function FeedPanel() {
       {[JOURNEY, SAMPLE_DEALS[1]].map((d) => (
         <div
           key={d.shop}
-          className="mb-2 flex gap-2.5 rounded-card border border-line bg-white p-2 shadow-card"
+          className="mb-2 flex gap-2.5 rounded-card bg-white p-2 shadow-card"
         >
           <div className="h-11 w-11 shrink-0 rounded-lg bg-cream-dark" />
           <div className="min-w-0 flex-1">

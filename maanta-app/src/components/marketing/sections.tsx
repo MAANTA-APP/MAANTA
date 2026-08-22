@@ -29,9 +29,13 @@ export function Section({
   className?: string;
   tone?: "white" | "paper" | "ink";
 }) {
+  // Direction A (decisions log 2026-08-22): the marketing ground is the same
+  // stone wash the app uses, so the site and the product read as one surface.
+  // `paper` keeps its name — it is the alternating tone, not a literal colour —
+  // so no call site changes.
   const tones = {
     white: "bg-white",
-    paper: "bg-paper",
+    paper: "bg-stone",
     ink: "bg-ink text-white",
   } as const;
   return (
@@ -64,7 +68,7 @@ export function SectionHeading({
         </p>
       ) : null}
       <h2
-        className={`mt-2 text-2xl font-black leading-tight sm:text-3xl ${
+        className={`mt-2 text-3xl font-bold leading-[1.15] tracking-[-0.025em] sm:text-4xl ${
           tone === "light" ? "text-white" : "text-ink"
         }`}
       >
@@ -169,11 +173,10 @@ export function AudienceHero({
   media?: React.ReactNode;
 }) {
   return (
-    // The wash is the one place broad colour is allowed, because it is not the
-    // accent: paper fading to white lifts the hero off the header without
-    // spending #FDBF2D on decoration. Top-down, so the CTA sits on clean white
-    // and keeps its contrast.
-    <section className="border-b border-line bg-gradient-to-b from-paper via-white to-white">
+    // Direction A: the hero shares the stone ground with the header instead of
+    // fading to white, so the page reads as one surface and the white cards
+    // below are what lift off it. Still no #FDBF2D spent on decoration.
+    <section className="bg-stone">
       <div className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
         <div
           className={
@@ -184,7 +187,7 @@ export function AudienceHero({
         >
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-muted">{eyebrow}</p>
-            <h1 className="mt-3 max-w-4xl text-3xl font-black leading-[1.1] text-ink sm:text-5xl">
+            <h1 className="mt-3 max-w-4xl text-4xl font-bold leading-[1.05] tracking-[-0.03em] text-ink sm:text-6xl">
               {title}
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
@@ -233,16 +236,13 @@ export function TrustBar({
   items: ReadonlyArray<{ title: React.ReactNode; body: React.ReactNode }>;
 }) {
   return (
-    <section className="border-b border-line bg-white">
-      <div className="mx-auto max-w-5xl px-5 py-6 sm:py-8">
-        <dl className="grid animate-fade-in-up gap-5 sm:grid-cols-3 sm:gap-8">
+    <section className="bg-stone">
+      <div className="mx-auto max-w-5xl px-5 pb-10 sm:pb-14">
+        <dl className="grid animate-fade-in-up gap-4 sm:grid-cols-3 sm:gap-5">
           {items.map((item, i) => (
-            <div
-              key={i}
-              className="sm:border-l sm:border-line sm:pl-5 sm:first:border-l-0 sm:first:pl-0"
-            >
-              <dt className="text-sm font-black text-ink">{item.title}</dt>
-              <dd className="mt-1 text-[13px] leading-relaxed text-secondary">{item.body}</dd>
+            <div key={i} className="rounded-card bg-white p-5 shadow-card">
+              <dt className="text-base font-bold tracking-[-0.01em] text-ink">{item.title}</dt>
+              <dd className="mt-1.5 text-[13px] leading-relaxed text-secondary">{item.body}</dd>
             </div>
           ))}
         </dl>
@@ -285,16 +285,16 @@ export function StepRail({
       {steps.map((s, i) => (
         <li
           key={s.title}
-          className="rounded-card border border-line bg-white p-5 transition hover:border-ink/20 hover:shadow-card"
+          className="rounded-card bg-white p-6 shadow-card transition hover:shadow-md"
         >
           <span
             aria-hidden="true"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-paper text-sm font-black text-ink"
+            className="block text-4xl font-bold leading-none tracking-[-0.03em] text-muted"
           >
             {i + 1}
           </span>
-          <h3 className="mt-3 text-base font-bold text-ink">{s.title}</h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-secondary">{s.body}</p>
+          <h3 className="mt-3.5 text-lg font-bold tracking-[-0.01em] text-ink">{s.title}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-secondary">{s.body}</p>
         </li>
       ))}
     </ol>

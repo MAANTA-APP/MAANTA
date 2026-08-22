@@ -199,7 +199,7 @@ export default function LandingPage() {
               event={MARKETING_EVENTS.audienceDoor}
               name={d.title}
               location="doors"
-              className="group flex flex-col rounded-card border border-line bg-white p-6 transition hover:-translate-y-0.5 hover:border-ink hover:shadow-card"
+              className="group flex flex-col rounded-card bg-white p-7 shadow-card transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <h3 className="text-lg font-black text-ink">{d.title}</h3>
               <p className="mt-2 flex-1 text-sm leading-relaxed text-secondary">{d.body}</p>
@@ -255,7 +255,7 @@ export default function LandingPage() {
 
       {/* Merchant conversion band — the third and last use of the accent. */}
       <Section id="merchant-band" tone="paper">
-        <div className="rounded-card border-l-4 border-brand bg-white p-6 sm:p-8">
+        <div className="rounded-card border-l-4 border-brand bg-white p-7 shadow-card sm:p-9">
           <h2 className="text-2xl font-black text-ink sm:text-3xl">Run a shop at BBS Mall?</h2>
           <div className="mt-4 max-w-3xl space-y-3 text-base leading-relaxed text-secondary">
             <p>

@@ -109,7 +109,7 @@ export default function PricingPage() {
 
         <div className="mt-10 grid items-start gap-5 lg:grid-cols-2">
           {/* Standard */}
-          <div className="rounded-card border border-line bg-white p-6 shadow-card sm:p-7">
+          <div className="rounded-card bg-white p-6 shadow-card sm:p-7">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Standard</h2>
             <p className="mt-4 text-3xl font-black leading-none text-ink">No monthly fee</p>
             {/*

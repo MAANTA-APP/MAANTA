@@ -36,7 +36,7 @@ export function LandingEarlyAccess() {
   return (
     <form
       onSubmit={submit}
-      className="rounded-card border border-line bg-white p-4 shadow-card"
+      className="rounded-card bg-white p-4 shadow-card"
     >
       {/* The section above offers shopper, merchant, or mall operator — so the
           form has to be able to say which. Segment is a required, separate
