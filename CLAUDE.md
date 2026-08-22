@@ -459,6 +459,18 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   production behaviour first. Production mutation requires explicit founder
   authorization.
 
+**Field status while D152 is open (founder ruling 2026-08-22, late evening):**
+
+- **Field prospecting: GO.** The operator may walk BBS, map prospects,
+  introduce MAANTA and identify Merchant 01.
+- **Live merchant onboarding / staff seat / redemption: HOLD** until D152
+  closes — nothing auth-dependent starts before sign-in is re-verified.
+- **D151 SMS testing resumes** once phone auth is re-enabled on the production
+  Clerk instance. A phone-delivery failure is D151 evidence, not a reason to
+  stop the shopper test if email works.
+- **Email fallback is a valid shopper claim path** once production email
+  sign-up/sign-in is verified end to end.
+
 When a field issue is reported:
 
 1. Preserve the field evidence (screenshots, timestamps, IDs, operator notes).
