@@ -41,7 +41,7 @@ import { SAMPLE_DEALS } from "@/lib/marketing/sample-deals";
 
 export function HeroShot() {
   return (
-    <div className="relative mx-auto w-full max-w-[300px]">
+    <div className="relative mx-auto w-full max-w-[340px]">
       {/*
         aria-hidden with a single visually-hidden description beside it: the
         mockup is dozens of decorative nodes, and letting a screen reader walk
@@ -55,10 +55,10 @@ export function HeroShot() {
 
       <div
         aria-hidden="true"
-        className="overflow-hidden rounded-[2rem] border border-line bg-stone shadow-modal"
+        className="overflow-hidden rounded-[2rem] bg-white shadow-modal"
       >
         {/* Device chrome — the shopper top bar, simplified. */}
-        <div className="flex items-center justify-between border-b border-line/80 bg-stone/90 px-4 py-3">
+        <div className="flex items-center justify-between bg-white px-4 pb-2 pt-4">
           <span className="inline-flex items-center gap-1.5 rounded-pill bg-white px-2.5 py-1 text-[11px] font-semibold text-ink">
             <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
             {FACTS.launchMall.split(",")[0]}
@@ -70,7 +70,7 @@ export function HeroShot() {
           {SAMPLE_DEALS.map((d) => (
             <div
               key={d.shop}
-              className="flex gap-3 rounded-card border border-line bg-white p-2.5 shadow-card"
+              className="flex gap-3 rounded-card bg-white p-2.5 shadow-card"
             >
               {/* Image placeholder. A drawn mockup should not pretend to
                   photography it does not have. */}

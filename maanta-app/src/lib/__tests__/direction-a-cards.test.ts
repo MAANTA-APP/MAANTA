@@ -10,10 +10,10 @@ import { stripComments } from "./helpers/comment-stripping";
  * `rounded-card border border-line bg-white` must not return on shopper,
  * merchant, admin, agent, founder or auth surfaces.
  *
+ * Marketing came into scope on 2026-08-22 with slice 4, so this now walks the
+ * whole site — app surfaces and marketing alike.
+ *
  * Deliberately out of scope, and why:
- * - `(marketing)` routes and `components/marketing` — the marketing site is a
- *   separate Direction A slice with its own accent budget; it flips in its own
- *   change, not silently through this guard.
  * - `ui/claude/controls.tsx` — the one allowed border-line + rounded-card use
  *   is the FilterDropdown popover: a floating layer over white content needs
  *   an edge, unlike a card resting on the stone wash.
@@ -25,12 +25,10 @@ const SRC = path.resolve(__dirname, "../..");
 const BANNED = "rounded-card border border-line bg-white";
 
 const isExempt = (file: string): boolean =>
-  file.includes(`${path.sep}(marketing)${path.sep}`) ||
-  file.includes(`${path.sep}marketing${path.sep}`) ||
   file.endsWith(path.join("ui", "claude", "controls.tsx"));
 
 describe("Direction A — borderless shadow cards", () => {
-  it("no app surface reintroduces the bordered card idiom", () => {
+  it("no surface reintroduces the bordered card idiom", () => {
     const offenders = walk(SRC, [".tsx"])
       .filter((f) => !isExempt(f))
       .filter((f) => stripComments(readFileSync(f, "utf8")).includes(BANNED))

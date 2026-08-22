@@ -332,7 +332,7 @@ export default function MerchantsPage() {
           Plans
         </SectionHeading>
         <div className="mt-10 grid gap-6 sm:grid-cols-2">
-          <div className="rounded-card border border-line bg-white p-6">
+          <div className="rounded-card bg-white shadow-card p-6">
             <h3 className="text-lg font-bold text-ink">Standard</h3>
             <p className="mt-1 text-2xl font-black text-ink">No monthly fee</p>
             <ul className="mt-4 space-y-2 text-sm text-secondary">

@@ -39,7 +39,7 @@ export function DownloadInstallPanel() {
           Add Maanta to my phone
         </PrimaryButton>
       ) : (
-        <div className="rounded-card border border-line bg-white p-5 text-left shadow-card">
+        <div className="rounded-card bg-white p-5 text-left shadow-card">
           <Body className="font-semibold text-ink">Add to your home screen</Body>
           <ul className="mt-3 space-y-3 text-sm text-muted">
             <li>

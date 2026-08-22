@@ -64,7 +64,7 @@ export default function ContactPage() {
         <div className="py-14 sm:py-16">
           <SectionHeading>Ways to reach us</SectionHeading>
           <div className="mt-8 grid gap-5 sm:grid-cols-3">
-            <div className="rounded-card border border-line bg-white p-5">
+            <div className="rounded-card bg-white shadow-card p-5">
               <h3 className="text-base font-bold text-ink">WhatsApp</h3>
               <a
                 href={ENTITY.whatsappLink}
@@ -79,7 +79,7 @@ export default function ContactPage() {
               </p>
             </div>
 
-            <div className="rounded-card border border-line bg-white p-5">
+            <div className="rounded-card bg-white shadow-card p-5">
               <h3 className="text-base font-bold text-ink">The desk at BBS Mall</h3>
               <p className="mt-1 text-sm font-semibold text-ink">
                 {ENTITY.address}, {ENTITY.city}
@@ -90,7 +90,7 @@ export default function ContactPage() {
               </p>
             </div>
 
-            <div className="rounded-card border border-line bg-white p-5">
+            <div className="rounded-card bg-white shadow-card p-5">
               <h3 className="text-base font-bold text-ink">Email</h3>
               <a
                 href={`mailto:${ENTITY.email}`}

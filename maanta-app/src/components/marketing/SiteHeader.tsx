@@ -69,7 +69,7 @@ export function SiteHeader() {
 
   return (
     <header
-      className={`sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur transition-shadow ${
+      className={`sticky top-0 z-30 bg-stone/95 backdrop-blur transition-shadow ${
         scrolled ? "shadow-card" : ""
       }`}
     >
@@ -130,7 +130,7 @@ export function SiteHeader() {
         largest audience, and the shopper audience is almost entirely mobile.
       */}
       {open ? (
-        <div id="marketing-mobile-nav" className="border-t border-line bg-white lg:hidden">
+        <div id="marketing-mobile-nav" className="border-t border-line bg-stone lg:hidden">
           <nav aria-label="Primary (mobile)" className="mx-auto max-w-6xl px-5 py-4">
             <Link
               href={HEADER_CTA.href}

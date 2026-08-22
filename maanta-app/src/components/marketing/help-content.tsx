@@ -43,7 +43,7 @@ export function HelpFaqs() {
       {FAQS.map((f) => (
         <details
           key={f.q}
-          className="rounded-card border border-line bg-white px-4 py-3.5 shadow-card"
+          className="rounded-card bg-white px-4 py-3.5 shadow-card"
         >
           <summary className="cursor-pointer text-sm font-semibold text-ink">{f.q}</summary>
           <p className="mt-2 text-sm text-muted">{f.a}</p>

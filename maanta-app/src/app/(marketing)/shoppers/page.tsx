@@ -156,7 +156,7 @@ export default function ShoppersPage() {
           You can filter by <em>Expiring soon</em>, <em>Flash</em>, <em>Live now</em> or{" "}
           <em>Today</em>, and sort by what is nearest.
         </p>
-        <p className="mt-6 max-w-3xl rounded-card border border-line bg-white p-5 text-base leading-relaxed text-ink">
+        <p className="mt-6 max-w-3xl rounded-card bg-white shadow-card p-5 text-base leading-relaxed text-ink">
           Nothing here is ranked by stars or reviews. A deal moves up because people claimed
           it and actually redeemed it at the counter. You are seeing what other shoppers
           walked in for, not what someone rated five stars.
