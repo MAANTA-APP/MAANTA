@@ -42,10 +42,25 @@ workflow as the polish passes; the frozen rules are not up for change.
 
 Slices:
 
-1. **App-wide borderless-shadow card flip — shipped 2026-08-22** (guard:
-   `maanta-app/src/lib/__tests__/direction-a-cards.test.ts`).
-2. Shopper feed: image-forward lead deal — pending.
-3. Deal detail / tickets: price anchored beside the action — pending.
+1. **App-wide borderless-shadow card flip — shipped 2026-08-22**, PR #245
+   (guard: `maanta-app/src/lib/__tests__/direction-a-cards.test.ts`).
+2. **Shopper feed hierarchy — shipped 2026-08-22**, PR #246: the first flash
+   deal renders as the image-forward `lead` card, the standard list as compact
+   `row` cards (guard:
+   `maanta-app/src/components/__tests__/deal-card-direction-a.test.ts`). Rail
+   names, orders and membership untouched — the lead **is** position 1.
+3. **Anchored decision bar — in review 2026-08-22**: on deal detail the YOU PAY
+   figure moves into the sticky bar beside "Claim deal" (and the standalone
+   body figure renders only when the deal cannot be claimed, so a paused or
+   fully-claimed deal still shows its price); on the claimed ticket the figure
+   is anchored label-left / figure-right. The itemised breakdown stays
+   detail-only and no price enters the code card (frozen rules 6 and 7). Guard:
+   `maanta-app/src/components/__tests__/direction-a-decision-bar.test.ts`.
+   **Deliberate divergence from the A ticket board:** the board puts the deal
+   card above the code card; the shipped ticket keeps the code first. Moving
+   the credential below the fold on a small phone is a real risk at the
+   counter, and the code-as-hero is the S5 design. Only the price treatment
+   was taken from the board.
 4. Marketing landing Direction A slice — pending (own accent budget).
 
 Related drift closed while recreating surfaces: **D150** (Home docblock's

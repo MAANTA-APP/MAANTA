@@ -150,21 +150,30 @@ export default async function DealDetailPage({
           ) : null}
         </section>
 
-        {pay != null ? (
+        {pay != null && (!claimable || extras > 0) ? (
           <div className="mt-5">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-              You pay
-            </div>
-            <div className="tnum text-2xl font-bold text-ink">
-              KES {pay.toLocaleString("en-KE")}
-            </div>
-            {extras > 0 ? (
-              <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(extras)}</div>
-            ) : null}
-            {was != null ? (
-              <div className="tnum text-sm text-secondary line-through">
-                Was KES {was.toLocaleString("en-KE")}
-              </div>
+            {/* Direction A: on a claimable deal the figure lives in the
+                anchored decision bar beside the action, so it is not repeated
+                here. When the deal cannot be claimed there is no bar, and the
+                shopper still has to be able to see what it costs. The itemised
+                breakdown below is detail-only either way (frozen rule 7). */}
+            {!claimable ? (
+              <>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                  You pay
+                </div>
+                <div className="tnum text-2xl font-bold text-ink">
+                  KES {pay.toLocaleString("en-KE")}
+                </div>
+                {extras > 0 ? (
+                  <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(extras)}</div>
+                ) : null}
+                {was != null ? (
+                  <div className="tnum text-sm text-secondary line-through">
+                    Was KES {was.toLocaleString("en-KE")}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {extras > 0 && deal.price_kes != null ? (
@@ -216,6 +225,8 @@ export default async function DealDetailPage({
           w3w={m.what3words_address}
           node={m.mall_name ?? deal.node}
           signedIn={!!user}
+          pay={pay}
+          was={was}
         />
       ) : existingTicketId ? (
         <StickyCtaBar>

@@ -51,7 +51,12 @@ describe("cash-only guardrail — no in-app shopper payment UI", () => {
   }
 
   it("shopper deal detail frames money as 'You pay' (cash), not a charge", () => {
+    // Both halves of the screen: the body figure (shown when the deal cannot
+    // be claimed) and the anchored decision bar (the default, claimable view).
+    // Reading only the page would leave the surface most shoppers see
+    // uncovered — Direction A slice 3 moved the figure into the bar.
     expect(read("src/app/(shopper)/deals/[id]/page.tsx")).toMatch(/You pay/);
+    expect(read("src/app/(shopper)/deals/[id]/claim-flow.tsx")).toMatch(/You pay/);
   });
 
   it("merchant success takeover states the cash is collected in person, not in-app", () => {
