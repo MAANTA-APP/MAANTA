@@ -115,6 +115,8 @@ relationship goes to the **founder, same day**.
 open — `docs/maanta-launch-readiness-tracker.md` records it as not started, and
 `docs/maanta-launch-ops-runbook.md` says the owner is still to be assigned. The
 target is a first response within **2 business hours** during mall opening
-hours; the person is a founder decision. Until it is assigned, ask before you
-hand out any contact, and write the answer you were given onto every welcome
-pack you leave.
+hours; the person is a founder decision.
+
+**Founder direction 2026-08-22: "good for now".** The pilot runs without the
+gate closed. Ask before you hand out any contact, write the answer you were
+given onto every welcome pack you leave — and do not hold up a visit over it.

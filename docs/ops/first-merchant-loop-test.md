@@ -166,7 +166,10 @@ One row per merchant, wherever the node keeps its day sheet:
 
 ## What this document does not decide
 
-- **Who owns merchant support** (gate O2) — founder's call, still open.
+- **Who owns merchant support** (gate O2) — founder's call, still open. Founder
+  direction 2026-08-22: **"good for now"** — the pilot is not blocked on it.
+  Use the contact the founder gives you, write it on the pack, and do not treat
+  the open gate as a reason to postpone a visit.
 - Whether the pilot proceeds past this merchant — the readiness tracker is the
   gate status, not this file.
 - Anything about fees, the credit, the grace period or the dispute SLA: those
