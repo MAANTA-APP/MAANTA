@@ -48,10 +48,19 @@ Guard: `maanta-app/src/components/__tests__/deal-kpis.test.ts` — arithmetic,
 rounding, every omission case, the colour ban, the variant count, and that the
 thin card cannot return to `/search`.
 
-## Open product question, not decided here
+## `0 verified` — asked and answered
 
-At pilot start **every** shop has zero verified redemptions, so every card will
-read `0 verified` — honest, but possibly discouraging at exactly the moment the
-pilot needs first claims. This change keeps the pre-existing behaviour rather
-than silently altering it. Whether a new shop should read something else is a
-founder call.
+At pilot start **every** shop has zero verified redemptions, so every card reads
+`0 verified`. That was raised as possibly discouraging at exactly the moment the
+pilot needs its first claims.
+
+**Founder ruling 2026-08-22: it stays, for honesty and trust.** A shopper is not
+told that a shop has a track record it has not earned yet, and the number
+becomes meaningful precisely because it was never inflated. This is the same
+principle the ranking rests on — a deal rises because someone actually walked in
+— so hiding a zero would undercut the thing that makes the count worth showing
+at all.
+
+Do not "fix" this by hiding the zero, substituting a `New` badge, or omitting
+the KPI for new shops. Any of those is a reversal of a ruling and needs a new
+decisions-log entry.

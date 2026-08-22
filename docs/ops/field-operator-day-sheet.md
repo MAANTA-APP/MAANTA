@@ -109,6 +109,41 @@ relationship goes to the **founder, same day**.
 
 ---
 
+## Standing task — the SMS test (drift D151)
+
+Assigned to the field operator, founder direction 2026-08-22. It is a one-off
+measurement, not daily work, but it belongs to whoever holds real phones in the
+test cities.
+
+**Why it matters.** Claiming now accepts a verified **email** as well as a
+verified phone, because Clerk SMS was not reaching Norwegian, Kenyan or UK
+numbers. That widening was made "for now". The suspicion is that the cause is
+not the countries at all: production is measured running the Clerk
+**development** instance, and a development instance is where Clerk restricts
+SMS. Three countries failing at once looks like one account limitation.
+
+**Before you can run it:** the test must point at a Clerk **production**
+instance. That is a founder/eng step. If it has not happened, do not run the
+test — you would re-measure the same development-instance failure and learn
+nothing. Ask first.
+
+**The test.** With a production instance in place, from a real handset in each
+country:
+
+- [ ] Norwegian number (+47) — request an SMS code at sign-in. Arrived? Y / N, how long?
+- [ ] UK number (+44) — same.
+- [ ] Kenyan number (+254) — same.
+
+Record the instance used, the date and time, and the result for each. Send it to
+the founder the same day.
+
+**What the answer means.** If SMS works on a production instance, the widened
+claim gate should be re-examined rather than left to become permanent by
+default. If it fails there too, the widening stands on its own merits and D151
+closes as confirmed.
+
+---
+
 ## Open question this sheet cannot answer
 
 **Who owns merchant support during onboarding week?** Readiness gate **O2** is
