@@ -212,18 +212,28 @@ export default async function TicketPage({
 
       {pay != null ? (
         <div className="mt-4 w-full border-t border-line pt-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-            You pay
+          {/* Direction A: the price is anchored — label left, figure right on
+              one baseline — matching the decision bar on deal detail. The
+              figure itself is unchanged (frozen rule 7: identical on tile,
+              detail and claimed code), and it stays outside the code card. */}
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+              You pay
+            </span>
+            <span className="tnum text-2xl font-bold text-ink">
+              KES {pay.toLocaleString("en-KE")}
+            </span>
           </div>
-          <div className="tnum text-2xl font-bold text-ink">
-            KES {pay.toLocaleString("en-KE")}
-          </div>
-          {priced.extras > 0 ? (
-            <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(priced.extras)}</div>
-          ) : null}
-          {priced.was != null ? (
-            <div className="tnum text-sm text-secondary line-through">
-              Was KES {priced.was.toLocaleString("en-KE")}
+          {priced.extras > 0 || priced.was != null ? (
+            <div className="mt-1 text-right">
+              {priced.extras > 0 ? (
+                <div className="tnum text-sm text-secondary">{extrasLine(priced.extras)}</div>
+              ) : null}
+              {priced.was != null ? (
+                <div className="tnum text-sm text-secondary line-through">
+                  Was KES {priced.was.toLocaleString("en-KE")}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -25,6 +25,8 @@ export function ClaimFlow({
   w3w,
   node,
   signedIn,
+  pay,
+  was,
 }: {
   dealId: string;
   dealTitle: string;
@@ -32,6 +34,12 @@ export function ClaimFlow({
   w3w: string;
   node: string;
   signedIn: boolean;
+  /** YOU PAY for the decision bar — the same lib/pricing figure the page
+   *  shows above (frozen rule 7: identical on tile, detail and claimed code).
+   *  The itemised breakdown stays detail-body-only; the bar carries only the
+   *  figure. */
+  pay?: number | null;
+  was?: number | null;
 }) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -150,18 +158,42 @@ export function ClaimFlow({
             {error}
           </InlineAlert>
         ) : null}
-        <Button
-          full
-          onClick={() => {
-            if (!signedIn) {
-              router.push(`/login?next=/deals/${dealId}`);
-              return;
-            }
-            setSheetOpen(true);
-          }}
-        >
-          Claim deal
-        </Button>
+        <div className="flex items-center justify-between gap-4">
+          {pay != null ? (
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+                You pay
+              </div>
+              {/* Wraps rather than squeezing: a five-figure price plus a
+                  was-price must never push the action off a 360px screen, and
+                  a money figure must never break mid-number. The was-price
+                  drops to its own line before anything else gives. */}
+              <div className="flex flex-wrap items-baseline gap-x-1.5">
+                <span className="tnum whitespace-nowrap text-xl font-bold leading-tight text-ink">
+                  KES {pay.toLocaleString("en-KE")}
+                </span>
+                {was != null ? (
+                  <span className="tnum whitespace-nowrap text-xs font-normal text-secondary line-through">
+                    KES {was.toLocaleString("en-KE")}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          <Button
+            full={pay == null}
+            className={pay != null ? "shrink-0" : undefined}
+            onClick={() => {
+              if (!signedIn) {
+                router.push(`/login?next=/deals/${dealId}`);
+                return;
+              }
+              setSheetOpen(true);
+            }}
+          >
+            Claim deal
+          </Button>
+        </div>
       </StickyCtaBar>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
