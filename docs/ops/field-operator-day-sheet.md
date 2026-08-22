@@ -117,18 +117,19 @@ test cities.
 
 **Why it matters.** Claiming now accepts a verified **email** as well as a
 verified phone, because Clerk SMS was not reaching Norwegian, Kenyan or UK
-numbers. That widening was made "for now". The suspicion is that the cause is
-not the countries at all: production is measured running the Clerk
-**development** instance, and a development instance is where Clerk restricts
-SMS. Three countries failing at once looks like one account limitation.
+numbers. That widening was made "for now", and this test decides whether it
+becomes permanent.
 
-**Before you can run it:** the test must point at a Clerk **production**
-instance. That is a founder/eng step. If it has not happened, do not run the
-test — you would re-measure the same development-instance failure and learn
-nothing. Ask first.
+**You can run this now — nothing is blocking it.** An earlier version of this
+sheet told you to wait for a Clerk "production instance" to be set up first.
+That was wrong: production has been running the production instance since
+2026-08-16. Ignore that instruction; it has been withdrawn.
 
-**The test.** With a production instance in place, from a real handset in each
-country:
+It also means the codes that failed already failed on the real production
+setup — so this is a genuine delivery problem, not a setup oversight. Your
+measurement is what tells the founder which countries it affects.
+
+**The test.** From a real handset in each country:
 
 - [ ] Norwegian number (+47) — request an SMS code at sign-in. Arrived? Y / N, how long?
 - [ ] UK number (+44) — same.
@@ -137,10 +138,15 @@ country:
 Record the instance used, the date and time, and the result for each. Send it to
 the founder the same day.
 
-**What the answer means.** If SMS works on a production instance, the widened
-claim gate should be re-examined rather than left to become permanent by
-default. If it fails there too, the widening stands on its own merits and D151
-closes as confirmed.
+**What the answer means.** If the codes arrive, the widened claim gate should be
+re-examined rather than left to become permanent by default. If they do not, the
+widening stands on its own merits and D151 closes as confirmed. **+254 is the
+result that matters commercially** — a code arriving in Oslo or London proves
+nothing about Kenyan delivery.
+
+Your result on its own cannot tell the founder whether the cause is the carrier
+or a setting in Clerk that restricts which countries it will text. Report what
+you observed; the founder pairs it with a check of that setting.
 
 ---
 
