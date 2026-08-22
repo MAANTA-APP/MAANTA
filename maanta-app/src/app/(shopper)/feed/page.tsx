@@ -173,14 +173,25 @@ export default async function FeedPage({
               }
               padded={false}
             >
-              <RailScroller>
-                {flashDeals.map((d) => (
-                  <DealCard
-                    key={d.id}
-                    {...cardProps(d, { origin, favourites, tag: "flash" })}
-                  />
-                ))}
-              </RailScroller>
+              {/* Direction A: the first flash deal is the one image-forward
+                  lead; the rest of the rail continues beneath it. Order is
+                  unchanged — the lead IS position 1 (locked-feed-order). */}
+              <div className="px-4">
+                <DealCard
+                  variant="lead"
+                  {...cardProps(flashDeals[0], { origin, favourites, tag: "flash" })}
+                />
+              </div>
+              {flashDeals.length > 1 ? (
+                <RailScroller className="mt-3">
+                  {flashDeals.slice(1).map((d) => (
+                    <DealCard
+                      key={d.id}
+                      {...cardProps(d, { origin, favourites, tag: "flash" })}
+                    />
+                  ))}
+                </RailScroller>
+              ) : null}
             </Section>
           ) : null}
 
@@ -216,11 +227,14 @@ export default async function FeedPage({
                 </Link>
               }
             >
+              {/* Direction A: one hero up top, everything else recedes — the
+                  standard list draws as compact rows instead of stacked
+                  image cards. Same deals, same order, same name. */}
               <div className="space-y-rail">
                 {nearDeals.map((d) => (
                   <DealCard
                     key={d.id}
-                    variant="vertical"
+                    variant="row"
                     {...cardProps(d, { origin, favourites, tag: "standard" })}
                   />
                 ))}
