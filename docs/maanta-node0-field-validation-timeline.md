@@ -1,7 +1,8 @@
 # MAANTA — Node 0 field validation timeline
 
-**Founder plan, 2026-08-22.** Supersedes nothing in the decisions log — this is
-operational sequencing, not a behaviour change. The
+**Founder plan, 2026-08-22**, with the founder's same-day revisions folded in
+(SMS test moved to Week 1; the opening-credit ruling in finding 2). Operational
+sequencing — it changes no shipped behaviour and no frozen rule. The
 [launch readiness tracker](maanta-launch-readiness-tracker.md) remains the gate
 status source of truth; this doc is the order the pilot runs in.
 
@@ -19,7 +20,17 @@ Nairobi Field Operator → BBS Mall → Merchant 01 → Staff 01 → Deal 01
   → verification → success → 5 → 10 → 20 → merchant reposts
 ```
 
-Running in parallel: **D151** — prove +254 SMS.
+**Week 1 runs the SMS test first, not last** (founder revision, 2026-08-22 —
+D151 turned out to be unblocked, see finding 1):
+
+```
+SMS test now → if +254 fails, inspect the Clerk SMS country /
+allowlist / sender config → continue with email as a valid fallback
+either way → Merchant 01
+```
+
+Email is a working claim route regardless of how the SMS test lands, so nothing
+downstream waits on it.
 
 | Period | Objective | Evidence |
 |---|---|---|
@@ -28,7 +39,7 @@ Running in parallel: **D151** — prove +254 SMS.
 | Week 2 | Staff 01 | Real staff verification access |
 | Week 2 | First attribution | First real success |
 | Weeks 2–3 | Initial repeatability | 5 successes |
-| Weeks 1–3 | D151 parallel | +254 / +47 / +44 OTP evidence |
+| **Week 1** | D151 SMS test (unblocked — run it first) | +254 / +47 / +44 OTP evidence |
 | Weeks 3–4 | Full controlled test | 10–20 successes |
 | Weeks 4–6 | Merchant value | Merchant repost / repeat intent |
 | Weeks 6–8 | Controlled expansion | 5–10 active merchants |
@@ -110,23 +121,30 @@ is 🔴 blocked on API access; Stripe is sandbox-only by frozen rule). The plan
 hits this wall in **weeks 3–4** and does not reach billing readiness until
 **weeks 6–10**.
 
-**One option has a deadline.** The credit is granted **at activation** and is not
-retroactive, so raising `node0_opening_credit_kes` only helps if it is changed
-**before Merchant 01 activates** — i.e. in Week 1. After that, the only route is
-a manual ledger credit.
+**Founder ruling 2026-08-22 — keep KES 300 for Merchant 01. Do not raise it
+before activation. The 10-redemption wall is part of the experiment.**
 
-Founder decision, four options, none of them mine to take:
+The wall is treated as a measurement, not an obstacle. The question it answers:
 
-1. Raise the opening credit before Merchant 01 activates (Week 1 deadline).
-2. Manually credit the pilot merchant's wallet when it empties (admin action).
-3. Accept the wall and treat *"how do I top up?"* as itself the Phase 7 signal —
-   a merchant asking to pay is stronger evidence than a merchant reposting on
-   free credit.
-4. Cap the pilot at 10 redemptions per merchant and widen to a second merchant
-   instead of deepening on the first.
+> After 10 verified redemptions, does the merchant ask how to continue or top up?
 
-Option 3 is worth weighing seriously rather than dismissing: it converts a
-blocker into the exact commercial signal Phase 10 exists to test.
+A merchant who asks is stronger evidence of willingness to pay than a merchant
+who reposts indefinitely on free credit. A merchant who does not ask is also a
+result. Either way it is read as commercial signal, and Phase 7's "repost"
+criterion should be interpreted against it — a blocked repost is not a failed
+Phase 7 if the merchant asked how to unblock it.
+
+This supersedes the other three options that were on the table (raise the credit
+before activation; manually credit the wallet on empty; cap the pilot at 10 and
+widen to a second merchant). The first of those carried a Week 1 deadline — the
+credit is granted **at activation** and is not retroactive, so
+`node0_opening_credit_kes` could only have been raised before Merchant 01
+activates. That deadline is now moot: no config change is being made, and after
+activation the only route would be a manual ledger credit.
+
+What this ruling does **not** decide: what happens once the answer is in. If
+Merchant 01 asks to top up, there is still no live rail (**E6**), and that is a
+separate decision at the time.
 
 ### 3. Demo mode is ON, and `claim_deal` has no demo guard
 
@@ -161,8 +179,10 @@ The build gates are green and #252 is merged into `main`. The tracker's **GATE**
 items are a different list, and several are open:
 
 - **E2 / E3 / E4** (shopper, merchant, admin journeys smoke-tested) — 🟡 in
-  progress. These are precisely what this pilot closes; the plan is their
-  evidence, so run it knowing it is closing them.
+  progress, and they stay that way until the field closes them. **These are
+  field-closure gates: no amount of CI turns them green.** They close on real
+  people completing the journeys — which is exactly what Phases 2–6 do — so this
+  pilot is their evidence. Treat a green build as saying nothing about them.
 - **E6** M-Pesa STK — 🔴 blocked on IntaSend access. Feeds finding 2 above.
 - **O2** merchant onboarding support owner — open. Founder direction 2026-08-22
   is *"good for now"* for the pilot: accepted, **not closed**, and a named owner
@@ -181,7 +201,7 @@ under the belief that the launch gates are behind it.
 
 | # | Decision | Deadline | Why it cannot wait |
 |---|---|---|---|
-| 1 | How Merchant 01's wallet is handled past 10 redemptions (four options above) | **Before Merchant 01 activates**, if the answer is "raise the credit" | The credit is granted at activation and is not retroactive |
+| ~~1~~ | ~~How Merchant 01's wallet is handled past 10 redemptions~~ | — | **Ruled 2026-08-22: keep KES 300, treat the wall as the experiment.** See finding 2 |
 | 2 | Confirm email sign-up + verification is enabled on the production Clerk instance | Before Phase 4 | The plan's unblocking premise rests on it |
 | 3 | Whether demo mode stays on during the pilot | Before Phase 4 | Decides whether the direct-link workaround is a workaround or the protocol |
 | 4 | O2's named support owner | Before launch, not before the pilot | Founder already accepted current state for the pilot |
