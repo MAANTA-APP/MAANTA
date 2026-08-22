@@ -86,6 +86,29 @@ What was deliberately **not** done: signing the three addresses up afresh via
 through `ensureAppUser`, re-creating the duplicate-email groups that D108 /
 D142 spent a week removing.
 
+## 3a. E2E re-run under the email-primary ruling — admin proven, merchant/shopper still unmatched
+
+Run the same night, after the sixth decisions-log entry (email is primary;
+phone stays off). Instance at the time of the run: `phone_number.enabled=false`,
+`password.required=true`, email first factors `email_code` + `email_link`.
+
+| Step | Result |
+|---|---|
+| Admin sign-in, `admin@maanta.app` | **PASS.** Account found; the password prompt offers "Use another method" → "Email code to admin@maanta.app"; code delivered and accepted; landed on `/admin` Operations (212 active merchants, 255 live deals, 0 pending approvals). |
+| Admin identity read-back | **PASS — no duplicate.** `public.users` still holds exactly the same four rows for the three emails; the session resolved to `d8c1aa1e…` / `user_3H1aBdhhqgLzMgXUsVYDqGYWlg7`, no new row. The required password did **not** block sign-in — email code is selectable as an alternative — but it is still a second auth model on the instance and the ruling says it comes off. |
+| Merchant sign-in, `aragagency@gmail.com` | **BLOCKED** — "Couldn't find your account." |
+| Shopper sign-in, `moe_elmi97@hotmail.co.uk` | **BLOCKED** — "Couldn't find your account." |
+
+Reading: the admin Clerk user was created email-first (it never had a phone), so
+it still has a matchable identifier; the merchant and shopper users were
+phone-first, and with the phone attribute disabled they have none. **The
+remaining D152 action is founder-only, in the Clerk production dashboard:** on
+`user_3I0XLz83qxDm08f2hsXWNbLm1bS` add `aragagency@gmail.com` and on
+`user_3GqR8jUeCaiisw372HI5IqkTowj` add `moe_elmi97@hotmail.co.uk` as verified
+email addresses (Users → the user → Email addresses → Add → mark verified / set
+primary). No new users. Then steps merchant → shopper → deal → claim →
+verification → KES 30 ledger resume from here.
+
 ## 4. Notion sync
 
 See the Notion mirror entry dated 2026-08-22 (evening, closing pass) on the
