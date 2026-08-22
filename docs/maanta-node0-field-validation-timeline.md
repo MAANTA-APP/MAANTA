@@ -161,10 +161,25 @@ the repo. Confirm with `make demo-status` before Phase 4.
 
 ### 4. Whether email sign-up is actually enabled is a dashboard fact, not a code fact
 
-*Re-checked against live production 2026-08-22 and still open — the sign-in
-widget is client-rendered, so the served HTML cannot answer it and a headless
-render is blocked by this environment's egress policy. Evidence and the
-two ways to close it: [`ops/production-verification-2026-08-22.md`](ops/production-verification-2026-08-22.md).*
+**Answered 2026-08-22 (founder, from the Clerk dashboard) — email sign-up with
+verification is enabled.** Settings read from the dashboard: *Sign-up with
+email* ON, *Require email address* ON (every user must hold one), *Verify at
+sign-up* ON with **email verification code** as the method, and *Sign-in with
+email* ON (code and link). A new shopper therefore completes sign-up with a
+verified email, which is exactly what `currentUserHasVerifiedContact()` asserts.
+**The premise holds and Phase 4 is not blocked on it.**
+
+**One thing this does not prove, and the SMS failure is why it matters:
+enabled is not delivered.** SMS is presumably enabled on the same instance and
+still does not reach +254/+47/+44. A dashboard toggle says the channel is
+offered, not that a code lands in an inbox. Task 2 on the operator's list — sign
+up with a real email and see whether the code arrives — remains the check that
+answers delivery, and it should still be done before Merchant 01.
+
+*Caveat worth one look: the dashboard screenshot did not show which instance it
+belongs to. Production serves the **production** instance (`pk_live` →
+`clerk.maanta.app`, re-measured 2026-08-22), so the settings must be read there
+to apply. The operator's empirical test settles it either way.*
 
 The plan's central unblocking premise is that a shopper can satisfy the claim
 gate with a verified email. The gate itself is correct and shipped —
@@ -207,7 +222,7 @@ under the belief that the launch gates are behind it.
 | # | Decision | Deadline | Why it cannot wait |
 |---|---|---|---|
 | ~~1~~ | ~~How Merchant 01's wallet is handled past 10 redemptions~~ | — | **Ruled 2026-08-22: keep KES 300, treat the wall as the experiment.** See finding 2 |
-| 2 | Confirm email sign-up + verification is enabled on the production Clerk instance | Before Phase 4 | The plan's unblocking premise rests on it |
+| ~~2~~ | ~~Confirm email sign-up + verification is enabled~~ | — | **Answered 2026-08-22: enabled** (sign-up with email, email required, verify-at-sign-up by code). Delivery is still unproven — operator task 2. See finding 4 |
 | 3 | Whether demo mode stays on during the pilot | Before Phase 4 | Decides whether the direct-link workaround is a workaround or the protocol |
 | 4 | O2's named support owner | Before launch, not before the pilot | Founder already accepted current state for the pilot |
 

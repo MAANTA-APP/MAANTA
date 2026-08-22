@@ -50,7 +50,32 @@ was attempted or identified and could not be completed from this session.
 
 ### 1. Whether Clerk offers **email** sign-in — the one that gates Phase 4
 
-**Unresolved, and it is the blocking unknown for the pilot's email premise.**
+**Resolved the same day by the founder, from the Clerk dashboard — but only the
+configuration half.** Read from the dashboard: *Sign-up with email* ON, *Require
+email address* ON, *Verify at sign-up* ON with **email verification code** as
+the verification method, and *Sign-in with email* ON (code and link, the link
+requiring the same device and browser). A new shopper completes sign-up holding
+a verified email, which is what `currentUserHasVerifiedContact()` asserts, so
+the pilot's email premise holds.
+
+Two things that resolution does **not** establish, both material:
+
+- **Enabled is not delivered.** SMS is presumably enabled on the same instance
+  and still does not reach +254/+47/+44 — which is the entire reason the claim
+  gate was widened. A toggle says the channel is offered; it does not say a code
+  lands in an inbox. Only sending one answers that.
+- **Which instance the dashboard was showing.** The screenshot carried no
+  instance indicator. Production serves the **production** instance (`pk_live` →
+  `clerk.maanta.app`, measured below), so the settings must be read there to
+  apply to the pilot.
+
+Both are settled by the same one-minute field action, which is why it stays on
+the operator's list as task 2: sign up at `www.maanta.app` with a real email and
+see whether the code arrives.
+
+*The original finding, retained because it explains why this needed a human:*
+
+**The session could not determine it, and it was the blocking unknown.**
 
 The sign-in widget is client-rendered. The server HTML contains only a skeleton
 (`aria-busy="true"`, `aria-label="Loading sign-in"`, pulse placeholders) plus the
@@ -113,8 +138,10 @@ is aligned, the production Clerk instance is live, and the visual refresh is
 real rather than merely merged.
 
 **The loop is runnable end to end as soon as two things are true**, neither of
-them an engineering task: the email sign-in factor is confirmed enabled, and a
-genuine Node 0 merchant agrees to take part.
+them an engineering task: a contact channel actually **delivers** a code to a
+real handset or inbox (the email factor is confirmed *enabled* as of
+2026-08-22 — delivery is still unproven for both channels), and a genuine
+Node 0 merchant agrees to take part.
 
 *No production database read was taken on 2026-08-22. Do not cite this document
 for row counts or config values.*
