@@ -64,9 +64,12 @@ describe("admin resource registry", () => {
     }
   });
 
-  it("keeps the welcome-pack gap visible for every audience until packs exist", () => {
-    // These rows come out by writing the packs, not by deleting the rows.
-    for (const aud of ["shopper", "merchant", "agent", "mall_operator"] as const) {
+  it("keeps the unwritten welcome-pack gaps visible", () => {
+    // The ratchet, narrowed on 2026-08-22 rather than deleted: a row leaves
+    // this list by being WRITTEN (and becoming a resolvable reference — the
+    // repo-reference test above then covers it), never by being removed from
+    // the registry. Shopper and mall-operator packs are still open.
+    for (const aud of ["shopper", "mall_operator"] as const) {
       const pack = ADMIN_RESOURCES.find(
         (r) => r.audience === aud && /welcome pack/i.test(r.title)
       );
@@ -74,6 +77,24 @@ describe("admin resource registry", () => {
       expect(pack?.access.kind, `${aud} welcome pack must stay marked missing until written`).toBe(
         "missing"
       );
+    }
+  });
+
+  it("gives the field operator the merchant-visit set, all resolvable", () => {
+    // What someone running a first merchant loop test reaches for: the visit
+    // protocol, what they leave at the shop, and the day around it. A title
+    // rename or a moved file must fail here rather than at a counter.
+    const required = [
+      "docs/ops/first-merchant-loop-test.md",
+      "docs/ops/merchant-welcome-pack.md",
+      "docs/ops/field-operator-day-sheet.md",
+    ];
+    for (const rel of required) {
+      const row = ADMIN_RESOURCES.find(
+        (r) => r.access.kind === "reference" && r.access.location === `repo: ${rel}`
+      );
+      expect(row, `${rel} is not listed in the resource centre`).toBeTruthy();
+      expect(existsSync(path.resolve(REPO_ROOT, rel)), `${rel} does not exist`).toBe(true);
     }
   });
 
