@@ -22,4 +22,5 @@ export {
   BackToYouLink,
 } from "@/components/ui/claude/controls";
 export { DealCard } from "@/components/ui/claude/deal-card";
+export { DealKpis } from "@/components/ui/claude/deal-kpis";
 export type { DealRailBadge } from "@/components/ui/claude/deal-card";
