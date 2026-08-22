@@ -465,11 +465,17 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   introduce MAANTA and identify Merchant 01.
 - **Live merchant onboarding / staff seat / redemption: HOLD** until D152
   closes — nothing auth-dependent starts before sign-in is re-verified.
-- **D151 SMS testing resumes** once phone auth is re-enabled on the production
-  Clerk instance. A phone-delivery failure is D151 evidence, not a reason to
-  stop the shopper test if email works.
-- **Email fallback is a valid shopper claim path** once production email
-  sign-up/sign-in is verified end to end.
+- **Email is the primary production authentication for Node 0** (sixth entry,
+  2026-08-22). Phone/SMS sign-in sits behind a paid Clerk plan and is
+  **deferred** — do not purchase or enable it, and do not tell the operator to
+  wait for SMS. **D151** is deferred / non-blocking.
+- **Staff seats are phone-only by design (D154)** — Staff 01 cannot be
+  onboarded under email-primary auth without a founder-approved code change.
+  The owner can verify at the counter, so the loop runs with the owner
+  verifying until D154 is ruled.
+- Standing constraints: no paid Clerk feature, no new identities (attach
+  emails to the existing Clerk users instead), no unrelated auth changes
+  without founder approval.
 
 When a field issue is reported:
 
