@@ -66,7 +66,7 @@ export function MerchantLocationForm({
   }
 
   return (
-    <section className="mt-8 rounded-card border border-line bg-white p-4">
+    <section className="mt-8 rounded-card bg-white shadow-card p-4">
       <h2 className="text-base font-bold text-ink">Pick-up location</h2>
       <p className="mt-1 text-xs text-muted">
         Set a what3words address (fills GPS) or paste coordinates (optionally derives

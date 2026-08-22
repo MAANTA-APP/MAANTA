@@ -115,7 +115,7 @@ export default async function MerchantDealsPage() {
 
       <Link
         href="/merchant/deals/archived"
-        className="mt-4 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5"
+        className="mt-4 flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5"
       >
         <span className="text-sm font-semibold text-ink">Archived deals</span>
         <span className="text-sm text-muted underline">View</span>

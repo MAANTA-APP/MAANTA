@@ -145,7 +145,7 @@ export function MapClient({
 
         {filtered.length === 0 ? (
           <div className="pointer-events-none absolute inset-x-4 bottom-24 z-[500]">
-            <div className="pointer-events-auto rounded-card border border-line bg-white/95 p-4 shadow-card backdrop-blur-sm">
+            <div className="pointer-events-auto rounded-card bg-white/95 p-4 shadow-card backdrop-blur-sm">
               <EmptyState
                 title="No deals in this area"
                 sub="Try clearing filters or panning the map."

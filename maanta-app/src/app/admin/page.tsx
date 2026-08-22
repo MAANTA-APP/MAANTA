@@ -202,7 +202,7 @@ export default async function AdminHomePage({
       </div>
       <div className="mt-2 space-y-2">
         {(recentPending ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             {scoped
               ? `No shops waiting at ${nodeLabel(node)}`
               : "No shops waiting for approval"}
@@ -212,7 +212,7 @@ export default async function AdminHomePage({
             <Link
               key={m.id}
               href={`/admin/merchants/${m.id}`}
-              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3 hover:bg-stone-soft"
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3 hover:bg-stone-soft"
             >
               <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
                 {m.merchant_name}
@@ -244,7 +244,7 @@ function QueueCard({ label, value, href }: { label: string; value: number; href:
   return (
     <Link
       href={href}
-      className="rounded-card border border-line bg-white p-4 hover:bg-stone-soft"
+      className="rounded-card bg-white shadow-card p-4 hover:bg-stone-soft"
     >
       <p className="text-xs text-muted">{label}</p>
       <p className="tnum mt-1 text-2xl font-bold text-ink">{value.toLocaleString()}</p>

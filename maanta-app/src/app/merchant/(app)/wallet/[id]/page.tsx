@@ -72,25 +72,25 @@ export default async function TransactionDetailPage({
 
       <div className="mt-8 space-y-3">
         {deal ? (
-          <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-xs text-muted">Deal</span>
             <span className="text-sm font-semibold text-ink">{deal}</span>
           </div>
         ) : null}
         {code ? (
-          <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-xs text-muted">Code</span>
             <span className="font-code text-sm font-bold text-ink">{formatCode(code)}</span>
           </div>
         ) : null}
         {txn.provider_reference && showsProviderReference(txn) ? (
-          <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-xs text-muted">Reference</span>
             <span className="font-code text-sm text-ink">{txn.provider_reference}</span>
           </div>
         ) : null}
         {description ? (
-          <div className="flex items-center justify-between gap-4 rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="flex items-center justify-between gap-4 rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-xs text-muted">Description</span>
             <span className="text-right text-sm text-ink">{description}</span>
           </div>

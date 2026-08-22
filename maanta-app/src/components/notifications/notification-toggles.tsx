@@ -34,7 +34,7 @@ export function NotificationToggles() {
 
   return (
     <>
-      <div className="divide-y divide-line rounded-card border border-line bg-white px-4 shadow-card">
+      <div className="divide-y divide-line rounded-card bg-white px-4 shadow-card">
         <Toggle
           label="Flash deals near me"
           checked={prefs.flashNearMe}

@@ -129,7 +129,7 @@ export default async function AdminCustomerDetailPage({
       </p>
       <div className="mt-2 space-y-2">
         {rows.length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             No claims yet
           </p>
         ) : (
@@ -142,7 +142,7 @@ export default async function AdminCustomerDetailPage({
             return (
               <div
                 key={r.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-line bg-white px-4 py-3"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card bg-white shadow-card px-4 py-3"
               >
                 <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
                   {deal?.title ?? "Deal removed"}
@@ -179,7 +179,7 @@ export default async function AdminCustomerDetailPage({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-card border border-line bg-white px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-card bg-white shadow-card px-4 py-3">
       <span className="text-xs text-muted">{label}</span>
       <span className="text-right text-sm font-semibold text-ink">{value}</span>
     </div>

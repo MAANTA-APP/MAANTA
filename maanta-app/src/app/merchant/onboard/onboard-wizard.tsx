@@ -378,7 +378,7 @@ export function OnboardWizard({
             </span>
             , funded from your wallet.
           </p>
-          <div className="mt-5 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="mt-5 flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-sm font-semibold text-ink">Suggested top-up</span>
             <span className="text-sm font-bold text-ink">KES 3,000</span>
           </div>
@@ -406,7 +406,7 @@ export function OnboardWizard({
             ].map(([k, v]) => (
               <div
                 key={k}
-                className="flex items-center justify-between gap-4 rounded-card border border-line bg-white px-4 py-3.5"
+                className="flex items-center justify-between gap-4 rounded-card bg-white shadow-card px-4 py-3.5"
               >
                 <span className="text-xs text-muted">{k}</span>
                 <span className="text-right text-sm font-semibold text-ink">{v}</span>

@@ -83,7 +83,7 @@ export default async function AdminRedemptionsPage({
         </div>
         <div className="mt-2 space-y-2">
           {(held ?? []).length === 0 ? (
-            <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+            <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
               Nothing held. Guardian releases the counter unless a check blocks.
             </p>
           ) : (
@@ -94,7 +94,7 @@ export default async function AdminRedemptionsPage({
                 <Link
                   key={h.id}
                   href={`/admin/redemptions/${h.id}`}
-                  className="flex items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream"
+                  className="flex items-center gap-3 rounded-card bg-white shadow-card px-4 py-3.5 hover:bg-cream"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink">
@@ -139,7 +139,7 @@ export default async function AdminRedemptionsPage({
 
       <div className="mt-5 space-y-3">
         {(events ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
             No unresolved fraud events
           </p>
         ) : (
@@ -149,7 +149,7 @@ export default async function AdminRedemptionsPage({
             return (
               <div
                 key={e.id}
-                className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+                className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3.5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-code text-sm font-bold text-ink">
@@ -172,7 +172,7 @@ export default async function AdminRedemptionsPage({
       </div>
 
       <h2 className="mt-8 text-base font-bold text-ink">All redemptions</h2>
-      <div className="mt-2 max-w-2xl rounded-card border border-line bg-white px-4">
+      <div className="mt-2 max-w-2xl rounded-card bg-white shadow-card px-4">
         {(recent ?? []).length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">No redemptions yet</p>
         ) : (

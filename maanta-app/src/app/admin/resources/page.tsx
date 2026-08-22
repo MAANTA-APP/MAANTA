@@ -39,7 +39,7 @@ export default async function AdminResourcesPage() {
             <div className="mt-2 space-y-2">
               {items.map((r) => {
                 const base =
-                  "flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-card border border-line bg-white px-4 py-3";
+                  "flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-card bg-white shadow-card px-4 py-3";
                 if (r.access.kind === "live") {
                   return (
                     <a

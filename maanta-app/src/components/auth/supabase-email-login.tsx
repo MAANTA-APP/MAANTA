@@ -122,7 +122,7 @@ export function SupabaseEmailLogin({ mode }: { mode: "sign-in" | "sign-up" }) {
         <Body className="mt-1.5">{authModeLoginHintClient()}</Body>
       </div>
 
-      <div className="w-full rounded-card border border-line bg-white p-5 shadow-card sm:p-6">
+      <div className="w-full rounded-card bg-white p-5 shadow-card sm:p-6">
         {stage === "email" ? (
           // A real <form> so Enter in the single field submits — without it the
           // keyboard path dead-ends on a visible Send button.

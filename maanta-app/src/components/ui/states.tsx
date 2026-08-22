@@ -71,7 +71,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function DealCardSkeleton() {
   return (
-    <div className="overflow-hidden rounded-card border border-line bg-white">
+    <div className="overflow-hidden rounded-card bg-white shadow-card">
       <Skeleton className="h-36 w-full rounded-none" />
       <div className="space-y-2 p-4">
         <Skeleton className="h-3 w-1/2" />

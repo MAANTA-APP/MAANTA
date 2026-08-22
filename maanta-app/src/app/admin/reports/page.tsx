@@ -99,7 +99,7 @@ export default async function AdminReportsPage({
         <KpiCard label="Live deals" value={liveDeals ?? 0} />
       </div>
 
-      <div className="mt-6 rounded-card border border-line bg-white p-5">
+      <div className="mt-6 rounded-card bg-white shadow-card p-5">
         <p className="text-xs font-semibold text-muted">Redemptions per day — last 14 days</p>
         {/* Bar heights carried the values via hover title only — the aria-label
             is the non-visual reading of the same series. */}

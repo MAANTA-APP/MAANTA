@@ -67,7 +67,7 @@ export function DealCardHorizontal({
   return (
     <Link
       href={href}
-      className="flex w-64 shrink-0 snap-start gap-3 rounded-card border border-line bg-white p-3 transition hover:shadow-md motion-safe:active:scale-[0.99]"
+      className="flex w-64 shrink-0 snap-start gap-3 rounded-card bg-white p-3 shadow-card transition hover:shadow-md motion-safe:active:scale-[0.99]"
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-cream">
         <CoverImage src={imageUrl} alt="" />
@@ -156,7 +156,7 @@ export function MerchantDealRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-card border border-line bg-white p-3 hover:bg-cream/50"
+      className="flex items-center gap-3 rounded-card bg-white p-3 shadow-card hover:bg-cream/50"
     >
       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-cream">
         <CoverImage src={imageUrl} alt="" />
@@ -187,7 +187,7 @@ export function KpiCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-card border border-line bg-white p-4", className)}>
+    <div className={cn("rounded-card bg-white p-4 shadow-card", className)}>
       <p className="text-xs text-muted">{label}</p>
       <p className="tnum mt-1 text-2xl font-bold text-ink">{value}</p>
     </div>
@@ -248,7 +248,7 @@ export function NotificationRow({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-card border border-line bg-white p-4",
+        "flex items-start gap-3 rounded-card bg-white p-4 shadow-card",
         !unread && "opacity-60"
       )}
     >
@@ -293,7 +293,7 @@ export function SettingsRow({
     </>
   );
   const base =
-    "flex w-full items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 text-left";
+    "flex w-full items-center justify-between rounded-card bg-white px-4 py-3.5 text-left shadow-card";
   if (href) {
     return (
       <Link href={href} className={cn(base, "hover:bg-cream/50")}>
@@ -328,7 +328,7 @@ export function ShopCard({
   favouriteSlot?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-card border border-line bg-white p-3.5">
+    <div className="flex items-center gap-3 rounded-card bg-white p-3.5 shadow-card">
       <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream text-[10px] text-faint">
           {logoUrl ? <CoverImage src={logoUrl} alt="" /> : "logo"}

@@ -172,7 +172,7 @@ export default async function WalletPage({
           rows.map((t) => {
             const rate = rateContext(t.transaction_type);
             return (
-              <div key={t.id} className="rounded-card border border-line bg-white p-3.5">
+              <div key={t.id} className="rounded-card bg-white shadow-card p-3.5">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-sm font-bold text-ink">
                     {formatMerchantLedgerLabel(t)}

@@ -52,7 +52,7 @@ export default async function StaffPage() {
       </p>
 
       <div className="mt-6 space-y-3">
-        <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+        <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
           <div>
             <p className="text-sm font-bold text-ink">You</p>
             <p className="mt-0.5 text-xs text-muted">{user?.phone ?? merchant.phone}</p>
@@ -64,7 +64,7 @@ export default async function StaffPage() {
           <Link
             key={s.id}
             href={`/merchant/staff/${s.id}`}
-            className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
+            className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5 hover:bg-cream/50"
           >
             <div>
               <p className="text-sm font-bold text-ink">{s.staff_name}</p>

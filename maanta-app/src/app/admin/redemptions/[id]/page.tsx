@@ -251,7 +251,7 @@ export default async function AdminRedemptionDetailPage({
       ) : null}
 
       {/* Money snapshot — the exact amounts the ticket carried at verification. */}
-      <section className="mt-5 rounded-card border border-line bg-white px-4 py-2">
+      <section className="mt-5 rounded-card bg-white shadow-card px-4 py-2">
         <MoneyRow label="Shopper paid (YOU PAY)" amount={r.amount_kes} strong />
         <div className="border-t border-line" />
         <MoneyRow label="Maanta success fee" amount={r.success_fee_charged} />
@@ -265,14 +265,14 @@ export default async function AdminRedemptionDetailPage({
       {/* Linkage: deal, merchant (with wallet), customer. */}
       <h2 className="mt-6 text-base font-bold text-ink">Linked records</h2>
       <div className="mt-2 space-y-2.5">
-        <div className="rounded-card border border-line bg-white px-4 py-3">
+        <div className="rounded-card bg-white shadow-card px-4 py-3">
           <p className="text-xs text-muted">Deal</p>
           <p className="mt-0.5 text-sm font-semibold text-ink">{deal?.title ?? "—"}</p>
         </div>
 
         <Link
           href={`/admin/merchants/${r.merchant_id}`}
-          className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3 hover:bg-cream/50"
+          className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3 hover:bg-cream/50"
         >
           <div className="min-w-0">
             <p className="text-xs text-muted">Merchant</p>
@@ -295,7 +295,7 @@ export default async function AdminRedemptionDetailPage({
           <IconChevronRight className="h-4 w-4 shrink-0 text-faint" />
         </Link>
 
-        <div className="rounded-card border border-line bg-white px-4 py-3">
+        <div className="rounded-card bg-white shadow-card px-4 py-3">
           <p className="text-xs text-muted">Customer</p>
           <p className="mt-0.5 text-sm font-semibold text-ink">
             {customer?.full_name ?? "—"}
@@ -309,7 +309,7 @@ export default async function AdminRedemptionDetailPage({
 
       {/* Timestamps + fraud detail. */}
       <h2 className="mt-6 text-base font-bold text-ink">Timeline</h2>
-      <div className="mt-2 rounded-card border border-line bg-white px-4 py-2 text-sm">
+      <div className="mt-2 rounded-card bg-white shadow-card px-4 py-2 text-sm">
         <div className="flex items-center justify-between py-2">
           <span className="text-muted">Redeemed</span>
           <span className="text-ink">{friendlyTime(r.redeemed_at)}</span>
@@ -336,7 +336,7 @@ export default async function AdminRedemptionDetailPage({
 
       {/* Fee ledger for this redemption. */}
       <h2 className="mt-6 text-base font-bold text-ink">Fee ledger</h2>
-      <div className="mt-2 rounded-card border border-line bg-white">
+      <div className="mt-2 rounded-card bg-white shadow-card">
         {(ledger ?? []).length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-muted">
             No fee ledger rows linked to this redemption.
@@ -387,14 +387,14 @@ export default async function AdminRedemptionDetailPage({
       <h2 className="mt-6 text-base font-bold text-ink">Guardian checks</h2>
       <div className="mt-2 space-y-2">
         {checks.length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             No Guardian signals fired on this redemption.
           </p>
         ) : (
           checks.map((e) => (
             <div
               key={e.id}
-              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3"
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink">{describeCheck(e)}</p>

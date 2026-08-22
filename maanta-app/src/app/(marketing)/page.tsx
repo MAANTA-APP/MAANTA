@@ -38,8 +38,12 @@ import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_DOOR_BODY } from "@/lib/
  * the H1. It is memorable once you know what MAANTA is and opaque before that,
  * and the H1 has to do the explaining.
  *
- * Accent discipline: `#FDBF2D` appears on the primary CTA, the live-status dot,
- * and the merchant band. Nowhere else.
+ * Accent discipline: `#FDBF2D` appears only on primary actions — the header CTA
+ * (`SiteHeader`), the hero CTA, the merchant band (left rule + CTA) and the
+ * early-access submit (`PrimaryButton` in `LandingEarlyAccess`) — plus the
+ * live-status dot when `SHOW_LIVE_INDICATOR` allows it and the small dot drawn
+ * inside `HeroShot`'s own chrome. Never on text, money, or decoration. (D150:
+ * this list previously undercounted the header CTA and the waitlist submit.)
  *
  * No live deal count appears anywhere on this page. The only scenario value
  * permitted here is the merchant-facing shop count, and it renders through

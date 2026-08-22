@@ -293,7 +293,7 @@ export function RedeemKeypad({
             KES 30 success fee disclosed below and the wallet balance — the three
             are distinct amounts. Omitted when there's no snapshot. */}
         {screen.collectAmount != null && screen.collectAmount > 0 ? (
-          <div className="mt-3 flex items-baseline justify-between rounded-card border border-line bg-white px-4 py-3">
+          <div className="mt-3 flex items-baseline justify-between rounded-card bg-white shadow-card px-4 py-3">
             <span className="text-sm font-medium text-secondary">Collect from shopper</span>
             <span className="tnum text-xl font-bold text-ink">
               {formatKes(screen.collectAmount)}
@@ -441,7 +441,7 @@ export function RedeemKeypad({
 
       {/* RIGHT — information only, no primary action (L5). Tablet only. */}
       <aside className="mt-8 hidden lg:mt-0 lg:block">
-        <div className="rounded-card border border-line bg-white p-5">
+        <div className="rounded-card bg-white shadow-card p-5">
           <WalletBalance balance={balance} />
           <p className="tnum mt-3 text-sm text-secondary">
             Each verified redemption charges {formatKes(fee)} from your wallet.

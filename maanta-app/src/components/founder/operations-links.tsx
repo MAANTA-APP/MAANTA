@@ -18,7 +18,7 @@ import Link from "next/link";
  * explain themselves.
  */
 const CARD =
-  "rounded-card border border-line bg-white px-4 py-4 shadow-card";
+  "rounded-card bg-white px-4 py-4 shadow-card";
 
 export function OperationsLinks({
   canOpenAdminConsole,

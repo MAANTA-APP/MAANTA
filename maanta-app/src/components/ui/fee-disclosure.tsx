@@ -29,7 +29,7 @@ export function FeeDisclosure({
 
   return (
     <div
-      className={cn("rounded-card border border-line bg-white p-4", className)}
+      className={cn("rounded-card bg-white shadow-card p-4", className)}
     >
       <div className="text-sm font-bold text-ink">
         This redemption costs {formatKes(fee)}

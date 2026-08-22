@@ -40,7 +40,7 @@ export default async function AdminAgentsPage() {
 
       <div className="mt-5 space-y-3">
         {(agents ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
             No field agents yet
           </p>
         ) : (
@@ -51,7 +51,7 @@ export default async function AdminAgentsPage() {
               <Link
                 key={a.id}
                 href={`/admin/agents/${a.id}`}
-                className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5 hover:bg-stone-soft"
+                className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3.5 hover:bg-stone-soft"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-ink">
@@ -85,7 +85,7 @@ export default async function AdminAgentsPage() {
           return (
             <div
               key={l.id}
-              className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3"
             >
               <span className="text-sm font-semibold text-ink">{l.shop_name}</span>
               {l.status === "locked" && hoursLeft > 0 ? (
@@ -97,7 +97,7 @@ export default async function AdminAgentsPage() {
           );
         })}
         {(leads ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             No leads captured yet
           </p>
         ) : null}

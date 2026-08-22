@@ -20,7 +20,7 @@ export function WalletHeader({
     <Link
       href={href}
       aria-label={`Wallet balance ${formatKes(balance)} — view wallet`}
-      className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-2.5 hover:bg-cream/50"
+      className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-2.5 hover:bg-cream/50"
     >
       <span className="flex items-baseline gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">

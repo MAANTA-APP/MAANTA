@@ -203,7 +203,7 @@ export function DealActions({
         <h2 className="text-lg font-bold text-ink">Move boost — {remainingLabel}</h2>
         <p className="mt-1 text-sm text-muted">Select which deal keeps the boost</p>
         <div className="mt-4 space-y-2.5">
-          <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="truncate text-sm font-semibold text-ink">{initialTitle}</span>
             <StatusChip status="current" label="Current" />
           </div>
