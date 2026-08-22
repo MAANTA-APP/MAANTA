@@ -94,11 +94,9 @@ production instance, Shopper 01 cannot obtain a verified email, and the claim
 gate widened on 2026-08-22 delivers nothing — the pilot stalls at the step the
 plan calls its most important.
 
-**How to close it** (either is sufficient, both are quick, neither is a Claude
-task): open the Clerk dashboard → *User & Authentication* → confirm **Email
-address** is an enabled identifier with verification on; **or** open
-`www.maanta.app/login` in an ordinary browser and look at what the widget
-offers.
+**How it was closed:** the founder opened the Clerk dashboard the same day and
+read the settings back — see the resolution at the top of this gap. The
+remaining half, delivery, closes by sending one code, not by reading a setting.
 
 ### 2. Production database state
 
