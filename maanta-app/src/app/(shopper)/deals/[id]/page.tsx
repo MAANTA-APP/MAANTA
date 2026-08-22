@@ -112,7 +112,7 @@ export default async function DealDetailPage({
           {m.floor ? <span>· {m.floor}</span> : null}
         </p>
 
-        <section className="mt-5 rounded-card border border-line bg-white p-4">
+        <section className="mt-5 rounded-card bg-white shadow-card p-4">
           <h2 className="text-sm font-bold text-ink">Pick-up location</h2>
           <p className="mt-1 text-sm text-muted">
             {m.mall_name ?? deal.node}
@@ -168,7 +168,7 @@ export default async function DealDetailPage({
             ) : null}
 
             {extras > 0 && deal.price_kes != null ? (
-              <div className="mt-3 flex flex-col gap-2 rounded-card border border-line bg-white p-3.5">
+              <div className="mt-3 flex flex-col gap-2 rounded-card bg-white shadow-card p-3.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-secondary">Deal price</span>
                   <span className="tnum font-medium">

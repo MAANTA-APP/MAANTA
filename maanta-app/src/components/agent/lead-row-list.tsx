@@ -47,7 +47,7 @@ export function LeadsReadError({
   sub?: string;
 }) {
   return (
-    <div role="alert" className="rounded-card border border-line bg-white px-4 py-6">
+    <div role="alert" className="rounded-card bg-white shadow-card px-4 py-6">
       {/*
         Frozen UI rule 4: state is an icon **and** a word, readable in greyscale.
         Text alone made "could not load" indistinguishable from an ordinary
@@ -73,7 +73,7 @@ export function LeadRowList({
 }) {
   if (leads.length === 0) {
     return (
-      <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+      <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
         {emptyLabel}
       </p>
     );
@@ -90,7 +90,7 @@ export function LeadRowList({
           <Link
             key={l.id}
             href={`/agent/leads/${l.id}`}
-            className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 hover:bg-cream/50"
+            className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5 hover:bg-cream/50"
           >
             <span className="text-sm font-bold text-ink">{l.shop_name}</span>
             {isLockLive(l) ? (

@@ -49,7 +49,7 @@ export function LinkMerchant({
     <section className="mt-6">
       <h2 className="text-base font-bold text-ink">Link to merchant</h2>
       {candidates.length === 0 ? (
-        <p className="mt-2 rounded-card border border-line bg-white px-4 py-4 text-sm text-muted">
+        <p className="mt-2 rounded-card bg-white shadow-card px-4 py-4 text-sm text-muted">
           No unlinked shops you onboarded yet. Onboard this shop first, then link it here.
         </p>
       ) : (

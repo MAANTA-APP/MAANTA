@@ -82,7 +82,7 @@ export function ProfileCard({
     mall !== node;
 
   return (
-    <div className="rounded-card border border-line bg-white p-4 shadow-card">
+    <div className="rounded-card bg-white p-4 shadow-card">
       <div className="flex items-start gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-line bg-stone text-2xl font-semibold text-ink">
           {displayName.charAt(0).toUpperCase()}
@@ -174,7 +174,7 @@ export function LanguageCard({
   const active = preferredLanguage === "sw" ? "sw" : "en";
 
   return (
-    <div className="rounded-card border border-line bg-white px-4 py-3.5 shadow-card">
+    <div className="rounded-card bg-white px-4 py-3.5 shadow-card">
       <Label as="p" className="text-muted">
         Language
       </Label>

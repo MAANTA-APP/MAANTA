@@ -94,7 +94,7 @@ export default async function AdminCustomersPage({
         })}
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-card border border-line bg-white">
+      <div className="mt-5 overflow-x-auto rounded-card bg-white shadow-card">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-line text-xs text-muted">

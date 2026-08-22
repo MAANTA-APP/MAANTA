@@ -38,14 +38,14 @@ export default async function AdminApprovalsPage({
 
       <div className="mt-5 space-y-3">
         {(pending ?? []).length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-8 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
             No shops waiting for approval
           </p>
         ) : (
           (pending ?? []).map((m) => (
             <div
               key={m.id}
-              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3.5"
             >
               <div className="min-w-0 flex-1">
                 <Link

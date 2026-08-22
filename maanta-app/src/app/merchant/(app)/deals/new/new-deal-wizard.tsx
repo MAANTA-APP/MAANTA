@@ -432,7 +432,7 @@ export function NewDealWizard({
           {extrasChoice === "extras" ? (
             <div className="mt-4 space-y-3">
               {drafts.map((c) => (
-                <div key={c.id} className="rounded-card border border-line bg-white p-3">
+                <div key={c.id} className="rounded-card bg-white shadow-card p-3">
                   <div className="flex items-center gap-2">
                     <input
                       value={c.label}
@@ -528,7 +528,7 @@ export function NewDealWizard({
           <Header title={dealType === "flash" ? "Flash duration" : "Schedule"} back="price" />
           {dealType === "standard" ? (
             <>
-              <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+              <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
                 <span className="text-sm font-semibold text-ink">Duration</span>
                 <span className="text-sm font-bold text-ink">Fixed — 24 hours</span>
               </div>
@@ -565,7 +565,7 @@ export function NewDealWizard({
       {step === "review" ? (
         <>
           <Header title="Review" back="schedule" />
-          <div className="flex items-center gap-3 rounded-card border border-line bg-white p-3.5">
+          <div className="flex items-center gap-3 rounded-card bg-white shadow-card p-3.5">
             {coverPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -586,7 +586,7 @@ export function NewDealWizard({
             </div>
             <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />
           </div>
-          <div className="mt-3 rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="mt-3 rounded-card bg-white shadow-card px-4 py-3.5">
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">
                 Shoppers pay
@@ -601,7 +601,7 @@ export function NewDealWizard({
               </p>
             ) : null}
           </div>
-          <div className="mt-3 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+          <div className="mt-3 flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
             <span className="text-xs text-muted">Goes live</span>
             <span className="text-sm font-semibold text-ink">Immediately</span>
           </div>
@@ -609,7 +609,7 @@ export function NewDealWizard({
             You pay a {formatKes(fee)} success fee per verified redemption. Nothing else.
           </p>
           {zeroBalance ? (
-            <div className="mt-3 rounded-card border border-line bg-white p-3.5">
+            <div className="mt-3 rounded-card bg-white shadow-card p-3.5">
               <p className="text-sm font-medium text-ink">
                 Your wallet balance is {formatKes(balance)}. Top up before publishing —
                 a deal needs a funded wallet.
@@ -620,7 +620,7 @@ export function NewDealWizard({
             </div>
           ) : null}
           {error ? (
-            <div className="mt-3 rounded-card border border-line bg-white p-3.5" role="alert">
+            <div className="mt-3 rounded-card bg-white shadow-card p-3.5" role="alert">
               <p className="text-sm font-medium text-ink">{error}</p>
               {needsTopUp ? (
                 <ButtonLink href="/merchant/topup" variant="secondary" full className="mt-3">

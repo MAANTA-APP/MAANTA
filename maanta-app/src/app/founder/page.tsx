@@ -142,7 +142,7 @@ export default async function FounderDashboardPage() {
           {NODES.filter((n) => n.live).map((n) => (
             <div
               key={n.id}
-              className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3 shadow-card"
+              className="flex items-center justify-between rounded-card bg-white px-4 py-3 shadow-card"
             >
               <span className="text-sm font-semibold text-ink">{n.label}</span>
               <span className="text-sm text-muted">{nodeCounts.get(n.id) ?? 0} live</span>

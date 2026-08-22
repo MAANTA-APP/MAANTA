@@ -71,7 +71,7 @@ export default async function MerchantDashboardPage() {
       </div>
 
       <h2 className="mt-6 text-base font-bold text-ink">Recent activity</h2>
-      <div className="mt-2 rounded-card border border-line bg-white px-4">
+      <div className="mt-2 rounded-card bg-white shadow-card px-4">
         {(recent ?? []).length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">No redemptions yet</p>
         ) : (

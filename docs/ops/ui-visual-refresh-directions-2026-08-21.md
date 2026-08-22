@@ -34,12 +34,19 @@ only, illustration disclosures on synthetic deal rows).
 
 ## Status and next step
 
-**Decision pending: founder picks A, B, or a per-role mix** (e.g. A for
-shopper surfaces, B for merchant/ops). Explicitly deferred until all screens
-were on the canvas — they now are. Implementation will proceed
-surface-by-surface through the same gated PR workflow as the polish passes;
-nothing has been implemented in code yet, and the frozen rules are not up
-for change in this refresh.
+**Decided 2026-08-22: Direction A everywhere** — founder instruction
+("i want version A for everything") after the directions canvas reached all
+22 boards; recorded in `docs/maanta-decisions-log.md` (2026-08-22 row).
+Implementation proceeds surface-by-surface through the same gated PR
+workflow as the polish passes; the frozen rules are not up for change.
+
+Slices:
+
+1. **App-wide borderless-shadow card flip — shipped 2026-08-22** (guard:
+   `maanta-app/src/lib/__tests__/direction-a-cards.test.ts`).
+2. Shopper feed: image-forward lead deal — pending.
+3. Deal detail / tickets: price anchored beside the action — pending.
+4. Marketing landing Direction A slice — pending (own accent budget).
 
 Related drift closed while recreating surfaces: **D150** (Home docblock's
 amber enumeration undercounted the shipped page — comment-only fix).

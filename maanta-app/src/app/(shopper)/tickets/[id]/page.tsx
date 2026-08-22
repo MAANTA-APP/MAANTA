@@ -124,7 +124,7 @@ export default async function TicketPage({
     return (
       <main className="px-5 pt-8">
         <h1 className="text-center text-lg font-bold text-ink">Redemption</h1>
-        <div className="mt-6 flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5">
+        <div className="mt-6 flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
           <span className="font-code text-lg text-ink">{formatCode(ticket.otp_code)}</span>
           <ClaimChip state="limit" label="UNDER REVIEW" />
         </div>

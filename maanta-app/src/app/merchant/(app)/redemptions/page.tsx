@@ -57,7 +57,7 @@ export default async function MerchantRedemptionsPage({
         ))}
       </div>
 
-      <div className="mt-4 rounded-card border border-line bg-white px-4">
+      <div className="mt-4 rounded-card bg-white shadow-card px-4">
         {(rows ?? []).length === 0 ? (
           <p className="py-8 text-center text-sm text-muted">
             No redemptions {range === "all" ? "yet" : `this ${range === "today" ? "day" : "week"}`}

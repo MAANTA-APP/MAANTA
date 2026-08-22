@@ -64,7 +64,7 @@ export default async function YouPage() {
 
       {user.email ? (
         <Section title="Contact">
-          <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3.5 shadow-card">
+          <div className="flex items-center justify-between rounded-card bg-white px-4 py-3.5 shadow-card">
             <span className="text-sm font-semibold text-ink">Email</span>
             <span className="truncate pl-3 text-sm text-muted">{user.email}</span>
           </div>
@@ -91,7 +91,7 @@ export default async function YouPage() {
             {favouriteNames.map((name) => (
               <li
                 key={name}
-                className="rounded-card border border-line bg-white px-4 py-3 text-sm font-semibold text-ink shadow-card"
+                className="rounded-card bg-white px-4 py-3 text-sm font-semibold text-ink shadow-card"
               >
                 {name}
               </li>
@@ -105,7 +105,7 @@ export default async function YouPage() {
       </Section>
 
       <Section title="Your mall" subtitle="Deals and Browse use this location">
-        <div className="rounded-card border border-line bg-white px-4 py-3.5 shadow-card">
+        <div className="rounded-card bg-white px-4 py-3.5 shadow-card">
           <p className="text-sm font-semibold text-ink">{nodeLabel(node)}</p>
           <Meta as="p" className="mt-0.5">
             Change it anytime from Edit profile or the location pill on Discover.

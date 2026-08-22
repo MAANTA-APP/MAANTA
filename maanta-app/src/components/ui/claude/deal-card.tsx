@@ -77,7 +77,7 @@ export function DealCard({
     return (
       <article
         className={cn(
-          "relative overflow-hidden rounded-card border border-line bg-white shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
+          "relative overflow-hidden rounded-card bg-white shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
           className
         )}
       >
@@ -134,7 +134,7 @@ export function DealCard({
   return (
     <article
       className={cn(
-        "relative flex w-[17.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-card border border-line bg-white shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
+        "relative flex w-[17.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-card bg-white shadow-card transition hover:shadow-md motion-safe:active:scale-[0.995]",
         className
       )}
     >

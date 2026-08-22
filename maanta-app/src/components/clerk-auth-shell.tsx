@@ -34,7 +34,7 @@ const CLERK_EMBEDDED_APPEARANCE = {
 
 /** Single visible card silhouette shared by loading / failed / loaded. */
 const AUTH_CARD =
-  "w-full max-w-md rounded-card border border-line bg-white p-5 shadow-card sm:p-6";
+  "w-full max-w-md rounded-card bg-white p-5 shadow-card sm:p-6";
 
 function hasPublishableKey(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim());

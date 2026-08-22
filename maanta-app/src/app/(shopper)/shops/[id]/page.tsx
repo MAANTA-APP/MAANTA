@@ -105,7 +105,7 @@ export default async function ShopProfilePage({
               <Link
                 key={d.id}
                 href={`/deals/${d.id}`}
-                className="flex items-center gap-3 rounded-card border border-line bg-white p-3 hover:bg-cream/50"
+                className="flex items-center gap-3 rounded-card bg-white shadow-card p-3 hover:bg-cream/50"
               >
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-cream">
                   <CoverImage src={d.image_url} alt="" />

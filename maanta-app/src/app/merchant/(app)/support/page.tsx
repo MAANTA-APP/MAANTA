@@ -27,7 +27,7 @@ export default async function MerchantSupportPage() {
       <h1 className="text-center text-lg font-bold text-ink">Support</h1>
       <div className="mt-6 space-y-3">
         {FAQS.map((f) => (
-          <details key={f.q} className="rounded-card border border-line bg-white px-4 py-3.5">
+          <details key={f.q} className="rounded-card bg-white shadow-card px-4 py-3.5">
             <summary className="cursor-pointer text-sm font-semibold text-ink">{f.q}</summary>
             <p className="mt-2 text-sm text-muted">{f.a}</p>
           </details>

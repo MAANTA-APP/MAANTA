@@ -108,7 +108,7 @@ export default async function AdminAgentDetailPage({
       </p>
       <div className="mt-2 space-y-2">
         {merchants.length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             No merchants attributed to this agent yet
           </p>
         ) : (
@@ -116,7 +116,7 @@ export default async function AdminAgentDetailPage({
             <Link
               key={m.id}
               href={`/admin/merchants/${m.id}`}
-              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3 hover:bg-stone-soft"
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3 hover:bg-stone-soft"
             >
               <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
                 {m.merchant_name}
@@ -137,14 +137,14 @@ export default async function AdminAgentDetailPage({
       </h2>
       <div className="mt-2 space-y-2">
         {rows.length === 0 ? (
-          <p className="rounded-card border border-line bg-white px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
             No leads captured yet
           </p>
         ) : (
           rows.map((l) => (
             <div
               key={l.id}
-              className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-white px-4 py-3"
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3"
             >
               <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
                 {l.shop_name}

@@ -194,7 +194,7 @@ export default async function MyDealsPage({
                 <Link
                   key={r.id}
                   href={`/tickets/${r.id}`}
-                  className="flex items-center gap-3 rounded-card border border-line bg-white px-4 py-4 shadow-card hover:bg-stone-soft/60"
+                  className="flex items-center gap-3 rounded-card bg-white px-4 py-4 shadow-card hover:bg-stone-soft/60"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink">

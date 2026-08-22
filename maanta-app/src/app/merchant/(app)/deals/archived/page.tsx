@@ -42,7 +42,7 @@ export default async function ArchivedDealsPage() {
       ) : (
         <div className="mt-5 space-y-4">
           {rows.map((r) => (
-            <div key={r.id} className="rounded-card border border-line bg-white p-3.5">
+            <div key={r.id} className="rounded-card bg-white shadow-card p-3.5">
               <div className="flex items-center gap-3">
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-cream">
                   <CoverImage src={r.snap.image_url ?? null} alt="" />

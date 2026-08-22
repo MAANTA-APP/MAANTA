@@ -101,7 +101,7 @@ export default async function LeadDetailPage({
           </div>
         </Link>
       ) : (
-        <div className="mt-5 rounded-card border border-line bg-white px-4 py-3.5">
+        <div className="mt-5 rounded-card bg-white shadow-card px-4 py-3.5">
           <p className="text-sm font-bold text-ink">Not yet a merchant.</p>
           {/* The onboarding handoff (G1): merchant-authored, agent-attributed.
               The agent opens the wizard and hands the device over — the OWNER
@@ -134,7 +134,7 @@ export default async function LeadDetailPage({
         />
         <DetailRow label="Captured" value={friendlyTime(lead.created_at)} />
         {lead.notes ? (
-          <div className="rounded-card border border-line bg-white px-4 py-3">
+          <div className="rounded-card bg-white shadow-card px-4 py-3">
             <p className="text-xs text-muted">Notes</p>
             <p className="mt-0.5 text-sm text-ink">{lead.notes}</p>
           </div>
@@ -159,7 +159,7 @@ function DetailRow({
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-card border border-line bg-white px-4 py-3">
+    <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3">
       <span className="text-xs text-muted">{label}</span>
       <span className={"text-sm font-semibold text-ink" + (mono ? " font-mono" : "")}>
         {value ?? "—"}

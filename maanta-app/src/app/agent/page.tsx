@@ -99,7 +99,7 @@ export default async function AgentDashboardPage() {
         </span>
       </div>
 
-      <div className="mt-5 rounded-card border border-line bg-white p-4">
+      <div className="mt-5 rounded-card bg-white shadow-card p-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted">Weekly target</span>
           <span className="text-sm font-bold text-ink">

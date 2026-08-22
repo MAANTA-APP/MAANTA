@@ -74,7 +74,7 @@ export function ManageStaff({
       <p className="text-sm font-semibold text-ink">
         What can {name} do? <span className="font-normal text-muted">· {maskPhone(phone)}</span>
       </p>
-      <div className="mt-2 divide-y divide-line rounded-card border border-line bg-white px-4">
+      <div className="mt-2 divide-y divide-line rounded-card bg-white shadow-card px-4">
         <Toggle
           label="Verify redemptions"
           sub="Enter codes at the counter"

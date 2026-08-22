@@ -1,6 +1,21 @@
 # Skills: Claude-inspired shopper design system
 
-Last updated: 2026-07-26 · Status: **shipped in code**.
+Last updated: 2026-08-22 · Status: **shipped in code**.
+
+## Direction A (visual refresh, 2026-08-22)
+
+Founder ruling (decisions log 2026-08-22): the refresh ships **Direction A —
+Editorial calm** on every surface. Concretely, on top of everything below:
+
+- **Content cards are borderless white on `shadow-card`** — the idiom is
+  `rounded-card bg-white shadow-card`, never `border border-line` on a card.
+  Ratcheted by `src/lib/__tests__/direction-a-cards.test.ts` across all
+  non-marketing surfaces. Hairline dividers (`border-b border-line`,
+  `divide-line`), form inputs, and the FilterDropdown popover keep borders —
+  they are edges and affordances, not cards.
+- The stone page wash, DM Sans editorial type and the frozen rules are
+  unchanged; Direction A lives inside them.
+- The marketing site flips in its own slice with its own accent budget.
 
 ## Intent
 
