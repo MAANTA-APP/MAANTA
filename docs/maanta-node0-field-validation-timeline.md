@@ -161,6 +161,11 @@ the repo. Confirm with `make demo-status` before Phase 4.
 
 ### 4. Whether email sign-up is actually enabled is a dashboard fact, not a code fact
 
+*Re-checked against live production 2026-08-22 and still open — the sign-in
+widget is client-rendered, so the served HTML cannot answer it and a headless
+render is blocked by this environment's egress policy. Evidence and the
+two ways to close it: [`ops/production-verification-2026-08-22.md`](ops/production-verification-2026-08-22.md).*
+
 The plan's central unblocking premise is that a shopper can satisfy the claim
 gate with a verified email. The gate itself is correct and shipped —
 `VERIFIED_CONTACT_REQUIRED_AT_CLAIM`, enforced in
