@@ -110,7 +110,12 @@ Format: date · decision · consequence in product/code.
 3. Mirror to Notion and mark the repo copy's "Last updated".
 
 **Notion mirror status:** the Notion Decisions Log page is mirrored through
-**2026-08-22** (founder instruction, 2026-08-22 — "Update notion"), covering
+**2026-08-22, including the evening addendum** (two founder instructions the
+same day, both "Update notion"). The addendum records the Clerk email-sign-up
+confirmation, the distinction that **enabled is not delivered**, and the
+close-of-day deployment read (production on `main @ 18e72fd`; six consecutive
+production deploys all from `main`, no promotes — evidence of discipline, not a
+guard, so **D71** stays open). The first pass covered
 all six 08-22 rulings: Direction A shipped product-wide, the claim gate widened
 to a verified email or phone, `0 verified` kept visible, O2 accepted-not-closed
 for the pilot, the three field documents, and the Node 0 pilot sequencing with
