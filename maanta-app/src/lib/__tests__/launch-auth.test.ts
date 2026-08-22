@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LAUNCH_AUTH_MODE,
   LAUNCH_AUTH_MODES,
-  PHONE_REQUIRED_AT_CLAIM,
+  VERIFIED_CONTACT_REQUIRED_AT_CLAIM,
   emailSignInEnabled,
   launchAuthMode,
   phoneSignInEnabled,
@@ -44,6 +44,9 @@ describe("launch-auth mix flag", () => {
   });
 
   it("phone is ALWAYS required at claim, in every mode (frozen invariant)", () => {
-    expect(PHONE_REQUIRED_AT_CLAIM).toBe(true);
+    // Founder ruling 2026-08-22 widened the channel (phone OR email); it did
+    // not remove the gate. A future change that sets this false is removing a
+    // frozen invariant and needs its own decisions-log entry.
+    expect(VERIFIED_CONTACT_REQUIRED_AT_CLAIM).toBe(true);
   });
 });

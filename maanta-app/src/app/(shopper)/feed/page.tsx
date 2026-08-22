@@ -8,6 +8,7 @@ import {
   getSelectedNode,
   getAppUser,
   getFavouriteMerchantIds,
+  getVerifiedCounts,
   type DealRow,
 } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
@@ -51,6 +52,7 @@ function cardProps(
     origin: { lat: number; lng: number } | null;
     favourites: Set<string>;
     tag: "flash" | "boosted" | "standard" | null;
+    verified?: Map<string, number>;
   }
 ) {
   const pricing = dealPricing(d);
@@ -69,6 +71,10 @@ function cardProps(
     expiresAt: d.expires_at,
     merchantId: d.merchant_id,
     isFavourite: opts.favourites.has(d.merchant_id),
+    // Decision KPIs — rendered by the tall variants only (DealKpis).
+    claimsCount: d.claims_count,
+    maxClaims: d.max_claims,
+    verifiedCount: opts.verified?.get(d.merchant_id) ?? null,
   };
 }
 
@@ -143,6 +149,15 @@ export default async function FeedPage({
 
   const total = flashDeals.length + boostedDeals.length + nearDeals.length;
 
+  // Verified redemptions per shop, for the decision KPIs on the tall cards.
+  // One query over the merchants actually on screen — the KPI is omitted rather
+  // than guessed if a shop is missing from the map.
+  const verified = await getVerifiedCounts(
+    Array.from(
+      new Set([...allDeals, ...uniqueFavourites].map((d) => d.merchant_id))
+    )
+  );
+
   return (
     <Page>
       <ShopperTopBar node={node} />
@@ -179,7 +194,7 @@ export default async function FeedPage({
               <div className="px-4">
                 <DealCard
                   variant="lead"
-                  {...cardProps(flashDeals[0], { origin, favourites, tag: "flash" })}
+                  {...cardProps(flashDeals[0], { origin, favourites, verified, tag: "flash" })}
                 />
               </div>
               {flashDeals.length > 1 ? (
@@ -187,7 +202,7 @@ export default async function FeedPage({
                   {flashDeals.slice(1).map((d) => (
                     <DealCard
                       key={d.id}
-                      {...cardProps(d, { origin, favourites, tag: "flash" })}
+                      {...cardProps(d, { origin, favourites, verified, tag: "flash" })}
                     />
                   ))}
                 </RailScroller>
@@ -210,7 +225,7 @@ export default async function FeedPage({
                 {boostedDeals.map((d) => (
                   <DealCard
                     key={d.id}
-                    {...cardProps(d, { origin, favourites, tag: "boosted" })}
+                    {...cardProps(d, { origin, favourites, verified, tag: "boosted" })}
                   />
                 ))}
               </RailScroller>
@@ -235,7 +250,7 @@ export default async function FeedPage({
                   <DealCard
                     key={d.id}
                     variant="row"
-                    {...cardProps(d, { origin, favourites, tag: "standard" })}
+                    {...cardProps(d, { origin, favourites, verified, tag: "standard" })}
                   />
                 ))}
               </div>

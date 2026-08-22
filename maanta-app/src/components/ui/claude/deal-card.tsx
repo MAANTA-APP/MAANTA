@@ -7,6 +7,7 @@ import { FavouriteButton } from "@/components/favourite-button";
 import { HeadingMd, HeadingSm, Meta, Label } from "@/components/ui/claude/typography";
 import { cn } from "@/lib/ui";
 import { extrasLine } from "@/lib/pricing";
+import { DealKpis } from "@/components/ui/claude/deal-kpis";
 
 export type DealRailBadge = "flash" | "boosted" | "standard" | null;
 
@@ -51,6 +52,9 @@ export function DealCard({
   expiresAt,
   merchantId,
   isFavourite = false,
+  claimsCount,
+  maxClaims,
+  verifiedCount,
   variant = "horizontal",
   showFavourite = true,
   className,
@@ -69,6 +73,11 @@ export function DealCard({
   expiresAt?: string | null;
   merchantId: string;
   isFavourite?: boolean;
+  /** Decision KPIs. Rendered on the tall variants only — the rail card stays
+   *  glanceable, and a KPI row would crowd 17.5rem. */
+  claimsCount?: number | null;
+  maxClaims?: number | null;
+  verifiedCount?: number | null;
   variant?: "horizontal" | "vertical" | "lead" | "row";
   showFavourite?: boolean;
   className?: string;
@@ -134,6 +143,14 @@ export function DealCard({
                 {extrasLine(extras)}
               </p>
             ) : null}
+            <DealKpis
+              pay={pay}
+              was={wasKes}
+              claimsCount={claimsCount}
+              maxClaims={maxClaims}
+              verifiedCount={verifiedCount}
+              className="mt-2.5"
+            />
           </div>
         </Link>
       </article>
@@ -187,6 +204,14 @@ export function DealCard({
                 <CountdownChip expiresAt={expiresAt} />
               </div>
             ) : null}
+            <DealKpis
+              pay={pay}
+              was={wasKes}
+              claimsCount={claimsCount}
+              maxClaims={maxClaims}
+              verifiedCount={verifiedCount}
+              className="mt-1.5"
+            />
           </div>
         </Link>
         {showFavourite ? (
@@ -250,6 +275,14 @@ export function DealCard({
             {pay != null && extras != null && extras > 0 ? (
               <p className="tnum text-[11px] text-secondary">{extrasLine(extras)}</p>
             ) : null}
+            <DealKpis
+              pay={pay}
+              was={wasKes}
+              claimsCount={claimsCount}
+              maxClaims={maxClaims}
+              verifiedCount={verifiedCount}
+              className="pt-0.5"
+            />
           </div>
         </Link>
       </article>

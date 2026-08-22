@@ -171,7 +171,8 @@ function ClerkVerifyPhoneInner() {
       <BackButton fallback="/you" />
       <h1 className="mt-4 text-2xl font-bold text-ink">Add your phone to claim</h1>
       <p className="mt-2 text-sm text-muted">
-        Claiming a deal needs a verified phone number. We&apos;ll text you a
+        Claiming a deal needs a verified email or phone number, and this
+        account has neither yet. We&apos;ll text you a
         one-time code, then take you back to the deal.
       </p>
 

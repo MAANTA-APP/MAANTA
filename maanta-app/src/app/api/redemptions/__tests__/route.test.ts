@@ -1,19 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../route";
 
-// Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth allows
-// email-only sign-in, but a claim needs a verified phone. This locks the server
-// gate at THIS ROUTE: a phone-less session is rejected with a typed
-// `phone_required` 403 and claim_deal is not called; a verified-phone session
-// passes through. The gate is app-layer only — claim_deal has no phone check of
-// its own (D84) — so this guards the enforcement point, not an RPC-level invariant.
+// Verified-contact-at-claim gate. A claim needs proof of a contact channel —
+// a verified phone OR a verified email (founder ruling 2026-08-22, widening the
+// S2 phone-only gate of 2026-07-23 because Clerk SMS does not reach the pilot's
+// Norwegian, Kenyan and UK numbers).
+//
+// This locks the server gate at THIS ROUTE, in both directions: a session with
+// NO verified channel is rejected with a typed `phone_required` 403 and
+// claim_deal is not called; a session with EITHER channel passes through. The
+// gate is app-layer only — claim_deal has no identity check of its own (D84) —
+// so this guards the enforcement point, not an RPC-level invariant.
 
 const ensureAppUserMock = vi.fn();
-const hasPhoneMock = vi.fn();
+const hasContactMock = vi.fn();
 vi.mock("@/lib/auth", () => ({
   ensureAppUser: () => ensureAppUserMock(),
   currentClerkUserId: () => Promise.resolve(null),
-  currentUserHasVerifiedPhone: () => hasPhoneMock(),
+  currentUserHasVerifiedContact: () => hasContactMock(),
 }));
 
 const rpcSingleMock = vi.fn();
@@ -65,7 +69,7 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
   });
 
   it("rejects an email-only (phone-less) session with a typed 403 and skips the RPC", async () => {
-    hasPhoneMock.mockResolvedValue(false);
+    hasContactMock.mockResolvedValue(false);
 
     const res = await POST(req({ dealId: "deal-1" }));
 
@@ -76,7 +80,7 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
   });
 
   it("lets a session with a verified phone through to claim_deal", async () => {
-    hasPhoneMock.mockResolvedValue(true);
+    hasContactMock.mockResolvedValue(true);
     rpcSingleMock.mockResolvedValue({
       data: {
         redemption_id: "red-1",
@@ -102,7 +106,7 @@ describe("POST /api/redemptions — phone-required-at-claim gate", () => {
   });
 
   it("maps deal_paused to a 409 with a clear shopper message", async () => {
-    hasPhoneMock.mockResolvedValue(true);
+    hasContactMock.mockResolvedValue(true);
     rpcSingleMock.mockResolvedValue({
       data: null,
       error: { message: "deal_paused" },
@@ -134,7 +138,7 @@ describe("POST /api/redemptions — RPC error mapping", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     ensureAppUserMock.mockResolvedValue({ id: "user-1" });
-    hasPhoneMock.mockResolvedValue(true);
+    hasContactMock.mockResolvedValue(true);
   });
 
   it("maps deal_not_active to 410 instead of a generic 500", async () => {
@@ -240,7 +244,7 @@ describe("POST /api/redemptions — enrichment cannot fail a committed claim", (
   beforeEach(() => {
     vi.clearAllMocks();
     ensureAppUserMock.mockResolvedValue({ id: "user-1" });
-    hasPhoneMock.mockResolvedValue(true);
+    hasContactMock.mockResolvedValue(true);
     gpsResult = { lat: 59.91, lng: 10.75 };
     rpcSingleMock.mockResolvedValue({
       data: {

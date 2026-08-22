@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import {
   ensureAppUser,
   currentClerkUserId,
-  currentUserHasVerifiedPhone,
+  currentUserHasVerifiedContact,
 } from "@/lib/auth";
 import { convertWhat3WordsToCoordinates, distanceMeters } from "@/lib/what3words";
 import { parseGpsCoords } from "@/lib/geo";
@@ -14,7 +14,7 @@ import {
   CLAIM_RATE_LIMIT,
   CLAIM_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
-import { PHONE_REQUIRED_AT_CLAIM } from "@/lib/launch-auth";
+import { VERIFIED_CONTACT_REQUIRED_AT_CLAIM } from "@/lib/launch-auth";
 
 /**
  * Ceiling on post-claim enrichment, in milliseconds.
@@ -82,30 +82,34 @@ export async function POST(request: Request) {
     );
   }
 
-  // Phone-required-at-claim gate (S2 ruling 2026-07-23). Launch auth lets a
-  // shopper sign up with email OR phone, but a claim requires a verified phone.
-  // An email-only session is bounced here with a typed `phone_required` code so
-  // the client can route through phone OTP and return to the deal.
+  // Verified-contact-at-claim gate. A claim requires proof the shopper controls
+  // a contact channel — a verified phone OR a verified email.
   //
-  // This route is the ONLY phone gate: `claim_deal` asserts no phone check of its
-  // own (grep `phone` over its definition returns nothing). So the invariant holds
-  // for the shipped shopper path, but it is app-layer, not RPC-enforced — a direct
-  // RPC caller with a valid shopper JWT would claim without a verified phone. That
-  // is accepted for the pilot (this gated route is the only caller, and production
-  // runs the Clerk strategy where the check is real); the durable form is an
-  // RPC-level check against a persisted verified-phone flag — a founder call whose
-  // analysis is recorded as D84. Note too that under the Supabase auth strategy (dev/CI)
-  // `currentUserHasVerifiedPhone()` returns true unconditionally, so this single
-  // gate is also strategy-dependent (D59).
+  // Founder ruling 2026-08-22 (decisions log) widened this from the S2 phone-only
+  // gate of 2026-07-23, because Clerk SMS does not reach the Norwegian, Kenyan and
+  // UK numbers the pilot has to test on. Under the Clerk strategy an email sign-in
+  // IS an emailed one-time code, so a verified email is the same kind of proof over
+  // a different channel. The gate did not weaken to "anyone signed in": a session
+  // with no verified channel at all is still refused.
   //
-  // PHONE_REQUIRED_AT_CLAIM is a frozen TRUE across every launch-auth mix
-  // (email+phone or phone-only) — the gate is never relaxed by the mix flag;
-  // only the sign-up methods offered differ.
-  const hasPhone = await currentUserHasVerifiedPhone();
-  if (PHONE_REQUIRED_AT_CLAIM && !hasPhone) {
+  // A session with neither channel verified keeps the `phone_required` code, so the
+  // client still routes it to the phone step — SMS remains the only OTP we can issue
+  // on demand until an OTP provider is in place, which is when this ruling is to be
+  // revisited.
+  //
+  // This route is the ONLY gate: `claim_deal` asserts no identity check of its own
+  // (grep `phone` over its definition returns nothing). So the invariant holds for
+  // the shipped shopper path, but it is app-layer, not RPC-enforced — a direct RPC
+  // caller with a valid shopper JWT would claim without one. That is accepted for
+  // the pilot (this gated route is the only caller); the durable form is an
+  // RPC-level check, a founder call whose analysis is recorded as D84. Note too
+  // that under the Supabase auth strategy (dev/CI) `currentUserHasVerifiedPhone()`
+  // returns true unconditionally, so this gate is also strategy-dependent (D59).
+  const hasVerifiedContact = await currentUserHasVerifiedContact();
+  if (VERIFIED_CONTACT_REQUIRED_AT_CLAIM && !hasVerifiedContact) {
     return NextResponse.json(
       {
-        error: "Add a phone number to claim this deal.",
+        error: "Verify your email or add a phone number to claim this deal.",
         code: "phone_required",
       },
       { status: 403 }

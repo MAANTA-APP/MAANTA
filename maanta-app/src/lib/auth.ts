@@ -47,6 +47,43 @@ export async function currentUserHasVerifiedPhone(): Promise<boolean> {
 }
 
 /**
+ * True when the signed-in user has a verified email address.
+ *
+ * The email twin of the phone check, and the reason the claim gate can accept
+ * a channel other than SMS: under the Clerk strategy an email sign-in is itself
+ * an emailed one-time code, so a verified email is proof the shopper controls
+ * that mailbox — the same kind of proof the SMS OTP gives, over a different
+ * channel.
+ *
+ * Unlike the phone check this has no strategy escape hatch: it reads Clerk and
+ * returns false when there is no verified address, so under the Supabase
+ * strategy (dev/CI) it is the phone check that relaxes the gate, exactly as
+ * before — this function never widens it by accident.
+ */
+export async function currentUserHasVerifiedEmail(): Promise<boolean> {
+  const cu = await currentUser();
+  if (!cu) return false;
+  const emails = cu.emailAddresses ?? [];
+  return emails.some((e) => e.verification?.status === "verified");
+}
+
+/**
+ * True when the shopper has proven control of at least one contact channel —
+ * a verified phone OR a verified email.
+ *
+ * This is what the claim gate asserts as of the founder ruling 2026-08-22
+ * (decisions log), which supersedes the S2 phone-only gate for the testing
+ * period. The anti-fraud intent is unchanged: every claim still traces to a
+ * channel the shopper proved they control. What changed is that SMS is no
+ * longer the only channel that counts, because Clerk SMS does not reach the
+ * Norwegian, Kenyan and UK numbers the pilot has to test on.
+ */
+export async function currentUserHasVerifiedContact(): Promise<boolean> {
+  if (await currentUserHasVerifiedPhone()) return true;
+  return currentUserHasVerifiedEmail();
+}
+
+/**
  * The phone to persist on `public.users.phone`, or null — only a Clerk-VERIFIED
  * primary phone is stored, in canonical E.164.
  *
