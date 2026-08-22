@@ -14,9 +14,12 @@
  *    bundle — the app cannot open these, only say exactly where they live.
  *    Shipping them into the bundle is also not wanted: several runbooks carry
  *    operational detail that has no business in client-adjacent code.
- *  - **missing**: asked for and not yet written. Welcome packs are the standing
- *    example — none exists for any audience. Listed rather than omitted, because
- *    a gap you can see gets written and a gap you can't gets rediscovered.
+ *  - **missing**: asked for and not yet written. Listed rather than omitted,
+ *    because a gap you can see gets written and a gap you can't gets
+ *    rediscovered — which is how the merchant and agent packs came to be
+ *    written (2026-08-22): they sat here as visible gaps until the first
+ *    merchant loop test needed them. The shopper and mall-operator packs are
+ *    still open.
  */
 
 export type ResourceAudience = "shopper" | "merchant" | "agent" | "mall_operator" | "ops";
@@ -125,9 +128,17 @@ export const ADMIN_RESOURCES: AdminResource[] = [
   },
   {
     title: "Merchant welcome pack",
-    description: "Does not exist yet — activation is currently verbal plus the app.",
+    description:
+      "DRAFT — what the field operator reads out and leaves at the shop on activation day.",
     audience: "merchant",
-    access: { kind: "missing", owner: "founder" },
+    access: { kind: "reference", location: "repo: docs/ops/merchant-welcome-pack.md" },
+  },
+  {
+    title: "First merchant loop test",
+    description:
+      "The visit protocol: publish → claim → verify → fee, with the seven proofs and the abort conditions.",
+    audience: "merchant",
+    access: { kind: "reference", location: "repo: docs/ops/first-merchant-loop-test.md" },
   },
 
   // ── Agents ──────────────────────────────────────────────────────────────
@@ -150,10 +161,11 @@ export const ADMIN_RESOURCES: AdminResource[] = [
     access: { kind: "reference", location: "repo: docs/ops/role-tasks-nairobi-150-2026-07.md" },
   },
   {
-    title: "Agent welcome pack / SOP",
-    description: "Does not exist yet — agent onboarding is run from the rota docs above.",
+    title: "Field operator day sheet",
+    description:
+      "DRAFT — the day-to-day SOP: open, capture, onboard, escalate, close, and the never-do list.",
     audience: "agent",
-    access: { kind: "missing", owner: "founder" },
+    access: { kind: "reference", location: "repo: docs/ops/field-operator-day-sheet.md" },
   },
 
   // ── Mall operators ──────────────────────────────────────────────────────
