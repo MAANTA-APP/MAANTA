@@ -55,7 +55,11 @@ const ensureAppUserMock = vi.fn();
 vi.mock("@/lib/auth", () => ({
   ensureAppUser: () => ensureAppUserMock(),
   currentClerkUserId: () => Promise.resolve(null),
-  currentUserHasVerifiedPhone: () => Promise.resolve(true),
+  // The claim gate reads a verified CONTACT channel — phone or email —
+  // since the founder ruling of 2026-08-22. These suites are about the
+  // Clerk client construction path (D96), not the gate, so the channel is
+  // stubbed satisfied.
+  currentUserHasVerifiedContact: () => Promise.resolve(true),
 }));
 
 vi.mock("@/lib/supabase/service", () => ({

@@ -5,10 +5,17 @@
  *
  * Two things are frozen and do NOT depend on this flag:
  *   1. Browsing never requires a phone or any payment step.
- *   2. Claiming a deal ALWAYS requires a verified phone (SMS OTP) — enforced
- *      server-side in src/app/api/redemptions/route.ts via
- *      currentUserHasVerifiedPhone(). That invariant holds in EVERY mode, so the
- *      claim gate must never be made conditional on this flag.
+ *   2. Claiming a deal ALWAYS requires a verified CONTACT CHANNEL — a verified
+ *      phone OR a verified email — enforced server-side in
+ *      src/app/api/redemptions/route.ts via currentUserHasVerifiedContact().
+ *      That invariant holds in EVERY mode, so the claim gate must never be made
+ *      conditional on this flag.
+ *
+ *      Until 2026-08-22 this read "a verified phone (SMS OTP)" — the S2 ruling.
+ *      Founder ruling 2026-08-22 (decisions log) widened the channel because
+ *      Clerk SMS does not reach the Norwegian, Kenyan and UK numbers the pilot
+ *      must test on. It is a widening of the channel, NOT a removal of the gate:
+ *      an anonymous or unverified session still cannot claim.
  *
  * What the flag selects is only the SIGN-UP / SIGN-IN mix the launch offers:
  *   - "email_and_phone" (default, current S2 ruling): both methods offered at
@@ -61,8 +68,15 @@ export function phoneSignInEnabled(): boolean {
 }
 
 /**
- * Phone required to CLAIM a deal. Frozen TRUE in every mode — the claim gate is
- * an invariant, never toggled by the launch mix. Exposed as a named constant so
- * the gate reads as policy, not a magic literal.
+ * A verified contact channel is required to CLAIM a deal. Frozen TRUE in every
+ * mode — the claim gate is an invariant, never toggled by the launch mix.
+ * Exposed as a named constant so the gate reads as policy, not a magic literal.
+ *
+ * Supersedes `PHONE_REQUIRED_AT_CLAIM` (S2, 2026-07-23) per the founder ruling
+ * of 2026-08-22. The channel widened from SMS-only to SMS-or-email; the
+ * requirement itself did not move.
+ *
+ * **Revisit when an OTP provider is in place** — the founder's ruling is
+ * explicitly "for now", to unblock testing in Oslo, London and Nairobi.
  */
-export const PHONE_REQUIRED_AT_CLAIM = true as const;
+export const VERIFIED_CONTACT_REQUIRED_AT_CLAIM = true as const;
