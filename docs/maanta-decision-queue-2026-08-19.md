@@ -407,7 +407,7 @@ not a decision.
 |---|---|
 | **D15** | Add `elite_subscription_kes` when subscription billing is wired to a processor. Revisit at the Feb 2027 price review. |
 | **D27** | Fold the parity register into this one, or make it explicitly narrative. Eng cleanup. |
-| **D39** | **A 30-second terminal job:** `curl -sI https://www.maanta.app/how-it-works` with redirects **not** followed. Neither Claude session can take it — this environment's proxy refuses the domain (403) and the Vercel fetch that works follows redirects, which is precisely what the row forbids. **Hand to Abdulrazak.** |
+| **D39** | **A 30-second terminal job:** `curl -sI https://www.maanta.app/how-it-works` with redirects **not** followed. Neither Claude session can take it — this environment's proxy refuses the domain (403) and the Vercel fetch that works follows redirects, which is precisely what the row forbids. ~~Hand to Abdulrazak.~~ **Re-owned 2026-08-22: founder or field operator.** The team correction of 2026-08-22 established there is no separate developer — engineering runs through Claude Code under founder approval — so this row's named owner no longer exists. It needs one terminal with unrestricted egress, from anyone who has one; the field operator's handset on mobile data qualifies. |
 | **D51** | Fixed; open until `OFFERS.eliteTrial.expiresOn` passes and both pages drop the offer together. Nothing to decide. |
 | **D54** | Fixed in code; open until someone renders the merchant/shopper/ops surfaces, which sit behind auth. |
 | **D86** | The standing procedure now exists. Whether that closes it is an eng judgement. |
