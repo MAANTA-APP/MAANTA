@@ -51,8 +51,11 @@ export default async function AdminMerchantDetailPage({
         <PlanChip plan={m.tier as "standard" | "elite"} />
       </div>
       <p className="mt-2 text-sm text-muted">
+        {/* D158 — phone may be NULL for a shop onboarded on a verified email.
+            The email is only appended as a SECOND channel; when it is already
+            standing in as the primary it must not print twice. */}
         Contact: {m.phone ?? m.email ?? "No contact on file"}
-        {m.email ? ` · ${m.email}` : ""}
+        {m.phone && m.email ? ` · ${m.email}` : ""}
       </p>
       <p className="mt-1 text-sm text-muted">
         {[m.floor, m.unit_number].filter(Boolean).join(", ") || "No floor/unit"}
