@@ -17,10 +17,13 @@ export async function POST(request: Request) {
   }
   const { merchant } = res.ctx;
 
-  const { staffName, phone, canVerify, canDeals, canTopup, canPurchase } =
+  const { staffName, phone, email, canVerify, canDeals, canTopup, canPurchase } =
     await request.json();
   if (!staffName || !String(staffName).trim()) {
-    return NextResponse.json({ error: "Name and phone are required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Enter their name and one way to sign in." },
+      { status: 400 }
+    );
   }
 
   // Store the canonical E.164, not the raw typed string: getMerchantContext links
@@ -28,11 +31,37 @@ export async function POST(request: Request) {
   // users.phone exactly, so a non-canonical number would never link (see
   // normalizeStaffPhone). Rejecting an unnormalizable number here turns a silent
   // never-links row into a clear error at the point the owner can fix it.
-  const normalizedPhone =
-    typeof phone === "string" ? normalizeStaffPhone(phone) : null;
-  if (!normalizedPhone) {
+  const rawPhone = typeof phone === "string" ? phone.trim() : "";
+  const normalizedPhone = rawPhone ? normalizeStaffPhone(rawPhone) : null;
+  if (rawPhone && !normalizedPhone) {
     return NextResponse.json(
       { error: "Enter a valid mobile number so they can sign in." },
+      { status: 400 }
+    );
+  }
+
+  // D154: email is the second linking key, on the same terms as the phone.
+  // Lower-cased here because the seat links by exact `=` against `users.email`
+  // and the column carries a lowercase CHECK (20260823120000) — a mixed-case
+  // invite would insert fine and then never link, the silent failure D127 fixed
+  // on the phone side. Deliberately a shape check, not a deliverability check:
+  // the address only matters if it is the one Clerk verified, and Clerk decides
+  // that, not us.
+  const rawEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (rawEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+    return NextResponse.json(
+      { error: "Enter a valid email address so they can sign in." },
+      { status: 400 }
+    );
+  }
+  const normalizedEmail = rawEmail || null;
+
+  // At least one channel, or the seat is created and can never link to anyone.
+  // The database enforces this too (merchant_staff_contact_present); this is the
+  // half that can say something useful to the owner.
+  if (!normalizedPhone && !normalizedEmail) {
+    return NextResponse.json(
+      { error: "Add a mobile number or an email address so they can sign in." },
       { status: 400 }
     );
   }
@@ -44,6 +73,7 @@ export async function POST(request: Request) {
       merchant_id: merchant.id,
       staff_name: String(staffName).trim(),
       phone: normalizedPhone,
+      email: normalizedEmail,
       can_verify: canVerify !== false,
       can_deals: !!canDeals,
       can_topup: !!canTopup,
@@ -54,8 +84,15 @@ export async function POST(request: Request) {
 
   if (error || !data) {
     if (error?.code === "23505") {
+      // Two uniqueness rules now: (merchant_id, phone) and (merchant_id, email).
+      // Name the one the owner actually collided on rather than guessing.
+      const onEmail = String(error.message ?? "").includes("email");
       return NextResponse.json(
-        { error: "That phone number is already on your staff list." },
+        {
+          error: onEmail
+            ? "That email address is already on your staff list."
+            : "That phone number is already on your staff list.",
+        },
         { status: 409 }
       );
     }

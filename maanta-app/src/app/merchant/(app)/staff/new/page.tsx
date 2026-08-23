@@ -17,6 +17,8 @@ export default function AddStaffPage() {
   const [name, setName] = useState("");
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
+  // D154: a seat may carry a phone, an email, or both — one channel is enough.
+  const [email, setEmail] = useState("");
   // Defaults match merchant_staff DB columns (verify-only until owner opts in).
   const [perms, setPerms] = useState({
     canVerify: true,
@@ -27,7 +29,10 @@ export default function AddStaffPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fullPhone = `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`;
+  const fullPhone = phone.trim()
+    ? `${cc}${phone.replace(/\D/g, "").replace(/^0+/, "")}`
+    : "";
+  const trimmedEmail = email.trim().toLowerCase();
 
   async function save() {
     setBusy(true);
@@ -36,7 +41,12 @@ export default function AddStaffPage() {
       const res = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staffName: name.trim(), phone: fullPhone, ...perms }),
+        body: JSON.stringify({
+          staffName: name.trim(),
+          phone: fullPhone,
+          email: trimmedEmail,
+          ...perms,
+        }),
       });
       const body = await res.json();
       setBusy(false);
@@ -59,10 +69,11 @@ export default function AddStaffPage() {
         </span>
         <h1 className="mt-5 text-2xl font-bold text-ink">Invite sent</h1>
         <p className="mt-2 text-sm text-muted">
-          {name} · {maskPhone(fullPhone)}
+          {name} · {fullPhone ? maskPhone(fullPhone) : trimmedEmail}
         </p>
         <p className="mt-3 text-xs text-muted">
-          They can sign in with their own number. Permissions apply from first sign-in —
+          They can sign in with their own {fullPhone ? "number" : "email"}. Permissions apply from
+          first sign-in —
           change them anytime in Staff.
         </p>
         <Button
@@ -107,20 +118,29 @@ export default function AddStaffPage() {
               autoFocus
             />
             <PhoneField
-              label="Phone"
+              label="Phone (optional)"
               countryCode={cc}
               onCountryCode={setCc}
               value={phone}
               onChange={setPhone}
             />
+            <TextField
+              label="Email (optional)"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <p className="mt-3 text-xs text-muted">
-            Staff sign in with their own number via OTP. You choose what they can do next.
+            Give them a number or an email — whichever they will sign in with. They
+            get a one-time code on that channel. You choose what they can do next.
           </p>
           <div className="mt-auto pt-8">
             <Button
               full
-              disabled={!name.trim() || !phone.trim()}
+              disabled={!name.trim() || (!phone.trim() && !email.trim())}
               onClick={() => setStep("permissions")}
             >
               Continue — set permissions
