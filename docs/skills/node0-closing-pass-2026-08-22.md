@@ -160,6 +160,33 @@ reads 3 rather than 0.
 
 The proving record for the loop is this document, not the rows.
 
+## 3c. Staff seat by email — proven live on production, 2026-08-23
+
+D154 shipped, merged to `main` (`586c832`, production deploy READY) and then
+exercised end to end. Every line below is a read-back.
+
+| Step | Result |
+|---|---|
+| Merchant opens Add staff | Form now reads **Phone (optional)** / **Email (optional)**; Continue enables with the phone **blank** — the state that was impossible before |
+| Invite saved | Seat `4c198cb4…` created: `phone = NULL`, `email = aragagency+staff1@gmail.com`, `user_id = NULL` (unclaimed), `can_verify = true`, everything else false |
+| Confirmation copy | "They can sign in with their own **email**" — the branch reads the channel actually used |
+| Staff 01 signs in by email code | New user provisioned `a408ff67…` / `user_3IIuK1or…`, role `customer`, **`users.phone` NULL** |
+| First merchant surface loads | Seat links lazily, as designed |
+| **Read-back** | **`merchant_staff.user_id = a408ff67…`** (linked) · **`users.role = merchant_staff`** (promoted) · **`users.phone` still NULL** (so it linked on the email alone, not a phone) · permissions applied exactly as invited (`can_verify` true, deals/topup/purchase false) · **exactly 1 `users` row** for the address — no duplicate |
+| Verify keypad | Reachable at `/merchant/redeem`, wallet KES 300 shown |
+
+So the last phone-only door in the pilot is open: a shop can put a real employee
+on the counter with nothing but an email address.
+
+**Not yet exercised:** Staff 01 actually *completing* a redemption. The
+`can_verify` permission is the pre-existing gate and is unchanged by D154, but
+a staff-verified `success` has never been run. It needs a deal, a shopper claim
+and a counter verification — a founder decision, since each sign-in costs a code.
+
+**Test rows still live** (cleanup owed, same as before): shop `0bc2d71e…`
+"Staff Test Shop (E2E)", seat `4c198cb4…`, users `a408ff67…` (staff) and
+`12e634fd…` (shopper2).
+
 ## 4. Notion sync
 
 See the Notion mirror entry dated 2026-08-22 (evening, closing pass) on the
