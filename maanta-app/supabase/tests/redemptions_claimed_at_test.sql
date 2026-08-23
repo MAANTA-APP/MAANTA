@@ -11,7 +11,8 @@
 --   C  verification does NOT move it (the number would otherwise drift to the
 --      redemption time and claim-to-visit conversion would read as instant)
 --   D  a rejected/failed verification does not move it either
---   E  a claim that is REFUSED creates no row, so no stray timestamp
+--   E  a re-claim while the first ticket is still PENDING is refused and
+--      creates no second row (the guard only applies while pending)
 --   F  the KPI's own filter shape returns the claim — this is the query that
 --      was silently broken, so it is asserted directly rather than by proxy
 --   G  historical rows stay NULL and are excluded from the count
@@ -92,6 +93,28 @@ BEGIN
   WHERE claimed_at >= NOW() - INTERVAL '7 days' AND id = v_rid;
   ASSERT v_kpi_count = 1, 'F: the Claims (7d) filter must count a claim made just now';
 
+  -- E: a second claim WHILE THE FIRST IS STILL PENDING is refused, so no stray
+  -- row and no second timestamp.
+  --
+  -- Order matters, and an earlier draft got it wrong: this was originally
+  -- asserted AFTER verification, where it is simply false. `claim_deal` guards
+  -- on `active_claim_already_exists` only while a claim is `pending`, and this
+  -- deal has `max_claims` NULL (unlimited) — so once the ticket is redeemed a
+  -- fresh claim is legitimate and a second row SHOULD appear. CI's fresh
+  -- database caught it; production would have too. The guard being tested is
+  -- the one a shopper actually meets: tapping Claim twice on a live ticket.
+  BEGIN
+    PERFORM public.claim_deal(v_uid, v_did);
+    RAISE EXCEPTION 'E: a second claim on a still-pending ticket must be refused, but it succeeded';
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE 'E:%' THEN RAISE; END IF;
+      ASSERT SQLERRM LIKE '%active_claim_already_exists%',
+        format('E: expected active_claim_already_exists, got: %s', SQLERRM);
+  END;
+  ASSERT (SELECT count(*) FROM public.redemptions WHERE deal_id = v_did AND user_id = v_uid) = 1,
+    'E: a refused re-claim must not create a second redemption';
+
   -- C: verification must not move it. Authenticate as the shop owner.
   PERFORM set_config('request.jwt.claims',
     json_build_object('sub', v_owner_auth::text, 'role', 'authenticated')::text, true);
@@ -104,21 +127,14 @@ BEGIN
   ASSERT (SELECT redeemed_at FROM public.redemptions WHERE id = v_rid) IS NOT NULL,
     'C: redeemed_at is the verification time and must be set separately';
 
-  -- E: a second claim on the same deal is refused, so no stray row/timestamp.
-  PERFORM set_config('request.jwt.claims',
-    json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
-  BEGIN
-    PERFORM public.claim_deal(v_uid, v_did);
-    -- Some refusal paths return a row with an error code rather than raising;
-    -- either way there must be exactly one redemption for this user+deal.
-  EXCEPTION WHEN OTHERS THEN
-    NULL;
-  END;
-  ASSERT (SELECT count(*) FROM public.redemptions WHERE deal_id = v_did AND user_id = v_uid) = 1,
-    'E: a refused re-claim must not create a second redemption';
-
+  -- Clear EVERY child a verify can create before the parent rows. Several of
+  -- these FKs are NO ACTION, so a stray row makes the merchant DELETE fail and
+  -- the whole scenario error out for reasons unrelated to what it tests.
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
   DELETE FROM public.guardian_events WHERE merchant_id = v_mid;
+  DELETE FROM public.fraud_events WHERE merchant_id = v_mid;
+  DELETE FROM public.agent_tasks WHERE merchant_id = v_mid;
+  DELETE FROM public.audit_logs WHERE merchant_id = v_mid;
   DELETE FROM public.redemptions WHERE deal_id = v_did;
   DELETE FROM public.deals WHERE id = v_did;
   DELETE FROM public.merchants WHERE id = v_mid;
@@ -166,8 +182,14 @@ BEGIN
   ASSERT v_after = v_claimed,
     format('D: a failed verification must not rewrite claimed_at (%s -> %s)', v_claimed, v_after);
 
+  -- Clear EVERY child a verify can create before the parent rows. Several of
+  -- these FKs are NO ACTION, so a stray row makes the merchant DELETE fail and
+  -- the whole scenario error out for reasons unrelated to what it tests.
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
   DELETE FROM public.guardian_events WHERE merchant_id = v_mid;
+  DELETE FROM public.fraud_events WHERE merchant_id = v_mid;
+  DELETE FROM public.agent_tasks WHERE merchant_id = v_mid;
+  DELETE FROM public.audit_logs WHERE merchant_id = v_mid;
   DELETE FROM public.redemptions WHERE deal_id = v_did;
   DELETE FROM public.deals WHERE id = v_did;
   DELETE FROM public.merchants WHERE id = v_mid;
@@ -220,6 +242,8 @@ BEGIN
     'G: an untracked historical claim must not be counted by Claims (7d)';
 
   DELETE FROM public.redemptions WHERE id = v_rid;
+  DELETE FROM public.guardian_events WHERE merchant_id = v_mid;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
   DELETE FROM public.deals WHERE id = v_did;
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id = v_uid;
@@ -299,6 +323,8 @@ BEGIN
     'H: a claim one second outside the 7-day boundary must NOT be counted';
 
   DELETE FROM public.redemptions WHERE id IN (v_in, v_edge, v_out, v_exact, v_just_in, v_just_out);
+  DELETE FROM public.guardian_events WHERE merchant_id = v_mid;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
   DELETE FROM public.deals WHERE id = v_did;
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id = v_uid;
