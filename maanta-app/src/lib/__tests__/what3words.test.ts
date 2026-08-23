@@ -65,10 +65,33 @@ describe("what3words util", () => {
     if (!result.ok) expect(result.code).toBe("missing_key");
   });
 
-  it("convertToCoordinates returns not_found on bad upstream body", async () => {
+  /**
+   * Corrected 2026-08-23. This case previously asserted that a NON-2xx response
+   * yields `not_found` — it pinned the defect rather than the behaviour: a
+   * provider refusing our key was reported to the operator as "check the three
+   * words", which is how a dead what3words integration stayed invisible in
+   * production. `!res.ok` is now `upstream_rejected`; `not_found` is reserved
+   * for a 200 that genuinely matched nothing. See `w3w-failure-modes.test.ts`.
+   */
+  it("convertToCoordinates returns upstream_rejected when the provider refuses", async () => {
     fetchMock.mockResolvedValue({
       ok: false,
-      json: async () => ({ error: { message: "bad words" } }),
+      status: 401,
+      json: async () => ({ error: { code: "InvalidKey", message: "bad key" } }),
+    });
+    const result = await convertToCoordinates("filled.count.soap");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("upstream_rejected");
+      expect(result.error).not.toMatch(/check the three words/i);
+    }
+  });
+
+  it("convertToCoordinates returns not_found on a 200 with no coordinates", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ coordinates: null }),
     });
     const result = await convertToCoordinates("filled.count.soap");
     expect(result.ok).toBe(false);

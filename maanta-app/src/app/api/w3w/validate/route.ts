@@ -61,10 +61,18 @@ export async function GET(request: Request) {
 
   const result = await convertToCoordinates(words);
   if (!result.ok) {
-    const status = result.code === "upstream" ? 502 : 200;
+    // Only `not_found` and `invalid_format` are the caller's fault; everything
+    // else is our integration failing and must not be reported as a 200 "your
+    // address is wrong". `code` is echoed so the client can tell an unusable
+    // service from an unusable address and say so.
+    const ourFault =
+      result.code === "upstream" ||
+      result.code === "upstream_rejected" ||
+      result.code === "missing_key" ||
+      result.code === "unexpected";
     return NextResponse.json(
-      { valid: false, error: result.error },
-      { status: status === 502 ? 502 : 200 }
+      { valid: false, error: result.error, code: result.code, serviceDown: ourFault },
+      { status: ourFault ? 502 : 200 }
     );
   }
 

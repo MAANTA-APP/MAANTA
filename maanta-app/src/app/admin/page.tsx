@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { KpiCard } from "@/components/ui/cards";
 import { StatusChip } from "@/components/ui/chips";
-import { formatKes, relativeAge } from "@/lib/ui";
+import { formatKes, relativeAgo } from "@/lib/ui";
 import { ALL_NODES, nodeLabel } from "@/lib/nodes";
 import { isNodeScoped, nodeSwitcherTargets, resolveNodeParam } from "@/lib/admin-dashboard";
 import { cn } from "@/lib/ui";
@@ -218,7 +218,7 @@ export default async function AdminHomePage({
                 {m.merchant_name}
                 {m.floor ? ` — ${m.floor}` : ""}
               </span>
-              <span className="text-xs text-muted">{relativeAge(m.created_at)} ago</span>
+              <span className="text-xs text-muted">{relativeAgo(m.created_at)}</span>
               <StatusChip status="pending" />
             </Link>
           ))

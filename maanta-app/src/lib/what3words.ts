@@ -14,7 +14,25 @@ export type W3wCoordsSuccess = {
 export type W3wCoordsFailure = {
   ok: false;
   error: string;
-  code: "missing_key" | "invalid_format" | "not_found" | "upstream" | "unexpected";
+  /**
+   * `not_found` means what3words looked and there is no such address — the
+   * three words are wrong, and telling the person to check them is correct.
+   *
+   * `upstream_rejected` means the CALL failed: a non-2xx from what3words
+   * (bad/expired/over-quota key, a 4xx on our request shape, a 5xx on theirs).
+   * The person's input may be perfect. Conflating the two — which this module
+   * did until 2026-08-23 — makes a broken integration look like operator error:
+   * every address, including what3words' own canonical `filled.count.soap`,
+   * came back "check the three words and try again" while the real cause was
+   * invisible because the branch logged nothing. Keep them separate.
+   */
+  code:
+    | "missing_key"
+    | "invalid_format"
+    | "not_found"
+    | "upstream_rejected"
+    | "upstream"
+    | "unexpected";
 };
 
 export type W3wCoordsResult = W3wCoordsSuccess | W3wCoordsFailure;
@@ -29,7 +47,12 @@ export type W3wWordsSuccess = {
 export type W3wWordsFailure = {
   ok: false;
   error: string;
-  code: "missing_key" | "invalid_coords" | "upstream" | "unexpected";
+  code:
+    | "missing_key"
+    | "invalid_coords"
+    | "upstream_rejected"
+    | "upstream"
+    | "unexpected";
 };
 
 export type W3wWordsResult = W3wWordsSuccess | W3wWordsFailure;
@@ -141,7 +164,26 @@ export async function convertToCoordinates(
     const res = await fetch(url.toString(), { signal: timeoutSignal(timeoutMs) });
     const body = await res.json().catch(() => null);
 
-    if (!res.ok || typeof body?.coordinates?.lat !== "number") {
+    // A non-2xx is the provider refusing US, not the person mistyping. Log the
+    // status and what3words' own error code (never the key, never the address —
+    // D85: addresses are PII) so a broken integration is diagnosable from the
+    // function logs instead of looking like a stream of bad addresses.
+    if (!res.ok) {
+      console.error("what3words convert-to-coordinates rejected", {
+        status: res.status,
+        w3wCode: body?.error?.code ?? null,
+        w3wMessage: body?.error?.message ?? null,
+      });
+      return {
+        ok: false,
+        code: "upstream_rejected",
+        error: "Address checking is temporarily unavailable — try again shortly.",
+      };
+    }
+
+    // 2xx but no coordinates: what3words looked and found nothing. The three
+    // words really are wrong, so blaming the input here is correct.
+    if (typeof body?.coordinates?.lat !== "number") {
       return {
         ok: false,
         code: "not_found",
@@ -199,7 +241,24 @@ export async function convertTo3Words(
     const res = await fetch(url.toString());
     const body = await res.json().catch(() => null);
 
-    if (!res.ok || typeof body?.words !== "string") {
+    // Same split as convert-to-coordinates: a refusal is ours to fix, not the
+    // caller's. This direction is best-effort (the coordinates are already
+    // usable without the words), so it stays non-fatal either way — but it is
+    // logged, because a silently dead provider is what made this hard to find.
+    if (!res.ok) {
+      console.error("what3words convert-to-3wa rejected", {
+        status: res.status,
+        w3wCode: body?.error?.code ?? null,
+        w3wMessage: body?.error?.message ?? null,
+      });
+      return {
+        ok: false,
+        code: "upstream_rejected",
+        error: "Address lookup is temporarily unavailable.",
+      };
+    }
+
+    if (typeof body?.words !== "string") {
       return {
         ok: false,
         code: "unexpected",

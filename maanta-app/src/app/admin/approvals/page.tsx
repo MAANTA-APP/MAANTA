@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { ButtonLink } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/inputs";
-import { relativeAge } from "@/lib/ui";
+import { relativeAgo } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export default async function AdminApprovalsPage({
                   {m.floor ? ` — ${m.floor}` : ""}
                 </Link>
                 <p className="mt-0.5 text-xs text-muted">
-                  Submitted {relativeAge(m.created_at)} ago · {m.phone ?? m.email ?? "No contact"}
+                  Submitted {relativeAgo(m.created_at)} · {m.phone ?? m.email ?? "No contact"}
                 </p>
               </div>
               <ButtonLink href={`/admin/merchants/${m.id}`} size="sm">

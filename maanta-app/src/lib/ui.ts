@@ -78,6 +78,22 @@ export function relativeAge(iso: string) {
 }
 
 /**
+ * `relativeAge` with the word "ago" attached — use this anywhere the phrase is
+ * rendered as prose.
+ *
+ * `relativeAge` returns the bare token ("now", "5m", "3h"), and every caller was
+ * writing `{relativeAge(x)} ago`. That reads correctly for every branch except
+ * the first, which produced **"Submitted now ago"** on the admin approvals queue
+ * — observed in production 2026-08-23 the moment a shop was created. The bug is
+ * in the joining, not in either half, so the fix belongs here rather than in a
+ * caller's template.
+ */
+export function relativeAgo(iso: string) {
+  const age = relativeAge(iso);
+  return age === "now" ? "just now" : `${age} ago`;
+}
+
+/**
  * Mask a phone for display: +254 7•• ••• 214
  *
  * Delegates to the single masker in `lib/phone-mask.ts` — this used to be a
