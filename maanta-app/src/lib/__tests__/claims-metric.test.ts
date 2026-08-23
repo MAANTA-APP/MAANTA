@@ -31,6 +31,17 @@ const migration = readFileSync(
   join(root, "..", "supabase/migrations/20260824120000_redemptions_claimed_at.sql"),
   "utf8"
 );
+/**
+ * The third consumer of the phantom column, and the only shopper-facing one:
+ * it ordered a redemptions lookup by `created_at`, so the query errored, the
+ * shopper's existing pending ticket came back undefined, and the page offered
+ * "Claim deal" to someone who already held one — a 409 on tap, with the API
+ * backstop covering a broken screen.
+ */
+const shopperDeal = readFileSync(
+  join(root, "app/(shopper)/deals/[id]/page.tsx"),
+  "utf8"
+);
 
 /** The columns `public.redemptions` actually has, per the migration chain. */
 const REDEMPTION_COLUMNS = [
@@ -40,16 +51,31 @@ const REDEMPTION_COLUMNS = [
   "amount_kes", "is_demo", "demo_batch_id", "demo_source", "claimed_at",
 ];
 
-/** Every `.gte("x", …)`/`.lte`/`.gt`/`.lt` filter inside a redemptions query. */
+/**
+ * Every column a redemptions query filters or orders on.
+ *
+ * Deliberately window-based rather than delimiter-based. Two earlier attempts
+ * tried to find where the query "ends" — a nested-array boundary, then a
+ * semicolon — and BOTH silently captured nothing, because these calls sit
+ * inside a `Promise.all([...])` where neither terminator appears nearby. A
+ * matcher that finds nothing makes every assertion below pass vacuously, which
+ * is precisely the failure mode this file exists to prevent, so the window is
+ * capped and the tests assert a non-empty result before checking anything.
+ */
 function redemptionFilters(source: string): string[] {
   const found: string[] = [];
-  const re = /from\("redemptions"\)([\s\S]{0,400}?)(?=\n\s*(?:service|\)|\],))/g;
+  const anchor = /from\("redemptions"\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) {
-    const chunk = m[1];
-    const f = /\.(?:gte|lte|gt|lt|eq)\("([a-z_]+)"/g;
+  while ((m = anchor.exec(source))) {
+    const rest = source.slice(m.index + m[0].length);
+    // Stop at the next table so one query's window cannot bleed into another.
+    // 900 chars, not 400: this repo puts long explanatory comments between
+    // chained calls, and a tighter window dropped the shopper page's .order().
+    const nextTable = rest.search(/from\("[a-z_]+"\)/);
+    const window = rest.slice(0, nextTable === -1 ? 900 : Math.min(nextTable, 900));
+    const f = /\.(?:gte|lte|gt|lt|eq|order)\("([a-z_]+)"/g;
     let g: RegExpExecArray | null;
-    while ((g = f.exec(chunk))) found.push(g[1]);
+    while ((g = f.exec(window))) found.push(g[1]);
   }
   return found;
 }
@@ -74,6 +100,25 @@ describe("D164 — Claims (7d) counts a column that exists", () => {
   it("neither dashboard still filters redemptions.created_at — the exact defect", () => {
     expect(redemptionFilters(admin)).not.toContain("created_at");
     expect(redemptionFilters(founder)).not.toContain("created_at");
+  });
+
+  it("the shopper deal page orders its ticket lookup on a real column", () => {
+    const cols = redemptionFilters(shopperDeal);
+    expect(cols.length).toBeGreaterThan(0);
+    for (const c of cols) {
+      expect(
+        REDEMPTION_COLUMNS,
+        `deals/[id] touches redemptions.${c}, which does not exist`
+      ).toContain(c);
+    }
+    expect(cols).not.toContain("created_at");
+  });
+
+  it("the shopper ticket lookup does NOT order by claimed_at — NULLs would sort first", () => {
+    // Pre-migration rows have claimed_at NULL, and Postgres DESC puts NULLs
+    // first, so ordering on it would surface a stale ticket as the newest.
+    // redeemed_at is NOT NULL DEFAULT now() and, while pending, IS the claim time.
+    expect(shopperDeal).toContain('.order("redeemed_at", { ascending: false })');
   });
 
   it("both dashboards use the SAME claim definition, so the two never disagree", () => {

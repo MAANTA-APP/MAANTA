@@ -42,7 +42,16 @@ export default async function DealDetailPage({
       .eq("deal_id", deal.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
+      // D164: this ordered by `created_at`, which redemptions has never had, so
+      // the query ERRORED and `existing` came back undefined. A shopper already
+      // holding a live pending ticket was therefore shown "Claim deal" instead
+      // of their ticket, and got a 409 on tap — the API backstop covering a
+      // broken screen. Ordered by `redeemed_at` deliberately, not the new
+      // `claimed_at`: for a pending row `redeemed_at` IS the claim time and it
+      // is NOT NULL on every row, whereas `claimed_at` is NULL for everything
+      // claimed before 20260824120000 and DESC sorts NULLs first in Postgres —
+      // which would surface a stale pre-migration ticket as the newest one.
+      .order("redeemed_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     existingTicketId = existing?.id ?? null;
