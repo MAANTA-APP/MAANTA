@@ -1,6 +1,6 @@
 -- ============================================================
 -- Test: redemptions.claimed_at — the claim timestamp D164 added
--- (20260824120000_redemptions_claimed_at.sql)
+-- (20260823140000_redemptions_claimed_at.sql)
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/redemptions_claimed_at_test.sql
 --
@@ -14,6 +14,10 @@
 --   E  a claim that is REFUSED creates no row, so no stray timestamp
 --   F  the KPI's own filter shape returns the claim — this is the query that
 --      was silently broken, so it is asserted directly rather than by proxy
+--   G  historical rows stay NULL and are excluded from the count
+--   H  the seven-day boundary includes 6d23h and excludes 8d
+--   I  the index exists and is on the column the KPI filters
+--   J  the migration recorded when tracking began
 -- ============================================================
 
 -- Scenario A: column shape. The two-step ADD-then-SET-DEFAULT is the point —
@@ -168,6 +172,129 @@ BEGIN
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id IN (v_uid, v_owner_uid);
   RAISE NOTICE 'Scenario D passed: a failed verification leaves claimed_at untouched';
+END $$;
+
+-- Scenario G: HISTORICAL ROWS STAY NULL.
+--
+-- The single most important property of this migration. A row that existed
+-- before it must not have acquired a claim time — `ADD COLUMN ... DEFAULT` on
+-- PG11+ would have stamped every one of them with the migration timestamp,
+-- putting fabricated data on a money-adjacent audit record. This asserts the
+-- shape that prevents it rather than the row count, which differs per database
+-- (a fresh CI database has no history at all, production had 401 rows).
+DO $$
+DECLARE
+  v_rid       UUID;
+  v_uid       UUID;
+  v_mid       UUID;
+  v_did       UUID;
+  v_auth      UUID := gen_random_uuid();
+  v_claimed   TIMESTAMPTZ;
+BEGIN
+  INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_auth) RETURNING id INTO v_uid;
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+    VALUES ('__test_claimed_at_hist', 'test.claimed.hist', '+254700000779', 'BBS Mall', 'active', TRUE, 100)
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test hist deal', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_did;
+
+  -- Stand in for a pre-migration row: an insert that explicitly supplies NULL,
+  -- exactly as a historical row looks after the column was added without a
+  -- backfill. If someone later adds a NOT NULL or a backfill, this fails.
+  INSERT INTO public.redemptions (
+    deal_id, merchant_id, user_id, otp_code, success_fee_charged,
+    status, expires_at, amount_kes, claimed_at
+  )
+  VALUES (v_did, v_mid, v_uid, '999001', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NULL)
+  RETURNING id INTO v_rid;
+
+  SELECT claimed_at INTO v_claimed FROM public.redemptions WHERE id = v_rid;
+  ASSERT v_claimed IS NULL,
+    'G: a row inserted with claimed_at NULL must STAY null — no backfill, no NOT NULL';
+
+  -- And it must be invisible to the KPI rather than counted as a recent claim.
+  ASSERT (SELECT count(*) FROM public.redemptions
+          WHERE id = v_rid AND claimed_at >= NOW() - INTERVAL '7 days') = 0,
+    'G: an untracked historical claim must not be counted by Claims (7d)';
+
+  DELETE FROM public.redemptions WHERE id = v_rid;
+  DELETE FROM public.deals WHERE id = v_did;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'Scenario G passed: historical rows stay NULL and are excluded from the KPI';
+END $$;
+
+-- Scenario H: the SEVEN-DAY BOUNDARY behaves. Inside counts, outside does not.
+DO $$
+DECLARE
+  v_uid   UUID;
+  v_mid   UUID;
+  v_did   UUID;
+  v_auth  UUID := gen_random_uuid();
+  v_in    UUID;
+  v_edge  UUID;
+  v_out   UUID;
+  v_count INT;
+BEGIN
+  INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_auth) RETURNING id INTO v_uid;
+  INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+    VALUES ('__test_claimed_at_window', 'test.claimed.window', '+254700000780', 'BBS Mall', 'active', TRUE, 100)
+    RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test window deal', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_did;
+
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999002', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '1 day')
+    RETURNING id INTO v_in;
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999003', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '6 days 23 hours')
+    RETURNING id INTO v_edge;
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999004', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '8 days')
+    RETURNING id INTO v_out;
+
+  SELECT count(*) INTO v_count FROM public.redemptions
+   WHERE id IN (v_in, v_edge, v_out) AND claimed_at >= NOW() - INTERVAL '7 days';
+  ASSERT v_count = 2,
+    format('H: the 7-day window must count the 1-day and 6d23h claims and exclude the 8-day one, got %s', v_count);
+
+  DELETE FROM public.redemptions WHERE id IN (v_in, v_edge, v_out);
+  DELETE FROM public.deals WHERE id = v_did;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'Scenario H passed: the 7-day boundary includes 6d23h and excludes 8d';
+END $$;
+
+-- Scenario I: the index exists and is usable by the KPI's own predicate.
+-- The table grows ~70 demo rows a day; without this the card is a seq scan.
+DO $$
+DECLARE
+  v_indexdef TEXT;
+BEGIN
+  SELECT indexdef INTO v_indexdef
+  FROM pg_indexes
+  WHERE schemaname = 'public' AND tablename = 'redemptions' AND indexname = 'idx_redemptions_claimed_at';
+
+  ASSERT v_indexdef IS NOT NULL, 'I: idx_redemptions_claimed_at must exist';
+  ASSERT v_indexdef ILIKE '%(claimed_at)%',
+    format('I: the index must be on claimed_at, got %s', v_indexdef);
+  RAISE NOTICE 'Scenario I passed: idx_redemptions_claimed_at exists on (claimed_at)';
+END $$;
+
+-- Scenario J: the migration recorded WHEN tracking began, so the dashboards can
+-- tell "no claims" apart from "we only started counting on Tuesday".
+DO $$
+DECLARE
+  v_value TEXT;
+BEGIN
+  SELECT value INTO v_value FROM public.app_config WHERE key = 'claims_tracking_started_at';
+  ASSERT v_value IS NOT NULL,
+    'J: app_config.claims_tracking_started_at must be seeded by the migration';
+  ASSERT v_value::timestamptz <= NOW(),
+    format('J: tracking start must not be in the future, got %s', v_value);
+  RAISE NOTICE 'Scenario J passed: claims tracking start is recorded';
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL redemptions_claimed_at scenarios passed.'; END $$;

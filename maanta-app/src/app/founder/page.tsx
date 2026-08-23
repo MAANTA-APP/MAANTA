@@ -1,6 +1,7 @@
 import { requireFounderPage } from "@/lib/founder";
 import { canAccessAdminConsole } from "@/lib/roles";
 import { LeadsReadError } from "@/components/agent/lead-row-list";
+import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 import { OperationsLinks } from "@/components/founder/operations-links";
 import { createServiceClient } from "@/lib/supabase/service";
 import { HeadingLg, Body, Page, Section } from "@/components/ui/claude";
@@ -33,6 +34,7 @@ export default async function FounderDashboardPage() {
     openTasksRes,
     pendingMerchantsRes,
     dealsByNodeRes,
+    claimsTrackingRes,
   ] = await Promise.all([
     service.from("users").select("id", { count: "exact", head: true }),
     service.from("users").select("id", { count: "exact", head: true }).eq("role", "customer"),
@@ -47,7 +49,7 @@ export default async function FounderDashboardPage() {
       .gt("expires_at", now),
     // D164: `claimed_at`, not `created_at` — the latter never existed, so this
     // count errored, tripped the read-failure guard below, and took the WHOLE
-    // dashboard down on every visit. Rows claimed before 20260824120000 have a
+    // dashboard down on every visit. Rows claimed before 20260823140000 have a
     // NULL claimed_at and are excluded by this filter, deliberately: their
     // claim times are unknowable and were not fabricated.
     service
@@ -73,6 +75,14 @@ export default async function FounderDashboardPage() {
       .select("node")
       .eq("is_active", true)
       .gt("expires_at", now),
+    // D164: when claim tracking started, so the Claims card can say whether its
+    // window is fully covered. A missing row means the migration is not applied
+    // here — a legitimate state claimsWindow() reports, not a read failure.
+    service
+      .from("app_config")
+      .select("value")
+      .eq("key", CLAIMS_TRACKING_CONFIG_KEY)
+      .maybeSingle(),
   ]);
 
   // Same rule the agent console follows: a failed read must not render as ten
@@ -89,6 +99,8 @@ export default async function FounderDashboardPage() {
     openTasksRes,
     pendingMerchantsRes,
     dealsByNodeRes,
+    // claimsTrackingRes is deliberately absent: a missing config row is a
+    // legitimate state, not a read failure, and must not blank the dashboard.
   ].find((r) => r.error)?.error;
   if (readFailed) {
     return (
@@ -109,6 +121,9 @@ export default async function FounderDashboardPage() {
   const merchants = merchantsRes.count;
   const liveDeals = liveDealsRes.count;
   const claims7d = claims7dRes.count;
+  const claims = claimsWindow(
+    (claimsTrackingRes.data as { value?: string } | null)?.value ?? null
+  );
   const verified7d = verified7dRes.count;
   const openTasks = openTasksRes.count;
   const pendingMerchants = pendingMerchantsRes.count;
@@ -129,7 +144,11 @@ export default async function FounderDashboardPage() {
           <KpiCard label="Total users" value={(totalUsers ?? 0).toLocaleString()} />
           <KpiCard label="Shoppers" value={(shoppers ?? 0).toLocaleString()} />
           <KpiCard label="Merchant accounts" value={(merchants ?? 0).toLocaleString()} />
-          <KpiCard label="Claims (7d)" value={(claims7d ?? 0).toLocaleString()} />
+          <KpiCard
+            label={claims.label}
+            value={(claims7d ?? 0).toLocaleString()}
+            hint={claims.hint ?? undefined}
+          />
         </div>
       </Section>
 

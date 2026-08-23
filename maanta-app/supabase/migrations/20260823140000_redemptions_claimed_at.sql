@@ -78,9 +78,31 @@ ALTER TABLE public.redemptions
 CREATE INDEX IF NOT EXISTS idx_redemptions_claimed_at
   ON public.redemptions (claimed_at);
 
+-- Record WHEN tracking began, in the same transaction that starts it.
+--
+-- Without this the dashboards cannot tell three different situations apart,
+-- and all three render as "0":
+--   * nobody claimed anything this week (a real, meaningful zero);
+--   * the query failed (now caught by the read-failure guards);
+--   * the 7-day window reaches back further than tracking does.
+-- The third is the one that misleads during the pilot's first week: a small
+-- number reads as low demand rather than short history. Deriving it from
+-- MIN(claimed_at) would be wrong too — that is the first CLAIM, not the start
+-- of tracking, so a quiet first day would silently move the boundary.
+INSERT INTO public.app_config (key, value, notes)
+VALUES (
+  'claims_tracking_started_at',
+  now()::text,
+  'When redemptions.claimed_at started being recorded (migration 20260823140000). '
+  'Claims counts are only complete from this instant; every redemption claimed '
+  'before it has claimed_at NULL and is invisible to them. The dashboards read '
+  'this to label the KPI honestly while the 7-day window still reaches past it. D164.'
+)
+ON CONFLICT (key) DO NOTHING;
+
 COMMENT ON COLUMN public.redemptions.claimed_at IS
   'When the shopper claimed this deal. Database-stamped via DEFAULT now() on '
   'insert - never client-supplied, never rewritten by verification, rejection '
-  'or expiry. NULL for every row created before 20260824120000: those claim '
+  'or expiry. NULL for every row created before 20260823140000: those claim '
   'times are unknowable and were deliberately not fabricated, so "Claims (7d)" '
   'is authoritative only from that migration forward. D164.';

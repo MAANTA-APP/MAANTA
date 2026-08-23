@@ -8,6 +8,7 @@ import { ALL_NODES, nodeLabel } from "@/lib/nodes";
 import { isNodeScoped, nodeSwitcherTargets, resolveNodeParam } from "@/lib/admin-dashboard";
 import { cn } from "@/lib/ui";
 import { LeadsReadError } from "@/components/agent/lead-row-list";
+import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,15 @@ export default async function AdminHomePage({
         .order("created_at", { ascending: false })
         .limit(5)
     ),
+    // D164: when claim tracking started, so the Claims card can say whether its
+    // window is fully covered. Deliberately NOT part of the readFailed check —
+    // a missing row is a legitimate state (migration not applied) that
+    // claimsWindow() reports honestly, not a read failure.
+    service
+      .from("app_config")
+      .select("value")
+      .eq("key", CLAIMS_TRACKING_CONFIG_KEY)
+      .maybeSingle(),
   ]);
 
   // D164 — a failed metric read must never look like a real number.
@@ -155,7 +165,12 @@ export default async function AdminHomePage({
     { data: fees7d },
     { data: arrearsRows },
     { data: recentPending },
+    { data: claimsTracking },
   ] = results;
+
+  const claims = claimsWindow(
+    (claimsTracking as { value?: string } | null)?.value ?? null
+  );
 
   const revenue7d = (fees7d ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
   const arrearsTotal = (arrearsRows ?? []).reduce(
@@ -212,7 +227,11 @@ export default async function AdminHomePage({
 
       <h2 className="mt-7 text-base font-bold text-ink">The loop (7 days)</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Claims (7d)" value={(claims7d ?? 0).toLocaleString()} />
+        <KpiCard
+          label={claims.label}
+          value={(claims7d ?? 0).toLocaleString()}
+          hint={claims.hint ?? undefined}
+        />
         <KpiCard label="Verified (7d)" value={(verified7d ?? 0).toLocaleString()} />
         <KpiCard label="Success fees (7d)" value={formatKes(revenue7d)} />
         <KpiCard label="Arrears outstanding" value={formatKes(arrearsTotal)} />

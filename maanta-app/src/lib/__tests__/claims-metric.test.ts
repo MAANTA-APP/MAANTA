@@ -28,7 +28,7 @@ const root = join(__dirname, "..", "..");
 const admin = readFileSync(join(root, "app/admin/page.tsx"), "utf8");
 const founder = readFileSync(join(root, "app/founder/page.tsx"), "utf8");
 const migration = readFileSync(
-  join(root, "..", "supabase/migrations/20260824120000_redemptions_claimed_at.sql"),
+  join(root, "..", "supabase/migrations/20260823140000_redemptions_claimed_at.sql"),
   "utf8"
 );
 /**

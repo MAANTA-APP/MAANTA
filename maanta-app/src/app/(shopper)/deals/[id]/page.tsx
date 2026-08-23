@@ -49,9 +49,18 @@ export default async function DealDetailPage({
       // broken screen. Ordered by `redeemed_at` deliberately, not the new
       // `claimed_at`: for a pending row `redeemed_at` IS the claim time and it
       // is NOT NULL on every row, whereas `claimed_at` is NULL for everything
-      // claimed before 20260824120000 and DESC sorts NULLs first in Postgres —
+      // claimed before 20260823140000 and DESC sorts NULLs first in Postgres —
       // which would surface a stale pre-migration ticket as the newest one.
+      //
+      // `redeemed_at` is admittedly a fragile recency key: the NAME implies the
+      // redemption instant, and it only doubles as claim time because it
+      // defaults at insert and is overwritten at verification. That is why the
+      // secondary `id DESC` is here and not optional — two tickets sharing a
+      // timestamp must still resolve deterministically rather than by whatever
+      // order Postgres happens to return. Once there is enough post-migration
+      // history, this should move to `claimed_at` with explicit NULL handling.
       .order("redeemed_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(1)
       .maybeSingle();
     existingTicketId = existing?.id ?? null;
