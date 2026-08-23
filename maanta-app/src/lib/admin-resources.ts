@@ -18,11 +18,23 @@
  *    because a gap you can see gets written and a gap you can't gets
  *    rediscovered — which is how the merchant and agent packs came to be
  *    written (2026-08-22): they sat here as visible gaps until the first
- *    merchant loop test needed them. The shopper and mall-operator packs are
+ *    merchant loop test needed them, and the staff counter card the same way
+ *    (2026-08-23, for Staff 01). The shopper and mall-operator packs are
  *    still open.
  */
 
-export type ResourceAudience = "shopper" | "merchant" | "agent" | "mall_operator" | "ops";
+export type ResourceAudience =
+  | "shopper"
+  | "merchant"
+  /** The person at the counter who types codes in. A separate audience from
+   *  `merchant`, because the owner decides and the staff member acts: the
+   *  counter needs the verify steps and the failure states, and none of the
+   *  commercial material. Added 2026-08-23 for Staff 01, a required
+   *  participant in the Node 0 attribution loop. */
+  | "merchant_staff"
+  | "agent"
+  | "mall_operator"
+  | "ops";
 
 export type ResourceAccess =
   | { kind: "live"; href: string }
@@ -39,6 +51,7 @@ export type AdminResource = {
 export const AUDIENCE_LABELS: Record<ResourceAudience, string> = {
   shopper: "Shoppers",
   merchant: "Merchants",
+  merchant_staff: "Merchant staff",
   agent: "Agents",
   mall_operator: "Mall operators",
   ops: "Ops — all audiences",
@@ -139,6 +152,15 @@ export const ADMIN_RESOURCES: AdminResource[] = [
       "The visit protocol: publish → claim → verify → fee, with the seven proofs and the abort conditions.",
     audience: "merchant",
     access: { kind: "reference", location: "repo: docs/ops/first-merchant-loop-test.md" },
+  },
+
+  // ── Merchant staff ──────────────────────────────────────────────────────
+  {
+    title: "Counter card — shop staff",
+    description:
+      "One page for the person who verifies codes at the till: the steps, what a good verification looks like, the failure states, and when NOT to confirm.",
+    audience: "merchant_staff",
+    access: { kind: "reference", location: "repo: docs/ops/merchant-staff-counter-card.md" },
   },
 
   // ── Agents ──────────────────────────────────────────────────────────────
