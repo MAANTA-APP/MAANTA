@@ -427,6 +427,70 @@ marketing surface rendering synthetic deal rows) and **D51** (the launch offer i
 single-sourced but its expiry gate is unproven until `OFFERS.eliteTrial.expiresOn`
 passes and both pages drop it together); **D52** and **D53** are closed.
 
+## Operating state: Node 0 Field Validation Mode (from 2026-08-22)
+
+Product design and general engineering are **frozen** unless field evidence shows
+a genuine blocker or defect. Do not initiate UI polish, redesign, feature work,
+speculative UX improvements, security-audit rounds, refactors, or architecture
+work because opportunities exist. Do not reopen completed work to improve it.
+
+The loop is now: **real world → Nairobi field operator → founder (decision
+layer) → Claude Design/Code only when necessary → field retest.**
+
+- **Claude Design** is dormant; wakes only when field evidence shows a UX problem.
+- **Claude Code** is a maintenance/verification engineer; wakes only for
+  demonstrated technical problems or specifically authorized work.
+- **Nairobi field operator** is the primary source of new evidence
+  (`docs/ops/field-operator-day-sheet.md`).
+
+Priority sequence at BBS Mall: Merchant 01 → Staff 01 → genuine Deal 01 →
+Shopper 01 → verified contact → claim → physical visit → merchant verification →
+first genuine `success` redemption → 5 → 10 → observe the KES 300 credit wall →
+merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
+
+- Verified **email** is an acceptable shopper claim path under the widened
+  verified-contact rule (decisions log 2026-08-22, second entry). The **D151**
+  SMS test continues separately and does not block the pilot.
+- Founder/manual items (e.g. **D39**) stay tracked but do **not** authorize
+  unrelated engineering work.
+- **D106** is closed in the register, but its rule stands: never mutate
+  production from historical documentation. Reconcile current `main`, the
+  production ledger (`supabase_migrations.schema_migrations`) and observed
+  production behaviour first. Production mutation requires explicit founder
+  authorization.
+
+**Field status while D152 is open (founder ruling 2026-08-22, late evening):**
+
+- **Field prospecting: GO.** The operator may walk BBS, map prospects,
+  introduce MAANTA and identify Merchant 01.
+- **Live merchant onboarding / staff seat / redemption: HOLD** until D152
+  closes — nothing auth-dependent starts before sign-in is re-verified.
+- **Email is the primary production authentication for Node 0** (sixth entry,
+  2026-08-22). Phone/SMS sign-in sits behind a paid Clerk plan and is
+  **deferred** — do not purchase or enable it, and do not tell the operator to
+  wait for SMS. **D151** is deferred / non-blocking.
+- **Staff seats accept a verified email as well as a verified phone** (D154,
+  ruled and shipped 2026-08-23; migration `20260823120000` applied to
+  production, ledger 99/99). Phone is still matched first, so existing
+  phone-invited seats are unchanged; the email key carries the same proof
+  (`verifiedPrimaryEmail` + the D142 freeze) and still links only an unclaimed
+  seat. Guard: `staff-seat-email-linking.test.ts`.
+- Standing constraints: no paid Clerk feature, no new identities (attach
+  emails to the existing Clerk users instead), no unrelated auth changes
+  without founder approval.
+
+When a field issue is reported:
+
+1. Preserve the field evidence (screenshots, timestamps, IDs, operator notes).
+2. Reproduce/verify it where possible.
+3. Classify: **blocker**, **defect**, **usability observation**, or **feature request**.
+4. Fix only genuine blockers and founder-approved defects.
+5. Add a regression guard where warranted.
+6. Verify (`npm test`, and the relevant SQL suite if the DB is touched).
+7. Return to rest.
+
+Observations are never converted into features without founder approval.
+
 ## Claude role system
 
 Use one narrow mode per session — Planner, Builder, Reviewer, or Operator — with

@@ -59,6 +59,16 @@ export async function getMerchantContext(): Promise<
   // the holder thereafter (D124 trigger). Both halves are load-bearing — do not
   // match staff on a column that could hold an unverified value, and do not add a
   // second writer that skips `verifiedPrimaryPhone`.
+  //
+  // D154 (founder ruling 2026-08-23): `email` is a second linking key on exactly
+  // the same terms. `users.email` is written only from `verifiedPrimaryEmail` —
+  // a Clerk-VERIFIED primary address or nothing — and frozen against its holder
+  // by D142, so it carries the same proof the phone does. Phone is tried FIRST
+  // and email only if it found nothing, so behaviour for every existing
+  // phone-invited seat is bit-for-bit unchanged. The address is lower-cased on
+  // the invite side (migration CHECK + the route), and `users.email` arrives
+  // from Clerk already lower-cased, so this is an exact match by construction —
+  // if either side ever stops normalising, seats silently stop linking.
   if (!staff && user.phone) {
     const { data: byPhone } = await service
       .from("merchant_staff")
@@ -76,6 +86,27 @@ export async function getMerchantContext(): Promise<
         await service.from("users").update({ role: "merchant_staff" }).eq("id", user.id);
       }
       staff = { ...byPhone, user_id: user.id };
+    }
+  }
+
+  // D154 — the email twin of the branch above. Same guard shape: only an
+  // unclaimed seat (`user_id IS NULL`), only a verified value, link once.
+  if (!staff && user.email) {
+    const { data: byEmail } = await service
+      .from("merchant_staff")
+      .select("id, merchant_id, user_id, can_verify, can_deals, can_topup, can_purchase")
+      .eq("email", user.email.trim().toLowerCase())
+      .is("user_id", null)
+      .maybeSingle();
+    if (byEmail) {
+      await service
+        .from("merchant_staff")
+        .update({ user_id: user.id })
+        .eq("id", byEmail.id);
+      if (user.role === "customer") {
+        await service.from("users").update({ role: "merchant_staff" }).eq("id", user.id);
+      }
+      staff = { ...byEmail, user_id: user.id };
     }
   }
 
