@@ -82,6 +82,22 @@ describe("D158 — owner phone optional with a verified email", () => {
     expect(src).toContain("phone: fullPhone || null");
   });
 
+  it("the account's login address never becomes shopper-visible data", () => {
+    // D158 lets the verified login address stand in as the shop contact when no
+    // phone is given. That is only acceptable while merchants.email cannot
+    // reach a shopper, so assert the app-layer projection too — the SQL suite
+    // asserts the same thing about merchants_public_browse. Showing a contact
+    // on a storefront needs explicit merchant consent and its own column.
+    const data = read("src/lib/data.ts");
+    const dealSelect = data.slice(
+      data.indexOf("export const DEAL_SELECT ="),
+      data.indexOf("type DealSelectResult")
+    );
+    const merchantJoin = dealSelect.slice(dealSelect.indexOf("merchants!inner("));
+    expect(merchantJoin).not.toContain("email");
+    expect(merchantJoin).not.toContain("phone");
+  });
+
   it("the route derives the gate from the session, never from the request body", () => {
     const src = read("src/app/api/merchants/onboard/route.ts");
     // hasVerifiedEmail must be computed from the session-resolved app user...

@@ -63,6 +63,16 @@ Three things to keep straight:
   raises a named `contact_required` so the route can return an actionable 400
   instead of a CHECK violation surfacing as a 500.
 
+**The contact fallback is internal data, not storefront data.** Letting a
+private login address stand in as the shop contact is only acceptable because
+`merchants.email` cannot reach a shopper: it is absent from
+`merchants_public_browse` and from `DEAL_SELECT`, and D147 revoked
+anon/authenticated SELECT on the base table. That was true incidentally before
+D158; it is now asserted in both suites (the SQL test reads
+`information_schema` for the view's columns, the vitest guard reads the join in
+`DEAL_SELECT`). **If a contact should ever appear on a storefront it needs the
+merchant's explicit consent and its own column — do not promote this one.**
+
 Unlike D154 this weakens no guard: `merchants.phone` is contact detail and the
 M-Pesa top-up **prefill** (a prefill only — `/api/topup` re-validates what is
 submitted). Nothing links or authenticates on it. Staff linking keys on

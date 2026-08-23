@@ -97,6 +97,14 @@ export async function POST(request: Request) {
   // address becomes the shop contact unless the merchant typed one of their
   // own, which is what satisfies the `merchants_contact_present` CHECK added
   // alongside this ruling.
+  //
+  // This is INTERNAL contact data, not storefront data. `merchants.email` is
+  // absent from `merchants_public_browse` and from `DEAL_SELECT`, and D147
+  // revoked anon/authenticated SELECT on the base table, so a shopper cannot
+  // read it — which is the only reason falling back to a private login address
+  // is acceptable here. Both facts are guarded (see the D158 vitest and SQL
+  // suites). If a contact should ever appear on a storefront, that needs the
+  // merchant's explicit consent and its own column; do not promote this one.
   const typedEmail = typeof email === "string" ? email.trim() : "";
   const contactEmail = typedEmail || (suppliedPhone ? null : appUser.email);
 

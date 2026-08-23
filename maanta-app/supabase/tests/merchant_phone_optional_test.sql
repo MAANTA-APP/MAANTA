@@ -181,6 +181,30 @@ BEGIN
     'D158: a phone-only onboarding must be unchanged, got ' || COALESCE(v_phone, '<null>');
 END $$;
 
+-- Scenario 6: the shop's contact channels are INTERNAL. D158 lets the account's
+-- verified login address become the shop contact when no phone is given, which
+-- is only acceptable while that column cannot reach a shopper. Assert it:
+-- neither contact column may appear in the anon/authenticated browse
+-- projection. If a future change wants to show a contact on a storefront, it
+-- needs explicit merchant consent and a separate column — not this one.
+DO $$
+DECLARE
+  v_cols TEXT[];
+BEGIN
+  SELECT array_agg(column_name::text) INTO v_cols
+    FROM information_schema.columns
+   WHERE table_schema = 'public'
+     AND table_name = 'merchants_public_browse';
+
+  ASSERT v_cols IS NOT NULL,
+    'D158: merchants_public_browse must exist for this assertion to mean anything';
+  ASSERT NOT ('email' = ANY(v_cols)),
+    'D158: merchants.email must NOT be exposed by merchants_public_browse — '
+    'it can hold the owner''s private login address';
+  ASSERT NOT ('phone' = ANY(v_cols)),
+    'D158: merchants.phone must NOT be exposed by merchants_public_browse';
+END $$;
+
 -- Cleanup
 DO $$
 BEGIN
