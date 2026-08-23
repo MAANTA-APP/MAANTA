@@ -146,6 +146,41 @@ describe("D164 — a failed read can no longer look like a real zero", () => {
   });
 });
 
+describe("D164 — the SQL fixture cleans up only what it created", () => {
+  const sql = readFileSync(
+    join(root, "..", "supabase/tests/redemptions_claimed_at_test.sql"),
+    "utf8"
+  );
+
+  /**
+   * These suites run against a database that also holds seeded demo data, so a
+   * cleanup wide enough to catch someone else's rows is a data-loss bug wearing
+   * a test's clothes. Every DELETE must be scoped to an id the fixture itself
+   * created — never a bare table sweep, and never a predicate broad enough to
+   * match a row the fixture did not insert.
+   */
+  it("has no unscoped DELETE", () => {
+    const deletes = sql.match(/DELETE FROM[^;]*;/gi) ?? [];
+    expect(deletes.length).toBeGreaterThan(0);
+
+    const unscoped = deletes.filter((d) => !/\bWHERE\b/i.test(d));
+    expect(unscoped, `unscoped DELETE(s): ${unscoped.join(" | ")}`).toEqual([]);
+  });
+
+  it("scopes every DELETE to a fixture-local variable, not a literal or a broad column", () => {
+    const deletes = sql.match(/DELETE FROM[^;]*;/gi) ?? [];
+    // Every fixture id is a `v_*` PL/pgSQL variable assigned by
+    // `INSERT ... RETURNING id INTO`, so it can only ever match this run's rows.
+    const bad = deletes.filter((d) => !/=\s*v_[a-z_]+|IN\s*\(\s*v_[a-z_]+/i.test(d));
+    expect(bad, `DELETE not scoped to a fixture id: ${bad.join(" | ")}`).toEqual([]);
+  });
+
+  it("never truncates or drops", () => {
+    expect(sql).not.toMatch(/\bTRUNCATE\b/i);
+    expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
+  });
+});
+
 describe("D164 — the migration keeps history honest", () => {
   it("adds claimed_at without a default, then sets the default separately", () => {
     // One `ADD COLUMN ... DEFAULT now()` would backfill every historical row
