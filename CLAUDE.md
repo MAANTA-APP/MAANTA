@@ -469,10 +469,12 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   2026-08-22). Phone/SMS sign-in sits behind a paid Clerk plan and is
   **deferred** — do not purchase or enable it, and do not tell the operator to
   wait for SMS. **D151** is deferred / non-blocking.
-- **Staff seats are phone-only by design (D154)** — Staff 01 cannot be
-  onboarded under email-primary auth without a founder-approved code change.
-  The owner can verify at the counter, so the loop runs with the owner
-  verifying until D154 is ruled.
+- **Staff seats accept a verified email as well as a verified phone** (D154,
+  ruled and shipped 2026-08-23; migration `20260823120000` applied to
+  production, ledger 99/99). Phone is still matched first, so existing
+  phone-invited seats are unchanged; the email key carries the same proof
+  (`verifiedPrimaryEmail` + the D142 freeze) and still links only an unclaimed
+  seat. Guard: `staff-seat-email-linking.test.ts`.
 - Standing constraints: no paid Clerk feature, no new identities (attach
   emails to the existing Clerk users instead), no unrelated auth changes
   without founder approval.
