@@ -55,7 +55,7 @@ describe("admin resource registry", () => {
     expect(missing, "repo references that resolve to nothing").toEqual([]);
   });
 
-  it("covers all four audiences the console serves, plus ops", () => {
+  it("covers every audience the console serves, plus ops", () => {
     for (const aud of Object.keys(AUDIENCE_LABELS)) {
       expect(
         ADMIN_RESOURCES.some((r) => r.audience === aud),
