@@ -11,10 +11,10 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 98/98 as of 2026-08-20** (**D24**
+still on. **The migration ledger reconciles at 100/100 as of 2026-08-23** (D154's `20260823120000`, then D158's `20260823130000`; earlier it stood at 98/98 on 2026-08-20) (**D24**
 closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19,
 **D142** closed 2026-08-19, **D147** closed 2026-08-20): production's
-`schema_migrations` and this repo's `supabase/migrations/` agree on all 98
+`schema_migrations` and this repo's `supabase/migrations/` agree on all 100
 version/name pairs, verified by a full read-back diff. Getting there took three founder-authorized MCP apply rounds —
 the three 2026-08-17 security migrations (`20260817120000`/`130000`/`140000` —
 **D123**/**D124**/**D125**), the CSPRNG OTP and `deals.expires_at NOT NULL` pair
@@ -24,17 +24,21 @@ identity freeze `20260819200000` (**D142**, applied 2026-08-19 minutes after the
 fallback it hardens went live). The 98th is the read-side revoke
 `20260820120000` (**D147** — strip anon/authenticated base-table SELECT on
 `merchants`/`deals` and drop the `*_customer_read` policies, the read twin of
-D123's write revoke), applied to production 2026-08-20 and the one row prod held
-that `main` still lacked until this change; its fresh-DB `make db-verify` on a CI
-runner is the remaining owed check.
+D123's write revoke), applied 2026-08-20. The 99th is the staff-seat email
+invite `20260823120000` (**D154**), and the 100th is
+`20260823130000` (**D158** — owner phone optional for an account with a verified
+email), merged as `fec320e` and applied 2026-08-23; unlike the earlier rounds
+this one had a real CI `db-tests` run over the full fresh chain behind it before
+it was applied.
 
 **Two rules earned the hard way, both still load-bearing.** (1) **Read
 `supabase_migrations.schema_migrations`, not `ls supabase/migrations/`, before
 choosing a version.** For two days production held five migrations that existed
 only on an unmerged branch, so the repo directory under-reported the real
 high-water mark and two files were authored on top of already-taken versions
-(**D121**). (2) **Every MCP apply mints its own version** — seven for seven — so read
+(**D121**). (2) **Every MCP apply mints its own version** — **eight for eight** — so read
 back and repair the ledger to the repo filename before doing anything else.
+D158's apply minted `20260823134241` and was repaired to `20260823130000`.
 Treat this alignment as a thing to re-check, not a settled state: the earlier
 87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
@@ -90,7 +94,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 98/98 as of 2026-08-20**, verified by full read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000`, the read-side base-table revoke, 2026-08-20). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 100/100 as of 2026-08-23**, verified by full version+name read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000` on 2026-08-20, **D154** `20260823120000` and **D158** `20260823130000` on 2026-08-23). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
@@ -477,17 +481,22 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   (`verifiedPrimaryEmail` + the D142 freeze) and still links only an unclaimed
   seat. Guard: `staff-seat-email-linking.test.ts`.
 - **Self-serve merchant onboarding accepts a verified email instead of a phone**
-  (**D158**, ruled 2026-08-23, option B). Owner phone is optional when the
+  (**D158**, ruled 2026-08-23, option B; **closed 2026-08-23 — merged as
+  `fec320e` and applied to production**). Owner phone is optional when the
   authenticated account already has a verified email, and stays available as an
   optional business contact; a supplied phone is still format-checked as Kenyan.
   The exemption is derived server-side from `users.email` and never from the
   request body, and `merchants_contact_present` keeps at least one contact
-  channel on every shop. **The ledger is 100 (repo) vs 99 (production):
-  migration `20260823130000_merchant_phone_optional_with_verified_email.sql` is
-  written and locally verified but NOT applied** — D158 is `pending-deploy`, and
-  the apply is founder-run. Editing `onboard_merchant` first? Read
-  `docs/skills/merchant-self-onboarding.md` — the function has had two
-  signatures and re-creating the dropped overload breaks every onboarding call.
+  channel on every shop. **The ledger reconciles at 100/100** (migration
+  `20260823130000`) — the MCP apply minted `20260823134241`, eight for eight,
+  and the ledger was repaired to the repo filename before anything else.
+  Read back: `phone` nullable, the CHECK present, **exactly one**
+  `onboard_merchant` overload. Editing `onboard_merchant`? Read
+  `docs/skills/merchant-self-onboarding.md` first — the function has had two
+  signatures, and a first draft of this very migration re-created the dropped
+  11-arg overload, which would have made every onboarding call ambiguous.
+  **Still owed: one real self-serve onboarding** at Node 0 with a
+  verified-email account and no phone.
 - Standing constraints: no paid Clerk feature, no new identities (attach
   emails to the existing Clerk users instead), no unrelated auth changes
   without founder approval.

@@ -1,7 +1,8 @@
 # Merchant self-onboarding — what it is, what gates it, and how to change it
 
-Status: current as of 2026-08-23. Owner rule: **read the migration and the route
-before this doc** — they win.
+Status: current as of 2026-08-23, with D158 **live on production** (migration
+`20260823130000`, ledger 100/100). Owner rule: **read the migration and the
+route before this doc** — they win.
 
 ## The path, end to end
 
@@ -101,6 +102,11 @@ admin and agent-assisted — would have started failing on an ambiguous function
 Three SQL suites caught it (`admin_assisted_onboarding_test`,
 `onboard_agent_attribution_test`, and the new `merchant_phone_optional_test`).
 It never reached a commit.
+
+The apply itself carried the same lesson forward: the MCP apply minted its own
+version (`20260823134241`, **eight for eight**) and the ledger had to be repaired
+to the repo filename `20260823130000` before anything else. Always read the
+ledger back after an MCP apply.
 
 Two habits that catch this class of bug:
 
