@@ -1,4 +1,4 @@
-import { getSuccessFee } from "@/lib/data";
+import { getAppUser, getSuccessFee } from "@/lib/data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { OnboardWizard, type OnboardAgent } from "./onboard-wizard";
 
@@ -25,6 +25,15 @@ export default async function MerchantOnboardPage({
   searchParams?: { shop?: string };
 }) {
   const successFee = await getSuccessFee();
+
+  // D158 — owner phone is optional for an account with a verified email.
+  // `users.email` is only ever written from a verified address
+  // (`verifiedPrimaryEmail`, frozen by D142), so its presence is the proof.
+  // This drives the form only; `/api/merchants/onboard` re-derives the same
+  // fact from the session and is the gate that actually enforces it.
+  const appUser = await getAppUser();
+  const hasVerifiedEmail = Boolean(appUser?.email?.trim());
+
   const initialShopName = (searchParams?.shop ?? "").trim().slice(0, 120);
 
   // Active agents only, id + display name. Read with the service client (the
@@ -48,6 +57,7 @@ export default async function MerchantOnboardPage({
       successFee={successFee}
       agents={agents}
       initialShopName={initialShopName}
+      hasVerifiedEmail={hasVerifiedEmail}
     />
   );
 }

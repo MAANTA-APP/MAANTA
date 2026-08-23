@@ -47,7 +47,11 @@ const baseBody = {
 describe("POST /api/merchants/onboard — agent attribution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensureAppUserMock.mockResolvedValue({ id: "merchant-user-1", role: "customer" });
+    ensureAppUserMock.mockResolvedValue({
+      id: "merchant-user-1",
+      role: "customer",
+      email: null,
+    });
     rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
   });
 
@@ -96,5 +100,111 @@ describe("POST /api/merchants/onboard — agent attribution", () => {
     const res = await POST(req({ ...baseBody, onboardingAgentId: AGENT_UUID }));
     expect(res.status).toBe(400);
     expect(rpcMock).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D158 (founder ruling 2026-08-23, option B): owner phone is optional when the
+// submitting ACCOUNT carries a verified email. The route is the gate — the
+// wizard's disabled-Continue is only a convenience — so these assert the
+// server's behaviour directly, including that a client cannot claim the
+// exemption for itself.
+// ---------------------------------------------------------------------------
+describe("POST /api/merchants/onboard — D158 optional owner phone", () => {
+  const bodyNoPhone = {
+    merchantName: "Shop",
+    what3wordsAddress: "stove.cactus.rally",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
+  });
+
+  function signedInAs(email: string | null) {
+    ensureAppUserMock.mockResolvedValue({
+      id: "merchant-user-1",
+      role: "customer",
+      email,
+    });
+  }
+
+  it("onboards with no phone when the account has a verified email", async () => {
+    signedInAs("owner@example.com");
+    const res = await POST(req(bodyNoPhone));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_phone: null })
+    );
+  });
+
+  it("falls back to the verified address as the shop contact when no phone is given", async () => {
+    // merchants_contact_present requires at least one channel; an email-only
+    // onboarding that also left the contact email null would hit the CHECK.
+    signedInAs("owner@example.com");
+    await POST(req(bodyNoPhone));
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_phone: null, p_email: "owner@example.com" })
+    );
+  });
+
+  it("prefers an email the merchant typed over the account address", async () => {
+    signedInAs("owner@example.com");
+    await POST(req({ ...bodyNoPhone, email: "shop@example.com" }));
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_email: "shop@example.com" })
+    );
+  });
+
+  it("rejects a missing phone when the account has NO verified email", async () => {
+    signedInAs(null);
+    const res = await POST(req(bodyNoPhone));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a blank or whitespace phone as absent, not as a value to validate", async () => {
+    signedInAs(null);
+    const res = await POST(req({ ...bodyNoPhone, phone: "   " }));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores a client-supplied hasVerifiedEmail claim", async () => {
+    // The exemption is derived from the session, never asserted by the caller.
+    signedInAs(null);
+    const res = await POST(req({ ...bodyNoPhone, hasVerifiedEmail: true }));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("still format-checks a phone that IS supplied, verified email or not", async () => {
+    signedInAs("owner@example.com");
+    const res = await POST(req({ ...bodyNoPhone, phone: "+4712345678" }));
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a valid supplied phone, and does not overwrite email with the account address", async () => {
+    signedInAs("owner@example.com");
+    const res = await POST(req({ ...bodyNoPhone, phone: "+254700000000" }));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_phone: "+254700000000", p_email: null })
+    );
+  });
+
+  it("maps the RPC's contact_required to a 400", async () => {
+    signedInAs("owner@example.com");
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: "contact_required: a phone or an email is required" },
+    });
+    const res = await POST(req(bodyNoPhone));
+    expect(res.status).toBe(400);
   });
 });

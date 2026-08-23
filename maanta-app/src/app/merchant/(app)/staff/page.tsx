@@ -55,7 +55,7 @@ export default async function StaffPage() {
         <div className="flex items-center justify-between rounded-card bg-white shadow-card px-4 py-3.5">
           <div>
             <p className="text-sm font-bold text-ink">You</p>
-            <p className="mt-0.5 text-xs text-muted">{user?.phone ?? merchant.phone}</p>
+            <p className="mt-0.5 text-xs text-muted">{user?.phone ?? merchant.phone ?? merchant.email ?? "No contact on file"}</p>
           </div>
           <StatusChip status="owner" label="Owner" />
         </div>

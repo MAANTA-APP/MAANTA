@@ -51,7 +51,7 @@ export default async function AdminMerchantDetailPage({
         <PlanChip plan={m.tier as "standard" | "elite"} />
       </div>
       <p className="mt-2 text-sm text-muted">
-        Contact: {m.phone}
+        Contact: {m.phone ?? m.email ?? "No contact on file"}
         {m.email ? ` · ${m.email}` : ""}
       </p>
       <p className="mt-1 text-sm text-muted">

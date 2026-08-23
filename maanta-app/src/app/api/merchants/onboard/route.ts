@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
 import { isValidKenyanPhone } from "@/lib/phone";
+import { isOwnerPhoneRequired } from "@/lib/merchant-onboarding";
 import {
   checkRateLimit,
   ONBOARD_RATE_LIMIT,
@@ -10,7 +11,11 @@ import {
 } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
-  const appUser = await ensureAppUser<{ id: string; role: string }>("id, role");
+  const appUser = await ensureAppUser<{
+    id: string;
+    role: string;
+    email: string | null;
+  }>("id, role, email");
   if (!appUser) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
@@ -41,37 +46,59 @@ export async function POST(request: Request) {
     lng: rawLng,
   } = await request.json();
 
-  if (!merchantName || !what3wordsAddress || !phone) {
+  if (!merchantName || !what3wordsAddress) {
     return NextResponse.json(
-      { error: "Shop name, what3words address, and phone are required." },
+      { error: "Shop name and what3words address are required." },
       { status: 400 }
     );
   }
 
-  // Format-check the phone, not just its presence (SEC-013). The top-up route
-  // already validates with this same helper; onboarding did not, so a malformed
-  // number persisted to the merchant record.
+  // D158 (founder ruling 2026-08-23, option B) — owner phone is OPTIONAL when
+  // the submitting account already has a verified email.
   //
-  // This comment used to add "and that record is what staff phone-linking
-  // (lib/merchant.ts) and merchant notifications key on later" — neither is
-  // true, and the false version is what made the rule look load-bearing when it
-  // was not (drift D109). `getMerchantContext` links staff by matching
-  // `merchant_staff.phone` against `users.phone`, a different column entirely,
-  // and no notification path reads `merchants.phone` at all. What the column
-  // actually does: it is displayed as the shop's contact, and it *prefills* the
-  // M-Pesa top-up field — a prefill only, since `/api/topup` re-validates the
-  // submitted number.
+  // This is the real gate; the wizard's disabled-Continue is a convenience that
+  // reads the same predicate. `hasVerifiedEmail` is derived HERE from the
+  // session-resolved `users.email`, never from the request body — a client that
+  // simply omits `phone` gets a 400 unless the account genuinely carries a
+  // verified address. `users.email` is written from `verifiedPrimaryEmail()`
+  // alone and frozen by D142, so its presence is the proof (the same signal
+  // D154 links staff seats on).
+  const hasVerifiedEmail =
+    typeof appUser.email === "string" && appUser.email.trim().length > 0;
+  const suppliedPhone = typeof phone === "string" ? phone.trim() : "";
+
+  if (!suppliedPhone && isOwnerPhoneRequired(hasVerifiedEmail)) {
+    return NextResponse.json(
+      { error: "A phone number is required to onboard this account." },
+      { status: 400 }
+    );
+  }
+
+  // A phone that IS given is still format-checked (SEC-013). Optional does not
+  // mean unvalidated: this is the merchant-authored wizard, filled in by an
+  // owner standing in BBS Mall, where a foreign number is more likely a typo
+  // than a fact. The admin-assisted route is deliberately wider — see
+  // `isValidInternationalPhone`.
   //
-  // The rule stays here anyway, on its own merits: this is the merchant-authored
-  // wizard, filled in by an owner standing in BBS Mall, where a foreign number is
-  // more likely a typo than a fact. The admin-assisted route is deliberately
-  // wider — see `isValidInternationalPhone`.
-  if (typeof phone !== "string" || !isValidKenyanPhone(phone)) {
+  // The column itself is contact detail, not an access-control input: it is
+  // displayed as the shop's contact and it *prefills* the M-Pesa top-up field —
+  // a prefill only, since `/api/topup` re-validates the submitted number.
+  // Staff linking keys on `users.phone`/`users.email`, a different table, and
+  // no notification path reads `merchants.phone` at all (drift D109 corrected
+  // the comment that claimed otherwise).
+  if (suppliedPhone && !isValidKenyanPhone(suppliedPhone)) {
     return NextResponse.json(
       { error: "Enter a valid Kenyan mobile number (e.g. 07XX XXX XXX)." },
       { status: 400 }
     );
   }
+
+  // Keep every shop reachable. When no phone is given, the account's verified
+  // address becomes the shop contact unless the merchant typed one of their
+  // own, which is what satisfies the `merchants_contact_present` CHECK added
+  // alongside this ruling.
+  const typedEmail = typeof email === "string" ? email.trim() : "";
+  const contactEmail = typedEmail || (suppliedPhone ? null : appUser.email);
 
   const lat =
     typeof rawLat === "number" && Number.isFinite(rawLat) ? rawLat : null;
@@ -128,8 +155,8 @@ export async function POST(request: Request) {
   const { data: merchantId, error } = await supabase.rpc("onboard_merchant", {
     p_user_id: appUser.id,
     p_merchant_name: merchantName,
-    p_phone: phone,
-    p_email: email || null,
+    p_phone: suppliedPhone || null,
+    p_email: contactEmail || null,
     p_whatsapp: whatsapp || null,
     p_node: "BBS Mall",
     p_w3w_address: what3wordsAddress,
@@ -159,6 +186,9 @@ export async function POST(request: Request) {
     } else if (message.includes("invalid_attribution")) {
       status = 400;
       userMessage = "That agent could not be verified — choose again or select “No”.";
+    } else if (message.includes("contact_required")) {
+      status = 400;
+      userMessage = "Add a phone number or an email so shoppers can reach you.";
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";

@@ -62,7 +62,8 @@ export type MerchantRow = {
   mall_name: string | null;
   floor: string | null;
   unit_number: string | null;
-  phone: string;
+  /** Nullable since D158 — optional for a merchant with a verified email. */
+  phone: string | null;
   email: string | null;
   whatsapp: string | null;
   account_balance: number;

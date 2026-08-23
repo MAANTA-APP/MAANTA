@@ -20,7 +20,7 @@ export default async function AdminApprovalsPage({
   const service = createServiceClient();
   let query = service
     .from("merchants")
-    .select("id, merchant_name, floor, unit_number, phone, what3words_address, created_at")
+    .select("id, merchant_name, floor, unit_number, phone, email, what3words_address, created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: false });
   if (q) query = query.ilike("merchant_name", `%${q}%`);
@@ -56,7 +56,7 @@ export default async function AdminApprovalsPage({
                   {m.floor ? ` — ${m.floor}` : ""}
                 </Link>
                 <p className="mt-0.5 text-xs text-muted">
-                  Submitted {relativeAge(m.created_at)} ago · {m.phone}
+                  Submitted {relativeAge(m.created_at)} ago · {m.phone ?? m.email ?? "No contact"}
                 </p>
               </div>
               <ButtonLink href={`/admin/merchants/${m.id}`} size="sm">
