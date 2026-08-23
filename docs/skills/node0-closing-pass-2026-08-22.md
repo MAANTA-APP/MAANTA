@@ -131,9 +131,34 @@ frozen KES 30 success fee debited correctly.** It is a software proof, run by th
 founder from Oslo — **not** a Node 0 field result: no BBS Mall merchant, no real
 shopper, no physical visit. The Success ladder stays at **0**.
 
-Cleanup owed: the test shop, deal and redemption are non-demo rows and will
-appear in real counts until the founder decides whether to keep them as the
-proving record or remove them.
+### Cleanup — done 2026-08-23, on founder instruction ("remove the test rows")
+
+Deleted in one transaction, in FK order, each statement scoped to the exact id:
+`guardian_events` (1) → `redemptions` (`dbdbd178…`) → `deals` (`39000f70…`) →
+`merchant_transactions` (2 — the `topup 300.00` and `success_fee -30.00`) →
+`merchants` (`6c0f9c84…`), with `kpi_counters` (3) going by CASCADE. Read back
+independently: **0 / 0 / 0** for the three ids, and the surrounding data intact
+(214 merchants, 352 users).
+
+Two judgement calls, both stated rather than assumed:
+
+- **`admin_ops_log` rows were KEPT** (2 rows naming the shop). They are the
+  audit trail of an admin's actions, not test data; deleting an audit record to
+  tidy a test would be the wrong instinct, and the table has no FK that forced it.
+- **The owner's role was restored to `customer`.** Deleting the shop left
+  `86fb787c…` as a `merchant_admin` owning nothing, which is a state the app has
+  no screen for — a consequence of the deletion, so cleaning it up is part of it.
+  Written through the identity trigger's service_role arm, guarded on both the
+  old role and `NOT EXISTS (a merchant for this user)`.
+
+**Left alone, and worth knowing:** production still holds **3 non-demo
+redemptions** — `c663c033…`, `f6cc5711…`, `0d89515e…`, all `pending`, all from
+2026-08-14, all by `fhzbg96nr4@privaterelay.appleid.com` against *demo* shops.
+They predate this session and are somebody's earlier hand-testing; they are not
+`success` rows and do not affect the ladder, but they are why "real redemptions"
+reads 3 rather than 0.
+
+The proving record for the loop is this document, not the rows.
 
 ## 4. Notion sync
 
