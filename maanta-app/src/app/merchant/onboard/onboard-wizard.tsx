@@ -7,6 +7,10 @@ import { PhoneField, TextField, inputClass } from "@/components/ui/inputs";
 import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/ui";
 import { takeMerchantJoin } from "@/lib/merchant-join-handoff";
+import {
+  isBusinessStepComplete,
+  isOwnerPhoneRequired,
+} from "@/lib/merchant-onboarding";
 
 type Step = "intro" | "business" | "location" | "floor" | "wallet" | "review" | "done";
 
@@ -27,11 +31,20 @@ export function OnboardWizard({
   successFee,
   agents = [],
   initialShopName = "",
+  hasVerifiedEmail = false,
 }: {
   successFee: number;
   agents?: OnboardAgent[];
   /** Prefill from `/merchants/join` → `/login?next=/merchant/onboard?shop=…`. */
   initialShopName?: string;
+  /**
+   * Whether the signed-in account carries a verified email (D158). When it
+   * does, the owner phone becomes an optional business contact instead of a
+   * blocker. Resolved server-side from `users.email`; the route re-derives it
+   * and is the actual gate, so a stale `false` here only costs a keystroke and
+   * a stale `true` still gets a 400.
+   */
+  hasVerifiedEmail?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("intro");
@@ -89,7 +102,11 @@ export function OnboardWizard({
   const [unit, setUnit] = useState("");
   const [entranceNotes, setEntranceNotes] = useState("");
 
-  const fullPhone = `${ownerCc}${ownerPhone.replace(/\D/g, "").replace(/^0+/, "")}`;
+  // Empty stays empty: concatenating the country code onto a blank field would
+  // send "+254" as though it were a number (D158 made the field skippable).
+  const digits = ownerPhone.replace(/\D/g, "").replace(/^0+/, "");
+  const fullPhone = digits ? `${ownerCc}${digits}` : "";
+  const phoneRequired = isOwnerPhoneRequired(hasVerifiedEmail);
 
   async function validateAddress() {
     setValidating(true);
@@ -129,7 +146,7 @@ export function OnboardWizard({
           what3wordsAddress: resolved?.words ?? w3w.replace(/^\/+/, ""),
           lat: resolved?.lat ?? null,
           lng: resolved?.lng ?? null,
-          phone: fullPhone,
+          phone: fullPhone || null,
           email: ownerEmail.trim() || null,
           whatsapp: shopWhatsapp.trim() || null,
           // G3 — the floor step captures entrance notes; carry them through
@@ -243,12 +260,18 @@ export function OnboardWizard({
               onChange={(e) => setOwnerName(e.target.value)}
             />
             <PhoneField
-              label="Owner phone"
+              label={phoneRequired ? "Owner phone" : "Owner phone (optional)"}
               countryCode={ownerCc}
               onCountryCode={setOwnerCc}
               value={ownerPhone}
               onChange={setOwnerPhone}
             />
+            {!phoneRequired ? (
+              <p className="-mt-2 text-xs text-muted">
+                We&apos;ll reach you by email. Add a number if you want shoppers
+                to be able to call the shop.
+              </p>
+            ) : null}
             <TextField
               label="Owner email"
               type="email"
@@ -259,7 +282,9 @@ export function OnboardWizard({
           <div className="mt-auto pt-8">
             <Button
               full
-              disabled={!shopName.trim() || !ownerPhone.trim()}
+              disabled={
+                !isBusinessStepComplete({ shopName, ownerPhone, hasVerifiedEmail })
+              }
               onClick={() => setStep("location")}
             >
               Continue
@@ -399,7 +424,7 @@ export function OnboardWizard({
           <div className="space-y-3">
             {[
               ["Shop", shopName],
-              ["Owner", `${ownerName || "—"} · ${fullPhone}`],
+              ["Owner", `${ownerName || "—"} · ${fullPhone || "No phone"}`],
               ["Location", `///${(resolved?.words ?? w3w).replace(/^\/+/, "")}`],
               ["Floor & unit", [floor, unit].filter(Boolean).join(", ") || "—"],
               ["Wallet", "Top up after submission (suggested KES 3,000)"],

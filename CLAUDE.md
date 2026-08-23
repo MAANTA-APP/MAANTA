@@ -123,6 +123,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 | How do I run the DB / seed / demo mode? | `AGENTS.md`, `docs/ops/supabase-migrations.md`, `docs/ops/demo-mode.md`, root `Makefile` |
 | Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
 | Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
+| Can a merchant sign themselves up? | `docs/skills/merchant-self-onboarding.md` — the self-serve path, the approval gate, and the `onboard_merchant` overload trap |
 | Am I touching deal categories? | `docs/skills/deal-categories.md` — the ten-bucket taxonomy is founder-locked and uncategorised is a real state. Live on production since 2026-08-18, but no live deal carries a category yet, so no chip row renders (**D122**) |
 
 ## Working style
@@ -475,6 +476,18 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   phone-invited seats are unchanged; the email key carries the same proof
   (`verifiedPrimaryEmail` + the D142 freeze) and still links only an unclaimed
   seat. Guard: `staff-seat-email-linking.test.ts`.
+- **Self-serve merchant onboarding accepts a verified email instead of a phone**
+  (**D158**, ruled 2026-08-23, option B). Owner phone is optional when the
+  authenticated account already has a verified email, and stays available as an
+  optional business contact; a supplied phone is still format-checked as Kenyan.
+  The exemption is derived server-side from `users.email` and never from the
+  request body, and `merchants_contact_present` keeps at least one contact
+  channel on every shop. **The ledger is 100 (repo) vs 99 (production):
+  migration `20260823130000_merchant_phone_optional_with_verified_email.sql` is
+  written and locally verified but NOT applied** — D158 is `pending-deploy`, and
+  the apply is founder-run. Editing `onboard_merchant` first? Read
+  `docs/skills/merchant-self-onboarding.md` — the function has had two
+  signatures and re-creating the dropped overload breaks every onboarding call.
 - Standing constraints: no paid Clerk feature, no new identities (attach
   emails to the existing Clerk users instead), no unrelated auth changes
   without founder approval.

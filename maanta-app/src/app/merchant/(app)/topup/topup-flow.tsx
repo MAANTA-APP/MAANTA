@@ -32,7 +32,8 @@ export function TopupFlow({
   mpesaAvailable = false,
 }: {
   balance: number;
-  merchantPhone: string;
+  /** Null when the shop onboarded on email alone (D158). */
+  merchantPhone: string | null;
   initialAmount: number;
   stripeResult: string | null;
   /** True only when IntaSend API keys are present on the server. */
@@ -49,7 +50,7 @@ export function TopupFlow({
   // the payment, not as a mismatched contact detail. Empty is honest: it asks
   // for the M-Pesa number rather than pretending to know it.
   const [phone, setPhone] = useState(
-    isValidKenyanPhone(merchantPhone) ? merchantPhone : ""
+    merchantPhone && isValidKenyanPhone(merchantPhone) ? merchantPhone : ""
   );
   const [stage, setStage] = useState<Stage>(() =>
     stripeResult === "cancelled"
