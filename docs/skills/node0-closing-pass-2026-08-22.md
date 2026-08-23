@@ -109,6 +109,32 @@ email addresses (Users → the user → Email addresses → Add → mark verifie
 primary). No new users. Then steps merchant → shopper → deal → claim →
 verification → KES 30 ledger resume from here.
 
+## 3b. E2E COMPLETE — 2026-08-23, email-primary, first non-demo `success` on production
+
+Run after the founder's email-primary ruling and the two blockers it exposed
+(D156, D157). Every step below is a read-back, not a recollection.
+
+| Step | Result |
+|---|---|
+| Admin sign-in (`admin@maanta.app`) | PASS — email code; resolved to existing `d8c1aa1e…`, no duplicate |
+| Merchant sign-in (`aragagency@gmail.com`) | PASS — email code; resolved to relinked `86fb787c…` / `user_3II1XPqrt…` |
+| Merchant onboarding | Self-serve wizard **blocked** — owner phone is mandatory (usability observation, D158); completed via the **admin-assisted** path instead. Shop `6c0f9c84…` "Merchant Wan (E2E test)", node BBS Mall, `onboarding_mode=admin_assisted`, `is_demo=false` |
+| Admin activation | PASS — approved with the Elite-trial box **deliberately unticked** (no launch-offer slot consumed; still 99 of 100). Opening credit granted: `account_balance` 0 → **KES 300**, ledger `topup 300.00` |
+| Deal 01 | PASS — `39000f70…` "E2E test — KES 100 off any item (not a real offer)", KES 400 (was 500), Services, 24h, max 5 claims, `is_demo=false`, **live in `deals_public_browse`** |
+| Shopper sign-in | Hotmail failed (D156); founder created `aragagency+shopper2@gmail.com`, which provisioned a **clean new** row `12e634fd…` / `user_3IImKsmE…` (`customer`, non-demo) — no D108 collision |
+| Claim | First attempt **500 / PGRST301** (D157, fixed by the founder mid-run); on retry PASS — redemption `dbdbd178…`, OTP `899048`, `pending`, `amount_kes` 400 snapshotted |
+| Counter verify | PASS — merchant keypad showed **CODE VALID**, collect KES 400, fee −KES 30, "wallet after KES 270" *before* charging |
+| **KES 30 ledger read-back** | **`status=success`, `fraud_flags` null, Guardian `clear`, `account_balance` 300 → 270, `outstanding_arrears` 0.00, ledger `topup 300.00 \| success_fee -30.00`** |
+
+**This is MAANTA's first non-demo `success` redemption on production, with the
+frozen KES 30 success fee debited correctly.** It is a software proof, run by the
+founder from Oslo — **not** a Node 0 field result: no BBS Mall merchant, no real
+shopper, no physical visit. The Success ladder stays at **0**.
+
+Cleanup owed: the test shop, deal and redemption are non-demo rows and will
+appear in real counts until the founder decides whether to keep them as the
+proving record or remove them.
+
 ## 4. Notion sync
 
 See the Notion mirror entry dated 2026-08-22 (evening, closing pass) on the
