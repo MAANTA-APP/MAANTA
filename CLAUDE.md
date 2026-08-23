@@ -464,12 +464,36 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   production behaviour first. Production mutation requires explicit founder
   authorization.
 
-**Field status while D152 is open (founder ruling 2026-08-22, late evening):**
+**Field status — Node 0 controlled field validation is GO (founder ruling
+2026-08-23; supersedes the 2026-08-22 HOLD, whose condition — "until D152
+closes" — is met: D152 is closed):**
 
-- **Field prospecting: GO.** The operator may walk BBS, map prospects,
-  introduce MAANTA and identify Merchant 01.
-- **Live merchant onboarding / staff seat / redemption: HOLD** until D152
-  closes — nothing auth-dependent starts before sign-in is re-verified.
+- **Node 0 controlled field validation: GO.** The live-pilot HOLD is lifted.
+  Prospecting, live merchant onboarding, the staff seat and redemption are all
+  open.
+- **One genuine independent Merchant 01 initially.** This is **not**
+  authorization for scaled merchant acquisition. Sequence: Merchant 01 →
+  self-serve onboarding **with no phone** → `pending` → founder review and
+  approval → genuine Deal 01 → Staff 01 → Shopper 01 → claim → physical visit →
+  counter verification → first genuine `success` → KES 30 ledger read-back.
+- **Merchant 01's real onboarding supplies the outstanding D158 browser
+  evidence.** There is no separate rehearsal run — that earlier plan is
+  withdrawn, because watching the person the feature was built for is better
+  evidence than a scripted one. `docs/ops/d158-self-serve-live-test.md` is the
+  observation checklist, not a script: **record what actually happens rather
+  than coaching the merchant into matching the documentation.** A discrepancy
+  between the browser and the docs is the finding — capture it, and do not
+  change the product mid-test.
+- **Gmail-only for the initial field accounts** — Merchant 01, Staff 01 and the
+  first shoppers — while **D156** is open. Clerk's shared sender does not reach
+  Microsoft mailboxes, and that failure presents as a MAANTA fault when it is
+  not one.
+- **Ladder: 1 → 5 → 10 genuine verified redemptions.** Around 10 the KES 300
+  opening credit is spent and the merchant cannot post a new deal — expected,
+  and what they say about it is the measurement.
+- **Do not begin the four-agent acquisition phase.** **D159** must be resolved
+  before agent-assisted acquisition begins.
+- **Field evidence now outranks further engineering.**
 - **Email is the primary production authentication for Node 0** (sixth entry,
   2026-08-22). Phone/SMS sign-in sits behind a paid Clerk plan and is
   **deferred** — do not purchase or enable it, and do not tell the operator to
