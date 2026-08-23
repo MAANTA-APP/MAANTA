@@ -199,6 +199,29 @@ and it debited the frozen KES 30 exactly as the owner path does.
 
 Still a software proof, not a Node 0 field result: the ladder stays at **0**.
 
+### 3e. Second cleanup — done 2026-08-23, on founder instruction ("Cleanup")
+
+Same shape as the first, one FK-ordered transaction scoped to the shop:
+guardian event → redemption → deal → **staff seat** → 2 ledger rows → merchant,
+with 3 `kpi_counters` by cascade. Read back **0** for every one, and the
+surrounding data untouched (214 merchants, 353 users).
+
+- **Roles restored:** `aragagency@gmail.com` (was `merchant_admin`) and
+  `aragagency+staff1@gmail.com` (was `merchant_staff`) are both `customer`
+  again, each guarded on *owning no merchant* **and** *holding no seat*, so
+  the demotion could not have fired while something still pointed at them.
+- **Kept:** the 2 `admin_ops_log` rows, and all three user identities — deleting
+  identities is what re-creates the D108 duplicate hazard.
+
+**Consequence, again knowingly:** the staff-verified `success` no longer exists
+as a row either. `real_success` for non-demo redemptions is back to **0**, and
+both proofs — the owner-verified loop (§3b) and the staff-verified loop (§3d) —
+survive only as this document.
+
+**Nothing from this session's testing remains in production data.** What remains
+live and real is the code and the schema: the D154 email-invite path is deployed
+on `main`, the migration is applied, and the ledger reconciles 99/99.
+
 **Test rows still live** (cleanup owed, same as before): shop `0bc2d71e…`
 "Staff Test Shop (E2E)", seat `4c198cb4…`, users `a408ff67…` (staff) and
 `12e634fd…` (shopper2).
