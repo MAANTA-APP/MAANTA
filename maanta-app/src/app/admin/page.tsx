@@ -7,6 +7,7 @@ import { formatKes, relativeAgo } from "@/lib/ui";
 import { ALL_NODES, nodeLabel } from "@/lib/nodes";
 import { isNodeScoped, nodeSwitcherTargets, resolveNodeParam } from "@/lib/admin-dashboard";
 import { cn } from "@/lib/ui";
+import { LeadsReadError } from "@/components/agent/lead-row-list";
 
 export const dynamic = "force-dynamic";
 
@@ -61,18 +62,7 @@ export default async function AdminHomePage({
   const atNode = <T,>(q: T): T =>
     scoped ? ((q as { eq: (c: string, v: string) => T }).eq("node", node) as T) : q;
 
-  const [
-    { count: pendingMerchants },
-    { count: activeMerchants },
-    { count: liveDeals },
-    { count: claims7d },
-    { count: verified7d },
-    { count: heldRedemptions },
-    { count: openTasks },
-    { data: fees7d },
-    { data: arrearsRows },
-    { data: recentPending },
-  ] = await Promise.all([
+  const results = await Promise.all([
     atNode(
       service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "pending")
     ),
@@ -92,7 +82,11 @@ export default async function AdminHomePage({
           .eq("is_active", true)
           .gt("expires_at", now),
     byMerchant(
-      service.from("redemptions").select("id", { count: "exact", head: true }).gte("created_at", since7d)
+      // D164: `claimed_at`, not `created_at` — the latter never existed, so this
+      // count errored and, with no read-failure guard on this page, collapsed
+      // through `?? 0` into a convincing zero shown beside a real "Verified 1".
+      // Pre-migration rows have a NULL claimed_at and are excluded on purpose.
+      service.from("redemptions").select("id", { count: "exact", head: true }).gte("claimed_at", since7d)
     ),
     byMerchant(
       service
@@ -126,6 +120,42 @@ export default async function AdminHomePage({
         .limit(5)
     ),
   ]);
+
+  // D164 — a failed metric read must never look like a real number.
+  //
+  // These counts used to be destructured straight off `Promise.all`, discarding
+  // every `error`. When the "Claims (7d)" query filtered a column that did not
+  // exist, PostgREST returned an error, `count` came back null, and `?? 0`
+  // rendered a confident **0** beside a genuine "Verified (7d) 1" — the console
+  // asserting there had been no claims on a day there had been one. The founder
+  // dashboard already refuses to do this (D149); this page now matches it.
+  const readFailed = results.find((r) => (r as { error?: unknown }).error);
+  if (readFailed) {
+    return (
+      <main className="min-h-dvh bg-stone px-4 pb-16 pt-6">
+        <h1 className="text-xl font-bold text-ink">Operations</h1>
+        <div className="mt-6">
+          <LeadsReadError
+            what="the operations dashboard"
+            sub="This is a read error, not zeroed metrics. Reload the page; if it keeps failing, tell the Maanta team."
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const [
+    { count: pendingMerchants },
+    { count: activeMerchants },
+    { count: liveDeals },
+    { count: claims7d },
+    { count: verified7d },
+    { count: heldRedemptions },
+    { count: openTasks },
+    { data: fees7d },
+    { data: arrearsRows },
+    { data: recentPending },
+  ] = results;
 
   const revenue7d = (fees7d ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
   const arrearsTotal = (arrearsRows ?? []).reduce(

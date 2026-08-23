@@ -45,10 +45,15 @@ export default async function FounderDashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("is_active", true)
       .gt("expires_at", now),
+    // D164: `claimed_at`, not `created_at` — the latter never existed, so this
+    // count errored, tripped the read-failure guard below, and took the WHOLE
+    // dashboard down on every visit. Rows claimed before 20260824120000 have a
+    // NULL claimed_at and are excluded by this filter, deliberately: their
+    // claim times are unknowable and were not fabricated.
     service
       .from("redemptions")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", since7d),
+      .gte("claimed_at", since7d),
     service
       .from("redemptions")
       .select("id", { count: "exact", head: true })
