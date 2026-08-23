@@ -178,10 +178,26 @@ exercised end to end. Every line below is a read-back.
 So the last phone-only door in the pilot is open: a shop can put a real employee
 on the counter with nothing but an email address.
 
-**Not yet exercised:** Staff 01 actually *completing* a redemption. The
-`can_verify` permission is the pre-existing gate and is unchanged by D154, but
-a staff-verified `success` has never been run. It needs a deal, a shopper claim
-and a counter verification — a founder decision, since each sign-in costs a code.
+### 3d. Staff-verified redemption — run and passed, 2026-08-23
+
+Run immediately after, on founder instruction. Three email sign-ins, no phone
+anywhere in the chain:
+
+| Step | Result |
+|---|---|
+| Merchant creates Deal 02 | `8b57fb3a…` "Staff-verify test", KES 200 (was 250), max 3 claims, non-demo, live in `deals_public_browse` |
+| Shopper claims | `aragagency+shopper2@gmail.com` → redemption `51544584…`, OTP issued, `amount_kes` 200 snapshotted |
+| **Staff 01** opens the counter | `aragagency+staff1@gmail.com` — an **email-linked seat**, `users.phone` NULL — reaches `/merchant/redeem`, wallet KES 300 |
+| Staff enters the shopper's code | **CODE VALID** · collect KES 200 · MAANTA success fee −KES 30 · wallet after KES 270, shown *before* charging |
+| Staff confirms | **`status = success`**, `fraud_flags` NULL, Guardian **`clear`** |
+| **Money read-back** | `account_balance` 300 → **270**, `outstanding_arrears` 0.00, ledger `topup 300.00 \| success_fee -30.00` |
+
+**So the whole counter loop now runs on email-only identities** — merchant,
+shopper and a genuine staff member on a seat that never had a phone number. The
+`can_verify` permission granted at invite is what let the seat charge the fee,
+and it debited the frozen KES 30 exactly as the owner path does.
+
+Still a software proof, not a Node 0 field result: the ladder stays at **0**.
 
 **Test rows still live** (cleanup owed, same as before): shop `0bc2d71e…`
 "Staff Test Shop (E2E)", seat `4c198cb4…`, users `a408ff67…` (staff) and
