@@ -52,6 +52,48 @@ describe("claimsWindow — labelling a count whose history is shorter than its w
     expect(w.hint).toBeNull();
   });
 
+  /**
+   * THE BOUNDARY ITSELF, to the second, and the reason it is inclusive.
+   *
+   * The SQL count uses `claimed_at >= now() - interval '7 days'`, so a claim
+   * landing exactly on the boundary IS counted. The label must flip on the same
+   * side of the same instant, or there is a one-tick window where the card says
+   * "since tracking began" while the query is already covering a full 7 days —
+   * two halves of one KPI disagreeing about what "7d" means.
+   */
+  describe("the exact seven-day boundary matches the SQL predicate (inclusive >=)", () => {
+    const start = "2026-08-24T09:00:00.000Z";
+    const exactly7d = new Date("2026-08-31T09:00:00.000Z");
+
+    it("one second BEFORE seven days: still partial", () => {
+      const w = claimsWindow(start, new Date(exactly7d.getTime() - 1000));
+      expect(w.partial).toBe(true);
+      expect(w.label).toBe("Claims since tracking began");
+      expect(w.hint).not.toBeNull();
+    });
+
+    it("EXACTLY seven days: covered — the same inclusive side as the SQL >=", () => {
+      const w = claimsWindow(start, exactly7d);
+      expect(w.partial).toBe(false);
+      expect(w.label).toBe("Claims (7d)");
+      expect(w.hint).toBeNull();
+    });
+
+    it("one second AFTER seven days: covered", () => {
+      const w = claimsWindow(start, new Date(exactly7d.getTime() + 1000));
+      expect(w.partial).toBe(false);
+      expect(w.label).toBe("Claims (7d)");
+    });
+
+    it("one millisecond either side flips exactly once, and never flips back", () => {
+      const before = claimsWindow(start, new Date(exactly7d.getTime() - 1));
+      const at = claimsWindow(start, exactly7d);
+      const after = claimsWindow(start, new Date(exactly7d.getTime() + 1));
+
+      expect([before.partial, at.partial, after.partial]).toEqual([true, false, false]);
+    });
+  });
+
   it("stays on the plain label well after the window is covered", () => {
     const w = claimsWindow(START, new Date("2026-10-01T00:00:00.000Z"));
 

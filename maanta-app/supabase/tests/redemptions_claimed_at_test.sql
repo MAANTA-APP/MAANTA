@@ -15,7 +15,8 @@
 --   F  the KPI's own filter shape returns the claim — this is the query that
 --      was silently broken, so it is asserted directly rather than by proxy
 --   G  historical rows stay NULL and are excluded from the count
---   H  the seven-day boundary includes 6d23h and excludes 8d
+--   H  the seven-day boundary EXACTLY: on it counts (inclusive >=), one
+--      second inside counts, one second outside does not
 --   I  the index exists and is on the column the KPI filters
 --   J  the migration recorded when tracking began
 -- ============================================================
@@ -232,10 +233,13 @@ DECLARE
   v_mid   UUID;
   v_did   UUID;
   v_auth  UUID := gen_random_uuid();
-  v_in    UUID;
-  v_edge  UUID;
-  v_out   UUID;
-  v_count INT;
+  v_in       UUID;
+  v_edge     UUID;
+  v_out      UUID;
+  v_exact    UUID;
+  v_just_in  UUID;
+  v_just_out UUID;
+  v_count    INT;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_auth) RETURNING id INTO v_uid;
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
@@ -255,16 +259,50 @@ BEGIN
     VALUES (v_did, v_mid, v_uid, '999004', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '8 days')
     RETURNING id INTO v_out;
 
+  -- THE BOUNDARY ITSELF. `now()` is the transaction timestamp and is stable
+  -- inside this block, so a row written at exactly `NOW() - 7 days` and a
+  -- predicate of `>= NOW() - 7 days` compare against the identical instant —
+  -- the test is deterministic, not a race. The predicate is inclusive (`>=`),
+  -- so a claim landing exactly on the boundary COUNTS. `claimsWindow()` uses
+  -- the same inclusive comparison (`covered >= WINDOW_MS`) for its label
+  -- transition, so the two halves of this KPI agree at the edge.
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999005', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '7 days')
+    RETURNING id INTO v_exact;
+  -- One second inside the window.
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999006', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '7 days' + INTERVAL '1 second')
+    RETURNING id INTO v_just_in;
+  -- One second outside it.
+  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, success_fee_charged, status, expires_at, amount_kes, claimed_at)
+    VALUES (v_did, v_mid, v_uid, '999007', 30, 'pending', NOW() + INTERVAL '1 hour', 100, NOW() - INTERVAL '7 days' - INTERVAL '1 second')
+    RETURNING id INTO v_just_out;
+
   SELECT count(*) INTO v_count FROM public.redemptions
    WHERE id IN (v_in, v_edge, v_out) AND claimed_at >= NOW() - INTERVAL '7 days';
   ASSERT v_count = 2,
     format('H: the 7-day window must count the 1-day and 6d23h claims and exclude the 8-day one, got %s', v_count);
 
-  DELETE FROM public.redemptions WHERE id IN (v_in, v_edge, v_out);
+  -- Exactly on the boundary: counted, because the predicate is inclusive.
+  ASSERT (SELECT count(*) FROM public.redemptions
+          WHERE id = v_exact AND claimed_at >= NOW() - INTERVAL '7 days') = 1,
+    'H: a claim landing EXACTLY on the 7-day boundary must be counted (the predicate is >=)';
+
+  -- One second inside: counted.
+  ASSERT (SELECT count(*) FROM public.redemptions
+          WHERE id = v_just_in AND claimed_at >= NOW() - INTERVAL '7 days') = 1,
+    'H: a claim one second inside the 7-day boundary must be counted';
+
+  -- One second outside: not counted.
+  ASSERT (SELECT count(*) FROM public.redemptions
+          WHERE id = v_just_out AND claimed_at >= NOW() - INTERVAL '7 days') = 0,
+    'H: a claim one second outside the 7-day boundary must NOT be counted';
+
+  DELETE FROM public.redemptions WHERE id IN (v_in, v_edge, v_out, v_exact, v_just_in, v_just_out);
   DELETE FROM public.deals WHERE id = v_did;
   DELETE FROM public.merchants WHERE id = v_mid;
   DELETE FROM public.users WHERE id = v_uid;
-  RAISE NOTICE 'Scenario H passed: the 7-day boundary includes 6d23h and excludes 8d';
+  RAISE NOTICE 'Scenario H passed: the 7-day boundary is inclusive — exactly-7d and 7d-1s count, 7d+1s does not';
 END $$;
 
 -- Scenario I: the index exists and is usable by the KPI's own predicate.
