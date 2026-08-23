@@ -31,10 +31,13 @@ export function isValidKenyanPhone(phone: string): boolean {
  *  - `/api/admin/merchants/onboard` is an admin acting deliberately, and during
  *    the friends-and-family pilot the people behind a test shop are not all in
  *    Kenya. Refusing their number blocks the rehearsal without protecting
- *    anything: `merchants.phone` is a contact field. No CHECK constraint governs
- *    it, staff linking keys on `merchant_staff.phone` against `users.phone`
- *    rather than on this column, and the top-up flow takes the paying number
- *    from its own request body.
+ *    anything: `merchants.phone` is a contact field, staff linking keys on
+ *    `merchant_staff.phone` against `users.phone` rather than on this column,
+ *    and the top-up flow takes the paying number from its own request body.
+ *    (Since D158 the column IS governed by one constraint —
+ *    `merchants_contact_present`, which requires a phone OR an email — but the
+ *    admin route always supplies a validated phone, so it is always satisfied
+ *    here. It constrains presence, never format.)
  *
  * Still a real check, not a waved-through string: E.164 allows at most 15
  * digits, and a country code is at least one, so a plausible international

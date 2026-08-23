@@ -98,6 +98,17 @@ describe("D158 — owner phone optional with a verified email", () => {
     expect(merchantJoin).not.toContain("phone");
   });
 
+  it("admin merchant detail shows the email once, not twice, for a no-phone shop", () => {
+    // D160. The contact line falls back to the email when phone is NULL; the
+    // suffix below it appends the email as a SECOND channel. Unconditional, it
+    // printed "Contact: shop@x.com · shop@x.com" for exactly the merchants D158
+    // enables. The suffix must depend on the phone actually being present.
+    const src = read("src/app/admin/merchants/[id]/page.tsx");
+    expect(src).toContain("Contact: {m.phone ?? m.email ?? \"No contact on file\"}");
+    expect(src).toContain("{m.phone && m.email ?");
+    expect(src).not.toMatch(/\{m\.email \? ` · \$\{m\.email\}` : ""\}/);
+  });
+
   it("the route derives the gate from the session, never from the request body", () => {
     const src = read("src/app/api/merchants/onboard/route.ts");
     // hasVerifiedEmail must be computed from the session-resolved app user...
