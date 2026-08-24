@@ -303,9 +303,15 @@ below. They are stated once, there. This section is how to work near them.
 - **KES 30 success fee** per verified redemption, all plans, debited at merchant
   verification (or recorded as arrears if the wallet can't cover it).
 - **Elite trial = 30 days**, then a 7-day grace period, then auto-downgrade to
-  Standard if no paid conversion. Paid Elite is KES 3,500/month (price under
-  review Feb 2027 — founder ruling 2026-07-20 supersedes the earlier Oct 2026
-  date; the KES 30 success fee is explicitly NOT under review).
+  Standard if no paid conversion. **Paid Elite has no published price** (founder
+  ruling 2026-08-24): MAANTA will not anchor merchants or the public to a monthly
+  figure during Node 0 field validation, so KES 3,500 was removed from every
+  public and merchant-facing surface and **no replacement number is authorized**.
+  Elite remains in the product and its benefits are still shown; where a price or
+  status must appear, surfaces read *"Pricing coming soon"*. This supersedes the
+  Feb 2027 price-review date, which assumed a live price to review.
+  **The KES 30 success fee is untouched and stays explicit** — it is an active
+  Node 0 commercial hypothesis, and the two must never be blurred together.
 - **Verify-anyway**: shopper experience is preserved at the counter; disputes
   route to admin/on-ground agent handling after the fact, auditably.
 - **Zero-balance gate**: merchants with no balance can't create new deals.
@@ -492,7 +498,9 @@ closes" — is met: D152 is closed):**
   not one.
 - **Ladder: 1 → 5 → 10 genuine verified redemptions.** Around 10 the KES 300
   opening credit is spent and the merchant cannot post a new deal — expected,
-  and what they say about it is the measurement.
+  and what they say about it is the measurement. **Nobody raises the wall with
+  the merchant** (2026-08-24): if the operator mentions the balance first, the
+  willingness-to-pay signal is gone and cannot be retaken.
 - **Two counters, never one** (founder ruling 2026-08-24). Production holds
   redemptions that MAANTA created testing itself, and they must never be read as
   market evidence:
@@ -506,6 +514,28 @@ closes" — is met: D152 is closed):**
   A query counting `redemptions.status = 'success'` answers the first question,
   never the second. **Do not let an internal row increment the ladder** — see
   **D174**.
+- **Node 0 has a written negative** (2026-08-24, ratified in
+  `docs/ops/node0-evidence-protocol-2026-08-24.md`). Three things bind:
+  - **Kill criterion.** If **either** Merchant 01 plus two further genuine
+    merchants have run, **or eight weeks** have passed since Merchant 01 went
+    live — and there has been no unprompted repost, no unprompted payment
+    question and no unprompted claim — the pull hypothesis is unsupported at
+    this density. The next decision is **density or premise, not another
+    merchant and not more time**. Not to be adjusted during the run.
+  - **Claim → walk-in is a tripwire, not a target.** No pass percentage. Under
+    roughly 1 in 3 stops the ladder for a diagnosis before another merchant is
+    added. It is free to read: `success` over all claims in `redemptions`,
+    where `expired` means claimed-and-never-came. **Count genuine field claims
+    only** — the internal E2E survivor above is technical evidence and must not
+    enter this ratio either (**D174**); a bare
+    `count(status='success')` answers the wrong question.
+  - **Cohort one cannot test shopper pull, by construction** — Shopper 01 is
+    recruited, so every participant is pushed by design. No result from it is
+    evidence of demand. Pull is a **separate named phase** after cohort one: a
+    deal goes live, nobody is messaged, and the question is whether anything
+    happens at all.
+  - **"Unprompted" means the day sheet's prompted/organic record says `N`**, not
+    that anyone remembers it that way.
 - **Do not begin the four-agent acquisition phase.** **D159** must be resolved
   before agent-assisted acquisition begins.
 - **Field evidence now outranks further engineering.**

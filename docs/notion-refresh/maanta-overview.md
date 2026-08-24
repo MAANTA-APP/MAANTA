@@ -40,7 +40,7 @@ MAANTA is an **in-mall deals platform**. Merchants publish time-limited deals. S
 
 - **KES 30** success fee per verified redemption, all plans — **not** under review.
 - **Zero-balance gate:** merchants with no balance cannot create new deals; existing deals can still redeem into arrears.
-- **Elite:** 30-day trial → 7-day grace → auto-downgrade to Standard. Paid Elite **KES 3,500/month** (price review Feb 2027).
+- **Elite:** 30-day trial → 7-day grace → auto-downgrade to Standard. Paid Elite has **no published price** (founder ruling 2026-08-24; removed for Node 0, no replacement authorized) (price review Feb 2027).
 - **Node 0 opening credit:** KES 300 to the first 100 activated launch merchants (promotional credit, not a fee waiver).
 - **Boosts:** Elite-only, server-enforced.
 

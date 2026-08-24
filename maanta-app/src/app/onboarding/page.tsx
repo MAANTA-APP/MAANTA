@@ -58,7 +58,11 @@ export default function OnboardingPage() {
           <span
             key={i}
             className={cn(
-              "h-1.5 rounded-full transition-all",
+              // Width, not scaleX: these are pills, and scaling one
+              // horizontally squashes its round caps. Four dots in a static
+              // row, so the reflow is a non-issue - the point of naming the
+              // properties is that the next reader can see that was a choice.
+              "h-1.5 rounded-full transition-[width,background-color]",
               i === pane ? "w-5 bg-ink" : "w-1.5 bg-cream-dark"
             )}
           />

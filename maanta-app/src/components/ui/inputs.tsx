@@ -1,12 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/ui";
 import { COUNTRY_OPTIONS } from "@/lib/country-codes";
 import { IconCheck, IconChevronDown, IconSearch, IconPlus, IconBackspace } from "@/components/ui/icons";
 
+/**
+ * The shared field shell.
+ *
+ * The focus ring is **ink, never amber**. #FDBF2D on white is 1.66:1, well under
+ * the 3:1 WCAG 1.4.11 asks of a focus indicator, and `globals.css` already says
+ * so in as many words while setting the global `:focus-visible` outline to ink.
+ * Every field in the app nonetheless shipped `focus:ring-brand`, because the
+ * guard that names the rule ("does not use the amber accent as a focus ring",
+ * `marketing-a11y.test.ts`) only ever read `globals.css` — the stylesheet that
+ * was already compliant. Nine components violated the rule underneath a passing
+ * test, the same guard-vacuity shape as D36 and D38.
+ *
+ * `ring-offset-2` matches the global outline's 2px offset, so a focused field
+ * looks the same as every other focused element on the site.
+ *
+ * Amber stays on primary actions and live status (frozen rule 1). A focused
+ * field is not an action, and an amber ring on a top-up field put a second
+ * amber element beside the amber CTA it sits under.
+ */
 export const inputClass =
-  "h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand";
+  "h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2";
 
 export function TextField({
   label,
@@ -49,6 +68,10 @@ export function PhoneField({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  // The visible label is a <span>, not a <label> — so the tel input announced as
+  // an unnamed edit field and the label was not a click target. Same defect the
+  // Toggle below already carries a note about; here it gets a real association.
+  const inputId = useId();
   const q = query.trim().toLowerCase();
   const filtered = COUNTRY_OPTIONS.filter(
     (c) => c.name.toLowerCase().includes(q) || c.dialCode.includes(q)
@@ -73,22 +96,32 @@ export function PhoneField({
   return (
     <div ref={rootRef}>
       {label ? (
-        <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
+        <label
+          htmlFor={inputId}
+          className="mb-1.5 block text-xs font-medium text-muted"
+        >
+          {label}
+        </label>
       ) : null}
-      <div className="flex h-12 items-stretch overflow-hidden rounded-xl border border-ink/80 bg-white focus-within:ring-2 focus-within:ring-brand">
+      <div className="flex h-12 items-stretch overflow-hidden rounded-xl border border-ink/80 bg-white focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1 border-r border-line px-3 text-sm font-semibold text-ink"
           aria-expanded={open}
+          // Without this the control announces as "+254, expanded" — the dial
+          // code with no hint that pressing it picks a country.
+          aria-label={`Country calling code: ${countryCode}`}
         >
           {countryCode}
           <IconChevronDown className="h-3.5 w-3.5" />
         </button>
         <input
+          id={inputId}
           type="tel"
           inputMode="tel"
           autoFocus={autoFocus}
+          aria-label={label ? undefined : "Phone number"}
           placeholder="7XX XXX XXX"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -101,6 +134,7 @@ export function PhoneField({
             <IconSearch className="h-4 w-4 text-faint" />
             <input
               placeholder="Search country"
+              aria-label="Search country"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full text-sm focus:outline-none"
@@ -141,19 +175,30 @@ export function PhoneField({
 /** 3c Search field */
 export function SearchField({
   className,
+  placeholder = "Search deals, shops\u2026",
   ...rest
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div
       className={cn(
-        "flex h-12 items-center gap-2.5 rounded-xl bg-cream px-4 focus-within:ring-2 focus-within:ring-brand",
+        "flex h-12 items-center gap-2.5 rounded-xl bg-cream px-4 focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2",
         className
       )}
     >
       <IconSearch className="h-5 w-5 text-faint" />
       <input
         type="search"
-        placeholder="Search deals, shops…"
+        placeholder={placeholder}
+        /*
+          A search field carries no visible label by design, so the placeholder
+          was its only name — and a placeholder is gone the moment someone types.
+          All six call sites pass their own placeholder and none passed a name,
+          so every search box in admin and shopper search announced as an
+          unnamed edit field. The trailing ellipsis is stripped: it is a visual
+          cue, not part of what the field is called. `rest` still wins, so a
+          caller can pass a better name than its own placeholder.
+        */
+        aria-label={typeof placeholder === "string" ? placeholder.replace(/\u2026$/, "") : undefined}
         className="w-full bg-transparent text-base text-ink placeholder:text-faint focus:outline-none"
         {...rest}
       />
@@ -224,7 +269,7 @@ export function AmountField({
 }) {
   return (
     <div>
-      <div className="flex h-12 items-center rounded-xl border border-ink/80 bg-white px-4 focus-within:ring-2 focus-within:ring-brand">
+      <div className="flex h-12 items-center rounded-xl border border-ink/80 bg-white px-4 focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2">
         <span className="mr-2 text-base font-semibold text-ink">KES</span>
         <input
           inputMode="numeric"
@@ -429,10 +474,25 @@ export function Toggle({
         checked ? "bg-brand" : "bg-cream-dark"
       )}
     >
+      {/*
+        The knob travels on `transform`, not `left`.
+
+        It used to animate `left` between `0.5` and `calc(100% - 1.625rem)`
+        under `transition-all`, so every frame of a toggle re-ran layout — the
+        one property class the motion guidance singles out as never worth
+        animating. The geometry is unchanged: the track is 3rem wide, the knob
+        1.5rem, inset 0.125rem, so the old end position (100% - 1.625rem =
+        1.375rem) is exactly 1.25rem of travel from the start. `translate-x-5`
+        is that 1.25rem, composited on the GPU.
+
+        The property list is explicit rather than `transition-all` so it is
+        obvious what moves: the knob slides and its fill changes, nothing else.
+      */}
       <span
         className={cn(
-          "absolute top-0.5 h-6 w-6 rounded-full bg-ink transition-all",
-          checked ? "left-[calc(100%-1.625rem)]" : "left-0.5 bg-white shadow"
+          "absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-ink",
+          "transition-[transform,background-color] will-change-transform",
+          checked ? "translate-x-5" : "translate-x-0 bg-white shadow"
         )}
       />
     </button>

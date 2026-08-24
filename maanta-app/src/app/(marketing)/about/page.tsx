@@ -66,7 +66,6 @@ export const metadata: Metadata = pageMetadata({
 
 export default function AboutPage() {
   const fee = formatKes(FACTS.successFeeKes);
-  const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
 
   return (
@@ -192,9 +191,9 @@ export default function AboutPage() {
               the core of the business.
             </p>
             <p>
-              A shop that wants more than one live offer can take Elite at {elite} a month.
-              Elite shops can also buy a boost — top of the feed for {FACTS.boostHours} hours
-              — at {boost}. Those are the only other charges that exist.
+              A shop that wants more than one live offer can take Elite. Its monthly
+              price is not set yet. Elite shops can also buy a boost — top of the feed
+              for {FACTS.boostHours} hours — at {boost}.
             </p>
           </div>
           <ul className="mt-6 space-y-3 text-base leading-relaxed">

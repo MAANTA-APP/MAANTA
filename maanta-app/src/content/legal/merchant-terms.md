@@ -103,7 +103,7 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **9.1 Standard** is free: one active deal, and the success fee per verified redemption.
 
-**9.2 Elite** is **KES 3,500 per month**: two active deals, flash deals and boosts. The success fee still applies.
+**9.2 Elite** adds two active deals, flash deals and boosts. **Its monthly price is not set yet.** No monthly charge applies unless and until a price is published and you agree to it. The success fee still applies.
 
 **9.3 Boosts** place a deal at the top of the feed for 24 hours at **KES 500**. {{BOOST_PLAN_AVAILABILITY}}
 

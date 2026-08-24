@@ -19,7 +19,13 @@ html {
 /* Respect the OS "reduce motion" setting. The R3 credential pulse, spinners,
    sheet/modal slides, fades, and every press transition are neutralised here —
    state is always carried by icon + word + structure, never motion alone, so
-   nothing is lost. (No prior handling existed; the infinite pulse ran always.) */
+   nothing is lost. (No prior handling existed; the infinite pulse ran always.)
+
+   This is the only copy. A second, identical block sat inside `@layer base`
+   below, giving the rule two homes and two durations (0.001ms here, 0.01ms
+   there) to keep in step. Both collapse motion to nothing, so which one won was
+   invisible — which is what made the duplicate worth deleting rather than
+   reconciling: nothing would ever have surfaced the day they diverged. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -78,17 +84,5 @@ body {
     outline: 2px solid theme("colors.ink.DEFAULT");
     outline-offset: 2px;
     border-radius: 2px;
-  }
-
-  /* Respect a reduced-motion preference for the few transitions in use. */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
   }
 }

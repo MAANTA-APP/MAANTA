@@ -33,18 +33,24 @@ export default async function UpgradePage() {
       </div>
 
       <div className="mt-6 rounded-card border-2 border-ink bg-ink p-5 text-center">
-        <p className="text-2xl font-bold text-white">KES 3,500 / month</p>
+        {/* No monthly figure — founder ruling 2026-08-24. Elite's price is not
+            set, and a merchant must not be able to read one off this screen. The
+            success fee is a different, live commitment and stays stated. */}
+        <p className="text-2xl font-bold text-white">Pricing coming soon</p>
         <p className="mt-1 text-xs text-white/70">
-          Plus the standard KES {fee.toLocaleString("en-KE")} success fee per verified
-          redemption
+          The KES {fee.toLocaleString("en-KE")} success fee per verified redemption
+          applies on Elite exactly as it does on Standard
         </p>
       </div>
 
+      {/* "Request upgrade" + "confirmed within minutes" promised a commitment
+          to an unpublished price. Registering interest is what this button can
+          truthfully do until Elite is priced. The journey is otherwise unchanged. */}
       <ButtonLink href="/merchant/support" full className="mt-6">
-        Request Elite upgrade
+        Ask about Elite
       </ButtonLink>
       <p className="mt-2 text-center text-xs text-faint">
-        Our team confirms your upgrade within a few minutes.
+        Elite pricing is not set yet. Nothing is charged without your agreement.
       </p>
     </main>
   );

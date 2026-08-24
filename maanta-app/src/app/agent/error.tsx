@@ -21,7 +21,7 @@ export default function AgentError({
   }, [error]);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-mobile border-x border-line bg-white px-5 pt-10">
+    <main className="mx-auto flex min-h-dvh max-w-mobile flex-col items-center justify-center border-x border-line bg-white px-5">
       <ErrorState
         message="Something went wrong — try again in a moment."
         onRetry={reset}
