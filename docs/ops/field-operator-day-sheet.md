@@ -81,6 +81,19 @@ relationship goes to the **founder, same day**.
 - [ ] Every promise you made recorded, with the date you promised it by.
 - [ ] Failures and surprises sent up, even small ones. A pilot is worth only
       what gets reported honestly.
+- [ ] **Prompted or not, for every event today.** One line each, for every
+      claim, redemption, repost and payment question:
+
+      | What happened | Who | Did we prompt it? |
+      |---|---|---|
+      | e.g. claim on Deal 01 | Shopper 03 | N |
+      | e.g. asked how to top up | Merchant 01 | N |
+
+      "Prompted" means we asked, reminded, suggested or brought it up first —
+      in person, by phone, or on WhatsApp. Y is not a failure and is often the
+      right answer during onboarding; an unrecorded Y is the failure, because
+      nobody can tell afterwards which it was. Nothing else in MAANTA captures
+      this, so if it is not on this sheet it is gone.
 
 ---
 
@@ -106,6 +119,37 @@ relationship goes to the **founder, same day**.
   completed, and retrying risks charging twice.
 - Never promise a payment rail (M-Pesa top-up) that has not been confirmed live.
 - Never tell a merchant they are live before the loop test has passed.
+
+### Never, because it destroys the evidence
+
+Founder ruling 2026-08-24. The rules above protect money. These protect the
+answer we are at BBS to get.
+
+MAANTA can already be shown to work. What nobody knows yet is whether anyone
+**wants** it. Every rule below asks you not to do something helpful, and that is
+exactly the point: a claim you asked for measures you, not the shopper. Helping
+the pilot succeed and finding out whether it works are two different jobs, and
+right now the second one is yours.
+
+- **Never ask a shopper to claim a deal.** Hand them the app and let them
+  decide. If you asked, it is not evidence.
+- **Never remind a merchant to post another deal.** A repost you prompted is
+  not a repost.
+- **Never raise the balance, the wall, or topping up.** When the KES 300 runs
+  out at around ten redemptions, say nothing and wait. Whether they ask you
+  about it, unprompted, is the single most valuable thing this pilot can
+  produce. If you mention it first, that measurement is gone and cannot be
+  taken again.
+- **Never talk a merchant out of a complaint.** Write it down in their words,
+  including the ones that sting.
+- **Always write down whether we prompted it** — see the close-of-day notes.
+
+**Onboarding is the exception.** Someone has to show Merchant 01 what MAANTA
+is, sit with them through the wizard, and train Staff 01 on the counter. That is
+push, and it is correct. These rules start the moment the shop is live.
+
+If you are ever unsure whether something counts as prompting, do the quieter
+thing and write down what you did.
 
 ---
 

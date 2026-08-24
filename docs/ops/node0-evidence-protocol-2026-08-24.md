@@ -1,8 +1,14 @@
 # Node 0 evidence protocol — what would count as proof
 
-**Status: draft for founder ruling.** Nothing here is adopted. The pass/fail
-lines and the operator rules in §4 and §5 are product/ops decisions, and this
-document proposes them rather than setting them.
+**Status: partly ratified 2026-08-24.**
+
+- **§5 (operator evidence rules) — ADOPTED as drafted.** Founder ruling
+  2026-08-24, recorded in `docs/maanta-decisions-log.md` and written into
+  `docs/ops/field-operator-day-sheet.md`. No longer a proposal.
+- **§6 (prompted/organic record) — ADOPTED**, as the companion the fifth rule
+  requires; it is a paper record in the close-of-day notes, not schema.
+- **§4 (pass/fail lines, kill criterion) and §7 (the shopper-pull phase) —
+  still draft.** These remain founder decisions and are not set here.
 
 **Why it exists.** MAANTA has strong evidence that the system works and almost
 none that the market does. The Node 0 run is the only thing that changes that,
