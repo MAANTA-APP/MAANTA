@@ -490,7 +490,28 @@ closes" — is met: D152 is closed):**
   not one.
 - **Ladder: 1 → 5 → 10 genuine verified redemptions.** Around 10 the KES 300
   opening credit is spent and the merchant cannot post a new deal — expected,
-  and what they say about it is the measurement.
+  and what they say about it is the measurement. **Nobody raises the wall with
+  the merchant** (2026-08-24): if the operator mentions the balance first, the
+  willingness-to-pay signal is gone and cannot be retaken.
+- **Node 0 has a written negative** (2026-08-24, ratified in
+  `docs/ops/node0-evidence-protocol-2026-08-24.md`). Three things bind:
+  - **Kill criterion.** If **either** Merchant 01 plus two further genuine
+    merchants have run, **or eight weeks** have passed since Merchant 01 went
+    live — and there has been no unprompted repost, no unprompted payment
+    question and no unprompted claim — the pull hypothesis is unsupported at
+    this density. The next decision is **density or premise, not another
+    merchant and not more time**. Not to be adjusted during the run.
+  - **Claim → walk-in is a tripwire, not a target.** No pass percentage. Under
+    roughly 1 in 3 stops the ladder for a diagnosis before another merchant is
+    added. It is free to read: `count(status='success')` over all claims in
+    `redemptions`, where `expired` means claimed-and-never-came.
+  - **Cohort one cannot test shopper pull, by construction** — Shopper 01 is
+    recruited, so every participant is pushed by design. No result from it is
+    evidence of demand. Pull is a **separate named phase** after cohort one: a
+    deal goes live, nobody is messaged, and the question is whether anything
+    happens at all.
+  - **"Unprompted" means the day sheet's prompted/organic record says `N`**, not
+    that anyone remembers it that way.
 - **Do not begin the four-agent acquisition phase.** **D159** must be resolved
   before agent-assisted acquisition begins.
 - **Field evidence now outranks further engineering.**

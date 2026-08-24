@@ -7,8 +7,12 @@
   `docs/ops/field-operator-day-sheet.md`. No longer a proposal.
 - **§6 (prompted/organic record) — ADOPTED**, as the companion the fifth rule
   requires; it is a paper record in the close-of-day notes, not schema.
-- **§4 (pass/fail lines, kill criterion) and §7 (the shopper-pull phase) —
-  still draft.** These remain founder decisions and are not set here.
+- **§4 (rung lines and the kill criterion) — RULED 2026-08-24.**
+- **§7 (the shopper-pull phase) — RULED 2026-08-24: scheduled as a named phase
+  after cohort one.**
+
+The whole document is now ratified. It stops being a proposal and starts being
+the thing the Node 0 run is measured against.
 
 **Why it exists.** MAANTA has strong evidence that the system works and almost
 none that the market does. The Node 0 run is the only thing that changes that,
@@ -72,7 +76,7 @@ merchant will not reach ten redemptions to be tested by.
 
 Nothing needs to be built to read it. It should be read at every rung.
 
-## 4. Pre-registered lines — proposed, for founder ruling
+## 4. Pre-registered lines — RULED 2026-08-24
 
 The point of writing these **before** Merchant 01 is that afterwards every
 number has a story attached to it.
@@ -82,11 +86,17 @@ number has a story attached to it.
 - This rung tests the system, not the market. It is already near-proven.
 
 ### Rung 2 — the physical step (first ~10 claims)
-- **Read:** claim → walk-in conversion.
-- **Proposed pass:** a majority of claims become `success` within the ticket
-  window.
-- **Proposed concern line:** under a third. That is a product problem, not a
-  pricing one, and it changes what the rest of the ladder is even asking.
+- **Read:** claim → walk-in conversion, at every rung.
+- **Ruled: a tripwire, not a target.** There is deliberately **no pass/fail
+  percentage**, because with roughly ten claims the difference between 30% and
+  60% is three people, and a precise line on that n would be false precision
+  dressed as rigour.
+- **The tripwire:** if fewer than roughly **1 in 3** claims become a `success`
+  within the ticket window, **the ladder stops for a diagnosis before any
+  further merchant is added.** Not a kill — a stop-and-understand. A funnel
+  that loses two thirds of its claims at the only step requiring a person to
+  physically move is a product problem, not a pricing one, and adding merchants
+  on top of it multiplies the defect instead of testing it.
 
 ### Rung 3 — the wall (at ~10 redemptions)
 The instrument only works if nobody prompts it. Specifically:
@@ -101,19 +111,34 @@ The instrument only works if nobody prompts it. Specifically:
   That is the single most informative negative in the whole run, and it is only
   legible if nobody spoke first.
 
-### A kill criterion — currently undefined, and the important gap
-Success is described in the operating docs. Failure is not. Without a written
-negative, every ambiguous outcome reads as "needs more time", which is how a
-year disappears inside Node 0.
+### The kill criterion — RULED 2026-08-24
 
-**Proposed, for founder ruling:** if after Merchant 01 plus two further genuine
-merchants there is no unprompted repost, no unprompted payment question, and no
-shopper who claims without being messaged, the conclusion is not "run it
-longer". It is that the pull hypothesis is unsupported at this density, and the
-next decision is about density or premise — not another merchant.
+Success was described in the operating docs. Failure was not, and without a
+written negative every ambiguous outcome reads as "needs more time" — which is
+how a year disappears inside Node 0.
 
-Whatever the founder sets, it should be written down before the run and not
-adjusted during it.
+**Ruled: both halves, whichever comes first.**
+
+> If **either** Merchant 01 plus two further genuine merchants have run, **or**
+> **eight weeks** have passed since Merchant 01 went live — and in that time
+> there has been **no unprompted repost, no unprompted payment question, and no
+> unprompted claim** — then the pull hypothesis is unsupported at this density.
+>
+> The next decision is about density or premise. It is **not** another merchant,
+> and it is **not** more time.
+
+Two halves because they catch different failures. The merchant count fires if
+acquisition moves quickly and still produces nothing; the eight-week window is
+the backstop for the slow case, and is set long enough that a merchant redeeming
+slowly can still reach the ~10-redemption wall, so the payment-question signal
+gets a fair chance to appear at all.
+
+**"Unprompted" is defined by the day sheet's prompted/organic record (§6), not
+by recollection.** A signal with a `Y` in that column does not count. This is the
+entire reason that record exists.
+
+**This line is not to be adjusted during the run.** Moving it after seeing the
+numbers is the same as never having written it.
 
 ## 5. Proposed additions to the operator's "Things you never do"
 
@@ -173,9 +198,16 @@ The consequence is worth stating plainly: **no amount of success in cohort one
 is evidence for Q2.** Ten claims and ten redemptions from recruited shoppers
 proves the loop works and says nothing about demand.
 
-Q2 needs a distinct, later phase, with its own rule: a deal goes live, nobody is
-messaged, and the question is whether anything happens at all. That phase is not
-currently named in the plan. Naming it is what prevents the false positive.
+**Ruled 2026-08-24: Q2 gets a distinct, named phase after cohort one.**
+
+Cohort one proves the mechanism with pushed shoppers and is complete when it has
+done so. The pull phase then runs under one rule: **a deal goes live, nobody is
+messaged, and the question is whether anything happens at all.** No operator
+outreach, no reminder, no "have you tried it yet".
+
+Keeping it separate is what stops the two questions contaminating each other,
+and what prevents cohort one's success from being read as evidence it
+structurally cannot provide.
 
 ## 8. What this document is not
 
