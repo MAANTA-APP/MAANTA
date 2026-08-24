@@ -1,9 +1,9 @@
 # Merchant self-onboarding — what it is, what gates it, and how to change it
 
-Status: current as of 2026-08-24. D158 is **live on production** (migration
-`20260823130000`, ledger 100/100); D162 is **merged and not yet applied**
-(migration `20260824120000`). Owner rule: **read the migration and the route
-before this doc** — they win.
+Status: current as of 2026-08-24. D158 (migration `20260823130000`) and D162
+(migration `20260824120000`) are both **live on production**; the ledger
+reconciles **101/101**. Owner rule: **read the migration and the route before
+this doc** — they win.
 
 ## The path, end to end
 

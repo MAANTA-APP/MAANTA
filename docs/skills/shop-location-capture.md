@@ -1,9 +1,10 @@
 # Shop location capture — "Locate my shop", and why what3words is optional
 
-Status: written 2026-08-24 for **D162** (founder ruling the same day). The code
-is merged; migration `20260824120000_merchant_location_coordinates.sql` is
-**not yet applied to production**. Owner rule: **read the migration, the route
-and `src/lib/shop-location.ts` before this doc** — they win.
+Status: written 2026-08-24 for **D162** (founder ruling the same day), and
+**live on production the same day**: PR #268 merged as `14052ad` and migration
+`20260824120000_merchant_location_coordinates.sql` applied under explicit
+founder authorization, ledger **101/101**. Owner rule: **read the migration, the
+route and `src/lib/shop-location.ts` before this doc** — they win.
 
 ## What changed and why
 
@@ -142,9 +143,12 @@ is what counts.
 
 ## Open, and deliberately not done
 
-- **Not applied to production.** Claude does not apply migrations
-  (`docs/ops/supabase-migrations.md`). D162 stays `pending-deploy` until a human
-  applies `20260824120000` and one real self-serve onboarding completes at Node 0.
+- **Live, but not yet proven by a real merchant.** The migration is applied and
+  read back (ledger 101/101, column nullable, both CHECKs present, one 14-arg
+  overload with grants intact), and a coordinate-only onboarding was exercised
+  against the production function inside a rolled-back block. D162 stays `open`
+  until one **genuine** merchant self-onboards at their BBS Mall entrance —
+  deployment is not the closure event, live proof is.
 - **No provenance columns.** Whether a pin came from the device or a merchant's
   finger, and how accurate the reading was, are shown to the merchant and then
   discarded. Storing them would help admin review; the ruling did not ask for it

@@ -11,7 +11,7 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 100/100 as of 2026-08-23** (D154's `20260823120000`, then D158's `20260823130000`; earlier it stood at 98/98 on 2026-08-20) (**D24**
+still on. **The migration ledger reconciles at 101/101 as of 2026-08-24** (D162's `20260824120000`; it stood at 100/100 on 2026-08-23 after D154's `20260823120000` and D158's `20260823130000`, and at 98/98 on 2026-08-20) (**D24**
 closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19,
 **D142** closed 2026-08-19, **D147** closed 2026-08-20): production's
 `schema_migrations` and this repo's `supabase/migrations/` agree on all 100
@@ -36,9 +36,10 @@ it was applied.
 choosing a version.** For two days production held five migrations that existed
 only on an unmerged branch, so the repo directory under-reported the real
 high-water mark and two files were authored on top of already-taken versions
-(**D121**). (2) **Every MCP apply mints its own version** — **eight for eight** — so read
+(**D121**). (2) **Every MCP apply mints its own version** — **nine for nine** — so read
 back and repair the ledger to the repo filename before doing anything else.
-D158's apply minted `20260823134241` and was repaired to `20260823130000`.
+D162's apply minted `20260824163212` and was repaired to `20260824120000`;
+D158's minted `20260823134241` before it.
 Treat this alignment as a thing to re-check, not a settled state: the earlier
 87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
@@ -94,7 +95,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 100/100 as of 2026-08-23**, verified by full version+name read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000` on 2026-08-20, **D154** `20260823120000` and **D158** `20260823130000` on 2026-08-23). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 101/101 as of 2026-08-24**, verified by full version+name read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000` on 2026-08-20, **D154** `20260823120000` and **D158** `20260823130000` on 2026-08-23, **D162** `20260824120000` on 2026-08-24). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |
@@ -512,7 +513,7 @@ closes" — is met: D152 is closed):**
   optional business contact; a supplied phone is still format-checked as Kenyan.
   The exemption is derived server-side from `users.email` and never from the
   request body, and `merchants_contact_present` keeps at least one contact
-  channel on every shop. **The ledger reconciles at 100/100** (migration
+  channel on every shop. **The ledger reconciled at 100/100 on that day** (migration
   `20260823130000`) — the MCP apply minted `20260823134241`, eight for eight,
   and the ledger was repaired to the repo filename before anything else.
   Read back: `phone` nullable, the CHECK present, **exactly one**
@@ -528,17 +529,20 @@ closes" — is met: D152 is closed):**
   MAANTA's canonical store location; a denied permission, a failed or coarse
   reading all fall back to placing the pin by hand rather than dead-ending.
   what3words is derived server-side afterwards, best-effort — quota exhaustion
-  leaves the address NULL and onboarding completes. **Merged, NOT yet applied:**
-  migration `20260824120000_merchant_location_coordinates.sql` is the 101st file
-  in `supabase/migrations/` while production's ledger still holds 100, so the
-  repo directory currently over-reports by one — the mirror image of D121, and
-  the same reason to read the ledger rather than `ls`. **Until a human applies
-  it, D162 remains a Merchant 01 blocker**: production still enforces
-  `what3words_address NOT NULL` and a self-serve merchant still cannot finish.
-  It stops being one when the migration is applied AND one real self-serve
-  onboarding completes at Node 0. Read `docs/skills/shop-location-capture.md`
+  leaves the address NULL and onboarding completes. **LIVE on production as of
+  2026-08-24** — PR #268 merged as `14052ad` on a full green board (including a
+  real Supabase `db-tests` run over the fresh chain), and migration
+  `20260824120000_merchant_location_coordinates.sql` applied minutes later under
+  explicit founder authorization. **The ledger reconciles 101/101**; the apply
+  minted `20260824163212`, **nine for nine**, and was repaired to the repo
+  filename before anything else. Read back: `what3words_address` nullable, both
+  new CHECKs present, exactly one `onboard_merchant` overload at 14 args with
+  `p_lat`/`p_lng`, grants intact after the DROP, 215 merchants / 353 users
+  unchanged. **D162 is no longer a Merchant 01 blocker** — it stays open only
+  until one real self-serve onboarding completes at Node 0, which is now the
+  closure event rather than a gate. Read `docs/skills/shop-location-capture.md`
   before touching the location step, the RPC signature, or any read of
-  `merchants.what3words_address` — that column becomes nullable.
+  `merchants.what3words_address` — that column is now nullable.
 - Standing constraints: no paid Clerk feature, no new identities (attach
   emails to the existing Clerk users instead), no unrelated auth changes
   without founder approval.
