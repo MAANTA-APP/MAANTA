@@ -18,18 +18,29 @@ authenticated identity and **held**. The money path was proven exactly-once unde
 concurrent race. Merchant 01, Staff 01 and Shopper 01 can use the product without being able to
 access, alter or financially affect anyone else's data.
 
-The conditions are **not** security blockers. They are:
+The conditions are **not** security blockers, and all of them were dispositioned by founder
+ruling on 2026-08-24 (decisions log, same date). Every finding now has a decision:
 
-1. **D168 / D169 are recorded, not fixed.** Both are defense-in-depth; both fail closed; neither
-   is exploitable. They are deliberately left for a founder/eng decision rather than patched
-   mid-field-validation (see §3).
-2. **Demo mode is ON in production** (`app_config.demo_mode_enabled = 'true'`, drift **D14**,
-   founder-owned). 208 synthetic merchants and 120 synthetic customers are visible in shopper
-   browse. This is not a vulnerability — `is_demo` separation is enforced in SQL — but it is the
-   most likely source of "is this real?" confusion during Merchant 01's run, and it is the one
-   condition that touches the pilot directly.
-3. **D170 is a consent ruling that should be made before staff seats are issued widely** — not
-   before Staff 01, who is invited by a merchant the founder is standing next to.
+| Finding | Ruling |
+|---|---|
+| **D168** — inert isolation policies | **Record and defer.** Do **not** repair by restoring broad SELECT on `merchants` — this audit showed that resurrects D147's critical leak. Fails closed today. Resolve later with a deliberately designed isolation mechanism, not before Merchant 01. |
+| **D169** — fresh deploy weaker than prod | **Fix required before the next production migration is deployed**, with a ratchet. Does not delay Merchant 01; gates the *next* migration. |
+| **SEC-C** — residual TRUNCATE/REFERENCES/TRIGGER | **Record/defer.** Low priority while unreachable through the app. Does not open a hardening cycle. |
+| **SEC-D** — no `UNIQUE` on `users.email` | **Investigate before changing schema.** Understand what the duplicate group represents first; do **not** blindly add `UNIQUE(email)` given this product's identity/relink history and possible null/historical states. |
+| **SEC-E / D171** — `is_blacklisted` unenforced | **Defer.** Decide what blacklisting is supposed to prevent before wiring it in. |
+| **D170** — silent staff enrolment | **Ruled: staff acceptance required before access becomes active.** Merchant 01 / Staff 01 may proceed under explicit in-person consent recorded operationally; the productized acceptance flow is required **before scaled staff-seat issuance**. |
+
+### The pre-field gate
+
+| Gate | State |
+|---|---|
+| **Security** | **CONDITIONAL GO** ✅ |
+| **D162 — what3words quota** | **Must unblock.** Now the practical blocker: there is no value sending the first independent merchant into a journey already known to be uncompletable. |
+| **Demo mode** | **Switch off** before genuine field measurement (per the existing D14/D18 launch procedure). 208 synthetic merchants visible while observing Merchant 01 and Shopper 01 contaminates the experiment; the shopper should see the actual Node 0 marketplace, even if it initially contains one shop. |
+| **Merchant 01** | **then GO** |
+
+Neither non-security condition was actioned by this audit — both are founder/ops steps, and
+flipping demo mode is a production mutation this session is not authorised to make.
 
 What would have made this a NO-GO — cross-tenant reads, forgeable identity, client-supplied fee
 amounts, a double-charge under concurrency, an admin RPC reachable by a merchant, a secret in the
@@ -382,7 +393,9 @@ first), auth-strategy changes, pricing, UI polish, the `next@16` upgrade.
   updated` bumped) and this document.
 * **Migrations added:** none.
 * **Code changed:** none. No fix was applied, because nothing reached the CRITICAL/HIGH bar the
-  brief authorises for immediate repair.
+  brief authorises for immediate repair — and the founder explicitly withheld fix authorisation
+  from the PR that publishes this report. D169's fix is owed before the next production migration,
+  as its own change.
 * **Production mutated: NO.** Every production interaction was a read, or a `BEGIN … ROLLBACK`
   impersonation that committed nothing. No production object was created, altered or dropped; no
   customer or business record was touched. All mutation testing ran against a throwaway local
