@@ -118,6 +118,14 @@ describe("marketing accessibility and metadata", () => {
 
   // #FDBF2D on white is ~1.7:1 — below the 3:1 required for a focus indicator.
   // The ring is ink; the accent stays on CTAs and live status.
+  //
+  // This half reads the stylesheet only. For most of this file's life that was
+  // the whole guard, and the stylesheet was already compliant — so nine
+  // components sat on `focus:ring-brand` underneath a passing test named for
+  // exactly the rule they broke. The component half now lives in
+  // `frozen-ui-rules.test.ts` ("never uses the amber accent as a focus
+  // indicator"); the two together are the rule. Do not read this one as
+  // covering the app.
   it("does not use the amber accent as a focus ring", () => {
     const css = readFileSync(path.join(SRC, "app", "globals.css"), "utf8");
     expect(css, "a global :focus-visible style must exist").toContain(":focus-visible");
@@ -125,9 +133,18 @@ describe("marketing accessibility and metadata", () => {
     expect(/outline:[^;]*(brand|FDBF2D)/i.test(focusBlock)).toBe(false);
   });
 
-  it("respects prefers-reduced-motion", () => {
+  // Exactly one block, not merely "at least one". Two identical
+  // `prefers-reduced-motion` rules shipped here with different durations
+  // (0.001ms unlayered, 0.01ms inside `@layer base`), so the rule had two homes
+  // and nothing would have surfaced the day they diverged — both collapse
+  // motion to nothing, so which one won was invisible either way.
+  it("respects prefers-reduced-motion, in exactly one place", () => {
     const css = readFileSync(path.join(SRC, "app", "globals.css"), "utf8");
-    expect(css).toContain("prefers-reduced-motion");
+    const blocks = css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? [];
+    expect(
+      blocks.length,
+      `globals.css should carry one reduced-motion block, found ${blocks.length}`
+    ).toBe(1);
   });
 
   // Mobile first at 360px: the body must never scroll sideways. Wide content

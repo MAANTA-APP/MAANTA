@@ -129,7 +129,7 @@ export function ProfileCard({
             <select
               value={mall}
               onChange={(e) => setMall(e.target.value)}
-              className="h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className="h-12 w-full rounded-xl border border-ink/80 bg-white px-4 text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
             >
               {NODES.filter((n) => n.live).map((n) => (
                 <option key={n.id} value={n.id}>

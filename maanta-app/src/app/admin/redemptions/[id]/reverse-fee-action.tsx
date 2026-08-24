@@ -84,7 +84,7 @@ export function ReverseFeeAction({
               Decision note <span className="font-semibold text-ink">*required</span>
             </span>
             <textarea
-              className="min-h-[80px] w-full rounded-xl border border-ink/80 bg-white px-4 py-3 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[80px] w-full rounded-xl border border-ink/80 bg-white px-4 py-3 text-base text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Why the merchant is in the right"
