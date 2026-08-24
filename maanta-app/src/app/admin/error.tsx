@@ -21,7 +21,7 @@ export default function AdminError({
   }, [error]);
 
   return (
-    <div className="pt-10">
+    <div className="flex min-h-[70dvh] flex-col items-center justify-center">
       <ErrorState
         message="Something went wrong — try again in a moment."
         onRetry={reset}

@@ -52,6 +52,26 @@ const config: Config = {
         sans: ["var(--font-dm-sans)", "var(--font-inter)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "ui-monospace", "monospace"],
       },
+      // One easing for every transition in the app.
+      //
+      // `globals.css` has defined `--ease-standard` since the Frozen UI pass,
+      // with the instruction "Keep new transitions on this so overlays,
+      // presses, and fades feel like one system." Two call sites did. The other
+      // 42 used a bare `transition`, which resolves to Tailwind's default
+      // `cubic-bezier(0.4, 0, 0.2, 1)` — an ease-in-out that *starts slow*. On a
+      // press that reads as lag: the button lifts late rather than answering the
+      // finger. The house curve decelerates instead (fast out, gentle settle),
+      // which is what makes a control feel answered rather than animated.
+      //
+      // Wiring it as DEFAULT rather than fixing 42 call sites is deliberate: a
+      // rule each author has to remember is a rule that drifts, and this one
+      // already had. The literal fallback covers the case where the custom
+      // property is missing (an isolated render, a shadow root) — without it an
+      // undefined `var()` makes the declaration invalid and silently reverts to
+      // `ease`, which is the exact defect this replaces.
+      transitionTimingFunction: {
+        DEFAULT: "var(--ease-standard, cubic-bezier(0.22, 1, 0.36, 1))",
+      },
       borderRadius: {
         card: "1.25rem", // Claude-soft card
         sheet: "1.5rem", // bottom sheets / phone panels

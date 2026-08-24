@@ -22,7 +22,7 @@ export default function ShopperError({
   }, [error]);
 
   return (
-    <main className="px-4 pt-10">
+    <main className="flex min-h-[70dvh] flex-col items-center justify-center px-4">
       <ErrorState
         message="Something went wrong — try again in a moment."
         onRetry={reset}

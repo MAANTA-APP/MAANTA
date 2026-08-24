@@ -56,7 +56,7 @@ export function ScenarioNotice({ children }: { children: React.ReactNode }) {
         className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/80"
       >
         <div
-          className={`mx-auto max-w-6xl px-5 text-secondary transition-all ${
+          className={`mx-auto max-w-6xl px-5 text-secondary transition-[padding] ${
             scrolled ? "py-2.5" : "py-3"
           }`}
         >

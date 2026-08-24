@@ -474,10 +474,25 @@ export function Toggle({
         checked ? "bg-brand" : "bg-cream-dark"
       )}
     >
+      {/*
+        The knob travels on `transform`, not `left`.
+
+        It used to animate `left` between `0.5` and `calc(100% - 1.625rem)`
+        under `transition-all`, so every frame of a toggle re-ran layout — the
+        one property class the motion guidance singles out as never worth
+        animating. The geometry is unchanged: the track is 3rem wide, the knob
+        1.5rem, inset 0.125rem, so the old end position (100% - 1.625rem =
+        1.375rem) is exactly 1.25rem of travel from the start. `translate-x-5`
+        is that 1.25rem, composited on the GPU.
+
+        The property list is explicit rather than `transition-all` so it is
+        obvious what moves: the knob slides and its fill changes, nothing else.
+      */}
       <span
         className={cn(
-          "absolute top-0.5 h-6 w-6 rounded-full bg-ink transition-all",
-          checked ? "left-[calc(100%-1.625rem)]" : "left-0.5 bg-white shadow"
+          "absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-ink",
+          "transition-[transform,background-color] will-change-transform",
+          checked ? "translate-x-5" : "translate-x-0 bg-white shadow"
         )}
       />
     </button>
