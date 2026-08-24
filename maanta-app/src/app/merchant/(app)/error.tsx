@@ -22,7 +22,7 @@ export default function MerchantError({
   }, [error]);
 
   return (
-    <main className="px-5 pt-10">
+    <main className="flex min-h-[70dvh] flex-col items-center justify-center px-5">
       <ErrorState
         message="Something went wrong — try again in a moment."
         onRetry={reset}

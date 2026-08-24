@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/ui/states";
  */
 export default function FeedError({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="px-4 pt-10">
+    <main className="flex min-h-[70dvh] flex-col items-center justify-center px-4">
       <ErrorState
         message="We couldn't load deals — try again in a moment."
         onRetry={reset}
