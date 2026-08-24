@@ -47,7 +47,7 @@ export default async function PlanPage() {
 
       {!isElite ? (
         <ButtonLink href="/merchant/plan/upgrade" variant="secondary" full className="mt-4">
-          Upgrade to Elite — KES 3,500/mo
+          Upgrade to Elite
         </ButtonLink>
       ) : null}
 

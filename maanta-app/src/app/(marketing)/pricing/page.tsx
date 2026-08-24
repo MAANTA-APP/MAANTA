@@ -90,7 +90,6 @@ function Feature({ children, tone = "dark" }: { children: React.ReactNode; tone?
 
 export default function PricingPage() {
   const fee = formatKes(SUCCESS_FEE_KES);
-  const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
   const trial = OFFERS.eliteTrial;
   const trialLive = isOfferLive(trial);
@@ -140,12 +139,15 @@ export default function PricingPage() {
           {/* Elite — dark, so it reads as the upgrade without spending the accent. */}
           <div className="rounded-card border border-ink bg-ink p-6 shadow-card sm:p-7">
             <h2 className="text-sm font-bold uppercase tracking-wide text-white/60">Elite</h2>
-            <p className="mt-4 flex items-baseline gap-1.5">
-              <span className="tnum text-3xl font-black leading-none text-white">{elite}</span>
-              <span className="text-sm font-semibold text-white/60">per month</span>
+            {/* Elite's monthly price is deliberately absent — founder ruling
+                2026-08-24. It is not set, and publishing a number before there is
+                merchant evidence anchors both sides to a figure nobody has tested.
+                The success fee below is NOT affected and stays explicit. */}
+            <p className="mt-4 text-2xl font-black leading-none text-white">
+              Pricing coming soon
             </p>
             <p className="mt-2 text-sm font-semibold text-white">
-              plus {fee} per verified redemption
+              {fee} per verified redemption, the same as Standard
             </p>
             <p className="mt-1 text-xs leading-relaxed text-white/50">
               The fee is the same on both plans. Elite buys capacity, not a cheaper

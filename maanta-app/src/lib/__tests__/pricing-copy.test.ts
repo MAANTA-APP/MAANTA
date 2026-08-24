@@ -214,4 +214,59 @@ describe("public pricing copy matches the frozen commercial rules", () => {
         `merchants and is granted per-approval by an admin:\n${hits.join("\n")}`
     ).toEqual([]);
   });
+
+  /**
+   * Founder ruling 2026-08-24: Elite has no published subscription price.
+   *
+   * KES 3,500 was removed from every public and merchant-facing surface because
+   * MAANTA is in Node 0 field validation and will not anchor merchants or the
+   * public to a monthly figure before there is genuine merchant evidence. Elite
+   * remains in the product and its benefits are still shown; only the price is
+   * withheld, rendered as "Pricing coming soon".
+   *
+   * **Scope is deliberately rendered product source only** — `src/app`,
+   * `src/components` and `src/content/legal`. Documentation is NOT scanned: the
+   * dated audits, the copy specs and the decisions log all legitimately record
+   * that KES 3,500 was once the assumed price, and a repository-wide ban on the
+   * digits would make that history unwritable. A ruling guard that forbids
+   * describing the thing it ruled on is worse than no guard.
+   *
+   * This does not touch the KES 30 success fee, which is a live commitment and
+   * is asserted as present by the tests above.
+   */
+  it("publishes no Elite subscription price on any rendered surface", () => {
+    // A monthly-subscription-shaped money claim. Deliberately NOT a bare `3500`
+    // match: that collides with legitimate deal prices (the Node 0 seed has a
+    // KES 3,500 pair of shoes) and with any future four-digit amount.
+    const PRICED =
+      /(?:KES|KSh)\s*3[,_ ]?500|3[,_ ]?500\s*(?:\/|per\s|a\s)\s*(?:mo|month)|elitePerMonthKes/i;
+
+    const offenders: string[] = [];
+    const scan = (file: string, lines: string[]) =>
+      lines.forEach((line, i) => {
+        if (PRICED.test(line)) offenders.push(`  ${rel(file)}:${i + 1}  ${line.trim()}`);
+      });
+
+    // Rendered TSX: app + shared components.
+    for (const f of tsxFiles(path.join(SRC, "app")).concat(
+      tsxFiles(path.join(SRC, "components"))
+    )) {
+      scan(f, withoutComments(readFileSync(f, "utf8")).split("\n"));
+    }
+    // The markdown the four live legal routes render.
+    const legal = path.join(SRC, "content", "legal");
+    for (const name of readdirSync(legal)) {
+      if (!name.endsWith(".md")) continue;
+      const f = path.join(legal, name);
+      scan(f, readFileSync(f, "utf8").split("\n"));
+    }
+
+    expect(
+      offenders,
+      "Elite has no published subscription price (founder ruling 2026-08-24). " +
+        'Render "Pricing coming soon" instead, and supersede that ruling in ' +
+        "docs/maanta-decisions-log.md before publishing any figure:\n" +
+        offenders.join("\n")
+    ).toEqual([]);
+  });
 });

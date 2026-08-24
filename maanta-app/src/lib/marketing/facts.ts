@@ -22,7 +22,25 @@ import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 export const FACTS = {
   /** KES per verified redemption, all plans. Frozen; see `@/lib/pricing`. */
   successFeeKes: SUCCESS_FEE_KES,
-  elitePerMonthKes: 3_500,
+  /*
+   * There is deliberately NO `elitePerMonthKes` here.
+   *
+   * It held `3_500` until the founder ruling of 2026-08-24, which removed the
+   * Elite subscription price from every public and merchant-facing surface:
+   * MAANTA is in Node 0 field validation and will not anchor merchants or the
+   * public to a monthly figure before there is genuine merchant evidence about
+   * the value MAANTA creates. Elite itself is unchanged and its benefits are
+   * still shown; only the price is withheld, as "Pricing coming soon".
+   *
+   * Do not reintroduce a numeric Elite subscription price here or anywhere in
+   * `src/app`, `src/components` or `src/content/legal` without a new
+   * decisions-log entry superseding that ruling. `pricing-copy.test.ts` fails if
+   * one appears.
+   *
+   * This does NOT apply to the KES 30 success fee, which remains an active
+   * commercial commitment and must stay explicit wherever a merchant needs to
+   * know what a verified redemption costs.
+   */
   /** Canonical value lives in `app_config.boost_fee_kes` (migration 20260709175532). */
   boostPer24hKes: 500,
   boostHours: 24,

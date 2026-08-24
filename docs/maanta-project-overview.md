@@ -46,7 +46,11 @@ fee** from the merchant's prepaid wallet. Launch is at **BBS Mall, Nairobi
   `20260715194145_boost_elite_only_gate.sql`). Never state the boost price
   without the tier qualifier — see drift **D34**.
 - **Elite tier**: 30-day free trial → 7-day grace period → auto-downgrade to
-  Standard if not converted. Paid Elite: KES 3,500/month (price review Feb 2027).
+  Standard if not converted. **Paid Elite has no published price** — founder
+  ruling 2026-08-24 removed KES 3,500 from all public and merchant-facing
+  surfaces for the duration of Node 0 and authorized no replacement figure.
+  Benefits are still shown; price reads "Pricing coming soon". The KES 30
+  success fee is unchanged.
 
 ## Technical state (as of this update)
 

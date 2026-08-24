@@ -63,7 +63,6 @@ export const metadata: Metadata = pageMetadata({
 
 export default function MerchantsPage() {
   const fee = formatKes(FACTS.successFeeKes);
-  const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
   const credit = formatKes(OFFERS.openingCredit.amountKes);
 
@@ -343,8 +342,7 @@ export default function MerchantsPage() {
           </div>
           <div className="rounded-card border-[3px] border-ink bg-ink p-6">
             <h3 className="text-lg font-bold text-brand">Elite</h3>
-            <p className="mt-1 text-2xl font-black text-white">{elite}</p>
-            <p className="text-xs text-white/50">per month</p>
+            <p className="mt-1 text-2xl font-black text-white">Pricing coming soon</p>
             <ul className="mt-4 space-y-2 text-sm text-white/70">
               <li>{FACTS.eliteActiveDeals} active deals</li>
               <li>Flash deals — short-window offers at the top of the feed</li>

@@ -36,7 +36,6 @@ export const metadata: Metadata = pageMetadata({
 
 export default function FaqPage() {
   const fee = formatKes(FACTS.successFeeKes);
-  const elite = formatKes(FACTS.elitePerMonthKes);
   const boost = formatKes(FACTS.boostPer24hKes);
 
   /**
@@ -101,16 +100,16 @@ export default function FaqPage() {
       a: (
         <>
           Standard has {FACTS.standardActiveDeals} active deal and no monthly fee.
-          Elite is {elite} a month for {FACTS.eliteActiveDeals} active deals, flash
-          deals, and boosts at {boost} per {FACTS.boostHours}h. The {fee} success fee
-          applies on both.{" "}
+          Elite adds {FACTS.eliteActiveDeals} active deals, flash deals, and boosts at{" "}
+          {boost} per {FACTS.boostHours}h; its monthly price is not set yet. The {fee}{" "}
+          success fee applies on both.{" "}
           <Link href="/pricing" className="underline underline-offset-4 hover:text-ink">
             Full pricing
           </Link>
           .
         </>
       ),
-      plain: `Standard has ${FACTS.standardActiveDeals} active deal and no monthly fee. Elite is ${elite} a month for ${FACTS.eliteActiveDeals} active deals, flash deals, and boosts at ${boost} per ${FACTS.boostHours}h. The ${fee} success fee applies on both.`,
+      plain: `Standard has ${FACTS.standardActiveDeals} active deal and no monthly fee. Elite adds ${FACTS.eliteActiveDeals} active deals, flash deals, and boosts at ${boost} per ${FACTS.boostHours}h; its monthly price is not set yet. The ${fee} success fee applies on both.`,
     },
     {
       q: "Can my staff verify codes?",

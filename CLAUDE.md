@@ -303,9 +303,15 @@ below. They are stated once, there. This section is how to work near them.
 - **KES 30 success fee** per verified redemption, all plans, debited at merchant
   verification (or recorded as arrears if the wallet can't cover it).
 - **Elite trial = 30 days**, then a 7-day grace period, then auto-downgrade to
-  Standard if no paid conversion. Paid Elite is KES 3,500/month (price under
-  review Feb 2027 — founder ruling 2026-07-20 supersedes the earlier Oct 2026
-  date; the KES 30 success fee is explicitly NOT under review).
+  Standard if no paid conversion. **Paid Elite has no published price** (founder
+  ruling 2026-08-24): MAANTA will not anchor merchants or the public to a monthly
+  figure during Node 0 field validation, so KES 3,500 was removed from every
+  public and merchant-facing surface and **no replacement number is authorized**.
+  Elite remains in the product and its benefits are still shown; where a price or
+  status must appear, surfaces read *"Pricing coming soon"*. This supersedes the
+  Feb 2027 price-review date, which assumed a live price to review.
+  **The KES 30 success fee is untouched and stays explicit** — it is an active
+  Node 0 commercial hypothesis, and the two must never be blurred together.
 - **Verify-anyway**: shopper experience is preserved at the counter; disputes
   route to admin/on-ground agent handling after the fact, auditably.
 - **Zero-balance gate**: merchants with no balance can't create new deals.

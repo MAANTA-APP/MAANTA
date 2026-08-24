@@ -247,7 +247,8 @@ export function NewDealWizard({
                 <tr>
                   <td className="px-4 py-2.5 text-ink">Monthly</td>
                   <td className="px-2 py-2.5 text-center text-faint">—</td>
-                  <td className="px-2 py-2.5 text-center font-bold">KES 3,500</td>
+                  {/* Not priced yet — founder ruling 2026-08-24. */}
+                  <td className="px-2 py-2.5 text-center font-bold">Coming soon</td>
                 </tr>
               </tbody>
             </table>
