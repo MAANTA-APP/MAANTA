@@ -87,7 +87,19 @@ export default async function AdminMerchantDetailPage({
 
       <div className="mt-4 inline-flex items-center gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">
         <IconCheck className="h-4 w-4 text-verified" />
-        w3w resolved: <W3wChip address={m.what3words_address} />
+        {/* D162 — coordinates are the canonical location and what3words is
+            optional, so a shop can legitimately have GPS and no words. */}
+        {m.what3words_address ? (
+          <>
+            w3w resolved: <W3wChip address={m.what3words_address} />
+          </>
+        ) : typeof m.lat === "number" && typeof m.lng === "number" ? (
+          <span className="tnum">
+            Located: {m.lat.toFixed(5)}, {m.lng.toFixed(5)}
+          </span>
+        ) : (
+          <span>No location on file</span>
+        )}
         {m.entrance_notes ? <span className="text-muted">— {m.entrance_notes}</span> : null}
       </div>
 
@@ -105,7 +117,7 @@ export default async function AdminMerchantDetailPage({
 
       <MerchantLocationForm
         merchantId={m.id}
-        initialW3w={m.what3words_address}
+        initialW3w={m.what3words_address ?? ""}
         initialLat={typeof m.lat === "number" ? m.lat : null}
         initialLng={typeof m.lng === "number" ? m.lng : null}
       />

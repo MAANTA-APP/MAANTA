@@ -56,7 +56,8 @@ export type MerchantRow = {
   trial_ends_at: string | null;
   grace_period_ends_at: string | null;
   node: string;
-  what3words_address: string;
+  /** Nullable since D162 — coordinates are the canonical location, w3w is enrichment. */
+  what3words_address: string | null;
   lat: number | null;
   lng: number | null;
   mall_name: string | null;

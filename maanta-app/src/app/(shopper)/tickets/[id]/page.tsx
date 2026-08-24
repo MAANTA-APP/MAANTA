@@ -11,6 +11,7 @@ import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
+import { shopNavigationTarget } from "@/lib/shop-location";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,10 @@ type Row = {
     id: string;
     merchant_name: string;
     floor: string | null;
-    what3words_address: string;
+    /** Nullable since D162 — a coordinate-only shop is a normal shop. */
+    what3words_address: string | null;
+    lat: number | null;
+    lng: number | null;
   } | null;
 };
 
@@ -64,7 +68,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -78,7 +82,9 @@ export default async function TicketPage({
     ticket.status === "failed" ||
     (ticket.status === "pending" && new Date(ticket.expires_at) <= new Date());
   const justClaimed = searchParams.claimed === "1";
-  const w3wHref = `https://what3words.com/${m.what3words_address.replace(/^\/+/, "")}`;
+  // D162 — the shop may be coordinate-only, in which case Navigate opens the
+  // in-app map instead of what3words, and the chip is simply absent.
+  const navigate = shopNavigationTarget(m);
 
   // YOU PAY: prefer the amount snapshotted at claim; fall back to the live deal
   // price. Same computation as the tile and deal detail (lib/pricing).
@@ -239,20 +245,25 @@ export default async function TicketPage({
         </div>
       ) : null}
 
-      <div className="mt-4 w-full">
-        <W3wChip address={m.what3words_address} />
-      </div>
+      {m.what3words_address ? (
+        <div className="mt-4 w-full">
+          <W3wChip address={m.what3words_address} />
+        </div>
+      ) : null}
 
-      <ButtonLink
-        href={w3wHref}
-        variant="ghost"
-        full
-        className="mt-6"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Navigate
-      </ButtonLink>
+      {navigate ? (
+        <ButtonLink
+          href={navigate.href}
+          variant="ghost"
+          full
+          className="mt-6"
+          {...(navigate.external
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
+        >
+          Navigate
+        </ButtonLink>
+      ) : null}
 
       <p className="mt-6 text-center text-sm font-semibold text-ink">
         Show this screen at the counter.

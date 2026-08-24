@@ -212,10 +212,18 @@ export async function convertToCoordinates(
 /**
  * Convert WGS84 coordinates to a 3-word address.
  * Server-only — reads W3W_API_KEY.
+ *
+ * Bounded like its sibling. This direction ran unbounded until D162 put it on
+ * the onboarding path as best-effort enrichment: an unreachable provider would
+ * then have held the whole invocation open, which is the failure this module's
+ * timeout note exists to prevent. Callers that are merely decorating a record
+ * (merchant onboarding) pass something much tighter than the interactive
+ * default, because there nobody is waiting on the words.
  */
 export async function convertTo3Words(
   lat: number,
-  lng: number
+  lng: number,
+  timeoutMs: number = W3W_DEFAULT_TIMEOUT_MS
 ): Promise<W3wWordsResult> {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return {
@@ -238,7 +246,7 @@ export async function convertTo3Words(
     const url = new URL(W3W_CONVERT_TO_3WA);
     url.searchParams.set("coordinates", `${lat},${lng}`);
     url.searchParams.set("key", key);
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: timeoutSignal(timeoutMs) });
     const body = await res.json().catch(() => null);
 
     // Same split as convert-to-coordinates: a refusal is ours to fix, not the

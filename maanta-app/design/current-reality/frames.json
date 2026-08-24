@@ -205,7 +205,9 @@
       "design_frame": "Merchant onboarding",
       "frontend": [
         "src/app/merchant/onboard/page.tsx",
-        "src/app/merchant/onboard/onboard-wizard.tsx"
+        "src/app/merchant/onboard/onboard-wizard.tsx",
+        "src/app/merchant/onboard/locate-shop-step.tsx",
+        "src/components/merchant/shop-location-map.tsx"
       ],
       "backend": [
         "onboarding API / ensure merchant",
@@ -216,7 +218,7 @@
         "onboard_merchant derives onboarding_mode agent_assisted or self_serve"
       ],
       "primary_action": "Submit shop",
-      "notes": "Merchant-authored, and the agent attribution is a RENDERED STEP, not only a stored property: the review step of onboard-wizard.tsx asks \"Were you helped by a Maanta agent?\" and offers a picker of active agents by display name. Shipped in #68 (2026-07-24) — see docs/skills/agent-attribution.md. The guarantee sits underneath the field, not instead of it: the merchant is always the authenticated submitter, the agent id travels as attribution only, and an absent, malformed or inactive id degrades to self_serve. Do not design this field away or draw a second one beside it. The earlier wording here — \"agent attribution only\" — read as a guarantee with no surface behind it, and a design programme took it as evidence that no agent field existed (drift D103). D158 (founder ruling 2026-08-23, LIVE on production): step 1's Owner phone is OPTIONAL and labelled so when the signed-in account has a verified email — the field stays, as an optional business contact. Do not draw it as required, and do not remove it."
+      "notes": "Merchant-authored, and the agent attribution is a RENDERED STEP, not only a stored property: the review step of onboard-wizard.tsx asks \"Were you helped by a Maanta agent?\" and offers a picker of active agents by display name. Shipped in #68 (2026-07-24) — see docs/skills/agent-attribution.md. The guarantee sits underneath the field, not instead of it: the merchant is always the authenticated submitter, the agent id travels as attribution only, and an absent, malformed or inactive id degrades to self_serve. Do not design this field away or draw a second one beside it. The earlier wording here — \"agent attribution only\" — read as a guarantee with no surface behind it, and a design programme took it as evidence that no agent field existed (drift D103). D158 (founder ruling 2026-08-23, LIVE on production): step 1's Owner phone is OPTIONAL and labelled so when the signed-in account has a verified email — the field stays, as an optional business contact. Do not draw it as required, and do not remove it. D162 (founder ruling 2026-08-24, merged, NOT yet applied to production): step 2 is no longer a what3words field. It is a \"Locate my shop\" action that reads the device position ONLY on tap, shows the pin on a map, and requires an explicit confirmation before Continue — the confirmed pin, which the merchant may have dragged, is the canonical store location. Every failure path (denied, unavailable, timeout, coarse) opens the manual pin instead of dead-ending, and what3words is derived server-side afterwards, best-effort. Do not draw a what3words input here, and do not draw the confirmation away."
     },
     {
       "role": "merchant",

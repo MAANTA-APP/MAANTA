@@ -8,12 +8,26 @@ import { POST } from "../route";
 // are covered by supabase/tests/onboard_agent_attribution_test.sql.
 
 const rpcMock = vi.fn();
+// `from` is mocked so a stray table write is OBSERVABLE rather than a thrown
+// "not a function". Since D162 the route must not touch `merchants` directly at
+// all: the location is written inside onboard_merchant, in the same statement
+// as the shop row.
+const fromMock = vi.fn();
 // The route runs onboard_merchant via the service client (it promotes the
 // user's role, which the prevent_self_role_escalation trigger only allows for
 // service_role/admin); ensureAppUser is the trust boundary. See the route.
 vi.mock("@/lib/supabase/service", () => ({
-  createServiceClient: () => ({ rpc: rpcMock }),
+  createServiceClient: () => ({ rpc: rpcMock, from: fromMock }),
 }));
+
+// what3words is enrichment since D162 and must never be reached on a path that
+// already has coordinates plus an address. Where it IS reached, the tests below
+// drive it explicitly.
+const convertTo3WordsMock = vi.fn();
+vi.mock("@/lib/what3words", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/what3words")>();
+  return { ...actual, convertTo3Words: (...args: unknown[]) => convertTo3WordsMock(...args) };
+});
 
 const ensureAppUserMock = vi.fn();
 vi.mock("@/lib/auth", () => ({
@@ -38,10 +52,14 @@ function req(body: unknown) {
   });
 }
 
+// Coordinates are required on this route since D162 — the shop's location is
+// what the merchant confirms on the map, and what3words is optional enrichment.
 const baseBody = {
   merchantName: "Shop",
   what3wordsAddress: "stove.cactus.rally",
   phone: "+254700000000",
+  lat: -1.2746,
+  lng: 36.8501,
 };
 
 describe("POST /api/merchants/onboard — agent attribution", () => {
@@ -114,6 +132,8 @@ describe("POST /api/merchants/onboard — D158 optional owner phone", () => {
   const bodyNoPhone = {
     merchantName: "Shop",
     what3wordsAddress: "stove.cactus.rally",
+    lat: -1.2746,
+    lng: 36.8501,
   };
 
   beforeEach(() => {
@@ -206,5 +226,195 @@ describe("POST /api/merchants/onboard — D158 optional owner phone", () => {
     });
     const res = await POST(req(bodyNoPhone));
     expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D162 (founder ruling 2026-08-24): browser geolocation replaces mandatory
+// what3words. Coordinates are the canonical store location and are required
+// here; what3words is optional enrichment whose failure must not be felt.
+// ---------------------------------------------------------------------------
+describe("POST /api/merchants/onboard — D162 coordinate-first location", () => {
+  const NAIROBI = { lat: -1.2746, lng: 36.8501 };
+  const coordsOnlyBody = {
+    merchantName: "Shop",
+    phone: "+254700000000",
+    ...NAIROBI,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ensureAppUserMock.mockResolvedValue({
+      id: "merchant-user-1",
+      role: "customer",
+      email: "owner@example.com",
+    });
+    rpcMock.mockResolvedValue({ data: "merchant-1", error: null });
+    convertTo3WordsMock.mockResolvedValue({
+      ok: false,
+      code: "upstream_rejected",
+      error: "Address lookup is temporarily unavailable.",
+    });
+  });
+
+  it("onboards on coordinates alone, with no what3words address anywhere", async () => {
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_lat: NAIROBI.lat, p_lng: NAIROBI.lng, p_w3w_address: null })
+    );
+  });
+
+  it("stores the coordinates it was given — the confirmed pin, not a re-derived one", async () => {
+    // The wizard sends the pin the merchant confirmed, which may be one they
+    // dragged after a poor reading. The server must not substitute anything.
+    const dragged = { lat: -1.27512, lng: 36.85077 };
+    const res = await POST(req({ ...coordsOnlyBody, ...dragged }));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_lat: dragged.lat, p_lng: dragged.lng })
+    );
+  });
+
+  it("writes the location through the RPC, never as a second update on merchants", async () => {
+    // It used to be a post-insert UPDATE whose failure was logged and swallowed,
+    // so a shop with no location was one swallowed error away.
+    await POST(req(coordsOnlyBody));
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a submission with no coordinates, before the RPC", async () => {
+    const res = await POST(req({ merchantName: "Shop", phone: "+254700000000" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "location_required" });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a what3words-only submission — the address is no longer the location", async () => {
+    const res = await POST(
+      req({ merchantName: "Shop", phone: "+254700000000", what3wordsAddress: "stove.cactus.rally" })
+    );
+    expect(res.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects half a coordinate pair", async () => {
+    expect((await POST(req({ ...coordsOnlyBody, lng: null }))).status).toBe(400);
+    expect((await POST(req({ ...coordsOnlyBody, lat: null }))).status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects out-of-range and non-numeric coordinates", async () => {
+    expect((await POST(req({ ...coordsOnlyBody, lat: 91 }))).status).toBe(400);
+    expect((await POST(req({ ...coordsOnlyBody, lng: -181 }))).status).toBe(400);
+    expect((await POST(req({ ...coordsOnlyBody, lat: "-1.2746", lng: "36.8501" }))).status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("completes onboarding when what3words is unavailable — quota, outage or no key", async () => {
+    // This is the D162 defect in one assertion: a provider MAANTA does not
+    // control must never be able to stop a merchant signing up.
+    convertTo3WordsMock.mockResolvedValue({
+      ok: false,
+      code: "upstream_rejected",
+      error: "Address lookup is temporarily unavailable.",
+    });
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_w3w_address: null })
+    );
+  });
+
+  it("completes onboarding when the what3words call throws outright", async () => {
+    convertTo3WordsMock.mockRejectedValue(new Error("ECONNRESET"));
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_w3w_address: null })
+    );
+  });
+
+  it("keeps the derived address when what3words does answer", async () => {
+    convertTo3WordsMock.mockResolvedValue({
+      ok: true,
+      words: "stored.riches.shine",
+      ...NAIROBI,
+    });
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(200);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_w3w_address: "stored.riches.shine" })
+    );
+  });
+
+  it("bounds the enrichment call so a hung provider cannot hold the request", async () => {
+    await POST(req(coordsOnlyBody));
+    const [, , timeoutMs] = convertTo3WordsMock.mock.calls[0] as [number, number, number];
+    expect(timeoutMs).toBeGreaterThan(0);
+    expect(timeoutMs).toBeLessThanOrEqual(5000);
+  });
+
+  it("does not call what3words at all when the caller supplied an address", async () => {
+    const res = await POST(req({ ...coordsOnlyBody, what3wordsAddress: "///stove.cactus.rally" }));
+    expect(res.status).toBe(200);
+    expect(convertTo3WordsMock).not.toHaveBeenCalled();
+    expect(rpcMock).toHaveBeenCalledWith(
+      "onboard_merchant",
+      expect.objectContaining({ p_w3w_address: "stove.cactus.rally" })
+    );
+  });
+
+  it("onboards the AUTHENTICATED user's shop and no one else's", async () => {
+    // The location can only ever land on a shop this account is creating: the
+    // route passes p_user_id from the session, and onboard_merchant refuses a
+    // second shop for a user. A merchantId, userId or shop id in the body is
+    // not read at all, so there is no request shape that points this write at
+    // another merchant's row.
+    const res = await POST(
+      req({
+        ...coordsOnlyBody,
+        userId: "someone-else",
+        merchantId: "another-merchants-shop",
+        p_user_id: "another-merchants-shop",
+      })
+    );
+    expect(res.status).toBe(200);
+    const [, params] = rpcMock.mock.calls[0] as [string, Record<string, unknown>];
+    expect(params.p_user_id).toBe("merchant-user-1");
+    expect(Object.values(params)).not.toContain("another-merchants-shop");
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("maps the RPC's location_required to an actionable 400, not a 500", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: "location_required: shop coordinates or a what3words address are required" },
+    });
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(400);
+  });
+
+  it("maps the RPC's invalid_coordinates to a 400", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: "invalid_coordinates: outside the WGS84 range" },
+    });
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(400);
+  });
+
+  it("still leaves the shop pending — approval is untouched by this ruling", async () => {
+    const res = await POST(req(coordsOnlyBody));
+    expect(res.status).toBe(200);
+    const [, params] = rpcMock.mock.calls[0] as [string, Record<string, unknown>];
+    // onboard_merchant hardcodes status='pending'; the route must not be able
+    // to ask for anything else.
+    expect(Object.keys(params)).not.toContain("p_status");
   });
 });

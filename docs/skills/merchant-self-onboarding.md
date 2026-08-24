@@ -1,14 +1,18 @@
 # Merchant self-onboarding — what it is, what gates it, and how to change it
 
-Status: current as of 2026-08-23, with D158 **live on production** (migration
-`20260823130000`, ledger 100/100). Owner rule: **read the migration and the
-route before this doc** — they win.
+Status: current as of 2026-08-24. D158 is **live on production** (migration
+`20260823130000`, ledger 100/100); D162 is **merged and not yet applied**
+(migration `20260824120000`). Owner rule: **read the migration and the route
+before this doc** — they win.
 
 ## The path, end to end
 
 `/merchants/join` (public lead form: shop name + phone) → `/login?next=/merchant/onboard?shop=…`
 → the four-step wizard (`src/app/merchant/onboard/onboard-wizard.tsx`)
 → `POST /api/merchants/onboard` → the `onboard_merchant` RPC.
+
+Step 2 is **"Locate my shop"**, not a what3words field — see
+`docs/skills/shop-location-capture.md` before touching it.
 
 No agent or admin is in that loop. The route authenticates the caller and passes
 `p_user_id = appUser.id`, so **a merchant can only ever onboard themselves**. The
@@ -84,6 +88,38 @@ Because the column became nullable, four display sites now fall back rather than
 render blank: merchant staff list, admin approvals, admin merchant detail, and
 the top-up prefill (which already refused a non-Kenyan number).
 
+## D162 — the location is coordinates, and what3words cannot block onboarding
+
+Founder ruling 2026-08-24. Before it, step 2 held Continue disabled until a
+what3words address validated, so when the what3words account went over quota
+(HTTP 402 `QuotaExceeded`) **self-serve onboarding could not be completed at
+all** — a third party's billing state held the front door shut.
+
+**The rule now:** the merchant taps "Locate my shop" while standing at their own
+entrance, confirms the pin on a map, and those coordinates are the shop's
+canonical location. what3words is derived server-side afterwards, best-effort
+and time-bounded; every failure leaves `what3words_address` NULL and onboarding
+completes. `/api/merchants/onboard` **requires coordinates** and no longer
+requires — or asks for — three words.
+
+Consequences worth knowing before you edit anything nearby:
+
+- `merchants.what3words_address` is **nullable**. Four read sites had to become
+  null-safe (`shops/[id]`, `tickets/[id]`, the admin merchant detail and the
+  claim-path geofence); a fifth would crash the same way. `shopNavigationTarget`
+  in `src/lib/shop-location.ts` is the one place that decides where "Navigate"
+  sends a shopper.
+- `merchants_location_present` replaces the old `NOT NULL`: coordinates **or**
+  three words, never neither.
+- `onboard_merchant` writes the location **in the same statement** as the shop
+  row. It used to be a post-insert UPDATE whose failure was logged and swallowed,
+  so a locationless shop was one swallowed error away — which is exactly the
+  "Map pin unavailable" defect D162 describes on the admin-assisted path.
+- The claim-path geofence prefers the shop's stored coordinates and falls back
+  to what3words, not the other way round.
+
+Full handoff, including the states the UI must keep: `docs/skills/shop-location-capture.md`.
+
 ## The trap: `onboard_merchant` has had two signatures
 
 **Read the CURRENT function before editing it — never an older migration that
@@ -95,6 +131,14 @@ happens to describe one.** This is D106's rule and it bit during D158.
   two overloads with defaults make every existing call ambiguous
   (`function public.onboard_merchant(...) is not unique`). Its own comment records
   that this is how that file first failed CI.
+- `20260824120000` (D162) created the **14-argument** version
+  (`p_lat`, `p_lng` trailing) the same way: an explicit `DROP FUNCTION` of the
+  12-arg signature, then a `CREATE`. Adding the parameters with defaults alone
+  would have produced a third overload and broken every caller. Because `DROP`
+  discards grants, that migration's `REVOKE`/`GRANT` are load-bearing rather
+  than re-assertions — without them PUBLIC inherits EXECUTE and the
+  `20260816020000` lockdown silently reverts. `merchant_location_coordinates_test.sql`
+  scenario 7 asserts both the single overload and the grants.
 
 The D158 migration was first drafted against the superseded 11-arg body, which
 silently **re-created the dropped overload**. Every onboarding call — merchant,

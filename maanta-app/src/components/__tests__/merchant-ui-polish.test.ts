@@ -51,16 +51,20 @@ describe("Merchant UI polish", () => {
     expect(src).toContain('role="alert"');
   });
 
-  it("onboard wizard's what3words input keeps its label attached", () => {
-    // The label must wrap the input (or reference it) — as a bare sibling the
-    // wizard's one required free-text field is unnamed to assistive tech.
-    const src = read("src/app/merchant/onboard/onboard-wizard.tsx");
-    const labelBlock = src.slice(
-      src.indexOf("what3words address"),
-      src.indexOf("Validate address")
-    );
-    expect(labelBlock).toContain("</label>");
-    expect(labelBlock.indexOf("<input")).toBeLessThan(labelBlock.indexOf("</label>"));
+  it("onboard wizard's location inputs keep their labels attached", () => {
+    // Was the what3words field until D162 replaced it with "Locate my shop".
+    // Same rule, new inputs: a label as a bare sibling never reaches its field,
+    // so every input in the location step — the two coordinate boxes and the
+    // confirmation checkbox — must be WRAPPED by one.
+    const src = read("src/app/merchant/onboard/locate-shop-step.tsx");
+    const inputs = Array.from(src.matchAll(/<input/g)).map((m) => m.index ?? 0);
+    expect(inputs.length).toBeGreaterThanOrEqual(3);
+    for (const at of inputs) {
+      const openedAt = src.lastIndexOf("<label", at);
+      const closedAt = src.lastIndexOf("</label>", at);
+      expect(openedAt, "an <input> sits outside any <label>").toBeGreaterThan(-1);
+      expect(openedAt, "an <input> sits after its label closed").toBeGreaterThan(closedAt);
+    }
   });
 
   it("onboard wizard keeps the rendered agent-attribution step (G1)", () => {
