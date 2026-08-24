@@ -362,7 +362,7 @@ export function NewDealWizard({
               <span className="mb-1.5 block text-xs font-medium text-muted">
                 Deal price (KES)
               </span>
-              <div className="flex h-12 items-center rounded-xl border border-ink/80 bg-white px-4 focus-within:ring-2 focus-within:ring-brand">
+              <div className="flex h-12 items-center rounded-xl border border-ink/80 bg-white px-4 focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2">
                 <span className="mr-2 text-base font-semibold text-ink">KES</span>
                 <input
                   inputMode="numeric"
@@ -438,7 +438,7 @@ export function NewDealWizard({
                       value={c.label}
                       onChange={(e) => updateCharge(c.id, { label: e.target.value })}
                       placeholder="VAT, service charge…"
-                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
                       aria-label="Charge name"
                     />
                     <button
@@ -473,7 +473,7 @@ export function NewDealWizard({
                         updateCharge(c.id, { value: e.target.value.replace(/[^\d.]/g, "") })
                       }
                       placeholder={c.type === "percent" ? "16" : "30"}
-                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2"
                       aria-label="Charge amount"
                     />
                     <span className="tnum w-20 flex-none text-right text-sm text-secondary">

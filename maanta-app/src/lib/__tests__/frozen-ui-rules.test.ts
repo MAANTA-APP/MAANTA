@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { stripCommentLines } from "./helpers/comment-stripping";
 
 // Static enforcement of the frozen UI hard rules (README §"Hard Rules",
 // ENGINEERING_NOTES §8.5) that can be checked from source. These are ratchets:
@@ -34,6 +35,30 @@ function scan(predicate: (line: string) => boolean): Hit[] {
   for (const f of FILES) {
     const lines = readFileSync(f, "utf8").split("\n");
     lines.forEach((line, i) => {
+      if (predicate(line)) hits.push({ file: rel(f), line: i + 1, text: line.trim() });
+    });
+  }
+  return hits;
+}
+
+/**
+ * `scan`, but over source with comments removed.
+ *
+ * A comment renders nothing, so a rule about what ships should not read one.
+ * The first run of the focus-ring guard below failed on the docblock in
+ * `inputs.tsx` that explains why the amber ring was removed — the trap
+ * `helpers/comment-stripping.ts` was written for, where documenting a banned
+ * pattern reintroduces the failure and the guard teaches the next author to
+ * delete the explanation instead of keeping the rule.
+ *
+ * The three guards above still read raw lines. That is deliberately left alone:
+ * for banned *vocabulary* the stricter reading is arguably right, and changing
+ * them is a separate call from adding this one.
+ */
+function scanCode(predicate: (line: string) => boolean): Hit[] {
+  const hits: Hit[] = [];
+  for (const f of FILES) {
+    stripCommentLines(readFileSync(f, "utf8")).forEach((line, i) => {
       if (predicate(line)) hits.push({ file: rel(f), line: i + 1, text: line.trim() });
     });
   }
@@ -78,6 +103,24 @@ describe("frozen UI hard rules (static enforcement)", () => {
     expect(
       hits,
       `Error text in red — move body text to text-ink (#111), keep red on the border/icon:\n${fmt(hits)}`
+    ).toEqual([]);
+  });
+
+  // Rule 1 (amber is rationed) + WCAG 1.4.11: the accent is never a focus
+  // indicator. #FDBF2D is 1.66:1 on white and 1.59:1 on paper, under the 3:1 a
+  // focus indicator must clear, and a ring on a focused field spends the one
+  // amber element a screen is allowed beside its actual CTA.
+  //
+  // `marketing-a11y.test.ts` has named this rule since the focus styles landed,
+  // but it reads `globals.css` alone — the stylesheet that already complied.
+  // Nine components carried `focus:ring-brand` underneath that passing test.
+  // This is the half that reads the components, so the guard covers what its
+  // name claims (cf. D36, D38: a guard green over the thing it forbids).
+  it("never uses the amber accent as a focus indicator", () => {
+    const hits = scanCode((l) => /(?:focus|focus-within|focus-visible):ring-brand\b/.test(l));
+    expect(
+      hits,
+      `Amber focus ring (#FDBF2D is 1.66:1 on white, under the 3:1 WCAG 1.4.11 floor) — use ring-ink:\n${fmt(hits)}`
     ).toEqual([]);
   });
 
