@@ -493,6 +493,19 @@ closes" — is met: D152 is closed):**
 - **Ladder: 1 → 5 → 10 genuine verified redemptions.** Around 10 the KES 300
   opening credit is spent and the merchant cannot post a new deal — expected,
   and what they say about it is the measurement.
+- **Two counters, never one** (founder ruling 2026-08-24). Production holds
+  redemptions that MAANTA created testing itself, and they must never be read as
+  market evidence:
+  - **Technical / internal evidence: 1 non-demo `success`** — redemption
+    `72f95ac8` against "E2E Full Sweep Shop", 2026-08-23 21:25 UTC, a survivor
+    of the full-role E2E sweep. It proves the money path works. It is kept, not
+    deleted.
+  - **External field validation: 0 genuine merchant successes.** This is the
+    counter the 1 → 5 → 10 ladder measures, and it starts at zero until a real
+    merchant serves a real shopper.
+  A query counting `redemptions.status = 'success'` answers the first question,
+  never the second. **Do not let an internal row increment the ladder** — see
+  **D174**.
 - **Do not begin the four-agent acquisition phase.** **D159** must be resolved
   before agent-assisted acquisition begins.
 - **Field evidence now outranks further engineering.**
