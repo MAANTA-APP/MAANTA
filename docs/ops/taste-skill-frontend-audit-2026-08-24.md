@@ -208,6 +208,11 @@ restored. A ratchet that cannot fail is the defect this pass was fixing.
 
 ---
 
-**Verified:** `lint` clean · `typecheck` clean · `1063/1063` vitest across 126
+**Re-verified after rebasing onto canonical `main` `5ee90ba` (2026-08-24):**
+`lint`, `typecheck`, `build` and the three post-build gates all exit 0, and
+vitest is **1121/1121 across 129 files** on the new base. The figures below are
+what was measured before the rebase and are kept as the record of that run.
+
+**Verified (pre-rebase):** `lint` clean · `typecheck` clean · `1063/1063` vitest across 126
 files · `build` green including `check:tokens`, `check:canonicals`,
 `check:forms`. No migration touched, so no `db-verify` run was required.

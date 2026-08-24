@@ -170,7 +170,13 @@ data-backed surfaces need a real Supabase.
 
 ---
 
-**Verified:** `lint` clean · `typecheck` clean · `1066/1066` vitest across 127
+**Re-verified after rebasing onto canonical `main` `5ee90ba` (2026-08-24):**
+`lint`, `typecheck`, `build` and the three post-build gates all exit 0, and
+vitest is **1121/1121 across 129 files** on the new base. The figures below are
+what was measured before the rebase, on the older base, and are kept as the
+record of that run rather than silently overwritten.
+
+**Verified (pre-rebase):** `lint` clean · `typecheck` clean · `1066/1066` vitest across 127
 files · `build` green including `check:tokens`, `check:canonicals`,
 `check:forms` · compiled CSS inspected · before/after renders compared at 390px
 and 1440px. No migration touched.
