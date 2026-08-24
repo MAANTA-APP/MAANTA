@@ -8,6 +8,7 @@ import { IconArrowLeft, IconCheck, IconChevronRight, IconImage } from "@/compone
 import { ButtonLink } from "@/components/ui/button";
 import { CoverImage } from "@/components/ui/cards";
 import { FavouriteButton } from "@/components/favourite-button";
+import { shopNavigationTarget } from "@/lib/shop-location";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function ShopProfilePage({
     service
       .from("merchants")
       .select(
-        "id, merchant_name, floor, unit_number, what3words_address, mall_name, node"
+        "id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node"
       )
       .eq("id", params.id),
     { includeDemo }
@@ -64,7 +65,9 @@ export default async function ShopProfilePage({
     getVerifiedCounts([shop.id]),
   ]);
 
-  const w3wHref = `https://what3words.com/${shop.what3words_address.replace(/^\/+/, "")}`;
+  // D162 — a shop may be coordinate-only, so "Navigate" resolves per shop and
+  // can be absent entirely rather than crashing on a null address.
+  const navigate = shopNavigationTarget(shop);
 
   return (
     <main className="pb-10">
@@ -88,8 +91,13 @@ export default async function ShopProfilePage({
         </div>
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
           {shop.mall_name ?? shop.node}
-          {shop.floor ? ` · ${shop.floor}` : ""} ·{" "}
-          <W3wChip address={shop.what3words_address} />
+          {shop.floor ? ` · ${shop.floor}` : ""}
+          {shop.what3words_address ? (
+            <>
+              {" · "}
+              <W3wChip address={shop.what3words_address} />
+            </>
+          ) : null}
         </p>
         <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
           <IconCheck className="h-4 w-4 text-verified" />
@@ -120,16 +128,19 @@ export default async function ShopProfilePage({
           )}
         </div>
 
-        <ButtonLink
-          href={w3wHref}
-          variant="ghost"
-          full
-          className="mt-8"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Navigate to shop
-        </ButtonLink>
+        {navigate ? (
+          <ButtonLink
+            href={navigate.href}
+            variant="ghost"
+            full
+            className="mt-8"
+            {...(navigate.external
+              ? { target: "_blank", rel: "noopener noreferrer" }
+              : {})}
+          >
+            Navigate to shop
+          </ButtonLink>
+        ) : null}
       </div>
     </main>
   );

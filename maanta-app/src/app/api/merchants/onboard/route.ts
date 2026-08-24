@@ -4,6 +4,8 @@ import { ensureAppUser, currentClerkUserId } from "@/lib/auth";
 import { captureMerchantOnboarded } from "@/lib/analytics";
 import { isValidKenyanPhone } from "@/lib/phone";
 import { isOwnerPhoneRequired } from "@/lib/merchant-onboarding";
+import { isValidCoordinatePair } from "@/lib/shop-location";
+import { convertTo3Words, normalizeWhat3Words } from "@/lib/what3words";
 import {
   checkRateLimit,
   ONBOARD_RATE_LIMIT,
@@ -46,11 +48,8 @@ export async function POST(request: Request) {
     lng: rawLng,
   } = await request.json();
 
-  if (!merchantName || !what3wordsAddress) {
-    return NextResponse.json(
-      { error: "Shop name and what3words address are required." },
-      { status: 400 }
-    );
+  if (!merchantName) {
+    return NextResponse.json({ error: "Shop name is required." }, { status: 400 });
   }
 
   // D158 (founder ruling 2026-08-23, option B) — owner phone is OPTIONAL when
@@ -108,16 +107,31 @@ export async function POST(request: Request) {
   const typedEmail = typeof email === "string" ? email.trim() : "";
   const contactEmail = typedEmail || (suppliedPhone ? null : appUser.email);
 
-  const lat =
-    typeof rawLat === "number" && Number.isFinite(rawLat) ? rawLat : null;
-  const lng =
-    typeof rawLng === "number" && Number.isFinite(rawLng) ? rawLng : null;
-  if ((lat == null) !== (lng == null)) {
+  // D162 (founder ruling 2026-08-24) — the shop's coordinates ARE its location.
+  //
+  // Until this ruling the wizard blocked on a what3words lookup, so when the
+  // what3words account went over quota (HTTP 402) self-serve onboarding could
+  // not be completed at all. Coordinates come from the merchant's own device
+  // while they stand at their entrance, cost nothing per lookup, and depend on
+  // no third party's billing state. They are required here, and what3words is
+  // no longer required anywhere on this path.
+  //
+  // What the wizard sends is the pin the merchant CONFIRMED, which may be one
+  // they dragged after a poor reading — not the device's first fix. The server
+  // cannot tell those apart and does not try: it validates the numbers it is
+  // given and stores exactly those.
+  if (!isValidCoordinatePair(rawLat, rawLng)) {
     return NextResponse.json(
-      { error: "Latitude and longitude must both be set or both omitted." },
+      {
+        error:
+          "Your shop's location is required — use “Locate my shop”, or place the pin on the map.",
+        code: "location_required",
+      },
       { status: 400 }
     );
   }
+  const lat = rawLat as number;
+  const lng = rawLng as number;
 
   // Agent-assisted onboarding attribution (walkthrough G1; frozen 2026-07-02).
   // The merchant is always the authenticated submitter — the agent id captured
@@ -146,6 +160,27 @@ export async function POST(request: Request) {
     );
   }
 
+  // what3words is enrichment now, and enrichment only (D162). The wizard no
+  // longer asks for it; we derive it from the confirmed pin so the admin
+  // console, the ticket screen and the shop page keep the human-readable
+  // address where the provider is willing to give one. EVERY failure — no key,
+  // over quota, provider down, slow — collapses to null and onboarding
+  // continues, which is the entire point of the ruling: the shop is already
+  // findable from its coordinates. Bounded tightly because nobody is waiting on
+  // the words: a merchant is waiting on their shop.
+  const W3W_ENRICHMENT_TIMEOUT_MS = 1500;
+  const suppliedW3w =
+    typeof what3wordsAddress === "string" ? normalizeWhat3Words(what3wordsAddress) : null;
+  let w3wAddress: string | null = suppliedW3w;
+  if (!w3wAddress) {
+    try {
+      const derived = await convertTo3Words(lat, lng, W3W_ENRICHMENT_TIMEOUT_MS);
+      w3wAddress = derived.ok ? derived.words : null;
+    } catch {
+      w3wAddress = null;
+    }
+  }
+
   // Run onboard_merchant as the trusted server (service client). This route is
   // the trust boundary: ensureAppUser has already authenticated the caller, and
   // we pass p_user_id = appUser.id, so the merchant can only ever onboard
@@ -167,7 +202,13 @@ export async function POST(request: Request) {
     p_email: contactEmail || null,
     p_whatsapp: whatsapp || null,
     p_node: "BBS Mall",
-    p_w3w_address: what3wordsAddress,
+    p_w3w_address: w3wAddress,
+    // D162 — written in the same statement as the shop row. It used to be an
+    // UPDATE after the insert whose failure was logged and swallowed, so a shop
+    // with no location at all was one swallowed error away; the DB now refuses
+    // that row outright (merchants_location_present).
+    p_lat: lat,
+    p_lng: lng,
     p_floor: floor || null,
     p_unit_number: unitNumber || null,
     // G3 — the wizard's floor step collects entrance notes; persist them
@@ -197,6 +238,15 @@ export async function POST(request: Request) {
     } else if (message.includes("contact_required")) {
       status = 400;
       userMessage = "Add a phone number or an email so shoppers can reach you.";
+    } else if (
+      message.includes("location_required") ||
+      message.includes("invalid_coordinates")
+    ) {
+      // The route validated the pair before calling, so reaching this means a
+      // caller that is not the wizard. Answer it honestly rather than as a 500.
+      status = 400;
+      userMessage =
+        "Your shop's location is required — use “Locate my shop”, or place the pin on the map.";
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";
@@ -208,18 +258,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: userMessage }, { status });
-  }
-
-  // Persist GPS derived from the wizard's w3w validate step (coords are not
-  // part of onboard_merchant's RPC signature — update after insert).
-  if (typeof merchantId === "string" && lat != null && lng != null) {
-    const { error: locError } = await supabase
-      .from("merchants")
-      .update({ lat, lng, updated_at: new Date().toISOString() })
-      .eq("id", merchantId);
-    if (locError) {
-      console.error("onboard lat/lng update failed:", locError);
-    }
   }
 
   const clerkUserId = await currentClerkUserId();

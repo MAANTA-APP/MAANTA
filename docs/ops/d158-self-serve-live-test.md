@@ -45,7 +45,10 @@ SELECT count(*) AS merchants, count(*) FILTER (WHERE phone IS NULL) AS null_phon
 | 1 | Sign in at `/login` with the verified-email account (email code) | The email-primary path works for a would-be merchant | Signed in, no phone required |
 | 2 | Go to `/merchant/onboard`, step 1 | **D158 itself** — the field is labelled optional | "Owner phone (optional)" and the helper line about email |
 | 3 | Fill only the shop name. Leave phone **blank** | The Continue gate reads the verified-email predicate | Continue is **enabled** |
-| 4 | Complete steps 2–4 (what3words, floor, wallet), answer the agent question **"No"** | Self-serve attribution, no admin/agent fallback | Submits without error |
+| 4 | Step 2 — stand **at the shop entrance** and tap **Locate my shop** | **D162** — the location comes from the device, not what3words | Permission prompt appears only on the tap; coordinates and a map pin follow |
+| 4a | Check the pin, drag it onto the door if it is off, then tick "The pin is on my shop entrance" | The confirmed pin is what gets stored, not the first reading | Continue stays disabled until the tick |
+| 4b | If permission is declined or no fix arrives, place the pin by hand instead | No failure path dead-ends | An honest message, the map open, onboarding still completable |
+| 4c | Complete the rest of steps 2–4 (floor, wallet), answer the agent question **"No"** | Self-serve attribution, no admin/agent fallback | Submits without error |
 | 5 | Read back the row | The RPC stored what it should | `phone` NULL, `email` set, `status='pending'`, `onboarding_mode='self_serve'` |
 | 6 | Stay signed in as the merchant; open the merchant app | A pending merchant can reach the app | Wallet/redeem reachable; "Waitlist — pending approval" banner |
 | 7 | **Try to publish a deal** | The approval gate is real | Refused — HTTP 403, "Your shop is pending approval — you can publish once it's live." |

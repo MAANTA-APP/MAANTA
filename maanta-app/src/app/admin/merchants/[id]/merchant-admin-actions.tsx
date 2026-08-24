@@ -31,7 +31,8 @@ export function MerchantAdminActions({
   merchantName: string;
   status: string;
   node: string;
-  w3w: string;
+  /** Nullable since D162 — a coordinate-only shop has no three words. */
+  w3w: string | null;
   floorUnit: string;
   isFeatured: boolean;
   isShadowBanned: boolean;
@@ -168,7 +169,7 @@ export function MerchantAdminActions({
         </p>
         <p className="mt-4 flex flex-wrap items-center gap-2 rounded-card bg-cream px-3 py-2.5 text-sm text-ink">
           <IconCheck className="h-4 w-4 text-verified" />
-          <W3wChip address={w3w} />
+          {w3w ? <W3wChip address={w3w} /> : <span className="text-muted">No what3words address</span>}
           {floorUnit ? <span className="text-muted">· {floorUnit}</span> : null}
         </p>
         {capLine ? (

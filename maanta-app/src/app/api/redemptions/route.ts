@@ -15,6 +15,32 @@ import {
   CLAIM_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
 import { VERIFIED_CONTACT_REQUIRED_AT_CLAIM } from "@/lib/launch-auth";
+import { isValidCoordinatePair } from "@/lib/shop-location";
+
+/**
+ * The shop's own stored coordinates, or null.
+ *
+ * Canonical since D162 and preferred over a what3words lookup on the claim
+ * path: one indexed read beats a call to a provider that has already been over
+ * quota once (D162), and a shop onboarded since the ruling may have no words at
+ * all. Enrichment either way — every failure returns null and the claim stands.
+ */
+async function merchantCoordinates(
+  service: ReturnType<typeof createServiceClient>,
+  merchantId: string
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const { data } = await service
+      .from("merchants")
+      .select("lat, lng")
+      .eq("id", merchantId)
+      .maybeSingle();
+    if (!data || !isValidCoordinatePair(data.lat, data.lng)) return null;
+    return { lat: data.lat as number, lng: data.lng as number };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Ceiling on post-claim enrichment, in milliseconds.
@@ -151,7 +177,8 @@ export async function POST(request: Request) {
       otp_code: string;
       redemption_expires_at: string;
       merchant_id: string;
-      what3words_address: string;
+      /** Nullable since D162 — a coordinate-only shop is a normal shop. */
+      what3words_address: string | null;
     }>();
 
   if (error || !data) {
@@ -233,11 +260,21 @@ export async function POST(request: Request) {
 
     if (gps) {
       try {
-        // Bounded by W3W_CLAIM_TIMEOUT_MS inside the helper — an unreachable
-        // provider costs a null distance, not the response.
-        const shopCoords = await convertWhat3WordsToCoordinates(
-          data.what3words_address
-        );
+        // The shop's own stored coordinates come first (D162): they are the
+        // canonical location, they cost one indexed read instead of a call to a
+        // third party, and they are the only thing a coordinate-only shop has
+        // — `claim_deal` returns the address, which is now nullable, so the
+        // what3words lookup alone would silently stop producing a geofence
+        // distance for exactly the shops onboarded since the ruling.
+        //
+        // what3words remains the fallback for older rows that carry words but
+        // no GPS. Both paths are enrichment: a failure costs a null distance,
+        // never the shopper's ticket.
+        const shopCoords =
+          (await merchantCoordinates(service, data.merchant_id)) ??
+          (data.what3words_address
+            ? await convertWhat3WordsToCoordinates(data.what3words_address)
+            : null);
         const distance = shopCoords
           ? Math.round(distanceMeters(gps, shopCoords))
           : null;

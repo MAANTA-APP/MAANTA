@@ -45,8 +45,11 @@ respect other agents' locks, and do not let your own lapse silently.
 Onboarding happens **at the shop**, not over the phone:
 
 1. The owner signs up at `/merchant/onboard` on **their** phone.
-2. Capture the precise location (what3words) while you are physically there.
-   This is what a shopper follows to find them.
+2. The owner taps **Locate my shop** while standing **at the shop entrance** —
+   not inside at the till, not in the corridor. That confirmed pin is what a
+   shopper follows to find them, so check it on the map before they submit and
+   drag it onto the door if it is off. If the phone refuses or the reading is
+   vague, place the pin by hand; it is never a reason to stop onboarding.
 3. An admin approves the shop — you cannot approve it yourself.
 4. Run the **first merchant loop test** before telling them they are live.
 5. Leave the welcome pack, with your contact written on it.
@@ -76,7 +79,7 @@ relationship goes to the **founder, same day**.
 
 ## Close the day (10 minutes)
 
-- [ ] Every visit written up **today** — shop, floor/unit, what3words, outcome.
+- [ ] Every visit written up **today** — shop, floor/unit, shop location pin, outcome.
 - [ ] Every test deal ended or expiring — no test deal left live overnight.
 - [ ] Every promise you made recorded, with the date you promised it by.
 - [ ] Failures and surprises sent up, even small ones. A pilot is worth only

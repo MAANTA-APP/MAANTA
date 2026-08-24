@@ -128,6 +128,7 @@ wording and the code disagree — drift **D59**, founder to rule.
 | Is this a marketing-site surface? | The Marketing site section below, then `docs/ops/IMPLEMENTATION-REPORT.md` and `docs/ops/marketing-site-repo-map.md` |
 | Does pausing a deal affect this? | The Paused deals section below, then `docs/skills/paused-deal-semantics.md` |
 | Can a merchant sign themselves up? | `docs/skills/merchant-self-onboarding.md` — the self-serve path, the approval gate, and the `onboard_merchant` overload trap |
+| How does a shop get its location? | `docs/skills/shop-location-capture.md` — "Locate my shop", the six states it must handle, and why what3words is optional enrichment (**D162**) |
 | Am I touching deal categories? | `docs/skills/deal-categories.md` — the ten-bucket taxonomy is founder-locked and uncategorised is a real state. Live on production since 2026-08-18, but no live deal carries a category yet, so no chip row renders (**D122**) |
 
 ## Working style
@@ -521,6 +522,23 @@ closes" — is met: D152 is closed):**
   11-arg overload, which would have made every onboarding call ambiguous.
   **Still owed: one real self-serve onboarding** at Node 0 with a
   verified-email account and no phone.
+- **Self-serve onboarding locates the shop by browser geolocation, not
+  what3words** (**D162**, ruled 2026-08-24). The merchant taps "Locate my shop"
+  at their own entrance, confirms the pin on a map, and those coordinates are
+  MAANTA's canonical store location; a denied permission, a failed or coarse
+  reading all fall back to placing the pin by hand rather than dead-ending.
+  what3words is derived server-side afterwards, best-effort — quota exhaustion
+  leaves the address NULL and onboarding completes. **Merged, NOT yet applied:**
+  migration `20260824120000_merchant_location_coordinates.sql` is the 101st file
+  in `supabase/migrations/` while production's ledger still holds 100, so the
+  repo directory currently over-reports by one — the mirror image of D121, and
+  the same reason to read the ledger rather than `ls`. **Until a human applies
+  it, D162 remains a Merchant 01 blocker**: production still enforces
+  `what3words_address NOT NULL` and a self-serve merchant still cannot finish.
+  It stops being one when the migration is applied AND one real self-serve
+  onboarding completes at Node 0. Read `docs/skills/shop-location-capture.md`
+  before touching the location step, the RPC signature, or any read of
+  `merchants.what3words_address` — that column becomes nullable.
 - Standing constraints: no paid Clerk feature, no new identities (attach
   emails to the existing Clerk users instead), no unrelated auth changes
   without founder approval.

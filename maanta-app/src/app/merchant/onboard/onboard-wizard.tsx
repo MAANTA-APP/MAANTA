@@ -11,11 +11,25 @@ import {
   isBusinessStepComplete,
   isOwnerPhoneRequired,
 } from "@/lib/merchant-onboarding";
+import {
+  formatCoordinate,
+  isLocationStepComplete,
+} from "@/lib/shop-location";
+import {
+  EMPTY_SHOP_LOCATION,
+  LocateShopStep,
+  type ShopLocationValue,
+} from "./locate-shop-step";
+import { NODES } from "@/lib/nodes";
 
 type Step = "intro" | "business" | "location" | "floor" | "wallet" | "review" | "done";
 
 /** A field agent the merchant can credit for assisting their onboarding (G1). */
 export type OnboardAgent = { id: string; name: string };
+
+/** Node 0. `/api/merchants/onboard` hardcodes the same node; the centroid here
+ *  only decides where the map opens before a pin exists. */
+const NODE_0 = NODES[0];
 
 const STEPS: { n: number; label: string }[] = [
   { n: 1, label: "Business details" },
@@ -87,15 +101,11 @@ export function OnboardWizard({
     setOwnerCc((cur) => (cur === "+254" ? stashed.cc : cur));
   }, []);
 
-  // location (9f/9u)
-  const [w3w, setW3w] = useState("");
-  const [validating, setValidating] = useState(false);
-  const [resolved, setResolved] = useState<{
-    words: string;
-    place: string | null;
-    lat: number | null;
-    lng: number | null;
-  } | null>(null);
+  // location (9f/9u, reworked for D162) — browser geolocation is the primary
+  // method and its coordinates are the canonical store location. Held here
+  // rather than inside the step so stepping back and forward keeps a confirmed
+  // pin instead of silently dropping it.
+  const [location, setLocation] = useState<ShopLocationValue>(EMPTY_SHOP_LOCATION);
 
   // floor (9g)
   const [floor, setFloor] = useState("");
@@ -108,30 +118,6 @@ export function OnboardWizard({
   const fullPhone = digits ? `${ownerCc}${digits}` : "";
   const phoneRequired = isOwnerPhoneRequired(hasVerifiedEmail);
 
-  async function validateAddress() {
-    setValidating(true);
-    setError(null);
-    setResolved(null);
-    try {
-      const res = await fetch(`/api/w3w/validate?words=${encodeURIComponent(w3w)}`);
-      const body = await res.json();
-      if (!res.ok || !body.valid) {
-        setError(body.error ?? "That address didn't resolve.");
-      } else {
-        setResolved({
-          words: body.words,
-          place: body.nearestPlace ?? null,
-          lat: typeof body.lat === "number" ? body.lat : null,
-          lng: typeof body.lng === "number" ? body.lng : null,
-        });
-      }
-    } catch {
-      setError("Could not validate the address — try again.");
-    } finally {
-      setValidating(false);
-    }
-  }
-
   async function submit() {
     setBusy(true);
     setError(null);
@@ -143,9 +129,11 @@ export function OnboardWizard({
           merchantName: shopName.trim(),
           floor: floor.trim() || null,
           unitNumber: unit.trim() || null,
-          what3wordsAddress: resolved?.words ?? w3w.replace(/^\/+/, ""),
-          lat: resolved?.lat ?? null,
-          lng: resolved?.lng ?? null,
+          // D162 — the confirmed pin, which may be one the merchant dragged,
+          // not the phone's first reading. what3words is not collected here at
+          // all; the server derives it afterwards, best-effort.
+          lat: location.lat,
+          lng: location.lng,
           phone: fullPhone || null,
           email: ownerEmail.trim() || null,
           whatsapp: shopWhatsapp.trim() || null,
@@ -296,67 +284,37 @@ export function OnboardWizard({
       {step === "location" ? (
         <>
           <Header title="Location" back="business" />
-          {/* The label wraps the input — as siblings it never reached the
-              field, leaving the wizard's one required free-text input unnamed
-              to assistive tech. */}
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-muted">
-              what3words address <span className="font-semibold text-ink">*required</span>
-            </span>
-            <input
-              value={w3w}
-              onChange={(e) => {
-                setW3w(e.target.value);
-                setResolved(null);
-              }}
-              placeholder="///stove.cactus.rally"
-              className={cn(inputClass, "font-mono")}
-              autoFocus
-            />
-          </label>
-          {!resolved ? (
-            <>
-              <Button
-                full
-                className="mt-4"
-                onClick={validateAddress}
-                loading={validating}
-                disabled={!w3w.trim()}
-              >
-                Validate address
-              </Button>
-              <p className="mt-3 rounded-card bg-cream px-4 py-3 text-xs text-muted">
-                We&apos;ll confirm this 3-word address points to a unit inside BBS Mall.
-              </p>
-            </>
-          ) : (
-            <div className="mt-4 flex items-start gap-2 rounded-card bg-cream px-4 py-3 text-sm text-ink">
-              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-verified" />
-              <span>
-                Resolved{resolved.place ? `: ${resolved.place}` : ""} ·{" "}
-                <a
-                  href={`https://what3words.com/${resolved.words}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  view map
-                </a>
-              </span>
-            </div>
-          )}
-          {error ? (
-            <p className="mt-3 text-sm font-medium text-ink" role="alert">
-              {error}
-            </p>
-          ) : null}
+          <LocateShopStep
+            value={location}
+            onChange={setLocation}
+            nodeCentre={[NODE_0.lat, NODE_0.lng]}
+            nodeLabel={NODE_0.short}
+          />
           <div className="mt-auto pt-8">
-            <Button full disabled={!resolved} onClick={() => setStep("floor")}>
+            <Button
+              full
+              disabled={
+                !isLocationStepComplete({
+                  lat: location.lat,
+                  lng: location.lng,
+                  confirmed: location.confirmed,
+                })
+              }
+              onClick={() => setStep("floor")}
+            >
               Continue
             </Button>
-            <p className="mt-2 text-center text-xs text-faint">
-              Continue stays disabled until the address validates
-            </p>
+            {!isLocationStepComplete({
+              lat: location.lat,
+              lng: location.lng,
+              confirmed: location.confirmed,
+            }) ? (
+              <p className="mt-2 text-center text-xs text-faint">
+                {location.lat == null
+                  ? "Continue stays disabled until your shop is located"
+                  : "Confirm the pin is on your shop entrance to continue"}
+              </p>
+            ) : null}
           </div>
         </>
       ) : null}
@@ -425,7 +383,12 @@ export function OnboardWizard({
             {[
               ["Shop", shopName],
               ["Owner", `${ownerName || "—"} · ${fullPhone || "No phone"}`],
-              ["Location", `///${(resolved?.words ?? w3w).replace(/^\/+/, "")}`],
+              [
+                "Location",
+                location.lat != null && location.lng != null
+                  ? `${formatCoordinate(location.lat)}, ${formatCoordinate(location.lng)}`
+                  : "Not set",
+              ],
               ["Floor & unit", [floor, unit].filter(Boolean).join(", ") || "—"],
               ["Wallet", "Top up after submission (suggested KES 3,000)"],
             ].map(([k, v]) => (
