@@ -16,12 +16,12 @@ Node 0 protocol.
 | | |
 |---|---|
 | Marketplace cleared | **done and verified** — demo mode OFF on production, 0 synthetic rows reachable |
-| PR #264 landed | **superseded by #272**, corrections applied, CI running |
+| PR #264 landed | **superseded by #272 — merged as `061c92c`**; #264 closed |
 | Migration renumbered | `20260823140000` → **`20260824130000`** |
 | `/admin` guard corrected | done, ratcheted, proven to fail on the old source |
 | D184 classification | done — both non-demo merchant records classified as internal |
-| Migration applied to production | **NO** — ledger stands at **101/101** |
-| Production mutated | **YES, once** — one `app_config` row (demo mode). Nothing else |
+| Migration applied to production | **YES** — ledger reconciles **102/102** |
+| Production mutated | **YES, twice** — one `app_config` row (demo mode), then the D164 migration. Both founder-authorized |
 
 ---
 
@@ -75,19 +75,33 @@ broken money-path suites.
 
 ### Deployed
 
+- **Migration `20260824130000` is applied.** Ledger **102/102** by version and
+  name, verified by a full diff against `supabase/migrations/`. The apply minted
+  `20260825083646` — **ten for ten** — repaired to the repo filename before any
+  other check. **401 redemptions, 0 non-NULL `claimed_at`**: no history was
+  fabricated.
+- **PR #272 is merged** as `061c92c`, on a board that was green including
+  `db-tests` on real Supabase and the Cursor Security Agent with no findings.
+  Both dashboards' KPI query now succeeds, returning an honest 0 that
+  `claimsWindow()` labels as a partial window.
 - **Demo mode OFF is live on production.** One `UPDATE` of one `app_config`
   row, under explicit founder authorization given in session. Before: 233 live
   deals / 212 live merchants. After: **0 live deals / 2 live merchants, 0
   synthetic deals visible, 0 synthetic merchants visible.** Census unchanged, so
   `make demo-on` restores the rehearsal set intact.
-- **Nothing else is deployed.** The D164 migration is **not applied** — the
-  ledger is still 101/101 — and #272 is not merged.
+- Nothing else was deployed. Three production changes in total, each
+  founder-authorized: the demo-mode flag, the migration, the merge.
 
 ### Proven in the field
 
 **Nothing.** Zero genuine merchants, zero genuine shoppers, zero genuine
 redemptions. The external field counter is **0** and this session did not and
 could not move it. Every number produced here is a code or database fact.
+
+This is the state the whole session was in service of, and it is worth saying
+plainly at the end: the marketplace is now empty, the consoles now read real
+data, and **none of that is evidence of demand**. The next real number has to
+come from a merchant nobody at MAANTA recruited.
 
 ---
 
@@ -97,7 +111,8 @@ could not move it. Every number produced here is a code or database fact.
 |---|---|---|
 | Any browser check of `www.maanta.app` | Sandbox proxy denies `maanta.app`, `clerk.maanta.app` and the Vercel host — `CONNECT tunnel failed, response 403`. Chromium uses the same proxy | founder |
 | Signed-out confirmation that the cleared marketplace *renders* empty | same | founder |
-| `make db-verify` / the real `db-tests` locally | Docker daemon cannot start here; Supabase CLI absent. Replaced by the stand-in above | CI (running on #272) |
+| Any rendered check of `/admin` or `/founder` post-deploy | same — confirmed at the query level only | founder |
+| `make db-verify` / the real `db-tests` locally | Docker daemon cannot start here; Supabase CLI absent. Replaced by the stand-in above | **DONE — CI green on #272**, 33/33 suites, scenarios A-J |
 | `npm run test:e2e` | Needs `E2E_BASE_URL` + storage state. This is **D172, deferred**, explicitly non-blocking for Merchant 01. Deliberately not cited as a gate anywhere | — |
 | Unsetting `MAANTA_DEMO_MODE` in Vercel | Environment change + redeploy, outside this session | founder |
 
@@ -199,20 +214,18 @@ updated: 2026-08-24` header above a 2026-08-25 row — and was fixed before comm
 
 ## Founder actions required
 
-1. **Close #264** as superseded (comment posted). Merge **#272** instead.
-2. **Confirm CI green on #272**, including `db-tests` on real Supabase.
-3. **Authorize the migration apply** — `20260824130000` — *before* merging #272.
-   Additive, and no deployed code reads `claimed_at`, so applying first is a
-   behavioural no-op that removes the window in which both consoles are down.
-   **Every MCP apply mints its own version — nine for nine. Read back and repair
-   the ledger to the repo filename before anything else.** Verify **102/102** by
-   version *and* name, column nullable with `DEFAULT now()`, index present,
-   tracking-start config row present, and **every historical row still
-   `claimed_at IS NULL`**.
-4. **Then authorize the merge.** Merging deploys.
-5. **Run the signed-out browser check** of the cleared marketplace
-   (`docs/ops/demo-mode-clearing-2026-08-25.md` § Step 3).
-6. **Unset `MAANTA_DEMO_MODE`** in Vercel and redeploy, so analytics tagging
+Items 1-4 of the original list are **done**: #264 closed, CI confirmed green,
+migration applied (ledger 102/102, tenth minted version repaired), #272 merged.
+Two remain, both requiring a browser this session cannot open:
+
+1. **Run the signed-out browser check** of the cleared marketplace
+   (`docs/ops/demo-mode-clearing-2026-08-25.md` § Step 3) — the feed, browse,
+   map and search show no deals and no demo banner.
+2. **Look at `/admin` and `/founder` once the deploy lands.** `/founder` should
+   render metrics instead of its read-failure state, and `/admin`'s Claims (7d)
+   should read 0 **labelled as a partial window**, not a bare zero. Both were
+   verified at the query level only.
+3. **Unset `MAANTA_DEMO_MODE`** in Vercel and redeploy, so analytics tagging
    follows the flag.
 
 ## Unresolved risks
@@ -224,8 +237,8 @@ updated: 2026-08-24` header above a 2026-08-25 row — and was fixed before comm
   exists to collect.
 - **`MAANTA_DEMO_MODE` can drift from the flag** until step 6. Visibility is
   correct; analytics tagging may not be.
-- **The stand-in DB rig is not CI.** If `db-tests` disagrees with the 33/33
-  reported here, CI wins.
+- ~~The stand-in DB rig is not CI.~~ **Resolved:** CI's real Supabase agreed
+  with it exactly — 33/33, scenarios A-J.
 - **D162 stays open** until one real self-serve onboarding completes at Node 0.
 - **D172 stays deferred.** It becomes a hard gate before routine or scaled
   releases, which this is not.
@@ -237,3 +250,78 @@ Merchant 01's real onboarding, observed against
 `docs/ops/d158-self-serve-live-test.md` — recording what actually happens rather
 than coaching the merchant into matching the documentation. Wake Claude Code
 only for a demonstrated field blocker.
+
+
+---
+
+# Freeze state — carried into Merchant 01
+
+Founder ruling 2026-08-25, at the close of this session. **Engineering is
+frozen.** The three remaining items are operational verification, not reasons
+to restart engineering, and none of them is a code change.
+
+Every DB line below was **measured against production at 2026-08-25 09:06 UTC**,
+not asserted. The two lines that need a browser are marked as founder-verified,
+because this session could not open one.
+
+| | State | How it is known |
+|---|---|---|
+| Production | live | founder-verified — no browser in this session |
+| DB ledger | **102/102**, tail `20260824130000` | measured; full version+name diff vs `supabase/migrations/` |
+| Demo marketplace | **OFF** | measured — `is_demo_mode()` false |
+| Public genuine deals | **0** | measured — `deals_public_browse` |
+| Internal merchant records | **2**, excluded from field evidence | measured — `bf66a041`, `67fe233d` (**D184**) |
+| External merchant validations | **0** | by construction — no genuine merchant exists yet |
+| Internal `success` redemptions | 1 | measured — technical evidence only (**D174**) |
+| Coordinate onboarding | live | measured — `merchants.lat` / `lng` present |
+| what3words | non-blocking | measured — `what3words_address` nullable |
+| D164 | **closed** | applied + merged this session |
+| D162 | **open** until a real merchant completes coordinate onboarding | closure event is field proof, not deployment |
+| Next evidence | **Merchant 01** | — |
+
+## The three operational checks that precede the freeze
+
+Each needs a browser or the Vercel dashboard. None is a code change; none
+reopens engineering.
+
+1. **Signed out**, confirm the shopper marketplace shows **0 deals and no demo
+   banner**.
+2. **Signed in as admin/founder**, confirm `/admin` and `/founder` render
+   normally after D164, with the claims KPI showing the **partial-window zero**
+   rather than failing. Verified at the query level only in this session — the
+   KPI query succeeds and returns 0; nobody has watched it render.
+3. **Remove `MAANTA_DEMO_MODE` from Vercel and redeploy.** This one is not
+   cosmetic: until it is gone, production analytics will keep tagging **real
+   Merchant 01 activity as demo traffic** even though the database flag is off.
+   The two switches are independent by design and the env one only changes on
+   redeploy.
+
+## Two things that must not be "fixed"
+
+Both look like unfinished work and are not. They are recorded here because the
+next session — or the next person — will be tempted by each.
+
+**The 401 historical rows with `claimed_at IS NULL` stay NULL.** This is not
+leftover cleanup. Those claim times are genuinely unknown, and NULL is the
+honest representation of that. Manufacturing timestamps — from `expires_at`,
+`redeemed_at`, or the migration time — would put fabricated data on an audit
+record and corrupt the KPI it feeds. The migration's two-statement
+`ADD COLUMN` / `SET DEFAULT` split exists precisely to prevent this, and
+`claims-metric.test.ts` fails if a backfill is ever added.
+
+**Nobody creates a deal so the marketplace does not look empty.** The empty
+marketplace is now a **true statement** about Node 0: there is no genuine
+supply yet. Merchant 01 creating Deal 01 is the event that starts field
+validation, and it only means something if it is the first real deal. Seeding
+one — even "just for the screenshot" — destroys the measurement, and turning
+demo mode back on does the same thing at larger scale.
+
+## After the three checks pass
+
+The next meaningful action is **not Claude Code**. It is getting Merchant 01
+through the door at BBS Mall and watching what actually happens **without
+coaching around failures** — `docs/ops/d158-self-serve-live-test.md` is an
+observation checklist, not a script. A discrepancy between the browser and the
+documentation *is* the finding.
+
+Claude Code wakes only for a demonstrated field blocker.

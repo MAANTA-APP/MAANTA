@@ -44,6 +44,18 @@ const shopperDeal = readFileSync(
   "utf8"
 );
 
+/**
+ * The third KPI surface, found by the 2026-08-25 all-screens audit.
+ *
+ * `/admin/reports` had the identical defect and had simply never been covered:
+ * five reads destructured straight off `Promise.all` with every `error`
+ * discarded, so one failed query rendered "Verified redemptions 0" and
+ * "Success-fee revenue **KES 0**" as confident statements about the business.
+ * D149 fixed this shape on /founder and D164 on /admin; this is the surface
+ * that puts the zero next to money.
+ */
+const adminReports = readFileSync(join(root, "app/admin/reports/page.tsx"), "utf8");
+
 /** The columns `public.redemptions` actually has, per the migration chain. */
 const REDEMPTION_COLUMNS = [
   "id", "deal_id", "merchant_id", "user_id", "otp_code", "success_fee_charged",
@@ -384,4 +396,49 @@ describe("D164 — the claims-tracking read is excluded from the guard, on BOTH 
       );
     });
   }
+});
+
+describe("D164 (audit 2026-08-25) — every KPI surface guards its reads", () => {
+  /**
+   * Deliberately enumerated rather than globbed. A glob would silently pass on
+   * the day someone adds a fourth dashboard, which is precisely how
+   * /admin/reports went two rulings without the guard: nothing was watching the
+   * set, only its known members.
+   */
+  const KPI_SURFACES: ReadonlyArray<readonly [string, string]> = [
+    ["/admin", admin],
+    ["/founder", founder],
+    ["/admin/reports", adminReports],
+  ];
+
+  for (const [name, source] of KPI_SURFACES) {
+    it(`${name} inspects read errors rather than discarding them`, () => {
+      const src = stripComments(source);
+      expect(src, `${name}: no read-failure check at all`).toMatch(
+        /readFailed|\.find\(\(r\) =>[\s\S]{0,40}error/
+      );
+    });
+
+    it(`${name} renders the shared honest-error component`, () => {
+      // The same component everywhere, so an operator learns one failure shape.
+      expect(source, `${name}: does not render LeadsReadError`).toContain("LeadsReadError");
+      expect(source, `${name}: missing the "not zeroed metrics" wording`).toMatch(
+        /read error, not zeroed metrics/
+      );
+    });
+  }
+
+  it("admin/reports does not destructure its metrics before checking for errors", () => {
+    // The exact regression: `const [{ count: verified }, …] = await Promise.all(…)`.
+    const src = stripComments(adminReports);
+    expect(
+      src,
+      "/admin/reports destructures straight off Promise.all again — a failed " +
+        "read would render KES 0 revenue as a real figure"
+      // Matches a DESTRUCTURING assignment only — `] = await Promise.all(` or
+      // `} = await Promise.all(`. A plain `const results = await Promise.all(`
+      // is the fixed shape and must still pass.
+    ).not.toMatch(/[\]}]\s*=\s*await Promise\.all\(/);
+    expect(src).toMatch(/const results = await Promise\.all\(/);
+  });
 });
