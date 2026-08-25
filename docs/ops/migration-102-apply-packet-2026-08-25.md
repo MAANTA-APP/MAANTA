@@ -1,8 +1,9 @@
 # Apply packet — migration 102, `20260824130000_redemptions_claimed_at`
 
 **For:** the founder. **Claude does not apply migrations to production.**
-**Status:** not applied. Production ledger stands at **101/101**, tail
-`20260824120000`.
+**Status:** **APPLIED AND MERGED 2026-08-25** under explicit founder
+authorization. Production ledger reconciles at **102/102**, tail
+`20260824130000`. Execution record at the foot of this file.
 
 > The brief for this session pointed at
 > `docs/ops/migration-101-apply-packet-2026-08-23.md`. **That file does not
@@ -102,7 +103,9 @@ select count(*) as total,
 
 -- 6. claim_deal untouched
 select position('claimed_at' in
-  pg_get_functiondef('public.claim_deal(uuid,uuid)'::regprocedure)) as should_be_0;
+  pg_get_functiondef('public.claim_deal(uuid,uuid,text,geography)'::regprocedure)) as should_be_0;
+-- NOTE: the signature is (uuid,uuid,text,geography). A wrong signature raises
+-- 42883, and since these six run as one statement that aborts ALL of them.
 ```
 
 **Check 5 is the one that must not be skipped.** `non_null` must be **0**.
@@ -133,3 +136,51 @@ DELETE FROM supabase_migrations.schema_migrations WHERE version = '2026082413000
 ```
 
 After #272 is deployed, do **not** roll back — the dashboards read the column.
+
+
+---
+
+## Execution record — 2026-08-25
+
+Founder authorized apply and merge together; the packet's order was still
+followed, apply first.
+
+| Step | Result |
+|---|---|
+| Pre-apply ledger | 101, tail `20260824120000` — as expected |
+| Pre-apply baseline | 401 redemptions; `claimed_at` did not exist |
+| Apply | success |
+| **Minted version** | **`20260825083646`** — *ten for ten* |
+| Ledger repair | to `20260824130000` / `redemptions_claimed_at`, **before any other check** |
+
+Six verifications, all passing:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | ledger by version **and** name | **102/102** — full diff against `supabase/migrations/`, identical |
+| 2 | column nullable, `DEFAULT now()` | `YES` / `now()` |
+| 3 | index | `idx_redemptions_claimed_at` |
+| 4 | tracking-start row | `2026-08-25 08:36:46.625659+00` |
+| 5 | **every historical row still NULL** | **401 rows, 0 non-NULL** |
+| 6 | `claim_deal` untouched | no mention of `claimed_at`; D25 `deal_paused` gate still live |
+
+Then merged: PR #272 into `main` as **`061c92c`**.
+
+Post-merge read-back: ledger 102/102, 401 redemptions / 0 non-NULL, demo mode
+still off, 0 live deals, 2 live merchants. The KPI query both dashboards run —
+`count(*) where claimed_at >= now() - 7 days` — now **succeeds**, returning an
+honest `0` that `claimsWindow()` labels as a partial window rather than the
+confident zero that was the defect.
+
+**One correction to this packet, found by running it.** Check 6 was written as
+`claim_deal(uuid,uuid)`; the real signature is
+**`claim_deal(uuid,uuid,text,geography)`** and the query errored with `42883`.
+It is corrected above. Because all six checks were issued as a single statement,
+that error meant *none* of them ran on the first attempt — worth knowing, since
+a failure in the last check silently withholds the first five. Re-issued with
+the right signature, all six passed.
+
+**Not verified:** no browser check of the rendered `/admin` or `/founder`. The
+sandbox proxy denies `maanta.app`, `clerk.maanta.app` and the Vercel host, so
+the dashboards were confirmed at the query level only. Observing them rendered
+is owed by the founder.
