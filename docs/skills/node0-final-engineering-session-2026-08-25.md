@@ -250,3 +250,78 @@ Merchant 01's real onboarding, observed against
 `docs/ops/d158-self-serve-live-test.md` — recording what actually happens rather
 than coaching the merchant into matching the documentation. Wake Claude Code
 only for a demonstrated field blocker.
+
+
+---
+
+# Freeze state — carried into Merchant 01
+
+Founder ruling 2026-08-25, at the close of this session. **Engineering is
+frozen.** The three remaining items are operational verification, not reasons
+to restart engineering, and none of them is a code change.
+
+Every DB line below was **measured against production at 2026-08-25 09:06 UTC**,
+not asserted. The two lines that need a browser are marked as founder-verified,
+because this session could not open one.
+
+| | State | How it is known |
+|---|---|---|
+| Production | live | founder-verified — no browser in this session |
+| DB ledger | **102/102**, tail `20260824130000` | measured; full version+name diff vs `supabase/migrations/` |
+| Demo marketplace | **OFF** | measured — `is_demo_mode()` false |
+| Public genuine deals | **0** | measured — `deals_public_browse` |
+| Internal merchant records | **2**, excluded from field evidence | measured — `bf66a041`, `67fe233d` (**D184**) |
+| External merchant validations | **0** | by construction — no genuine merchant exists yet |
+| Internal `success` redemptions | 1 | measured — technical evidence only (**D174**) |
+| Coordinate onboarding | live | measured — `merchants.lat` / `lng` present |
+| what3words | non-blocking | measured — `what3words_address` nullable |
+| D164 | **closed** | applied + merged this session |
+| D162 | **open** until a real merchant completes coordinate onboarding | closure event is field proof, not deployment |
+| Next evidence | **Merchant 01** | — |
+
+## The three operational checks that precede the freeze
+
+Each needs a browser or the Vercel dashboard. None is a code change; none
+reopens engineering.
+
+1. **Signed out**, confirm the shopper marketplace shows **0 deals and no demo
+   banner**.
+2. **Signed in as admin/founder**, confirm `/admin` and `/founder` render
+   normally after D164, with the claims KPI showing the **partial-window zero**
+   rather than failing. Verified at the query level only in this session — the
+   KPI query succeeds and returns 0; nobody has watched it render.
+3. **Remove `MAANTA_DEMO_MODE` from Vercel and redeploy.** This one is not
+   cosmetic: until it is gone, production analytics will keep tagging **real
+   Merchant 01 activity as demo traffic** even though the database flag is off.
+   The two switches are independent by design and the env one only changes on
+   redeploy.
+
+## Two things that must not be "fixed"
+
+Both look like unfinished work and are not. They are recorded here because the
+next session — or the next person — will be tempted by each.
+
+**The 401 historical rows with `claimed_at IS NULL` stay NULL.** This is not
+leftover cleanup. Those claim times are genuinely unknown, and NULL is the
+honest representation of that. Manufacturing timestamps — from `expires_at`,
+`redeemed_at`, or the migration time — would put fabricated data on an audit
+record and corrupt the KPI it feeds. The migration's two-statement
+`ADD COLUMN` / `SET DEFAULT` split exists precisely to prevent this, and
+`claims-metric.test.ts` fails if a backfill is ever added.
+
+**Nobody creates a deal so the marketplace does not look empty.** The empty
+marketplace is now a **true statement** about Node 0: there is no genuine
+supply yet. Merchant 01 creating Deal 01 is the event that starts field
+validation, and it only means something if it is the first real deal. Seeding
+one — even "just for the screenshot" — destroys the measurement, and turning
+demo mode back on does the same thing at larger scale.
+
+## After the three checks pass
+
+The next meaningful action is **not Claude Code**. It is getting Merchant 01
+through the door at BBS Mall and watching what actually happens **without
+coaching around failures** — `docs/ops/d158-self-serve-live-test.md` is an
+observation checklist, not a script. A discrepancy between the browser and the
+documentation *is* the finding.
+
+Claude Code wakes only for a demonstrated field blocker.
