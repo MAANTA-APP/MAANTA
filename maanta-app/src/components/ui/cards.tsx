@@ -180,16 +180,28 @@ export function MerchantDealRow({
 export function KpiCard({
   label,
   value,
+  hint,
   className,
 }: {
   label: string;
   value: React.ReactNode;
+  /**
+   * One quiet line under the number, for a caveat the number cannot carry on
+   * its own — e.g. that a count's window is shorter than its label implies
+   * because tracking only started recently (D164).
+   *
+   * Rendered as text rather than a hover tooltip on purpose: these dashboards
+   * are read on a phone at a counter, where there is no hover, and a caveat
+   * that only appears to mouse users is a caveat most readers never see.
+   */
+  hint?: string;
   className?: string;
 }) {
   return (
     <div className={cn("rounded-card bg-white p-4 shadow-card", className)}>
       <p className="text-xs text-muted">{label}</p>
       <p className="tnum mt-1 text-2xl font-bold text-ink">{value}</p>
+      {hint ? <p className="mt-1 text-[11px] leading-snug text-faint">{hint}</p> : null}
     </div>
   );
 }

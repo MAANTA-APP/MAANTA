@@ -514,6 +514,21 @@ closes" — is met: D152 is closed):**
   A query counting `redemptions.status = 'success'` answers the first question,
   never the second. **Do not let an internal row increment the ladder** — see
   **D174**.
+- **The same split applies to merchant records, and both of production's are
+  internal** (recorded 2026-08-25, **D184**). `is_demo = false` marks a real
+  *record*, not a real *customer*, so a census counting
+  `merchants WHERE is_demo = false` reads **2** and neither is an acquisition:
+  - `bf66a041` **SKANDI SKAN** — created 2026-08-16, a founder registration
+    exercise run with a family member, not a BBS Mall merchant who chose MAANTA.
+  - `67fe233d` **E2E Full Sweep Shop** — created 2026-08-23 by the full-role E2E
+    sweep; it owns the internal `success` redemption above.
+  Both are kept as technical evidence and neither is to be deleted or edited.
+  **External field validation: 0 genuine merchants.** Merchant 01 will be the
+  first, and it is the third non-demo merchant row, not the first. Older
+  documents that read "real merchants: 1 — SKANDI SKAN"
+  (`docs/skills/staff-seat-linking-and-search-pause-2026-08-19.md`,
+  `docs/maanta-decision-queue-2026-08-19.md`) predate this split and mean "1 real
+  *record*".
 - **Node 0 has a written negative** (2026-08-24, ratified in
   `docs/ops/node0-evidence-protocol-2026-08-24.md`). Three things bind:
   - **Kill criterion.** If **either** Merchant 01 plus two further genuine

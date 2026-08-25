@@ -13,6 +13,29 @@ not the owner — closed the money path. **Seven defects found, two fixed and
 deployed during the run.** One of them, D162, blocks real merchant onboarding
 and is a billing problem, not a code problem.
 
+## 0. How to assert a surface "renders" — corrected 2026-08-24
+
+**The method used in §1 was wrong, and it let a completely broken page pass.**
+
+`/founder` was scored as clean on two signals: HTTP 200 and an `<h1>` reading
+"Founder dashboard". Both are emitted by the page's *error* state, which is what
+it had actually been rendering for days ("Could not load the dashboard") because
+of D164. A status code and a heading prove a route resolves. They cannot prove
+it works, because the failure path returns them too.
+
+Any future run must assert **content**, on every dashboard-like surface:
+
+1. **A named KPI or section is present** — e.g. "The loop (7 days)",
+   "Active merchants", "Total users".
+2. **A number is present.** The broken page had headings and no figures.
+3. **The read-failure component is absent** — no "read error, not zeroed
+   metrics", no "Could not load".
+4. **Where a count's window is qualified, the qualifier is on screen** — a
+   Claims card labelled "since tracking began" must show its caveat line.
+
+Automated equivalent: `maanta-app/e2e/dashboards.spec.ts` (self-skips until
+`E2E_BASE_URL` + `E2E_ADMIN_STORAGE` are provisioned).
+
 ## 1. Coverage
 
 | Role | Account | Surfaces | Result |
@@ -21,7 +44,7 @@ and is a billing problem, not a code problem.
 | Merchant owner | `aragagency@gmail.com` | 12/12 | all render clean |
 | Shopper | `aragagency+shopper2@gmail.com` | 9/9 | all render clean |
 | Merchant staff | `aragagency+staff1@gmail.com` | 10 probed | permission matrix correct bar one page |
-| Founder console | (admin role) | 1/1 | renders |
+| Founder console | (admin role) | 1/1 | **scored clean — WRONG, see §0.** It was rendering its read-failure state; D164 |
 | **Agent** | — | **0** | **no agent account exists — untested** |
 | **Cofounder** | — | **0** | zero holders by design (Q14) — untested |
 

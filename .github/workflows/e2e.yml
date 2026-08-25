@@ -17,7 +17,8 @@ name: E2E (golden path)
 #   2. Repo Settings → Secrets and variables → Actions:
 #        - Variable  E2E_BASE_URL            = https://<deployed NON-PROD app>
 #        - Env secrets (on the `e2e` environment) E2E_SHOPPER_STORAGE,
-#          E2E_MERCHANT_STORAGE                = Playwright storageState JSON
+#          E2E_MERCHANT_STORAGE, E2E_ADMIN_STORAGE = Playwright storageState JSON
+#          (E2E_ADMIN_STORAGE covers /admin AND /founder — D164)
 #   3. Without E2E_BASE_URL the job is a no-op (the `if` below is false), so it
 #      never runs prematurely.
 
@@ -103,14 +104,66 @@ jobs:
         env:
           E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
           E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
+          E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
         run: |
           if [ -z "$E2E_SHOPPER_STORAGE" ] || [ -z "$E2E_MERCHANT_STORAGE" ]; then
             echo "::error::E2E_BASE_URL is set but a storage secret is missing — the suite would self-skip to a green zero-coverage run. Set E2E_SHOPPER_STORAGE and E2E_MERCHANT_STORAGE on the e2e environment."
             exit 1
           fi
+          # D164: the dashboards suite exists because a completely broken
+          # /founder passed a check built on HTTP 200 + a heading. A spec that
+          # SKIPS proves exactly as little, so a missing admin state is an
+          # error here rather than a quiet green.
+          if [ -z "$E2E_ADMIN_STORAGE" ]; then
+            echo "::error::E2E_ADMIN_STORAGE is missing — e2e/dashboards.spec.ts would self-skip and /admin + /founder would go untested. Set it on the e2e environment."
+            exit 1
+          fi
 
-      - name: Run golden-path E2E
+      - name: Run golden-path + dashboards E2E
         env:
           E2E_SHOPPER_STORAGE: ${{ secrets.E2E_SHOPPER_STORAGE }}
           E2E_MERCHANT_STORAGE: ${{ secrets.E2E_MERCHANT_STORAGE }}
-        run: npm run test:e2e
+          E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
+          # The json reporter writes to STDOUT unless this is set, which would
+          # leave the assertion step below with no file to read.
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report.json
+        # JSON alongside the GitHub reporter so the next step can inspect the
+        # outcome per test rather than trusting a green exit code.
+        run: npx playwright test --reporter=github,json
+
+      # A skipped test and a passing test both leave the job green. This is the
+      # difference between "the dashboards were verified" and "the dashboards
+      # were not looked at", so it is asserted explicitly.
+      - name: Assert no spec silently skipped
+        if: always()
+        run: |
+          set -euo pipefail
+          # `defaults.run.working-directory: maanta-app` applies to this step
+          # too, so the bare filename resolves next to the test run.
+          report="playwright-report.json"
+          if [ ! -f "$report" ]; then
+            echo "::error::No Playwright JSON report produced — cannot prove the dashboards ran."
+            exit 1
+          fi
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("playwright-report.json","utf8"));
+            const specs = [];
+            const walk = (s) => {
+              for (const spec of s.specs ?? []) specs.push(spec);
+              for (const child of s.suites ?? []) walk(child);
+            };
+            for (const s of r.suites ?? []) walk(s);
+            const skipped = specs.filter((s) =>
+              (s.tests ?? []).some((t) => t.status === "skipped" || (t.results ?? []).some((x) => x.status === "skipped"))
+            );
+            const dash = specs.filter((s) => /admin|founder|dashboard/i.test(s.title));
+            if (!dash.length) {
+              console.error("::error::No dashboard specs ran at all.");
+              process.exit(1);
+            }
+            if (skipped.length) {
+              console.error("::error::" + skipped.length + " spec(s) skipped: " + skipped.map((s) => s.title).join(" | "));
+              process.exit(1);
+            }
+            console.log("OK — " + specs.length + " specs ran, " + dash.length + " of them on /admin or /founder, none skipped.");
+          '
