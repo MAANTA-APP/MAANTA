@@ -1,7 +1,8 @@
 # Clearing the marketplace before Merchant 01 — evidence and apply packet
 
-**Date:** 2026-08-25 · **Status:** investigation complete, **awaiting founder
-authorization** · **Owner:** founder (production mutation)
+**Date:** 2026-08-25 · **Status:** **EXECUTED** under explicit founder
+authorization — demo mode is OFF on production and the marketplace is verified
+clean of synthetic content · **Owner:** founder (production mutation)
 
 Founder ruling 2026-08-24: demo mode OFF before Merchant 01 is shown the live
 marketplace. A first independent merchant or shopper who sees a synthetic
@@ -9,7 +10,11 @@ marketplace contaminates the evidence the pilot exists to collect.
 
 This document answers the three questions that had to be settled **before** any
 production write, from production itself rather than from `docs/ops/demo-mode.md`.
-Nothing here has been executed. **Claude has not mutated production.**
+The three answers were established first; the founder then authorized the flip in
+session, and it was executed. The executed evidence is in **§ Execution** below.
+
+**One production write was made: a single `UPDATE` of one `app_config` row.** No
+rows were deleted, no schema changed, and no migration was applied.
 
 ---
 
@@ -218,3 +223,70 @@ migration, the `Makefile` targets.
 **NOT verified — owed by the founder:** every browser-side check in Step 3. No
 HTTP request to `www.maanta.app` was possible from this session. Nothing in this
 document infers a rendered result from a database read.
+
+
+---
+
+## Execution — 2026-08-25, under explicit founder authorization
+
+One statement, against `axrrslqssmbngbataejg`:
+
+```sql
+UPDATE public.app_config SET value = 'false' WHERE key = 'demo_mode_enabled'
+RETURNING key, value;
+-- demo_mode_enabled | false
+```
+
+**Before** (07:57:29 UTC):
+
+| | |
+|---|---|
+| `is_demo_mode()` | `true` |
+| `deals_public_browse` | **233** |
+| `merchants_public_browse` | **212** |
+
+**After** (07:58:04 UTC):
+
+| | |
+|---|---|
+| `is_demo_mode()` | **`false`** |
+| `deals_public_browse` | **0** |
+| `merchants_public_browse` | **2** |
+| synthetic deals visible | **0** |
+| synthetic merchants visible | **0** |
+
+The last two rows are the ones that matter: they join the browse views back to
+the base tables and count rows where `is_demo`, so they answer "is anything
+synthetic still reachable" directly rather than by inference. Both are zero.
+
+The live merchant count of 2 is `bf66a041` SKANDI SKAN and `67fe233d` E2E Full
+Sweep Shop — the internal records classified in **D184**. They are `active` and
+carry no live deal. They are not synthetic and were correctly not hidden; they
+are also not customers.
+
+Note the before-count is **233**, not the 293 measured earlier in the day. Demo
+flash deals expire continuously and the hourly reseed tops them back up toward
+the ceiling, so the live synthetic count moves through the day. It is now
+frozen: with the flag off, both demo cron jobs return 0 (§2), so no further
+synthetic deals will be created.
+
+**Nothing was deleted.** The census is unchanged — 213 demo merchants, 2,276
+demo deals, 341 demo users, 396 demo redemptions — so `make demo-on` restores
+the rehearsal marketplace intact.
+
+### Still owed by the founder
+
+1. **The browser check (§ Step 3).** Not runnable from this session: the sandbox
+   proxy denies `maanta.app`, `clerk.maanta.app` and the Vercel host
+   (`CONNECT tunnel failed, response 403`), and Chromium uses the same proxy. The
+   database says the views are clean; only a signed-out browser can confirm the
+   rendered pages and the absence of the demo banner.
+2. **`MAANTA_DEMO_MODE` in the Vercel environment (§ Step 4).** Until it is unset
+   and redeployed, genuine Node 0 traffic may be tagged `environment: "demo"` in
+   PostHog. This does not affect what a shopper sees.
+
+### What Merchant 01 will now see
+
+An empty marketplace. That is the correct and honest state of Node 0 before its
+first genuine merchant, and Deal 01 will be the first live deal on the platform.
+**Nobody should "fix" the empty feed by turning demo mode back on.**
