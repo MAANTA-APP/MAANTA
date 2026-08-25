@@ -42,7 +42,25 @@ export default async function DealDetailPage({
       .eq("deal_id", deal.id)
       .eq("status", "pending")
       .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
+      // D164: this ordered by `created_at`, which redemptions has never had, so
+      // the query ERRORED and `existing` came back undefined. A shopper already
+      // holding a live pending ticket was therefore shown "Claim deal" instead
+      // of their ticket, and got a 409 on tap — the API backstop covering a
+      // broken screen. Ordered by `redeemed_at` deliberately, not the new
+      // `claimed_at`: for a pending row `redeemed_at` IS the claim time and it
+      // is NOT NULL on every row, whereas `claimed_at` is NULL for everything
+      // claimed before 20260824130000 and DESC sorts NULLs first in Postgres —
+      // which would surface a stale pre-migration ticket as the newest one.
+      //
+      // `redeemed_at` is admittedly a fragile recency key: the NAME implies the
+      // redemption instant, and it only doubles as claim time because it
+      // defaults at insert and is overwritten at verification. That is why the
+      // secondary `id DESC` is here and not optional — two tickets sharing a
+      // timestamp must still resolve deterministically rather than by whatever
+      // order Postgres happens to return. Once there is enough post-migration
+      // history, this should move to `claimed_at` with explicit NULL handling.
+      .order("redeemed_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(1)
       .maybeSingle();
     existingTicketId = existing?.id ?? null;
