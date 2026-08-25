@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { KpiCard } from "@/components/ui/cards";
+import { LeadsReadError } from "@/components/agent/lead-row-list";
 import { cn, formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
@@ -24,13 +25,7 @@ export default async function AdminReportsPage({
   const since = new Date(Date.now() - range.days * 24 * 3600_000).toISOString();
 
   const service = createServiceClient();
-  const [
-    { count: verified },
-    { data: feeRevenue },
-    { count: activeShops },
-    { count: liveDeals },
-    { data: chartRows },
-  ] = await Promise.all([
+  const results = await Promise.all([
     service
       .from("redemptions")
       .select("id", { count: "exact", head: true })
@@ -49,6 +44,39 @@ export default async function AdminReportsPage({
       .gt("expires_at", new Date().toISOString()),
     service.rpc("admin_redemptions_per_day", { p_days: 14 }),
   ]);
+
+  // D164 (extended 2026-08-25) — a failed read must never render as a real
+  // figure. Every value on this page used to be destructured straight off
+  // `Promise.all`, discarding each `error`, so one failed query rendered
+  // "Verified redemptions 0" and **"Success-fee revenue KES 0"** as confident
+  // statements about the business. That is the same defect D149 fixed on
+  // /founder and D164 fixed on /admin; this page was simply never covered, and
+  // it is the one that puts a zero next to money.
+  //
+  // Every read here is a metric, so unlike /admin there is nothing to exclude —
+  // the guarded set is the whole array.
+  const readFailed = results.find((r) => (r as { error?: unknown }).error);
+  if (readFailed) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Reports</h1>
+        <div className="mt-6">
+          <LeadsReadError
+            what="the reports dashboard"
+            sub="This is a read error, not zeroed metrics. Reload the page; if it keeps failing, tell the Maanta team."
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const [
+    { count: verified },
+    { data: feeRevenue },
+    { count: activeShops },
+    { count: liveDeals },
+    { data: chartRows },
+  ] = results;
 
   const revenue = Number(feeRevenue ?? 0) || 0;
 
