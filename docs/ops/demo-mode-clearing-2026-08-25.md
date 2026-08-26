@@ -1,8 +1,10 @@
 # Clearing the marketplace before Merchant 01 — evidence and apply packet
 
-**Date:** 2026-08-25 · **Status:** **EXECUTED** under explicit founder
-authorization — demo mode is OFF on production and the marketplace is verified
-clean of synthetic content · **Owner:** founder (production mutation)
+**Date:** 2026-08-25 · **Status:** **EXECUTED 2026-08-25, then REVERSED
+2026-08-26 by founder ruling** — the clearing worked and was verified; demo mode
+was subsequently turned back on so the marketplace can demonstrate MAANTA to
+prospects. The evidence below stands as the record of the clearing and as the
+procedure to repeat before the field day. · **Owner:** founder
 
 Founder ruling 2026-08-24: demo mode OFF before Merchant 01 is shown the live
 marketplace. A first independent merchant or shopper who sees a synthetic
@@ -290,3 +292,27 @@ the rehearsal marketplace intact.
 An empty marketplace. That is the correct and honest state of Node 0 before its
 first genuine merchant, and Deal 01 will be the first live deal on the platform.
 **Nobody should "fix" the empty feed by turning demo mode back on.**
+
+
+---
+
+## Reversed 2026-08-26 — and what that means for the field day
+
+Demo mode was turned back on. Founder ruling 2026-08-26: with no genuine supply,
+an empty marketplace shows a prospective merchant or shopper nothing, so the
+marketplace doubles as a sales-demonstration surface. Production now serves
+**253 synthetic deals, 0 genuine**.
+
+**This procedure is not obsolete — it is the field-day checklist.** Demo mode
+must be OFF for Merchant 01's own onboarding and for Shopper 01's claim, or that
+evidence is contaminated. Everything in this document (the flag flip, the three
+answers, the verification queries, the rollback) applies unchanged; run it again
+before the field day and turn demo back on afterwards if the sales use still
+needs it.
+
+**One thing the reversal already demonstrated,** within about eight hours: a
+prospect claimed a synthetic deal (`aa1f74b1`, against demo merchant "Pepper
+Pot") and it landed tagged `is_demo = false`, because **`claim_deal` never sets
+that column** — see **D188** / **D189**. While demo mode is on, the non-demo
+redemption count grows with prospect activity, so **no census may read
+`redemptions.is_demo` alone**; join through the merchant and the deal.

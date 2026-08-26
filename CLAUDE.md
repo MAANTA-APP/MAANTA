@@ -472,6 +472,17 @@ merchant continuation/payment signal (decisions log, 2026-08-22 Node 0 entry).
   production behaviour first. Production mutation requires explicit founder
   authorization.
 
+**Demo mode is ON, deliberately (founder ruling 2026-08-26).** It was cleared on
+2026-08-25 and turned back on: with no genuine supply yet, an empty marketplace
+shows a prospective merchant or shopper nothing, so the marketplace doubles as a
+sales-demonstration surface. This **qualifies** the 2026-08-24 clearing ruling
+rather than reversing it — that ruling's reason still holds and has already bitten
+once (**D189**: a prospect claimed a synthetic deal within ~8 hours, and it landed
+in the non-demo count via **D188**). **Demo mode must be OFF for Merchant 01's own
+onboarding and Shopper 01's claim**, or that evidence is contaminated the same
+way. Showing prospects a demo marketplace and running the measured pilot on one
+instance are in tension; the founder owns which wins on a given day.
+
 **Field status — Node 0 controlled field validation is GO (founder ruling
 2026-08-23; supersedes the 2026-08-22 HOLD, whose condition — "until D152
 closes" — is met: D152 is closed):**
@@ -514,6 +525,26 @@ closes" — is met: D152 is closed):**
   A query counting `redemptions.status = 'success'` answers the first question,
   never the second. **Do not let an internal row increment the ladder** — see
   **D174**.
+- **`redemptions.is_demo` is NOT a discriminator — never count on it alone**
+  (**D188**, 2026-08-26). `claim_deal` never sets the column, so it takes the
+  table default and **every claim made through the product is tagged
+  `is_demo = false`**, including a claim against a synthetic merchant. Demo
+  tagging on redemptions comes only from the seed scripts. Measured: of 6
+  non-demo redemptions, **1** has a non-demo merchant (the internal E2E
+  `success`) and **5 are claims against demo merchants**. The long-cited "5 real
+  redemptions" were 1 internal success plus 4 demo-merchant claims. **Count
+  field evidence by joining through the parent, always:**
+
+  ```sql
+  SELECT count(*) FROM redemptions r
+    JOIN merchants m ON m.id = r.merchant_id
+    JOIN deals     d ON d.id = r.deal_id
+   WHERE NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+     AND r.status = 'success';   -- returns 1: the internal E2E survivor
+  ```
+
+  Even that 1 is internal by the D184 prose rule, so **external field
+  validation = 0**.
 - **The same split applies to merchant records, and both of production's are
   internal** (recorded 2026-08-25, **D184**). `is_demo = false` marks a real
   *record*, not a real *customer*, so a census counting
