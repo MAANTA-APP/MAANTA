@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/states";
 import { formatKes } from "@/lib/ui";
 import { IconPlus } from "@/components/ui/icons";
 import { isDealInRedemptionWindow } from "@/lib/deal-expiry";
+import { activeDealLimitCopy } from "@/lib/plan-limits";
 import {
   getMerchantLifecycleInfo,
   getMerchantLifecycleStats,
@@ -54,7 +55,6 @@ export default async function MerchantDealsPage() {
   const live = (deals ?? []).filter(
     (d) => !d.expires_at || isDealInRedemptionWindow(d.expires_at)
   );
-  const limit = merchant.tier === "elite" ? 2 : 1;
 
   const emptyTitle =
     lifecycle.stage === "churn_risk"
@@ -103,8 +103,7 @@ export default async function MerchantDealsPage() {
       )}
 
       <p className="mt-4 text-xs text-faint">
-        {merchant.tier === "elite" ? "Elite" : "Standard"} plan · {limit} active deal
-        {limit > 1 ? "s" : ""} at a time · Wallet {formatKes(merchant.account_balance)}
+        {activeDealLimitCopy(merchant.tier)} · Wallet {formatKes(merchant.account_balance)}
       </p>
 
       <div className="mt-5">

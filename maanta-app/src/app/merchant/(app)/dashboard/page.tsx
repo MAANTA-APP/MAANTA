@@ -8,6 +8,7 @@ import {
   getMerchantLifecycleStats,
 } from "@/lib/merchant-lifecycle";
 import { publicOrigin } from "@/lib/app-url";
+import { activeDealLimit } from "@/lib/plan-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function MerchantDashboardPage() {
   const lifecycleStats = getMerchantLifecycleStats(dealRows ?? []);
   const lifecycle = getMerchantLifecycleInfo(merchant, lifecycleStats);
   const activeDeals = lifecycleStats.liveDealCount;
-  const limit = merchant.tier === "elite" ? 2 : 1;
+  const limit = activeDealLimit(merchant.tier);
 
   return (
     <main className="px-4 pt-5">
