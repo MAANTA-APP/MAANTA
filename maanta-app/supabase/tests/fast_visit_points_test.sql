@@ -18,13 +18,18 @@
 --   D  arrival at the WRONG merchant is refused (same-merchant rule enforced
 --      where the timestamp is written)
 --   E  a different shopper cannot record arrival on someone else's claim
---   F  the 15-minute boundary EXACTLY: 14:59 qualifies, 15:00.000 qualifies
---      (<=), 15:00 + 1s does not; a claim with historical claimed_at NULL
---      never qualifies
+--   F  the 15-minute boundary EXACTLY, decided AT ARRIVAL by the real RPC:
+--      14:59 qualifies, 15:00.000 qualifies (<=), 15:00 + 1s does not (but
+--      the late arrival is still recorded — a normal check-in, no failure);
+--      a claim with historical claimed_at NULL never qualifies
 --   G  no arrival -> no points; unverified (still pending) -> no points
 --   H  an expired or already-redeemed claim refuses arrival
---   I  the fast_visit_enabled gate: OFF means no award even for a fully
---      qualifying redemption
+--   I  qualification is decided at ARRIVAL time and is immutable:
+--      I1 gate OFF at arrival -> the arrival NEVER becomes reward-eligible,
+--         even after the gate turns ON and staff verify (no retroactive
+--         qualification), and a re-scan while ON does not upgrade it;
+--      I2 gate ON at a qualifying arrival -> earned eligibility survives the
+--         gate turning OFF before verification — the award still lands
 --
 -- The suite flips fast_visit_enabled to 'true' for its scenarios and restores
 -- 'false' (the seeded value) at the end — self-contained and self-cleaning.
@@ -52,6 +57,17 @@ BEGIN
   ASSERT v_nullable = 'YES', 'A: arrived_at must be nullable — NULL means no check-in';
   ASSERT v_default IS NULL,
     format('A: arrived_at must have NO default — only record_shopper_arrival writes it, got %s', v_default);
+
+  SELECT is_nullable, column_default, data_type
+    INTO v_nullable, v_default, v_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'redemptions' AND column_name = 'fast_visit_qualified_at';
+
+  ASSERT v_type = 'timestamp with time zone',
+    format('A: fast_visit_qualified_at must be timestamptz, got %s', COALESCE(v_type, '<missing>'));
+  ASSERT v_nullable = 'YES', 'A: fast_visit_qualified_at must be nullable — NULL means did not qualify';
+  ASSERT v_default IS NULL,
+    format('A: fast_visit_qualified_at must have NO default — only record_shopper_arrival writes it, got %s', v_default);
 
   SELECT relrowsecurity INTO v_rls FROM pg_class WHERE oid = 'public.reward_events'::regclass;
   ASSERT v_rls, 'A: reward_events must have RLS enabled';
@@ -121,16 +137,21 @@ BEGIN
     FROM public.record_shopper_arrival(v_uid, v_mid, v_rid);
   ASSERT v_arrived IS NOT NULL, 'B: arrival must be stamped';
   ASSERT v_first, 'B: the first check-in must report first_arrival';
-  ASSERT v_eligible, 'B: an immediate arrival must be Fast Visit eligible';
+  ASSERT v_eligible, 'B: an immediate arrival with the gate ON must be Fast Visit eligible';
   ASSERT (SELECT arrived_at FROM public.redemptions WHERE id = v_rid) = v_arrived,
     'B: the stamp must land on the redemption row';
+  ASSERT (SELECT fast_visit_qualified_at FROM public.redemptions WHERE id = v_rid) = v_arrived,
+    'B: the qualification verdict must be persisted at arrival, same instant as the stamp';
 
-  -- C: a re-scan is fine but never moves the evidence.
+  -- C: a re-scan is fine but never moves the evidence — neither the arrival
+  -- stamp nor the persisted qualification verdict.
   SELECT arrived_at, first_arrival INTO v_arrived2, v_first
     FROM public.record_shopper_arrival(v_uid, v_mid, v_rid);
   ASSERT NOT v_first, 'C: a second check-in must not report first_arrival';
   ASSERT v_arrived2 = v_arrived,
     format('C: first arrival wins — arrived_at must not move (%s -> %s)', v_arrived, v_arrived2);
+  ASSERT (SELECT fast_visit_qualified_at FROM public.redemptions WHERE id = v_rid) = v_arrived,
+    'C: a re-scan must not move the qualification timestamp either';
 
   -- The QR scan itself must never award: no ledger row exists yet.
   SELECT count(*) INTO v_rows FROM public.reward_events WHERE redemption_id = v_rid;
@@ -293,82 +314,216 @@ BEGIN
   RAISE NOTICE 'Scenario D+E+G+H passed: wrong merchant, wrong shopper, no arrival, expired and non-pending all refused';
 END $$;
 
--- Scenario F + I: the exact 15-minute boundary, the historical-NULL rule, and
--- the feature gate. Timestamps are crafted directly (superuser, bypassing the
--- RPCs) because the boundary cannot be reached by waiting in a test.
+-- Scenario F: the exact 15-minute boundary, decided AT ARRIVAL by the real
+-- RPC. Claim times are backdated (superuser UPDATE) because the boundary
+-- cannot be reached by waiting in a test; NOW() is transaction-stable inside
+-- this DO block, so "claimed_at = NOW() - 15 minutes" puts the RPC's own
+-- arrival stamp EXACTLY on the inclusive boundary — deterministically.
 DO $$
 DECLARE
   v_auth       UUID := gen_random_uuid();
-  v_owner_auth UUID := gen_random_uuid();
   v_uid        UUID;
-  v_owner_uid  UUID;
-  v_mid        UUID;
-  v_did        UUID;
-  v_r_on       UUID;  -- arrived at exactly +15:00 — qualifies (<=)
-  v_r_in       UUID;  -- arrived at +14:59 — qualifies
-  v_r_out      UUID;  -- arrived at +15:01 — does not qualify
-  v_r_null     UUID;  -- historical claimed_at NULL — never qualifies
-  v_base       TIMESTAMPTZ := NOW() - INTERVAL '1 hour';
+  -- One owner + merchant + deal per boundary case: the tier trigger allows a
+  -- standard merchant only 1 active deal, so the four cases cannot share one.
+  v_owner_auths UUID[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
+  v_owner_uids  UUID[] := ARRAY[NULL, NULL, NULL, NULL]::uuid[];
+  v_mids        UUID[] := ARRAY[NULL, NULL, NULL, NULL]::uuid[];
+  v_dids        UUID[] := ARRAY[NULL, NULL, NULL, NULL]::uuid[];
+  v_r_in       UUID;  -- claimed 14:59 ago — arrival now qualifies
+  v_r_on       UUID;  -- claimed exactly 15:00 ago — arrival now qualifies (<=)
+  v_r_out      UUID;  -- claimed 15:00 + 1s ago — arrival now does NOT qualify
+  v_r_null     UUID;  -- claimed_at NULL (historical) — never qualifies
+  v_eligible   BOOLEAN;
+  v_first      BOOLEAN;
   v_awarded    BOOLEAN;
   v_rows       INT;
+  i            INT;
+  v_tmp        UUID;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_auth) RETURNING id INTO v_uid;
-  INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth) RETURNING id INTO v_owner_uid;
-  INSERT INTO public.merchants (user_id, merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
-    VALUES (v_owner_uid, '__test_fast_visit_f', 'fast.visit.eff', '+254700000284', 'BBS Mall', 'active', TRUE, 500)
-    RETURNING id INTO v_mid;
-  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
-    VALUES (v_mid, '__test fast visit boundary', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
-    RETURNING id INTO v_did;
+  FOR i IN 1..4 LOOP
+    INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auths[i]) RETURNING id INTO v_tmp;
+    v_owner_uids[i] := v_tmp;
+    INSERT INTO public.merchants (user_id, merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+      VALUES (v_tmp, '__test_fast_visit_f' || i, 'fast.visit.f' || i, '+25470000028' || i, 'BBS Mall', 'active', TRUE, 500)
+      RETURNING id INTO v_tmp;
+    v_mids[i] := v_tmp;
+    INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+      VALUES (v_tmp, '__test fv boundary ' || i, 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+      RETURNING id INTO v_tmp;
+    v_dids[i] := v_tmp;
+  END LOOP;
 
-  -- Four verified redemptions with crafted claim/arrival stamps. The partial
-  -- unique index on (merchant_id, otp_code) is pending-only, so distinct
-  -- codes keep things tidy anyway.
-  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, claimed_at, arrived_at)
-    VALUES (v_did, v_mid, v_uid, '900001', 'success', v_base + INTERVAL '2 hours', v_base, v_base + INTERVAL '15 minutes')
-    RETURNING id INTO v_r_on;
-  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, claimed_at, arrived_at)
-    VALUES (v_did, v_mid, v_uid, '900002', 'success', v_base + INTERVAL '2 hours', v_base, v_base + INTERVAL '14 minutes 59 seconds')
-    RETURNING id INTO v_r_in;
-  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, claimed_at, arrived_at)
-    VALUES (v_did, v_mid, v_uid, '900003', 'success', v_base + INTERVAL '2 hours', v_base, v_base + INTERVAL '15 minutes 1 second')
-    RETURNING id INTO v_r_out;
-  INSERT INTO public.redemptions (deal_id, merchant_id, user_id, otp_code, status, expires_at, claimed_at, arrived_at)
-    VALUES (v_did, v_mid, v_uid, '900004', 'success', v_base + INTERVAL '2 hours', NULL, v_base + INTERVAL '1 minute')
-    RETURNING id INTO v_r_null;
+  -- Real claims, backdated claim stamps.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
+  SELECT redemption_id INTO v_r_in   FROM public.claim_deal(v_uid, v_dids[1]);
+  SELECT redemption_id INTO v_r_on   FROM public.claim_deal(v_uid, v_dids[2]);
+  SELECT redemption_id INTO v_r_out  FROM public.claim_deal(v_uid, v_dids[3]);
+  SELECT redemption_id INTO v_r_null FROM public.claim_deal(v_uid, v_dids[4]);
+  UPDATE public.redemptions SET claimed_at = NOW() - INTERVAL '14 minutes 59 seconds' WHERE id = v_r_in;
+  UPDATE public.redemptions SET claimed_at = NOW() - INTERVAL '15 minutes'            WHERE id = v_r_on;
+  UPDATE public.redemptions SET claimed_at = NOW() - INTERVAL '15 minutes 1 second'   WHERE id = v_r_out;
+  UPDATE public.redemptions SET claimed_at = NULL                                     WHERE id = v_r_null;
 
+  SELECT fast_visit_eligible INTO v_eligible FROM public.record_shopper_arrival(v_uid, v_mids[1], v_r_in);
+  ASSERT v_eligible, 'F: arrival at 14:59 must qualify';
+  SELECT fast_visit_eligible INTO v_eligible FROM public.record_shopper_arrival(v_uid, v_mids[2], v_r_on);
+  ASSERT v_eligible, 'F: arrival at exactly 15:00 must qualify — the boundary is inclusive';
+  SELECT fast_visit_eligible, first_arrival INTO v_eligible, v_first
+    FROM public.record_shopper_arrival(v_uid, v_mids[3], v_r_out);
+  ASSERT NOT v_eligible, 'F: arrival at 15:01 must NOT qualify';
+  ASSERT v_first AND (SELECT arrived_at FROM public.redemptions WHERE id = v_r_out) IS NOT NULL,
+    'F: a late arrival is still a normal recorded check-in — only the reward is gone';
+  ASSERT (SELECT fast_visit_qualified_at FROM public.redemptions WHERE id = v_r_out) IS NULL,
+    'F: a late arrival must persist NO qualification';
+  SELECT fast_visit_eligible INTO v_eligible FROM public.record_shopper_arrival(v_uid, v_mids[4], v_r_null);
+  ASSERT NOT v_eligible,
+    'F: a historical claim with claimed_at NULL must never qualify — unknown claim times are not fabricated';
+
+  -- Staff verify (crafted status; the full real-RPC loop is Scenario B) and
+  -- award: exactly the two in-window arrivals pay.
+  UPDATE public.redemptions SET status = 'success' WHERE id IN (v_r_in, v_r_on, v_r_out, v_r_null);
   SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r_in);
-  ASSERT v_awarded, 'F: arrival at 14:59 must qualify';
+  ASSERT v_awarded, 'F: the 14:59 arrival must award after verification';
   SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r_on);
-  ASSERT v_awarded, 'F: arrival at exactly 15:00 must qualify — the boundary is inclusive';
+  ASSERT v_awarded, 'F: the exact-boundary arrival must award after verification';
   SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r_out);
-  ASSERT NOT v_awarded, 'F: arrival at 15:01 must NOT qualify';
+  ASSERT NOT v_awarded, 'F: the late arrival must not award';
   SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r_null);
-  ASSERT NOT v_awarded,
-    'F: a historical claim with claimed_at NULL must never become eligible — unknown claim times are not fabricated';
+  ASSERT NOT v_awarded, 'F: the historical-NULL claim must not award';
 
   SELECT count(*) INTO v_rows FROM public.reward_events WHERE user_id = v_uid;
   ASSERT v_rows = 2, format('F: exactly the two qualifying redemptions award, got %s rows', v_rows);
 
-  -- I: with the gate off, even a fully qualifying redemption awards nothing.
-  UPDATE public.app_config SET value = 'false' WHERE key = 'fast_visit_enabled';
-  DELETE FROM public.reward_events WHERE redemption_id = v_r_in;
-  SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r_in);
-  ASSERT NOT v_awarded, 'I: fast_visit_enabled = false must disable awarding';
-  UPDATE public.app_config SET value = 'true' WHERE key = 'fast_visit_enabled';
-
   DELETE FROM public.reward_events WHERE user_id = v_uid;
-  DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
-  DELETE FROM public.guardian_events WHERE merchant_id = v_mid;
-  DELETE FROM public.fraud_events WHERE merchant_id = v_mid;
-  DELETE FROM public.agent_tasks WHERE merchant_id = v_mid;
-  DELETE FROM public.audit_logs WHERE merchant_id = v_mid;
-  DELETE FROM public.redemptions WHERE deal_id = v_did;
-  DELETE FROM public.deals WHERE id = v_did;
-  DELETE FROM public.merchants WHERE id = v_mid;
-  DELETE FROM public.users WHERE id IN (v_uid, v_owner_uid);
+  DELETE FROM public.merchant_transactions WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.guardian_events WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.fraud_events WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.agent_tasks WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.audit_logs WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.tier_flags WHERE merchant_id = ANY(v_mids);
+  DELETE FROM public.redemptions WHERE deal_id = ANY(v_dids);
+  DELETE FROM public.deals WHERE id = ANY(v_dids);
+  DELETE FROM public.merchants WHERE id = ANY(v_mids);
+  DELETE FROM public.users WHERE id = v_uid OR id = ANY(v_owner_uids);
 
-  RAISE NOTICE 'Scenario F+I passed: 15:00 inclusive boundary, historical NULL never eligible, gate respected';
+  RAISE NOTICE 'Scenario F passed: arrival-time 15:00 inclusive boundary, late arrival still checked in, historical NULL never eligible';
+END $$;
+
+-- Scenario I: qualification is decided AT ARRIVAL and is immutable in both
+-- directions. I1 is THE retroactivity regression: an arrival made while the
+-- feature was OFF must never earn points, however the gate moves afterwards
+-- and however many times the shopper re-scans. I2 is the mirror rule: an
+-- arrival that qualified while the feature was ON keeps its earned
+-- eligibility through a later gate-OFF, all the way through the REAL
+-- verify_redemption to the award.
+DO $$
+DECLARE
+  v_auth        UUID := gen_random_uuid();
+  v_owner_auth1 UUID := gen_random_uuid();
+  v_owner_auth2 UUID := gen_random_uuid();
+  v_uid         UUID;
+  v_owner_uid1  UUID;
+  v_owner_uid2  UUID;
+  v_mid1        UUID;
+  v_mid2        UUID;
+  v_d1          UUID;
+  v_d2          UUID;
+  v_r1          UUID;
+  v_r2          UUID;
+  v_otp1        TEXT;
+  v_otp2        TEXT;
+  v_eligible    BOOLEAN;
+  v_first       BOOLEAN;
+  v_awarded     BOOLEAN;
+  v_points      INT;
+  v_rows        INT;
+BEGIN
+  -- Two merchant/deal pairs: the tier trigger allows a standard merchant
+  -- only one active deal, so I1 and I2 each get their own shop.
+  INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_auth) RETURNING id INTO v_uid;
+  INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth1) RETURNING id INTO v_owner_uid1;
+  INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth2) RETURNING id INTO v_owner_uid2;
+  INSERT INTO public.merchants (user_id, merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+    VALUES (v_owner_uid1, '__test_fast_visit_i1', 'fast.visit.iw1', '+254700000287', 'BBS Mall', 'active', TRUE, 500)
+    RETURNING id INTO v_mid1;
+  INSERT INTO public.merchants (user_id, merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
+    VALUES (v_owner_uid2, '__test_fast_visit_i2', 'fast.visit.iw2', '+254700000288', 'BBS Mall', 'active', TRUE, 500)
+    RETURNING id INTO v_mid2;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid1, '__test fv retroactivity', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_d1;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid2, '__test fv earned survives', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_d2;
+
+  -- I1: gate OFF -> claim -> immediate (in-window) arrival.
+  UPDATE public.app_config SET value = 'false' WHERE key = 'fast_visit_enabled';
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
+  SELECT redemption_id, otp_code INTO v_r1, v_otp1 FROM public.claim_deal(v_uid, v_d1);
+  SELECT fast_visit_eligible, first_arrival INTO v_eligible, v_first
+    FROM public.record_shopper_arrival(v_uid, v_mid1, v_r1);
+  ASSERT v_first, 'I1: the gate-OFF arrival is still a normal recorded check-in';
+  ASSERT NOT v_eligible, 'I1: an arrival while the feature is OFF must not be eligible';
+  ASSERT (SELECT arrived_at FROM public.redemptions WHERE id = v_r1) IS NOT NULL,
+    'I1: the gate-OFF arrival must still stamp arrived_at (queue evidence)';
+  ASSERT (SELECT fast_visit_qualified_at FROM public.redemptions WHERE id = v_r1) IS NULL,
+    'I1: the gate-OFF arrival must persist NO qualification';
+
+  -- The founder turns the feature ON. The old arrival must not upgrade —
+  -- not by itself, and not through a re-scan inside the original window.
+  UPDATE public.app_config SET value = 'true' WHERE key = 'fast_visit_enabled';
+  SELECT fast_visit_eligible, first_arrival INTO v_eligible, v_first
+    FROM public.record_shopper_arrival(v_uid, v_mid1, v_r1);
+  ASSERT NOT v_first, 'I1: the re-scan after the gate flip is not a first arrival';
+  ASSERT NOT v_eligible, 'I1: a re-scan after the gate turns ON must not upgrade the verdict';
+  ASSERT (SELECT fast_visit_qualified_at FROM public.redemptions WHERE id = v_r1) IS NULL,
+    'I1: the persisted verdict must stay NULL through the gate flip and the re-scan';
+
+  -- Staff verify through the REAL money path; the award must still refuse.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_owner_auth1::text, 'role', 'authenticated')::text, true);
+  PERFORM public.verify_redemption(v_mid1, v_otp1, 'test-device');
+  SELECT awarded INTO v_awarded FROM public.award_fast_visit_points(v_r1);
+  ASSERT NOT v_awarded,
+    'I1: REGRESSION — turning fast_visit_enabled ON must not retroactively qualify a gate-OFF arrival';
+  SELECT count(*) INTO v_rows FROM public.reward_events WHERE redemption_id = v_r1;
+  ASSERT v_rows = 0, 'I1: no ledger row may exist for the gate-OFF arrival';
+
+  -- I2: gate ON -> claim -> qualifying arrival -> gate OFF -> verify -> award.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_auth::text, 'role', 'authenticated')::text, true);
+  SELECT redemption_id, otp_code INTO v_r2, v_otp2 FROM public.claim_deal(v_uid, v_d2);
+  SELECT fast_visit_eligible INTO v_eligible
+    FROM public.record_shopper_arrival(v_uid, v_mid2, v_r2);
+  ASSERT v_eligible, 'I2: an in-window arrival with the gate ON must qualify';
+
+  UPDATE public.app_config SET value = 'false' WHERE key = 'fast_visit_enabled';
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_owner_auth2::text, 'role', 'authenticated')::text, true);
+  PERFORM public.verify_redemption(v_mid2, v_otp2, 'test-device');
+  SELECT awarded, points INTO v_awarded, v_points FROM public.award_fast_visit_points(v_r2);
+  ASSERT v_awarded,
+    'I2: earned eligibility must survive the gate turning OFF before verification';
+  ASSERT v_points = 50, format('I2: the earned award pays the configured 50 points, got %s', v_points);
+  SELECT count(*) INTO v_rows FROM public.reward_events WHERE redemption_id = v_r2;
+  ASSERT v_rows = 1, 'I2: exactly one ledger row for the earned award';
+
+  UPDATE public.app_config SET value = 'true' WHERE key = 'fast_visit_enabled';
+  DELETE FROM public.reward_events WHERE user_id = v_uid;
+  DELETE FROM public.merchant_transactions WHERE merchant_id IN (v_mid1, v_mid2);
+  DELETE FROM public.guardian_events WHERE merchant_id IN (v_mid1, v_mid2);
+  DELETE FROM public.fraud_events WHERE merchant_id IN (v_mid1, v_mid2);
+  DELETE FROM public.agent_tasks WHERE merchant_id IN (v_mid1, v_mid2);
+  DELETE FROM public.audit_logs WHERE merchant_id IN (v_mid1, v_mid2);
+  DELETE FROM public.redemptions WHERE deal_id IN (v_d1, v_d2);
+  DELETE FROM public.deals WHERE id IN (v_d1, v_d2);
+  DELETE FROM public.merchants WHERE id IN (v_mid1, v_mid2);
+  DELETE FROM public.users WHERE id IN (v_uid, v_owner_uid1, v_owner_uid2);
+
+  RAISE NOTICE 'Scenario I passed: gate-OFF arrivals never retro-qualify (I1); earned eligibility survives gate-OFF (I2)';
 END $$;
 
 -- Restore the seeded (dark) state.

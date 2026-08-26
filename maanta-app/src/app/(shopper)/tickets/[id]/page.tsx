@@ -29,6 +29,8 @@ type Row = {
   claimed_at: string | null;
   /** Server-stamped by record_shopper_arrival; NULL = no MAANTA check-in. */
   arrived_at: string | null;
+  /** The immutable arrival-time Fast Visit verdict; NULL = did not qualify. */
+  fast_visit_qualified_at: string | null;
   amount_kes: number | null;
   deals: {
     id: string;
@@ -71,7 +73,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, claimed_at, arrived_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, claimed_at, arrived_at, fast_visit_qualified_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -256,6 +258,7 @@ export default async function TicketPage({
           <FastVisitPanel
             claimedAt={ticket.claimed_at}
             arrivedAt={ticket.arrived_at}
+            qualifiedAt={ticket.fast_visit_qualified_at}
           />
         </div>
       ) : null}

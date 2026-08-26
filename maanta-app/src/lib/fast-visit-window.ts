@@ -8,11 +8,16 @@
  * window is a REWARD window only — it is not claim expiry, not deal expiry,
  * not a redemption deadline. When it lapses the claim continues normally.
  *
- * The AUTHORITATIVE boundary lives in the database
- * (`award_fast_visit_points`: arrived_at <= claimed_at + 15 minutes, both
- * server-stamped). Everything here is presentation of the same rule — a
- * shopper's device clock can change what their screen shows, never what the
- * server awards.
+ * The AUTHORITATIVE qualification is decided in the database AT ARRIVAL by
+ * `record_shopper_arrival` (feature gate ON at that instant, claim time
+ * known, arrival <= claimed_at + 15 minutes, both server-stamped) and
+ * persisted as `redemptions.fast_visit_qualified_at` — immutable once
+ * written. Surfaces that state whether an arrival QUALIFIED read that
+ * persisted fact; nothing client-side re-derives it from raw timestamps,
+ * because timestamps alone cannot know whether the feature was on when the
+ * shopper walked in. Everything here is presentation only — a shopper's
+ * device clock can change what their screen shows, never what the server
+ * awards.
  */
 
 export const FAST_VISIT_WINDOW_MINUTES = 15;
@@ -25,22 +30,6 @@ export function fastVisitDeadline(claimedAt: string | null | undefined): Date | 
   const t = new Date(claimedAt).getTime();
   if (!Number.isFinite(t)) return null;
   return new Date(t + WINDOW_MS);
-}
-
-/**
- * Mirror of the award RPC's qualification test: arrival at or before
- * claim + 15:00 qualifies (inclusive); later does not; an unknown claim time
- * (historical rows, deliberately never backfilled) never qualifies.
- */
-export function isFastVisitEligible(
-  claimedAt: string | null | undefined,
-  arrivedAt: string | null | undefined
-): boolean {
-  if (!claimedAt || !arrivedAt) return false;
-  const claimed = new Date(claimedAt).getTime();
-  const arrived = new Date(arrivedAt).getTime();
-  if (!Number.isFinite(claimed) || !Number.isFinite(arrived)) return false;
-  return arrived <= claimed + WINDOW_MS;
 }
 
 /** "8m 17s" / "45s" — how fast the shopper actually was. */

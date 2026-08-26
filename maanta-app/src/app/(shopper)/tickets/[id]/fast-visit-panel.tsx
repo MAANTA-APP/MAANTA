@@ -6,7 +6,6 @@ import {
   fastVisitDeadline,
   formatArrivalDuration,
   formatRewardCountdown,
-  isFastVisitEligible,
 } from "@/lib/fast-visit-window";
 
 /**
@@ -20,16 +19,22 @@ import {
  *   says "Reward window ended" and nothing that sounds like the code died.
  * - A late arrival renders NOTHING — a shopper who missed the window gets the
  *   normal claim experience, not a failure message.
- * - Presentation only: eligibility and points are decided by the database
- *   from server-stamped timestamps (`award_fast_visit_points`); a device
- *   clock can change this display, never the award.
+ * - Presentation only: qualification was decided by the database AT ARRIVAL
+ *   (`record_shopper_arrival`, persisted as `fast_visit_qualified_at`) and
+ *   points by `award_fast_visit_points` after staff verify; a device clock
+ *   can change this display, never the award. `qualifiedAt` is that
+ *   persisted verdict — this panel never re-derives it from timestamps,
+ *   which cannot know whether the feature was on when the shopper arrived.
  */
 export function FastVisitPanel({
   claimedAt,
   arrivedAt,
+  qualifiedAt,
 }: {
   claimedAt: string | null;
   arrivedAt: string | null;
+  /** redemptions.fast_visit_qualified_at — the immutable arrival-time verdict. */
+  qualifiedAt: string | null;
 }) {
   const deadline = fastVisitDeadline(claimedAt);
   const [now, setNow] = useState(() => Date.now());
@@ -45,10 +50,11 @@ export function FastVisitPanel({
   // Historical claim with no recorded claim time: no window ever existed.
   if (!deadline || !claimedAt) return null;
 
-  // Arrived. Within the window: confirm it. Late: normal claim experience —
-  // nothing to say, and nothing that could read as failure.
+  // Arrived. Qualified (per the persisted arrival-time verdict): confirm it.
+  // Not qualified — late, or the feature was off when they walked in: normal
+  // claim experience, nothing to say, nothing that could read as failure.
   if (arrivedAt) {
-    if (!isFastVisitEligible(claimedAt, arrivedAt)) return null;
+    if (!qualifiedAt) return null;
     return (
       <div className="w-full rounded-card bg-white px-4 py-3.5 shadow-card">
         <div className="flex items-center justify-center gap-1.5">
