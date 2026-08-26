@@ -140,6 +140,9 @@ export const NON_INDEXABLE_PREFIXES = [
   "/notifications",
   "/profile",
   "/you",
+  // Counter-QR landing (/qr/<token>) — a physical-scan destination, never
+  // content a crawler should index or a search result should surface.
+  "/qr",
   // Auth entry points and the rehearsal index.
   "/login",
   "/sign-up",

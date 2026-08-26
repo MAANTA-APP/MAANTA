@@ -195,6 +195,45 @@ export function captureGuardianOutcome(args: {
 }
 
 /**
+ * A shopper's physical arrival was recorded via a merchant counter-QR
+ * check-in (record_shopper_arrival). Attributed to the shopper's app user id
+ * — the check-in route runs under the shopper's session but the analytics
+ * layer never sees a Clerk id there. Call with `void` — best-effort.
+ */
+export function captureMerchantArrivalRecorded(args: {
+  userId: string;
+  redemptionId: string;
+  merchantId: string;
+  fastVisitEligible: boolean;
+  firstArrival: boolean;
+  node?: string | null;
+}): Promise<void> {
+  return captureServerEvent("merchant_arrival_recorded", args.userId, {
+    redemption_id: args.redemptionId,
+    merchant_id: args.merchantId,
+    fast_visit_eligible: args.fastVisitEligible,
+    first_arrival: args.firstArrival,
+    node: resolveNode(args.node),
+  });
+}
+
+/** A shopper joined (or renewed their spot in) a merchant's counter queue. */
+export function captureShopperQueueJoined(args: {
+  userId: string;
+  redemptionId: string;
+  merchantId: string;
+  renewed: boolean;
+  node?: string | null;
+}): Promise<void> {
+  return captureServerEvent("shopper_queue_joined", args.userId, {
+    redemption_id: args.redemptionId,
+    merchant_id: args.merchantId,
+    renewed: args.renewed,
+    node: resolveNode(args.node),
+  });
+}
+
+/**
  * A Fast Visit reward was awarded — exactly once per redemption, after staff
  * verification (see award_fast_visit_points). Attributed to the shopper's app
  * user id: the verify path runs under the MERCHANT's session, so there is no

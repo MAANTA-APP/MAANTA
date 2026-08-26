@@ -51,13 +51,24 @@ export function RedeemKeypad({
   balance: initialBalance,
   fee,
   canVerify,
+  prefillCode,
 }: {
   balance: number;
   fee: number;
   canVerify: boolean;
+  /**
+   * A code handed over by the shopper-queue panel (staff tapped a checked-in
+   * shopper). Seeding the SAME state the keys write means the existing
+   * auto-resolve effect fires and the flow is IDENTICAL from preflight
+   * onward — fee disclosure, explicit Confirm, one money path. The parent
+   * keys this component by prefillCode so a new tap remounts cleanly.
+   */
+  prefillCode?: string;
 }) {
   const router = useRouter();
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() =>
+    prefillCode && /^\d{6}$/.test(prefillCode) ? prefillCode : ""
+  );
   const [screen, setScreen] = useState<Screen>({ kind: "keypad" });
   const [balance, setBalance] = useState(initialBalance);
   const [countdown, setCountdown] = useState(3);
