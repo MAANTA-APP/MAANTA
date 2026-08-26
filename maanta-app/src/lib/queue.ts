@@ -29,6 +29,25 @@ export function staffFacingName(fullName: string | null | undefined): string {
   return `${first} ${lastInitial}.`;
 }
 
+/**
+ * The check-in worth resuming on a fresh scan: the shopper's waiting queue
+ * row, but ONLY while its claim is still one of their live (pending,
+ * unexpired) claims at this merchant. A row whose claim has since been
+ * redeemed or expired is dead weight — the staff list already drops it via
+ * the redemption join, and treating it as "already checked in" would lock
+ * the shopper out of checking in their NEXT claim within the queue TTL
+ * (Codex P2 on PR #277).
+ */
+export function liveWaitingRedemptionId(
+  liveClaims: ReadonlyArray<{ redemptionId: string }>,
+  waitingRedemptionId: string | null | undefined
+): string | null {
+  if (!waitingRedemptionId) return null;
+  return liveClaims.some((c) => c.redemptionId === waitingRedemptionId)
+    ? waitingRedemptionId
+    : null;
+}
+
 /** One row of the staff queue — the COMPLETE payload staff ever see. */
 export type QueueEntry = {
   id: string;

@@ -16,21 +16,33 @@ import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
  *
  * Polls (§31): plain fetch on an 8s interval — a counter on mall wifi must
  * not depend on a websocket staying up, and a missed poll just means the
- * next one catches up. Errors keep the last good list rather than blanking
- * a screen staff are actively working from.
+ * next one catches up. AFTER a successful load, errors keep the last good
+ * list rather than blanking a screen staff are actively working from. But
+ * until the FIRST load succeeds, a failure is not "empty" — rendering
+ * nothing would tell staff nobody is queued while checked-in shoppers wait
+ * (the D164/D185 rule: a failed read must never look like a real zero), so
+ * that state says so in one muted line and keeps retrying on the same poll.
  */
 export function QueuePanel() {
   const router = useRouter();
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/queue", { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setLoadFailed(true);
+        return;
+      }
       const body = await res.json();
-      if (Array.isArray(body?.entries)) setEntries(body.entries);
+      if (Array.isArray(body?.entries)) {
+        setEntries(body.entries);
+        setLoadFailed(false);
+      }
     } catch {
-      // keep the last good list
+      // keep the last good list; remember that we have none yet
+      setLoadFailed(true);
     }
   }, []);
 
@@ -52,6 +64,17 @@ export function QueuePanel() {
     },
     [load]
   );
+
+  // Never loaded AND the last attempt failed: an honest one-liner, not a
+  // silent nothing. Once any load has succeeded, quiet degradation resumes.
+  if (entries === null && loadFailed) {
+    return (
+      <p className="border-b border-line bg-stone px-4 py-2 text-xs text-muted">
+        Couldn&apos;t load the shopper queue — retrying. The keypad works as
+        usual.
+      </p>
+    );
+  }
 
   if (!entries || entries.length === 0) return null;
 

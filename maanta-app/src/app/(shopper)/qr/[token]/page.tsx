@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser } from "@/lib/data";
 import { ButtonLink } from "@/components/ui/button";
 import { QrCheckIn } from "./qr-check-in";
+import { liveWaitingRedemptionId } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,11 @@ export default async function QrLandingPage({
     dealTitle: row.deals?.title ?? "Deal",
   }));
 
+  // The queue row alone is not enough: its claim must still be live, or a
+  // shopper who redeemed one claim and re-scans inside the queue TTL to use
+  // another would be shown "already checked in" for the dead one and locked
+  // out of the fresh check-in (the staff list drops it via the redemption
+  // join; this lookup must agree).
   const { data: waiting } = await service
     .from("merchant_presentations")
     .select("redemption_id")
@@ -100,6 +106,10 @@ export default async function QrLandingPage({
     .eq("status", "waiting")
     .gt("expires_at", nowIso)
     .maybeSingle<{ redemption_id: string }>();
+  const alreadyCheckedInFor = liveWaitingRedemptionId(
+    claims,
+    waiting?.redemption_id
+  );
 
   return (
     <main className="px-5 pb-10 pt-8">
@@ -109,7 +119,7 @@ export default async function QrLandingPage({
         merchantName={merchant.merchant_name}
         merchantFloor={merchant.floor}
         claims={claims}
-        alreadyCheckedInFor={waiting?.redemption_id ?? null}
+        alreadyCheckedInFor={alreadyCheckedInFor}
       />
     </main>
   );
