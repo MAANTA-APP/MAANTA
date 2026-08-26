@@ -268,8 +268,8 @@ because this session could not open one.
 |---|---|---|
 | Production | live | founder-verified — no browser in this session |
 | DB ledger | **102/102**, tail `20260824130000` | measured; full version+name diff vs `supabase/migrations/` |
-| Demo marketplace | **OFF** | measured — `is_demo_mode()` false |
-| Public genuine deals | **0** | measured — `deals_public_browse` |
+| Demo marketplace | ~~OFF~~ → **ON again 2026-08-26 by founder ruling** | measured; see the addendum below |
+| Public genuine deals | **0** genuine (253 synthetic visible while demo is on) | measured |
 | Internal merchant records | **2**, excluded from field evidence | measured — `bf66a041`, `67fe233d` (**D184**) |
 | External merchant validations | **0** | by construction — no genuine merchant exists yet |
 | Internal `success` redemptions | 1 | measured — technical evidence only (**D174**) |
@@ -325,3 +325,35 @@ observation checklist, not a script. A discrepancy between the browser and the
 documentation *is* the finding.
 
 Claude Code wakes only for a demonstrated field blocker.
+
+
+---
+
+## Addendum — 2026-08-26, one day later
+
+The freeze state above was accurate when written. Two things changed overnight
+and both are recorded rather than quietly corrected.
+
+**1. Demo mode is ON again, deliberately.** Founder ruling 2026-08-26: with no
+genuine supply, an empty marketplace shows a prospect nothing, so the
+marketplace doubles as a sales-demonstration surface. This **qualifies** the
+2026-08-24 clearing ruling; it does not delete its reasoning. Production now
+serves **253 synthetic deals, 0 genuine**. **Demo mode must still be OFF for
+Merchant 01's own onboarding and Shopper 01's claim.**
+
+**2. A prospect claimed a synthetic deal, and the database could not tell.**
+Redemption `aa1f74b1`, 2026-08-25 16:17 UTC, against demo merchant "Pepper Pot",
+tagged `is_demo = false`, expired unredeemed (**D189**).
+
+That led to the finding worth carrying forward (**D188**): **`claim_deal` never
+sets `redemptions.is_demo`**, so it takes the table default and *every* claim
+made through the product is tagged non-demo. Of 6 non-demo redemptions, 1 has a
+non-demo merchant and **5 are claims against demo merchants** — meaning the "5
+real redemptions" this document and its predecessors cited were 1 internal E2E
+`success` plus 4 demo-merchant claims. Count field evidence by joining through
+the merchant *and* the deal, never on the flag alone.
+
+**Unchanged by any of it:** external field validation is still **0**; the
+internal counter is still **1**; and the D164 migration is now confirmed correct
+in the wild — 402 redemptions, **401 still NULL**, exactly 1 stamped, that one
+being the new claim. No history was fabricated.
