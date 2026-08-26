@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureAppUser } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -16,11 +15,14 @@ import {
  * matters is re-derived server-side:
  *  - the merchant comes from the TOKEN, never from the request body, so
  *    "arrival at merchant A" can only ever land on a claim held at A;
- *  - the arrival itself goes through `record_shopper_arrival` on the
- *    AUTHENTICATED client (anon key + session JWT) — the RPC enforces that
- *    the caller owns the claim, the merchant matches, and the claim is
- *    pending and unexpired. Switching this to the service client would
- *    silently disable that check (the verify-route lesson) — don't.
+ *  - the arrival goes through `record_shopper_arrival` on the SERVICE
+ *    client: the RPC is deliberately not executable by authenticated
+ *    (Codex P1 — a direct client call would stamp an arrival without the
+ *    scanned token this route just validated), so THIS ROUTE is the only
+ *    door, and the token check above is what it evidences. The RPC still
+ *    enforces claim ownership against p_user_id, the merchant match, and
+ *    pending/unexpired — which is why p_user_id below MUST stay the
+ *    session-derived appUser.id and never anything from the request body;
  *  - the queue row is written with server-derived ids only, after the RPC
  *    has already vouched for the claim.
  *
@@ -95,9 +97,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Arrival — authenticated client, so the RPC's caller check is live.
-  const supabase = createClient();
-  const { data: arrival, error } = await supabase
+  // Arrival — service client (the RPC is server-only; see the header
+  // comment). p_user_id is the session-derived app user, never the body.
+  const { data: arrival, error } = await service
     .rpc("record_shopper_arrival", {
       p_user_id: appUser.id,
       p_merchant_id: merchant.id,

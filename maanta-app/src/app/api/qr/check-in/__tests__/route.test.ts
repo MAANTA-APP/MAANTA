@@ -34,20 +34,20 @@ vi.mock("@/lib/analytics", () => ({
   },
 }));
 
-// Authenticated client — the arrival RPC.
+// The arrival RPC rides the SERVICE client (server-only since Codex P1 —
+// authenticated cannot execute it, so this route is the only door and the
+// token check is what it evidences).
 const rpcSingle = vi.fn();
 const rpc = vi.fn(() => ({ single: rpcSingle }));
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: () => ({ rpc }),
-}));
 
-// Service client — token resolve + queue rows.
+// Service client — arrival RPC + token resolve + queue rows.
 let merchantRow: Record<string, unknown> | null;
 let waitingRow: { id: string; expires_at: string } | null;
 const queueInsert = vi.fn(() => Promise.resolve({ error: null }));
 const queueUpdateEqs = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
+    rpc,
     from: (table: string) => {
       if (table === "merchants") {
         return {
