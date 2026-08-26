@@ -86,8 +86,9 @@ COMMENT ON TABLE public.merchant_presentations IS
   'expires_at (no cron), shoppers cancel their own, staff dismiss without '
   'affecting the claim, and verified tickets drop out via the join to the '
   'live redemption. fast_visit_eligible is a display snapshot for the staff '
-  'list; the award re-derives eligibility from redemptions at award time. '
-  '2026-08-26.';
+  'list of the persisted arrival-time verdict '
+  '(redemptions.fast_visit_qualified_at, immutable — D191); the award '
+  'requires that same persisted fact. 2026-08-26.';
 
 -- One live check-in per claim; cancelled/dismissed rows free the slot so a
 -- fresh check-in (still-valid claim, expired entry) can be taken.
