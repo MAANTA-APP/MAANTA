@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { subscribeQueueCode } from "@/lib/queue-code-handoff";
+import {
+  publishRedemptionCompleted,
+  subscribeQueueCode,
+} from "@/lib/queue-code-handoff";
 import { NumericKeypad } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { FeeDisclosure } from "@/components/ui/fee-disclosure";
@@ -188,6 +191,9 @@ export function RedeemKeypad({
               hour12: true,
             })
           : null;
+      // Tell the queue panel to drop the shopper it just served, rather than
+      // leaving them listed and tappable until its next poll (D202).
+      publishRedemptionCompleted();
       setScreen({
         kind: "success",
         newBalance: typeof body.newBalance === "number" ? body.newBalance : null,

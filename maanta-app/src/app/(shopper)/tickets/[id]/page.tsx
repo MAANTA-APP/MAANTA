@@ -110,14 +110,24 @@ export default async function TicketPage({
     let rewardPoints: number | null = null;
     let rewardBalance: number | null = null;
     try {
-      await service.rpc("award_fast_visit_points", {
+      // PostgREST failures RESOLVE as `{ error }` rather than throwing, so the
+      // catch below never sees them — log here or a backstop that has quietly
+      // stopped backstopping is indistinguishable from "this shopper did not
+      // qualify". Same trap the verify route documents. D198.
+      const { error: awardError } = await service.rpc("award_fast_visit_points", {
         p_redemption_id: ticket.id,
       });
-      const { data: rewardRow } = await service
+      if (awardError) {
+        console.error("award_fast_visit_points (ticket self-heal) failed:", awardError.code);
+      }
+      const { data: rewardRow, error: rewardError } = await service
         .from("reward_events")
         .select("points")
         .eq("redemption_id", ticket.id)
         .maybeSingle<{ points: number }>();
+      if (rewardError) {
+        console.error("reward_events read failed:", rewardError.code);
+      }
       if (rewardRow) {
         rewardPoints = rewardRow.points;
         const { data: all } = await service
@@ -224,6 +234,13 @@ export default async function TicketPage({
   // The Fast Visit reward window renders only while the feature gate is on
   // (app_config.fast_visit_enabled — dark until merchant counter QRs exist at
   // Node 0), and always BELOW the code: the reward is secondary to the credential.
+  // The panel renders while the gate is ON **or** whenever this arrival
+  // already qualified. Gating on the CURRENT flag alone erased an
+  // already-earned confirmation the moment the founder flipped the lever —
+  // while `award_fast_visit_points` still pays, because it deliberately
+  // never re-reads the gate. The migration states the invariant ("earned
+  // eligibility is never erased") and /you/page.tsx already honours it; this
+  // screen did not. D196.
   const fastVisitOn = await isFastVisitEnabled();
   return (
     <main className="flex flex-col items-center px-5 pb-10 pt-4">
@@ -253,7 +270,7 @@ export default async function TicketPage({
         <ClaimedCode code={ticket.otp_code} expiresAt={ticket.expires_at} />
       </div>
 
-      {fastVisitOn ? (
+      {fastVisitOn || ticket.fast_visit_qualified_at ? (
         <div className="mt-3 w-full">
           <FastVisitPanel
             claimedAt={ticket.claimed_at}

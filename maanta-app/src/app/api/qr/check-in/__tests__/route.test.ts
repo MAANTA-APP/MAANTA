@@ -45,6 +45,8 @@ let merchantRow: Record<string, unknown> | null;
 let waitingRow: { id: string; expires_at: string } | null;
 /** Rows the renew UPDATE matched — empty means it lost a race (D195). */
 let renewMatched: Array<{ id: string }>;
+/** Payloads passed to .update(), so a test can assert what was written. */
+const queueUpdatePayloads: unknown[] = [];
 const queueInsert = vi.fn(() => Promise.resolve({ error: null }));
 const queueUpdateEqs = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
@@ -75,8 +77,9 @@ vi.mock("@/lib/supabase/service", () => ({
         updating ? Promise.resolve({ data: renewMatched, error: null }) : chain;
       chain.maybeSingle = () => Promise.resolve({ data: waitingRow, error: null });
       chain.insert = queueInsert;
-      chain.update = () => {
+      chain.update = (payload: unknown) => {
         updating = true;
+        queueUpdatePayloads.push(payload);
         return chain;
       };
       return chain;
@@ -85,6 +88,12 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 
 const TOKEN = "a".repeat(32);
+/** Real UUID shape — the route shape-checks the id before the RPC (D199). */
+const RID = "11111111-2222-4333-8444-555555555555";
+/** A live (unlapsed) queue entry. */
+const FUTURE = new Date(Date.now() + 5 * 60_000).toISOString();
+/** A lapsed one. */
+const PAST = new Date(Date.now() - 5 * 60_000).toISOString();
 
 function req(body: unknown, method = "POST") {
   return new Request("http://localhost/api/qr/check-in", {
@@ -106,6 +115,7 @@ describe("POST /api/qr/check-in", () => {
     };
     waitingRow = null;
     renewMatched = [{ id: "p-1" }];
+    queueUpdatePayloads.length = 0;
     rpcSingle.mockResolvedValue({
       data: {
         arrived_at: "2026-08-26T12:08:00.000Z",
@@ -118,13 +128,13 @@ describe("POST /api/qr/check-in", () => {
 
   it("records arrival at the TOKEN's merchant — never a body-supplied one", async () => {
     const res = await POST(
-      req({ token: TOKEN, redemptionId: "red-1", merchantId: "evil-merchant" })
+      req({ token: TOKEN, redemptionId: RID, merchantId: "evil-merchant" })
     );
     expect(res.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith("record_shopper_arrival", {
       p_user_id: "user-1",
       p_merchant_id: "merchant-token-1",
-      p_redemption_id: "red-1",
+      p_redemption_id: RID,
     });
     const body = await res.json();
     expect(body.checkedIn).toBe(true);
@@ -134,7 +144,7 @@ describe("POST /api/qr/check-in", () => {
 
   it("answers identically for a wrong token and a non-active shop", async () => {
     merchantRow = null;
-    const wrong = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    const wrong = await POST(req({ token: TOKEN, redemptionId: RID }));
     merchantRow = {
       id: "m",
       merchant_name: "x",
@@ -143,7 +153,7 @@ describe("POST /api/qr/check-in", () => {
       is_visible: true,
       is_shadow_banned: false,
     };
-    const suspended = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    const suspended = await POST(req({ token: TOKEN, redemptionId: RID }));
     expect(wrong.status).toBe(404);
     expect(suspended.status).toBe(404);
     expect((await wrong.json()).code).toBe("shop_not_found");
@@ -159,15 +169,15 @@ describe("POST /api/qr/check-in", () => {
     ];
     for (const [message, status, code] of cases) {
       rpcSingle.mockResolvedValue({ data: null, error: { message } });
-      const res = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+      const res = await POST(req({ token: TOKEN, redemptionId: RID }));
       expect(res.status, message).toBe(status);
       expect((await res.json()).code, message).toBe(code);
     }
   });
 
   it("renews an existing waiting entry instead of inserting a duplicate", async () => {
-    waitingRow = { id: "p-1", expires_at: "2026-08-26T12:15:00.000Z" };
-    const res = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    waitingRow = { id: "p-1", expires_at: FUTURE };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
     const body = await res.json();
     expect(body.renewed).toBe(true);
     expect(queueInsert).not.toHaveBeenCalled();
@@ -177,23 +187,60 @@ describe("POST /api/qr/check-in", () => {
     // Staff dismissed the entry (or the shopper cancelled in another tab)
     // between the select and the update, so the renew matches zero rows. The
     // shopper must end up really queued, not merely told that they are.
-    waitingRow = { id: "p-1", expires_at: "2026-08-26T12:15:00.000Z" };
+    waitingRow = { id: "p-1", expires_at: FUTURE };
     renewMatched = [];
-    const res = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
     const body = await res.json();
     expect(body.checkedIn).toBe(true);
     expect(body.renewed).toBe(false);
     expect(queueInsert).toHaveBeenCalled();
   });
 
+  it("supersedes a LAPSED entry with a fresh arrival time (D197)", async () => {
+    // Scanned the entrance sticker long ago, the entry lapsed off the staff
+    // list, now scanning the till sticker. Reviving the old row with its
+    // original arrived_at would re-list them as "arrived 40m ago" and sort
+    // them ahead of everyone who checked in since.
+    waitingRow = { id: "p-1", expires_at: PAST };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    const body = await res.json();
+    expect(body.checkedIn).toBe(true);
+    // Superseding a dead entry is a fresh check-in, not a renew.
+    expect(body.renewed).toBe(false);
+    // The update must restamp arrived_at, not just extend the expiry.
+    const payload = queueUpdatePayloads.at(-1) as Record<string, unknown>;
+    expect(payload).toHaveProperty("arrived_at");
+    expect(payload).toHaveProperty("expires_at");
+    // ...and it must not collide with the partial unique index by inserting.
+    expect(queueInsert).not.toHaveBeenCalled();
+  });
+
+  it("extends a LIVE entry without moving its arrival time (D197)", async () => {
+    waitingRow = { id: "p-1", expires_at: FUTURE };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect((await res.json()).renewed).toBe(true);
+    const payload = queueUpdatePayloads.at(-1) as Record<string, unknown>;
+    expect(payload).toHaveProperty("expires_at");
+    expect(
+      payload,
+      "a re-scan by someone already queued is not a new arrival"
+    ).not.toHaveProperty("arrived_at");
+  });
+
+  it("rejects a non-UUID redemption id with 400, not a 500 (D199)", async () => {
+    const res = await POST(req({ token: TOKEN, redemptionId: "abc" }));
+    expect(res.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("refuses a malformed token before touching anything", async () => {
-    const res = await POST(req({ token: "not-a-token", redemptionId: "red-1" }));
+    const res = await POST(req({ token: "not-a-token", redemptionId: RID }));
     expect(res.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("emits arrival + queue analytics attributed to the shopper", async () => {
-    await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    await POST(req({ token: TOKEN, redemptionId: RID }));
     expect(arrivalCapture).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",
@@ -212,6 +259,7 @@ describe("DELETE /api/qr/check-in", () => {
     vi.clearAllMocks();
     waitingRow = null;
     renewMatched = [{ id: "p-1" }];
+    queueUpdatePayloads.length = 0;
   });
 
   it("requires a redemption id", async () => {

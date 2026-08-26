@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
+import { subscribeRedemptionCompleted } from "@/lib/queue-code-handoff";
 import { publishQueueCode } from "@/lib/queue-code-handoff";
 
 /**
@@ -51,7 +52,15 @@ export function QueuePanel() {
   useEffect(() => {
     void load();
     const t = setInterval(() => void load(), QUEUE_POLL_MS);
-    return () => clearInterval(t);
+    // A completed verification drops the served shopper straight away; the
+    // poll alone left them listed and tappable for up to QUEUE_POLL_MS, and
+    // tapping that stale row showed staff a rejection screen for a customer
+    // they had just served (D202).
+    const unsubscribe = subscribeRedemptionCompleted(() => void load());
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [load]);
 
   const dismiss = useCallback(

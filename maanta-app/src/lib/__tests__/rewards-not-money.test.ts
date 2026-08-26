@@ -30,6 +30,43 @@ describe("MAANTA Points are not money", () => {
     });
   }
 
+  it("earned eligibility survives the feature gate being turned off (D196)", () => {
+    // award_fast_visit_points deliberately never re-reads the gate, so a
+    // qualification earned while it was ON still pays. Gating the panel on
+    // the CURRENT flag alone erased the shopper's confirmation the moment
+    // the lever moved, while the award went through — the screen
+    // contradicting the persisted verdict and the money.
+    const src = read("src/app/(shopper)/tickets/[id]/page.tsx");
+    expect(src).toContain("fastVisitOn || ticket.fast_visit_qualified_at");
+    // The sibling surface must keep its equivalent carve-out.
+    const you = read("src/app/(shopper)/you/page.tsx");
+    expect(you).toContain("rewardBalance === null || rewardBalance > 0");
+  });
+
+  it("a reward READ FAILURE never renders as an empty balance (D200)", () => {
+    // `null` means the read failed; `?? 0` collapsed that into "no rewards"
+    // and hid the only link to the page that explains the difference.
+    const you = read("src/app/(shopper)/you/page.tsx");
+    expect(you).not.toContain("(rewardBalance ?? 0) > 0");
+    const rewards = read("src/app/(shopper)/you/rewards/page.tsx");
+    expect(rewards).toContain("this is a read error, not");
+  });
+
+  it("the ticket success reward card renders points, never money (D203)", () => {
+    // This file legitimately contains "KES" (the YOU PAY figure), so it
+    // cannot join REWARD_SURFACES wholesale — the assertion is scoped to the
+    // reward card itself, which sits on the same screen as a money figure
+    // and was the one reward surface no ratchet walked.
+    const src = read("src/app/(shopper)/tickets/[id]/page.tsx");
+    const start = src.indexOf("Fast Visit reward earned");
+    expect(start, "the reward card must still exist on the success screen").toBeGreaterThan(-1);
+    const card = src.slice(start - 400, start + 500);
+    expect(card, "the reward card must not render KES").not.toMatch(/KES/);
+    expect(card, "the reward card must not use the money formatter").not.toMatch(/formatKes/);
+    expect(card, "the reward card must not use amber").not.toContain("text-brand");
+    expect(card).toContain("MAANTA Points");
+  });
+
   it("the rewards page states the no-cash-value rule and offers no cash-out", () => {
     const src = read("src/app/(shopper)/you/rewards/page.tsx");
     expect(src).toContain("no cash value");

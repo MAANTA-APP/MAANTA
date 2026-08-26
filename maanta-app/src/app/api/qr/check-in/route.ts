@@ -34,6 +34,12 @@ import {
 const QR_CHECKIN_RATE_LIMIT = 10;
 const QR_CHECKIN_RATE_WINDOW_SECONDS = 60;
 const TOKEN_SHAPE = /^[0-9a-f]{32}$/;
+// Shape-check the id too. A non-UUID reached the RPC and failed uuid
+// coercion inside PostgREST, whose message matches none of the mapped
+// branches below — so malformed input answered 500 instead of 400 and any
+// signed-in shopper could emit those at the rate-limit ceiling. D199.
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
@@ -53,7 +59,7 @@ export async function POST(request: Request) {
   const token = typeof body.token === "string" ? body.token.trim() : "";
   const redemptionId =
     typeof body.redemptionId === "string" ? body.redemptionId.trim() : "";
-  if (!TOKEN_SHAPE.test(token) || !redemptionId) {
+  if (!TOKEN_SHAPE.test(token) || !UUID_SHAPE.test(redemptionId)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
@@ -157,6 +163,25 @@ export async function POST(request: Request) {
   ).toISOString();
   let renewed = false;
 
+  // The partial UNIQUE index covers EVERY waiting row, lapsed or not, so the
+  // lookup must not filter by expiry — a lapsed row still occupies the slot
+  // and a "fresh insert" would collide with it. Instead, decide by age:
+  //
+  //  - live row   -> extend it, keeping its original arrived_at (a re-scan
+  //                  by someone already in the queue is not a new arrival);
+  //  - lapsed row -> supersede it in place, stamping a NEW arrived_at. It
+  //                  had dropped off the staff list; reviving it with the
+  //                  old timestamp re-listed a shopper who scanned the
+  //                  entrance at 10:00 and reached the till at 10:40 as
+  //                  "arrived 40m ago", sorted ahead of everyone who checked
+  //                  in between — jumping a queue whose whole purpose is
+  //                  oldest-first (on a multi-day deal, "arrived 2d ago").
+  //  - no row     -> insert.
+  //
+  // Every branch confirms what it actually wrote: an entry can be dismissed
+  // or cancelled between the lookup and the write, and answering `checkedIn`
+  // regardless told a shopper they were queued while staff never saw them
+  // (D195). D197.
   const { data: existing } = await service
     .from("merchant_presentations")
     .select("id, expires_at")
@@ -164,22 +189,30 @@ export async function POST(request: Request) {
     .eq("status", "waiting")
     .maybeSingle<{ id: string; expires_at: string }>();
 
+  let queued = false;
   if (existing) {
-    // Check what the renew actually matched. Staff can dismiss the entry (or
-    // the shopper can cancel in another tab) between the select above and
-    // this update, in which case `.eq("status","waiting")` matches nothing —
-    // and answering `checkedIn` regardless told a shopper they were queued
-    // while staff never saw them. A miss falls through to a fresh insert. D195.
-    const { data: renewedRows } = await service
+    const lapsed = new Date(existing.expires_at).getTime() <= nowMs;
+    const { data: written } = await service
       .from("merchant_presentations")
-      .update({ expires_at: expiresAt })
+      .update(
+        lapsed
+          ? {
+              expires_at: expiresAt,
+              arrived_at: new Date(nowMs).toISOString(),
+              fast_visit_eligible: arrival.fast_visit_eligible,
+            }
+          : { expires_at: expiresAt }
+      )
       .eq("id", existing.id)
       .eq("status", "waiting")
       .select("id");
-    renewed = (renewedRows?.length ?? 0) > 0;
+    queued = (written?.length ?? 0) > 0;
+    // Only a still-live entry is a "renew" to the shopper; superseding a
+    // lapsed one is a fresh check-in and reads as one.
+    renewed = queued && !lapsed;
   }
 
-  if (!renewed) {
+  if (!queued) {
     const { error: insertError } = await service
       .from("merchant_presentations")
       .insert({

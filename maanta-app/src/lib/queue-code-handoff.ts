@@ -43,3 +43,33 @@ export function subscribeQueueCode(cb: Listener): () => void {
     if (listener === cb) listener = null;
   };
 }
+
+/**
+ * The reverse channel: the keypad tells the queue panel that a redemption
+ * completed, so the panel can drop the served shopper immediately instead of
+ * waiting out its poll.
+ *
+ * Without it the panel kept a just-redeemed shopper listed and TAPPABLE for
+ * up to a full poll interval, and tapping that stale row produced the
+ * full-screen "Code not valid — Invalid or already-used code" takeover for a
+ * customer staff had served seconds earlier: a frightening screen generated
+ * by the happy path, on every redemption at a queue-using till. Carries no
+ * data — it is a "refresh now" nudge, and the server remains the authority
+ * on who is in the queue. D202.
+ */
+type VoidListener = () => void;
+
+const redeemedListeners = new Set<VoidListener>();
+
+/** Keypad-side: announce that a verification completed. */
+export function publishRedemptionCompleted(): void {
+  for (const cb of Array.from(redeemedListeners)) cb();
+}
+
+/** Panel-side: refresh when a verification completes. Returns unsubscribe. */
+export function subscribeRedemptionCompleted(cb: VoidListener): () => void {
+  redeemedListeners.add(cb);
+  return () => {
+    redeemedListeners.delete(cb);
+  };
+}

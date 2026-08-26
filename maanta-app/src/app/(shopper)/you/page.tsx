@@ -43,7 +43,13 @@ export default async function YouPage() {
     isFastVisitEnabled(),
     getRewardBalance(user.id),
   ]);
-  const showRewards = fastVisitOn || (rewardBalance ?? 0) > 0;
+  // `null` is a READ FAILURE, not an empty balance (fast-visit.ts says so
+  // explicitly). Collapsing it with `?? 0` hid the Rewards row entirely on a
+  // transient error — asserting "you have no rewards" from a failed read,
+  // and removing the one link to the page that would have said otherwise.
+  // The row stays; /you/rewards renders the honest read-error state. D200.
+  const showRewards =
+    fastVisitOn || rewardBalance === null || rewardBalance > 0;
 
   let favouriteNames: string[] = [];
   if (favourites.size > 0) {
