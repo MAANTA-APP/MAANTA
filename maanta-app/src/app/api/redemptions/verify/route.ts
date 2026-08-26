@@ -184,9 +184,17 @@ export async function POST(request: Request) {
   // hiccup must never fail the counter, and the RESPONSE IS UNCHANGED — the
   // shopper's points are not the merchant till's business.
   try {
-    const { data: fastVisit } = await service
+    const { data: fastVisit, error: awardError } = await service
       .rpc("award_fast_visit_points", { p_redemption_id: data.redemption_id })
       .single<{ awarded: boolean; points: number; balance: number }>();
+    if (awardError) {
+      // PostgREST failures resolve as { error } rather than throwing, so the
+      // catch below never sees them — log here or the miss is invisible.
+      // Durability does not depend on this call: a merchant retry of the same
+      // code re-runs the award (the redemption_already_verified path above),
+      // and the ticket success screen self-heals.
+      console.error("award_fast_visit_points errored:", awardError.code);
+    }
     if (fastVisit?.awarded && redemptionRow?.user_id) {
       void captureFastVisitAwarded({
         userId: redemptionRow.user_id,
