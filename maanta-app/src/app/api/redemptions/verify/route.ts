@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
 import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
-import { captureGuardianOutcome } from "@/lib/analytics";
+import { captureFastVisitAwarded, captureGuardianOutcome } from "@/lib/analytics";
 import { maskPhone } from "@/lib/phone-mask";
 
 export async function POST(request: Request) {
@@ -146,6 +146,31 @@ export async function POST(request: Request) {
       .eq("id", redemptionRow.user_id)
       .maybeSingle<{ phone: string | null }>();
     maskedPhone = maskPhone(shopper?.phone);
+  }
+
+  // Fast Visit reward — awarded HERE, at the moment of verification, so the
+  // shopper's points do not depend on them ever reopening the app. The RPC
+  // re-derives every condition from server-stamped timestamps and is
+  // exactly-once by a UNIQUE reference, so a retry, a replay, or the ticket
+  // screen's self-heal call can never double-award. Best-effort: a reward
+  // hiccup must never fail the counter, and the RESPONSE IS UNCHANGED — the
+  // shopper's points are not the merchant till's business.
+  try {
+    const { data: fastVisit } = await service
+      .rpc("award_fast_visit_points", { p_redemption_id: data.redemption_id })
+      .single<{ awarded: boolean; points: number; balance: number }>();
+    if (fastVisit?.awarded && redemptionRow?.user_id) {
+      void captureFastVisitAwarded({
+        userId: redemptionRow.user_id,
+        redemptionId: data.redemption_id,
+        merchantId: merchant.id,
+        dealId: data.deal_id,
+        points: fastVisit.points,
+        node: merchant.node,
+      });
+    }
+  } catch (err) {
+    console.error("award_fast_visit_points failed:", (err as Error)?.name);
   }
 
   // Server-issued verification timestamp. This is the instant the server

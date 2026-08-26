@@ -194,6 +194,30 @@ export function captureGuardianOutcome(args: {
   });
 }
 
+/**
+ * A Fast Visit reward was awarded — exactly once per redemption, after staff
+ * verification (see award_fast_visit_points). Attributed to the shopper's app
+ * user id: the verify path runs under the MERCHANT's session, so there is no
+ * shopper Clerk id in scope — same posture as the webhook-context top-up
+ * events, which attribute by merchant id. Call with `void` — best-effort.
+ */
+export function captureFastVisitAwarded(args: {
+  userId: string;
+  redemptionId: string;
+  merchantId: string;
+  dealId: string | null;
+  points: number;
+  node?: string | null;
+}): Promise<void> {
+  return captureServerEvent("fast_visit_reward_awarded", args.userId, {
+    redemption_id: args.redemptionId,
+    merchant_id: args.merchantId,
+    deal_id: args.dealId,
+    points: args.points,
+    node: resolveNode(args.node),
+  });
+}
+
 /** Shopper successfully starts a deal claim (pre-OTP). */
 export function captureDealClaimed(args: {
   clerkUserId: string;

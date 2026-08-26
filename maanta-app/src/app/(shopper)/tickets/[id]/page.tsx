@@ -10,9 +10,11 @@ import { IconCheck } from "@/components/ui/icons";
 import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
+import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
 import { shopNavigationTarget } from "@/lib/shop-location";
+import { isFastVisitEnabled } from "@/lib/fast-visit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,10 @@ type Row = {
   fraud_flags: string[] | null;
   expires_at: string;
   redeemed_at: string | null;
+  /** DB-stamped at claim (D164); NULL on historical rows, never fabricated. */
+  claimed_at: string | null;
+  /** Server-stamped by record_shopper_arrival; NULL = no MAANTA check-in. */
+  arrived_at: string | null;
   amount_kes: number | null;
   deals: {
     id: string;
@@ -65,7 +71,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, claimed_at, arrived_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -92,6 +98,37 @@ export default async function TicketPage({
 
   // Redemption success — neutral, not celebratory. Money moved; carries a code reference.
   if (ticket.status === "success") {
+    // Fast Visit self-heal + read. The award normally happens in the verify
+    // route the moment staff confirm; calling the idempotent RPC again here
+    // closes the crash window between verify and award (a real UNIQUE
+    // reference makes a double call a no-op, never a double award). Display
+    // reads the ledger row, so an earned reward stays visible even if the
+    // feature gate is later turned off. Best-effort throughout — a reward
+    // read failure must never take down the success screen.
+    let rewardPoints: number | null = null;
+    let rewardBalance: number | null = null;
+    try {
+      await service.rpc("award_fast_visit_points", {
+        p_redemption_id: ticket.id,
+      });
+      const { data: rewardRow } = await service
+        .from("reward_events")
+        .select("points")
+        .eq("redemption_id", ticket.id)
+        .maybeSingle<{ points: number }>();
+      if (rewardRow) {
+        rewardPoints = rewardRow.points;
+        const { data: all } = await service
+          .from("reward_events")
+          .select("points")
+          .eq("user_id", ticket.user_id);
+        rewardBalance = all
+          ? all.reduce((sum, row) => sum + (row.points ?? 0), 0)
+          : null;
+      }
+    } catch {
+      // Points are promotional; the verified redemption is the fact that matters.
+    }
     return (
       <main className="flex min-h-[80dvh] flex-col items-center justify-center px-6 text-center">
         <span className="flex h-16 w-16 items-center justify-center rounded-full border-[1.5px] border-ink bg-white">
@@ -109,6 +146,17 @@ export default async function TicketPage({
           <p className="tnum mt-1 text-sm text-secondary">
             Redeemed {absoluteTimeLabel(ticket.redeemed_at)}
           </p>
+        ) : null}
+        {rewardPoints != null ? (
+          <div className="mt-4 rounded-card bg-white px-4 py-3 shadow-card">
+            <p className="text-sm font-semibold text-ink">
+              Fast Visit reward earned
+            </p>
+            <p className="tnum mt-0.5 text-sm text-secondary">
+              +{rewardPoints} MAANTA Points
+              {rewardBalance != null ? ` · Balance: ${rewardBalance}` : ""}
+            </p>
+          </div>
         ) : null}
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
           <span className="font-code text-xs tracking-[0.06em] text-secondary">
@@ -171,6 +219,10 @@ export default async function TicketPage({
   }
 
   // Pending, live code — the hero (S5). Zero amber actions: the screen IS the credential.
+  // The Fast Visit reward window renders only while the feature gate is on
+  // (app_config.fast_visit_enabled — dark until merchant counter QRs exist at
+  // Node 0), and always BELOW the code: the reward is secondary to the credential.
+  const fastVisitOn = await isFastVisitEnabled();
   return (
     <main className="flex flex-col items-center px-5 pb-10 pt-4">
       <TicketWatcher active />
@@ -198,6 +250,15 @@ export default async function TicketPage({
       <div className="mt-4 w-full">
         <ClaimedCode code={ticket.otp_code} expiresAt={ticket.expires_at} />
       </div>
+
+      {fastVisitOn ? (
+        <div className="mt-3 w-full">
+          <FastVisitPanel
+            claimedAt={ticket.claimed_at}
+            arrivedAt={ticket.arrived_at}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-4 w-full">
         <h1 className="text-xl font-bold leading-tight text-ink">{m.merchant_name}</h1>
