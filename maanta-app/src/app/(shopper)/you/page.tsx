@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/claude";
 import { nodeLabel } from "@/lib/nodes";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getRewardBalance, isFastVisitEnabled } from "@/lib/fast-visit";
 import { LanguageCard, ProfileCard } from "../profile/profile-card";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,14 @@ export default async function YouPage() {
     !prefsError && prefs?.preferred_language === "sw"
       ? ("sw" as const)
       : ("en" as const);
+
+  // Rewards row: shown while the Fast Visit feature is on, and always once a
+  // balance exists — earned points never disappear behind the feature gate.
+  const [fastVisitOn, rewardBalance] = await Promise.all([
+    isFastVisitEnabled(),
+    getRewardBalance(user.id),
+  ]);
+  const showRewards = fastVisitOn || (rewardBalance ?? 0) > 0;
 
   let favouriteNames: string[] = [];
   if (favourites.size > 0) {
@@ -119,6 +128,15 @@ export default async function YouPage() {
 
       <Section title="Settings">
         <div className="space-y-3">
+          {showRewards ? (
+            <SettingsRow
+              href="/you/rewards"
+              label="Rewards"
+              value={
+                rewardBalance != null ? `${rewardBalance} points` : undefined
+              }
+            />
+          ) : null}
           <SettingsRow href="/you/notifications" label="Notifications" />
           <SettingsRow href="/you/help" label="Help & support" />
         </div>

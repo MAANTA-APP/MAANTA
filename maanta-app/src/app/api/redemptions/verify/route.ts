@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireMerchant } from "@/lib/merchant-api";
 import { isValidOtpCode } from "@/lib/otp";
 import { checkRateLimit, OTP_CHECK_RATE_LIMIT, OTP_CHECK_RATE_WINDOW_SECONDS } from "@/lib/rate-limit";
-import { captureGuardianOutcome } from "@/lib/analytics";
+import { captureFastVisitAwarded, captureGuardianOutcome } from "@/lib/analytics";
 import { maskPhone } from "@/lib/phone-mask";
 
 export async function POST(request: Request) {
@@ -71,6 +71,34 @@ export async function POST(request: Request) {
     } else if (message.includes("redemption_already_verified")) {
       status = 409;
       userMessage = "This code has already been redeemed.";
+      // Award repair (Codex P2, 2026-08-26): verify_redemption committed on
+      // an earlier call, so if THAT call died between verify and award the
+      // reward would otherwise wait for the shopper to reopen their ticket.
+      // A merchant retry lands here — re-run the idempotent award for the
+      // most recent success under this code so the retry itself heals the
+      // gap. The UNIQUE reference makes a double call a no-op, and the RPC
+      // pays only a redemption that genuinely holds the persisted
+      // arrival-time qualification, so a wrong or historical row match can
+      // never mint an undeserved award. Best-effort: the 409 is returned
+      // unchanged either way.
+      try {
+        const { data: verified } = await service
+          .from("redemptions")
+          .select("id")
+          .eq("merchant_id", merchant.id)
+          .eq("otp_code", otpCode)
+          .eq("status", "success")
+          .order("redeemed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle<{ id: string }>();
+        if (verified?.id) {
+          await service.rpc("award_fast_visit_points", {
+            p_redemption_id: verified.id,
+          });
+        }
+      } catch {
+        // The ticket success screen's self-heal call remains the backstop.
+      }
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";
@@ -146,6 +174,39 @@ export async function POST(request: Request) {
       .eq("id", redemptionRow.user_id)
       .maybeSingle<{ phone: string | null }>();
     maskedPhone = maskPhone(shopper?.phone);
+  }
+
+  // Fast Visit reward — awarded HERE, at the moment of verification, so the
+  // shopper's points do not depend on them ever reopening the app. The RPC
+  // re-derives every condition from server-stamped timestamps and is
+  // exactly-once by a UNIQUE reference, so a retry, a replay, or the ticket
+  // screen's self-heal call can never double-award. Best-effort: a reward
+  // hiccup must never fail the counter, and the RESPONSE IS UNCHANGED — the
+  // shopper's points are not the merchant till's business.
+  try {
+    const { data: fastVisit, error: awardError } = await service
+      .rpc("award_fast_visit_points", { p_redemption_id: data.redemption_id })
+      .single<{ awarded: boolean; points: number; balance: number }>();
+    if (awardError) {
+      // PostgREST failures resolve as { error } rather than throwing, so the
+      // catch below never sees them — log here or the miss is invisible.
+      // Durability does not depend on this call: a merchant retry of the same
+      // code re-runs the award (the redemption_already_verified path above),
+      // and the ticket success screen self-heals.
+      console.error("award_fast_visit_points errored:", awardError.code);
+    }
+    if (fastVisit?.awarded && redemptionRow?.user_id) {
+      void captureFastVisitAwarded({
+        userId: redemptionRow.user_id,
+        redemptionId: data.redemption_id,
+        merchantId: merchant.id,
+        dealId: data.deal_id,
+        points: fastVisit.points,
+        node: merchant.node,
+      });
+    }
+  } catch (err) {
+    console.error("award_fast_visit_points failed:", (err as Error)?.name);
   }
 
   // Server-issued verification timestamp. This is the instant the server
