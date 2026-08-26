@@ -11,6 +11,7 @@ import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
+import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
 import { shopNavigationTarget } from "@/lib/shop-location";
 
 export const dynamic = "force-dynamic";
@@ -43,15 +44,11 @@ type Row = {
   } | null;
 };
 
-/** HH:MM in 24h local, e.g. "18:15". */
-function hhmm(iso: string | null | undefined) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleTimeString("en-KE", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
+// Wall-clock strings render via `absoluteTimeLabel` (lib/claim-ticket-time):
+// Nairobi time with an honest day word. The private HH:MM helper this page
+// carried formatted in the SERVER's timezone — UTC on Vercel, three hours
+// behind the shopper — and its call sites hardcoded "today", which was false
+// for any code window crossing midnight (D190).
 
 /** S5 claimed code (hero) + verified / expired / flagged states. */
 export default async function TicketPage({
@@ -110,7 +107,7 @@ export default async function TicketPage({
         </p>
         {ticket.redeemed_at ? (
           <p className="tnum mt-1 text-sm text-secondary">
-            Redeemed today {hhmm(ticket.redeemed_at)}
+            Redeemed {absoluteTimeLabel(ticket.redeemed_at)}
           </p>
         ) : null}
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
@@ -189,8 +186,8 @@ export default async function TicketPage({
 
       {ticket.deals?.is_paused === true ? (
         <p className="mt-3 w-full rounded-card border border-line bg-cream px-3 py-2.5 text-center text-xs text-muted">
-          Your ticket is still valid until {hhmm(ticket.expires_at)}. The
-          merchant paused new claims — show this code at the till as usual.
+          Your ticket is still valid until {absoluteTimeLabel(ticket.expires_at)}.
+          The merchant paused new claims — show this code at the till as usual.
         </p>
       ) : null}
 
@@ -211,8 +208,10 @@ export default async function TicketPage({
           <p className="mt-1.5 text-sm text-ink">{ticket.deals.title}</p>
         ) : null}
         <p className="tnum mt-0.5 text-sm text-secondary">
-          {ticket.deals?.expires_at ? `Deal ends ${hhmm(ticket.deals.expires_at)} · ` : ""}
-          code valid until {hhmm(ticket.expires_at)} today
+          {ticket.deals?.expires_at
+            ? `Deal ends ${absoluteTimeLabel(ticket.deals.expires_at)} · `
+            : ""}
+          code valid until {absoluteTimeLabel(ticket.expires_at)}
         </p>
       </div>
 
