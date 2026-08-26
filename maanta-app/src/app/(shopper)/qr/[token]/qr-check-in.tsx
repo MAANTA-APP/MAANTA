@@ -48,6 +48,7 @@ export function QrCheckIn({
     | { kind: "idle" }
     | { kind: "posting" }
     | { kind: "checked-in"; info: CheckedIn; redemptionId: string; already: boolean }
+    | { kind: "cancelled"; redemptionId: string }
     | { kind: "error"; message: string }
   >(
     alreadyCheckedInFor
@@ -113,7 +114,13 @@ export function QrCheckIn({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ redemptionId }),
     }).catch(() => null);
-    setState({ kind: "idle" });
+    // A distinct terminal state, NOT `idle`. The single-claim auto-check-in
+    // effect is one-shot (`autoFired`), so returning to `idle` left the
+    // shopper on the `claims.length === 1 && idle` branch — "Checking you
+    // in…" — with no request in flight and nothing that could ever resolve
+    // it: the screen said the opposite of what they had just asked for, and
+    // only a full reload escaped. D194.
+    setState({ kind: "cancelled", redemptionId });
   }, []);
 
   const shopLine = merchantFloor
@@ -173,6 +180,35 @@ export function QrCheckIn({
         <p className="mt-2 text-xs text-muted">
           Cancelling only leaves the queue — your claim stays valid.
         </p>
+      </div>
+    );
+  }
+
+  // Left the queue. Terminal, and it says what is and is not affected: the
+  // claim is untouched, so checking in again is one tap and the code stays
+  // one tap away.
+  if (state.kind === "cancelled") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-ink">{shopLine}</h1>
+        <p className="mt-3 text-sm text-secondary">
+          You&apos;ve left the queue. Your claim is still valid.
+        </p>
+        <Button
+          full
+          className="mt-8"
+          onClick={() => void checkIn(state.redemptionId)}
+        >
+          Check in again
+        </Button>
+        <ButtonLink
+          href={`/tickets/${state.redemptionId}`}
+          variant="ghost"
+          full
+          className="mt-3"
+        >
+          Show my code
+        </ButtonLink>
       </div>
     );
   }

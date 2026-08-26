@@ -165,13 +165,21 @@ export async function POST(request: Request) {
     .maybeSingle<{ id: string; expires_at: string }>();
 
   if (existing) {
-    renewed = true;
-    await service
+    // Check what the renew actually matched. Staff can dismiss the entry (or
+    // the shopper can cancel in another tab) between the select above and
+    // this update, in which case `.eq("status","waiting")` matches nothing —
+    // and answering `checkedIn` regardless told a shopper they were queued
+    // while staff never saw them. A miss falls through to a fresh insert. D195.
+    const { data: renewedRows } = await service
       .from("merchant_presentations")
       .update({ expires_at: expiresAt })
       .eq("id", existing.id)
-      .eq("status", "waiting");
-  } else {
+      .eq("status", "waiting")
+      .select("id");
+    renewed = (renewedRows?.length ?? 0) > 0;
+  }
+
+  if (!renewed) {
     const { error: insertError } = await service
       .from("merchant_presentations")
       .insert({

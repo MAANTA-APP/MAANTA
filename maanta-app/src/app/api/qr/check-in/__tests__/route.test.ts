@@ -43,6 +43,8 @@ const rpc = vi.fn(() => ({ single: rpcSingle }));
 // Service client — arrival RPC + token resolve + queue rows.
 let merchantRow: Record<string, unknown> | null;
 let waitingRow: { id: string; expires_at: string } | null;
+/** Rows the renew UPDATE matched — empty means it lost a race (D195). */
+let renewMatched: Array<{ id: string }>;
 const queueInsert = vi.fn(() => Promise.resolve({ error: null }));
 const queueUpdateEqs = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
@@ -58,17 +60,25 @@ vi.mock("@/lib/supabase/service", () => ({
           }),
         };
       }
-      // merchant_presentations
+      // merchant_presentations. `select` is overloaded in the real client: it
+      // opens a read chain, and it also TERMINATES an update chain. The mock
+      // mirrors that — after `.update(...)`, `.select()` resolves with the
+      // rows the update actually matched (D195).
       const chain: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "gt"]) {
-        chain[m] = (...args: unknown[]) => {
-          if (m === "eq") queueUpdateEqs(args);
-          return chain;
-        };
-      }
+      let updating = false;
+      chain.eq = (...args: unknown[]) => {
+        queueUpdateEqs(args);
+        return chain;
+      };
+      chain.gt = () => chain;
+      chain.select = () =>
+        updating ? Promise.resolve({ data: renewMatched, error: null }) : chain;
       chain.maybeSingle = () => Promise.resolve({ data: waitingRow, error: null });
       chain.insert = queueInsert;
-      chain.update = () => chain;
+      chain.update = () => {
+        updating = true;
+        return chain;
+      };
       return chain;
     },
   }),
@@ -95,6 +105,7 @@ describe("POST /api/qr/check-in", () => {
       is_shadow_banned: false,
     };
     waitingRow = null;
+    renewMatched = [{ id: "p-1" }];
     rpcSingle.mockResolvedValue({
       data: {
         arrived_at: "2026-08-26T12:08:00.000Z",
@@ -162,6 +173,19 @@ describe("POST /api/qr/check-in", () => {
     expect(queueInsert).not.toHaveBeenCalled();
   });
 
+  it("falls back to a fresh insert when the renew loses a race (D195)", async () => {
+    // Staff dismissed the entry (or the shopper cancelled in another tab)
+    // between the select and the update, so the renew matches zero rows. The
+    // shopper must end up really queued, not merely told that they are.
+    waitingRow = { id: "p-1", expires_at: "2026-08-26T12:15:00.000Z" };
+    renewMatched = [];
+    const res = await POST(req({ token: TOKEN, redemptionId: "red-1" }));
+    const body = await res.json();
+    expect(body.checkedIn).toBe(true);
+    expect(body.renewed).toBe(false);
+    expect(queueInsert).toHaveBeenCalled();
+  });
+
   it("refuses a malformed token before touching anything", async () => {
     const res = await POST(req({ token: "not-a-token", redemptionId: "red-1" }));
     expect(res.status).toBe(400);
@@ -187,6 +211,7 @@ describe("DELETE /api/qr/check-in", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     waitingRow = null;
+    renewMatched = [{ id: "p-1" }];
   });
 
   it("requires a redemption id", async () => {
