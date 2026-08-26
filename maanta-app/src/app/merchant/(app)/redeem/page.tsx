@@ -7,21 +7,11 @@ import { QueuePanel } from "./queue-panel";
 export const dynamic = "force-dynamic";
 
 /** 9k Redemption keypad (merchant home) + 9l/9m/9t/10l/10m states. */
-export default async function MerchantRedeemPage({
-  searchParams,
-}: {
-  searchParams: { code?: string };
-}) {
+export default async function MerchantRedeemPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null; // layout guards
   const { merchant, permissions } = res.ctx;
   const fee = await getSuccessFee();
-  // A queue-row tap navigates here with ?code= — seed the keypad and let its
-  // normal resolve flow take over. Keyed so a second tap remounts cleanly.
-  const prefillCode =
-    typeof searchParams.code === "string" && /^\d{6}$/.test(searchParams.code)
-      ? searchParams.code
-      : undefined;
 
   const service = createServiceClient();
   const { count: pausedCount } = await service
@@ -41,11 +31,9 @@ export default async function MerchantRedeemPage({
       ) : null}
       {permissions.can_verify ? <QueuePanel /> : null}
       <RedeemKeypad
-        key={prefillCode ?? "keypad"}
         balance={merchant.account_balance}
         fee={fee}
         canVerify={permissions.can_verify}
-        prefillCode={prefillCode}
       />
     </div>
   );

@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
+import { publishQueueCode } from "@/lib/queue-code-handoff";
 
 /**
  * The shopper queue at the till — checked-in shoppers, oldest first.
  *
- * Deliberately thin: tapping a row only NAVIGATES with the claim code, which
- * seeds the existing keypad and its resolve → fee disclosure → Confirm flow.
- * No verification, no money, no second path lives here (§25). Dismissing an
+ * Deliberately thin: tapping a row only hands the claim code to the keypad
+ * ON THIS SAME PAGE, in memory (lib/queue-code-handoff — never via the URL,
+ * where a live OTP would persist in shared-till history, logs and PostHog's
+ * $current_url; D193), and the keypad runs its existing resolve → fee
+ * disclosure → Confirm flow. No verification, no money, no second path
+ * lives here (§25). Dismissing an
  * entry drops the shopper off the list and touches nothing else — their
  * claim still resolves on the keypad as usual.
  *
@@ -24,7 +27,6 @@ import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
  * that state says so in one muted line and keeps retrying on the same poll.
  */
 export function QueuePanel() {
-  const router = useRouter();
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -97,9 +99,7 @@ export function QueuePanel() {
             <button
               type="button"
               className="min-w-0 flex-1 text-left"
-              onClick={() =>
-                router.replace(`/merchant/redeem?code=${e.code}`)
-              }
+              onClick={() => publishQueueCode(e.code)}
             >
               <p className="truncate text-sm font-semibold text-ink">
                 {e.name}
