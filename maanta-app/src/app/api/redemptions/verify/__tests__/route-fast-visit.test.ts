@@ -43,24 +43,36 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const awardRpcSingle = vi.fn();
 const serviceRpc = vi.fn(() => ({ single: awardRpcSingle }));
+// Generic chainable table mock: eq/order/limit return the chain, maybeSingle
+// resolves by table + selected columns (the P2 repair path reads
+// redemptions.id through a longer chain than the collect-amount read).
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
     rpc: serviceRpc,
     from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: () =>
-            Promise.resolve({
-              data:
-                table === "deals"
-                  ? { title: "20% off abayas" }
-                  : table === "users"
-                    ? { phone: "+254712345678" }
-                    : { amount_kes: 2400, user_id: "user-1" },
-              error: null,
-            }),
-        }),
-      }),
+      select: (cols: string) => {
+        const data =
+          table === "deals"
+            ? { title: "20% off abayas" }
+            : table === "users"
+              ? { phone: "+254712345678" }
+              : cols === "id"
+                ? { id: "red-earlier-success" }
+                : { amount_kes: 2400, user_id: "user-1" };
+        type Chain = {
+          eq: () => Chain;
+          order: () => Chain;
+          limit: () => Chain;
+          maybeSingle: () => Promise<{ data: unknown; error: null }>;
+        };
+        const chain: Chain = {
+          eq: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: () => Promise.resolve({ data, error: null }),
+        };
+        return chain;
+      },
     }),
   }),
 }));
@@ -149,6 +161,24 @@ describe("POST /api/redemptions/verify — Fast Visit award wiring", () => {
     expect(body.feeChargeStatus).toBe("charged");
     expect(body.redemptionId).toBe("red-1");
     consoleError.mockRestore();
+  });
+
+  it("repairs a missed award when a merchant retry hits redemption_already_verified", async () => {
+    // Codex P2: verify committed on an earlier call that died before its
+    // award. The retry exits 409 — and must re-run the idempotent award for
+    // the already-verified redemption so the shopper's points do not depend
+    // on them reopening the ticket. The response stays the plain 409.
+    verifyRpcSingle.mockResolvedValue({
+      data: null,
+      error: { message: "redemption_already_verified" },
+    });
+    const res = await POST(req({ otpCode: "123456" }));
+    expect(res.status).toBe(409);
+    expect(serviceRpc).toHaveBeenCalledWith("award_fast_visit_points", {
+      p_redemption_id: "red-earlier-success",
+    });
+    const body = await res.json();
+    expect(JSON.stringify(body)).not.toContain("points");
   });
 
   it("never calls the award RPC for a guardian-blocked redemption", async () => {

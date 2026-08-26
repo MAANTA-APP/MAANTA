@@ -71,6 +71,34 @@ export async function POST(request: Request) {
     } else if (message.includes("redemption_already_verified")) {
       status = 409;
       userMessage = "This code has already been redeemed.";
+      // Award repair (Codex P2, 2026-08-26): verify_redemption committed on
+      // an earlier call, so if THAT call died between verify and award the
+      // reward would otherwise wait for the shopper to reopen their ticket.
+      // A merchant retry lands here — re-run the idempotent award for the
+      // most recent success under this code so the retry itself heals the
+      // gap. The UNIQUE reference makes a double call a no-op, and the RPC
+      // pays only a redemption that genuinely holds the persisted
+      // arrival-time qualification, so a wrong or historical row match can
+      // never mint an undeserved award. Best-effort: the 409 is returned
+      // unchanged either way.
+      try {
+        const { data: verified } = await service
+          .from("redemptions")
+          .select("id")
+          .eq("merchant_id", merchant.id)
+          .eq("otp_code", otpCode)
+          .eq("status", "success")
+          .order("redeemed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle<{ id: string }>();
+        if (verified?.id) {
+          await service.rpc("award_fast_visit_points", {
+            p_redemption_id: verified.id,
+          });
+        }
+      } catch {
+        // The ticket success screen's self-heal call remains the backstop.
+      }
     } else if (message.includes("unauthorized")) {
       status = 403;
       userMessage = "Not authorized.";

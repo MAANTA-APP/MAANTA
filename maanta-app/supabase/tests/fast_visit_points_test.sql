@@ -7,8 +7,9 @@
 -- What this pins, and why:
 --   A  schema + privilege shape: arrived_at nullable with NO default (only
 --      the RPC writes it); reward_events append-only with a UNIQUE reference
---      and RLS on; award RPC NOT executable by authenticated (server-side
---      only); both config rows seeded
+--      and RLS on; BOTH RPCs NOT executable by authenticated (server-side
+--      only — a direct client arrival call would bypass the QR-token
+--      possession the arrival evidences, Codex P1); both config rows seeded
 --   B  the whole happy path through the REAL RPCs: claim -> arrival (shopper
 --      JWT) -> verify (owner JWT) -> award = exactly one ledger row; replay
 --      awards nothing more; merchant balance untouched by the award (the KES
@@ -84,8 +85,16 @@ BEGIN
     'A: authenticated must not INSERT into the points ledger directly';
   ASSERT NOT has_function_privilege('authenticated', 'public.award_fast_visit_points(uuid)', 'EXECUTE'),
     'A: the award RPC is server-side only — authenticated must not execute it';
-  ASSERT has_function_privilege('authenticated', 'public.record_shopper_arrival(uuid, uuid, uuid)', 'EXECUTE'),
-    'A: shoppers (authenticated) must be able to record their own arrival';
+  -- Codex P1 (2026-08-26): a direct client call would stamp a qualifying
+  -- arrival without the QR-token possession the arrival is meant to
+  -- evidence. Arrival is server-only; only the QR check-in route (which
+  -- validates the token) may invoke it, via the service client.
+  ASSERT NOT has_function_privilege('authenticated', 'public.record_shopper_arrival(uuid, uuid, uuid)', 'EXECUTE'),
+    'A: arrival is server-side only — a shopper must not be able to stamp an arrival without the scanned QR token';
+  ASSERT NOT has_function_privilege('anon', 'public.record_shopper_arrival(uuid, uuid, uuid)', 'EXECUTE'),
+    'A: anon must not execute the arrival RPC';
+  ASSERT has_function_privilege('service_role', 'public.record_shopper_arrival(uuid, uuid, uuid)', 'EXECUTE'),
+    'A: the server (service_role) must be able to record arrivals';
 
   SELECT count(*) INTO v_cnt FROM public.app_config
   WHERE key IN ('fast_visit_points', 'fast_visit_enabled');

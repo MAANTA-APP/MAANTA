@@ -163,11 +163,25 @@ GRANT EXECUTE ON FUNCTION public.fast_visit_enabled()
 
 -- 4) Arrival recording. The ONLY writer of redemptions.arrived_at.
 --
--- p_merchant_id is the merchant the shopper is physically standing at (in
--- practice: resolved server-side from the scanned counter QR token, never
--- from the request body). Requiring it here is what makes "arrival at
--- merchant A" unable to mark a claim held at merchant B — the same-merchant
--- rule is enforced where the timestamp is written, not left to callers.
+-- p_merchant_id is the merchant the shopper is physically standing at,
+-- resolved server-side from the scanned counter QR token, never from the
+-- request body. Requiring it here is what makes "arrival at merchant A"
+-- unable to mark a claim held at merchant B — the same-merchant rule is
+-- enforced where the timestamp is written, not left to callers.
+--
+-- SERVER-ONLY, deliberately (Codex P1 finding, 2026-08-26): the arrival's
+-- whole evidentiary value is that the shopper's phone learned the merchant's
+-- opaque qr_token by scanning the printed counter QR, and only the QR
+-- check-in route sees and validates that token. An `authenticated` EXECUTE
+-- grant would let any shopper stamp a qualifying arrival with a bare Data
+-- API call using ids their own ticket already shows them — no token, no
+-- scan, no visit. So clients cannot execute this at all; the route calls it
+-- with the service client AFTER resolving a valid token, passing a
+-- p_user_id derived from the authenticated session (never the body). The
+-- claim-ownership, same-merchant, pending and unexpired checks below run
+-- against p_user_id regardless of caller, so the service path does not
+-- weaken them; the caller-identity check is kept as defence in depth for
+-- any future non-service grant.
 CREATE OR REPLACE FUNCTION public.record_shopper_arrival(
   p_user_id uuid,
   p_merchant_id uuid,
@@ -260,10 +274,14 @@ BEGIN
 END;
 $$;
 
+-- Server-side only — like award_fast_visit_points, and for the same class of
+-- reason: reachable exclusively through the QR check-in route, which is the
+-- thing that proves token possession (see the block comment above).
 REVOKE ALL ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid) FROM anon;
+REVOKE ALL ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid)
-  TO authenticated, service_role, postgres;
+  TO service_role, postgres;
 
 COMMENT ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid) IS
   'Records the shopper''s physical check-in on their own pending, unexpired '
@@ -272,8 +290,10 @@ COMMENT ON FUNCTION public.record_shopper_arrival(uuid, uuid, uuid) IS
   'minutes), persisting it as fast_visit_qualified_at. First arrival wins; '
   'idempotent; the verdict is immutable; never awards points (the QR scan '
   'itself must not — award_fast_visit_points does, after staff verification). '
-  'SECURITY DEFINER: caller must equal p_user_id unless service_role. '
-  '2026-08-26.';
+  'SECURITY DEFINER, server-only: EXECUTE is service_role/postgres — a direct '
+  'client call would bypass the QR-token possession the arrival is meant to '
+  'evidence. p_user_id must be derived from the authenticated session by the '
+  'caller; the claim-ownership check runs against it regardless. 2026-08-26.';
 
 -- 5) The award. Exactly-once, callable idempotently from any trusted server
 --    context. Requires the qualification fact PERSISTED at arrival time —
