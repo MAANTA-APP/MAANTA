@@ -1,4 +1,5 @@
 import { getSuccessFee } from "@/lib/data";
+import { ACTIVE_DEAL_LIMITS } from "@/lib/plan-limits";
 import { ButtonLink } from "@/components/ui/button";
 import { IconBolt, IconCheck } from "@/components/ui/icons";
 
@@ -17,7 +18,10 @@ export default async function UpgradePage() {
 
       <div className="mt-6 space-y-3">
         {[
-          ["2 active deals at a time (vs 1 on Standard)", null],
+          [
+            `${ACTIVE_DEAL_LIMITS.elite} active deals at a time (vs ${ACTIVE_DEAL_LIMITS.standard} on Standard)`,
+            null,
+          ],
           ["Flash deals, 1–24h", "bolt"],
           ["Boost deals into Neighbourhood favourites", null],
         ].map(([label, icon]) => (
