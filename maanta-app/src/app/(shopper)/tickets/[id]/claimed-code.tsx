@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatCode, msUntil } from "@/lib/ui";
+import { formatClaimCountdown } from "@/lib/claim-ticket-time";
 
 /**
  * S5 — the claimed-code hero. The single most important screen in the product:
@@ -10,15 +11,13 @@ import { formatCode, msUntil } from "@/lib/ui";
  * - The code lives inside a white card whose border breathes amber (R3); the
  *   code is never on an amber fill.
  * - The countdown ticks live every second — a frozen timer means a screenshot,
- *   which is the anti-screenshot device the counter copy relies on.
+ *   which is the anti-screenshot device the counter copy relies on. That is why
+ *   `formatClaimCountdown` keeps visible seconds in every band: a day-long
+ *   window reads "1d 0h 9m 12s", never the raw-minute "1449:12" that shipped
+ *   before it (D167 item 3), and never a per-minute string that would make the
+ *   counter copy a lie.
  * - Slashed-zero, tabular mono so a cashier never misreads it.
  */
-function mmss(ms: number) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
 
 export function ClaimedCode({
   code,
@@ -49,7 +48,7 @@ export function ClaimedCode({
       </div>
       <div className="mt-3 flex flex-col items-center gap-0.5">
         <div className="font-code text-xl font-semibold text-ink" aria-live="off">
-          {expired ? "0:00" : mmss(left)}
+          {expired ? "0:00" : formatClaimCountdown(left)}
         </div>
         <div className="text-xs text-muted">
           {expired ? "this code has expired" : "until this code expires"}
