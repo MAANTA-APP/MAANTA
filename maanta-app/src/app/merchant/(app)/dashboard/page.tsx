@@ -7,6 +7,7 @@ import {
   getMerchantLifecycleInfo,
   getMerchantLifecycleStats,
 } from "@/lib/merchant-lifecycle";
+import { publicOrigin } from "@/lib/app-url";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,24 @@ export const dynamic = "force-dynamic";
 export default async function MerchantDashboardPage() {
   const res = await getMerchantContext();
   if (res.status !== "ok") return null;
-  const { merchant } = res.ctx;
+  const { merchant, isOwner } = res.ctx;
   await expireStaleBoosts(merchant.id);
+
+  // The shop's counter check-in link (owner only — it is the thing the
+  // printed QR encodes, so staff seats have no need for it). The token is
+  // opaque and authorizes nothing; printing the QR from this link is an ops
+  // step, not an app feature.
+  let counterLink: string | null = null;
+  if (isOwner) {
+    const { data: tokenRow } = await createServiceClient()
+      .from("merchants")
+      .select("qr_token")
+      .eq("id", merchant.id)
+      .maybeSingle<{ qr_token: string | null }>();
+    if (tokenRow?.qr_token) {
+      counterLink = `${publicOrigin()}/qr/${tokenRow.qr_token}`;
+    }
+  }
 
   const service = createServiceClient();
   const [stats, { data: dealRows }, { data: recent }] = await Promise.all([
@@ -69,6 +86,21 @@ export default async function MerchantDashboardPage() {
           Top up
         </ButtonLink>
       </div>
+
+      {counterLink ? (
+        <div className="mt-6 rounded-card bg-white px-4 py-3.5 shadow-card">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+            Your MAANTA QR link
+          </h2>
+          <p className="mt-1 break-all font-mono text-xs text-secondary">
+            {counterLink}
+          </p>
+          <p className="mt-1.5 text-xs text-muted">
+            Shoppers scan your printed QR to check in at the counter. One link
+            for the whole shop — entrance and till.
+          </p>
+        </div>
+      ) : null}
 
       <h2 className="mt-6 text-base font-bold text-ink">Recent activity</h2>
       <div className="mt-2 rounded-card bg-white shadow-card px-4">

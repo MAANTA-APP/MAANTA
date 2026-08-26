@@ -2,6 +2,7 @@ import { getMerchantContext } from "@/lib/merchant";
 import { getSuccessFee } from "@/lib/data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { RedeemKeypad } from "./redeem-keypad";
+import { QueuePanel } from "./queue-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function MerchantRedeemPage() {
           expiry.
         </p>
       ) : null}
+      {permissions.can_verify ? <QueuePanel /> : null}
       <RedeemKeypad
         balance={merchant.account_balance}
         fee={fee}

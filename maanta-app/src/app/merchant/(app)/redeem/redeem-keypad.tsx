@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { subscribeQueueCode } from "@/lib/queue-code-handoff";
 import { NumericKeypad } from "@/components/ui/inputs";
 import { Button } from "@/components/ui/button";
 import { FeeDisclosure } from "@/components/ui/fee-disclosure";
@@ -66,6 +67,21 @@ export function RedeemKeypad({
   const insufficient = balance < fee;
   const low = !insufficient && balance <= fee * 3;
   const remaining = Math.floor(balance / fee);
+
+  // A tapped queue row hands its claim code over in memory
+  // (lib/queue-code-handoff) — never via the URL, where a live OTP would
+  // land in shared-till history, logs and analytics (D193). Receiving one
+  // abandons whatever the keypad was doing and resolves the tapped code
+  // through the IDENTICAL flow typing uses: preflight -> fee disclosure ->
+  // explicit Confirm — one money path.
+  useEffect(() => {
+    return subscribeQueueCode((tapped) => {
+      submitting.current = false;
+      setCode(tapped);
+      void resolveCode(tapped);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Entering 6 digits RESOLVES the code (charges nothing).
   useEffect(() => {
