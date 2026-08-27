@@ -77,7 +77,7 @@ export function summariseMerchantOwnerRows(
   }
 
   const topDeal =
-    [...byDeal.entries()]
+    Array.from(byDeal.entries())
       .sort((a, b) => {
         const countDiff = b[1].count - a[1].count;
         if (countDiff !== 0) return countDiff;
