@@ -55,6 +55,19 @@ describe("fast visit — display formats", () => {
     expect(formatArrivalDuration(CLAIM, "2026-08-26T12:00:45.000Z")).toBe("45s");
   });
 
+  it("the reward countdown rolls over and guards non-finite input (D203)", () => {
+    // It used to be a second, weaker copy of the claim countdown's sub-hour
+    // branch. A slow device clock could push `left` over an hour and render
+    // the raw-minute string D167 item 3 removed from the timer directly
+    // above it; an unparseable value rendered "NaN:NaN".
+    expect(formatRewardCountdown(65 * 60_000)).not.toMatch(/^\d{3,}:/);
+    expect(formatRewardCountdown(65 * 60_000)).toContain("h");
+    expect(formatRewardCountdown(NaN)).toBe("");
+    expect(formatRewardCountdown(Infinity)).toBe("");
+    // Under an hour it is unchanged — the shape the counter mockups show.
+    expect(formatRewardCountdown(14 * 60_000 + 32_000)).toBe("14:32");
+  });
+
   it("formats the reward countdown as M:SS, clamped at zero", () => {
     expect(formatRewardCountdown(14 * 60_000 + 32_000)).toBe("14:32");
     expect(formatRewardCountdown(59_000)).toBe("0:59");

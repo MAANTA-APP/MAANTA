@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
+import { subscribeRedemptionCompleted } from "@/lib/queue-code-handoff";
 import { publishQueueCode } from "@/lib/queue-code-handoff";
 
 /**
@@ -29,29 +30,44 @@ import { publishQueueCode } from "@/lib/queue-code-handoff";
 export function QueuePanel() {
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  // Monotonic request version: only the newest-started queue read may commit
+  // state. This prevents an older poll response from re-adding a shopper
+  // after the redemption-completed refresh already removed them.
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     try {
       const res = await fetch("/api/queue", { cache: "no-store" });
+      if (generation !== loadGeneration.current) return;
       if (!res.ok) {
         setLoadFailed(true);
         return;
       }
       const body = await res.json();
+      if (generation !== loadGeneration.current) return;
       if (Array.isArray(body?.entries)) {
         setEntries(body.entries);
         setLoadFailed(false);
       }
     } catch {
       // keep the last good list; remember that we have none yet
-      setLoadFailed(true);
+      if (generation === loadGeneration.current) setLoadFailed(true);
     }
   }, []);
 
   useEffect(() => {
     void load();
     const t = setInterval(() => void load(), QUEUE_POLL_MS);
-    return () => clearInterval(t);
+    // A completed verification drops the served shopper straight away; the
+    // poll alone left them listed and tappable for up to QUEUE_POLL_MS, and
+    // tapping that stale row showed staff a rejection screen for a customer
+    // they had just served (D204).
+    const unsubscribe = subscribeRedemptionCompleted(() => void load());
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [load]);
 
   const dismiss = useCallback(

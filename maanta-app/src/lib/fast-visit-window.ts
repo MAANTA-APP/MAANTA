@@ -20,6 +20,8 @@
  * awards.
  */
 
+import { formatClaimCountdown } from "@/lib/claim-ticket-time";
+
 export const FAST_VISIT_WINDOW_MINUTES = 15;
 
 const WINDOW_MS = FAST_VISIT_WINDOW_MINUTES * 60 * 1000;
@@ -44,10 +46,15 @@ export function formatArrivalDuration(
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-/** "14:32" — the ticking reward countdown, MM:SS, clamped at 0:00. */
+/**
+ * The ticking reward countdown. Delegates to `formatClaimCountdown` so the
+ * two timers on this one screen can never drift: this used to be a second,
+ * weaker copy of the same sub-hour logic with no hour rollover and no
+ * non-finite guard, so a device clock running slow could reproduce exactly
+ * the raw-minute string ("65:00") that D167 item 3 removed from the claim
+ * countdown directly above it — and an unparseable value rendered
+ * "NaN:NaN". Under an hour the output is identical to before. D203.
+ */
 export function formatRewardCountdown(msLeft: number): string {
-  const total = Math.max(0, Math.floor(msLeft / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return formatClaimCountdown(msLeft);
 }

@@ -34,6 +34,12 @@ import {
 const QR_CHECKIN_RATE_LIMIT = 10;
 const QR_CHECKIN_RATE_WINDOW_SECONDS = 60;
 const TOKEN_SHAPE = /^[0-9a-f]{32}$/;
+// Shape-check the id too. A non-UUID reached the RPC and failed uuid
+// coercion inside PostgREST, whose message matches none of the mapped
+// branches below — so malformed input answered 500 instead of 400 and any
+// signed-in shopper could emit those at the rate-limit ceiling. D201.
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
@@ -53,7 +59,7 @@ export async function POST(request: Request) {
   const token = typeof body.token === "string" ? body.token.trim() : "";
   const redemptionId =
     typeof body.redemptionId === "string" ? body.redemptionId.trim() : "";
-  if (!TOKEN_SHAPE.test(token) || !redemptionId) {
+  if (!TOKEN_SHAPE.test(token) || !UUID_SHAPE.test(redemptionId)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
@@ -157,6 +163,25 @@ export async function POST(request: Request) {
   ).toISOString();
   let renewed = false;
 
+  // The partial UNIQUE index covers EVERY waiting row, lapsed or not, so the
+  // lookup must not filter by expiry — a lapsed row still occupies the slot
+  // and a "fresh insert" would collide with it. Instead, decide by age:
+  //
+  //  - live row   -> extend it, keeping its original arrived_at (a re-scan
+  //                  by someone already in the queue is not a new arrival);
+  //  - lapsed row -> supersede it in place, stamping a NEW arrived_at. It
+  //                  had dropped off the staff list; reviving it with the
+  //                  old timestamp re-listed a shopper who scanned the
+  //                  entrance at 10:00 and reached the till at 10:40 as
+  //                  "arrived 40m ago", sorted ahead of everyone who checked
+  //                  in between — jumping a queue whose whole purpose is
+  //                  oldest-first (on a multi-day deal, "arrived 2d ago").
+  //  - no row     -> insert.
+  //
+  // Every branch confirms what it actually wrote: an entry can be dismissed
+  // or cancelled between the lookup and the write, and answering `checkedIn`
+  // regardless told a shopper they were queued while staff never saw them
+  // (D197). D199.
   const { data: existing } = await service
     .from("merchant_presentations")
     .select("id, expires_at")
@@ -164,14 +189,33 @@ export async function POST(request: Request) {
     .eq("status", "waiting")
     .maybeSingle<{ id: string; expires_at: string }>();
 
+  let queued = false;
   if (existing) {
-    renewed = true;
-    await service
+    const lapsed = new Date(existing.expires_at).getTime() <= nowMs;
+    const { data: written, error: updateError } = await service
       .from("merchant_presentations")
-      .update({ expires_at: expiresAt })
+      .update(
+        lapsed
+          ? {
+              expires_at: expiresAt,
+              arrived_at: new Date(nowMs).toISOString(),
+              fast_visit_eligible: arrival.fast_visit_eligible,
+            }
+          : { expires_at: expiresAt }
+      )
       .eq("id", existing.id)
-      .eq("status", "waiting");
-  } else {
+      .eq("status", "waiting")
+      .select("id");
+    if (updateError) {
+      console.error("queue renew failed:", updateError.code);
+    }
+    queued = !updateError && (written?.length ?? 0) > 0;
+    // Only a still-live entry is a "renew" to the shopper; superseding a
+    // lapsed one is a fresh check-in and reads as one.
+    renewed = queued && !lapsed;
+  }
+
+  if (!queued) {
     const { error: insertError } = await service
       .from("merchant_presentations")
       .insert({
@@ -183,14 +227,27 @@ export async function POST(request: Request) {
       });
     if (insertError) {
       // 23505 = the partial unique index: a concurrent check-in won the
-      // insert, which is exactly a renew. Anything else is a real failure —
-      // but the ARRIVAL succeeded, so the shopper is told the truth rather
-      // than shown an error for a queue-row hiccup.
+      // insert, so a waiting row exists even though this request lost the
+      // race. Anything else means arrival evidence was recorded but the
+      // shopper is NOT safely visible in the staff queue.
       if (insertError.code === "23505") {
-        renewed = true;
+        // The UNIQUE index includes lapsed waiting rows, so 23505 alone does
+        // NOT prove the shopper is visible to staff. Re-read and require a
+        // still-live row before acknowledging queue membership.
+        const { data: racedLive } = await service
+          .from("merchant_presentations")
+          .select("id")
+          .eq("redemption_id", redemptionId)
+          .eq("status", "waiting")
+          .gt("expires_at", new Date(nowMs).toISOString())
+          .maybeSingle<{ id: string }>();
+        queued = Boolean(racedLive);
+        renewed = queued;
       } else {
         console.error("queue insert failed:", insertError.code);
       }
+    } else {
+      queued = true;
     }
   }
 
@@ -202,6 +259,18 @@ export async function POST(request: Request) {
     firstArrival: arrival.first_arrival,
     node: merchant.node,
   });
+  if (!queued) {
+    return NextResponse.json(
+      {
+        error:
+          "Your arrival was recorded, but we could not add you to the shopper queue. Please scan again.",
+        code: "queue_not_joined",
+        arrivalRecorded: true,
+      },
+      { status: 503 }
+    );
+  }
+
   void captureShopperQueueJoined({
     userId: appUser.id,
     redemptionId,
@@ -238,13 +307,16 @@ export async function DELETE(request: Request) {
   }
   const redemptionId =
     typeof body.redemptionId === "string" ? body.redemptionId.trim() : "";
-  if (!redemptionId) {
+  if (!UUID_SHAPE.test(redemptionId)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
   // Doubly scoped: the row must be this shopper's own waiting entry.
+  // DELETE is idempotent: if the row is already absent, the desired
+  // postcondition ("not waiting") already holds. A database error is
+  // different and must never be presented as a successful leave.
   const service = createServiceClient();
-  const { data } = await service
+  const { data, error } = await service
     .from("merchant_presentations")
     .update({ status: "cancelled" })
     .eq("redemption_id", redemptionId)
@@ -252,5 +324,16 @@ export async function DELETE(request: Request) {
     .eq("status", "waiting")
     .select("id");
 
-  return NextResponse.json({ cancelled: (data?.length ?? 0) > 0 });
+  if (error) {
+    console.error("queue cancel failed:", error.code);
+    return NextResponse.json(
+      { error: "Could not leave the queue. Please try again.", code: "queue_cancel_failed" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    cancelled: true,
+    changed: (data?.length ?? 0) > 0,
+  });
 }
