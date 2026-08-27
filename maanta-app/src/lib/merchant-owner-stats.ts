@@ -1,0 +1,148 @@
+import { createServiceClient } from "@/lib/supabase/service";
+
+export type MetricValue<T> =
+  | { ok: true; value: T }
+  | { ok: false; value: null };
+
+export type MerchantOwnerStats = {
+  windowStart: string;
+  claims: MetricValue<number>;
+  verifiedVisits: MetricValue<number>;
+  claimToVerifiedPct: MetricValue<number | null>;
+  successFees: MetricValue<number>;
+  topDeal: MetricValue<string | null>;
+  fastVisits: MetricValue<number>;
+};
+
+type ClaimRow = {
+  id: string;
+  status: string;
+  claimed_at: string | null;
+};
+
+type VerifiedRow = {
+  id: string;
+  deal_id: string;
+  success_fee_charged: number | string | null;
+  fast_visit_qualified_at: string | null;
+  deals: { title: string } | null;
+};
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function ok<T>(value: T): MetricValue<T> {
+  return { ok: true, value };
+}
+
+function failed<T>(): MetricValue<T> {
+  return { ok: false, value: null };
+}
+
+/**
+ * Merchant-owner attribution summary for the last 7 days.
+ *
+ * Every service-client read is explicitly tenant-scoped by merchant_id.
+ * Failures remain failures rather than being flattened into zero (D164/D185).
+ */
+export async function getMerchantOwnerStats(
+  merchantId: string,
+  now = new Date()
+): Promise<MerchantOwnerStats> {
+  const service = createServiceClient();
+  const windowStart = new Date(now.getTime() - SEVEN_DAYS_MS).toISOString();
+
+  const [claimsRes, verifiedRes] = await Promise.all([
+    service
+      .from("redemptions")
+      .select("id, status, claimed_at")
+      .eq("merchant_id", merchantId)
+      .gte("claimed_at", windowStart),
+    service
+      .from("redemptions")
+      .select(
+        "id, deal_id, success_fee_charged, fast_visit_qualified_at, deals(title)"
+      )
+      .eq("merchant_id", merchantId)
+      .eq("status", "success")
+      .gte("redeemed_at", windowStart),
+  ]);
+
+  if (claimsRes.error) {
+    console.error("merchant owner claims stats unavailable", {
+      merchantId,
+      error: claimsRes.error,
+    });
+  }
+  if (verifiedRes.error) {
+    console.error("merchant owner verified stats unavailable", {
+      merchantId,
+      error: verifiedRes.error,
+    });
+  }
+
+  const claimRows = (claimsRes.data ?? []) as ClaimRow[];
+  const verifiedRows = (verifiedRes.data ?? []) as unknown as VerifiedRow[];
+
+  const claims = claimsRes.error ? failed<number>() : ok(claimRows.length);
+
+  const claimToVerifiedPct = claimsRes.error
+    ? failed<number | null>()
+    : ok(
+        claimRows.length === 0
+          ? null
+          : Math.round(
+              (claimRows.filter((row) => row.status === "success").length /
+                claimRows.length) *
+                100
+            )
+      );
+
+  if (verifiedRes.error) {
+    return {
+      windowStart,
+      claims,
+      claimToVerifiedPct,
+      verifiedVisits: failed<number>(),
+      successFees: failed<number>(),
+      topDeal: failed<string | null>(),
+      fastVisits: failed<number>(),
+    };
+  }
+
+  const successFees = verifiedRows.reduce((sum, row) => {
+    const n = Number(row.success_fee_charged ?? 0);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  const byDeal = new Map<string, { title: string; count: number }>();
+  for (const row of verifiedRows) {
+    const title = row.deals?.title ?? "Deal";
+    const current = byDeal.get(row.deal_id);
+    byDeal.set(row.deal_id, {
+      title,
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+
+  const topDeal =
+    [...byDeal.entries()]
+      .sort((a, b) => {
+        const countDiff = b[1].count - a[1].count;
+        if (countDiff !== 0) return countDiff;
+        const titleDiff = a[1].title.localeCompare(b[1].title);
+        if (titleDiff !== 0) return titleDiff;
+        return a[0].localeCompare(b[0]);
+      })[0]?.[1].title ?? null;
+
+  return {
+    windowStart,
+    claims,
+    claimToVerifiedPct,
+    verifiedVisits: ok(verifiedRows.length),
+    successFees: ok(successFees),
+    topDeal: ok(topDeal),
+    fastVisits: ok(
+      verifiedRows.filter((row) => row.fast_visit_qualified_at !== null).length
+    ),
+  };
+}
