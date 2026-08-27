@@ -70,14 +70,27 @@ vi.mock("@/lib/supabase/service", () => ({
       // rows the update actually matched (D197).
       const chain: Record<string, unknown> = {};
       let updating = false;
+      let expiresAfter: string | null = null;
       chain.eq = (...args: unknown[]) => {
         queueUpdateEqs(args);
         return chain;
       };
-      chain.gt = () => chain;
+      chain.gt = (_column: unknown, value: unknown) => {
+        expiresAfter = String(value);
+        return chain;
+      };
       chain.select = () =>
         updating ? Promise.resolve({ data: renewMatched, error: queueUpdateError }) : chain;
-      chain.maybeSingle = () => Promise.resolve({ data: waitingRow, error: null });
+      chain.maybeSingle = () => {
+        const visible =
+          waitingRow &&
+          (!expiresAfter ||
+            new Date(waitingRow.expires_at).getTime() >
+              new Date(expiresAfter).getTime())
+            ? waitingRow
+            : null;
+        return Promise.resolve({ data: visible, error: null });
+      };
       chain.insert = queueInsert;
       chain.update = (payload: unknown) => {
         updating = true;
