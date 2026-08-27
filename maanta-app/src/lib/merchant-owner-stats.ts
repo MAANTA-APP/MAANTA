@@ -14,13 +14,13 @@ export type MerchantOwnerStats = {
   fastVisits: MetricValue<number>;
 };
 
-type ClaimRow = {
+export type MerchantClaimRow = {
   id: string;
   status: string;
   claimed_at: string | null;
 };
 
-type VerifiedRow = {
+export type MerchantVerifiedRow = {
   id: string;
   deal_id: string;
   success_fee_charged: number | string | null;
@@ -36,6 +36,66 @@ function ok<T>(value: T): MetricValue<T> {
 
 function failed<T>(): MetricValue<T> {
   return { ok: false, value: null };
+}
+
+export function summariseMerchantOwnerRows(
+  claimRows: MerchantClaimRow[],
+  verifiedRows: MerchantVerifiedRow[]
+): Pick<
+  MerchantOwnerStats,
+  | "claims"
+  | "verifiedVisits"
+  | "claimToVerifiedPct"
+  | "successFees"
+  | "topDeal"
+  | "fastVisits"
+> {
+  const claims = ok(claimRows.length);
+  const claimToVerifiedPct = ok<number | null>(
+    claimRows.length === 0
+      ? null
+      : Math.round(
+          (claimRows.filter((row) => row.status === "success").length /
+            claimRows.length) *
+            100
+        )
+  );
+
+  const successFees = verifiedRows.reduce((sum, row) => {
+    const n = Number(row.success_fee_charged ?? 0);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  const byDeal = new Map<string, { title: string; count: number }>();
+  for (const row of verifiedRows) {
+    const title = row.deals?.title ?? "Deal";
+    const current = byDeal.get(row.deal_id);
+    byDeal.set(row.deal_id, {
+      title,
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+
+  const topDeal =
+    [...byDeal.entries()]
+      .sort((a, b) => {
+        const countDiff = b[1].count - a[1].count;
+        if (countDiff !== 0) return countDiff;
+        const titleDiff = a[1].title.localeCompare(b[1].title);
+        if (titleDiff !== 0) return titleDiff;
+        return a[0].localeCompare(b[0]);
+      })[0]?.[1].title ?? null;
+
+  return {
+    claims,
+    claimToVerifiedPct,
+    verifiedVisits: ok(verifiedRows.length),
+    successFees: ok(successFees),
+    topDeal: ok(topDeal),
+    fastVisits: ok(
+      verifiedRows.filter((row) => row.fast_visit_qualified_at !== null).length
+    ),
+  };
 }
 
 /**
@@ -80,69 +140,28 @@ export async function getMerchantOwnerStats(
     });
   }
 
-  const claimRows = (claimsRes.data ?? []) as ClaimRow[];
-  const verifiedRows = (verifiedRes.data ?? []) as unknown as VerifiedRow[];
+  const claimRows = (claimsRes.data ?? []) as MerchantClaimRow[];
+  const verifiedRows = (verifiedRes.data ?? []) as unknown as MerchantVerifiedRow[];
 
-  const claims = claimsRes.error ? failed<number>() : ok(claimRows.length);
-
-  const claimToVerifiedPct = claimsRes.error
-    ? failed<number | null>()
-    : ok(
-        claimRows.length === 0
-          ? null
-          : Math.round(
-              (claimRows.filter((row) => row.status === "success").length /
-                claimRows.length) *
-                100
-            )
-      );
-
-  if (verifiedRes.error) {
-    return {
-      windowStart,
-      claims,
-      claimToVerifiedPct,
-      verifiedVisits: failed<number>(),
-      successFees: failed<number>(),
-      topDeal: failed<string | null>(),
-      fastVisits: failed<number>(),
-    };
-  }
-
-  const successFees = verifiedRows.reduce((sum, row) => {
-    const n = Number(row.success_fee_charged ?? 0);
-    return sum + (Number.isFinite(n) ? n : 0);
-  }, 0);
-
-  const byDeal = new Map<string, { title: string; count: number }>();
-  for (const row of verifiedRows) {
-    const title = row.deals?.title ?? "Deal";
-    const current = byDeal.get(row.deal_id);
-    byDeal.set(row.deal_id, {
-      title,
-      count: (current?.count ?? 0) + 1,
-    });
-  }
-
-  const topDeal =
-    [...byDeal.entries()]
-      .sort((a, b) => {
-        const countDiff = b[1].count - a[1].count;
-        if (countDiff !== 0) return countDiff;
-        const titleDiff = a[1].title.localeCompare(b[1].title);
-        if (titleDiff !== 0) return titleDiff;
-        return a[0].localeCompare(b[0]);
-      })[0]?.[1].title ?? null;
+  const good = summariseMerchantOwnerRows(claimRows, verifiedRows);
 
   return {
     windowStart,
-    claims,
-    claimToVerifiedPct,
-    verifiedVisits: ok(verifiedRows.length),
-    successFees: ok(successFees),
-    topDeal: ok(topDeal),
-    fastVisits: ok(
-      verifiedRows.filter((row) => row.fast_visit_qualified_at !== null).length
-    ),
+    claims: claimsRes.error ? failed<number>() : good.claims,
+    claimToVerifiedPct: claimsRes.error
+      ? failed<number | null>()
+      : good.claimToVerifiedPct,
+    verifiedVisits: verifiedRes.error
+      ? failed<number>()
+      : good.verifiedVisits,
+    successFees: verifiedRes.error
+      ? failed<number>()
+      : good.successFees,
+    topDeal: verifiedRes.error
+      ? failed<string | null>()
+      : good.topDeal,
+    fastVisits: verifiedRes.error
+      ? failed<number>()
+      : good.fastVisits,
   };
 }
