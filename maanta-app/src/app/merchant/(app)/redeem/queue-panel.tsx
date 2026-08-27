@@ -30,29 +30,61 @@ import { publishQueueCode } from "@/lib/queue-code-handoff";
 export function QueuePanel() {
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  // Monotonic request version: only the newest-started queue read may commit
-  // state. This prevents an older poll response from re-adding a shopper
-  // after the redemption-completed refresh already removed them.
-  const loadGeneration = useRef(0);
 
-  const load = useCallback(async () => {
-    const generation = ++loadGeneration.current;
+  // Polls are serialized. A slow mall-Wi-Fi response must be allowed to
+  // finish even if it takes longer than QUEUE_POLL_MS; otherwise a timer can
+  // supersede every request forever and the queue never becomes visible.
+  //
+  // Priority refreshes (verification completed / dismiss) are different: if
+  // one arrives while a poll is in flight, that older response is no longer
+  // allowed to commit because it may contain the just-served shopper. We mark
+  // it stale and immediately run one fresh read after it settles.
+  const loadInFlight = useRef(false);
+  const priorityRefreshRequested = useRef(false);
+  const refreshEpoch = useRef(0);
+
+  const load = useCallback(async (priority = false) => {
+    if (priority) refreshEpoch.current += 1;
+
+    if (loadInFlight.current) {
+      if (priority) priorityRefreshRequested.current = true;
+      return;
+    }
+
+    loadInFlight.current = true;
     try {
-      const res = await fetch("/api/queue", { cache: "no-store" });
-      if (generation !== loadGeneration.current) return;
-      if (!res.ok) {
-        setLoadFailed(true);
-        return;
+      let runAgain = true;
+      while (runAgain) {
+        priorityRefreshRequested.current = false;
+        const epoch = refreshEpoch.current;
+
+        try {
+          const res = await fetch("/api/queue", { cache: "no-store" });
+
+          // A priority event that happened while this request was pending has
+          // made its snapshot stale. Skip both success and failure state from
+          // that request; the loop below will perform the requested fresh read.
+          if (epoch === refreshEpoch.current) {
+            if (!res.ok) {
+              setLoadFailed(true);
+            } else {
+              const body = await res.json();
+              if (Array.isArray(body?.entries)) {
+                setEntries(body.entries);
+                setLoadFailed(false);
+              }
+            }
+          }
+        } catch {
+          // Keep the last good list. Only the current epoch may report a read
+          // failure; an invalidated request is followed by the priority read.
+          if (epoch === refreshEpoch.current) setLoadFailed(true);
+        }
+
+        runAgain = priorityRefreshRequested.current;
       }
-      const body = await res.json();
-      if (generation !== loadGeneration.current) return;
-      if (Array.isArray(body?.entries)) {
-        setEntries(body.entries);
-        setLoadFailed(false);
-      }
-    } catch {
-      // keep the last good list; remember that we have none yet
-      if (generation === loadGeneration.current) setLoadFailed(true);
+    } finally {
+      loadInFlight.current = false;
     }
   }, []);
 
@@ -62,8 +94,9 @@ export function QueuePanel() {
     // A completed verification drops the served shopper straight away; the
     // poll alone left them listed and tappable for up to QUEUE_POLL_MS, and
     // tapping that stale row showed staff a rejection screen for a customer
-    // they had just served (D204).
-    const unsubscribe = subscribeRedemptionCompleted(() => void load());
+    // they had just served (D204). This is a priority read: an in-flight poll
+    // may not overwrite it with a pre-verification snapshot.
+    const unsubscribe = subscribeRedemptionCompleted(() => void load(true));
     return () => {
       clearInterval(t);
       unsubscribe();
@@ -78,7 +111,7 @@ export function QueuePanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presentationId: id }),
       }).catch(() => null);
-      void load();
+      void load(true);
     },
     [load]
   );
