@@ -145,7 +145,34 @@ Claude does not apply this. When authorized, in order:
 **D206 is not closed until step 6 has been observed.** The apply alone proves the
 guard exists; only the scheduled run proves the cron repairs rather than aborts.
 
-## 9. Reported, not silently widened
+## 9. Seed reruns — Codex finding, confirmed and fixed
+
+Codex flagged (P2) that the documented rerun path in `AGENTS.md` — apply
+`supabase/seed/node0_100_deals_seed.sql` — ends in a blanket
+`UPDATE ... SET is_active = true` over its whole id range. Reproduced: once one
+of those merchants has a slot held by a row **outside** the range (an
+`autoreseed` flash deal is exactly that), the guard raises
+`Deal limit reached. elite plan allows 2 active deal(s).` and **rolls the entire
+seed back**.
+
+`node0_100_deals_seed.sql` and `node0_rehearsal_seed.sql` now use the same
+allowance-based selection as the refresh function: already-active rows refreshed
+unconditionally, inactive rows activated only within the slots that remain,
+oldest id first. Verified before and after on the same probe state:
+
+| Form | Result |
+|---|---|
+| Blanket (pre-fix) | ❌ aborts — `Deal limit reached` |
+| Allowance-based (post-fix) | ✅ completes; merchant lands at exactly cap, 99 of 100 rows active with the autoreseed slot respected |
+| Clean chain, seeded twice | ✅ 100 active, 0 over cap, idempotent |
+
+**`node0_ops_personas_seed.sql` is NOT fixed here — see D207.** It inserts a
+flash deal for a merchant the rehearsal seed creates on the **standard** tier, so
+it aborts on the INSERT path this PR leaves byte-identical. That break predates
+D206 and its fix is a product-data decision (Bilan becomes Elite, or the deal
+stops being flash), not a mechanical one. Founder's call.
+
+## 10. Reported, not silently widened
 
 An UPDATE flipping `deal_type` to `flash` on a row that is **already active**
 stays unguarded. No app or DB path updates `deal_type` (grepped), and the guard
