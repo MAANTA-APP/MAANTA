@@ -11,10 +11,10 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 102/102 as of 2026-08-25** (D164's `20260824130000`; it stood at 101/101 on 2026-08-24 after D162's `20260824120000`, and at 100/100 on 2026-08-23 after D154's `20260823120000` and D158's `20260823130000`, and at 98/98 on 2026-08-20) (**D24**
+still on. **The migration ledger reconciles at 105/105 as of 2026-08-27** (D206's `20260827120000` — the active-deal cap now holds on entry into slot occupancy, not only on INSERT; before it the two 2026-08-26 dark-deploy migrations `20260826120000` (Fast Visit + Points, feature-flagged OFF) and `20260826130000` (merchant QR queue) took it to 104/104. Prior: 102/102 on 2026-08-25 with D164's `20260824130000`; it stood at 101/101 on 2026-08-24 after D162's `20260824120000`, and at 100/100 on 2026-08-23 after D154's `20260823120000` and D158's `20260823130000`, and at 98/98 on 2026-08-20) (**D24**
 closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19,
 **D142** closed 2026-08-19, **D147** closed 2026-08-20): production's
-`schema_migrations` and this repo's `supabase/migrations/` agree on all 100
+`schema_migrations` and this repo's `supabase/migrations/` agree on all 105
 version/name pairs, verified by a full read-back diff. Getting there took three founder-authorized MCP apply rounds —
 the three 2026-08-17 security migrations (`20260817120000`/`130000`/`140000` —
 **D123**/**D124**/**D125**), the CSPRNG OTP and `deals.expires_at NOT NULL` pair
@@ -36,10 +36,10 @@ it was applied.
 choosing a version.** For two days production held five migrations that existed
 only on an unmerged branch, so the repo directory under-reported the real
 high-water mark and two files were authored on top of already-taken versions
-(**D121**). (2) **Every MCP apply mints its own version** — **ten for ten** — so read
+(**D121**). (2) **Every MCP apply mints its own version** — **eleven for eleven** — so read
 back and repair the ledger to the repo filename before doing anything else.
-D164's apply minted `20260825083646` and was repaired to `20260824130000`;
-D162's minted `20260824163212` before it, and D158's `20260823134241`.
+D206's apply minted `20260827074843` and was repaired to `20260827120000`;
+D164's minted `20260825083646`, D162's `20260824163212`, D158's `20260823134241`.
 Treat this alignment as a thing to re-check, not a settled state: the earlier
 87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
@@ -95,7 +95,7 @@ code disagree, say so explicitly in your summary and add a row to
 | `maanta-app/src/app/api/` | Route handlers: onboarding, top-ups, redemptions, webhooks (Stripe, IntaSend), push, healthz |
 | `maanta-app/src/lib/` | Shared libs: `pricing.ts` (the only YOU PAY computation), currency/FX, Stripe, IntaSend, merchant ledger, elite-trial, analytics, web push |
 | `maanta-app/src/components/ui/claude/` | Shared UI primitives (`Page`, `Section`, typography, buttons, chips, `DealCard`) — extend these, don't fork them |
-| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 102/102 as of 2026-08-25**, verified by full version+name read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000` on 2026-08-20, **D154** `20260823120000` and **D158** `20260823130000` on 2026-08-23, **D162** `20260824120000` on 2026-08-24, **D164** `20260824130000` on 2026-08-25). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
+| `maanta-app/supabase/migrations/` | Version-controlled migration history — authoritative for DB behavior. **Ledger reconciles with prod at 105/105 as of 2026-08-27**, verified by full version+name read-back diff (**D24** closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19 when the security branch merged and the repo finally contained every applied migration; **D147** added `20260820120000` on 2026-08-20, **D154** `20260823120000` and **D158** `20260823130000` on 2026-08-23, **D162** `20260824120000` on 2026-08-24, **D164** `20260824130000` on 2026-08-25). Read the **ledger**, not this directory, before picking a version — for two days it under-reported the high-water mark by five |
 | `maanta-app/supabase/tests/` | Plain-SQL money-path assertion suites, run by the CI `db-tests` job |
 | `maanta-app/design/` | `current-reality/` (canonical surface inventory), `claim-and-till/` wireframes, wireframe-system PDF |
 | `maanta-app/src/content/legal/` | The markdown the four live legal routes render. `docs/legal/` holds the source set + counsel note; `maanta-app/legal/` holds older policy drafts. All DRAFT — not lawyer-reviewed |

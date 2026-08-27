@@ -2,7 +2,9 @@
 
 **Date:** 2026-08-27 · **Branch:** `claude/d206-cap-update-guard` · **PR:** #284
 **Migration:** `maanta-app/supabase/migrations/20260827120000_cap_enforce_on_slot_entry.sql`
-**Production status: NOT APPLIED.** Ledger 104/104, high-water `20260826130000`.
+**Production status: APPLIED 2026-08-27** under founder authorization, after PR #284 merged as
+`5aaf522`. **Ledger 105/105**, high-water `20260827120000`. See §11 for the apply record.
+**D206 is still open** — closure waits on the scheduled 02:30 UTC refresh.
 
 Locked commercial rule, unchanged and not up for revision here:
 **Standard = 1 active deal, Elite = 2.** Database authoritative. No `is_demo` exemption.
@@ -62,7 +64,16 @@ the trigger to reject the surplus:
 4. **retire the surplus** — which is what lets the next scheduled run repair the
    current over-cap state without anyone editing production rows by hand.
 
-Cost on current data: it activates **288 rows instead of 289**.
+Cost on current data, measured on production rather than estimated: of the **289**
+active batch rows it keeps **261** and retires **28** — exactly the 28 merchants
+sitting one deal over cap. Total active deals therefore go **331 → 303**
+(261 batch + 40 `autoreseed` + 2 genuine).
+
+> An earlier draft of this document said "288 instead of 289". That was wrong,
+> and Codex caught it on PR #285: it counted the batch as though only one row
+> were dropped, without subtracting the 40 slots `autoreseed` flash rows already
+> hold. The corrected figures above come from running the function's own
+> selection logic as a read-only query against production.
 
 ## 4. Not changed
 
@@ -110,7 +121,10 @@ lint ✅ · typecheck ✅ · 1366 unit tests ✅ · build + three post-build gat
 **all 37 SQL suites on a fresh 105-migration chain** ✅ · CI `ci` + `db-tests`
 green on the exact head.
 
-## 7. Production census, read-only, 2026-08-27
+## 7. Production census, read-only, 2026-08-27 — **PRE-APPLY**
+
+Every row below is the state *before* the migration was applied. The post-apply
+read-back and census are in §11; do not read the two together.
 
 | Measure | Value |
 |---|---|
@@ -178,3 +192,71 @@ An UPDATE flipping `deal_type` to `flash` on a row that is **already active**
 stays unguarded. No app or DB path updates `deal_type` (grepped), and the guard
 does cover a flip on a row *entering* occupancy. It is a one-line addition to the
 same branch if the founder wants it closed now.
+
+## 11. Apply record — 2026-08-27, founder-authorized
+
+Order followed: **merge first, apply minutes later** (the D162/D164 sequence), so
+code never trailed schema.
+
+1. **PR #284 merged** as `5aaf522`. Verified by **tree comparison, not SHA** —
+   `git diff origin/main 87ce088` is empty, so `main` carries exactly the audited
+   tree despite the squash minting a new commit.
+2. **Ledger read first**, not the directory: 104/104, high-water
+   `20260826130000`, `20260827120000` absent. Nothing had been applied in
+   between.
+3. **Applied.** The apply minted `20260827074843` — **eleven for eleven** — and
+   was **repaired to `20260827120000` before anything else**. Ledger **105/105**,
+   high-water `20260827120000`, the minted version gone.
+4. **Read back:**
+
+| Check | Result |
+|---|---|
+| `enforce_deal_limit_trigger` fires on | **INSERT UPDATE** |
+| Transition check present in the live function body | ✅ |
+| `refresh_demo_seed_deals()` `pg_temp.`-qualified | ✅ |
+| `refresh_demo_seed_deals()` cap-aware (`foreign_occupancy`) | ✅ |
+| Overloads | exactly **1** of each function |
+| `refresh_demo_seed_deals()` EXECUTE grantees | `postgres`, `service_role` — anon/authenticated absent |
+| cron `maanta_demo_seed_refresh` | `30 2 * * *`, active |
+
+5. **Live negative test on production**, written to roll itself back — three
+   behaviours confirmed on real data, nothing committed:
+
+```
+merchant=c0000000-…001
+  reactivate_over_cap = [Deal limit reached. elite plan allows 2 active deal(s).]
+  edit_at_cap         = [allowed]
+  leave_occupancy     = [allowed]
+```
+
+   The hole is shut, and the thing a naive fix would have broken — editing the
+   deal that owns your only slot — still works.
+
+6. **No mutation.** Before and after the probe, identically: 2408 deals · 331
+   active · 215 merchants · 404 redemptions · 0 `tier_flags` rows (D194) · 2
+   genuine active deals.
+
+7. **Census immediately after the apply: still 28 over cap** (0 genuine, 28
+   demo; Standard max 2, Elite max 3). **This is expected and correct.** The
+   migration changes behaviour, not rows — it deliberately does not edit
+   production data, per the founder ruling *"do not solve this by manually
+   cleaning production rows."* The 28 clear when the rewritten refresh next
+   runs and retires the surplus.
+
+### What closes D206
+
+The **02:30 UTC scheduled run of `maanta_demo_seed_refresh`** on 2026-08-28, and
+nothing before it. Three things must hold:
+
+- the cron run **succeeds** — a failure would mean the refresh aborts under the
+  new guard, the exact incident the rewrite exists to prevent;
+- over-cap goes **28 → 0**, Standard max ≤ 1, Elite max ≤ 2, and does not recur;
+- the marketplace is not starved — **303 active deals** (261 batch + 40
+  `autoreseed` + 2 genuine), not 288: the refresh manages only the batch, and
+  `autoreseed` and genuine rows are untouched. Using 288 as the target would
+  either accept the silent loss of ~15 deals or make a correct run look wrong.
+  The two deliberately-dark fixture shops must still be dark (0 active, as they
+  are now).
+
+A check-in is scheduled for 03:00 UTC on 2026-08-28 to read `cron.job_run_details`
+and re-run the census. Until then D206 stays **open**.
