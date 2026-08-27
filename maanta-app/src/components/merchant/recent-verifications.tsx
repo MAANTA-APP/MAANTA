@@ -1,5 +1,5 @@
 import { IconCheck } from "@/components/ui/icons";
-import { relativeAgo } from "@/lib/ui";
+import { LiveAgo } from "@/components/merchant/live-ago";
 
 /**
  * The last few verifications at this till (G1).
@@ -19,6 +19,10 @@ import { relativeAgo } from "@/lib/ui";
  * initial, computed server-side by `staffFacingName`. No phone, no email, no
  * full name, and no money figure: the fee is the merchant's business on the
  * wallet screen, not a line staff read out at the counter.
+ *
+ * The ages tick client-side (`LiveAgo`) because this component is server
+ * rendered and a till stays open for hours between refreshes — a frozen
+ * "just now" would be a lie on the one surface staff trust for exactly that.
  */
 export type RecentVerification = {
   id: string;
@@ -68,7 +72,7 @@ export function RecentVerifications({
               {" · "}
               <span className="break-words">{v.dealTitle}</span>
               {" — verified "}
-              {relativeAgo(v.verifiedAt)}
+              <LiveAgo iso={v.verifiedAt} />
             </p>
           </li>
         ))}

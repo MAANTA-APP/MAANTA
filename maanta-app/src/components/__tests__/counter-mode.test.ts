@@ -96,6 +96,31 @@ describe("the printable sheet", () => {
   });
 });
 
+describe("the merchant shell never reaches the printed sheet", () => {
+  // The print route lives under merchant/(app)/layout.tsx, so without print
+  // rules the sheet carries the top bar — including the WALLET BALANCE — the
+  // banners and the fixed bottom nav onto a wall-mounted page (Codex P2).
+  const layout = stripComments(read("src/app/merchant/(app)/layout.tsx"));
+
+  it("hides the top bar, banners and bottom nav from print", () => {
+    expect(layout).toMatch(/print:hidden[\s\S]{0,400}MerchantTopBar/);
+    expect(layout).toMatch(/print:hidden[\s\S]{0,200}MerchantBottomBar/);
+  });
+
+  it("drops the shell frame and nav padding on paper", () => {
+    expect(layout).toContain("print:border-0");
+    expect(layout).toContain("print:pb-0");
+  });
+
+  it("changes nothing on screen — every rule is print-scoped", () => {
+    const added = (layout.match(/print:[a-z0-9-]+/g) ?? []);
+    expect(added.length).toBeGreaterThan(0);
+    // No non-print utility was swapped out while adding them.
+    expect(layout).toContain("min-h-dvh");
+    expect(layout).toContain("pb-24");
+  });
+});
+
 describe("the dashboard QR card", () => {
   const dash = stripComments(read("src/app/merchant/(app)/dashboard/page.tsx"));
 
@@ -132,6 +157,19 @@ describe("recent verifications", () => {
     expect(html).toContain("Amina H.");
     expect(html).toContain("Summer Abaya");
     expect(html).toMatch(/ago/);
+  });
+
+  it("keeps the age truthful on a till left open (Codex P2)", () => {
+    // Server-rendered text would freeze at whatever it said when the page
+    // last rendered; a stale "just now" is exactly the lie that makes staff
+    // re-verify a used code. The label must come from the ticking client
+    // component, not a one-shot server call.
+    const componentSource = src("src/components/merchant/recent-verifications.tsx");
+    expect(componentSource).toContain("LiveAgo");
+    expect(componentSource).not.toMatch(/relativeAgo\(/);
+    const live = src("src/components/merchant/live-ago.tsx");
+    expect(live).toContain('"use client"');
+    expect(live).toMatch(/setInterval/);
   });
 
   it("renders nothing when there is genuinely nothing to show", () => {
