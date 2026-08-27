@@ -4,6 +4,7 @@ import { requireAdminPage } from "@/lib/admin";
 import { ButtonLink } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/inputs";
 import { relativeAgo } from "@/lib/ui";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,16 @@ export default async function AdminApprovalsPage({
     .eq("status", "pending")
     .order("created_at", { ascending: false });
   if (q) query = query.ilike("merchant_name", `%${q}%`);
-  const { data: pending } = await query;
+  const { data: pending, error } = await query;
+
+  if (error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Pending approvals</h1>
+        <div className="mt-5"><AdminReadError what="pending approvals" /></div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl">
