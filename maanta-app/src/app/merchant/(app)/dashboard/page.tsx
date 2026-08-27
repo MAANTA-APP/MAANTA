@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
@@ -15,7 +16,7 @@ import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
 
-function metricValue<T>(metric: { ok: boolean; value: T | null }, render: (value: T) => React.ReactNode) {
+function metricValue<T>(metric: { ok: boolean; value: T | null }, render: (value: T) => ReactNode) {
   return metric.ok && metric.value !== null ? render(metric.value) : "—";
 }
 
