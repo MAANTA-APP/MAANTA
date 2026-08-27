@@ -67,6 +67,13 @@ describe("PR 4 admin operations ratchets", () => {
   const read = (rel: string) =>
     readFileSync(path.join(__dirname, "../../", rel), "utf8");
 
+  it("does not turn a failed node-scope read into an empty node", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain('const { data, error } = await service');
+    expect(src).toContain("the selected node&apos;s merchant scope");
+    expect(src).toContain("merchantIds = (data ?? []).map");
+  });
+
   it("uses the full D188 parent join for every genuine-tagged census", () => {
     const src = read("app/admin/page.tsx");
     expect(
