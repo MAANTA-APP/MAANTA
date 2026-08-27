@@ -50,7 +50,20 @@ export default async function AdminHomePage({
   // The node's merchant set — the join every non-node-carrying table needs.
   let merchantIds: string[] | null = null;
   if (scoped) {
-    const { data } = await service.from("merchants").select("id").eq("node", node);
+    const { data, error } = await service
+      .from("merchants")
+      .select("id")
+      .eq("node", node);
+    if (error) {
+      return (
+        <main className="min-h-dvh bg-stone px-4 pb-16 pt-6">
+          <h1 className="text-xl font-bold text-ink">Operations</h1>
+          <div className="mt-6">
+            <AdminReadError what="the selected node&apos;s merchant scope" />
+          </div>
+        </main>
+      );
+    }
     merchantIds = (data ?? []).map((m) => m.id);
   }
   // An empty node (real: a live node with no merchants yet) must filter to
