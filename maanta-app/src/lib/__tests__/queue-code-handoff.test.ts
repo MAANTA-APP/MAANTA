@@ -66,11 +66,17 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
     expect(src).toContain("publishQueueCode");
   });
 
-  it("only the newest-started queue load may commit state", () => {
+  it("serializes ordinary polls but lets priority refreshes invalidate stale snapshots", () => {
     const src = read("app/merchant/(app)/redeem/queue-panel.tsx");
-    expect(src).toContain("loadGeneration");
-    expect(src).toContain("generation !== loadGeneration.current");
-    expect(src).toContain("generation === loadGeneration.current");
+    expect(src).toContain("loadInFlight");
+    expect(src).toContain("priorityRefreshRequested");
+    expect(src).toContain("refreshEpoch");
+    expect(src).toContain("if (loadInFlight.current)");
+    expect(src).toContain("if (priority) priorityRefreshRequested.current = true");
+    expect(src.match(/epoch === refreshEpoch\.current/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src).toContain("const body = await res.json()");
+    expect(src).toContain("setInterval(() => void load(), QUEUE_POLL_MS)");
+    expect(src).toContain("subscribeRedemptionCompleted(() => void load(true))");
   });
 
   it("the redeem page takes no code from searchParams", () => {
