@@ -47,7 +47,7 @@ export default async function YouPage() {
   // explicitly). Collapsing it with `?? 0` hid the Rewards row entirely on a
   // transient error — asserting "you have no rewards" from a failed read,
   // and removing the one link to the page that would have said otherwise.
-  // The row stays; /you/rewards renders the honest read-error state. D200.
+  // The row stays; /you/rewards renders the honest read-error state. D202.
   const showRewards =
     fastVisitOn || rewardBalance === null || rewardBalance > 0;
 

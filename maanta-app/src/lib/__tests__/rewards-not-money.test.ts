@@ -30,7 +30,7 @@ describe("MAANTA Points are not money", () => {
     });
   }
 
-  it("earned eligibility survives the feature gate being turned off (D196)", () => {
+  it("earned eligibility survives the feature gate being turned off (D198)", () => {
     // award_fast_visit_points deliberately never re-reads the gate, so a
     // qualification earned while it was ON still pays. Gating the panel on
     // the CURRENT flag alone erased the shopper's confirmation the moment
@@ -43,7 +43,7 @@ describe("MAANTA Points are not money", () => {
     expect(you).toContain("rewardBalance === null || rewardBalance > 0");
   });
 
-  it("a reward READ FAILURE never renders as an empty balance (D200)", () => {
+  it("a reward READ FAILURE never renders as an empty balance (D202)", () => {
     // `null` means the read failed; `?? 0` collapsed that into "no rewards"
     // and hid the only link to the page that explains the difference.
     const you = read("src/app/(shopper)/you/page.tsx");
@@ -52,7 +52,7 @@ describe("MAANTA Points are not money", () => {
     expect(rewards).toContain("this is a read error, not");
   });
 
-  it("the ticket success reward card renders points, never money (D203)", () => {
+  it("the ticket success reward card renders points, never money (D205)", () => {
     // This file legitimately contains "KES" (the YOU PAY figure), so it
     // cannot join REWARD_SURFACES wholesale — the assertion is scoped to the
     // reward card itself, which sits on the same screen as a money figure

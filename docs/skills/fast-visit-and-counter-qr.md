@@ -5,7 +5,7 @@ Written 2026-08-27, after the three packages merged (#275/#276/#277) and both
 migrations were applied to production (ledger **104/104**, verified by a full
 version+name read-back).
 
-Companion rows: **D190–D203** in `docs/maanta-drift-register.md`. The founder
+Companion rows: **D190–D205** in `docs/maanta-drift-register.md`. The founder
 authorization and the product rules are the 2026-08-26 (second entry) row in
 `docs/maanta-decisions-log.md`.
 
@@ -32,7 +32,7 @@ Two rules follow, and both have already been violated once:
   (`lib/claim-ticket-time.ts`) rolls minutes into hours and days, because a
   day-long claim rendered as `1449:12` was the original D167 defect. The reward
   countdown was briefly a second, weaker copy of the same sub-hour logic and
-  could reproduce exactly that string on a slow device clock (**D201**); it now
+  could reproduce exactly that string on a slow device clock (**D203**); it now
   delegates. If you add a third timer here, delegate too.
 
 ---
@@ -59,7 +59,7 @@ instant can. So:
   was ON still pays after it is turned OFF. Every surface that *states*
   eligibility must honour the same carve-out — render on `fast_visit_enabled`
   **or** a non-null `fast_visit_qualified_at`. The ticket screen got this wrong
-  and showed the shopper nothing while the award still paid (**D196**).
+  and showed the shopper nothing while the award still paid (**D198**).
 
 The QR scan itself **never awards**. Points land only after staff complete a
 successful verification of the same claim at the same merchant, exactly once,
@@ -76,7 +76,7 @@ The amount is `app_config.fast_visit_points` (50), not a hardcoded constant.
 `src/lib/__tests__/rewards-not-money.test.ts` ratchets this. Note the shape of
 the ticket-screen assertion: that file legitimately contains `KES` (the YOU PAY
 figure), so the guard is **scoped to the reward card's own source region** rather
-than the whole file (**D203**). Any new reward surface needs a guard of one of
+than the whole file (**D205**). Any new reward surface needs a guard of one of
 those two shapes — do not skip it because the file "obviously" has no money in
 it today.
 
@@ -131,11 +131,11 @@ Rules that are easy to break:
   branches on age instead: extend a live row (keeping its `arrived_at` — a
   re-scan by someone already queued is not a new arrival), or supersede a lapsed
   one with a new `arrived_at`. Getting this wrong let a shopper who scanned the
-  entrance 40 minutes earlier jump an oldest-first queue (**D197**).
+  entrance 40 minutes earlier jump an oldest-first queue (**D199**).
 - Every queue write must confirm **what it actually wrote** (`.select("id")` and
   check the rows). An entry can be dismissed between a lookup and an update, and
   answering "you're checked in" regardless told a shopper they were queued while
-  staff never saw them (**D195**).
+  staff never saw them (**D197**).
 - Staff dismissal and shopper cancellation touch **only** the queue row. Never
   the claim.
 
@@ -171,7 +171,7 @@ rule, not a convention.
 **effects, handlers and state transitions never execute**. A client state machine
 is therefore *structurally unguardable* by the normal component test.
 
-That is exactly how **D194** shipped: cancelling a check-in set state back to
+That is exactly how **D196** shipped: cancelling a check-in set state back to
 `idle`, but the single-claim auto-check-in effect is one-shot, so the shopper sat
 on "Checking you in…" forever with nothing in flight — and no test could have
 caught it.

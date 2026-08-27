@@ -55,7 +55,7 @@ describe("fast visit — display formats", () => {
     expect(formatArrivalDuration(CLAIM, "2026-08-26T12:00:45.000Z")).toBe("45s");
   });
 
-  it("the reward countdown rolls over and guards non-finite input (D201)", () => {
+  it("the reward countdown rolls over and guards non-finite input (D203)", () => {
     // It used to be a second, weaker copy of the claim countdown's sub-hour
     // branch. A slow device clock could push `left` over an hour and render
     // the raw-minute string D167 item 3 removed from the timer directly

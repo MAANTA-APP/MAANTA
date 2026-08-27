@@ -43,7 +43,7 @@ const rpc = vi.fn(() => ({ single: rpcSingle }));
 // Service client — arrival RPC + token resolve + queue rows.
 let merchantRow: Record<string, unknown> | null;
 let waitingRow: { id: string; expires_at: string } | null;
-/** Rows the renew UPDATE matched — empty means it lost a race (D195). */
+/** Rows the renew UPDATE matched — empty means it lost a race (D197). */
 let renewMatched: Array<{ id: string }>;
 /** Payloads passed to .update(), so a test can assert what was written. */
 const queueUpdatePayloads: unknown[] = [];
@@ -65,7 +65,7 @@ vi.mock("@/lib/supabase/service", () => ({
       // merchant_presentations. `select` is overloaded in the real client: it
       // opens a read chain, and it also TERMINATES an update chain. The mock
       // mirrors that — after `.update(...)`, `.select()` resolves with the
-      // rows the update actually matched (D195).
+      // rows the update actually matched (D197).
       const chain: Record<string, unknown> = {};
       let updating = false;
       chain.eq = (...args: unknown[]) => {
@@ -88,7 +88,7 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 
 const TOKEN = "a".repeat(32);
-/** Real UUID shape — the route shape-checks the id before the RPC (D199). */
+/** Real UUID shape — the route shape-checks the id before the RPC (D201). */
 const RID = "11111111-2222-4333-8444-555555555555";
 /** A live (unlapsed) queue entry. */
 const FUTURE = new Date(Date.now() + 5 * 60_000).toISOString();
@@ -183,7 +183,7 @@ describe("POST /api/qr/check-in", () => {
     expect(queueInsert).not.toHaveBeenCalled();
   });
 
-  it("falls back to a fresh insert when the renew loses a race (D195)", async () => {
+  it("falls back to a fresh insert when the renew loses a race (D197)", async () => {
     // Staff dismissed the entry (or the shopper cancelled in another tab)
     // between the select and the update, so the renew matches zero rows. The
     // shopper must end up really queued, not merely told that they are.
@@ -196,7 +196,7 @@ describe("POST /api/qr/check-in", () => {
     expect(queueInsert).toHaveBeenCalled();
   });
 
-  it("supersedes a LAPSED entry with a fresh arrival time (D197)", async () => {
+  it("supersedes a LAPSED entry with a fresh arrival time (D199)", async () => {
     // Scanned the entrance sticker long ago, the entry lapsed off the staff
     // list, now scanning the till sticker. Reviving the old row with its
     // original arrived_at would re-list them as "arrived 40m ago" and sort
@@ -215,7 +215,7 @@ describe("POST /api/qr/check-in", () => {
     expect(queueInsert).not.toHaveBeenCalled();
   });
 
-  it("extends a LIVE entry without moving its arrival time (D197)", async () => {
+  it("extends a LIVE entry without moving its arrival time (D199)", async () => {
     waitingRow = { id: "p-1", expires_at: FUTURE };
     const res = await POST(req({ token: TOKEN, redemptionId: RID }));
     expect((await res.json()).renewed).toBe(true);
@@ -227,7 +227,7 @@ describe("POST /api/qr/check-in", () => {
     ).not.toHaveProperty("arrived_at");
   });
 
-  it("rejects a non-UUID redemption id with 400, not a 500 (D199)", async () => {
+  it("rejects a non-UUID redemption id with 400, not a 500 (D201)", async () => {
     const res = await POST(req({ token: TOKEN, redemptionId: "abc" }));
     expect(res.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();

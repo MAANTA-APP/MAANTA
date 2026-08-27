@@ -37,7 +37,7 @@ const TOKEN_SHAPE = /^[0-9a-f]{32}$/;
 // Shape-check the id too. A non-UUID reached the RPC and failed uuid
 // coercion inside PostgREST, whose message matches none of the mapped
 // branches below — so malformed input answered 500 instead of 400 and any
-// signed-in shopper could emit those at the rate-limit ceiling. D199.
+// signed-in shopper could emit those at the rate-limit ceiling. D201.
 const UUID_SHAPE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   // Every branch confirms what it actually wrote: an entry can be dismissed
   // or cancelled between the lookup and the write, and answering `checkedIn`
   // regardless told a shopper they were queued while staff never saw them
-  // (D195). D197.
+  // (D197). D199.
   const { data: existing } = await service
     .from("merchant_presentations")
     .select("id, expires_at")

@@ -55,7 +55,7 @@ export function subscribeQueueCode(cb: Listener): () => void {
  * customer staff had served seconds earlier: a frightening screen generated
  * by the happy path, on every redemption at a queue-using till. Carries no
  * data — it is a "refresh now" nudge, and the server remains the authority
- * on who is in the queue. D202.
+ * on who is in the queue. D204.
  */
 type VoidListener = () => void;
 

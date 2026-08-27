@@ -79,7 +79,7 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
   });
 });
 
-describe("redemption-completed channel (D202)", () => {
+describe("redemption-completed channel (D204)", () => {
   it("notifies every subscriber, and stops after unsubscribe", () => {
     const seen: string[] = [];
     const offA = subscribeRedemptionCompleted(() => seen.push("a"));

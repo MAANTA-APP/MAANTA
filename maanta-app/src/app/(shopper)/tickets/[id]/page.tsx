@@ -113,7 +113,7 @@ export default async function TicketPage({
       // PostgREST failures RESOLVE as `{ error }` rather than throwing, so the
       // catch below never sees them — log here or a backstop that has quietly
       // stopped backstopping is indistinguishable from "this shopper did not
-      // qualify". Same trap the verify route documents. D198.
+      // qualify". Same trap the verify route documents. D200.
       const { error: awardError } = await service.rpc("award_fast_visit_points", {
         p_redemption_id: ticket.id,
       });
@@ -240,7 +240,7 @@ export default async function TicketPage({
   // while `award_fast_visit_points` still pays, because it deliberately
   // never re-reads the gate. The migration states the invariant ("earned
   // eligibility is never erased") and /you/page.tsx already honours it; this
-  // screen did not. D196.
+  // screen did not. D198.
   const fastVisitOn = await isFastVisitEnabled();
   return (
     <main className="flex flex-col items-center px-5 pb-10 pt-4">

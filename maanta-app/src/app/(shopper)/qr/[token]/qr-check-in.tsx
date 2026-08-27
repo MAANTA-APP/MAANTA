@@ -119,7 +119,7 @@ export function QrCheckIn({
     // shopper on the `claims.length === 1 && idle` branch — "Checking you
     // in…" — with no request in flight and nothing that could ever resolve
     // it: the screen said the opposite of what they had just asked for, and
-    // only a full reload escaped. D194.
+    // only a full reload escaped. D196.
     setState({ kind: "cancelled", redemptionId });
   }, []);
 

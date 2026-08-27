@@ -53,7 +53,7 @@ export function formatArrivalDuration(
  * non-finite guard, so a device clock running slow could reproduce exactly
  * the raw-minute string ("65:00") that D167 item 3 removed from the claim
  * countdown directly above it — and an unparseable value rendered
- * "NaN:NaN". Under an hour the output is identical to before. D201.
+ * "NaN:NaN". Under an hour the output is identical to before. D203.
  */
 export function formatRewardCountdown(msLeft: number): string {
   return formatClaimCountdown(msLeft);

@@ -55,7 +55,7 @@ export function QueuePanel() {
     // A completed verification drops the served shopper straight away; the
     // poll alone left them listed and tappable for up to QUEUE_POLL_MS, and
     // tapping that stale row showed staff a rejection screen for a customer
-    // they had just served (D202).
+    // they had just served (D204).
     const unsubscribe = subscribeRedemptionCompleted(() => void load());
     return () => {
       clearInterval(t);

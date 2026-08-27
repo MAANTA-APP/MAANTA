@@ -192,7 +192,7 @@ export function RedeemKeypad({
             })
           : null;
       // Tell the queue panel to drop the shopper it just served, rather than
-      // leaving them listed and tappable until its next poll (D202).
+      // leaving them listed and tappable until its next poll (D204).
       publishRedemptionCompleted();
       setScreen({
         kind: "success",

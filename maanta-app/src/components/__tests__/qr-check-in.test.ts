@@ -65,7 +65,7 @@ describe("QrCheckIn states", () => {
     expect(html).toContain("your claim stays valid");
   });
 
-  it("the single-claim branch always resolves to a real screen (D194)", () => {
+  it("the single-claim branch always resolves to a real screen (D196)", () => {
     // The cancel-stranding class of defect: the single-claim auto-check-in
     // effect is one-shot, so any state falling back to `idle` renders
     // "Checking you in…" forever with nothing in flight. SSR cannot run the
@@ -80,7 +80,7 @@ describe("QrCheckIn states", () => {
     expect(html).toContain("Cancel check-in");
   });
 
-  it("cancel lands in its own terminal state, never back in idle (D194)", () => {
+  it("cancel lands in its own terminal state, never back in idle (D196)", () => {
     const src = readFileSync(
       path.resolve(process.cwd(), "src/app/(shopper)/qr/[token]/qr-check-in.tsx"),
       "utf8"
