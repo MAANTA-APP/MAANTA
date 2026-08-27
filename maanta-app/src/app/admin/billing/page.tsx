@@ -9,6 +9,7 @@ import {
   parseEliteTrialCapStatus,
 } from "@/lib/elite-trial";
 import { PlanActions } from "./plan-actions";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +39,22 @@ export default async function AdminBillingPage({
   if (filter === "elite") query = query.eq("tier", "elite").eq("elite_trial_active", false);
   if (filter === "trial") query = query.eq("elite_trial_active", true);
   if (filter === "standard") query = query.eq("tier", "standard");
-  const [{ data: merchants }, { data: capRows }] = await Promise.all([
+  const [merchantsRes, capRes] = await Promise.all([
     query,
     service.rpc("elite_trial_cap_status"),
   ]);
 
-  const trialCap = parseEliteTrialCapStatus(capRows);
+  if (merchantsRes.error || capRes.error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Plans &amp; trials</h1>
+        <div className="mt-5"><AdminReadError what="plans and trials" /></div>
+      </main>
+    );
+  }
+
+  const merchants = merchantsRes.data;
+  const trialCap = parseEliteTrialCapStatus(capRes.data);
 
   return (
     <main className="max-w-4xl">
