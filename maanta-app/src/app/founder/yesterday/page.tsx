@@ -6,6 +6,7 @@ import { AdminReadError } from "@/components/admin/read-error";
 import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
 import { GENUINE_JOIN_SELECT, genuineJoinSelect, genuineTagged } from "@/lib/evidence-scope";
+import { withPublicMerchant } from "@/lib/data";
 import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
 import { queueAlertState } from "@/lib/pilot-command-centre";
 import { formatKes } from "@/lib/ui";
@@ -92,16 +93,24 @@ export default async function YesterdayBriefPage() {
       .select("id", { count: "exact", head: true })
       .eq("is_demo", false)
       .eq("status", "active"),
-    (() => {
-      let q = service
+    // Shopper-visible must mean what the FEED means. The deal-side conditions
+    // are only half of it: a deal on a suspended, hidden or shadow-banned
+    // merchant reaches nobody, so counting it inflated supply AND suppressed
+    // the no-supply alert for exactly the merchants most needing it.
+    // withPublicMerchant() is the helper the shopper surfaces use, so this
+    // count cannot drift from the feed — demo handling included.
+    withPublicMerchant(
+      service
         .from("deals")
-        .select("id", { count: "exact", head: true })
+        .select("id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)", {
+          count: "exact",
+          head: true,
+        })
         .eq("is_active", true)
         .eq("is_paused", false)
-        .gt("expires_at", new Date().toISOString());
-      if (demoMode.ok && !demoMode.enabled) q = q.eq("is_demo", false);
-      return q;
-    })(),
+        .gt("expires_at", new Date().toISOString()),
+      { includeDemo: demoMode.enabled }
+    ),
     claimsIn(startIso, endIso),
     claimsIn(prevStartIso, startIso),
     genuineTagged(
@@ -122,13 +131,23 @@ export default async function YesterdayBriefPage() {
         .gte("fast_visit_qualified_at", startIso)
         .lt("fast_visit_qualified_at", endIso)
     ),
-    service
-      .from("merchant_transactions")
-      .select("amount")
-      .eq("transaction_type", "success_fee")
-      .gte("created_at", startIso)
-      .lt("created_at", endIso)
-      .limit(FEE_ROW_CAP),
+    // Fees, scoped to the SAME evidence as the counts beside them.
+    //
+    // This read merchant_transactions by type alone, so a fee charged against a
+    // demo merchant landed under a heading whose other figures are
+    // genuine-tagged — a mixed number sitting beside filtered ones, which is
+    // the D188 conflation in money form. Derived instead from the genuine
+    // verified redemptions themselves: each success carries the fee it was
+    // charged, and the redemption chain is what makes it genuine.
+    genuineTagged(
+      service
+        .from("redemptions")
+        .select(genuineJoinSelect("success_fee_charged"))
+        .eq("status", "success")
+        .gte("redeemed_at", startIso)
+        .lt("redeemed_at", endIso)
+        .limit(FEE_ROW_CAP)
+    ),
     // Every claim yesterday, genuine-tagged or not. The difference between this
     // and the genuine count is the demo/mixed split — stated, not hidden.
     service
@@ -173,11 +192,13 @@ export default async function YesterdayBriefPage() {
   const merchantsLive = n(merchantsLiveRes);
   const visibleDeals = demoMode.ok ? n(visibleDealsRes) : null;
 
-  const feeRows = feesRes.error ? null : feesRes.data ?? [];
+  const feeRows = feesRes.error
+    ? null
+    : ((feesRes.data ?? []) as unknown as { success_fee_charged: number | string | null }[]);
   const fees =
     feeRows === null || feeRows.length >= FEE_ROW_CAP
       ? null
-      : feeRows.reduce((s, r) => s + Math.abs(Number(r.amount ?? 0)), 0);
+      : feeRows.reduce((s, r) => s + Math.abs(Number(r.success_fee_charged ?? 0)), 0);
 
   const demoClaims =
     allClaims === null || claims === null ? null : Math.max(0, allClaims - claims);
@@ -262,7 +283,7 @@ export default async function YesterdayBriefPage() {
         <KpiCard
           label="Success fees"
           value={fees === null ? "—" : formatKes(fees)}
-          hint="KES 30 per verified redemption."
+          hint="KES 30 per verified redemption, genuine-tagged only — the same evidence scope as the counts above."
         />
         <KpiCard
           label="External field validation"
@@ -501,15 +522,19 @@ async function merchantsWithoutVisibleSupply(
 
   const out: NamedMerchant[] = [];
   for (const m of merchants ?? []) {
-    let q = service
-      .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("merchant_id", m.id)
-      .eq("is_active", true)
-      .eq("is_paused", false)
-      .gt("expires_at", new Date().toISOString());
-    if (!demoMode.enabled) q = q.eq("is_demo", false);
-    const { count, error: dealErr } = await q;
+    const { count, error: dealErr } = await withPublicMerchant(
+      service
+        .from("deals")
+        .select("id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)", {
+          count: "exact",
+          head: true,
+        })
+        .eq("merchant_id", m.id)
+        .eq("is_active", true)
+        .eq("is_paused", false)
+        .gt("expires_at", new Date().toISOString()),
+      { includeDemo: demoMode.enabled }
+    );
     // A failed per-merchant read must not be reported as "no supply".
     if (dealErr) return null;
     if ((count ?? 0) === 0) out.push({ id: m.id, name: m.merchant_name ?? "Unnamed" });

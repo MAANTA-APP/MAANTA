@@ -99,3 +99,53 @@ describe("Yesterday brief — no causal claims from tiny samples", () => {
     expect(code).toContain("3 * 3600_000");
   });
 });
+
+describe("Yesterday — supply and fees carry the same scope as the counts beside them", () => {
+  it("counts shopper-visible supply through the canonical merchant predicate", () => {
+    // Deal-side conditions alone are half the rule: a deal on a suspended,
+    // hidden or shadow-banned merchant reaches nobody, so counting it inflated
+    // supply AND suppressed the no-supply alert for the merchants most in need
+    // of it.
+    const code = src();
+    expect(code).toContain("withPublicMerchant(");
+    expect(code).toContain("merchants!inner(status,is_visible,is_shadow_banned,is_demo)");
+  });
+
+  it("applies that predicate to the zero-supply list too, not just the headline", () => {
+    // Two places count supply on this page; a rule applied to one of them is a
+    // page whose headline and its own alert disagree.
+    const code = src();
+    expect(code.match(/withPublicMerchant\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(code).not.toMatch(/if \(!demoMode\.enabled\) q = q\.eq\("is_demo", false\)/);
+  });
+
+  it("derives success fees from genuine-tagged redemptions, not raw fee rows", () => {
+    // merchant_transactions filtered by type alone let a fee charged against a
+    // demo merchant sit beside genuine-tagged counts under one heading — the
+    // D188 conflation in money form.
+    //
+    // Asserted as STRUCTURE, not as a token. The first version used
+    // `toContain("success_fee_charged")`, and a mutation proved that useless:
+    // stripping the column from both the query and the sum left the string
+    // alive in a type annotation, and the guard stayed green over the restored
+    // defect. Third time this class of looseness has bitten in this PR —
+    // assert the call, never the spelling.
+    const code = src();
+    expect(code).not.toMatch(/from\("merchant_transactions"\)/);
+    // The fee rows come from redemptions, through the D188 chain...
+    expect(code).toMatch(/genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("success_fee_charged"\)\)/);
+    // ...and the sum reads that column, not an amount from somewhere else.
+    expect(code).toMatch(/r\.success_fee_charged \?\? 0/);
+    expect(code).not.toMatch(/r\.amount \?\? 0/);
+  });
+
+  it("labels the fee KPI with its evidence scope", () => {
+    expect(src()).toMatch(/genuine-tagged only/i);
+  });
+
+  it("windows arrivals and Fast Visits by their own event timestamps", () => {
+    const code = src();
+    expect(code).toMatch(/\.gte\("arrived_at", startIso\)/);
+    expect(code).toMatch(/\.gte\("fast_visit_qualified_at", startIso\)/);
+  });
+});

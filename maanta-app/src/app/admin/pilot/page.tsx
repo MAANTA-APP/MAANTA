@@ -178,8 +178,12 @@ export default async function PilotCommandCentrePage({
             .from("redemptions")
             .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
             .eq("merchant_id", m.id)
-            .not("arrived_at", "is", null)
-            .gte("claimed_at", since)
+            // Arrivals are windowed by arrived_at, the event's OWN timestamp.
+            // Windowing by claimed_at counted an arrival only if the CLAIM fell
+            // in the period, so someone who claimed last week and walked in
+            // yesterday was invisible — a throughput column that silently
+            // under-reports the thing it is named after.
+            .gte("arrived_at", since)
         ),
         // Throughput: verified AT the counter during the window, whenever the
         // claim was made.
@@ -207,8 +211,9 @@ export default async function PilotCommandCentrePage({
             .from("redemptions")
             .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
             .eq("merchant_id", m.id)
-            .not("fast_visit_qualified_at", "is", null)
-            .gte("claimed_at", since)
+            // Same rule: Fast Visits are windowed by the persisted arrival
+            // verdict's own timestamp, not by when the claim happened.
+            .gte("fast_visit_qualified_at", since)
         ),
         // Per-merchant fee sums cannot use admin_success_fee_revenue (it is
         // global). PostgREST caps rows, and a silently truncated SUM is the
@@ -396,9 +401,9 @@ export default async function PilotCommandCentrePage({
                   <th className="px-3 py-2 font-semibold">Slots</th>
                   <th className="px-3 py-2 font-semibold">Visible</th>
                   <th className="px-3 py-2 font-semibold">Claims</th>
-                  <th className="px-3 py-2 font-semibold">Arrivals</th>
-                  <th className="px-3 py-2 font-semibold">Verified</th>
-                  <th className="px-3 py-2 font-semibold">Fast Visits</th>
+                  <th className="px-3 py-2 font-semibold">Arrivals*</th>
+                  <th className="px-3 py-2 font-semibold">Verified*</th>
+                  <th className="px-3 py-2 font-semibold">Fast Visits*</th>
                   <th className="px-3 py-2 font-semibold">Fees</th>
                   <th className="px-3 py-2 font-semibold">Status</th>
                 </tr>
@@ -463,8 +468,15 @@ export default async function PilotCommandCentrePage({
         Counts are genuine-tagged per D188 — a redemption only counts when it,
         its merchant and its deal are all non-demo. A dash means the figure could
         not be read, never zero. Conversion is shown only at {MIN_CLAIMS_FOR_MERCHANT_RATIO}{" "}
-        claims or more; below that a ratio would describe noise. The success fee
-        is unchanged at KES 30 per verified redemption.
+        claims or more; below that a ratio would describe noise, and it is
+        computed from the claim cohort — verifications OF the claims in this
+        window — never from throughput. * marks a THROUGHPUT count, windowed by
+        the event&apos;s own timestamp (verified by <code>redeemed_at</code>, arrivals
+        by <code>arrived_at</code>, Fast Visits by
+        <code>fast_visit_qualified_at</code>): what happened in the period,
+        whenever the claim was made. Throughput and cohort figures answer
+        different questions and are never mixed. The success fee is unchanged at
+        KES 30 per verified redemption.
       </p>
     </main>
   );

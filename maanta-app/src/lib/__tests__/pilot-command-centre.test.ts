@@ -47,6 +47,22 @@ describe("pilot status — deterministic, and every status states its condition"
     expect(pilotMerchantStatus(row({ verifiedCohort: null })).id).toBe("read-failed");
   });
 
+  it("never reports a HEALTHY status when the slot count failed to read", () => {
+    // The gate originally omitted activeDeals, so a failed slot read skipped
+    // the at-cap rule and fell through to "Awaiting first claim" or "Active" —
+    // a healthy diagnosis manufactured by an error. Every count the rules
+    // consult must be readable before any of them may speak.
+    for (const over of [
+      { activeDeals: null },
+      { activeDeals: null, claims: 0 },
+      { activeDeals: null, claims: 4, verifiedCohort: 2 },
+    ]) {
+      const s = pilotMerchantStatus(row(over));
+      expect(s.id).toBe("read-failed");
+      expect(["awaiting-first-claim", "active", "at-cap"]).not.toContain(s.id);
+    }
+  });
+
   it("reports suspension before supply, so a suspended shop is not read as starved", () => {
     const s = pilotMerchantStatus(row({ status: "suspended", shopperVisibleDeals: 0 }));
     expect(s.id).toBe("suspended");

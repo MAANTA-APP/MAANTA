@@ -104,7 +104,13 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
   if (
     row.shopperVisibleDeals === null ||
     row.claims === null ||
-    row.verifiedCohort === null
+    row.verifiedCohort === null ||
+    // activeDeals belongs in this gate too. Without it, a failed slot read
+    // skipped the at-cap rule and fell straight through to "Awaiting first
+    // claim" or "Active" — a HEALTHY diagnosis produced by an error, which is
+    // the failure-vs-zero doctrine inverted. Every count the rules below
+    // consult must be readable before any of them may speak.
+    row.activeDeals === null
   ) {
     return {
       id: "read-failed",
@@ -149,7 +155,8 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
     };
   }
 
-  if (row.activeDeals !== null && row.activeDeals >= row.dealCap) {
+  // activeDeals is non-null here: the gate above returned for a failed read.
+  if (row.activeDeals >= row.dealCap) {
     return {
       id: "at-cap",
       label: "At plan cap",

@@ -124,3 +124,34 @@ describe("role boundaries around the admin-only pilot link", () => {
     expect(src).toContain("canOpenAdminConsole");
   });
 });
+
+describe("throughput columns are windowed by their own event timestamps", () => {
+  const src = stripComments(
+    readFileSync(path.join(__dirname, "../../app/admin/pilot/page.tsx"), "utf8")
+  );
+
+  it("windows arrivals by arrived_at, not by when the claim happened", () => {
+    // Windowing by claimed_at counted an arrival only if the CLAIM fell in the
+    // period, so someone who claimed last week and walked in yesterday was
+    // invisible — a throughput column under-reporting the thing it is named
+    // after.
+    expect(src).toMatch(/\.gte\("arrived_at", since\)/);
+    expect(src).not.toMatch(/not\("arrived_at", "is", null\)[\s\S]{0,200}gte\("claimed_at", since\)/);
+  });
+
+  it("windows Fast Visits by the persisted verdict's own timestamp", () => {
+    expect(src).toMatch(/\.gte\("fast_visit_qualified_at", since\)/);
+  });
+
+  it("keeps the claim-cohort count on claimed_at, so funnel figures stay compatible", () => {
+    expect(src).toMatch(/verifiedCohortRes/);
+    expect(src).toMatch(/\.eq\("status", "success"\)\s*\n\s*\.gte\("claimed_at", since\)/);
+  });
+
+  it("marks throughput columns so they cannot be read as cohort figures", () => {
+    expect(src).toContain("Arrivals*");
+    expect(src).toContain("Fast Visits*");
+    expect(src).toContain("Verified*");
+    expect(src).toMatch(/THROUGHPUT count/);
+  });
+});
