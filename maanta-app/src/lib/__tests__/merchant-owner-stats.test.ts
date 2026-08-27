@@ -117,6 +117,29 @@ describe("PR 3 cap and tenant-boundary ratchets", () => {
     expect(src).toContain("while (rows.length < expectedCount)");
   });
 
+  it("does not make verified metrics depend on claim-read success", () => {
+    const src = read("lib/merchant-owner-stats.ts");
+    const verifiedBlock = src.slice(
+      src.indexOf("const verifiedSummary ="),
+      src.indexOf("const coverage =")
+    );
+    expect(verifiedBlock).toContain("verifiedCount != null");
+    expect(verifiedBlock).toContain("!verifiedRowsRes.error");
+    expect(verifiedBlock).not.toContain("claimCount !=");
+    expect(verifiedBlock).not.toContain("claimSuccessCount !=");
+  });
+
+  it("counts dashboard deal-slot occupancy with an exact filtered head query", () => {
+    const src = read("app/merchant/(app)/dashboard/page.tsx");
+    expect(src).toContain('select("id", { count: "exact", head: true })');
+    expect(src).toContain('.eq("merchant_id", merchant.id)');
+    expect(src).toContain('.eq("is_active", true)');
+    expect(src).toContain("occupiedSlotsRes.count");
+    expect(src).not.toContain(
+      "dealRows.filter((deal) => deal.is_active === true).length"
+    );
+  });
+
   it("pre-flights exactly the trigger slot predicate before mounting the wizard", () => {
     const src = read("app/merchant/(app)/deals/new/page.tsx");
     expect(src).toContain('.eq("merchant_id", merchant.id)');
