@@ -1,0 +1,232 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
+
+describe("admin deterministic attention rules", () => {
+  it("surfaces each actionable queue with an explicit reason", () => {
+    const items = buildAdminAttentionItems({
+      pendingMerchants: 2,
+      heldRedemptions: 1,
+      openTasks: 3,
+      merchantsInArrears: 4,
+      tierRefusals7d: 2,
+      activeMerchants: 5,
+      liveDeals: 0,
+      genuineClaims7d: 20,
+      genuineVerified7d: 2,
+    });
+
+    expect(items.map((item) => item.id)).toEqual([
+      "held",
+      "approvals",
+      "support",
+      "arrears",
+      "tier-refusals",
+      "supply",
+      "claim-conversion",
+    ]);
+    for (const item of items) {
+      expect(item.reason.length).toBeGreaterThan(10);
+      expect(item.href).toMatch(/^\/admin\//);
+    }
+  });
+
+  it("does not flag conversion below the minimum sample", () => {
+    const items = buildAdminAttentionItems({
+      pendingMerchants: 0,
+      heldRedemptions: 0,
+      openTasks: 0,
+      merchantsInArrears: 0,
+      tierRefusals7d: 0,
+      activeMerchants: 1,
+      liveDeals: 1,
+      genuineClaims7d: 9,
+      genuineVerified7d: 0,
+    });
+    expect(items.some((item) => item.id === "claim-conversion")).toBe(false);
+  });
+
+  it("does not invent alerts from unavailable genuine metrics", () => {
+    const items = buildAdminAttentionItems({
+      pendingMerchants: 0,
+      heldRedemptions: 0,
+      openTasks: 0,
+      merchantsInArrears: 0,
+      tierRefusals7d: 0,
+      activeMerchants: 0,
+      liveDeals: 0,
+      genuineClaims7d: null,
+      genuineVerified7d: null,
+    });
+    expect(items).toEqual([]);
+  });
+});
+
+describe("PR 4 admin operations ratchets", () => {
+  const read = (rel: string) =>
+    readFileSync(path.join(__dirname, "../../", rel), "utf8");
+
+  it("does not turn a failed node-scope read into an empty node", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain('const { data, error } = await service');
+    expect(src).toContain("the selected node&apos;s merchant scope");
+    expect(src).toContain("merchantIds = (data ?? []).map");
+  });
+
+  it("uses the full D188 parent join for every genuine-tagged census", () => {
+    const src = read("app/admin/page.tsx");
+    expect(
+      src.match(/merchants!inner\(is_demo,node\), deals!inner\(is_demo\)/g)
+        ?.length ?? 0
+    ).toBeGreaterThanOrEqual(2);
+    expect(src.match(/\.eq\("is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src.match(/\.eq\("merchants\.is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src.match(/\.eq\("deals\.is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src).toContain(
+      "Internal E2E activity can still be included, so this is not external field validation."
+    );
+  });
+
+  it("keeps runtime config read-only and allow-listed", () => {
+    const src = read("app/admin/page.tsx");
+    for (const key of [
+      "demo_mode_enabled",
+      "fast_visit_enabled",
+      "fast_visit_points",
+      "success_fee_kes",
+    ]) {
+      expect(src).toContain(`"${key}"`);
+    }
+    expect(src).not.toMatch(/app_config[^\n]*(insert|update|delete)/i);
+    expect(src).toContain("Read-only visibility. No config write controls exist here.");
+  });
+
+  it("reads the durable admin audit table and exposes no audit write UI", () => {
+    const overview = read("app/admin/page.tsx");
+    const audit = read("app/admin/audit/page.tsx");
+    expect(overview).toContain('.from("admin_ops_log")');
+    expect(audit).toContain('.from("admin_ops_log")');
+    expect(audit).toContain("read only");
+    expect(audit).not.toMatch(/\.insert\(|\.update\(|\.delete\(/);
+  });
+
+  it("links the audit reader from the admin shell", () => {
+    const sidebar = read("components/nav/admin-sidebar.tsx");
+    expect(sidebar).toContain('{ href: "/admin/audit", label: "Audit" }');
+  });
+
+  it("uses a compatible claim cohort and suppresses conversion alerts on partial history", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain("genuineCohortVerifiedQuery");
+    expect(src).toContain('.gte("claimed_at", since7d)');
+    expect(src).toContain("claims.partial ? null : genuineClaims7d");
+    expect(src).toContain("claims.partial ? null : genuineCohortVerified7d");
+    expect(src).toContain('label={`Genuine-tagged ${claims.label.toLowerCase()}`}');
+  });
+
+  it("bases the supply alert on the shopper visibility predicate", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain("shopperVisibleDealsQuery");
+    expect(src).toContain('.eq("is_paused", false)');
+    expect(src).toContain('.eq("merchants.status", "active")');
+    expect(src).toContain('.eq("merchants.is_visible", true)');
+    expect(src).toContain('.eq("merchants.is_shadow_banned", false)');
+    expect(src).toContain("Shopper-visible deals");
+  });
+
+  it("labels platform-wide audit data when the operational view is node-scoped", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain('Recent admin actions{scoped ? " — all nodes" : ""}');
+    expect(src).toContain("Audit events are platform-wide");
+  });
+
+  it("persists D194 tier refusals from both publish callers after trigger rollback", () => {
+    const create = read("app/api/deals/route.ts");
+    const repost = read("app/api/deals/repost/route.ts");
+    for (const src of [create, repost]) {
+      expect(src).toContain("logTierRefusal");
+      expect(src).toContain('flagType: "deal_limit_exceeded"');
+      expect(src).toContain('flagType: "flash_not_allowed"');
+    }
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain('.from("tier_flags")');
+    expect(overview).toContain("tierRefusals7d");
+  });
+
+  it("counts only genuine plan-limit refusal flag types", () => {
+    // tier_flags also holds lifecycle rows ('trial_expired',
+    // 'subscription_lapsed'). Counting those told an operator a merchant had
+    // attempted to publish past its plan when nothing of the sort happened
+    // (Codex P2 on #283). The query must name the two refusal types.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain('"deal_limit_exceeded"');
+    expect(overview).toContain('"flash_not_allowed"');
+    expect(overview).toContain('.in("flag_type"');
+  });
+
+  it("never alerts on supply when the count is unknown", () => {
+    // A failed demo-mode read used to fold to OFF, which filtered demo rows
+    // out of the supply count and could fire the URGENT "No live deals" item
+    // from an error rather than an observation (D164/D185).
+    const base = {
+      pendingMerchants: 0,
+      heldRedemptions: 0,
+      openTasks: 0,
+      merchantsInArrears: 0,
+      tierRefusals7d: 0,
+      activeMerchants: 5,
+      genuineClaims7d: null,
+      genuineVerified7d: null,
+    };
+    const unknown = buildAdminAttentionItems({ ...base, liveDeals: null });
+    expect(unknown.find((i) => i.id === "supply")).toBeUndefined();
+
+    const realZero = buildAdminAttentionItems({ ...base, liveDeals: 0 });
+    expect(realZero.find((i) => i.id === "supply")?.severity).toBe("urgent");
+  });
+
+  it("reads demo mode through the failure-aware helper", () => {
+    // Assert on the CALL, not the bare identifier: the explanatory comment at
+    // the call site names the old helper on purpose.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain("readDemoModeEnabled()");
+    expect(overview).not.toContain("await isDemoModeEnabled()");
+    expect(overview).toContain("demoMode.ok");
+  });
+
+  it("ties the refusal count to the caller-side D194 audit", () => {
+    // The rows exist only because the API logs them after the trigger's RAISE
+    // rolls back the trigger's own INSERT. If that link is ever removed the
+    // metric silently returns to zero, so the dependency stays documented.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toMatch(/D194/);
+  });
+
+  it("prevents operational admin reads from masquerading as empty states", () => {
+    const guardedPages = [
+      "app/admin/approvals/page.tsx",
+      "app/admin/merchants/page.tsx",
+      "app/admin/merchants/[id]/page.tsx",
+      "app/admin/customers/page.tsx",
+      "app/admin/customers/[id]/page.tsx",
+      "app/admin/deals/page.tsx",
+      "app/admin/redemptions/page.tsx",
+      "app/admin/redemptions/[id]/page.tsx",
+      "app/admin/agents/page.tsx",
+      "app/admin/agents/[id]/page.tsx",
+      "app/admin/support/page.tsx",
+      "app/admin/support/new/page.tsx",
+      "app/admin/billing/page.tsx",
+      "app/admin/merchants/new/page.tsx",
+    ];
+    for (const page of guardedPages) {
+      expect(read(page), page).toContain("AdminReadError");
+    }
+  });
+
+  it("guards the admin agent progress bar against a zero target", () => {
+    const agents = read("app/admin/agents/page.tsx");
+    expect(agents).toContain("a.weekly_target > 0");
+  });
+});

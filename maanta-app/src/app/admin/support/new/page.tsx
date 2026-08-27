@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { NewTicketForm } from "./new-ticket-form";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,20 @@ export default async function NewSupportTicketPage() {
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: merchants } = await service
+  const { data: merchants, error } = await service
     .from("merchants")
     .select("id, merchant_name")
     .order("merchant_name", { ascending: true })
     .limit(500);
+
+  if (error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Log an issue</h1>
+        <div className="mt-5"><AdminReadError what="the merchant list for support intake" /></div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl">

@@ -3,6 +3,7 @@ import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { FraudChip } from "@/components/ui/chips";
 import { ModerationActions } from "./moderation-actions";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,19 @@ export default async function AdminDealsPage({
   const q = (searchParams.q ?? "").trim();
 
   const service = createServiceClient();
-  const { data: events } = await service
+  const { data: events, error: eventsError } = await service
     .from("fraud_events")
     .select("merchant_id")
     .eq("resolved", false);
+  if (eventsError) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Flagged deals</h1>
+        <div className="mt-5"><AdminReadError what="fraud signals" /></div>
+      </main>
+    );
+  }
+
   const flaggedMerchants = Array.from(
     new Set((events ?? []).map((e) => e.merchant_id).filter(Boolean))
   ) as string[];
@@ -46,7 +56,15 @@ export default async function AdminDealsPage({
       .eq("is_active", true)
       .limit(30);
     if (q) query = query.ilike("title", `%${q}%`);
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      return (
+        <main className="max-w-4xl">
+          <h1 className="text-2xl font-bold text-ink">Flagged deals</h1>
+          <div className="mt-5"><AdminReadError what="flagged deals" /></div>
+        </main>
+      );
+    }
     deals = (data ?? []) as unknown as typeof deals;
   }
 
