@@ -102,11 +102,11 @@ export default async function MerchantDealsPage() {
 
   const emptyTitle =
     lifecycle.stage === "churn_risk"
-      ? "No active deals — shoppers can&apos;t find you"
+      ? "No active deals — shoppers can't find you"
       : "No deals published yet";
   const emptySub =
     lifecycle.stage === "churn_risk"
-      ? "You haven&apos;t posted a deal in 30+ days. Create a new deal to re-appear in the feed."
+      ? "You haven't posted a deal in 30+ days. Create a new deal to re-appear in the feed."
       : undefined;
 
   const verifiedCountFor = (dealId: string) =>
