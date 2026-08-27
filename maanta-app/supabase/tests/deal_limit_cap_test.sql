@@ -479,4 +479,230 @@ BEGIN
   RAISE NOTICE 'Scenario G passed: cap is per merchant; plan set is exactly standard+elite';
 END $$;
 
+-- ============================================================
+-- D206 — the cap on ENTRY INTO SLOT OCCUPANCY (UPDATE transitions).
+--
+-- Everything above proves the INSERT path. These scenarios prove the half that
+-- did not exist until 20260827120000: `is_active = TRUE` set on an EXISTING
+-- row. That path walked past the cap entirely, and production reached 28
+-- over-cap merchants through it.
+--
+-- The distinction that matters, and the reason this is not simply
+-- BEFORE INSERT OR UPDATE: a merchant already sitting at their cap must still
+-- be able to EDIT the deal that owns the slot. Scenario L is that case, and it
+-- is the one a careless implementation breaks.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Scenario H: Standard — inactive -> active while another deal is active
+--             is REFUSED (the D206 hole itself).
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid  UUID;
+  v_kept UUID;
+  v_arch UUID;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_d206_std', 'test.d206.std', '+254700000920', 'BBS Mall', 'active', TRUE, 999, 'standard')
+    RETURNING id INTO v_mid;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 std archived', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_arch;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_arch;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 std live', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_kept;
+
+  BEGIN
+    UPDATE public.deals SET is_active = TRUE WHERE id = v_arch;
+    RAISE EXCEPTION 'H: D206 HOLE OPEN — reactivation gave a Standard merchant a second active deal';
+  EXCEPTION
+    WHEN raise_exception THEN
+      IF SQLERRM LIKE 'H: D206 HOLE OPEN%' THEN RAISE; END IF;
+      ASSERT SQLERRM LIKE '%Deal limit reached%',
+        format('H: expected the deal-limit refusal on reactivation, got: %s', SQLERRM);
+  END;
+
+  ASSERT (SELECT COUNT(*) FROM public.deals WHERE merchant_id = v_mid AND is_active) = 1,
+    'H: the Standard merchant does not hold exactly 1 active deal after the refused reactivation';
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.archive_history WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario H passed: Standard reactivation over cap refused';
+END $$;
+
+-- ------------------------------------------------------------
+-- Scenario I: Elite — reactivation 1 -> 2 ALLOWED, 2 -> 3 REFUSED.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid UUID;
+  v_a   UUID;
+  v_b   UUID;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_d206_elite', 'test.d206.elite', '+254700000921', 'BBS Mall', 'active', TRUE, 999, 'elite')
+    RETURNING id INTO v_mid;
+
+  -- Two rows parked inactive, then one live row.
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 elite a', 'x', TRUE, NOW() + INTERVAL '2 hours', 100) RETURNING id INTO v_a;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_a;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 elite b', 'x', TRUE, NOW() + INTERVAL '2 hours', 100) RETURNING id INTO v_b;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_b;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 elite live', 'x', TRUE, NOW() + INTERVAL '2 hours', 100);
+
+  -- 1 -> 2 is the benefit Elite exists to give.
+  UPDATE public.deals SET is_active = TRUE WHERE id = v_a;
+  ASSERT (SELECT COUNT(*) FROM public.deals WHERE merchant_id = v_mid AND is_active) = 2,
+    'I: ELITE NARROWED — a legitimate 1 -> 2 reactivation was refused';
+
+  BEGIN
+    UPDATE public.deals SET is_active = TRUE WHERE id = v_b;
+    RAISE EXCEPTION 'I: ELITE CAP BREACHED — reactivation produced a third active deal';
+  EXCEPTION
+    WHEN raise_exception THEN
+      IF SQLERRM LIKE 'I: ELITE CAP BREACHED%' THEN RAISE; END IF;
+      ASSERT SQLERRM LIKE '%Deal limit reached%',
+        format('I: expected the deal-limit refusal, got: %s', SQLERRM);
+  END;
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.archive_history WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario I passed: Elite reactivation 1->2 allowed, 2->3 refused';
+END $$;
+
+-- ------------------------------------------------------------
+-- Scenario J: Standard cannot reactivate an Elite-only FLASH deal, even with
+--             a completely free slot. The refusal is the plan, not the count.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid   UUID;
+  v_flash UUID;
+BEGIN
+  -- Created while Elite (the only way such a row can exist), then downgraded.
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_d206_flash', 'test.d206.flash', '+254700000922', 'BBS Mall', 'active', TRUE, 999, 'elite')
+    RETURNING id INTO v_mid;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, deal_type, flash_duration_hours, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 flash', 'x', TRUE, 'flash', 6, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_flash;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_flash;
+
+  UPDATE public.merchants SET tier = 'standard' WHERE id = v_mid;
+
+  BEGIN
+    UPDATE public.deals SET is_active = TRUE WHERE id = v_flash;
+    RAISE EXCEPTION 'J: FLASH LEAKED — a Standard merchant reactivated an Elite-only flash deal';
+  EXCEPTION
+    WHEN raise_exception THEN
+      IF SQLERRM LIKE 'J: FLASH LEAKED%' THEN RAISE; END IF;
+      ASSERT SQLERRM LIKE '%Flash deals are only available on the Elite plan%',
+        format('J: expected the flash refusal, got: %s', SQLERRM);
+  END;
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.archive_history WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario J passed: Standard cannot reactivate an Elite-only flash deal';
+END $$;
+
+-- ------------------------------------------------------------
+-- Scenario K: leaving occupancy is always allowed, and archiving at cap frees
+--             the slot for a reactivation.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid UUID;
+  v_a   UUID;
+  v_b   UUID;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_d206_exit', 'test.d206.exit', '+254700000923', 'BBS Mall', 'active', TRUE, 999, 'standard')
+    RETURNING id INTO v_mid;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 exit a', 'x', TRUE, NOW() + INTERVAL '2 hours', 100) RETURNING id INTO v_a;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_a;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 exit b', 'x', TRUE, NOW() + INTERVAL '2 hours', 100) RETURNING id INTO v_b;
+
+  -- active -> inactive must never be refused, at cap or otherwise.
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_b;
+  ASSERT (SELECT COUNT(*) FROM public.deals WHERE merchant_id = v_mid AND is_active) = 0,
+    'K: archiving at cap was refused';
+
+  -- and the freed slot admits the reactivation.
+  UPDATE public.deals SET is_active = TRUE WHERE id = v_a;
+  ASSERT (SELECT COUNT(*) FROM public.deals WHERE merchant_id = v_mid AND is_active) = 1,
+    'K: the freed slot did not admit a reactivation';
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.archive_history WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario K passed: leaving occupancy always allowed; freed slot reusable';
+END $$;
+
+-- ------------------------------------------------------------
+-- Scenario L: a merchant AT CAP can still edit the deal that owns the slot.
+--
+-- The regression a naive `BEFORE INSERT OR UPDATE` introduces: the count (1)
+-- meets the limit (1) on every write, so the merchant is frozen out of their
+-- own deal. Every ordinary edit is exercised here, including pause/resume.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid UUID;
+  v_id  UUID;
+BEGIN
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier
+  )
+    VALUES ('__test_d206_edit', 'test.d206.edit', '+254700000924', 'BBS Mall', 'active', TRUE, 999, 'standard')
+    RETURNING id INTO v_mid;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes)
+    VALUES (v_mid, '__test d206 edit', 'x', TRUE, NOW() + INTERVAL '2 hours', 100)
+    RETURNING id INTO v_id;
+
+  UPDATE public.deals SET title = '__test d206 edit renamed' WHERE id = v_id;
+  UPDATE public.deals SET price_kes = 250 WHERE id = v_id;
+  UPDATE public.deals SET expires_at = NOW() + INTERVAL '10 hours' WHERE id = v_id;
+  UPDATE public.deals SET is_paused = TRUE WHERE id = v_id;
+  UPDATE public.deals SET is_paused = FALSE WHERE id = v_id;
+  -- A no-op re-assert of is_active on an already-active row must also pass.
+  UPDATE public.deals SET is_active = TRUE WHERE id = v_id;
+
+  ASSERT (SELECT title FROM public.deals WHERE id = v_id) = '__test d206 edit renamed',
+    'L: MERCHANT FROZEN OUT — an ordinary edit at cap was refused';
+  ASSERT (SELECT COUNT(*) FROM public.deals WHERE merchant_id = v_mid AND is_active) = 1,
+    'L: the edit changed occupancy';
+
+  DELETE FROM public.tier_flags WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  RAISE NOTICE 'Scenario L passed: a merchant at cap can still edit its own deal';
+END $$;
+
 SELECT 'deal_limit_cap_test.sql: ALL SCENARIOS PASSED (Standard=1, Elite=2)' AS result;
