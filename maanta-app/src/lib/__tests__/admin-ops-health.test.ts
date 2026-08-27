@@ -109,6 +109,19 @@ describe("PR 4 admin operations ratchets", () => {
     expect(sidebar).toContain('{ href: "/admin/audit", label: "Audit" }');
   });
 
+  it("persists D194 tier refusals from both publish callers after trigger rollback", () => {
+    const create = read("app/api/deals/route.ts");
+    const repost = read("app/api/deals/repost/route.ts");
+    for (const src of [create, repost]) {
+      expect(src).toContain("logTierRefusal");
+      expect(src).toContain('flagType: "deal_limit_exceeded"');
+      expect(src).toContain('flagType: "flash_not_allowed"');
+    }
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain('.from("tier_flags")');
+    expect(overview).toContain("tierRefusals7d");
+  });
+
   it("prevents operational admin reads from masquerading as empty states", () => {
     const guardedPages = [
       "app/admin/approvals/page.tsx",
