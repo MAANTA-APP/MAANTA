@@ -66,6 +66,13 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
     expect(src).toContain("publishQueueCode");
   });
 
+  it("only the newest-started queue load may commit state", () => {
+    const src = read("app/merchant/(app)/redeem/queue-panel.tsx");
+    expect(src).toContain("loadGeneration");
+    expect(src).toContain("generation !== loadGeneration.current");
+    expect(src).toContain("generation === loadGeneration.current");
+  });
+
   it("the redeem page takes no code from searchParams", () => {
     const src = read("app/merchant/(app)/redeem/page.tsx");
     expect(src).not.toMatch(/searchParams/);

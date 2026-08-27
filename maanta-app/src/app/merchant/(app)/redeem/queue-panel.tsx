@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
 import { subscribeRedemptionCompleted } from "@/lib/queue-code-handoff";
@@ -30,22 +30,29 @@ import { publishQueueCode } from "@/lib/queue-code-handoff";
 export function QueuePanel() {
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  // Monotonic request version: only the newest-started queue read may commit
+  // state. This prevents an older poll response from re-adding a shopper
+  // after the redemption-completed refresh already removed them.
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
     try {
       const res = await fetch("/api/queue", { cache: "no-store" });
+      if (generation !== loadGeneration.current) return;
       if (!res.ok) {
         setLoadFailed(true);
         return;
       }
       const body = await res.json();
+      if (generation !== loadGeneration.current) return;
       if (Array.isArray(body?.entries)) {
         setEntries(body.entries);
         setLoadFailed(false);
       }
     } catch {
       // keep the last good list; remember that we have none yet
-      setLoadFailed(true);
+      if (generation === loadGeneration.current) setLoadFailed(true);
     }
   }, []);
 

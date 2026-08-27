@@ -224,14 +224,17 @@ export async function POST(request: Request) {
       });
     if (insertError) {
       // 23505 = the partial unique index: a concurrent check-in won the
-      // insert, which is exactly a renew. Anything else is a real failure —
-      // but the ARRIVAL succeeded, so the shopper is told the truth rather
-      // than shown an error for a queue-row hiccup.
+      // insert, so a waiting row exists even though this request lost the
+      // race. Anything else means arrival evidence was recorded but the
+      // shopper is NOT safely visible in the staff queue.
       if (insertError.code === "23505") {
+        queued = true;
         renewed = true;
       } else {
         console.error("queue insert failed:", insertError.code);
       }
+    } else {
+      queued = true;
     }
   }
 
@@ -243,6 +246,18 @@ export async function POST(request: Request) {
     firstArrival: arrival.first_arrival,
     node: merchant.node,
   });
+  if (!queued) {
+    return NextResponse.json(
+      {
+        error:
+          "Your arrival was recorded, but we could not add you to the shopper queue. Please scan again.",
+        code: "queue_not_joined",
+        arrivalRecorded: true,
+      },
+      { status: 503 }
+    );
+  }
+
   void captureShopperQueueJoined({
     userId: appUser.id,
     redemptionId,
@@ -279,13 +294,16 @@ export async function DELETE(request: Request) {
   }
   const redemptionId =
     typeof body.redemptionId === "string" ? body.redemptionId.trim() : "";
-  if (!redemptionId) {
+  if (!UUID_SHAPE.test(redemptionId)) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
   // Doubly scoped: the row must be this shopper's own waiting entry.
+  // DELETE is idempotent: if the row is already absent, the desired
+  // postcondition ("not waiting") already holds. A database error is
+  // different and must never be presented as a successful leave.
   const service = createServiceClient();
-  const { data } = await service
+  const { data, error } = await service
     .from("merchant_presentations")
     .update({ status: "cancelled" })
     .eq("redemption_id", redemptionId)
@@ -293,5 +311,16 @@ export async function DELETE(request: Request) {
     .eq("status", "waiting")
     .select("id");
 
-  return NextResponse.json({ cancelled: (data?.length ?? 0) > 0 });
+  if (error) {
+    console.error("queue cancel failed:", error.code);
+    return NextResponse.json(
+      { error: "Could not leave the queue. Please try again.", code: "queue_cancel_failed" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    cancelled: true,
+    changed: (data?.length ?? 0) > 0,
+  });
 }

@@ -49,6 +49,7 @@ export function QrCheckIn({
     | { kind: "posting" }
     | { kind: "checked-in"; info: CheckedIn; redemptionId: string; already: boolean }
     | { kind: "cancelled"; redemptionId: string }
+    | { kind: "cancel-error"; redemptionId: string; message: string }
     | { kind: "error"; message: string }
   >(
     alreadyCheckedInFor
@@ -109,18 +110,35 @@ export function QrCheckIn({
   }, [alreadyCheckedInFor, claims, checkIn]);
 
   const cancel = useCallback(async (redemptionId: string) => {
-    await fetch("/api/qr/check-in", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ redemptionId }),
-    }).catch(() => null);
-    // A distinct terminal state, NOT `idle`. The single-claim auto-check-in
-    // effect is one-shot (`autoFired`), so returning to `idle` left the
-    // shopper on the `claims.length === 1 && idle` branch — "Checking you
-    // in…" — with no request in flight and nothing that could ever resolve
-    // it: the screen said the opposite of what they had just asked for, and
-    // only a full reload escaped. D196.
-    setState({ kind: "cancelled", redemptionId });
+    try {
+      const res = await fetch("/api/qr/check-in", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ redemptionId }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || body?.cancelled !== true) {
+        setState({
+          kind: "cancel-error",
+          redemptionId,
+          message: body?.error ?? "Could not leave the queue. Please try again.",
+        });
+        return;
+      }
+      // A distinct terminal state, NOT `idle`. The single-claim auto-check-in
+      // effect is one-shot (`autoFired`), so returning to `idle` left the
+      // shopper on the `claims.length === 1 && idle` branch — "Checking you
+      // in…" — with no request in flight and nothing that could ever resolve
+      // it: the screen said the opposite of what they had just asked for, and
+      // only a full reload escaped. D196.
+      setState({ kind: "cancelled", redemptionId });
+    } catch {
+      setState({
+        kind: "cancel-error",
+        redemptionId,
+        message: "Could not leave the queue. Please try again.",
+      });
+    }
   }, []);
 
   const shopLine = merchantFloor
@@ -200,6 +218,33 @@ export function QrCheckIn({
           onClick={() => void checkIn(state.redemptionId)}
         >
           Check in again
+        </Button>
+        <ButtonLink
+          href={`/tickets/${state.redemptionId}`}
+          variant="ghost"
+          full
+          className="mt-3"
+        >
+          Show my code
+        </ButtonLink>
+      </div>
+    );
+  }
+
+  if (state.kind === "cancel-error") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-ink">Couldn&apos;t leave the queue</h1>
+        <p className="mt-3 text-sm text-secondary">{state.message}</p>
+        <p className="mt-2 text-xs text-muted">
+          You may still be visible to staff until MAANTA confirms the cancellation.
+        </p>
+        <Button
+          full
+          className="mt-8"
+          onClick={() => void cancel(state.redemptionId)}
+        >
+          Try again
         </Button>
         <ButtonLink
           href={`/tickets/${state.redemptionId}`}

@@ -90,10 +90,14 @@ describe("QrCheckIn states", () => {
       src.indexOf("const shopLine")
     );
     expect(cancelBody).toContain('kind: "cancelled"');
+    expect(cancelBody).toContain('kind: "cancel-error"');
+    expect(cancelBody).toContain("res.ok");
     expect(cancelBody).not.toContain('kind: "idle"');
-    // And the state it lands in must actually render something.
+    // And both success and failure states must actually render something.
     expect(src).toContain('state.kind === "cancelled"');
+    expect(src).toContain('state.kind === "cancel-error"');
     expect(src).toContain("You&apos;ve left the queue");
+    expect(src).toContain("Couldn&apos;t leave the queue");
   });
 
   it("never uses amber — check-in is not a money action", () => {

@@ -47,7 +47,9 @@ let waitingRow: { id: string; expires_at: string } | null;
 let renewMatched: Array<{ id: string }>;
 /** Payloads passed to .update(), so a test can assert what was written. */
 const queueUpdatePayloads: unknown[] = [];
-const queueInsert = vi.fn(() => Promise.resolve({ error: null }));
+let queueInsertError: { code: string } | null;
+const queueInsert = vi.fn(() => Promise.resolve({ error: queueInsertError }));
+let queueUpdateError: { code: string } | null;
 const queueUpdateEqs = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
@@ -74,7 +76,7 @@ vi.mock("@/lib/supabase/service", () => ({
       };
       chain.gt = () => chain;
       chain.select = () =>
-        updating ? Promise.resolve({ data: renewMatched, error: null }) : chain;
+        updating ? Promise.resolve({ data: renewMatched, error: queueUpdateError }) : chain;
       chain.maybeSingle = () => Promise.resolve({ data: waitingRow, error: null });
       chain.insert = queueInsert;
       chain.update = (payload: unknown) => {
@@ -115,6 +117,8 @@ describe("POST /api/qr/check-in", () => {
     };
     waitingRow = null;
     renewMatched = [{ id: "p-1" }];
+    queueInsertError = null;
+    queueUpdateError = null;
     queueUpdatePayloads.length = 0;
     rpcSingle.mockResolvedValue({
       data: {
@@ -196,6 +200,18 @@ describe("POST /api/qr/check-in", () => {
     expect(queueInsert).toHaveBeenCalled();
   });
 
+  it("does not claim queue success when persistence fails", async () => {
+    queueInsertError = { code: "XX000" };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.code).toBe("queue_not_joined");
+    expect(body.checkedIn).not.toBe(true);
+    expect(body.arrivalRecorded).toBe(true);
+    expect(arrivalCapture).toHaveBeenCalled();
+    expect(queueCapture).not.toHaveBeenCalled();
+  });
+
   it("supersedes a LAPSED entry with a fresh arrival time (D199)", async () => {
     // Scanned the entrance sticker long ago, the entry lapsed off the staff
     // list, now scanning the till sticker. Reviving the old row with its
@@ -259,11 +275,29 @@ describe("DELETE /api/qr/check-in", () => {
     vi.clearAllMocks();
     waitingRow = null;
     renewMatched = [{ id: "p-1" }];
+    queueInsertError = null;
+    queueUpdateError = null;
     queueUpdatePayloads.length = 0;
   });
 
   it("requires a redemption id", async () => {
     const res = await DELETE(req({}, "DELETE"));
     expect(res.status).toBe(400);
+  });
+
+  it("returns a retryable failure when the queue update errors", async () => {
+    queueUpdateError = { code: "XX000" };
+    const res = await DELETE(req({ redemptionId: RID }, "DELETE"));
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.code).toBe("queue_cancel_failed");
+    expect(body.cancelled).not.toBe(true);
+  });
+
+  it("is idempotently successful when the waiting row is already absent", async () => {
+    renewMatched = [];
+    const res = await DELETE(req({ redemptionId: RID }, "DELETE"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ cancelled: true, changed: false });
   });
 });
