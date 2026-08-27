@@ -11,7 +11,7 @@ dispute handling), admins/founder (approval, billing, fraud review).
 
 **Current stage:** pre-launch pilot. Production is live and serving (Supabase
 `axrrslqssmbngbataejg`, Vercel), the data is seed/rehearsal, and demo mode is
-still on. **The migration ledger reconciles at 102/102 as of 2026-08-25** (D164's `20260824130000`; it stood at 101/101 on 2026-08-24 after D162's `20260824120000`, and at 100/100 on 2026-08-23 after D154's `20260823120000` and D158's `20260823130000`, and at 98/98 on 2026-08-20) (**D24**
+still on. **The migration ledger reconciles at 105/105 as of 2026-08-27** (D206's `20260827120000` — the active-deal cap now holds on entry into slot occupancy, not only on INSERT; before it the two 2026-08-26 dark-deploy migrations `20260826120000` (Fast Visit + Points, feature-flagged OFF) and `20260826130000` (merchant QR queue) took it to 104/104. Prior: 102/102 on 2026-08-25 with D164's `20260824130000`; it stood at 101/101 on 2026-08-24 after D162's `20260824120000`, and at 100/100 on 2026-08-23 after D154's `20260823120000` and D158's `20260823130000`, and at 98/98 on 2026-08-20) (**D24**
 closed 2026-08-05, **D107** closed 2026-08-18, **D121** closed 2026-08-19,
 **D142** closed 2026-08-19, **D147** closed 2026-08-20): production's
 `schema_migrations` and this repo's `supabase/migrations/` agree on all 100
@@ -36,10 +36,10 @@ it was applied.
 choosing a version.** For two days production held five migrations that existed
 only on an unmerged branch, so the repo directory under-reported the real
 high-water mark and two files were authored on top of already-taken versions
-(**D121**). (2) **Every MCP apply mints its own version** — **ten for ten** — so read
+(**D121**). (2) **Every MCP apply mints its own version** — **eleven for eleven** — so read
 back and repair the ledger to the repo filename before doing anything else.
-D164's apply minted `20260825083646` and was repaired to `20260824130000`;
-D162's minted `20260824163212` before it, and D158's `20260823134241`.
+D206's apply minted `20260827074843` and was repaired to `20260827120000`;
+D164's minted `20260825083646`, D162's `20260824163212`, D158's `20260823134241`.
 Treat this alignment as a thing to re-check, not a settled state: the earlier
 87/87 reconciliation drifted twice. The `claim_deal` pause gate is **live** (**D25**
 closed 2026-08-04, verified by `pg_get_functiondef` read-back), and so is the
