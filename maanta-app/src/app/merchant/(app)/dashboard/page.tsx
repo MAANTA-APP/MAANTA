@@ -40,12 +40,17 @@ export default async function MerchantDashboardPage() {
   }
 
   const service = createServiceClient();
-  const [stats, dealRowsRes, recentRes] = await Promise.all([
+  const [stats, dealRowsRes, occupiedSlotsRes, recentRes] = await Promise.all([
     getMerchantOwnerStats(merchant.id),
     service
       .from("deals")
       .select("expires_at, is_active")
       .eq("merchant_id", merchant.id),
+    service
+      .from("deals")
+      .select("id", { count: "exact", head: true })
+      .eq("merchant_id", merchant.id)
+      .eq("is_active", true),
     service
       .from("redemptions")
       .select("id, status, redeemed_at, success_fee_charged")
@@ -61,6 +66,12 @@ export default async function MerchantDashboardPage() {
       error: dealRowsRes.error,
     });
   }
+  if (occupiedSlotsRes.error) {
+    console.error("merchant dashboard occupied-slot count unavailable", {
+      merchantId: merchant.id,
+      error: occupiedSlotsRes.error,
+    });
+  }
   if (recentRes.error) {
     console.error("merchant dashboard recent activity unavailable", {
       merchantId: merchant.id,
@@ -71,9 +82,10 @@ export default async function MerchantDashboardPage() {
   const dealRows = dealRowsRes.data ?? [];
   const lifecycleStats = getMerchantLifecycleStats(dealRows);
   const lifecycle = getMerchantLifecycleInfo(merchant, lifecycleStats);
-  const occupiedSlots = dealRowsRes.error
-    ? null
-    : dealRows.filter((deal) => deal.is_active === true).length;
+  const occupiedSlots =
+    occupiedSlotsRes.error || occupiedSlotsRes.count == null
+      ? null
+      : occupiedSlotsRes.count;
   const limit = activeDealLimit(merchant.tier);
 
   return (
