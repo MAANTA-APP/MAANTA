@@ -75,11 +75,23 @@ describe("FastVisitPanel states", () => {
     expect(render(null, null)).toBe("");
   });
 
-  it("keeps the reward timer visually smaller than the claim code", () => {
-    // The code renders at text-[30px]; the reward timer must stay below it.
+  it("keeps the reward timer visually subordinate to the claim countdown", () => {
+    // This asserted the literal `text-lg` the timer happened to carry. PR 1
+    // stepped it down to `text-base font-medium text-secondary`, because
+    // text-lg/font-semibold/text-ink put it one size step from the claim
+    // countdown's text-xl/font-semibold/text-ink — near-identical at a glance
+    // on a screen where confusing the two means mistaking an optional reward
+    // window for the deadline on your code.
+    //
+    // So the assertion is now the INVARIANT rather than the size: smaller than
+    // the 30px code, and quieter than the claim countdown in weight and colour.
+    // A literal size pinned here would fail every legitimate hierarchy change
+    // and pass any illegitimate one that kept the string.
     const html = render(new Date().toISOString(), null);
-    expect(html).toContain("text-lg");
     expect(html).not.toContain("text-[30px]");
+    expect(html).not.toContain("text-xl");
+    expect(html).toMatch(/text-base|text-sm|text-xs/);
+    expect(html).not.toMatch(/font-code[^"]*font-semibold[^"]*text-ink/);
   });
 
   it("never uses amber — the reward is not an action and not a credential", () => {

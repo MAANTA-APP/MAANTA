@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { DealCard, Page, Section, RailScroller } from "@/components/ui/claude";
+import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
 import { EmptyState } from "@/components/ui/states";
 import {
   getLiveDeals,
@@ -78,6 +79,18 @@ function cardProps(
   };
 }
 
+/**
+ * A deal's own rail tag, for the cross-cut "Ending soon" section.
+ *
+ * Mirrors how `getLiveDeals` buckets rails: flash by `deal_type`, boosted by an
+ * active boost, everything else standard. Derived rather than passed in,
+ * because this section holds deals from all three rails at once.
+ */
+function dealRailTag(d: DealRow): "flash" | "boosted" | "standard" {
+  if (d.deal_type === "flash") return "flash";
+  return d.boost_active ? "boosted" : "standard";
+}
+
 export default async function FeedPage({
   searchParams,
 }: {
@@ -136,6 +149,15 @@ export default async function FeedPage({
   }
 
   const allDeals = [...flashDeals, ...boostedDeals, ...nearDeals];
+  // H1 — the additive "Ending soon" selection.
+  //
+  // Derived from `allDeals`, which is AFTER the shopper's own category and type
+  // filters, so it can never surface a deal those filters removed. It is a
+  // cross-cut VIEW: every deal stays in its own rail in its locked order, and
+  // nothing here reorders, promotes or removes anything (locked-feed-order).
+  //
+  // Urgency is the deal's own expires_at and nothing else — see lib/ending-soon.
+  const endingSoon = endingSoonDeals(allDeals);
   const favouriteDeals = filterDealRowsByRail(
     allDeals.filter((d) => favourites.has(d.merchant_id)),
     filter
@@ -207,6 +229,36 @@ export default async function FeedPage({
                   ))}
                 </RailScroller>
               ) : null}
+            </Section>
+          ) : null}
+
+          {endingSoon.length > 0 ? (
+            <Section
+              title="Ending soon"
+              subtitle={ENDING_SOON_SUBTITLE}
+              padded={false}
+            >
+              {/* Additive: these cards also remain in their own rails. The
+                  section simply does not render when nothing is genuinely
+                  ending, which is most of the time — an "Ending soon" rail
+                  that always has content is manufacturing urgency. */}
+              <RailScroller>
+                {endingSoon.map((d) => (
+                  <DealCard
+                    key={`ending-${d.id}`}
+                    {...cardProps(d, {
+                      origin,
+                      favourites,
+                      verified,
+                      // The card keeps the deal's OWN rail tag. This section
+                      // cuts across rails, so tagging everything here
+                      // "standard" would relabel a flash deal on one screen
+                      // while its own rail still calls it flash.
+                      tag: dealRailTag(d),
+                    })}
+                  />
+                ))}
+              </RailScroller>
             </Section>
           ) : null}
 

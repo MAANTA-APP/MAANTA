@@ -12,6 +12,7 @@ import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
 import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
+import Link from "next/link";
 import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
 import { shopNavigationTarget } from "@/lib/shop-location";
 import { navigationState, SHOP_LOCATION_UNAVAILABLE } from "@/lib/shopper-read-state";
@@ -176,6 +177,27 @@ export default async function TicketPage({
             {formatCode(ticket.otp_code)}
           </span>
         </div>
+        {/* Rewards entry from a successful redemption.
+            The gate is `rewardPoints != null` — this redemption actually
+            earned something — and nothing else.
+            A first draft also showed the link when `rewardBalance == null`,
+            reasoning from /you that a null balance is a read failure worth
+            linking through. On THIS screen that is wrong: rewardBalance is
+            only ever computed when a reward row exists, so it is null in the
+            ordinary no-reward case too, and the link would have rendered for
+            every shopper — un-darkening a feature that is switched off.
+            With the flag off, award_fast_visit_points awards nothing,
+            rewardPoints stays null, and no link renders. Restrained by
+            design: a route to the Points page, no KES equivalence, no
+            cash-out, no transfer, no marketplace. */}
+        {rewardPoints != null ? (
+          <Link
+            href="/you/rewards"
+            className="mt-6 text-sm font-semibold text-ink underline underline-offset-2"
+          >
+            View your points
+          </Link>
+        ) : null}
         <ButtonLink href="/feed" full className="mt-8">
           Done
         </ButtonLink>

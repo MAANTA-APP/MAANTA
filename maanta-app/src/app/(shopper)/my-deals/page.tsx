@@ -12,6 +12,9 @@ import {
 } from "@/lib/shopper-read-state";
 import { ShopCard } from "@/components/ui/cards";
 import { CountdownChip, ClaimChip } from "@/components/ui/chips";
+import { isFastVisitEnabled } from "@/lib/fast-visit";
+import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
+import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { FavouriteButton } from "@/components/favourite-button";
 import {
   Body,
@@ -139,12 +142,17 @@ export default async function MyDealsPage({
   const ticketsRead = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, expires_at, redeemed_at, merchants(merchant_name), deals(title, expires_at)"
+      "id, otp_code, status, expires_at, redeemed_at, claimed_at, arrived_at, fast_visit_qualified_at, merchants(merchant_name), deals(title, expires_at)"
     )
     .eq("user_id", user.id)
     .order("redeemed_at", { ascending: false })
     .limit(50);
   const ticketsState = listReadState(ticketsRead);
+  // Fast Visit is OFF and stays off. The chip resolves to "hidden" on every
+  // row in that state — but the flag alone is the wrong gate, because a claim
+  // that already qualified has EARNED its eligibility and must keep it if the
+  // lever is flipped back (D198). fastVisitChipState() applies both rules.
+  const fastVisitOn = await isFastVisitEnabled();
 
   const rows = listReadRows(ticketsRead) as unknown as {
     id: string;
@@ -152,6 +160,9 @@ export default async function MyDealsPage({
     status: string;
     expires_at: string;
     redeemed_at: string | null;
+    claimed_at: string | null;
+    arrived_at: string | null;
+    fast_visit_qualified_at: string | null;
     merchants: { merchant_name: string } | null;
     deals: { title: string; expires_at: string | null } | null;
   }[];
@@ -215,6 +226,15 @@ export default async function MyDealsPage({
                 : r.status === "success"
                   ? "redeemed"
                   : "expired";
+              const fastVisitLabel = fastVisitChipLabel(
+                fastVisitChipState({
+                  featureEnabled: fastVisitOn,
+                  claimedAt: r.claimed_at,
+                  arrivedAt: r.arrived_at,
+                  qualifiedAt: r.fast_visit_qualified_at,
+                  windowMinutes: FAST_VISIT_WINDOW_MINUTES,
+                })
+              );
               return (
                 <Link
                   key={r.id}
@@ -231,6 +251,11 @@ export default async function MyDealsPage({
                         {formatCode(r.otp_code)}
                       </span>
                     </p>
+                    {fastVisitLabel ? (
+                      <span className="mt-1.5 inline-flex items-center rounded-full bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-secondary">
+                        {fastVisitLabel}
+                      </span>
+                    ) : null}
                     {isActiveRow ? (
                       <CountdownChip expiresAt={r.deals?.expires_at ?? r.expires_at} className="mt-1.5" />
                     ) : null}

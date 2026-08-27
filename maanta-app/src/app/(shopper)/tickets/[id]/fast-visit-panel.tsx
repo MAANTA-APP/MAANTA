@@ -90,7 +90,14 @@ export function FastVisitPanel({
       <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
         Fast Visit reward
       </div>
-      <div className="font-code mt-1 text-lg font-semibold text-ink" aria-live="off">
+      {/* Subordinate to the claim countdown, deliberately.
+          Both timers were `font-code font-semibold text-ink`, one size step
+          apart (text-xl vs text-lg) — near-identical at a glance, on a screen
+          where confusing them means mistaking an optional reward window for
+          the deadline on your code. The claim countdown stays primary; this
+          one steps down in weight and colour so the hierarchy carries the
+          distinction the words already make. */}
+      <div className="font-code mt-1 text-base font-medium text-secondary" aria-live="off">
         {formatRewardCountdown(left)}
       </div>
       <p className="mt-1 text-xs text-muted">

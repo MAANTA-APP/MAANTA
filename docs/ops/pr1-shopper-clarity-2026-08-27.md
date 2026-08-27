@@ -2,7 +2,11 @@
 
 **Date:** 2026-08-27 · **Branch:** `claude/pr-1-shopper-clarity` · **Base:** `a70fe67`
 (`origin/main`, the same base as PR 5 — **not** PR 5's head).
-**No PR opened** — founder asked to be consulted first.
+**PR #287 was opened and immediately closed** — I opened it before the founder's
+hold landed. `c889a0d` was accepted as a foundation, but the branch did not yet
+carry the originally authorized product scope, and opening it as "PR 1" would
+have recorded a delivery that had not happened. The full scope is now on the
+branch.
 
 ---
 
@@ -166,3 +170,120 @@ and the assertion that matters is the asymmetry: `state(failed) !== state(empty)
 No production mutation · no migration · no `app_config` write · keypad money path
 untouched · no amber added, no money coloured, no celebration · every new state is
 word-first and readable in greyscale.
+
+---
+
+# Part 2 — the originally authorized PR 1 product scope
+
+Added after the founder's ruling, on the same branch. S1's conclusion was
+accepted unchanged; S2 and S3 above were explicitly authorized as part of PR 1.
+
+## 9. Ticket clarity — semantics proved, hierarchy fixed
+
+**The product distinction was already correct** when #275 landed, so there was
+nothing to rewrite:
+
+| State | Copy |
+|---|---|
+| Window running | "Fast Visit reward" · *"Your claim stays valid either way."* |
+| Window closed | *"Reward window ended — your claim is still valid."* |
+| Qualified | "You made it" · "Fast Visit reward eligible" |
+
+Nowhere does it say expired, too late, or missed. Pinned by tests so a later
+edit cannot reintroduce copy that makes a closed reward window read as an
+invalid ticket.
+
+**The hierarchy was the real weakness.** Both timers were
+`font-code font-semibold text-ink`, one size step apart — the claim countdown at
+`text-xl`, the reward timer at `text-lg`. Two near-identical monospace timers on
+a screen where confusing them means mistaking an *optional reward window* for the
+deadline on your code. The reward timer now steps down to
+`text-base font-medium text-secondary`. The claim countdown is untouched.
+
+**One existing test was changed, deliberately and visibly.**
+`fast-visit-panel.test.ts` asserted the literal string `text-lg` under the name
+"keeps the reward timer visually smaller than the claim code". A literal size
+fails every legitimate hierarchy change and passes any illegitimate one that
+keeps the string, so it is now the invariant: smaller than the 30px code, not
+`text-xl`, and never `font-code font-semibold text-ink`. Not weakened — the
+mutant that restores the old styling fails it.
+
+## 10. Rewards entry from a successful redemption
+
+A "View your points" link on the verified-ticket state, to the existing
+`/you/rewards`. No marketplace, no KES equivalence, no cash-out, no transfer, no
+extra gamification.
+
+**The gate is `rewardPoints != null` — this redemption actually earned
+something.** A first draft also fired on `rewardBalance == null`, reasoning from
+`/you`, where a null balance is a read failure worth linking through. **On this
+screen that is wrong**: `rewardBalance` is only computed when a reward row
+exists, so it is null in the ordinary no-reward case too — the link would have
+rendered for *every* shopper and un-darkened a switched-off feature. Caught
+before commit by re-reading the variable's actual semantics rather than assuming
+they matched `/you`'s.
+
+## 11. H1 — the additive "Ending soon" section
+
+`lib/ending-soon.ts`. Urgency is the deal's own `expires_at` and nothing else:
+no popularity, no claim count, no "trending", no "X people viewing" — the product
+has no such signal and a proxy would be fabricated social proof.
+
+**It reuses the existing 60-minute threshold** rather than picking a new one.
+`isNearExpiry()` already turns the countdown chip rust below 60 minutes. A wider
+threshold here would mean the feed calling a deal "ending soon" while its own
+chip still renders calm — two claims about one deal on one screen. A test asserts
+the two agree.
+
+The cost is that the section is often empty. **That is correct**: an "Ending
+soon" rail that always has content is manufacturing urgency, not reporting it.
+
+Additive, not a re-rank: derived from `allDeals`, which is *after* the shopper's
+own category and type filters, so it can never surface a deal those filters
+removed. Every deal stays in its rail in its locked order; each card keeps its
+**own** rail tag (`dealRailTag`), so a flash deal is not relabelled "standard"
+because it appears here. Placed between the flash and boosted rails — the locked
+rails keep their relative order, asserted by index comparison.
+
+## 12. Fast Visit chip — flag-aware, and dark today
+
+`lib/fast-visit-chip.ts`, rendered on `/my-deals` rows, which is the one place a
+shopper with several claims cannot otherwise tell which carries a live reward
+window.
+
+**The flag alone is the wrong gate.** D198: a claim that already qualified has
+*earned* its eligibility and must keep it if the lever is flipped back —
+`award_fast_visit_points` deliberately never re-reads the gate. So the persisted
+verdict is checked **before** the flag. With `fast_visit_enabled` off and no
+qualified claims — production today — every row renders nothing.
+
+The verdict is **read, never re-derived** (D191). An arrival inside the window
+with no persisted verdict reports `missed`, not `qualified`: the server decided,
+and the UI does not overrule it by recomputing from timestamps.
+
+Closed-window copy is *"Reward window closed"*, never "expired" — asserted.
+
+## 13. Mutation results, part 2
+
+| Mutant | Result |
+|---|---|
+| Chip checks the flag before earned eligibility | ❌ 2 tests fail (D198) |
+| "Ending soon" widens to a second 3-hour threshold | ❌ 3 tests fail |
+| Rewards link reverts to the un-darkening gate | ❌ 1 test fails |
+| Reward timer reverts to the near-identical styling | ❌ 2 tests fail |
+
+## 14. Final gate
+
+| Command | Result |
+|---|---|
+| `npm run lint` | ✅ `No ESLint warnings or errors` |
+| `npx tsc --noEmit` | ✅ exit 0 |
+| `npm test` | ✅ **1423 passed** (from 1366 — 57 new) |
+| `npm run build` + 3 chained gates | ✅ all clean |
+| SQL suites | **Not executed — not passing, not failing.** No SQL in scope. |
+
+## 15. Numbering, to settle after PR 5 lands
+
+This branch and #286 both hold a **D208**. Per the founder's ruling, provenance
+stays intact while developing; after PR 5 merges, PR 1 rebases and renumbers its
+rows to the next contiguous IDs before the final exact-head gates.
