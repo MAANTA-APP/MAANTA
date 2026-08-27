@@ -150,6 +150,9 @@ export default async function AdminHomePage({
         service.from("agent_tasks").select("id", { count: "exact", head: true }).eq("is_complete", false)
       ),
       byMerchant(
+        service.from("tier_flags").select("id", { count: "exact", head: true }).gte("created_at", since7d)
+      ),
+      byMerchant(
         service
           .from("merchant_transactions")
           .select("amount")
@@ -228,6 +231,7 @@ export default async function AdminHomePage({
     { count: genuineVerified7d },
     { count: heldRedemptions },
     { count: openTasks },
+    { count: tierRefusals7d },
     { data: fees7d },
     { data: arrearsRows },
     { data: recentPending },
@@ -252,6 +256,7 @@ export default async function AdminHomePage({
     heldRedemptions: heldRedemptions ?? 0,
     openTasks: openTasks ?? 0,
     merchantsInArrears: (arrearsRows ?? []).length,
+    tierRefusals7d: tierRefusals7d ?? 0,
     activeMerchants: activeMerchants ?? 0,
     liveDeals: liveDeals ?? 0,
     genuineClaims7d: genuineClaims7d ?? null,
