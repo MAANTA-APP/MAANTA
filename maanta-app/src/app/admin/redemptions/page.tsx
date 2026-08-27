@@ -6,6 +6,7 @@ import { RedemptionRow } from "@/components/ui/cards";
 import { IconChevronRight } from "@/components/ui/icons";
 import { cn, formatCode, friendlyTime } from "@/lib/ui";
 import { FraudActions } from "./fraud-actions";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function AdminRedemptionsPage({
     .limit(50);
   if (reason !== "all") eventsQuery = eventsQuery.eq("event_type", reason);
 
-  const [{ data: events }, { data: recent }, { data: held }] = await Promise.all([
+  const [eventsRes, recentRes, heldRes] = await Promise.all([
     eventsQuery,
     service
       .from("redemptions")
@@ -56,6 +57,19 @@ export default async function AdminRedemptionsPage({
       .order("redeemed_at", { ascending: false })
       .limit(25),
   ]);
+
+  if (eventsRes.error || recentRes.error || heldRes.error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Redemption monitoring</h1>
+        <div className="mt-5"><AdminReadError what="redemption monitoring" /></div>
+      </main>
+    );
+  }
+
+  const events = eventsRes.data;
+  const recent = recentRes.data;
+  const held = heldRes.data;
 
   const detailLabel = (type: string, details: Record<string, unknown> | null) => {
     if (!details) return "";
