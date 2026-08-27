@@ -287,3 +287,32 @@ Closed-window copy is *"Reward window closed"*, never "expired" — asserted.
 This branch and #286 both hold a **D208**. Per the founder's ruling, provenance
 stays intact while developing; after PR 5 merges, PR 1 rebases and renumbers its
 rows to the next contiguous IDs before the final exact-head gates.
+
+## 16. Review round 2 — the Fast Visit chip and redemption status
+
+Codex found that the chip could say **"Fast Visit open" on a completed
+redemption**. Verified at the source rather than reasoned about:
+`record_shopper_arrival` raises `arrival_claim_not_pending` for any non-pending
+status, so once a claim is `success`, `failed` or `flagged`, **no arrival can be
+recorded and no qualification can ever happen.**
+
+The sharp case is a claim verified at the counter four minutes after being made,
+with no persisted verdict: the clock says there is time, the database says the
+window is unreachable. The chip would have told a shopper to hurry to a shop for
+a reward already impossible.
+
+Per the founder ruling, the order of checks now carries the whole rule:
+
+1. **persisted `qualifiedAt` → `qualified`**, first, before anything else — it
+   survives both the feature gate (D198) and completion;
+2. feature off → `hidden`;
+3. **status not `pending` → `missed`**, as a matter of fact rather than of clock;
+4. otherwise the window is computed as before.
+
+Five states covered by test, exactly as specified: pending + inside → open;
+pending + after → closed; success + qualified → preserved; success/failed/flagged
++ unqualified → **never open**; flag off + unqualified → nothing visible.
+
+Two mutants, both failing: removing the status guard reinstates the reported
+defect, and moving the status guard above the qualified check erases earned
+eligibility — the ordering is load-bearing in both directions.

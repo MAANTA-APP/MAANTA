@@ -12,6 +12,7 @@ const at = (minsFromNow: number) =>
 function input(over: Partial<FastVisitChipInput> = {}): FastVisitChipInput {
   return {
     featureEnabled: false,
+    status: "pending",
     claimedAt: at(-5),
     arrivedAt: null,
     qualifiedAt: null,
@@ -113,5 +114,61 @@ describe("copy never implies the ticket became invalid", () => {
       .map((s) => fastVisitChipLabel(s) ?? "")
       .join(" ");
     expect(all).not.toMatch(/KES|cash|redeem for|transfer|shop with|spend/i);
+  });
+});
+
+describe("a completed redemption can never show an open window", () => {
+  /**
+   * `record_shopper_arrival` raises `arrival_claim_not_pending` for any
+   * non-pending redemption, so once a claim is success, failed or flagged, no
+   * arrival can be recorded and no qualification can ever happen. "Fast Visit
+   * open" on such a row promises something the database will refuse — a
+   * shopper could be told to hurry to a shop for a reward already impossible.
+   */
+  const completed = ["success", "failed", "flagged"] as const;
+
+  it("pending inside the window is open", () => {
+    expect(
+      fastVisitChipState(input({ featureEnabled: true, status: "pending", claimedAt: at(-5) }))
+    ).toBe("window-open");
+  });
+
+  it("pending after the window is closed", () => {
+    expect(
+      fastVisitChipState(input({ featureEnabled: true, status: "pending", claimedAt: at(-20) }))
+    ).toBe("missed");
+  });
+
+  it("never says open for a completed redemption, even inside the 15 minutes", () => {
+    // The sharp case: verified at the counter four minutes after claiming,
+    // with no persisted verdict. The clock says there is time; the database
+    // says the window is unreachable.
+    for (const status of completed) {
+      const s = fastVisitChipState(
+        input({ featureEnabled: true, status, claimedAt: at(-4), qualifiedAt: null })
+      );
+      expect(s).not.toBe("window-open");
+      expect(s).toBe("missed");
+    }
+  });
+
+  it("preserves a qualified verdict through completion", () => {
+    // D198 in its strongest form: earned, then redeemed, then the lever
+    // flipped off. The chip still says earned.
+    for (const status of completed) {
+      expect(
+        fastVisitChipState(
+          input({ featureEnabled: false, status, qualifiedAt: at(-6), arrivedAt: at(-6) })
+        )
+      ).toBe("qualified");
+    }
+  });
+
+  it("shows nothing for a completed, non-qualified claim while the flag is off", () => {
+    for (const status of completed) {
+      expect(
+        fastVisitChipState(input({ featureEnabled: false, status, qualifiedAt: null }))
+      ).toBe("hidden");
+    }
   });
 });

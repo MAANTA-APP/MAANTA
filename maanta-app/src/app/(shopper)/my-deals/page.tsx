@@ -229,6 +229,7 @@ export default async function MyDealsPage({
               const fastVisitLabel = fastVisitChipLabel(
                 fastVisitChipState({
                   featureEnabled: fastVisitOn,
+                  status: r.status,
                   claimedAt: r.claimed_at,
                   arrivedAt: r.arrived_at,
                   qualifiedAt: r.fast_visit_qualified_at,

@@ -28,6 +28,16 @@ export type FastVisitChipState = "hidden" | "window-open" | "qualified" | "misse
 export type FastVisitChipInput = {
   /** `app_config.fast_visit_enabled`, resolved server-side. */
   featureEnabled: boolean;
+  /**
+   * `redemptions.status`.
+   *
+   * Load-bearing, not decoration: `record_shopper_arrival` raises
+   * `arrival_claim_not_pending` for any non-pending redemption, so once a claim
+   * is success, failed or flagged, no arrival can be recorded and no
+   * qualification can ever happen. An "open" window on such a row is a promise
+   * the database will refuse.
+   */
+  status: string;
   /** `redemptions.claimed_at` — null on historical rows predating the column. */
   claimedAt: string | null;
   /** `redemptions.arrived_at` — set only by the server-side arrival RPC. */
@@ -53,7 +63,9 @@ export type FastVisitChipInput = {
  *   and this must never read as the ticket having become invalid.
  */
 export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipState {
-  // Earned eligibility survives the gate (D198). Checked before the flag.
+  // Earned eligibility survives the gate (D198) AND survives completion.
+  // Checked before everything else: a qualified claim keeps its chip whatever
+  // the redemption's status is now and whatever the lever is set to.
   if (input.qualifiedAt) return "qualified";
   if (!input.featureEnabled) return "hidden";
   // No claim time means no window ever existed — nothing to report, and
@@ -62,6 +74,13 @@ export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipStat
 
   const claimed = new Date(input.claimedAt).getTime();
   if (!Number.isFinite(claimed)) return "hidden";
+
+  // A redemption that is no longer pending can never qualify: the arrival RPC
+  // refuses it outright. So the window is closed as a matter of fact, not of
+  // clock — a claim verified at the counter four minutes after being made,
+  // without a persisted verdict, must not still advertise an open window the
+  // shopper can no longer act on.
+  if (input.status !== "pending") return "missed";
 
   // Arrived, but the persisted verdict did not qualify it: the window is over
   // for this claim however the clock reads.
