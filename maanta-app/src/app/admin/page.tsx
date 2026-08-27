@@ -11,7 +11,7 @@ import { LeadsReadError } from "@/components/agent/lead-row-list";
 import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
 import { AdminReadError } from "@/components/admin/read-error";
-import { isDemoModeEnabled } from "@/lib/demo-mode";
+import { readDemoModeEnabled } from "@/lib/demo-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,14 @@ export default async function AdminHomePage({
   // The attention queue must use the same public-visibility predicate as
   // shopper browse, not merely "active + unexpired". Paused deals and hidden,
   // shadow-banned or inactive merchants are not supply.
-  const includeDemo = await isDemoModeEnabled();
+  // Failure-aware on purpose. isDemoModeEnabled() folds an unreachable config
+  // into OFF, which is correct for product surfaces but wrong here: the flag
+  // decides whether demo rows are excluded from the supply count below, so a
+  // failed read would quietly shrink that number — possibly to 0 — and fire
+  // the URGENT "No live deals" item from an error rather than an observation.
+  // When the read fails the count is reported as unavailable instead.
+  const demoMode = await readDemoModeEnabled();
+  const includeDemo = demoMode.enabled;
   let shopperVisibleDealsQuery = service
     .from("deals")
     .select(
@@ -313,7 +320,7 @@ export default async function AdminHomePage({
     merchantsInArrears: (arrearsRows ?? []).length,
     tierRefusals7d: tierRefusals7d ?? 0,
     activeMerchants: activeMerchants ?? 0,
-    liveDeals: liveDeals ?? 0,
+    liveDeals: demoMode.ok ? liveDeals ?? null : null,
     genuineClaims7d: claims.partial ? null : genuineClaims7d ?? null,
     genuineVerified7d: claims.partial ? null : genuineCohortVerified7d ?? null,
   });
@@ -411,7 +418,12 @@ export default async function AdminHomePage({
       <h2 className="mt-7 text-base font-bold text-ink">Supply</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Active merchants" value={(activeMerchants ?? 0).toLocaleString()} />
-        <KpiCard label="Shopper-visible deals" value={(liveDeals ?? 0).toLocaleString()} />
+        <KpiCard
+          label="Shopper-visible deals"
+          value={
+            demoMode.ok && liveDeals != null ? liveDeals.toLocaleString() : "—"
+          }
+        />
       </div>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">

@@ -5,6 +5,11 @@ import { parseCharges } from "@/lib/pricing";
 import { isDealCategory } from "@/lib/deal-categories";
 import { insertDealDroppingUnknownCategory } from "@/lib/deal-category-column";
 import { logTierRefusal } from "@/lib/tier-refusal-audit";
+import {
+  checkRateLimit,
+  DEAL_CREATE_RATE_LIMIT,
+  DEAL_CREATE_RATE_WINDOW_SECONDS,
+} from "@/lib/rate-limit";
 
 /**
  * Repost an archived deal (wireframe 10q/10p): re-insert from the
@@ -20,6 +25,26 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Your shop is pending approval — you can publish once it's live." },
       { status: 403 }
+    );
+  }
+
+  // Rate-limited on the same budget as deal creation: a repost IS a deal
+  // insert, meets the same triggers, and — since this PR made refusals durable
+  // (D194) — a refused attempt now WRITES a tier_flags row. Without a ceiling a
+  // merchant sitting at their cap could loop this endpoint and mint unbounded
+  // refusal rows, inflating the operations console's "N plan-limit attempts"
+  // attention item at will. /api/deals has carried this guard since SEC-008;
+  // the gap here was invisible while the trigger's own audit row always rolled
+  // back.
+  const allowed = await checkRateLimit(
+    `deal-repost:${merchant.id}`,
+    DEAL_CREATE_RATE_LIMIT,
+    DEAL_CREATE_RATE_WINDOW_SECONDS
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts — wait a moment and try again." },
+      { status: 429 }
     );
   }
 

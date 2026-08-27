@@ -5,7 +5,8 @@ export type AdminAttentionInput = {
   merchantsInArrears: number;
   tierRefusals7d: number;
   activeMerchants: number;
-  liveDeals: number;
+  /** null = the count could not be established; never alert from an error. */
+  liveDeals: number | null;
   genuineClaims7d: number | null;
   genuineVerified7d: number | null;
 };
@@ -88,6 +89,7 @@ export function buildAdminAttentionItems(
   }
 
   if (input.activeMerchants > 0 && input.liveDeals === 0) {
+    // Strict === 0: a null count is "unknown", not "no supply".
     items.push({
       id: "supply",
       label: "No live deals",

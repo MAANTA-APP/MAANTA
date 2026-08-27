@@ -18,17 +18,31 @@ export async function logTierRefusal(
     notes: string;
   }
 ): Promise<void> {
-  const { error } = await service.from("tier_flags").insert({
-    merchant_id: input.merchantId,
-    flag_type: input.flagType,
-    notes: input.notes,
-  });
+  // try/catch, not just the returned { error }: this function's contract is
+  // that it never turns an honest 403/409 into a 500, and a rejected promise
+  // would do exactly that. In the publish path it is awaited BEFORE the
+  // uploaded cover image is cleaned up, so a throw would also orphan a file in
+  // the deal-images bucket. supabase-js normally folds transport failures into
+  // `error`, but the contract should not depend on that.
+  try {
+    const { error } = await service.from("tier_flags").insert({
+      merchant_id: input.merchantId,
+      flag_type: input.flagType,
+      notes: input.notes,
+    });
 
-  if (error) {
-    console.error("tier refusal audit insert failed", {
+    if (error) {
+      console.error("tier refusal audit insert failed", {
+        merchantId: input.merchantId,
+        flagType: input.flagType,
+        error: error.message,
+      });
+    }
+  } catch (err) {
+    console.error("tier refusal audit insert threw", {
       merchantId: input.merchantId,
       flagType: input.flagType,
-      error: error.message,
+      error: (err as Error)?.name,
     });
   }
 }

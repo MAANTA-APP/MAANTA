@@ -165,6 +165,36 @@ describe("PR 4 admin operations ratchets", () => {
     expect(overview).toContain('.in("flag_type"');
   });
 
+  it("never alerts on supply when the count is unknown", () => {
+    // A failed demo-mode read used to fold to OFF, which filtered demo rows
+    // out of the supply count and could fire the URGENT "No live deals" item
+    // from an error rather than an observation (D164/D185).
+    const base = {
+      pendingMerchants: 0,
+      heldRedemptions: 0,
+      openTasks: 0,
+      merchantsInArrears: 0,
+      tierRefusals7d: 0,
+      activeMerchants: 5,
+      genuineClaims7d: null,
+      genuineVerified7d: null,
+    };
+    const unknown = buildAdminAttentionItems({ ...base, liveDeals: null });
+    expect(unknown.find((i) => i.id === "supply")).toBeUndefined();
+
+    const realZero = buildAdminAttentionItems({ ...base, liveDeals: 0 });
+    expect(realZero.find((i) => i.id === "supply")?.severity).toBe("urgent");
+  });
+
+  it("reads demo mode through the failure-aware helper", () => {
+    // Assert on the CALL, not the bare identifier: the explanatory comment at
+    // the call site names the old helper on purpose.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain("readDemoModeEnabled()");
+    expect(overview).not.toContain("await isDemoModeEnabled()");
+    expect(overview).toContain("demoMode.ok");
+  });
+
   it("ties the refusal count to the caller-side D194 audit", () => {
     // The rows exist only because the API logs them after the trigger's RAISE
     // rolls back the trigger's own INSERT. If that link is ever removed the
