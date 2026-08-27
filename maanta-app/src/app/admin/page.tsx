@@ -188,8 +188,23 @@ export default async function AdminHomePage({
       byMerchant(
         service.from("agent_tasks").select("id", { count: "exact", head: true }).eq("is_complete", false)
       ),
+      // Plan-limit refusals only. tier_flags also carries 'trial_expired' and
+      // 'subscription_lapsed', which are lifecycle events, not a merchant
+      // attempting to publish past its plan — counting those made the console
+      // assert a plan-limit attempt that never happened (Codex P2 on #283).
+      //
+      // These two types only exist as rows at all because of this PR's
+      // caller-side audit (lib/tier-refusal-audit, D194): the trigger writes
+      // them immediately before it RAISEs, so its own INSERT is rolled back
+      // with the exception. The count is therefore only as complete as that
+      // audit — a refusal that never reached /api/deals or /api/deals/repost
+      // (a direct DB write, say) is invisible here by construction.
       byMerchant(
-        service.from("tier_flags").select("id", { count: "exact", head: true }).gte("created_at", since7d)
+        service
+          .from("tier_flags")
+          .select("id", { count: "exact", head: true })
+          .in("flag_type", ["deal_limit_exceeded", "flash_not_allowed"])
+          .gte("created_at", since7d)
       ),
       byMerchant(
         service

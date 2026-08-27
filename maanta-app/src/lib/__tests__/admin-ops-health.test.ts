@@ -154,6 +154,25 @@ describe("PR 4 admin operations ratchets", () => {
     expect(overview).toContain("tierRefusals7d");
   });
 
+  it("counts only genuine plan-limit refusal flag types", () => {
+    // tier_flags also holds lifecycle rows ('trial_expired',
+    // 'subscription_lapsed'). Counting those told an operator a merchant had
+    // attempted to publish past its plan when nothing of the sort happened
+    // (Codex P2 on #283). The query must name the two refusal types.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toContain('"deal_limit_exceeded"');
+    expect(overview).toContain('"flash_not_allowed"');
+    expect(overview).toContain('.in("flag_type"');
+  });
+
+  it("ties the refusal count to the caller-side D194 audit", () => {
+    // The rows exist only because the API logs them after the trigger's RAISE
+    // rolls back the trigger's own INSERT. If that link is ever removed the
+    // metric silently returns to zero, so the dependency stays documented.
+    const overview = read("app/admin/page.tsx");
+    expect(overview).toMatch(/D194/);
+  });
+
   it("prevents operational admin reads from masquerading as empty states", () => {
     const guardedPages = [
       "app/admin/approvals/page.tsx",
