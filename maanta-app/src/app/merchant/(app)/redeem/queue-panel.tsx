@@ -5,6 +5,7 @@ import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
 import { subscribeRedemptionCompleted } from "@/lib/queue-code-handoff";
 import { publishQueueCode } from "@/lib/queue-code-handoff";
+import { IconBolt } from "@/components/ui/icons";
 
 /**
  * The shopper queue at the till — checked-in shoppers, oldest first.
@@ -122,8 +123,14 @@ export function QueuePanel() {
     [load]
   );
 
-  // Never loaded AND the last attempt failed: an honest one-liner, not a
-  // silent nothing. Once any load has succeeded, quiet degradation resumes.
+  // Four distinct states, deliberately (G6). Before this, a first load in
+  // progress rendered exactly like "nobody is waiting" — so staff glancing
+  // down mid-fetch were told the queue was empty by a screen that simply did
+  // not know yet.
+  //
+  // 1. FAILED FIRST LOAD — never loaded and the last attempt failed. An
+  //    honest line, not a silent nothing (D164/D185: a failed read must never
+  //    look like a real zero).
   if (entries === null && loadFailed) {
     return (
       <p className="border-b border-line bg-stone px-4 py-2 text-xs text-muted">
@@ -133,7 +140,22 @@ export function QueuePanel() {
     );
   }
 
-  if (!entries || entries.length === 0) return null;
+  // 2. LOADING — first fetch still in flight.
+  if (entries === null) {
+    return (
+      <p
+        role="status"
+        className="border-b border-line bg-stone px-4 py-2 text-xs text-muted"
+      >
+        Checking for waiting shoppers…
+      </p>
+    );
+  }
+
+  // 3. EMPTY — a successful read with nobody waiting.
+  if (entries.length === 0) return null;
+
+  // 4. POPULATED — below.
 
   return (
     <section className="border-b border-line bg-stone px-4 py-3">
@@ -161,8 +183,13 @@ export function QueuePanel() {
               </p>
               <p className="truncate text-xs text-secondary">
                 {e.dealTitle} · arrived {relativeAgo(e.arrivedAt)}
-                {e.fastVisitEligible ? " · Fast Visit" : ""}
               </p>
+              {e.fastVisitEligible ? (
+                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-stone px-2 py-0.5 text-[11px] font-semibold text-ink">
+                  <IconBolt className="h-3 w-3" aria-hidden="true" />
+                  Fast Visit
+                </span>
+              ) : null}
             </button>
             <button
               type="button"

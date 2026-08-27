@@ -9,6 +9,7 @@ import {
 } from "@/lib/merchant-lifecycle";
 import { publicOrigin } from "@/lib/app-url";
 import { activeDealLimit } from "@/lib/plan-limits";
+import { CounterQr } from "@/components/merchant/counter-qr";
 
 export const dynamic = "force-dynamic";
 
@@ -93,13 +94,22 @@ export default async function MerchantDashboardPage() {
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
             Your MAANTA QR link
           </h2>
-          <p className="mt-1 break-all font-mono text-xs text-secondary">
-            {counterLink}
+          {/* The code itself, rendered (G3) — a merchant could previously
+              only read the link as text, with nothing to show a shopper and
+              nothing to print. Same single token for entrance and till. */}
+          <div className="mt-3 flex justify-center">
+            <CounterQr url={counterLink} size={148} />
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Shoppers scan this to check in. One code for the whole shop —
+            entrance and till. Staff still verify the 6-digit code as usual.
           </p>
-          <p className="mt-1.5 text-xs text-muted">
-            Shoppers scan your printed QR to check in at the counter. One link
-            for the whole shop — entrance and till.
-          </p>
+          <Link
+            href="/merchant/qr/print"
+            className="mt-3 inline-block text-xs font-semibold text-ink underline underline-offset-4"
+          >
+            Print counter QR
+          </Link>
         </div>
       ) : null}
 
