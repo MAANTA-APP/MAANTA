@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY, type ClaimsWindow } from "@/lib/claims-window";
 
 export type MetricValue<T> =
   | { ok: true; value: T }
@@ -12,6 +13,7 @@ export type MerchantOwnerStats = {
   successFees: MetricValue<number>;
   topDeal: MetricValue<string | null>;
   fastVisits: MetricValue<number>;
+  claimsWindow: ClaimsWindow;
 };
 
 export type MerchantClaimRow = {
@@ -111,7 +113,7 @@ export async function getMerchantOwnerStats(
   const service = createServiceClient();
   const windowStart = new Date(now.getTime() - SEVEN_DAYS_MS).toISOString();
 
-  const [claimsRes, verifiedRes] = await Promise.all([
+  const [claimsRes, verifiedRes, claimsTrackingRes] = await Promise.all([
     service
       .from("redemptions")
       .select("id, status, claimed_at")
@@ -125,6 +127,11 @@ export async function getMerchantOwnerStats(
       .eq("merchant_id", merchantId)
       .eq("status", "success")
       .gte("redeemed_at", windowStart),
+    service
+      .from("app_config")
+      .select("value")
+      .eq("key", CLAIMS_TRACKING_CONFIG_KEY)
+      .maybeSingle(),
   ]);
 
   if (claimsRes.error) {
@@ -139,14 +146,29 @@ export async function getMerchantOwnerStats(
       error: verifiedRes.error,
     });
   }
+  if (claimsTrackingRes.error) {
+    console.error("merchant claim-tracking coverage unavailable", {
+      merchantId,
+      error: claimsTrackingRes.error,
+    });
+  }
 
   const claimRows = (claimsRes.data ?? []) as MerchantClaimRow[];
   const verifiedRows = (verifiedRes.data ?? []) as unknown as MerchantVerifiedRow[];
 
   const good = summariseMerchantOwnerRows(claimRows, verifiedRows);
 
+  const coverage = claimsTrackingRes.error
+    ? {
+        label: "Claims",
+        hint: "Couldn’t confirm how far back claim tracking is complete.",
+        partial: true,
+      }
+    : claimsWindow(claimsTrackingRes.data?.value ?? null, now);
+
   return {
     windowStart,
+    claimsWindow: coverage,
     claims: claimsRes.error ? failed<number>() : good.claims,
     claimToVerifiedPct: claimsRes.error
       ? failed<number | null>()
