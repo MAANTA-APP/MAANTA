@@ -212,6 +212,27 @@ describe("POST /api/qr/check-in", () => {
     expect(queueCapture).not.toHaveBeenCalled();
   });
 
+  it("does not treat a 23505 from a LAPSED waiting row as queue success", async () => {
+    waitingRow = { id: "p-1", expires_at: PAST };
+    renewMatched = [];
+    queueUpdateError = { code: "XX000" };
+    queueInsertError = { code: "23505" };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.code).toBe("queue_not_joined");
+    expect(body.checkedIn).not.toBe(true);
+  });
+
+  it("accepts a 23505 only when a concurrent LIVE waiting row is confirmed", async () => {
+    waitingRow = { id: "p-1", expires_at: FUTURE };
+    renewMatched = [];
+    queueInsertError = { code: "23505" };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).checkedIn).toBe(true);
+  });
+
   it("supersedes a LAPSED entry with a fresh arrival time (D199)", async () => {
     // Scanned the entrance sticker long ago, the entry lapsed off the staff
     // list, now scanning the till sticker. Reviving the old row with its

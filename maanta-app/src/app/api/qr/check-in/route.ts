@@ -192,7 +192,7 @@ export async function POST(request: Request) {
   let queued = false;
   if (existing) {
     const lapsed = new Date(existing.expires_at).getTime() <= nowMs;
-    const { data: written } = await service
+    const { data: written, error: updateError } = await service
       .from("merchant_presentations")
       .update(
         lapsed
@@ -206,7 +206,10 @@ export async function POST(request: Request) {
       .eq("id", existing.id)
       .eq("status", "waiting")
       .select("id");
-    queued = (written?.length ?? 0) > 0;
+    if (updateError) {
+      console.error("queue renew failed:", updateError.code);
+    }
+    queued = !updateError && (written?.length ?? 0) > 0;
     // Only a still-live entry is a "renew" to the shopper; superseding a
     // lapsed one is a fresh check-in and reads as one.
     renewed = queued && !lapsed;
@@ -228,8 +231,18 @@ export async function POST(request: Request) {
       // race. Anything else means arrival evidence was recorded but the
       // shopper is NOT safely visible in the staff queue.
       if (insertError.code === "23505") {
-        queued = true;
-        renewed = true;
+        // The UNIQUE index includes lapsed waiting rows, so 23505 alone does
+        // NOT prove the shopper is visible to staff. Re-read and require a
+        // still-live row before acknowledging queue membership.
+        const { data: racedLive } = await service
+          .from("merchant_presentations")
+          .select("id")
+          .eq("redemption_id", redemptionId)
+          .eq("status", "waiting")
+          .gt("expires_at", new Date(nowMs).toISOString())
+          .maybeSingle<{ id: string }>();
+        queued = Boolean(racedLive);
+        renewed = queued;
       } else {
         console.error("queue insert failed:", insertError.code);
       }
