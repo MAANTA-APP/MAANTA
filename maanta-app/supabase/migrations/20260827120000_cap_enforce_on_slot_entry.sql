@@ -177,7 +177,14 @@ BEGIN
   -- exists" and abort. The cron calls this once per transaction, but a manual
   -- double-run or a future caller batching both must not break — and an
   -- idempotency test is exactly where that surfaced.
-  DROP TABLE IF EXISTS _refresh_keep;
+  --
+  -- Schema-qualified `pg_temp.` on every reference, deliberately. This function
+  -- pins `search_path = public, pg_temp`, and an explicitly-listed pg_temp is
+  -- searched LAST — so a table named `public._refresh_keep` would shadow the
+  -- temp one, and this SECURITY DEFINER body would drop and then read the wrong
+  -- relation. Qualifying removes the vector rather than trusting that the name
+  -- is never taken in public.
+  DROP TABLE IF EXISTS pg_temp._refresh_keep;
   CREATE TEMP TABLE _refresh_keep ON COMMIT DROP AS
   WITH candidate AS (
     SELECT d.id,
@@ -226,7 +233,7 @@ BEGIN
      AND d.demo_source = ANY (v_batches)
      AND NOT (d.merchant_id = ANY (v_dark_merchants))
      AND d.is_active
-     AND NOT EXISTS (SELECT 1 FROM _refresh_keep k WHERE k.id = d.id);
+     AND NOT EXISTS (SELECT 1 FROM pg_temp._refresh_keep k WHERE k.id = d.id);
 
   -- Re-open the windows on the chosen rows. Rows already active take the
   -- always-allowed path; rows currently inactive enter occupancy inside their
@@ -241,7 +248,7 @@ BEGIN
          is_active  = TRUE,
          is_paused  = FALSE,
          updated_at = NOW()
-    FROM _refresh_keep k
+    FROM pg_temp._refresh_keep k
    WHERE d.id = k.id;
 
   GET DIAGNOSTICS v_refreshed = ROW_COUNT;

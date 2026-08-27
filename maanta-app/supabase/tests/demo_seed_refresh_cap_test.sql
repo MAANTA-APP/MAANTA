@@ -224,6 +224,62 @@ BEGIN
   RAISE NOTICE 'Scenario D passed: no-ops with demo mode off';
 END $$;
 
+-- ------------------------------------------------------------
+-- Scenario E: the function's scratch table cannot be shadowed from `public`.
+--
+-- `refresh_demo_seed_deals()` is SECURITY DEFINER and pins
+-- `search_path = public, pg_temp`. An EXPLICITLY listed pg_temp is searched
+-- LAST, so an unqualified `_refresh_keep` resolves to `public._refresh_keep`
+-- first if that name is ever taken. Measured on the unqualified draft of this
+-- migration: the function DROPPED the unrelated public table and then read the
+-- wrong relation. Every reference is `pg_temp.`-qualified for that reason, and
+-- this scenario is what keeps it that way.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  v_mid    UUID;
+  v_d1     UUID;
+  v_d2     UUID;
+  v_active INT;
+BEGIN
+  DROP TABLE IF EXISTS public._refresh_keep;
+  CREATE TABLE public._refresh_keep (id UUID, merchant_id UUID);
+
+  INSERT INTO public.merchants (
+    merchant_name, what3words_address, phone, node, status, is_visible, account_balance, tier, is_demo
+  )
+    VALUES ('__test_refresh_shadow', 'test.refresh.shadow', '+254700000940', 'BBS Mall', 'active', TRUE, 999, 'standard', TRUE)
+    RETURNING id INTO v_mid;
+
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, is_demo, demo_source)
+    VALUES (v_mid, '__t shadow one', 'x', TRUE, NOW() - INTERVAL '1 hour', 100, TRUE, 'node0_100_deals')
+    RETURNING id INTO v_d1;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_d1;
+  INSERT INTO public.deals (merchant_id, title, image_url, is_active, expires_at, price_kes, is_demo, demo_source)
+    VALUES (v_mid, '__t shadow two', 'x', TRUE, NOW() - INTERVAL '1 hour', 100, TRUE, 'nairobi_150')
+    RETURNING id INTO v_d2;
+  UPDATE public.deals SET is_active = FALSE WHERE id = v_d2;
+
+  PERFORM public.refresh_demo_seed_deals();
+
+  -- The decoy must survive untouched: not dropped, not written to.
+  ASSERT EXISTS (SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = '_refresh_keep'),
+    'E: SHADOW HOLE — the function dropped public._refresh_keep';
+  ASSERT NOT EXISTS (SELECT 1 FROM public._refresh_keep),
+    'E: SHADOW HOLE — the function wrote into public._refresh_keep';
+
+  SELECT COUNT(*) INTO v_active FROM public.deals WHERE merchant_id = v_mid AND is_active;
+  ASSERT v_active = 1,
+    format('E: the refresh mis-selected under a shadowing decoy — %s active on a cap of 1', v_active);
+
+  DELETE FROM public.archive_history WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
+  DELETE FROM public.merchants WHERE id = v_mid;
+  DROP TABLE public._refresh_keep;
+  RAISE NOTICE 'Scenario E passed: pg_temp-qualified scratch table cannot be shadowed from public';
+END $$;
+
 -- Put demo mode back exactly as it was found.
 UPDATE public.app_config a
    SET value = r.value
