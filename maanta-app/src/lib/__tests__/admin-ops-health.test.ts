@@ -104,4 +104,29 @@ describe("PR 4 admin operations ratchets", () => {
     const sidebar = read("components/nav/admin-sidebar.tsx");
     expect(sidebar).toContain('{ href: "/admin/audit", label: "Audit" }');
   });
+
+  it("prevents operational admin reads from masquerading as empty states", () => {
+    const guardedPages = [
+      "app/admin/approvals/page.tsx",
+      "app/admin/merchants/page.tsx",
+      "app/admin/merchants/[id]/page.tsx",
+      "app/admin/customers/page.tsx",
+      "app/admin/customers/[id]/page.tsx",
+      "app/admin/deals/page.tsx",
+      "app/admin/redemptions/page.tsx",
+      "app/admin/redemptions/[id]/page.tsx",
+      "app/admin/agents/page.tsx",
+      "app/admin/agents/[id]/page.tsx",
+      "app/admin/support/page.tsx",
+      "app/admin/billing/page.tsx",
+    ];
+    for (const page of guardedPages) {
+      expect(read(page), page).toContain("AdminReadError");
+    }
+  });
+
+  it("guards the admin agent progress bar against a zero target", () => {
+    const agents = read("app/admin/agents/page.tsx");
+    expect(agents).toContain("a.weekly_target > 0");
+  });
 });
