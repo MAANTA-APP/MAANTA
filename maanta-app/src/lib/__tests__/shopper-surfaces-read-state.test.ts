@@ -74,9 +74,28 @@ describe("absent wayfinding is stated on both shopper surfaces", () => {
     it(`${rel} explains a missing location instead of rendering nothing`, () => {
       const src = read(rel);
       expect(src).toContain("navigationState(");
-      expect(src).toContain("SHOP_LOCATION_UNAVAILABLE");
+      expect(src).toContain("shopLocationUnavailable(");
+      // The copy must be a function of what this surface actually renders,
+      // never the unconditional string that promised a floor and unit the
+      // screen might not be showing.
+      expect(src).toContain("hasOnScreenLocationDetails(");
       // The silent branch: `{navigate ? (...) : null}` is what this replaces.
       expect(src).not.toMatch(/\{navigate \? \([\s\S]{0,400}\) : null\}/);
     });
   }
+});
+
+describe("the surfaces render the details their fallback points at", () => {
+  it("/shops/[id] renders unit_number, which it was already fetching", () => {
+    const src = read("app/(shopper)/shops/[id]/page.tsx");
+    expect(src).toContain("unit_number");
+    expect(src).toMatch(/shop\.unit_number \?/);
+  });
+
+  it("/tickets/[id] fetches AND renders unit_number", () => {
+    // It fetched neither before, while the fallback told the shopper to use it.
+    const src = read("app/(shopper)/tickets/[id]/page.tsx");
+    expect(src).toMatch(/merchants\([^)]*unit_number[^)]*\)/);
+    expect(src).toContain("[m.floor, m.unit_number]");
+  });
 });

@@ -4,7 +4,8 @@ import {
   listReadRows,
   navigationState,
   SHOPPER_LIST_READ_ERROR,
-  SHOP_LOCATION_UNAVAILABLE,
+  shopLocationUnavailable,
+  hasOnScreenLocationDetails,
 } from "@/lib/shopper-read-state";
 
 /**
@@ -64,20 +65,43 @@ describe("absent wayfinding is a stated state, not a missing control", () => {
     expect(navigationState(null)).toBe("unavailable");
   });
 
-  it("never fabricates a destination in the unavailable copy", () => {
+  it("never fabricates a destination, in either variant", () => {
     // A map centred on the mall, or any invented pin, sends a shopper
     // confidently to the wrong place — worse than saying nothing.
-    expect(SHOP_LOCATION_UNAVAILABLE).not.toMatch(/https?:\/\//);
-    expect(SHOP_LOCATION_UNAVAILABLE).not.toMatch(/what3words|\/map|lat=|lng=/);
+    for (const copy of [shopLocationUnavailable(true), shopLocationUnavailable(false)]) {
+      expect(copy).not.toMatch(/https?:\/\//);
+      expect(copy).not.toMatch(/what3words|\/map|lat=|lng=/);
+    }
   });
 
-  it("points at the wayfinding the shopper does have", () => {
-    expect(SHOP_LOCATION_UNAVAILABLE).toMatch(/floor and unit/i);
+  it("promises floor and unit ONLY when the screen is showing them", () => {
+    // The first version always said "use the floor and unit above". On a
+    // record with neither, that points a shopper at wayfinding which is not on
+    // the screen and may not exist — a quieter version of fabricating a
+    // destination.
+    expect(shopLocationUnavailable(true)).toMatch(/floor and unit/i);
+    expect(shopLocationUnavailable(false)).not.toMatch(/floor and unit above/i);
   });
 
-  it("does not call a missing shop location an error", () => {
+  it("still offers a next step when there are no details at all", () => {
+    // Saying only "we don't know where this is" strands the shopper.
+    expect(shopLocationUnavailable(false)).toMatch(/information desk/i);
+  });
+
+  it("does not call a missing shop location an error, in either variant", () => {
     // It is a gap in the shop's record, not a failure of this screen, so
     // telling the shopper to retry would be a lie.
-    expect(SHOP_LOCATION_UNAVAILABLE).not.toMatch(/error|try again|reload/i);
+    for (const copy of [shopLocationUnavailable(true), shopLocationUnavailable(false)]) {
+      expect(copy).not.toMatch(/error|try again|reload/i);
+    }
+  });
+
+  it("treats blank strings as absent, not as details", () => {
+    // A record with floor: "" renders nothing, so promising a floor would be
+    // as wrong as promising a null one.
+    expect(hasOnScreenLocationDetails({ floor: "", unit_number: "   " })).toBe(false);
+    expect(hasOnScreenLocationDetails({ floor: null, unit_number: null })).toBe(false);
+    expect(hasOnScreenLocationDetails({ floor: "1st Floor", unit_number: null })).toBe(true);
+    expect(hasOnScreenLocationDetails({ floor: null, unit_number: "B-14" })).toBe(true);
   });
 });

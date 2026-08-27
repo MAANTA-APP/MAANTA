@@ -109,9 +109,37 @@ export function navigationState(
 /**
  * The line shown in place of the Navigate control.
  *
- * States the fact, then the fallback. It never says "error" — a shop with no
- * recorded location is a data gap, not a failure of this screen, and telling a
- * shopper to retry would be a lie.
+ * It states the fact, then the fallback — and the fallback it names depends on
+ * what the screen is actually showing.
+ *
+ * The first version always said "use the floor and unit above". Codex caught
+ * that this can be a lie: `/tickets/[id]` did not fetch `unit_number` at all,
+ * `/shops/[id]` fetched it without rendering it, and both render `floor` only
+ * when it exists. A shopper with a locationless record could be pointed at
+ * wayfinding that is not on the screen and may not exist — which is the same
+ * class of failure as fabricating a destination, just quieter.
+ *
+ * So the caller passes what it renders, and the copy adapts. It never says
+ * "error": a shop with no recorded location is a gap in that shop's record,
+ * not a failure of this screen, and telling the shopper to retry would be a
+ * lie of a different kind.
  */
-export const SHOP_LOCATION_UNAVAILABLE =
-  "This shop hasn't shared a map location yet — use the floor and unit above to find it, or ask at the mall information desk.";
+export function shopLocationUnavailable(hasOnScreenDetails: boolean): string {
+  return hasOnScreenDetails
+    ? "This shop hasn't shared a map location yet — use the floor and unit above to find it, or ask at the mall information desk."
+    : "This shop hasn't shared a map location, floor or unit — ask at the mall information desk to find it.";
+}
+
+/**
+ * True when a surface has something concrete to point the shopper at.
+ *
+ * Blank strings count as absent: a merchant record with `floor: ""` renders
+ * nothing, so promising a floor would be as wrong as promising one that is
+ * null.
+ */
+export function hasOnScreenLocationDetails(shop: {
+  floor?: string | null;
+  unit_number?: string | null;
+}): boolean {
+  return Boolean(shop.floor?.trim() || shop.unit_number?.trim());
+}

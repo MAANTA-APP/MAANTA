@@ -9,7 +9,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { CoverImage } from "@/components/ui/cards";
 import { FavouriteButton } from "@/components/favourite-button";
 import { shopNavigationTarget } from "@/lib/shop-location";
-import { navigationState, SHOP_LOCATION_UNAVAILABLE } from "@/lib/shopper-read-state";
+import {
+  navigationState,
+  shopLocationUnavailable,
+  hasOnScreenLocationDetails,
+} from "@/lib/shopper-read-state";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +97,9 @@ export default async function ShopProfilePage({
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
           {shop.mall_name ?? shop.node}
           {shop.floor ? ` · ${shop.floor}` : ""}
+          {/* unit_number was already fetched and never rendered, while the
+              absent-location fallback told the shopper to use it. Render it. */}
+          {shop.unit_number ? ` · ${shop.unit_number}` : ""}
           {shop.what3words_address ? (
             <>
               {" · "}
@@ -146,7 +153,9 @@ export default async function ShopProfilePage({
           // render as `: null`, so a shop with neither a what3words address
           // nor coordinates offered no route AND no explanation — which reads
           // as a broken screen rather than an incomplete shop record.
-          <p className="mt-8 text-sm text-muted">{SHOP_LOCATION_UNAVAILABLE}</p>
+          <p className="mt-8 text-sm text-muted">
+            {shopLocationUnavailable(hasOnScreenLocationDetails(shop))}
+          </p>
         )}
       </div>
     </main>
