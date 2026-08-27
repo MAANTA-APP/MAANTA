@@ -257,14 +257,14 @@ export async function getMerchantOwnerStats(
       ? null
       : claimSuccessCountRes.count;
 
-  const good =
-    claimCount != null &&
-    claimSuccessCount != null &&
-    verifiedCount != null &&
-    !verifiedRowsRes.error
+  // Verified-derived metrics must stand or fail on their own inputs. An
+  // isolated claimed_at read failure must not blank fees, Fast Visits or top
+  // deal when the verified-redemption reads succeeded (D164/D185).
+  const verifiedSummary =
+    verifiedCount != null && !verifiedRowsRes.error
       ? summariseMerchantOwnerMetrics({
-          claimCount,
-          claimSuccessCount,
+          claimCount: 0,
+          claimSuccessCount: 0,
           verifiedCount,
           verifiedRows: verifiedRowsRes.data,
           dealTitles,
@@ -295,16 +295,16 @@ export async function getMerchantOwnerStats(
     verifiedVisits:
       verifiedCount == null ? failed<number>() : ok(verifiedCount),
     successFees:
-      verifiedRowsRes.error || !good
+      verifiedRowsRes.error || !verifiedSummary
         ? failed<number>()
-        : good.successFees,
+        : verifiedSummary.successFees,
     fastVisits:
-      verifiedRowsRes.error || !good
+      verifiedRowsRes.error || !verifiedSummary
         ? failed<number>()
-        : good.fastVisits,
+        : verifiedSummary.fastVisits,
     topDeal:
-      verifiedRowsRes.error || dealTitlesRes.error || !good
+      verifiedRowsRes.error || dealTitlesRes.error || !verifiedSummary
         ? failed<string | null>()
-        : good.topDeal,
+        : verifiedSummary.topDeal,
   };
 }
