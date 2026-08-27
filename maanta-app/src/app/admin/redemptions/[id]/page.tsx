@@ -20,6 +20,7 @@ import {
 import { ReleaseActions } from "./release-actions";
 import { ReverseFeeAction } from "./reverse-fee-action";
 import { AppealActions } from "./appeal-actions";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -141,7 +142,7 @@ export default async function AdminRedemptionDetailPage({
   // recommendation/events, the fee ledger for this redemption, and any existing
   // reversal — all keyed on the redemption id, run together. The Guardian RPC is
   // best-effort so a redemption that predates Guardian still renders in full.
-  const [{ data: r }, { data: guardian }, { data: ledger }, { data: reversal }] =
+  const [redemptionRes, guardianRes, ledgerRes, reversalRes] =
     await Promise.all([
       service
         .from("redemptions")
@@ -164,6 +165,26 @@ export default async function AdminRedemptionDetailPage({
         .eq("redemption_id", params.id)
         .maybeSingle(),
     ]);
+
+  if (redemptionRes.error || ledgerRes.error || reversalRes.error) {
+    return (
+      <main className="max-w-2xl">
+        <h1 className="text-2xl font-bold text-ink">Redemption detail</h1>
+        <div className="mt-5"><AdminReadError what="the redemption and fee record" /></div>
+      </main>
+    );
+  }
+  if (guardianRes.error) {
+    console.error("admin redemption Guardian detail unavailable", {
+      redemptionId: params.id,
+      error: guardianRes.error,
+    });
+  }
+
+  const r = redemptionRes.data;
+  const guardian = guardianRes.error ? null : guardianRes.data;
+  const ledger = ledgerRes.data;
+  const reversal = reversalRes.data;
   if (!r) notFound();
 
   const merchant = r.merchants as unknown as {
