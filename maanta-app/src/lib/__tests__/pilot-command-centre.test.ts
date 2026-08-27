@@ -1,0 +1,194 @@
+import { describe, it, expect } from "vitest";
+import {
+  pilotMerchantStatus,
+  merchantConversion,
+  cohortTotals,
+  buildPilotAlerts,
+  MIN_CLAIMS_FOR_MERCHANT_RATIO,
+  type PilotMerchantRow,
+} from "@/lib/pilot-command-centre";
+
+function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
+  return {
+    merchantId: "m1",
+    name: "Test Shop",
+    position: null,
+    evidence: "unclassified",
+    tier: "standard",
+    status: "active",
+    isVisible: true,
+    activeDeals: 1,
+    dealCap: 1,
+    shopperVisibleDeals: 1,
+    claims: 0,
+    arrivals: 0,
+    verified: 0,
+    fastVisits: 0,
+    successFeesKes: 0,
+    ...over,
+  };
+}
+
+describe("pilot status — deterministic, and every status states its condition", () => {
+  it("reports an unreadable row as unavailable before diagnosing anything", () => {
+    // D164/D185: a failed read is not a zero. A merchant whose counts failed
+    // must not be reported as "no supply" — that is a diagnosis drawn from an
+    // error, which is exactly how a console starts lying.
+    const s = pilotMerchantStatus(row({ shopperVisibleDeals: null }));
+    expect(s.id).toBe("read-failed");
+    expect(s.severity).toBe("unknown");
+    expect(s.reason).toMatch(/read failure/i);
+  });
+
+  it("does not diagnose supply when claims failed to read", () => {
+    expect(pilotMerchantStatus(row({ claims: null })).id).toBe("read-failed");
+    expect(pilotMerchantStatus(row({ verified: null })).id).toBe("read-failed");
+  });
+
+  it("reports suspension before supply, so a suspended shop is not read as starved", () => {
+    const s = pilotMerchantStatus(row({ status: "suspended", shopperVisibleDeals: 0 }));
+    expect(s.id).toBe("suspended");
+    expect(s.reason).toMatch(/suspended/);
+  });
+
+  it("treats not-visible the same way, with its own reason", () => {
+    const s = pilotMerchantStatus(row({ isVisible: false, shopperVisibleDeals: 0 }));
+    expect(s.id).toBe("suspended");
+    expect(s.reason).toMatch(/not visible/);
+  });
+
+  it("flags zero shopper-visible supply as urgent", () => {
+    const s = pilotMerchantStatus(row({ shopperVisibleDeals: 0 }));
+    expect(s.id).toBe("no-supply");
+    expect(s.severity).toBe("urgent");
+  });
+
+  it("flags claims with no verified visits, quoting the counts", () => {
+    const s = pilotMerchantStatus(row({ claims: 4, verified: 0 }));
+    expect(s.id).toBe("claims-no-visits");
+    expect(s.reason).toContain("4 claim");
+    expect(s.reason).toContain("0 verified");
+  });
+
+  it("flags a merchant sitting at its plan cap", () => {
+    const s = pilotMerchantStatus(row({ activeDeals: 2, dealCap: 2, claims: 3, verified: 1 }));
+    expect(s.id).toBe("at-cap");
+    expect(s.reason).toContain("2/2");
+  });
+
+  it("distinguishes awaiting-first-claim from active", () => {
+    expect(pilotMerchantStatus(row({ claims: 0, activeDeals: 0 })).id).toBe(
+      "awaiting-first-claim"
+    );
+    expect(
+      pilotMerchantStatus(row({ claims: 3, verified: 2, activeDeals: 0 })).id
+    ).toBe("active");
+  });
+
+  it("never returns a status without a non-empty reason", () => {
+    const cases = [
+      row(),
+      row({ shopperVisibleDeals: null }),
+      row({ status: "suspended" }),
+      row({ shopperVisibleDeals: 0 }),
+      row({ claims: 9, verified: 0 }),
+      row({ activeDeals: 2, dealCap: 2, claims: 1, verified: 1 }),
+      row({ claims: 5, verified: 5, activeDeals: 0 }),
+    ];
+    for (const c of cases) {
+      expect(pilotMerchantStatus(c).reason.trim().length).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe("conversion — no causal claims from tiny samples", () => {
+  it("refuses to compute a ratio below the minimum sample", () => {
+    // A 1-of-1 is not a 100% conversion. At Node 0 volumes this is the common
+    // case, and the honest render is a dash.
+    expect(merchantConversion(row({ claims: 1, verified: 1 }))).toBeNull();
+    expect(
+      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO - 1, verified: 2 }))
+    ).toBeNull();
+  });
+
+  it("computes only at or above the floor", () => {
+    expect(
+      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO, verified: 1 }))
+    ).toBeCloseTo(1 / MIN_CLAIMS_FOR_MERCHANT_RATIO);
+  });
+
+  it("returns null when either side failed to read", () => {
+    expect(merchantConversion(row({ claims: null, verified: 3 }))).toBeNull();
+    expect(merchantConversion(row({ claims: 10, verified: null }))).toBeNull();
+  });
+});
+
+describe("cohort totals — a null poisons its column rather than shrinking it", () => {
+  it("sums clean rows", () => {
+    const t = cohortTotals([
+      row({ claims: 2, verified: 1, arrivals: 1, fastVisits: 0, successFeesKes: 30 }),
+      row({ claims: 3, verified: 2, arrivals: 2, fastVisits: 1, successFeesKes: 60 }),
+    ]);
+    expect(t.claims).toBe(5);
+    expect(t.verified).toBe(3);
+    expect(t.successFeesKes).toBe(90);
+    expect(t.merchants).toBe(2);
+  });
+
+  it("returns null for a column where any row is unreadable", () => {
+    // The alternative — skipping the unreadable row — produces a smaller number
+    // that looks entirely real. That is the D164 failure in aggregate form.
+    const t = cohortTotals([row({ claims: 2 }), row({ claims: null })]);
+    expect(t.claims).toBeNull();
+    expect(t.verified).toBe(0);
+  });
+
+  it("counts the three evidence classes separately", () => {
+    const t = cohortTotals([
+      row({ evidence: "internal" }),
+      row({ evidence: "internal" }),
+      row({ evidence: "unclassified" }),
+    ]);
+    expect(t.internal).toBe(2);
+    expect(t.unclassified).toBe(1);
+    // The number the 1 -> 5 -> 10 ladder counts. Genuine-tagged data does not
+    // make a merchant external.
+    expect(t.external).toBe(0);
+  });
+});
+
+describe("alerts — deterministic, consistent with the table, and never a diagnosis from an error", () => {
+  it("raises one read alert and no diagnosis for unreadable rows", () => {
+    const alerts = buildPilotAlerts([row({ name: "Broken", shopperVisibleDeals: null })]);
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].id).toBe("read-failed");
+    expect(alerts.some((a) => a.id.startsWith("no-supply"))).toBe(false);
+  });
+
+  it("raises supply and conversion alerts that quote the same reason as the row", () => {
+    const starved = row({ merchantId: "m2", name: "Starved", shopperVisibleDeals: 0 });
+    const stalled = row({ merchantId: "m3", name: "Stalled", claims: 6, verified: 0 });
+    const alerts = buildPilotAlerts([starved, stalled]);
+
+    const supply = alerts.find((a) => a.id === "no-supply:m2");
+    const conv = alerts.find((a) => a.id === "claims-no-visits:m3");
+    expect(supply?.severity).toBe("urgent");
+    expect(supply?.reason).toBe(pilotMerchantStatus(starved).reason);
+    expect(conv?.severity).toBe("attention");
+    expect(conv?.reason).toBe(pilotMerchantStatus(stalled).reason);
+  });
+
+  it("stays silent for a healthy cohort", () => {
+    expect(buildPilotAlerts([row({ claims: 3, verified: 2, activeDeals: 0 })])).toEqual([]);
+  });
+
+  it("gives every alert a non-empty reason", () => {
+    const alerts = buildPilotAlerts([
+      row({ merchantId: "a", shopperVisibleDeals: 0 }),
+      row({ merchantId: "b", claims: 7, verified: 0 }),
+      row({ merchantId: "c", claims: null }),
+    ]);
+    expect(alerts.length).toBeGreaterThan(0);
+    for (const a of alerts) expect(a.reason.trim().length).toBeGreaterThan(10);
+  });
+});

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireFounderPage } from "@/lib/founder";
 import { canAccessAdminConsole } from "@/lib/roles";
 import { LeadsReadError } from "@/components/agent/lead-row-list";
@@ -173,6 +174,24 @@ export default async function FounderDashboardPage() {
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* Yesterday sits above Operations on purpose: the first question a
+          founder opens this page with is "what happened", not "what can I
+          click". Unlike the /admin/* cards below it is founder-scoped, so a
+          co-founder can open it. */}
+      <Section title="Daily brief" className="mt-6">
+        <Link
+          href="/founder/yesterday"
+          className="block rounded-card bg-white px-4 py-3 shadow-card transition hover:bg-stone-soft"
+        >
+          <span className="text-sm font-semibold text-ink">Yesterday →</span>
+          <span className="mt-0.5 block text-xs text-muted">
+            What changed yesterday: supply, claims, arrivals, verified visits,
+            success fees and unresolved alerts, with the genuine/demo split
+            stated.
+          </span>
+        </Link>
       </Section>
 
       <Section title="Operations" subtitle={`${openTasks ?? 0} open tasks`} className="mt-6">

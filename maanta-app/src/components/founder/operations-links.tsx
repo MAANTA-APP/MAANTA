@@ -28,6 +28,11 @@ export function OperationsLinks({
   pendingMerchants: number;
 }) {
   const items = [
+    {
+      href: "/admin/pilot",
+      title: "Pilot command centre",
+      sub: "Merchant 01 → 10: supply, claims, arrivals, verified visits",
+    },
     { href: "/admin/support", title: "Support queue", sub: "Review and resolve agent tasks" },
     // /admin is the console overview since 2026-08-16; the queue this card names
     // lives at /admin/approvals, and the card must go where its label says.
