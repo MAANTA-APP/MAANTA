@@ -91,9 +91,13 @@ export default async function MerchantDashboardPage() {
       </p>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <KpiCard
-          label="Claims"
+          label={stats.claimsWindow.label}
           value={metricValue(stats.claims, (value) => value)}
-          hint={!stats.claims.ok ? "Couldn’t load this figure." : undefined}
+          hint={
+            !stats.claims.ok
+              ? "Couldn’t load this figure."
+              : stats.claimsWindow.hint ?? undefined
+          }
         />
         <KpiCard
           label="Verified visits"
@@ -114,7 +118,9 @@ export default async function MerchantDashboardPage() {
               ? "Couldn’t load this figure."
               : stats.claimToVerifiedPct.value == null
                 ? "No claims in this window."
-                : "Claims made in this window that are now verified."
+                : stats.claimsWindow.partial
+                  ? "Claims since tracking began that are now verified."
+                  : "Claims made in this 7-day window that are now verified."
           }
         />
         <KpiCard
