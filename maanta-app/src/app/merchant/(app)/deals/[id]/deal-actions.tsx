@@ -24,6 +24,7 @@ export function DealActions({
   description: initialDescription,
   category: initialCategory,
   status,
+  isActive,
   boosted,
   boostEndsAt,
   boostFee,
@@ -38,6 +39,8 @@ export function DealActions({
   /** Null on deals created before the taxonomy — the edit sheet is where they get one. */
   category: string | null;
   status: "active" | "paused" | "ended";
+  /** DB slot occupancy. Ended-but-unarchived rows remain is_active=true. */
+  isActive: boolean;
   boosted: boolean;
   boostEndsAt: string | null;
   boostFee: number;
@@ -150,7 +153,7 @@ export function DealActions({
           </Button>
         ) : null}
 
-        {canDeals && status !== "ended" ? (
+        {canDeals && isActive ? (
           <Button variant="destructive-outline" full onClick={() => setSheet("archive")}>
             Archive deal
           </Button>

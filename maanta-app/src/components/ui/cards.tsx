@@ -151,7 +151,7 @@ export function MerchantDealRow({
   title: string;
   status: string;
   expiresAt: string | null;
-  verifiedCount: number;
+  verifiedCount: number | null;
 }) {
   return (
     <Link
@@ -170,7 +170,7 @@ export function MerchantDealRow({
       </div>
       <span className="flex items-center gap-1 text-sm font-bold text-ink">
         <IconCheck className="h-4 w-4 text-verified" />
-        {verifiedCount}
+        {verifiedCount == null ? "—" : verifiedCount}
       </span>
     </Link>
   );

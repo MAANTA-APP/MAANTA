@@ -147,6 +147,7 @@ export default async function MerchantDealDetailPage({
         description={deal.description ?? ""}
         category={deal.category ?? null}
         status={status}
+        isActive={deal.is_active}
         boosted={!!boost}
         boostEndsAt={boost?.ends_at ?? null}
         boostFee={boostFee}
