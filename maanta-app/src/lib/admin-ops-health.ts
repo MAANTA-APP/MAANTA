@@ -3,6 +3,7 @@ export type AdminAttentionInput = {
   heldRedemptions: number;
   openTasks: number;
   merchantsInArrears: number;
+  tierRefusals7d: number;
   activeMerchants: number;
   liveDeals: number;
   genuineClaims7d: number | null;
@@ -15,6 +16,7 @@ export type AdminAttentionItem = {
     | "held"
     | "support"
     | "arrears"
+    | "tier-refusals"
     | "supply"
     | "claim-conversion";
   label: string;
@@ -70,6 +72,16 @@ export function buildAdminAttentionItems(
       id: "arrears",
       label: `${input.merchantsInArrears} merchant${input.merchantsInArrears === 1 ? "" : "s"} in arrears`,
       reason: "Outstanding merchant arrears are greater than zero.",
+      href: "/admin/billing",
+      severity: "attention",
+    });
+  }
+
+  if (input.tierRefusals7d > 0) {
+    items.push({
+      id: "tier-refusals",
+      label: `${input.tierRefusals7d} plan-limit attempt${input.tierRefusals7d === 1 ? "" : "s"} in 7 days`,
+      reason: "A merchant tried to publish beyond its plan capacity or use a plan-restricted deal type.",
       href: "/admin/billing",
       severity: "attention",
     });
