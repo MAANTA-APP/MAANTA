@@ -6,6 +6,7 @@ import { SearchField } from "@/components/ui/inputs";
 import { StatusChip } from "@/components/ui/chips";
 import { friendlyTime, maskPhone } from "@/lib/ui";
 import { ilikeAnyFilter } from "@/lib/postgrest-filter";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,16 @@ export default async function AdminCustomersPage({
   // the quoting rule lives in one place.
   if (q) query = query.or(ilikeAnyFilter(["full_name", "email", "phone"], q));
   if (role && ROLE_LABEL[role]) query = query.eq("role", role);
-  const { data: users } = await query;
+  const { data: users, error } = await query;
+
+  if (error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Customers</h1>
+        <div className="mt-5"><AdminReadError what="the customer directory" /></div>
+      </main>
+    );
+  }
 
   const ROLE_FILTERS = [
     "all",
