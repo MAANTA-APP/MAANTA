@@ -287,6 +287,54 @@ WHERE NOT EXISTS (
 ORDER BY c.merchant_n, c.deal_n;
 
 -- Refresh windows on every re-run so rails stay live.
+--
+-- Cap-aware since D206. The active-deal cap now holds on the UPDATE transition
+-- INTO occupancy, not only on INSERT, so a blanket `is_active = true` over this
+-- whole range aborts the seed transaction the moment one of these merchants has
+-- a slot held by a row OUTSIDE the range — an `autoreseed` flash deal from
+-- reseed_demo_flash_deals() is exactly that, and it is reachable on any database
+-- where the hourly flash job has run. Measured: the blanket form raises
+-- "Deal limit reached. elite plan allows 2 active deal(s)." and rolls the whole
+-- seed back.
+--
+-- Same construction as refresh_demo_seed_deals():
+--   * rows already active are refreshed unconditionally — they hold their own
+--     slot and the guard never re-counts an already-occupying row;
+--   * inactive rows are activated only within the allowance left after slots
+--     held inside and outside this range, oldest id first, so repeat runs pick
+--     the same rows and the seed stays idempotent.
+WITH in_range AS (
+  SELECT d.id,
+         d.merchant_id,
+         d.is_active,
+         CASE WHEN m.tier = 'elite' THEN 2 ELSE 1 END AS cap
+    FROM public.deals d
+    JOIN public.merchants m ON m.id = d.merchant_id
+   WHERE d.id BETWEEN 'd1000000-0000-4000-a000-000000000001'::uuid
+                  AND 'd1000000-0000-4000-a000-000000000100'::uuid
+),
+allowance AS (
+  SELECT r.merchant_id,
+         MAX(r.cap)
+           - COUNT(*) FILTER (WHERE r.is_active)
+           - COALESCE((
+               SELECT COUNT(*) FROM public.deals o
+                WHERE o.merchant_id = r.merchant_id
+                  AND o.is_active
+                  AND o.id NOT BETWEEN 'd1000000-0000-4000-a000-000000000001'::uuid
+                                   AND 'd1000000-0000-4000-a000-000000000100'::uuid
+             ), 0) AS slots_left
+    FROM in_range r
+   GROUP BY r.merchant_id
+),
+ranked AS (
+  SELECT r.id,
+         a.slots_left,
+         ROW_NUMBER() OVER (PARTITION BY r.merchant_id ORDER BY r.id) AS rn
+    FROM in_range r
+    JOIN allowance a ON a.merchant_id = r.merchant_id
+   WHERE NOT r.is_active
+)
 UPDATE public.deals d
 SET
   starts_at = CASE
@@ -300,8 +348,11 @@ SET
   is_active = true,
   is_paused = false,
   updated_at = NOW()
-WHERE d.id BETWEEN 'd1000000-0000-4000-a000-000000000001'::uuid
-              AND 'd1000000-0000-4000-a000-000000000100'::uuid;
+WHERE d.id IN (
+  SELECT id FROM in_range WHERE is_active
+  UNION ALL
+  SELECT id FROM ranked WHERE rn <= slots_left
+);
 
 COMMIT;
 

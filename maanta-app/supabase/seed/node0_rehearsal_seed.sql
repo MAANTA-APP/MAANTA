@@ -174,6 +174,46 @@ WHERE NOT EXISTS (SELECT 1 FROM public.deals d WHERE d.id = 'd0000000-0000-4000-
 -- Refresh the rehearsal window on every run: seeded deals are always live for
 -- the next ~21h (standard) / ~5h (flash) after the seed runs. Also upgrades
 -- rows seeded before the YOU PAY price model (2026-07-19) with shopper prices.
+-- Cap-aware since D206: the active-deal cap now holds on the UPDATE transition
+-- INTO occupancy, so blanket-activating these three rows aborts the whole seed
+-- the moment one of these merchants has a slot held by a deal outside this set
+-- (an `autoreseed` flash row is exactly that). Rows already active are always
+-- refreshed — they hold their own slot; inactive rows are activated only within
+-- the allowance that is left. Same construction as refresh_demo_seed_deals().
+WITH in_set AS (
+  SELECT d.id,
+         d.merchant_id,
+         d.is_active,
+         CASE WHEN m.tier = 'elite' THEN 2 ELSE 1 END AS cap
+    FROM public.deals d
+    JOIN public.merchants m ON m.id = d.merchant_id
+   WHERE d.id IN ('d0000000-0000-4000-a000-000000000001'::uuid,
+                  'd0000000-0000-4000-a000-000000000002'::uuid,
+                  'd0000000-0000-4000-a000-000000000003'::uuid)
+),
+allowance AS (
+  SELECT r.merchant_id,
+         MAX(r.cap)
+           - COUNT(*) FILTER (WHERE r.is_active)
+           - COALESCE((
+               SELECT COUNT(*) FROM public.deals o
+                WHERE o.merchant_id = r.merchant_id
+                  AND o.is_active
+                  AND o.id NOT IN ('d0000000-0000-4000-a000-000000000001'::uuid,
+                                   'd0000000-0000-4000-a000-000000000002'::uuid,
+                                   'd0000000-0000-4000-a000-000000000003'::uuid)
+             ), 0) AS slots_left
+    FROM in_set r
+   GROUP BY r.merchant_id
+),
+ranked AS (
+  SELECT r.id,
+         a.slots_left,
+         ROW_NUMBER() OVER (PARTITION BY r.merchant_id ORDER BY r.id) AS rn
+    FROM in_set r
+    JOIN allowance a ON a.merchant_id = r.merchant_id
+   WHERE NOT r.is_active
+)
 UPDATE public.deals
 SET starts_at  = CASE WHEN deal_type = 'flash' THEN NOW() - INTERVAL '1 hour' ELSE NOW() - INTERVAL '3 hours' END,
     expires_at = CASE WHEN deal_type = 'flash' THEN NOW() + INTERVAL '5 hours' ELSE NOW() + INTERVAL '21 hours' END,
@@ -189,9 +229,11 @@ SET starts_at  = CASE WHEN deal_type = 'flash' THEN NOW() - INTERVAL '1 hour' EL
                    WHEN 'd0000000-0000-4000-a000-000000000002'::uuid THEN 1600.00
                    WHEN 'd0000000-0000-4000-a000-000000000003'::uuid THEN 2250.00
                  END)
-WHERE id IN ('d0000000-0000-4000-a000-000000000001'::uuid,
-             'd0000000-0000-4000-a000-000000000002'::uuid,
-             'd0000000-0000-4000-a000-000000000003'::uuid);
+WHERE id IN (
+  SELECT id FROM in_set WHERE is_active
+  UNION ALL
+  SELECT id FROM ranked WHERE rn <= slots_left
+);
 
 -- ----------------------------------------------------------------------------
 -- 5. Redemption history + one LIVE pending ticket
