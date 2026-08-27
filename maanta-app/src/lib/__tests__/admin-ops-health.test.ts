@@ -109,6 +109,24 @@ describe("PR 4 admin operations ratchets", () => {
     expect(sidebar).toContain('{ href: "/admin/audit", label: "Audit" }');
   });
 
+  it("uses a compatible claim cohort and suppresses conversion alerts on partial history", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain("genuineCohortVerifiedQuery");
+    expect(src).toContain('.gte("claimed_at", since7d)');
+    expect(src).toContain("claims.partial ? null : genuineClaims7d");
+    expect(src).toContain("claims.partial ? null : genuineCohortVerified7d");
+  });
+
+  it("bases the supply alert on the shopper visibility predicate", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain("shopperVisibleDealsQuery");
+    expect(src).toContain('.eq("is_paused", false)');
+    expect(src).toContain('.eq("merchants.status", "active")');
+    expect(src).toContain('.eq("merchants.is_visible", true)');
+    expect(src).toContain('.eq("merchants.is_shadow_banned", false)');
+    expect(src).toContain("Shopper-visible deals");
+  });
+
   it("persists D194 tier refusals from both publish callers after trigger rollback", () => {
     const create = read("app/api/deals/route.ts");
     const repost = read("app/api/deals/repost/route.ts");
