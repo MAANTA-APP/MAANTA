@@ -79,10 +79,10 @@ describe("the dashboard's honesty rules", () => {
   });
 
   it("labels the evidence window and separates genuine-tagged from mixed activity", () => {
-    expect(dashboard).toContain("Evidence split (7 days)");
+    expect(dashboard).toContain("Evidence split");
     for (const label of [
-      "Genuine-tagged claims",
-      "Genuine-tagged verified",
+      "Genuine-tagged ${claims.label.toLowerCase()}",
+      "Genuine-tagged verified (7d)",
       "Success fees — all activity",
     ]) {
       expect(dashboard).toContain(label);
