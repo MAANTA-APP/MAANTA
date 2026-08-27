@@ -6,6 +6,7 @@ import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
 import { resolveNodeParam, isNodeScoped, nodeSwitcherTargets } from "@/lib/admin-dashboard";
 import { GENUINE_JOIN_SELECT, genuineTagged } from "@/lib/evidence-scope";
+import { withPublicMerchant } from "@/lib/data";
 import { activeDealLimit, normaliseTier } from "@/lib/plan-limits";
 import {
   classifyMerchant,
@@ -135,6 +136,7 @@ export default async function PilotCommandCentrePage({
         claimsRes,
         arrivalsRes,
         verifiedRes,
+        verifiedCohortRes,
         fastVisitsRes,
         feesRes,
       ] = await Promise.all([
@@ -143,21 +145,27 @@ export default async function PilotCommandCentrePage({
           .select("id", { count: "exact", head: true })
           .eq("merchant_id", m.id)
           .eq("is_active", true),
-        // Shopper-visible = active, not paused, inside its window. When demo
-        // mode is off, synthetic deals are not visible either — but a failed
-        // flag read must not silently shrink this count, so it is resolved to
-        // null below instead.
-        (() => {
-          let q = service
+        // Shopper-visible must mean what the FEED means, not a shorter version
+        // of it. The deal-side conditions (active, not paused, unexpired) are
+        // only half the rule: a deal on a suspended, hidden or shadow-banned
+        // merchant reaches nobody, and counting it would report supply that no
+        // shopper can see. withPublicMerchant() is the same helper the shopper
+        // surfaces use, so this count cannot drift from the feed — including
+        // its demo handling. A failed demo-flag read resolves the column to
+        // null below rather than silently shrinking it.
+        withPublicMerchant(
+          service
             .from("deals")
-            .select("id", { count: "exact", head: true })
+            .select("id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)", {
+              count: "exact",
+              head: true,
+            })
             .eq("merchant_id", m.id)
             .eq("is_active", true)
             .eq("is_paused", false)
-            .gt("expires_at", nowIso);
-          if (demoMode.ok && !demoMode.enabled) q = q.eq("is_demo", false);
-          return q;
-        })(),
+            .gt("expires_at", nowIso),
+          { includeDemo: demoMode.enabled }
+        ),
         genuineTagged(
           service
             .from("redemptions")
@@ -173,6 +181,8 @@ export default async function PilotCommandCentrePage({
             .not("arrived_at", "is", null)
             .gte("claimed_at", since)
         ),
+        // Throughput: verified AT the counter during the window, whenever the
+        // claim was made.
         genuineTagged(
           service
             .from("redemptions")
@@ -180,6 +190,17 @@ export default async function PilotCommandCentrePage({
             .eq("merchant_id", m.id)
             .eq("status", "success")
             .gte("redeemed_at", since)
+        ),
+        // Cohort: verified OUT OF the claims made in this window. Every funnel
+        // figure uses this one; mixing it with throughput can exceed 100% and
+        // can hide a merchant whose window claims all went cold.
+        genuineTagged(
+          service
+            .from("redemptions")
+            .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+            .eq("merchant_id", m.id)
+            .eq("status", "success")
+            .gte("claimed_at", since)
         ),
         genuineTagged(
           service
@@ -225,6 +246,7 @@ export default async function PilotCommandCentrePage({
         claims: count(claimsRes),
         arrivals: count(arrivalsRes),
         verified: count(verifiedRes),
+        verifiedCohort: count(verifiedCohortRes),
         fastVisits: count(fastVisitsRes),
         successFeesKes,
       } satisfies PilotMerchantRow;

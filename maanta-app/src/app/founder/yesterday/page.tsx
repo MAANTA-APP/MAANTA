@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireFounderPage } from "@/lib/founder";
+import { canAccessAdminConsole } from "@/lib/roles";
 import { createServiceClient } from "@/lib/supabase/service";
 import { AdminReadError } from "@/components/admin/read-error";
 import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
 import { GENUINE_JOIN_SELECT, genuineJoinSelect, genuineTagged } from "@/lib/evidence-scope";
 import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
+import { queueAlertState } from "@/lib/pilot-command-centre";
 import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,13 @@ export const dynamic = "force-dynamic";
  *   manifest — never inferred from a non-demo flag.
  */
 export default async function YesterdayBriefPage() {
-  await requireFounderPage();
+  // The guard returns the user because this page links into /admin/pilot, which
+  // a cofounder cannot open. Founder-dashboard access and admin-console access
+  // are different rules (lib/roles.ts), and rendering the link for everyone
+  // would hand cofounders a dead link that redirects them off the page they
+  // were reading. Same pattern as the Operations block on /founder.
+  const user = await requireFounderPage();
+  const canOpenAdminConsole = canAccessAdminConsole(user.role);
 
   const { startIso, endIso, prevStartIso, label } = nairobiYesterday();
   const service = createServiceClient();
@@ -186,21 +194,28 @@ export default async function YesterdayBriefPage() {
     merchantsClaimedButNotVerified(service, startIso, endIso),
   ]);
 
+  // The alert queues are in here as well as rendering their own unavailable
+  // rows: no "all clear" reading of this page may rest on a failed queue read.
   const readFailures = [
     merchantsLiveRes,
     claimsRes,
     verifiedRes,
     arrivalsRes,
     fastVisitsRes,
+    heldRes,
+    pendingRes,
+    openTasksRes,
   ].filter((r) => (r as { error?: unknown }).error).length;
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-16 pt-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-bold text-ink">Yesterday</h1>
-        <Link href="/admin/pilot" className="text-xs font-semibold text-ink underline">
-          Pilot command centre →
-        </Link>
+        {canOpenAdminConsole ? (
+          <Link href="/admin/pilot" className="text-xs font-semibold text-ink underline">
+            Pilot command centre →
+          </Link>
+        ) : null}
       </div>
       <p className="mt-1 text-sm text-muted">
         {label} · Nairobi time (UTC+3) · genuine-tagged unless stated
@@ -284,20 +299,20 @@ export default async function YesterdayBriefPage() {
         <h2 className="text-sm font-semibold text-ink">Unresolved operational alerts</h2>
         <ul className="mt-2 space-y-2">
           <Alert
-            show={(n(heldRes) ?? 0) > 0}
-            label={`${n(heldRes)} redemption(s) held`}
+            count={n(heldRes)}
+            noun={(c) => `${c} flagged redemption${c === 1 ? "" : "s"}`}
             reason="Guardian has redemptions waiting for a human decision."
             href="/admin/redemptions"
           />
           <Alert
-            show={(n(pendingRes) ?? 0) > 0}
-            label={`${n(pendingRes)} merchant(s) awaiting approval`}
+            count={n(pendingRes)}
+            noun={(c) => `${c} merchant${c === 1 ? "" : "s"} awaiting approval`}
             reason="Merchant onboarding cannot complete until an admin reviews them."
             href="/admin/approvals"
           />
           <Alert
-            show={(n(openTasksRes) ?? 0) > 0}
-            label={`${n(openTasksRes)} open support task(s)`}
+            count={n(openTasksRes)}
+            noun={(c) => `${c} open support task${c === 1 ? "" : "s"}`}
             reason="Operational tasks are still marked incomplete."
             href="/admin/support"
           />
@@ -381,22 +396,53 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * One queue alert, driven by a NULLABLE count.
+ *
+ * The first draft took a boolean computed as `(count ?? 0) > 0`, which made a
+ * failed read collapse to zero and the alert vanish — so an unreadable queue of
+ * flagged redemptions rendered as an all-clear. That is D164/D185 inverted and
+ * it is worse here than on a KPI: a silent alert is an operator deciding there
+ * is nothing to do.
+ *
+ * Three states, never two: a genuine zero renders nothing, a positive count
+ * renders the alert, and an unreadable count renders an explicit unavailable
+ * row that says the queue could not be read.
+ */
 function Alert({
-  show,
-  label,
+  count,
+  noun,
   reason,
   href,
 }: {
-  show: boolean;
-  label: string;
+  count: number | null;
+  /** Singular noun for the queue, e.g. "redemption flagged". */
+  noun: (n: number) => string;
   reason: string;
   href: string;
 }) {
-  if (!show) return null;
+  const state = queueAlertState(count);
+  // `count === null` is redundant with the state check and present so
+  // TypeScript narrows `count` to a number below; queueAlertState stays the
+  // single decision-maker, and its tests are what prove the three states.
+  if (state === "unavailable" || count === null) {
+    return (
+      <li role="alert" className="rounded-card bg-white px-4 py-3 shadow-card">
+        <p className="text-sm font-semibold text-ink">
+          {noun(0).replace(/^\d+\s*/, "")} — unavailable
+        </p>
+        <p className="mt-0.5 text-xs text-muted">
+          This queue could not be read, so it is unknown, not clear. Do not treat
+          the absence of an alert here as an all-clear.
+        </p>
+      </li>
+    );
+  }
+  if (state === "silent") return null;
   return (
     <li className="rounded-card bg-white px-4 py-3 shadow-card">
       <Link href={href} className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
-        {label}
+        {noun(count)}
       </Link>
       <p className="mt-0.5 text-xs text-muted">{reason}</p>
     </li>

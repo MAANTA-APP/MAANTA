@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  queueAlertState,
   pilotMerchantStatus,
   merchantConversion,
   cohortTotals,
@@ -23,6 +24,7 @@ function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
     claims: 0,
     arrivals: 0,
     verified: 0,
+    verifiedCohort: 0,
     fastVisits: 0,
     successFeesKes: 0,
     ...over,
@@ -42,7 +44,7 @@ describe("pilot status — deterministic, and every status states its condition"
 
   it("does not diagnose supply when claims failed to read", () => {
     expect(pilotMerchantStatus(row({ claims: null })).id).toBe("read-failed");
-    expect(pilotMerchantStatus(row({ verified: null })).id).toBe("read-failed");
+    expect(pilotMerchantStatus(row({ verifiedCohort: null })).id).toBe("read-failed");
   });
 
   it("reports suspension before supply, so a suspended shop is not read as starved", () => {
@@ -64,14 +66,16 @@ describe("pilot status — deterministic, and every status states its condition"
   });
 
   it("flags claims with no verified visits, quoting the counts", () => {
-    const s = pilotMerchantStatus(row({ claims: 4, verified: 0 }));
+    const s = pilotMerchantStatus(row({ claims: 4, verified: 0, verifiedCohort: 0 }));
     expect(s.id).toBe("claims-no-visits");
     expect(s.reason).toContain("4 claim");
-    expect(s.reason).toContain("0 verified");
+    // The wording changed with the cohort fix: it now says none of THIS
+    // window's claims verified, which is the claim the rule actually makes.
+    expect(s.reason).toContain("none of them verified");
   });
 
   it("flags a merchant sitting at its plan cap", () => {
-    const s = pilotMerchantStatus(row({ activeDeals: 2, dealCap: 2, claims: 3, verified: 1 }));
+    const s = pilotMerchantStatus(row({ activeDeals: 2, dealCap: 2, claims: 3, verified: 1, verifiedCohort: 1 }));
     expect(s.id).toBe("at-cap");
     expect(s.reason).toContain("2/2");
   });
@@ -81,7 +85,7 @@ describe("pilot status — deterministic, and every status states its condition"
       "awaiting-first-claim"
     );
     expect(
-      pilotMerchantStatus(row({ claims: 3, verified: 2, activeDeals: 0 })).id
+      pilotMerchantStatus(row({ claims: 3, verified: 2, verifiedCohort: 2, activeDeals: 0 })).id
     ).toBe("active");
   });
 
@@ -91,9 +95,9 @@ describe("pilot status — deterministic, and every status states its condition"
       row({ shopperVisibleDeals: null }),
       row({ status: "suspended" }),
       row({ shopperVisibleDeals: 0 }),
-      row({ claims: 9, verified: 0 }),
-      row({ activeDeals: 2, dealCap: 2, claims: 1, verified: 1 }),
-      row({ claims: 5, verified: 5, activeDeals: 0 }),
+      row({ claims: 9, verified: 0, verifiedCohort: 0 }),
+      row({ activeDeals: 2, dealCap: 2, claims: 1, verified: 1, verifiedCohort: 1 }),
+      row({ claims: 5, verified: 5, verifiedCohort: 5, activeDeals: 0 }),
     ];
     for (const c of cases) {
       expect(pilotMerchantStatus(c).reason.trim().length).toBeGreaterThan(10);
@@ -105,29 +109,79 @@ describe("conversion — no causal claims from tiny samples", () => {
   it("refuses to compute a ratio below the minimum sample", () => {
     // A 1-of-1 is not a 100% conversion. At Node 0 volumes this is the common
     // case, and the honest render is a dash.
-    expect(merchantConversion(row({ claims: 1, verified: 1 }))).toBeNull();
+    expect(merchantConversion(row({ claims: 1, verified: 1, verifiedCohort: 1 }))).toBeNull();
     expect(
-      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO - 1, verified: 2 }))
+      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO - 1, verified: 2, verifiedCohort: 2 }))
     ).toBeNull();
   });
 
   it("computes only at or above the floor", () => {
     expect(
-      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO, verified: 1 }))
+      merchantConversion(row({ claims: MIN_CLAIMS_FOR_MERCHANT_RATIO, verified: 1, verifiedCohort: 1 }))
     ).toBeCloseTo(1 / MIN_CLAIMS_FOR_MERCHANT_RATIO);
   });
 
   it("returns null when either side failed to read", () => {
-    expect(merchantConversion(row({ claims: null, verified: 3 }))).toBeNull();
-    expect(merchantConversion(row({ claims: 10, verified: null }))).toBeNull();
+    expect(merchantConversion(row({ claims: null, verified: 3, verifiedCohort: 3 }))).toBeNull();
+    expect(merchantConversion(row({ claims: 10, verified: 5, verifiedCohort: null }))).toBeNull();
+  });
+});
+
+describe("funnel figures use the claim cohort, never throughput", () => {
+  /**
+   * The shape that makes this a real defect rather than a nicety.
+   *
+   * A shopper claims on day 1 (outside a 7-day window) and walks in on day 8
+   * (inside it). That redemption's `redeemed_at` is in the window; its
+   * `claimed_at` is not. So it lands in `verified` (throughput) and in NO
+   * claim count. Feeding throughput into a cohort denominator produces
+   * arithmetic that cannot be true.
+   */
+  const carryOver = () =>
+    row({
+      claims: 2, // both made inside the window
+      verified: 3, // 2 of those + 1 older claim redeemed during the window
+      verifiedCohort: 0, // ...and NONE of the window's own claims converted
+    });
+
+  it("cannot report a conversion above 100% from a carried-over redemption", () => {
+    const r = row({ claims: 5, verified: 9, verifiedCohort: 2 });
+    const conv = merchantConversion(r);
+    expect(conv).not.toBeNull();
+    expect(conv!).toBeLessThanOrEqual(1);
+    // 2/5, not 9/5.
+    expect(conv!).toBeCloseTo(0.4);
+  });
+
+  it("still flags claims-with-no-visits when only an older claim converted", () => {
+    // Throughput says 3 verifications happened; the cohort says none of THIS
+    // window's claims completed. The merchant needs attention, and reading
+    // throughput here would have silenced the alert entirely.
+    const s = pilotMerchantStatus(carryOver());
+    expect(s.id).toBe("claims-no-visits");
+    expect(s.reason).toContain("none of them verified");
+  });
+
+  it("carries the throughput count separately rather than discarding it", () => {
+    const t = cohortTotals([carryOver()]);
+    expect(t.verified).toBe(3);
+    expect(t.verifiedCohort).toBe(0);
+    expect(t.verified).not.toBe(t.verifiedCohort);
+  });
+
+  it("gates the unreadable check on the cohort count, the one the rules use", () => {
+    // If only throughput failed, the funnel rules can still be evaluated
+    // honestly; if the cohort count failed, they cannot.
+    expect(pilotMerchantStatus(row({ verified: null })).id).not.toBe("read-failed");
+    expect(pilotMerchantStatus(row({ verifiedCohort: null })).id).toBe("read-failed");
   });
 });
 
 describe("cohort totals — a null poisons its column rather than shrinking it", () => {
   it("sums clean rows", () => {
     const t = cohortTotals([
-      row({ claims: 2, verified: 1, arrivals: 1, fastVisits: 0, successFeesKes: 30 }),
-      row({ claims: 3, verified: 2, arrivals: 2, fastVisits: 1, successFeesKes: 60 }),
+      row({ claims: 2, verified: 1, verifiedCohort: 1, arrivals: 1, fastVisits: 0, successFeesKes: 30 }),
+      row({ claims: 3, verified: 2, verifiedCohort: 2, arrivals: 2, fastVisits: 1, successFeesKes: 60 }),
     ]);
     expect(t.claims).toBe(5);
     expect(t.verified).toBe(3);
@@ -167,7 +221,7 @@ describe("alerts — deterministic, consistent with the table, and never a diagn
 
   it("raises supply and conversion alerts that quote the same reason as the row", () => {
     const starved = row({ merchantId: "m2", name: "Starved", shopperVisibleDeals: 0 });
-    const stalled = row({ merchantId: "m3", name: "Stalled", claims: 6, verified: 0 });
+    const stalled = row({ merchantId: "m3", name: "Stalled", claims: 6, verified: 0, verifiedCohort: 0 });
     const alerts = buildPilotAlerts([starved, stalled]);
 
     const supply = alerts.find((a) => a.id === "no-supply:m2");
@@ -179,16 +233,38 @@ describe("alerts — deterministic, consistent with the table, and never a diagn
   });
 
   it("stays silent for a healthy cohort", () => {
-    expect(buildPilotAlerts([row({ claims: 3, verified: 2, activeDeals: 0 })])).toEqual([]);
+    expect(buildPilotAlerts([row({ claims: 3, verified: 2, verifiedCohort: 2, activeDeals: 0 })])).toEqual([]);
   });
 
   it("gives every alert a non-empty reason", () => {
     const alerts = buildPilotAlerts([
       row({ merchantId: "a", shopperVisibleDeals: 0 }),
-      row({ merchantId: "b", claims: 7, verified: 0 }),
+      row({ merchantId: "b", claims: 7, verified: 0, verifiedCohort: 0 }),
       row({ merchantId: "c", claims: null }),
     ]);
     expect(alerts.length).toBeGreaterThan(0);
     for (const a of alerts) expect(a.reason.trim().length).toBeGreaterThan(10);
+  });
+});
+
+describe("queue alerts fail closed — a failed read is never an all-clear", () => {
+  it("renders an explicit unavailable state when the queue read failed", () => {
+    // Forcing the failure directly: this is the case the first draft got
+    // wrong, where `(count ?? 0) > 0` turned an errored read into "no alert"
+    // and the brief looked clear while a real queue sat unread.
+    expect(queueAlertState(null)).toBe("unavailable");
+    expect(queueAlertState(null)).not.toBe("silent");
+  });
+
+  it("stays silent only for a genuine zero", () => {
+    expect(queueAlertState(0)).toBe("silent");
+  });
+
+  it("raises for any positive count", () => {
+    for (const n of [1, 2, 99]) expect(queueAlertState(n)).toBe("raise");
+  });
+
+  it("never maps a failed read and a genuine zero to the same state", () => {
+    expect(queueAlertState(null)).not.toBe(queueAlertState(0));
   });
 });

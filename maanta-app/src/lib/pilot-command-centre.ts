@@ -50,7 +50,26 @@ export type PilotMerchantRow = {
   shopperVisibleDeals: number | null;
   claims: number | null;
   arrivals: number | null;
+  /**
+   * Verified THROUGHPUT — successes whose `redeemed_at` falls in the window.
+   * What happened at the counter during the period, regardless of when the
+   * claim was made. Operationally useful; **never** a funnel numerator.
+   */
   verified: number | null;
+  /**
+   * Verified from THIS CLAIM COHORT — successes whose `claimed_at` falls in the
+   * same window as `claims`.
+   *
+   * The two are not interchangeable and mixing them is a real defect, not a
+   * nicety: a deal claimed before the window and redeemed inside it lands in
+   * `verified` but not in `claims`, so a throughput numerator over a cohort
+   * denominator can exceed 100% and can mask a merchant whose own claims all
+   * went cold. Every funnel figure — conversion and the claims-without-visits
+   * rule — uses this field. `/admin` already carried both counts
+   * (`genuineVerifiedQuery` vs `genuineCohortVerifiedQuery`); this row type now
+   * matches it.
+   */
+  verifiedCohort: number | null;
   fastVisits: number | null;
   /** Success fees in KES over the window; null when the figure is unavailable. */
   successFeesKes: number | null;
@@ -85,7 +104,7 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
   if (
     row.shopperVisibleDeals === null ||
     row.claims === null ||
-    row.verified === null
+    row.verifiedCohort === null
   ) {
     return {
       id: "read-failed",
@@ -118,11 +137,14 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
     };
   }
 
-  if (row.claims > 0 && row.verified === 0) {
+  // Cohort-compatible: claims made in the window against verifications of
+  // THOSE claims. Using throughput here would silence this rule for a merchant
+  // whose window claims all went cold but who verified an older claim.
+  if (row.claims > 0 && row.verifiedCohort === 0) {
     return {
       id: "claims-no-visits",
       label: "Claims, no verified visits",
-      reason: `${row.claims} claim${row.claims === 1 ? "" : "s"} and 0 verified visits: shoppers are claiming but not completing at the counter.`,
+      reason: `${row.claims} claim${row.claims === 1 ? "" : "s"} in this window and none of them verified: shoppers are claiming but not completing at the counter.`,
       severity: "attention",
     };
   }
@@ -148,7 +170,7 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
   return {
     id: "active",
     label: "Active",
-    reason: `${row.claims} claim${row.claims === 1 ? "" : "s"}, ${row.verified} verified.`,
+    reason: `${row.claims} claim${row.claims === 1 ? "" : "s"} in this window, ${row.verifiedCohort} of them verified.`,
     severity: "ok",
   };
 }
@@ -162,9 +184,11 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
  * Node 0 volumes.
  */
 export function merchantConversion(row: PilotMerchantRow): number | null {
-  if (row.claims === null || row.verified === null) return null;
+  // verifiedCohort, never verified: both counts must describe the same set of
+  // claims or the ratio is meaningless and can exceed 1.
+  if (row.claims === null || row.verifiedCohort === null) return null;
   if (row.claims < MIN_CLAIMS_FOR_MERCHANT_RATIO) return null;
-  return row.verified / row.claims;
+  return row.verifiedCohort / row.claims;
 }
 
 export type CohortTotals = {
@@ -176,7 +200,10 @@ export type CohortTotals = {
   shopperVisibleDeals: number | null;
   claims: number | null;
   arrivals: number | null;
+  /** Throughput: verified in the window, whenever claimed. */
   verified: number | null;
+  /** Cohort: verified out of the claims made in this window. */
+  verifiedCohort: number | null;
   fastVisits: number | null;
   successFeesKes: number | null;
 };
@@ -208,6 +235,7 @@ export function cohortTotals(rows: PilotMerchantRow[]): CohortTotals {
     claims: sum((r) => r.claims),
     arrivals: sum((r) => r.arrivals),
     verified: sum((r) => r.verified),
+    verifiedCohort: sum((r) => r.verifiedCohort),
     fastVisits: sum((r) => r.fastVisits),
     successFeesKes: sum((r) => r.successFeesKes),
   };
@@ -256,4 +284,22 @@ export function buildPilotAlerts(rows: PilotMerchantRow[]): PilotAlert[] {
   }
 
   return alerts;
+}
+
+/**
+ * What a queue alert should render, from a nullable count.
+ *
+ * Three states, never two. The two-state version — `(count ?? 0) > 0` — makes
+ * a failed read collapse into "no alert", so an unreadable queue of flagged
+ * redemptions renders as an all-clear and an operator concludes there is
+ * nothing to do. That is D164/D185 in its most dangerous form, because the
+ * missing signal is the whole point of the surface.
+ *
+ * Extracted from the page so it can be tested by forcing the failure directly.
+ */
+export type AlertState = "unavailable" | "silent" | "raise";
+
+export function queueAlertState(count: number | null): AlertState {
+  if (count === null) return "unavailable";
+  return count > 0 ? "raise" : "silent";
 }
