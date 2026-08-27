@@ -115,6 +115,7 @@ describe("PR 4 admin operations ratchets", () => {
     expect(src).toContain('.gte("claimed_at", since7d)');
     expect(src).toContain("claims.partial ? null : genuineClaims7d");
     expect(src).toContain("claims.partial ? null : genuineCohortVerified7d");
+    expect(src).toContain('label={`Genuine-tagged ${claims.label.toLowerCase()}`}');
   });
 
   it("bases the supply alert on the shopper visibility predicate", () => {
@@ -125,6 +126,12 @@ describe("PR 4 admin operations ratchets", () => {
     expect(src).toContain('.eq("merchants.is_visible", true)');
     expect(src).toContain('.eq("merchants.is_shadow_banned", false)');
     expect(src).toContain("Shopper-visible deals");
+  });
+
+  it("labels platform-wide audit data when the operational view is node-scoped", () => {
+    const src = read("app/admin/page.tsx");
+    expect(src).toContain('Recent admin actions{scoped ? " — all nodes" : ""}');
+    expect(src).toContain("Audit events are platform-wide");
   });
 
   it("persists D194 tier refusals from both publish callers after trigger rollback", () => {
