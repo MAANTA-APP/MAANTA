@@ -14,6 +14,7 @@ import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
 import { shopNavigationTarget } from "@/lib/shop-location";
+import { navigationState, SHOP_LOCATION_UNAVAILABLE } from "@/lib/shopper-read-state";
 import { isFastVisitEnabled } from "@/lib/fast-visit";
 
 export const dynamic = "force-dynamic";
@@ -331,7 +332,7 @@ export default async function TicketPage({
         </div>
       ) : null}
 
-      {navigate ? (
+      {navigationState(navigate) === "available" && navigate ? (
         <ButtonLink
           href={navigate.href}
           variant="ghost"
@@ -343,7 +344,14 @@ export default async function TicketPage({
         >
           Navigate
         </ButtonLink>
-      ) : null}
+      ) : (
+        // A shopper holding a live code for a shop they cannot find is the
+        // sharpest version of this: no route and no acknowledgement that the
+        // route is missing. Say it, and point at the floor/unit above.
+        <p className="mt-6 text-center text-sm text-muted">
+          {SHOP_LOCATION_UNAVAILABLE}
+        </p>
+      )}
 
       <p className="mt-6 text-center text-sm font-semibold text-ink">
         Show this screen at the counter.
