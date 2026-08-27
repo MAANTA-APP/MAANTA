@@ -69,7 +69,13 @@ export function QueuePanel() {
               setLoadFailed(true);
             } else {
               const body = await res.json();
-              if (Array.isArray(body?.entries)) {
+              // A priority event may arrive after fetch() resolves but while the
+              // response body is still being read. Re-check the epoch after
+              // awaiting res.json() before committing this snapshot.
+              if (
+                epoch === refreshEpoch.current &&
+                Array.isArray(body?.entries)
+              ) {
                 setEntries(body.entries);
                 setLoadFailed(false);
               }
