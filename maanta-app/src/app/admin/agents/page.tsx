@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { LockedChip, StatusChip } from "@/components/ui/chips";
 import { IconChevronRight } from "@/components/ui/icons";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function AdminAgentsPage() {
   await requireAdminPage();
 
   const service = createServiceClient();
-  const [{ data: agents }, { data: leads }] = await Promise.all([
+  const [agentsRes, leadsRes] = await Promise.all([
     service
       .from("agents")
       .select("id, weekly_target, is_active, users(full_name, phone)")
@@ -24,11 +25,23 @@ export default async function AdminAgentsPage() {
   ]);
 
   const weekStart = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
-  const { data: converted } = await service
+  const convertedRes = await service
     .from("leads")
     .select("agent_id")
     .eq("status", "converted")
     .gte("created_at", weekStart);
+  if (agentsRes.error || leadsRes.error || convertedRes.error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Agents</h1>
+        <div className="mt-5"><AdminReadError what="agent operations" /></div>
+      </main>
+    );
+  }
+
+  const agents = agentsRes.data;
+  const leads = leadsRes.data;
+  const converted = convertedRes.data;
   const convertedByAgent = new Map<string, number>();
   for (const l of converted ?? []) {
     convertedByAgent.set(l.agent_id, (convertedByAgent.get(l.agent_id) ?? 0) + 1);
@@ -64,7 +77,7 @@ export default async function AdminAgentsPage() {
                 <div className="h-1.5 w-28 overflow-hidden rounded-full bg-cream">
                   <div
                     className="h-full bg-brand"
-                    style={{ width: `${Math.min(100, (done / a.weekly_target) * 100)}%` }}
+                    style={{ width: `${a.weekly_target > 0 ? Math.min(100, (done / a.weekly_target) * 100) : 0}%` }}
                   />
                 </div>
                 {!a.is_active ? <StatusChip status="paused" label="Inactive" /> : null}
