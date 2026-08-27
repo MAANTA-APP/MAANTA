@@ -144,7 +144,9 @@ describe("D164 — a failed read can no longer look like a real zero", () => {
   it("admin inspects query errors instead of destructuring them away", () => {
     // The regression was `const [{ count: claims7d }, …] = await Promise.all(…)`,
     // which throws every `error` on the floor.
-    expect(admin).toMatch(/const \[results, claimsTrackingRes\] = await Promise\.all\(/);
+    expect(admin).toMatch(
+      /const \[results, claimsTrackingRes(?:,[^\]]+)?\] = await Promise\.all\(/
+    );
     expect(admin).toMatch(/results\.find\(\(r\) => \(r as \{ error\?: unknown \}\)\.error\)/);
   });
 
