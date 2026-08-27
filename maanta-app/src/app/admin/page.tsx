@@ -11,6 +11,7 @@ import { LeadsReadError } from "@/components/agent/lead-row-list";
 import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
 import { AdminReadError } from "@/components/admin/read-error";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,29 @@ export default async function AdminHomePage({
   const atNode = <T,>(q: T): T =>
     scoped ? ((q as { eq: (c: string, v: string) => T }).eq("node", node) as T) : q;
 
+  // The attention queue must use the same public-visibility predicate as
+  // shopper browse, not merely "active + unexpired". Paused deals and hidden,
+  // shadow-banned or inactive merchants are not supply.
+  const includeDemo = await isDemoModeEnabled();
+  let shopperVisibleDealsQuery = service
+    .from("deals")
+    .select(
+      "id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)",
+      { count: "exact", head: true }
+    )
+    .eq("is_active", true)
+    .eq("is_paused", false)
+    .gt("expires_at", now)
+    .eq("merchants.status", "active")
+    .eq("merchants.is_visible", true)
+    .eq("merchants.is_shadow_banned", false);
+  if (!includeDemo) {
+    shopperVisibleDealsQuery = shopperVisibleDealsQuery
+      .eq("is_demo", false)
+      .eq("merchants.is_demo", false);
+  }
+  if (scoped) shopperVisibleDealsQuery = shopperVisibleDealsQuery.eq("node", node);
+
   // D188/D189 — a redemption row's own is_demo flag is not enough.
   // claim_deal historically creates non-demo redemption rows even against demo
   // merchants/deals, so every "genuine-tagged" census must join both parents.
@@ -89,9 +113,21 @@ export default async function AdminHomePage({
     .eq("merchants.is_demo", false)
     .eq("deals.is_demo", false)
     .gte("redeemed_at", since7d);
+  let genuineCohortVerifiedQuery = service
+    .from("redemptions")
+    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("status", "success")
+    .eq("is_demo", false)
+    .eq("merchants.is_demo", false)
+    .eq("deals.is_demo", false)
+    .gte("claimed_at", since7d);
   if (scoped) {
     genuineClaimsQuery = genuineClaimsQuery.eq("merchants.node", node);
     genuineVerifiedQuery = genuineVerifiedQuery.eq("merchants.node", node);
+    genuineCohortVerifiedQuery = genuineCohortVerifiedQuery.eq("merchants.node", node);
   }
 
   // D164 — two sets, separated structurally rather than by index.
@@ -115,18 +151,7 @@ export default async function AdminHomePage({
       atNode(
         service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "active")
       ),
-      scoped
-        ? service
-            .from("deals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .gt("expires_at", now)
-            .eq("node", node)
-        : service
-            .from("deals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .gt("expires_at", now),
+      shopperVisibleDealsQuery,
       byMerchant(
         // D164: `claimed_at`, not `created_at` — the latter never existed, so this
         // count errored and, with no read-failure guard on this page, collapsed
@@ -143,6 +168,7 @@ export default async function AdminHomePage({
       ),
       genuineClaimsQuery,
       genuineVerifiedQuery,
+      genuineCohortVerifiedQuery,
       byMerchant(
         service.from("redemptions").select("id", { count: "exact", head: true }).eq("status", "flagged")
       ),
@@ -229,6 +255,7 @@ export default async function AdminHomePage({
     { count: verified7d },
     { count: genuineClaims7d },
     { count: genuineVerified7d },
+    { count: genuineCohortVerified7d },
     { count: heldRedemptions },
     { count: openTasks },
     { count: tierRefusals7d },
@@ -259,8 +286,8 @@ export default async function AdminHomePage({
     tierRefusals7d: tierRefusals7d ?? 0,
     activeMerchants: activeMerchants ?? 0,
     liveDeals: liveDeals ?? 0,
-    genuineClaims7d: genuineClaims7d ?? null,
-    genuineVerified7d: genuineVerified7d ?? null,
+    genuineClaims7d: claims.partial ? null : genuineClaims7d ?? null,
+    genuineVerified7d: claims.partial ? null : genuineCohortVerified7d ?? null,
   });
   const runtimeConfig = new Map(
     (runtimeConfigRes.data ?? []).map((row) => [String(row.key), String(row.value)])
@@ -356,7 +383,7 @@ export default async function AdminHomePage({
       <h2 className="mt-7 text-base font-bold text-ink">Supply</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Active merchants" value={(activeMerchants ?? 0).toLocaleString()} />
-        <KpiCard label="Live deals" value={(liveDeals ?? 0).toLocaleString()} />
+        <KpiCard label="Shopper-visible deals" value={(liveDeals ?? 0).toLocaleString()} />
       </div>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">
