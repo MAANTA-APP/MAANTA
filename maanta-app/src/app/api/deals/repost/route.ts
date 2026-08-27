@@ -4,6 +4,7 @@ import { requireMerchant } from "@/lib/merchant-api";
 import { parseCharges } from "@/lib/pricing";
 import { isDealCategory } from "@/lib/deal-categories";
 import { insertDealDroppingUnknownCategory } from "@/lib/deal-category-column";
+import { logTierRefusal } from "@/lib/tier-refusal-audit";
 
 /**
  * Repost an archived deal (wireframe 10q/10p): re-insert from the
@@ -86,9 +87,19 @@ export async function POST(request: Request) {
     if (message.includes("Deal limit reached")) {
       status = 409;
       userMessage = message;
+      await logTierRefusal(service, {
+        merchantId: merchant.id,
+        flagType: "deal_limit_exceeded",
+        notes: "Deal repost refused because the active-deal cap was reached",
+      });
     } else if (message.includes("Flash deals are only available")) {
       status = 403;
       userMessage = "Flash deals are only available on the Elite plan.";
+      await logTierRefusal(service, {
+        merchantId: merchant.id,
+        flagType: "flash_not_allowed",
+        notes: "Flash deal repost refused on Standard plan by enforce_deal_limit",
+      });
     } else if (message.includes("INSUFFICIENT_BALANCE_FOR_NEW_DEAL")) {
       status = 402;
       userMessage = "Your wallet balance is too low — top up before reposting.";
