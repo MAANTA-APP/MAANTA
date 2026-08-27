@@ -12,6 +12,7 @@ import { WalletBalance } from "@/components/ui/wallet-balance";
 import { WalletHeader } from "@/components/ui/wallet-header";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
+import { createSingleFlight } from "@/lib/single-flight";
 import Link from "next/link";
 
 /**
@@ -62,7 +63,9 @@ export function RedeemKeypad({
   const [screen, setScreen] = useState<Screen>({ kind: "keypad" });
   const [balance, setBalance] = useState(initialBalance);
   const [countdown, setCountdown] = useState(3);
-  const submitting = useRef(false);
+  // One gate for the whole keypad: exactly one request in flight at a time
+  // (lib/single-flight — see the Confirm guard in step 3).
+  const flight = useRef(createSingleFlight());
 
   const insufficient = balance < fee;
   const low = !insufficient && balance <= fee * 3;
@@ -76,7 +79,7 @@ export function RedeemKeypad({
   // explicit Confirm — one money path.
   useEffect(() => {
     return subscribeQueueCode((tapped) => {
-      submitting.current = false;
+      flight.current.end();
       setCode(tapped);
       void resolveCode(tapped);
     });
@@ -85,7 +88,7 @@ export function RedeemKeypad({
 
   // Entering 6 digits RESOLVES the code (charges nothing).
   useEffect(() => {
-    if (code.length === 6 && screen.kind === "keypad" && !submitting.current) {
+    if (code.length === 6 && screen.kind === "keypad" && !flight.current.busy) {
       void resolveCode(code);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,14 +114,21 @@ export function RedeemKeypad({
 
   function reset() {
     setCode("");
-    submitting.current = false;
+    flight.current.end();
     setScreen({ kind: "keypad" });
     router.refresh();
   }
 
   // Step 1 — resolve only. Never charges. Ends on the FeeDisclosure screen.
+  //
+  // The gate means exactly one thing: A REQUEST IS IN FLIGHT. It is raised
+  // here so the 6-digit auto-submit effect cannot re-enter, and lowered in
+  // the `finally` below the moment this request settles —
+  // otherwise the disclosure screen would inherit a raised flag and the
+  // Confirm guard (step 3) would block the FIRST confirmation, making
+  // redemption impossible rather than merely duplicable.
   async function resolveCode(otpCode: string) {
-    submitting.current = true;
+    flight.current.begin();
     setScreen({ kind: "checking" });
     try {
       const res = await fetch("/api/redemptions/preflight", {
@@ -153,11 +163,28 @@ export function RedeemKeypad({
       });
     } catch {
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
+    } finally {
+      flight.current.end();
     }
   }
 
   // Step 3 — charge. Only ever called from an explicit Confirm on the disclosure.
+  //
+  // DOUBLE-TAP GUARD (G5). Two taps land on a touch screen far faster than
+  // React can swap the disclosure out for the verifying screen, so without
+  // this the counter could fire two POSTs for one redemption. The server is
+  // already the final authority — verify_redemption is idempotent and the
+  // second call comes back 409 `redemption_already_verified` — but the UI
+  // consequence was the dangerous half: the late 409 landed AFTER the success
+  // screen and replaced it, so a redemption that actually succeeded (and
+  // charged its fee exactly once) read at the till as "already redeemed".
+  // Staff would reasonably re-take payment or turn the shopper away.
+  //
+  // A ref-held gate, not React state: it flips synchronously, so the second
+  // tap in the same frame is turned away. `reset()` (success auto-skip) and
+  // the queue-tap handoff both lower it.
   async function confirmRedemption(otpCode: string, override?: { reason: string }) {
+    if (!flight.current.begin()) return;
     setScreen({ kind: "verifying" });
     try {
       const res = await fetch("/api/redemptions/verify", {
@@ -171,6 +198,7 @@ export function RedeemKeypad({
       });
       const body = await res.json();
       if (!res.ok) {
+        flight.current.end();
         setScreen({ kind: "rejected", reason: body.error ?? "Could not verify", noFee: true });
         return;
       }
@@ -208,7 +236,11 @@ export function RedeemKeypad({
         referenceId: typeof body.redemptionId === "string" ? body.redemptionId : "",
         disputed: body.disputed === true,
       });
+      // Deliberately NOT released on success: the success screen owns the
+      // till until its auto-skip calls reset(), which clears the guard. This
+      // is what stops a queued second tap from re-entering at all.
     } catch {
+      flight.current.end();
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
     }
   }

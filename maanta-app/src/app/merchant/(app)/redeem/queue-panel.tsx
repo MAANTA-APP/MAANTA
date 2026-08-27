@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
 import { publishQueueCode } from "@/lib/queue-code-handoff";
+import { IconBolt } from "@/components/ui/icons";
 
 /**
  * The shopper queue at the till — checked-in shoppers, oldest first.
@@ -67,8 +68,14 @@ export function QueuePanel() {
     [load]
   );
 
-  // Never loaded AND the last attempt failed: an honest one-liner, not a
-  // silent nothing. Once any load has succeeded, quiet degradation resumes.
+  // Four distinct states, deliberately (G6). Before this, a first load in
+  // progress rendered exactly like "nobody is waiting" — so staff glancing
+  // down mid-fetch were told the queue was empty by a screen that simply did
+  // not know yet.
+  //
+  // 1. FAILED FIRST LOAD — never loaded and the last attempt failed. An
+  //    honest line, not a silent nothing (D164/D185: a failed read must never
+  //    look like a real zero). Unchanged from PR C.
   if (entries === null && loadFailed) {
     return (
       <p className="border-b border-line bg-stone px-4 py-2 text-xs text-muted">
@@ -78,7 +85,26 @@ export function QueuePanel() {
     );
   }
 
-  if (!entries || entries.length === 0) return null;
+  // 2. LOADING — first fetch still in flight. One muted line in the same slot
+  //    the header occupies, so the keypad below does not jump when the real
+  //    list arrives.
+  if (entries === null) {
+    return (
+      <p
+        role="status"
+        className="border-b border-line bg-stone px-4 py-2 text-xs text-muted"
+      >
+        Checking for waiting shoppers…
+      </p>
+    );
+  }
+
+  // 3. EMPTY — a load succeeded and nobody is waiting. Renders nothing: the
+  //    till belongs to the keypad, and an empty-state card would push it down
+  //    the screen for no information.
+  if (entries.length === 0) return null;
+
+  // 4. POPULATED — below.
 
   return (
     <section className="border-b border-line bg-stone px-4 py-3">
@@ -106,8 +132,20 @@ export function QueuePanel() {
               </p>
               <p className="truncate text-xs text-secondary">
                 {e.dealTitle} · arrived {relativeAgo(e.arrivedAt)}
-                {e.fastVisitEligible ? " · Fast Visit" : ""}
               </p>
+              {/* G2: Fast Visit is a STATE, so it renders as icon + word and
+                  survives greyscale — it was previously appended to the line
+                  above as plain text, indistinguishable at a glance from the
+                  deal title. The flag is the server's persisted arrival-time
+                  verdict (redemptions.fast_visit_qualified_at, D191) carried
+                  through the queue row; nothing here recomputes eligibility,
+                  and no reward is promised at the till. */}
+              {e.fastVisitEligible ? (
+                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-stone px-2 py-0.5 text-[11px] font-semibold text-ink">
+                  <IconBolt className="h-3 w-3" aria-hidden="true" />
+                  Fast Visit
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
