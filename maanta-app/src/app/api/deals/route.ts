@@ -17,6 +17,7 @@ import {
   DEAL_CREATE_RATE_LIMIT,
   DEAL_CREATE_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
+import { logTierRefusal } from "@/lib/tier-refusal-audit";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -173,9 +174,19 @@ export async function POST(request: Request) {
     if (message.includes("Flash deals are only available")) {
       status = 403;
       userMessage = "Flash deals are only available on the Elite plan.";
+      await logTierRefusal(service, {
+        merchantId: merchant.id,
+        flagType: "flash_not_allowed",
+        notes: "Flash deal refused on Standard plan by enforce_deal_limit",
+      });
     } else if (message.includes("Deal limit reached")) {
       status = 409;
       userMessage = message;
+      await logTierRefusal(service, {
+        merchantId: merchant.id,
+        flagType: "deal_limit_exceeded",
+        notes: "Deal publish refused because the active-deal cap was reached",
+      });
     } else if (message.includes("INSUFFICIENT_BALANCE_FOR_NEW_DEAL")) {
       status = 402;
       userMessage = "Your wallet balance is too low — top up before publishing a deal.";
