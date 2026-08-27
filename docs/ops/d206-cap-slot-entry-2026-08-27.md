@@ -64,7 +64,16 @@ the trigger to reject the surplus:
 4. **retire the surplus** — which is what lets the next scheduled run repair the
    current over-cap state without anyone editing production rows by hand.
 
-Cost on current data: it activates **288 rows instead of 289**.
+Cost on current data, measured on production rather than estimated: of the **289**
+active batch rows it keeps **261** and retires **28** — exactly the 28 merchants
+sitting one deal over cap. Total active deals therefore go **331 → 303**
+(261 batch + 40 `autoreseed` + 2 genuine).
+
+> An earlier draft of this document said "288 instead of 289". That was wrong,
+> and Codex caught it on PR #285: it counted the batch as though only one row
+> were dropped, without subtracting the 40 slots `autoreseed` flash rows already
+> hold. The corrected figures above come from running the function's own
+> selection logic as a read-only query against production.
 
 ## 4. Not changed
 
@@ -112,7 +121,10 @@ lint ✅ · typecheck ✅ · 1366 unit tests ✅ · build + three post-build gat
 **all 37 SQL suites on a fresh 105-migration chain** ✅ · CI `ci` + `db-tests`
 green on the exact head.
 
-## 7. Production census, read-only, 2026-08-27
+## 7. Production census, read-only, 2026-08-27 — **PRE-APPLY**
+
+Every row below is the state *before* the migration was applied. The post-apply
+read-back and census are in §11; do not read the two together.
 
 | Measure | Value |
 |---|---|
@@ -122,7 +134,7 @@ green on the exact head.
 | Active deals | 331 total, **2 genuine** |
 | `tier_flags` rows | 0 (D194 — the audit row never survives its own exception) |
 | `enforce_deal_limit_trigger` fires on | **INSERT only** — migration not applied |
-| Ledger | 104/104, high-water `20260826130000` (105/105 after the apply — §11) |
+| Ledger | 104/104, high-water `20260826130000` |
 | Demo mode | ON (founder ruling 2026-08-26) |
 
 ## 8. Apply runbook — founder-authorized only
@@ -239,8 +251,12 @@ nothing before it. Three things must hold:
 - the cron run **succeeds** — a failure would mean the refresh aborts under the
   new guard, the exact incident the rewrite exists to prevent;
 - over-cap goes **28 → 0**, Standard max ≤ 1, Elite max ≤ 2, and does not recur;
-- the marketplace is not starved — roughly 288 active rows, and the two
-  deliberately-dark fixture shops still dark.
+- the marketplace is not starved — **303 active deals** (261 batch + 40
+  `autoreseed` + 2 genuine), not 288: the refresh manages only the batch, and
+  `autoreseed` and genuine rows are untouched. Using 288 as the target would
+  either accept the silent loss of ~15 deals or make a correct run look wrong.
+  The two deliberately-dark fixture shops must still be dark (0 active, as they
+  are now).
 
 A check-in is scheduled for 03:00 UTC on 2026-08-28 to read `cron.job_run_details`
 and re-run the census. Until then D206 stays **open**.
