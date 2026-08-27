@@ -71,6 +71,7 @@ describe("Shopper UI polish", () => {
         phoneMasked: "+254 ••• ••• 123",
         preferredLanguage: "en",
         node: "BBS Mall",
+        avatarUrl: null,
       })
     );
     expect(html).toContain("Edit profile");

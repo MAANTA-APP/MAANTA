@@ -114,7 +114,7 @@ export async function getMerchantContext(): Promise<
     const { data: merchant } = await service
       .from("merchants")
       .select(
-        "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
+        "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at, avatar_url"
       )
       .eq("id", staff.merchant_id)
       .maybeSingle();

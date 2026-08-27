@@ -70,19 +70,35 @@ export type MerchantRow = {
   account_balance: number;
   outstanding_arrears: number;
   onboarded_at: string | null;
+  avatar_url: string | null;
 };
+
+const MERCHANT_SELECT_WITH_AVATAR =
+  "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at, avatar_url";
+
+const MERCHANT_SELECT_LEGACY =
+  "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at";
 
 /** The merchant owned by (or staffed by) this app user, if any. */
 export async function getMerchantForUser(userId: string): Promise<MerchantRow | null> {
   const service = createServiceClient();
-  const { data } = await service
+  const primary = await service
     .from("merchants")
-    .select(
-      "id, user_id, merchant_name, tier, status, elite_trial_active, trial_ends_at, grace_period_ends_at, node, what3words_address, lat, lng, mall_name, floor, unit_number, phone, email, whatsapp, account_balance, outstanding_arrears, onboarded_at"
-    )
+    .select(MERCHANT_SELECT_WITH_AVATAR)
     .eq("user_id", userId)
     .maybeSingle();
-  return (data as MerchantRow) ?? null;
+  if (!primary.error) {
+    const row = primary.data as MerchantRow | null;
+    return row ? { ...row, avatar_url: row.avatar_url ?? null } : null;
+  }
+  // Pre-migration remotes may lack avatar_url (and rarely lat/lng).
+  const fallback = await service
+    .from("merchants")
+    .select(MERCHANT_SELECT_LEGACY)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!fallback.data) return null;
+  return { ...(fallback.data as MerchantRow), avatar_url: null };
 }
 
 /** Canonical success fee from app_config (never hardcode KES 30). */

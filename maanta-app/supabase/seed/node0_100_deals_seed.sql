@@ -286,7 +286,8 @@ WHERE NOT EXISTS (
 )
 ORDER BY c.merchant_n, c.deal_n;
 
--- Refresh windows on every re-run so rails stay live.
+-- Refresh windows on every re-run so rails stay live in Nairobi "now".
+-- getLiveDeals requires is_active AND expires_at > now(); keep generous TTL.
 UPDATE public.deals d
 SET
   starts_at = CASE
@@ -294,8 +295,8 @@ SET
     ELSE NOW() - INTERVAL '3 hours'
   END,
   expires_at = CASE
-    WHEN d.deal_type = 'flash' THEN NOW() + INTERVAL '5 hours'
-    ELSE NOW() + INTERVAL '21 hours'
+    WHEN d.deal_type = 'flash' THEN NOW() + INTERVAL '12 hours'
+    ELSE NOW() + INTERVAL '48 hours'
   END,
   is_active = true,
   is_paused = false,

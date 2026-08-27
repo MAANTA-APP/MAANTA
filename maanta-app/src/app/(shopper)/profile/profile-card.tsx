@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AvatarUpload,
   Body,
   HeadingMd,
   Label,
@@ -19,11 +20,13 @@ export function ProfileCard({
   phoneMasked,
   preferredLanguage,
   node,
+  avatarUrl,
 }: {
   fullName: string | null;
   phoneMasked: string | null;
   preferredLanguage: "en" | "sw";
   node: string;
+  avatarUrl: string | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -84,9 +87,11 @@ export function ProfileCard({
   return (
     <div className="rounded-card bg-white p-4 shadow-card">
       <div className="flex items-start gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-line bg-stone text-2xl font-semibold text-ink">
-          {displayName.charAt(0).toUpperCase()}
-        </div>
+        <AvatarUpload
+          avatarUrl={avatarUrl}
+          initials={displayName}
+          uploadUrl="/api/profile/avatar"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <HeadingMd as="h2" className="truncate">
@@ -139,7 +144,7 @@ export function ProfileCard({
               <option value={ALL_NODES}>All nodes</option>
             </select>
           </label>
-          {error ? <Body className="text-sm text-rust">{error}</Body> : null}
+          {error ? <Body className="text-sm text-ink">{error}</Body> : null}
           <div className="flex gap-2 pt-1">
             <PrimaryButton
               type="button"

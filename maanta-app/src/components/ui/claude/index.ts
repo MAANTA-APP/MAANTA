@@ -24,3 +24,4 @@ export {
 export { DealCard } from "@/components/ui/claude/deal-card";
 export { DealKpis } from "@/components/ui/claude/deal-kpis";
 export type { DealRailBadge } from "@/components/ui/claude/deal-card";
+export { AvatarUpload } from "@/components/ui/claude/avatar-upload";

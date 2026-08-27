@@ -15,6 +15,10 @@
 
 Idempotent: re-run refreshes expiry windows + GPS; does not duplicate fixed UUIDs.
 
+**Live windows (aligned with `getLiveDeals`):** on each apply, flash deals are
+set to expire ~12h from now and standard/boosted ~48h from now, with
+`is_active = true`, so Nairobi “now” feeds stay populated after re-seed.
+
 ## Prerequisites
 
 1. Migrations applied, especially `20260726120000_merchant_lat_lng`.

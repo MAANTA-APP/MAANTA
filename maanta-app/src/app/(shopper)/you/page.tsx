@@ -29,13 +29,15 @@ export default async function YouPage() {
   const service = createServiceClient();
   const { data: prefs, error: prefsError } = await service
     .from("users")
-    .select("preferred_language")
+    .select("preferred_language, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
   const preferredLanguage =
     !prefsError && prefs?.preferred_language === "sw"
       ? ("sw" as const)
       : ("en" as const);
+  const avatarUrl =
+    !prefsError && typeof prefs?.avatar_url === "string" ? prefs.avatar_url : null;
 
   // Rewards row: shown while the Fast Visit feature is on, and always once a
   // balance exists — earned points never disappear behind the feature gate.
@@ -74,6 +76,7 @@ export default async function YouPage() {
           phoneMasked={user.phone ? maskPhone(user.phone) : null}
           preferredLanguage={preferredLanguage}
           node={node}
+          avatarUrl={avatarUrl}
         />
       </Section>
 
