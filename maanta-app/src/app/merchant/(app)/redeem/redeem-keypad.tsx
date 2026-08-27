@@ -15,6 +15,7 @@ import { WalletBalance } from "@/components/ui/wallet-balance";
 import { WalletHeader } from "@/components/ui/wallet-header";
 import { IconCheck, IconX } from "@/components/ui/icons";
 import { cn, formatKes } from "@/lib/ui";
+import { createSingleFlight } from "@/lib/single-flight";
 import Link from "next/link";
 
 /**
@@ -65,7 +66,8 @@ export function RedeemKeypad({
   const [screen, setScreen] = useState<Screen>({ kind: "keypad" });
   const [balance, setBalance] = useState(initialBalance);
   const [countdown, setCountdown] = useState(3);
-  const submitting = useRef(false);
+  // One synchronous gate for the whole keypad: exactly one request in flight.
+  const flight = useRef(createSingleFlight());
 
   const insufficient = balance < fee;
   const low = !insufficient && balance <= fee * 3;
@@ -79,7 +81,7 @@ export function RedeemKeypad({
   // explicit Confirm — one money path.
   useEffect(() => {
     return subscribeQueueCode((tapped) => {
-      submitting.current = false;
+      flight.current.end();
       setCode(tapped);
       void resolveCode(tapped);
     });
@@ -88,7 +90,7 @@ export function RedeemKeypad({
 
   // Entering 6 digits RESOLVES the code (charges nothing).
   useEffect(() => {
-    if (code.length === 6 && screen.kind === "keypad" && !submitting.current) {
+    if (code.length === 6 && screen.kind === "keypad" && !flight.current.busy) {
       void resolveCode(code);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,14 +116,14 @@ export function RedeemKeypad({
 
   function reset() {
     setCode("");
-    submitting.current = false;
+    flight.current.end();
     setScreen({ kind: "keypad" });
     router.refresh();
   }
 
   // Step 1 — resolve only. Never charges. Ends on the FeeDisclosure screen.
   async function resolveCode(otpCode: string) {
-    submitting.current = true;
+    flight.current.begin();
     setScreen({ kind: "checking" });
     try {
       const res = await fetch("/api/redemptions/preflight", {
@@ -156,11 +158,14 @@ export function RedeemKeypad({
       });
     } catch {
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
+    } finally {
+      flight.current.end();
     }
   }
 
   // Step 3 — charge. Only ever called from an explicit Confirm on the disclosure.
   async function confirmRedemption(otpCode: string, override?: { reason: string }) {
+    if (!flight.current.begin()) return;
     setScreen({ kind: "verifying" });
     try {
       const res = await fetch("/api/redemptions/verify", {
@@ -174,6 +179,7 @@ export function RedeemKeypad({
       });
       const body = await res.json();
       if (!res.ok) {
+        flight.current.end();
         setScreen({ kind: "rejected", reason: body.error ?? "Could not verify", noFee: true });
         return;
       }
@@ -215,6 +221,7 @@ export function RedeemKeypad({
         disputed: body.disputed === true,
       });
     } catch {
+      flight.current.end();
       setScreen({ kind: "rejected", reason: "Network error — try again", noFee: true });
     }
   }
