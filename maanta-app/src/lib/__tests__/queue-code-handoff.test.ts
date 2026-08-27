@@ -73,7 +73,8 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
     expect(src).toContain("refreshEpoch");
     expect(src).toContain("if (loadInFlight.current)");
     expect(src).toContain("if (priority) priorityRefreshRequested.current = true");
-    expect(src).toContain("epoch === refreshEpoch.current");
+    expect(src.match(/epoch === refreshEpoch\.current/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src).toContain("const body = await res.json()");
     expect(src).toContain("setInterval(() => void load(), QUEUE_POLL_MS)");
     expect(src).toContain("subscribeRedemptionCompleted(() => void load(true))");
   });
