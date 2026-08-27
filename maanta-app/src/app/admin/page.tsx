@@ -348,24 +348,24 @@ export default async function AdminHomePage({
         )}
       </div>
 
-      <h2 className="mt-7 text-base font-bold text-ink">Evidence split (7 days)</h2>
+      <h2 className="mt-7 text-base font-bold text-ink">Evidence split</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
-          label="Genuine-tagged claims"
+          label={`Genuine-tagged ${claims.label.toLowerCase()}`}
           value={genuineClaims.toLocaleString()}
           hint={claims.hint ?? "Redemption + merchant + deal are all non-demo."}
         />
         <KpiCard
-          label="Demo/mixed claims"
+          label={claims.partial ? "Demo/mixed claims since tracking began" : "Demo/mixed claims (7d)"}
           value={mixedClaims.toLocaleString()}
           hint="Anything not clean across redemption + merchant + deal."
         />
         <KpiCard
-          label="Genuine-tagged verified"
+          label="Genuine-tagged verified (7d)"
           value={genuineVerified.toLocaleString()}
         />
         <KpiCard
-          label="Demo/mixed verified"
+          label="Demo/mixed verified (7d)"
           value={mixedVerified.toLocaleString()}
         />
       </div>
@@ -442,11 +442,18 @@ export default async function AdminHomePage({
       <p className="mt-2 text-xs text-muted">Read-only visibility. No config write controls exist here.</p>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-bold text-ink">Recent admin actions</h2>
+        <h2 className="text-base font-bold text-ink">
+          Recent admin actions{scoped ? " — all nodes" : ""}
+        </h2>
         <Link href="/admin/audit" className="text-sm font-semibold text-secondary hover:text-ink">
           Full audit
         </Link>
       </div>
+      {scoped ? (
+        <p className="mt-1 text-xs text-muted">
+          Audit events are platform-wide; they are intentionally not presented as node-scoped.
+        </p>
+      ) : null}
       {auditRes.error ? (
         <div className="mt-2">
           <AdminReadError what="the admin audit trail" />
@@ -472,9 +479,9 @@ export default async function AdminHomePage({
 
       {scoped ? (
         <p className="mt-6 text-xs text-muted">
-          Scoped to {nodeLabel(node)}. Redemptions, fees and tasks have no node of their own —
-          they are counted through that node&apos;s merchants, so every figure above covers the
-          same set.
+          Operational metrics are scoped to {nodeLabel(node)}. Redemptions, fees and tasks have
+          no node of their own, so they are counted through that node&apos;s merchants. Runtime
+          flags and the audit trail are platform-wide and are labelled separately.
         </p>
       ) : null}
     </main>
