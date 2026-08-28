@@ -21,7 +21,15 @@ explains why, and names the two ways that conclusion could still be wrong.
 
 ## 1. The path, in order
 
-**The flow does not start at `/verify`.** `redeem-keypad.tsx` always posts the
+**Step 0 — the client guard.** `redeem-keypad.tsx` renders nothing but a
+permission message when the signed-in identity lacks `can_verify`, so for that
+identity **no request is issued at all**. It is a UX stop, not an
+access-control boundary — the route-level check behind it is what actually
+enforces the rule — but it is the first thing that stops a redemption in the
+field, and an audit that omits it predicts HTTP responses that can never be
+observed.
+
+**Beyond it, the flow does not start at `/verify`.** `redeem-keypad.tsx` always posts the
 six-digit code to **`/api/redemptions/preflight`** first — that resolves the code
 and discloses the fee — and only Confirm calls `/api/redemptions/verify`. A
 redemption therefore crosses **two** route handlers, and an operator who never
@@ -179,23 +187,39 @@ investigate.
 > | Observed | Meaning | Action |
 > |---|---|---|
 > | **409** with a Guardian reason (`held` / `blocked`) | working as designed — velocity, geofence or collusion, decided per redemption and per shopper | **not a predicate finding.** Re-test with a clean ticket |
-> | **403** from `requireMerchant` | the merchant's status is blocked | expected only in the three blocked rows; in an expect-success row it **is** the finding |
+> | **403** `"This shop account is not active."` | the merchant's **status** is blocked | expected only in the three blocked rows; in an expect-success row it **is** the finding |
+> | **403** `"You don't have permission to do this."` | the **seat's** `can_verify`, nothing to do with merchant status | **not a predicate finding.** Restore the permission and re-test |
 > | 429 | the shared bucket, consumed twice per redemption (§1) | wait out the window and re-test |
 > | anything else | unclassified | capture it — §6.5 |
 >
-> Widening `VERIFICATION_BLOCKING_MERCHANT_STATUSES` because of a Guardian 409
-> would gate expiry notices on a per-shopper fraud signal, silencing notices for
-> merchants who verify perfectly well. Read the status code and the body before
-> concluding anything.
+> **`requireMerchant` emits two different 403s and only one of them is about
+> merchant status.** The status code alone cannot tell them apart — read the
+> body. A permission 403 is reachable in an expect-success row whenever a seat's
+> `can_verify` is cleared after the redeem page was loaded, and treating it as a
+> status refusal would widen the predicate on evidence about one staff seat.
+>
+> Widening `VERIFICATION_BLOCKING_MERCHANT_STATUSES` because of a Guardian 409 or
+> a permission 403 would gate expiry notices on a per-shopper fraud signal or a
+> per-seat permission, silencing notices for merchants who verify perfectly well.
+> **Read the body, not just the status code, before concluding anything.**
 
 ### 6.2 Permission states
 
 | Seat | Expected |
 |---|---|
 | `can_verify = true` | success |
-| `can_verify = false` | 403 from `requireMerchant`, **not** from the RPC |
+| `can_verify = false`, **through the UI** | **no request is made at all** — `redeem-keypad.tsx` returns *"You don't have permission to verify codes."* instead of rendering the keypad. Expect **no** HTTP 403, because neither preflight nor verify is called |
+| `can_verify` cleared **after** the page loaded | the in-flight request reaches `requireMerchant` → 403 `"You don't have permission to do this."` — **not** a status finding |
+| `can_verify = false`, **direct request** to either route | 403 `"You don't have permission to do this."`, from `requireMerchant`, **not** from the RPC |
 | seat row deleted mid-session | 404 no-merchant, or 403 — record which |
 | unclaimed seat, first sign-in | links by phone/email, then success (D154) |
+
+**The client guard is a real stop and belongs in the inventory.** Expecting a
+route-level 403 from the shipped UI is not merely optimistic, it is
+unobservable: the request never leaves the browser. Reserve the route 403 for a
+direct request or a permission change after page load, and treat "no request in
+the network log" as the *correct* result for the first row rather than as a
+failed test.
 
 ### 6.3 Seat withdrawal
 
@@ -241,11 +265,22 @@ set for `verify_redemption`, `claim_deal`, `record_shopper_arrival`;
 `src/app/api/redemptions/preflight/route.ts`,
 `src/app/merchant/(app)/redeem/redeem-keypad.tsx`.
 
-**Revision.** The first draft of this document traced only `/verify` and built
-its refusal set from a `RAISE EXCEPTION` scan, so it missed the preflight step
-entirely and presented the Guardian `held` / `blocked` 409s — which are returned
-as data rather than raised — as though they did not exist. Both were found in
-review before the document was merged. The headline conclusion is unchanged, and
-the correction strengthens it: the added refusals are per redemption and per
-shopper, so they confirm rather than weaken the claim that only
-`requireMerchant` supplies a status-shaped refusal.
+**Revisions, both before merge.** Draft 1 traced only `/verify` and built its
+refusal set from a `RAISE EXCEPTION` scan, so it missed the preflight step and
+presented the Guardian `held` / `blocked` 409s — returned as data, never raised
+— as though they did not exist. Draft 2 fixed those but still collapsed
+`requireMerchant`'s **two** 403s into one branch, and predicted a route-level
+403 for `can_verify = false` that the shipped UI makes unobservable, because
+the client guard stops the flow before any request.
+
+Every correction was the same mistake in a different place: **a classification
+too coarse for the thing being classified.** Guardian-vs-status, then
+permission-vs-status, then client-stop-vs-route-stop. That is worth more to the
+field operator than the conclusion itself, because the operational risk here was
+never a missing layer — it was a real refusal being read as evidence for
+widening a live predicate.
+
+The headline conclusion survived all of it unchanged, and each correction
+strengthened it: every refusal added is per redemption, per shopper or per seat,
+so `requireMerchant`'s status branch remains the only merchant-status-shaped
+refusal on the path.
