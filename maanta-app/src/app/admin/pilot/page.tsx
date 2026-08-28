@@ -416,14 +416,14 @@ export default async function PilotCommandCentrePage({
         {omitted > 0 ? (
           <p className="mt-2 rounded-card bg-white px-4 py-3 text-xs text-muted shadow-card">
             Showing the {MAX_COHORT_ROWS} oldest of {allCohort.length} non-demo
-            merchants. {omitted} more {omitted === 1 ? "is" : "are"} not listed
-            here, and the totals above cover only the merchants shown — scope to
-            a node to narrow the cohort.
+            merchants at Node 0. {omitted} more{" "}
+            {omitted === 1 ? "is" : "are"} not listed here, and the totals above
+            cover only the merchants shown.
           </p>
         ) : null}
         {rows.length === 0 ? (
           <p className="mt-2 rounded-card bg-white px-4 py-6 text-sm text-muted shadow-card">
-            No non-demo merchants at this node yet.
+            No non-demo merchants at Node 0 yet.
           </p>
         ) : (
           <div className="mt-2 overflow-x-auto rounded-card bg-white shadow-card">

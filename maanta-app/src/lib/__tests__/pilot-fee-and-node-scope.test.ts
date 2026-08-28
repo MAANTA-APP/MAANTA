@@ -222,3 +222,21 @@ describe("P2-2 — the cohort KPI and the rows describe one node", () => {
     );
   });
 });
+
+describe("P2-2 fallout — no copy survives that points at the removed control", () => {
+  it("does not tell the reader to scope to a node", () => {
+    // The row-cap notice used to end "scope to a node to narrow the cohort".
+    // Locking the page to Node 0 removed that control, and an instruction
+    // pointing at a control that no longer exists is its own small lie — the
+    // reader goes looking for it and concludes the page is broken.
+    const code = pilotSource();
+    expect(code).not.toMatch(/scope to\s+a node/);
+    expect(code).not.toMatch(/at this node/);
+  });
+
+  it("names Node 0 in the states a reader lands on when the table is short", () => {
+    const code = pilotSource();
+    expect(code).toMatch(/non-demo merchants at Node 0 yet/);
+    expect(code).toMatch(/merchants at Node 0\./);
+  });
+});
