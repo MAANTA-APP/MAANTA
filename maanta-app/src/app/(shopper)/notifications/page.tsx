@@ -71,11 +71,18 @@ export default async function NotificationsPage() {
     .eq("user_id", user.id);
   const favIds = (favs ?? []).map((f) => f.merchant_id);
   if (favIds.length > 0) {
+    // D25/D119/D214 — a paused deal leaves shopper discovery immediately, and
+    // this inbox is a discovery surface: it says "New deal from a saved shop".
+    // Like `/search` and `shops/[id]`, this page selects from `deals` directly
+    // rather than reading `getLiveDeals`, so it must carry the predicate itself.
+    // Without it, a merchant who posts and then pauses within 24h keeps being
+    // advertised here.
     const { data: newDeals } = await service
       .from("deals")
       .select("created_at, deal_type, merchants(merchant_name)")
       .in("merchant_id", favIds)
       .eq("is_active", true)
+      .eq("is_paused", false)
       .gt("created_at", new Date(Date.now() - 24 * 3600_000).toISOString())
       .order("created_at", { ascending: false })
       .limit(10);

@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ShopPage from "@/app/(shopper)/shops/[id]/page";
 
 /**
- * D25/D119 — the shop storefront was the surface that still did not filter
- * paused deals.
+ * D25/D119/D214 — the shop storefront and the notifications inbox were the two
+ * remaining shopper-discovery surfaces that did not filter paused deals.
  *
  * `/feed`, `/browse` and `/map` read through `getLiveDeals`, which carries
  * `is_paused = false`; the SQL `deals_public_browse` view carries

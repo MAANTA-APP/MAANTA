@@ -350,14 +350,19 @@ for the SQL browse-view filter).
   `is_paused`).
 - Pausing a deal **immediately** removes it from shopper discovery (feed,
   browse, map, **search**) and from `deals_public_browse`; new claims are
-  blocked. **Two** surfaces have missed this, both for the same reason — they
+  blocked. **Three** surfaces have missed this, all for the same reason — they
   build their own query rather than reading `getLiveDeals`, so each must carry
-  the predicate itself: `/search` until 2026-08-19 (**D119**, closed; guard
-  `maanta-app/src/lib/__tests__/search-paused-filter.test.ts`) and the shop
-  storefront `shops/[id]` until 2026-08-28, where paused deals were listed under
-  a heading reading "Live deals" (**D214**, closed; guard
-  `maanta-app/src/lib/__tests__/shop-page-paused-filter.test.ts`). A new shopper
-  surface that selects from `deals` directly is the risk; prefer `getLiveDeals`.
+  the predicate itself: `/search` until 2026-08-19 (**D119**), and the shop
+  storefront `shops/[id]` and the `/notifications` inbox until 2026-08-28
+  (**D214**). Every direct `from("deals")` select was audited on 2026-08-28: the
+  shopper-discovery set is `getLiveDeals`, `/search`, `shops/[id]` and
+  `/notifications`, and all four now filter `is_paused`. Merchant, admin and
+  founder surfaces are deliberately outside this rule — `merchant/(app)/redeem`
+  filters `is_paused = true` on purpose. Guards:
+  `search-paused-filter.test.ts`, `shop-page-paused-filter.test.ts`,
+  `notifications-paused-filter.test.ts`, all under
+  `maanta-app/src/lib/__tests__/`. **A new shopper surface that selects from
+  `deals` directly is the risk; prefer `getLiveDeals`.**
 - Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
   layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
 - Resume (while the deal is otherwise valid) restores discovery and claimability.
