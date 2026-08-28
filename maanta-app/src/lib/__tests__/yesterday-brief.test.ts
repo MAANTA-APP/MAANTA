@@ -167,3 +167,61 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     expect(code).toMatch(/\.gte\("fast_visit_qualified_at", startIso\)/);
   });
 });
+
+describe("alert lists that name merchants cannot be built from a truncated read", () => {
+  /**
+   * Codex round 6. PostgREST applies a server-side max-rows (1000 by default)
+   * and returns the first page **with no error**, so an unbounded `.select()`
+   * that overflows it is indistinguishable from a complete result.
+   *
+   * On a KPI that would be a quietly low number. On these two reads it is
+   * worse, because they build lists that NAME merchants:
+   *
+   * - `merchantsWithoutVisibleSupply` would silently drop merchants from the
+   *   no-supply list — an all-clear for exactly the ones it dropped;
+   * - `merchantsClaimedButNotVerified` can INVERT: a merchant whose `success`
+   *   rows fall past the cap while its pending rows sit inside it is accused
+   *   of converting nothing, when it verified fine.
+   *
+   * Both now cap explicitly and return null — which this page already renders
+   * as "could not be established; this is a read failure, not an all-clear".
+   */
+  const code = () =>
+    stripComments(
+      readFileSync(
+        path.join(process.cwd(), "src/app/founder/yesterday/page.tsx"),
+        "utf8"
+      )
+    );
+
+  it("bounds both list-building reads", () => {
+    const src = code();
+    // Both reads carry the cap...
+    expect((src.match(/\.limit\(ALERT_ROW_CAP\)/g) ?? []).length).toBe(2);
+    // ...and both then check whether they hit it.
+    expect((src.match(/\.length >= ALERT_ROW_CAP\) return null;/g) ?? []).length).toBe(2);
+  });
+
+  it("caps below PostgREST's server limit so hitting the cap is unambiguous", () => {
+    // Asking for exactly the server cap makes "I got the cap back" ambiguous
+    // between a full page and a truncated one.
+    const src = code();
+    const m = src.match(/const ALERT_ROW_CAP = (\d+);/);
+    expect(m, "ALERT_ROW_CAP must be declared").not.toBeNull();
+    expect(Number(m![1])).toBeLessThan(1000);
+  });
+
+  it("leaves no unbounded select feeding a named-merchant alert", () => {
+    // The property, not the two instances: any select in these two helpers
+    // must be bounded. Guards against a third such read being added.
+    const src = code();
+    const helpers = src.slice(src.indexOf("async function merchantsWithoutVisibleSupply"));
+    const selects = helpers.match(/\.select\([\s\S]*?\)/g) ?? [];
+    // Every non-head select in the helpers region is either a count-only read
+    // (head: true) or bounded by the cap.
+    const unboundedListSelects = selects.filter(
+      (sel) => !sel.includes("head: true") && !helpers.includes(".limit(ALERT_ROW_CAP)")
+    );
+    expect(unboundedListSelects).toEqual([]);
+  });
+});

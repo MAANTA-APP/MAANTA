@@ -574,6 +574,24 @@ function nairobiYesterday(): {
 
 type NamedMerchant = { id: string; name: string };
 
+/**
+ * Row cap for the two list-building alert reads below.
+ *
+ * PostgREST applies a server-side max-rows (1000 by default) and returns the
+ * first page **with no error**, so an unbounded `.select()` that overflows it
+ * looks exactly like a complete result. On an alert that names merchants, that
+ * is not a rounding error in a KPI — it silently drops merchants from a list
+ * whose whole purpose is to name them, and it can invert an alert: a merchant
+ * whose `success` rows fall past the cap while its pending rows sit inside it
+ * reads as "claims but no verified visit" when it verified fine.
+ *
+ * Deliberately set BELOW the server limit. Asking for exactly the server cap
+ * makes "I got the cap back" ambiguous between a full page and a truncated
+ * one; asking for less makes it unambiguous, so hitting it means "there were
+ * at least this many" and the honest answer is unavailable.
+ */
+const ALERT_ROW_CAP = 500;
+
 /** Non-demo active merchants with zero shopper-visible deals right now. */
 async function merchantsWithoutVisibleSupply(
   service: ReturnType<typeof createServiceClient>,
@@ -584,8 +602,12 @@ async function merchantsWithoutVisibleSupply(
     .from("merchants")
     .select("id, merchant_name")
     .eq("is_demo", false)
-    .eq("status", "active");
+    .eq("status", "active")
+    .limit(ALERT_ROW_CAP);
   if (error) return null;
+  // Truncated is unknown, not complete: a list that quietly omits merchants
+  // reads as an all-clear for exactly the ones it dropped.
+  if ((merchants ?? []).length >= ALERT_ROW_CAP) return null;
 
   const out: NamedMerchant[] = [];
   for (const m of merchants ?? []) {
@@ -621,8 +643,13 @@ async function merchantsClaimedButNotVerified(
       .select(genuineJoinSelect("merchant_id, status", ["merchant_name"]))
       .gte("claimed_at", startIso)
       .lt("claimed_at", endIso)
+      .limit(ALERT_ROW_CAP)
   );
   if (error) return null;
+  // A partial day cannot answer "who claimed and never came". Worse than an
+  // incomplete list: a merchant whose `success` rows fall past the cap while
+  // its pending rows sit inside it would be accused of converting nothing.
+  if ((claimed ?? []).length >= ALERT_ROW_CAP) return null;
 
   const byMerchant = new Map<string, { name: string; verified: number }>();
   for (const r of (claimed ?? []) as unknown as {
