@@ -118,16 +118,29 @@ export default async function PilotCommandCentrePage({
   // `is_shadow_banned` rides along because the canonical public-merchant rule
   // needs all three of status/is_visible/is_shadow_banned. Selecting two of
   // them is what let a shadow-banned merchant be diagnosed on its supply.
-  const { data: merchants, error: merchantsError } = await service
+  //
+  // Bounded, with an EXACT count. An unbounded select here would be capped by
+  // PostgREST's server row limit with no error, so `allCohort.length` would be
+  // the page size rather than the cohort size — the "showing 50 of N" line and
+  // the omitted count would both quietly understate, while fetching far more
+  // rows than the 50 actually rendered. `count: "exact"` comes back in
+  // Content-Range and is unaffected by the limit, so the total stays true.
+  const {
+    data: merchants,
+    error: merchantsError,
+    count: cohortTotal,
+  } = await service
     .from("merchants")
     .select(
-      "id, merchant_name, status, tier, node, is_visible, is_shadow_banned, created_at"
+      "id, merchant_name, status, tier, node, is_visible, is_shadow_banned, created_at",
+      { count: "exact" }
     )
     .eq("is_demo", false)
     // Always scoped, never conditional: the cohort must describe the same
     // population as the manifest KPIs above it.
     .eq("node", node)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(MAX_COHORT_ROWS);
 
   if (merchantsError) {
     return (
@@ -143,9 +156,12 @@ export default async function PilotCommandCentrePage({
     );
   }
 
-  const allCohort = merchants ?? [];
-  const cohort = allCohort.slice(0, MAX_COHORT_ROWS);
-  const omitted = allCohort.length - cohort.length;
+  // The query already returns at most MAX_COHORT_ROWS, so there is nothing to
+  // slice. How many exist beyond them comes from the exact count, never from
+  // the length of a page.
+  const cohort = merchants ?? [];
+  const omitted =
+    cohortTotal === null ? null : Math.max(0, cohortTotal - cohort.length);
   // Per-merchant counts. Each is its own query so one failure marks one cell
   // unknown rather than blanking the page.
   const rows: PilotMerchantRow[] = await Promise.all(
@@ -445,9 +461,16 @@ export default async function PilotCommandCentrePage({
 
       <section className="mt-6">
         <h2 className="text-sm font-semibold text-ink">Cohort</h2>
-        {omitted > 0 ? (
+        {omitted === null && cohort.length >= MAX_COHORT_ROWS ? (
           <p className="mt-2 rounded-card bg-white px-4 py-3 text-xs text-muted shadow-card">
-            Showing the {MAX_COHORT_ROWS} oldest of {allCohort.length} non-demo
+            Showing the first {MAX_COHORT_ROWS} non-demo merchants at Node 0.
+            The cohort total could not be established, so it is unknown whether
+            more exist — the totals above cover only the merchants shown.
+          </p>
+        ) : null}
+        {omitted !== null && omitted > 0 ? (
+          <p className="mt-2 rounded-card bg-white px-4 py-3 text-xs text-muted shadow-card">
+            Showing the {MAX_COHORT_ROWS} oldest of {cohortTotal} non-demo
             merchants at Node 0. {omitted} more{" "}
             {omitted === 1 ? "is" : "are"} not listed here, and the totals above
             cover only the merchants shown.
