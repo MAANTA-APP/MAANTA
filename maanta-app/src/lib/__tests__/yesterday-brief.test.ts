@@ -134,9 +134,17 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     expect(code).not.toMatch(/from\("merchant_transactions"\)/);
     // The fee rows come from redemptions, through the D188 chain...
     expect(code).toMatch(/genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("success_fee_charged"\)\)/);
-    // ...and the sum reads that column, not an amount from somewhere else.
-    expect(code).toMatch(/r\.success_fee_charged \?\? 0/);
+    // ...and the sum goes through the shared helper, which is where the
+    // "read that column, and a failed read is unavailable rather than zero"
+    // decision now lives. Re-pointed at the same invariant rather than deleted
+    // when `/admin/pilot` needed the identical reduction: a second inline copy
+    // is a second place for the failure-vs-zero rule to drift, and
+    // `evidence-scope` owns it for both pages. `sumSuccessFees` itself is
+    // tested directly in pilot-fee-and-node-scope.test.ts.
+    expect(code).toMatch(/sumSuccessFees\(/);
     expect(code).not.toMatch(/r\.amount \?\? 0/);
+    // No hand-rolled reduction may return alongside it.
+    expect(code).not.toMatch(/feeRows\.reduce/);
   });
 
   it("labels the fee KPI with its evidence scope", () => {

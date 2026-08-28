@@ -4,8 +4,15 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { AdminReadError } from "@/components/admin/read-error";
 import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
-import { resolveNodeParam, isNodeScoped, nodeSwitcherTargets } from "@/lib/admin-dashboard";
-import { GENUINE_JOIN_SELECT, genuineTagged } from "@/lib/evidence-scope";
+import { NODE_0, nodeLabel } from "@/lib/nodes";
+import {
+  GENUINE_JOIN_SELECT,
+  genuineJoinSelect,
+  genuineTagged,
+  sumSuccessFees,
+  FEE_ROW_CAP,
+  type SuccessFeeRow,
+} from "@/lib/evidence-scope";
 import { withPublicMerchant } from "@/lib/data";
 import { activeDealLimit, normaliseTier } from "@/lib/plan-limits";
 import {
@@ -26,15 +33,6 @@ import {
 import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Bound on fee rows pulled per merchant.
- *
- * If a merchant somehow has this many success-fee rows inside the window, the
- * sum is reported unavailable rather than truncated — a low-but-plausible money
- * figure is worse than an honest blank (D149).
- */
-const FEE_ROW_CAP = 500;
 
 /**
  * Most merchants rendered in one pass.
@@ -81,12 +79,29 @@ const MAX_COHORT_ROWS = 50;
 export default async function PilotCommandCentrePage({
   searchParams,
 }: {
-  searchParams: { node?: string; window?: string };
+  // No `node` param: this page is fixed to Node 0. See the comment below.
+  searchParams: { window?: string };
 }) {
   await requireAdminPage();
 
-  const node = resolveNodeParam(searchParams.node);
-  const scoped = isNodeScoped(node);
+  // This surface is Node 0's, and only Node 0's. It is not a node-generic
+  // analytics page and must not offer a switcher that makes it look like one.
+  //
+  // It used to take `?node=`, but the cohort KPIs beside the table are read
+  // from NODE0_COHORT_MANIFEST, which is the Node 0 enrolment allow-list and
+  // carries no node column because there is nothing else for it to be. So
+  // selecting CBD Galleria filtered the merchant rows and the activity totals
+  // to CBD while the evidence cards above them still showed the Node 0
+  // manifest count — two populations, one page, presented as one. With
+  // Merchant 01 enrolled that renders BBS Mall's enrolment as though it were
+  // CBD's, on the surface whose entire job is to say what the pilot has
+  // actually proved.
+  //
+  // Fixing the KPI to follow a selector would have meant giving the manifest a
+  // node of its own: a hand-maintained second copy of `merchants.node`, free to
+  // disagree with it silently. Removing the selector removes the mismatch
+  // instead, and costs nothing real — the ladder is measured at one mall.
+  const node = NODE_0;
   const days = searchParams.window === "30" ? 30 : 7;
   const since = new Date(Date.now() - days * 24 * 3600_000).toISOString();
 
@@ -97,14 +112,20 @@ export default async function PilotCommandCentrePage({
   const demoMode = await readDemoModeEnabled();
 
   // The cohort: every non-demo merchant. Demo shops are not pilot subjects.
-  let merchantsQuery = service
+  //
+  // `is_shadow_banned` rides along because the canonical public-merchant rule
+  // needs all three of status/is_visible/is_shadow_banned. Selecting two of
+  // them is what let a shadow-banned merchant be diagnosed on its supply.
+  const { data: merchants, error: merchantsError } = await service
     .from("merchants")
-    .select("id, merchant_name, status, tier, node, is_visible, created_at")
+    .select(
+      "id, merchant_name, status, tier, node, is_visible, is_shadow_banned, created_at"
+    )
     .eq("is_demo", false)
+    // Always scoped, never conditional: the cohort must describe the same
+    // population as the manifest KPIs above it.
+    .eq("node", node)
     .order("created_at", { ascending: true });
-  if (scoped) merchantsQuery = merchantsQuery.eq("node", node);
-
-  const { data: merchants, error: merchantsError } = await merchantsQuery;
 
   if (merchantsError) {
     return (
@@ -215,27 +236,45 @@ export default async function PilotCommandCentrePage({
             // verdict's own timestamp, not by when the claim happened.
             .gte("fast_visit_qualified_at", since)
         ),
-        // Per-merchant fee sums cannot use admin_success_fee_revenue (it is
-        // global). PostgREST caps rows, and a silently truncated SUM is the
-        // D149 failure, so the read is bounded and reports UNAVAILABLE rather
-        // than a plausible low number if it ever hits the cap.
-        service
-          .from("merchant_transactions")
-          .select("amount")
-          .eq("merchant_id", m.id)
-          .eq("transaction_type", "success_fee")
-          .gte("created_at", since)
-          .limit(FEE_ROW_CAP),
+        // Fees, on the SAME evidence scope as every count beside them.
+        //
+        // This read merchant_transactions by type alone — no redemption, deal
+        // or merchant scope at all — so a fee charged against a demo-tagged
+        // redemption or deal landed in a column sitting next to genuine-tagged
+        // activity, under a page that states its counts are genuine-tagged.
+        // That is the D188 conflation in money form: the merchant row can be
+        // non-demo while the redemption's deal is not, and `redemptions.is_demo`
+        // is never set by claim_deal, so nothing about the ledger row itself
+        // reveals the mixture.
+        //
+        // Derived instead from the genuine verified redemptions themselves —
+        // the same chain, the same window (`redeemed_at`, matching the verified
+        // THROUGHPUT column) — and reading the fee the money path actually
+        // recorded on each one. Not reconstructed from a count times KES 30:
+        // that would restate history the day the fee changes.
+        //
+        // Chosen over joining merchant_transactions through `reference_id`
+        // because the fee is already on the redemption, it is one query rather
+        // than two, and it does not depend on a link that a fee row predating
+        // `20260720014135_link_success_fee_ledger_to_redemption` would not
+        // carry.
+        genuineTagged(
+          service
+            .from("redemptions")
+            .select(genuineJoinSelect("success_fee_charged"))
+            .eq("merchant_id", m.id)
+            .eq("status", "success")
+            .gte("redeemed_at", since)
+            .limit(FEE_ROW_CAP)
+        ),
       ]);
 
       const count = (r: { count: number | null; error: unknown }) =>
         r.error ? null : r.count ?? 0;
 
-      const feeRows = feesRes.error ? null : feesRes.data ?? [];
-      const successFeesKes =
-        feeRows === null || feeRows.length >= FEE_ROW_CAP
-          ? null
-          : feeRows.reduce((s, r) => s + Math.abs(Number(r.amount ?? 0)), 0);
+      const successFeesKes = sumSuccessFees(
+        feesRes.error ? null : ((feesRes.data ?? []) as unknown as SuccessFeeRow[])
+      );
 
       return {
         merchantId: m.id,
@@ -245,6 +284,7 @@ export default async function PilotCommandCentrePage({
         tier,
         status: m.status ?? "unknown",
         isVisible: m.is_visible !== false,
+        isShadowBanned: m.is_shadow_banned === true,
         activeDeals: count(activeDealsRes),
         dealCap: activeDealLimit(tier),
         shopperVisibleDeals: demoMode.ok ? count(visibleDealsRes) : null,
@@ -260,7 +300,6 @@ export default async function PilotCommandCentrePage({
 
   const totals = cohortTotals(rows);
   const alerts = buildPilotAlerts(rows);
-  const targets = nodeSwitcherTargets();
   const externalEnrolled = externalCohortSize();
 
   return (
@@ -268,7 +307,7 @@ export default async function PilotCommandCentrePage({
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink">Pilot command centre</h1>
         <p className="text-xs text-muted">
-          Node 0 · last {days} days · read-only
+          Node 0 · {nodeLabel(node)} · last {days} days · read-only
         </p>
       </div>
       <p className="mt-1 max-w-3xl text-sm text-muted">
@@ -277,26 +316,22 @@ export default async function PilotCommandCentrePage({
         non-demo). Genuine-tagged is a property of the data — it does not make a
         merchant external field validation.
       </p>
+      <p className="mt-2 max-w-3xl text-xs text-muted">
+        Fixed to Node 0 ({nodeLabel(node)}). There is no node switcher here on
+        purpose: the evidence cards below are read from the Node 0 cohort
+        manifest, so a page that could be filtered to another mall would show
+        one node&rsquo;s enrolment beside another node&rsquo;s activity. Use{" "}
+        <Link href="/admin" className="underline">
+          the admin dashboard
+        </Link>{" "}
+        for a multi-node view.
+      </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {targets.map((t) => (
-          <Link
-            key={t.id}
-            href={`/admin/pilot?node=${encodeURIComponent(t.id)}&window=${days}`}
-            className={
-              t.id === node
-                ? "rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"
-                : "rounded-full bg-cream-dark px-3 py-1 text-xs font-semibold text-muted"
-            }
-          >
-            {t.label}
-          </Link>
-        ))}
-        <span className="mx-1 text-faint">·</span>
         {[7, 30].map((d) => (
           <Link
             key={d}
-            href={`/admin/pilot?node=${encodeURIComponent(node)}&window=${d}`}
+            href={`/admin/pilot?window=${d}`}
             className={
               d === days
                 ? "rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white"

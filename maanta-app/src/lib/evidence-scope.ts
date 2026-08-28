@@ -86,3 +86,45 @@ export function genuineTagged<T>(query: T): T {
 export function atMerchantNode<T>(query: T, node: string): T {
   return (query as EqChain).eq("merchants.node", node) as T;
 }
+
+/**
+ * Bound on fee rows pulled in one genuine-tagged fee read.
+ *
+ * PostgREST caps rows, and a SUM over a silently truncated page is the D149
+ * failure in its worst form — a money figure that is low, plausible, and wrong.
+ * Both fee surfaces read at most this many rows and report the sum UNAVAILABLE
+ * if they hit the cap, rather than returning the partial total.
+ */
+export const FEE_ROW_CAP = 500;
+
+/** A genuine-tagged redemption carrying the fee the money path recorded on it. */
+export type SuccessFeeRow = { success_fee_charged: number | string | null };
+
+/**
+ * Sum the fees on a set of genuine-tagged verified redemptions.
+ *
+ * Three outcomes, and the two `null` ones matter as much as the number:
+ *
+ * - `rows === null` (the read FAILED) -> `null`. Never 0. A failed fee read
+ *   rendered as "KES 0" reads as "this merchant earned nothing", which is a
+ *   conclusion manufactured from an error (D164 / D185).
+ * - `rows.length >= cap` (truncated) -> `null`, for the D149 reason above.
+ * - otherwise -> the sum of the STORED `success_fee_charged` amounts.
+ *
+ * The amount is read, never recomputed: `success_fee_charged` is what the money
+ * path actually debited for that verification. Multiplying a count by the
+ * current KES 30 would silently restate history the day the fee changes, and
+ * would disagree with the ledger for any redemption charged under a different
+ * one.
+ *
+ * Extracted so the failure-vs-zero decision can be tested by forcing each input
+ * directly, rather than by scanning a page's source for a shape.
+ */
+export function sumSuccessFees(
+  rows: readonly SuccessFeeRow[] | null,
+  cap: number = FEE_ROW_CAP
+): number | null {
+  if (rows === null) return null;
+  if (rows.length >= cap) return null;
+  return rows.reduce((sum, r) => sum + Math.abs(Number(r.success_fee_charged ?? 0)), 0);
+}

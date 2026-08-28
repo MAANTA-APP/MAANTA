@@ -21,6 +21,7 @@
  */
 
 import type { EvidenceClass } from "@/lib/pilot-cohort";
+import { publicMerchantBlocker } from "@/lib/merchant-visibility";
 
 /**
  * Minimum claims before a claim → verified ratio is computed for a single
@@ -41,8 +42,16 @@ export type PilotMerchantRow = {
   position: number | null;
   evidence: EvidenceClass;
   tier: "standard" | "elite";
+  /**
+   * The three fields the canonical public-merchant rule reads. All three, not
+   * a subset: `status` alone misses a hidden shop, `isVisible` alone misses a
+   * pending one, and omitting `isShadowBanned` — as this row type originally
+   * did — means a shadow-banned merchant is diagnosed on its supply instead of
+   * on the ban. See `publicMerchantBlocker` in lib/merchant-visibility.ts.
+   */
   status: string;
   isVisible: boolean;
+  isShadowBanned: boolean;
   /** Active deals held vs the plan's cap. */
   activeDeals: number | null;
   dealCap: number;
@@ -77,7 +86,7 @@ export type PilotMerchantRow = {
 
 export type PilotStatusId =
   | "read-failed"
-  | "suspended"
+  | "merchant-not-visible"
   | "no-supply"
   | "claims-no-visits"
   | "at-cap"
@@ -93,11 +102,32 @@ export type PilotStatus = {
 };
 
 /**
+ * Why this merchant reaches no shopper, naming the condition that failed.
+ *
+ * Kept specific on purpose: "status is pending" (awaiting approval), "status is
+ * churned" (they left), "hidden" and "shadow-banned" are four different
+ * operational situations with four different next actions, and collapsing them
+ * into one "not visible" throws away the only part an operator can act on.
+ */
+function notVisibleReason(
+  blocker: "status" | "is_visible" | "is_shadow_banned",
+  status: string
+): string {
+  if (blocker === "status") {
+    return `Merchant status is ${status}, not active, so nothing of theirs reaches shoppers. This is a merchant-state problem, not a supply problem.`;
+  }
+  if (blocker === "is_visible") {
+    return "Merchant is flagged not visible, so nothing of theirs reaches shoppers. This is a merchant-state problem, not a supply problem.";
+  }
+  return "Merchant is shadow-banned, so nothing of theirs reaches shoppers even though its deals look live to the merchant. This is a merchant-state problem, not a supply problem.";
+}
+
+/**
  * The merchant's status, from the first rule that matches.
  *
- * Order is the point: an unreadable row must not be diagnosed, a suspended
- * merchant must not be reported as short of supply, and "no supply" outranks
- * "no claims" because supply is the thing that would cause both.
+ * Order is the point: an unreadable row must not be diagnosed, a merchant that
+ * cannot be public must not be reported as short of supply, and "no supply"
+ * outranks "no claims" because supply is the thing that would cause both.
  */
 export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
   // 1. Unknown before anything else. A row we could not read is not a finding.
@@ -121,14 +151,27 @@ export function pilotMerchantStatus(row: PilotMerchantRow): PilotStatus {
     };
   }
 
-  if (row.status === "suspended" || !row.isVisible) {
+  // 2. Can this merchant be seen AT ALL, before anything is said about supply?
+  //
+  // The canonical rule, via publicMerchantBlocker — not a local re-statement of
+  // part of it. The original check here was `status === "suspended" || !isVisible`,
+  // which passed a `pending` merchant (approved but not yet live), a `churned`
+  // one, and every shadow-banned one straight through to the supply rule. Their
+  // visible-deal count is necessarily 0, so the page emitted the URGENT "No
+  // shopper-visible supply" — telling an operator to go chase a merchant about
+  // publishing deals when the actual reason nothing is visible is that the
+  // merchant itself is not live. A true sentence pointing at the wrong problem
+  // is worse than a blank, because someone acts on it.
+  const blocker = publicMerchantBlocker({
+    status: row.status,
+    isVisible: row.isVisible,
+    isShadowBanned: row.isShadowBanned,
+  });
+  if (blocker !== null) {
     return {
-      id: "suspended",
-      label: "Not visible",
-      reason:
-        row.status === "suspended"
-          ? "Merchant status is suspended, so nothing of theirs reaches shoppers."
-          : "Merchant is flagged not visible, so nothing of theirs reaches shoppers.",
+      id: "merchant-not-visible",
+      label: "Merchant not visible",
+      reason: notVisibleReason(blocker, row.status),
       severity: "attention",
     };
   }

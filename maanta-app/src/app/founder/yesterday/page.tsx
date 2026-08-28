@@ -5,7 +5,14 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { AdminReadError } from "@/components/admin/read-error";
 import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
-import { GENUINE_JOIN_SELECT, genuineJoinSelect, genuineTagged } from "@/lib/evidence-scope";
+import {
+  GENUINE_JOIN_SELECT,
+  genuineJoinSelect,
+  genuineTagged,
+  sumSuccessFees,
+  FEE_ROW_CAP,
+  type SuccessFeeRow,
+} from "@/lib/evidence-scope";
 import { withPublicMerchant } from "@/lib/data";
 import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
 import { queueAlertState } from "@/lib/pilot-command-centre";
@@ -192,13 +199,12 @@ export default async function YesterdayBriefPage() {
   const merchantsLive = n(merchantsLiveRes);
   const visibleDeals = demoMode.ok ? n(visibleDealsRes) : null;
 
-  const feeRows = feesRes.error
-    ? null
-    : ((feesRes.data ?? []) as unknown as { success_fee_charged: number | string | null }[]);
-  const fees =
-    feeRows === null || feeRows.length >= FEE_ROW_CAP
-      ? null
-      : feeRows.reduce((s, r) => s + Math.abs(Number(r.success_fee_charged ?? 0)), 0);
+  // Shared with /admin/pilot: one definition of "a failed or truncated fee read
+  // is unavailable, never zero", tested by forcing each input directly rather
+  // than by scanning this file for a shape.
+  const fees = sumSuccessFees(
+    feesRes.error ? null : ((feesRes.data ?? []) as unknown as SuccessFeeRow[])
+  );
 
   const demoClaims =
     allClaims === null || claims === null ? null : Math.max(0, allClaims - claims);
@@ -386,9 +392,6 @@ export default async function YesterdayBriefPage() {
     </main>
   );
 }
-
-/** Bound on fee rows; at the cap the sum reports unavailable rather than low (D149). */
-const FEE_ROW_CAP = 500;
 
 /** Render a nullable count: a dash means unknown, never zero. */
 function fmt(v: number | null): string {

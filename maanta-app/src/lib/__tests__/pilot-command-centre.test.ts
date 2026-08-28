@@ -18,6 +18,7 @@ function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
     tier: "standard",
     status: "active",
     isVisible: true,
+    isShadowBanned: false,
     activeDeals: 1,
     dealCap: 1,
     shopperVisibleDeals: 1,
@@ -65,13 +66,13 @@ describe("pilot status — deterministic, and every status states its condition"
 
   it("reports suspension before supply, so a suspended shop is not read as starved", () => {
     const s = pilotMerchantStatus(row({ status: "suspended", shopperVisibleDeals: 0 }));
-    expect(s.id).toBe("suspended");
+    expect(s.id).toBe("merchant-not-visible");
     expect(s.reason).toMatch(/suspended/);
   });
 
   it("treats not-visible the same way, with its own reason", () => {
     const s = pilotMerchantStatus(row({ isVisible: false, shopperVisibleDeals: 0 }));
-    expect(s.id).toBe("suspended");
+    expect(s.id).toBe("merchant-not-visible");
     expect(s.reason).toMatch(/not visible/);
   });
 
@@ -282,5 +283,92 @@ describe("queue alerts fail closed — a failed read is never an all-clear", () 
 
   it("never maps a failed read and a genuine zero to the same state", () => {
     expect(queueAlertState(null)).not.toBe(queueAlertState(0));
+  });
+});
+
+describe("P2-3 — a merchant that cannot be public is diagnosed as such, before supply", () => {
+  /**
+   * The defect, exactly.
+   *
+   * `pilotMerchantStatus` gated visibility on `status === "suspended" || !isVisible`
+   * — two of the canonical rule's three conditions, and the wrong two. A
+   * `pending` merchant (approved into the system, not yet live), a `churned`
+   * one, and every shadow-banned one passed straight through. Their
+   * shopper-visible deal count is necessarily 0, so the very next rule fired
+   * and the page emitted the URGENT "No shopper-visible supply".
+   *
+   * That is not a rounding error in a KPI. It is an operator being told to go
+   * chase a merchant about publishing deals, when the reason nothing is visible
+   * is that the merchant itself is not live — a true sentence pointing at the
+   * wrong problem, on the surface whose job is to say what to do next.
+   *
+   * Each case below sets `shopperVisibleDeals: 0`, which is what production
+   * would return for these merchants, so the test fails on the old code by
+   * returning `no-supply` rather than by not compiling.
+   */
+  const notPublic: [string, Partial<PilotMerchantRow>][] = [
+    ["pending", { status: "pending" }],
+    ["churned", { status: "churned" }],
+    ["suspended", { status: "suspended" }],
+    ["rejected", { status: "rejected" }],
+    ["hidden", { isVisible: false }],
+    ["shadow-banned", { isShadowBanned: true }],
+  ];
+
+  for (const [label, over] of notPublic) {
+    it(`classifies a ${label} merchant as not visible, never as no-supply`, () => {
+      const s = pilotMerchantStatus(row({ ...over, shopperVisibleDeals: 0 }));
+      expect(s.id).toBe("merchant-not-visible");
+      expect(s.id).not.toBe("no-supply");
+      expect(s.severity).not.toBe("urgent");
+      // The reason must say this is about the merchant, not about its supply,
+      // or the operator draws the same wrong conclusion from prose instead.
+      expect(s.reason).toMatch(/merchant-state problem, not a supply problem/);
+    });
+  }
+
+  it("names WHICH condition failed, so the next action differs per case", () => {
+    // "Not visible" alone is not actionable: awaiting approval, hidden by trust
+    // metric, and shadow-banned are three different situations.
+    expect(pilotMerchantStatus(row({ status: "pending" })).reason).toMatch(/pending/);
+    expect(pilotMerchantStatus(row({ isVisible: false })).reason).toMatch(/not visible/);
+    expect(pilotMerchantStatus(row({ isShadowBanned: true })).reason).toMatch(
+      /shadow-banned/
+    );
+  });
+
+  it("still diagnoses no-supply for a merchant that IS public", () => {
+    // The fix must not swallow the real finding: an active, visible,
+    // un-banned merchant with nothing live is precisely the urgent case.
+    const s = pilotMerchantStatus(
+      row({ status: "active", isVisible: true, isShadowBanned: false, shopperVisibleDeals: 0 })
+    );
+    expect(s.id).toBe("no-supply");
+    expect(s.severity).toBe("urgent");
+  });
+
+  it("puts the read-failure gate ahead of the visibility rule", () => {
+    // A pending merchant whose counts failed to read is still a read failure:
+    // we do not know enough to say anything, and "not visible" is a claim.
+    const s = pilotMerchantStatus(row({ status: "pending", shopperVisibleDeals: null }));
+    expect(s.id).toBe("read-failed");
+  });
+
+  it("reports an unreadable slot count as unavailable, not as a healthy row", () => {
+    // Carried from the previous round and re-asserted here because P2-3 moved
+    // the rule that sits directly after the gate.
+    const s = pilotMerchantStatus(row({ activeDeals: null }));
+    expect(s.id).toBe("read-failed");
+    expect(["active", "awaiting-first-claim", "at-cap"]).not.toContain(s.id);
+  });
+
+  it("does not raise a supply alert for a merchant that cannot be public", () => {
+    // buildPilotAlerts derives from the status, so the alert list must move
+    // with it rather than keeping its own copy of the rule.
+    const alerts = buildPilotAlerts([
+      row({ merchantId: "pending-1", status: "pending", shopperVisibleDeals: 0 }),
+      row({ merchantId: "banned-1", isShadowBanned: true, shopperVisibleDeals: 0 }),
+    ]);
+    expect(alerts.filter((a) => a.id.startsWith("no-supply"))).toHaveLength(0);
   });
 });
