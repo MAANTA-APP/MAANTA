@@ -15,7 +15,7 @@ import {
   type GenuineFeeRedemption,
   type FeeLedgerRow,
 } from "@/lib/evidence-scope";
-import { withPublicMerchant } from "@/lib/data";
+import { withPublicMerchant, withPublicMerchantRows } from "@/lib/data";
 import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
 import { queueAlertState } from "@/lib/pilot-command-centre";
 import { formatKes } from "@/lib/ui";
@@ -97,11 +97,14 @@ export default async function YesterdayBriefPage() {
     openTasksRes,
     pendingRes,
   ] = await Promise.all([
-    service
-      .from("merchants")
-      .select("id", { count: "exact", head: true })
-      .eq("is_demo", false)
-      .eq("status", "active"),
+    // "Live" means reachable by a shopper, so it is the canonical public rule,
+    // not `status = active` alone. A merchant that is active but hidden or
+    // shadow-banned reaches nobody, and counting it here would overstate the
+    // operation on the same page that reports its supply and claims. One
+    // definition of live per page.
+    withPublicMerchantRows(
+      service.from("merchants").select("id", { count: "exact", head: true })
+    ),
     // Shopper-visible must mean what the FEED means. The deal-side conditions
     // are only half of it: a deal on a suspended, hidden or shadow-banned
     // merchant reaches nobody, so counting it inflated supply AND suppressed
@@ -291,7 +294,7 @@ export default async function YesterdayBriefPage() {
         <KpiCard
           label="Merchants live"
           value={fmt(merchantsLive)}
-          hint="Non-demo merchants with status active. Not the same as enrolled pilot merchants."
+          hint="Non-demo merchants a shopper could reach: active, visible and not shadow-banned. Not the same as enrolled pilot merchants."
         />
         <KpiCard
           label="Shopper-visible deals"
@@ -592,18 +595,31 @@ type NamedMerchant = { id: string; name: string };
  */
 const ALERT_ROW_CAP = 500;
 
-/** Non-demo active merchants with zero shopper-visible deals right now. */
+/**
+ * Non-demo PUBLIC merchants with zero shopper-visible deals right now.
+ *
+ * The candidate set must be the canonical public rule, not `status = active`
+ * alone. A merchant that is active but hidden or shadow-banned reaches no
+ * shopper, so the deal count below — which applies the full rule on the deal
+ * side — is necessarily zero, and it landed in this list as "no
+ * shopper-visible supply". That is a supply accusation aimed at a merchant
+ * whose actual problem is that it cannot be public at all: the same defect
+ * already fixed in `pilotMerchantStatus`, in the sibling that shares none of
+ * its code.
+ *
+ * Merchants that fail the public rule are excluded here rather than renamed,
+ * because this list answers one question — who is live but has nothing to
+ * claim. Merchant-level visibility is diagnosed per merchant on
+ * `/admin/pilot`, which states which condition failed.
+ */
 async function merchantsWithoutVisibleSupply(
   service: ReturnType<typeof createServiceClient>,
   demoMode: { ok: boolean; enabled: boolean }
 ): Promise<NamedMerchant[] | null> {
   if (!demoMode.ok) return null;
-  const { data: merchants, error } = await service
-    .from("merchants")
-    .select("id, merchant_name")
-    .eq("is_demo", false)
-    .eq("status", "active")
-    .limit(ALERT_ROW_CAP);
+  const { data: merchants, error } = await withPublicMerchantRows(
+    service.from("merchants").select("id, merchant_name").limit(ALERT_ROW_CAP)
+  );
   if (error) return null;
   // Truncated is unknown, not complete: a list that quietly omits merchants
   // reads as an all-clear for exactly the ones it dropped.

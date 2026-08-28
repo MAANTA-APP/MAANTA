@@ -114,3 +114,57 @@ describe("no unbounded list read on the pilot surfaces", () => {
     expect(pilot).toMatch(/cohort total could not be established/i);
   });
 });
+
+describe("no partial re-statement of the public-merchant rule", () => {
+  /**
+   * Codex round 8, and the fifth consecutive round finding the same class of
+   * defect in a sibling. The rule this time is the public-merchant predicate:
+   * `status = 'active' AND is_visible = TRUE AND is_shadow_banned = FALSE`.
+   *
+   * `pilotMerchantStatus` was fixed to use the canonical predicate in round 3.
+   * The candidate query in `merchantsWithoutVisibleSupply` — different file,
+   * different mechanism, same rule — still filtered on `status` alone, so an
+   * active-but-hidden or shadow-banned merchant became a candidate, its
+   * public-filtered deal count was necessarily zero, and the brief accused it
+   * of having no supply when its real problem was that it cannot be public.
+   *
+   * Guarding "use the helper" would be too blunt: `/admin/pilot`'s cohort read
+   * deliberately lists every non-demo merchant INCLUDING pending, suspended
+   * and hidden ones, because it diagnoses each row individually and reports
+   * the visibility block first. That is correct and must stay allowed.
+   *
+   * So the guard bans the dangerous SHAPE instead: filtering merchants by
+   * `status = "active"` while ignoring the other two conditions. That is
+   * precisely the partial predicate, and it is what a fourth copy would look
+   * like.
+   */
+  for (const rel of PAGES) {
+    it(`never filters merchants on status alone in ${rel}`, () => {
+      const src = stripComments(
+        readFileSync(path.join(process.cwd(), rel), "utf8")
+      );
+      for (const chain of queryChains(src)) {
+        if (chain.table !== "merchants") continue;
+        if (!chain.body.includes('.eq("status", "active")')) continue;
+        // Having asserted status = active by hand, it must assert the rest of
+        // the rule by hand too — or, better, go through the helper.
+        const complete =
+          chain.body.includes("withPublicMerchantRows") ||
+          (chain.body.includes('.eq("is_visible", true)') &&
+            chain.body.includes('.eq("is_shadow_banned", false)'));
+        expect(
+          complete,
+          `${rel}:${chain.line} filters merchants on status alone — a hidden or shadow-banned merchant passes and is then diagnosed on its supply`
+        ).toBe(true);
+      }
+    });
+  }
+
+  it("routes the zero-supply candidate list through the canonical helper", () => {
+    const src = stripComments(
+      readFileSync(path.join(process.cwd(), PAGES[1]), "utf8")
+    );
+    const fn = src.slice(src.indexOf("async function merchantsWithoutVisibleSupply"));
+    expect(fn.slice(0, 900)).toContain("withPublicMerchantRows(");
+  });
+});
