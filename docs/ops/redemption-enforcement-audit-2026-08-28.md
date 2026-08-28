@@ -5,8 +5,9 @@ traffic, establish every layer that can refuse a redemption, and confirm whether
 `VERIFICATION_BLOCKING_MERCHANT_STATUSES` — the shared predicate that decides
 whether `/notifications` shows "your claimed code expires soon" — is complete.
 
-**Method.** Static trace of the verify path plus production read-back of the
-RPC's security mode, grants and refusal set. **No writes, no migrations.** This
+**Method.** Static trace of the **preflight and verify** path plus production
+read-back of the RPC's security mode, grants and both refusal mechanisms — the
+errors it raises and the Guardian outcomes it returns. **No writes, no migrations.** This
 is the desk half of the validation; the counter half is the field matrix in §6,
 which only Merchant 01 testing can run.
 
@@ -20,15 +21,36 @@ explains why, and names the two ways that conclusion could still be wrong.
 
 ## 1. The path, in order
 
-`POST /api/redemptions/verify`
+**The flow does not start at `/verify`.** `redeem-keypad.tsx` always posts the
+six-digit code to **`/api/redemptions/preflight`** first — that resolves the code
+and discloses the fee — and only Confirm calls `/api/redemptions/verify`. A
+redemption therefore crosses **two** route handlers, and an operator who never
+reaches the fee screen was stopped in preflight, not in verify.
 
-| # | Layer | Can it refuse? | Merchant-status dependent? |
+### Step A — `POST /api/redemptions/preflight` (resolve, charge nothing)
+
+| # | Layer | Refuses with | Status-dependent? |
 |---|---|---|---|
-| 1 | `src/middleware.ts` | Session only — Clerk `clerkMiddleware()` or Supabase `updateSession`. Matcher covers `/(api\|trpc)(.*)` | **No.** It refreshes/populates auth and gates nothing else |
-| 2 | `requireMerchant("can_verify")` | 401 signed-out · 404 no-merchant · **403 blocked status** · 403 missing permission | **Yes — the only one** |
-| 3 | Rate limit | 429 on `otp-check:<merchant.id>` | No — per merchant per window |
-| 4 | `EXECUTE` grant | `verify_redemption` granted to `authenticated`, `service_role` | No |
-| 5 | `verify_redemption` RPC | see §3 | **No** |
+| A1 | `requireMerchant("can_verify")` | 401 · 404 · **403 blocked status** · 403 permission | **yes** |
+| A2 | `isValidOtpCode` | 400 | no |
+| A3 | Rate limit — **same `otp-check:<merchant.id>` bucket as verify** | 429 | no |
+| A4 | lookup: pending redemption for this merchant + code | `{ found: false }` (200) | no |
+
+### Step B — `POST /api/redemptions/verify` (charges the fee)
+
+| # | Layer | Refuses with | Status-dependent? |
+|---|---|---|---|
+| 1 | `src/middleware.ts` | session only — Clerk `clerkMiddleware()` or Supabase `updateSession`; matcher covers `/(api\|trpc)(.*)` | **no** — gates nothing else |
+| 2 | `requireMerchant("can_verify")` | 401 · 404 · **403 blocked status** · 403 permission | **yes — the only status-shaped refusal on the whole path** |
+| 3 | Rate limit — the **same** bucket again | 429 | no |
+| 4 | `EXECUTE` grant | `verify_redemption` granted to `authenticated`, `service_role` | no |
+| 5 | `verify_redemption` — **raised** errors | see §3a | **no** |
+| 6 | `verify_redemption` — **returned** Guardian outcome | see §3b | **no** |
+
+**One successful redemption consumes the rate-limit bucket twice** (A3 and 3),
+against `OTP_CHECK_RATE_LIMIT` per `OTP_CHECK_RATE_WINDOW_SECONDS`. A busy
+counter reaches the 429 in roughly half the redemptions a naive reading of the
+limit suggests. Worth watching in the field; not a defect until observed.
 
 **The RPC is called with the user-scoped client** (`createClient()`), not the
 service client — so the grant in layer 4 is a real gate. It is satisfied for any
@@ -50,19 +72,39 @@ enforcement on the redemption path.
 ## 3. `verify_redemption` — read back from production
 
 `prosecdef = true` (SECURITY DEFINER, owner `postgres`), so **RLS on the tables
-it touches does not apply to it**; the grant is the access control. Its refusals:
+it touches does not apply to it**; the grant is the access control.
 
-| Refusal | Depends on |
-|---|---|
-| `merchant_not_found` | merchant row exists |
-| `unauthorized` | caller identity vs `p_merchant_id` |
-| `redemption_not_found_or_already_used` | the code |
-| `redemption_expired` | the ticket clock |
-| `redemption_already_verified` | prior state |
+It refuses in **two different ways**, and reading only the first is how the
+first draft of this audit was wrong.
 
-**No merchant status, `is_visible` or `is_shadow_banned` check.** This is why
-reading the RPC alone gave the wrong answer in PR #291 and why the route had to
-be read too — recorded in D215.
+### 3a — raised errors
+
+| Refusal | HTTP | Depends on |
+|---|---|---|
+| `merchant_not_found` | 500 | merchant row exists |
+| `unauthorized` | 403 | caller identity vs `p_merchant_id` |
+| `redemption_not_found_or_already_used` | 404 | the code |
+| `redemption_expired` | 410 | the ticket clock |
+| `redemption_already_verified` | 409 | prior state |
+
+### 3b — Guardian outcomes returned as data, not raised
+
+The RPC returns `redemption_status: "success" | "held" | "blocked"`, and the
+route turns **both** non-success values into **HTTP 409**:
+
+| Returned | Driven by | HTTP |
+|---|---|---|
+| `blocked` | `guardian_recommendation = hard_block` | **409** |
+| `held` | `guardian_recommendation = soft_block` | **409** |
+
+These are velocity, geofence and collusion checks — **per redemption and per
+shopper, never per merchant status**. They do not appear in a `RAISE EXCEPTION`
+scan, which is exactly why the first draft's refusal set claimed to be
+exhaustive and was not.
+
+**No merchant status, `is_visible` or `is_shadow_banned` check anywhere in the
+RPC.** This is why reading the RPC alone gave the wrong answer in PR #291 and
+why the route had to be read too — recorded in D215.
 
 ## 4. Identities and permissions
 
@@ -91,6 +133,7 @@ a ticket unredeemable.
 | `unauthorized` (RPC) | no — per call | no — correct |
 | rate limit (429) | no — transient | no — correct |
 | `redemption_expired` | no — per ticket | no — correct |
+| Guardian `held` / `blocked` (409) | no — per redemption and shopper | no — correct |
 
 So the predicate is complete **with respect to merchant status**, which is the
 only axis it claims to cover.
@@ -126,8 +169,24 @@ every cell. A refusal that is not one of §1's five layers is the finding.
 | `churned` | expect 403 | expect 403 |
 
 The four **expect success** rows are the load-bearing ones: each is a case where
-the shopper keeps the expiry notice, so a refusal there means the predicate is
-short and must be widened before shoppers receive affected notifications.
+the shopper keeps the expiry notice, so a refusal there is the signal to
+investigate.
+
+> **A refusal in an expect-success row does NOT by itself mean the predicate is
+> short.** Classify it first, because two very different things produce a stop
+> here and only one of them is a finding:
+>
+> | Observed | Meaning | Action |
+> |---|---|---|
+> | **409** with a Guardian reason (`held` / `blocked`) | working as designed — velocity, geofence or collusion, decided per redemption and per shopper | **not a predicate finding.** Re-test with a clean ticket |
+> | **403** from `requireMerchant` | the merchant's status is blocked | expected only in the three blocked rows; in an expect-success row it **is** the finding |
+> | 429 | the shared bucket, consumed twice per redemption (§1) | wait out the window and re-test |
+> | anything else | unclassified | capture it — §6.5 |
+>
+> Widening `VERIFICATION_BLOCKING_MERCHANT_STATUSES` because of a Guardian 409
+> would gate expiry notices on a per-shopper fraud signal, silencing notices for
+> merchants who verify perfectly well. Read the status code and the body before
+> concluding anything.
 
 ### 6.2 Permission states
 
@@ -154,8 +213,11 @@ real `/qr/[token]` path and confirm the arrival persists.
 
 ### 6.5 Anything unexpected
 
-Any 403, 404 or 409 whose source is not one of §1's five layers. Capture the
-response body and the request id.
+Any refusal whose source is not one of the layers in §1 — now **A1-A4 plus 1-6**,
+across both route handlers. Capture the status, the response body and the request
+id, and record **which of the two steps** produced it: a stop before the fee
+screen is preflight, a stop after Confirm is verify. The distinction matters,
+because they share a rate-limit bucket but not their other failure modes.
 
 ## 7. If a further layer is found
 
@@ -175,4 +237,15 @@ Production read-back 2026-08-28: `pg_proc.prosecdef`, `proacl` and the refusal
 set for `verify_redemption`, `claim_deal`, `record_shopper_arrival`;
 `information_schema.columns` for `merchant_staff`. Repo:
 `src/middleware.ts`, `src/lib/merchant-api.ts`, `src/lib/merchant.ts`,
-`src/lib/merchant-visibility.ts`, `src/app/api/redemptions/verify/route.ts`.
+`src/lib/merchant-visibility.ts`, `src/app/api/redemptions/verify/route.ts`,
+`src/app/api/redemptions/preflight/route.ts`,
+`src/app/merchant/(app)/redeem/redeem-keypad.tsx`.
+
+**Revision.** The first draft of this document traced only `/verify` and built
+its refusal set from a `RAISE EXCEPTION` scan, so it missed the preflight step
+entirely and presented the Guardian `held` / `blocked` 409s — which are returned
+as data rather than raised — as though they did not exist. Both were found in
+review before the document was merged. The headline conclusion is unchanged, and
+the correction strengthens it: the added refusals are per redemption and per
+shopper, so they confirm rather than weaken the claim that only
+`requireMerchant` supplies a status-shaped refusal.
