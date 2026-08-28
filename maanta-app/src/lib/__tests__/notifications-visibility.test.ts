@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NotificationsPage from "@/app/(shopper)/notifications/page";
-import { PUBLIC_MERCHANT_CONDITIONS } from "@/lib/merchant-visibility";
+import {
+  PUBLIC_MERCHANT_CONDITIONS,
+  VERIFICATION_BLOCKING_MERCHANT_STATUSES,
+} from "@/lib/merchant-visibility";
 
 /**
  * D215 + D216 — the notifications inbox, implemented together because they meet
@@ -59,6 +62,7 @@ vi.mock("@/lib/supabase/service", () => ({
       builder.gt = (c: string, v: unknown) => (filters.push([c, v]), builder);
       builder.lt = (c: string, v: unknown) => (filters.push([c, v]), builder);
       builder.in = (c: string, v: unknown) => (filters.push([c, v]), builder);
+      builder.not = (c: string, op: string, v: unknown) => (filters.push([`not.${c}.${op}`, v]), builder);
       builder.order = () => builder;
       builder.limit = () => builder;
       builder.then = (resolve: (v: unknown) => unknown) =>
@@ -151,18 +155,35 @@ describe("demo predicates follow isDemoModeEnabled() (D216)", () => {
 });
 
 describe("the shopper's own live commitments keep their notices", () => {
-  it("does not gate a claimed ticket on merchant visibility", async () => {
-    // verify_redemption, read from production, has no merchant status or
-    // shadow-ban check: a ticket claimed before suspension still verifies. So
-    // "your code expires soon" must survive, or the shopper loses the deadline
-    // on a live, redeemable ticket. Discovery is gated; owned tickets are not.
+  it("keeps the notice for a hidden or shadow-banned merchant, whose tickets still verify", async () => {
+    // Redeemability, not visibility. `requireMerchant` blocks only suspended /
+    // rejected / churned; a hidden or shadow-banned merchant CAN still verify,
+    // so gating on the discovery policy would strip the deadline from a live,
+    // redeemable ticket. `status = 'active'` would also wrongly drop `pending`.
     demoEnabled = false;
     await NotificationsPage();
 
     for (const q of redemptionQueries()) {
-      expect(cols(q)).not.toContain("merchants.status");
       expect(cols(q)).not.toContain("merchants.is_shadow_banned");
       expect(cols(q)).not.toContain("merchants.is_visible");
+      expect(q).not.toContainEqual(["merchants.status", "active"]);
+    }
+  });
+
+  it("drops the expiry notice when the merchant cannot verify at all", async () => {
+    // requireMerchant("can_verify") returns 403 for these BEFORE
+    // verify_redemption runs, so the ticket cannot be redeemed through the
+    // product and an expiry deadline on it is false urgency. Derived from the
+    // same constant the route enforces, so adding a blocked status there
+    // fails here until this surface carries it.
+    demoEnabled = false;
+    await NotificationsPage();
+
+    const pendingQuery = redemptionQueries()[0];
+    const blocked = pendingQuery.find(([c]) => c === "not.merchants.status.in");
+    expect(blocked).toBeDefined();
+    for (const status of VERIFICATION_BLOCKING_MERCHANT_STATUSES) {
+      expect(String(blocked![1])).toContain(status);
     }
   });
 

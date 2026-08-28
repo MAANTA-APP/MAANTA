@@ -59,3 +59,23 @@ export function publicMerchantBlocker(
 export function isPublicMerchant(m: PublicMerchantFacts): boolean {
   return publicMerchantBlocker(m) === null;
 }
+
+/**
+ * Merchant statuses that block verification at the counter.
+ *
+ * `requireMerchant` returns 403 for these BEFORE calling `verify_redemption`,
+ * so a ticket held against such a merchant cannot be redeemed through the
+ * product — the RPC itself has no status check, which makes the application
+ * path the real gate and the only one worth reading.
+ *
+ * Deliberately NOT the same set as `PUBLIC_MERCHANT_CONDITIONS`. A merchant who
+ * is merely hidden (`is_visible = false`) or shadow-banned can still verify, so
+ * their shoppers' tickets stay live and must keep their expiry notices; and a
+ * `pending` merchant is not blocked either, so gating on `status = 'active'`
+ * would over-exclude. Discovery and redeemability are different questions.
+ */
+export const VERIFICATION_BLOCKING_MERCHANT_STATUSES = [
+  "suspended",
+  "rejected",
+  "churned",
+] as const;

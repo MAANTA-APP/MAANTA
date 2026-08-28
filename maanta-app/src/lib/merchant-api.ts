@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getMerchantContext, type MerchantContext, type StaffPermissions } from "@/lib/merchant";
+import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
 
 /**
  * Route-handler guard: resolve merchant context and enforce a staff
  * permission (owners hold all permissions).
  */
-const BLOCKED_MERCHANT_STATUSES = new Set(["suspended", "rejected", "churned"]);
+const BLOCKED_MERCHANT_STATUSES = new Set<string>(VERIFICATION_BLOCKING_MERCHANT_STATUSES);
 
 export async function requireMerchant(
   permission?: keyof StaffPermissions

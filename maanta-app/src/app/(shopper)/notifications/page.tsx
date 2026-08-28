@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, withPublicMerchant } from "@/lib/data";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
+import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
 import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import {
@@ -47,20 +48,34 @@ export default async function NotificationsPage() {
   const includeDemo = await isDemoModeEnabled();
   const items: Item[] = [];
 
-  // D215/D216 — these two reads are the shopper's OWN live commitments, not
-  // discovery, so they carry the demo exclusion but deliberately NOT the
-  // merchant-visibility gate. `verify_redemption` was read from production and
-  // contains no merchant status or shadow-ban check, so a ticket claimed before
-  // the merchant was suspended STILL verifies at the counter. Hiding "your code
-  // expires soon" would strip the deadline from a live, redeemable ticket —
-  // the same reason the frozen paused-deal rule keeps claimed tickets valid.
-  // Only the saved-shop feed below is a discovery surface.
+  // D215/D216 — these two reads are the shopper's OWN commitments, not
+  // discovery, so they carry the demo exclusion but NOT the discovery
+  // visibility policy. The question here is redeemability, not visibility, and
+  // the two do not coincide:
+  //
+  //   - `verify_redemption` itself has no merchant status check, so the RPC is
+  //     not the gate;
+  //   - `requireMerchant("can_verify")` returns 403 for suspended / rejected /
+  //     churned BEFORE the RPC, so those tickets cannot be redeemed through the
+  //     product and an expiry deadline on them is a false urgency;
+  //   - a merely hidden (`is_visible = false`) or shadow-banned merchant CAN
+  //     still verify, so those tickets stay live and keep their notice. Gating
+  //     on the discovery policy would strip the deadline from a redeemable
+  //     ticket, and `status = 'active'` would also wrongly exclude `pending`.
+  //
+  // So this excludes exactly the statuses that block verification, derived from
+  // the same constant `requireMerchant` enforces rather than restated here.
   const { data: pending } = await withoutDemo(
     service
       .from("redemptions")
       .select("expires_at, merchants!inner(merchant_name)")
       .eq("user_id", user.id)
       .eq("status", "pending")
+      .not(
+        "merchants.status",
+        "in",
+        `(${VERIFICATION_BLOCKING_MERCHANT_STATUSES.join(",")})`
+      )
       .gt("expires_at", new Date().toISOString())
       .lt("expires_at", new Date(Date.now() + 2 * 3600_000).toISOString()),
     includeDemo
