@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/postgrest-errors";
 import { ensureAppUser } from "@/lib/auth";
 import { ALL_NODES, DEFAULT_NODE, NODE_COOKIE, NODES } from "@/lib/nodes";
+import { PUBLIC_MERCHANT_CONDITIONS } from "@/lib/merchant-visibility";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
 import type { AppRole } from "@/lib/roles";
 import {
@@ -18,6 +19,12 @@ import {
 } from "@/lib/deal-list-controls";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
+export {
+  PUBLIC_MERCHANT_CONDITIONS,
+  publicMerchantBlocker,
+  isPublicMerchant,
+  type PublicMerchantFacts,
+} from "@/lib/merchant-visibility";
 
 /** Currently selected node (mall) from the cookie set by the node switcher. */
 export function getSelectedNode(): string {
@@ -275,15 +282,19 @@ type EqChain = { eq(column: string, value: unknown): EqChain };
  */
 export type PublicVisibilityOptions = { includeDemo?: boolean };
 
+// The public rule itself lives in lib/merchant-visibility.ts — no I/O, so it
+// can also be evaluated in memory by surfaces holding a merchant row. Both
+// query builders below consume the same conditions, so a fourth condition is a
+// one-line edit that reaches every form of the rule at once.
 /** Restrict a `deals` query (with a `merchants!inner` join) to public merchants. */
 export function withPublicMerchant<T>(
   query: T,
   opts: PublicVisibilityOptions = {}
 ): T {
-  const chained = (query as unknown as EqChain)
-    .eq("merchants.status", "active")
-    .eq("merchants.is_visible", true)
-    .eq("merchants.is_shadow_banned", false);
+  let chained = query as unknown as EqChain;
+  for (const c of PUBLIC_MERCHANT_CONDITIONS) {
+    chained = chained.eq(`merchants.${c.column}`, c.value);
+  }
 
   // Both sides: a deal is synthetic if either it or its merchant is.
   return (
@@ -298,10 +309,10 @@ export function withPublicMerchantRows<T>(
   query: T,
   opts: PublicVisibilityOptions = {}
 ): T {
-  const chained = (query as unknown as EqChain)
-    .eq("status", "active")
-    .eq("is_visible", true)
-    .eq("is_shadow_banned", false);
+  let chained = query as unknown as EqChain;
+  for (const c of PUBLIC_MERCHANT_CONDITIONS) {
+    chained = chained.eq(c.column, c.value);
+  }
 
   return (
     opts.includeDemo ? chained : chained.eq("is_demo", false)

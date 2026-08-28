@@ -59,6 +59,22 @@ export const ALL_NODES = "all";
 export const NODE_COOKIE = "maanta_node";
 export const DEFAULT_NODE = "BBS Mall";
 
+/**
+ * Node 0 — the single mall the controlled field validation runs at.
+ *
+ * Deliberately NOT an alias of {@link DEFAULT_NODE}, though the two hold the
+ * same string today. `DEFAULT_NODE` answers "which mall does a shopper see
+ * before choosing one?" and would move the day a bigger node opens; `NODE_0`
+ * answers "which mall is the 1 -> 5 -> 10 pilot ladder being measured at?" and
+ * is fixed by the evidence protocol, not by product convenience. Collapsing
+ * them would let a change to the shopper default silently re-point the pilot's
+ * evidence at a different population.
+ *
+ * Sources: CLAUDE.md "Operating state: Node 0 Field Validation Mode",
+ * docs/ops/node0-evidence-protocol-2026-08-24.md.
+ */
+export const NODE_0 = "BBS Mall";
+
 export function nodeLabel(id: string) {
   if (id === ALL_NODES) return "All nodes";
   return NODES.find((n) => n.id === id)?.label ?? id;

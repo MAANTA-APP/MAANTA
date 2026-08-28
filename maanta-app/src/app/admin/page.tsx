@@ -12,6 +12,7 @@ import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
 import { AdminReadError } from "@/components/admin/read-error";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
+import { GENUINE_JOIN_SELECT, atMerchantNode, genuineTagged } from "@/lib/evidence-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -112,42 +113,32 @@ export default async function AdminHomePage({
   // D188/D189 — a redemption row's own is_demo flag is not enough.
   // claim_deal historically creates non-demo redemption rows even against demo
   // merchants/deals, so every "genuine-tagged" census must join both parents.
-  let genuineClaimsQuery = service
-    .from("redemptions")
-    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("is_demo", false)
-    .eq("merchants.is_demo", false)
-    .eq("deals.is_demo", false)
-    .gte("claimed_at", since7d);
-  let genuineVerifiedQuery = service
-    .from("redemptions")
-    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("status", "success")
-    .eq("is_demo", false)
-    .eq("merchants.is_demo", false)
-    .eq("deals.is_demo", false)
-    .gte("redeemed_at", since7d);
-  let genuineCohortVerifiedQuery = service
-    .from("redemptions")
-    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("status", "success")
-    .eq("is_demo", false)
-    .eq("merchants.is_demo", false)
-    .eq("deals.is_demo", false)
-    .gte("claimed_at", since7d);
+  // The predicate itself lives in lib/evidence-scope.ts so this rule has one
+  // definition rather than one per call site.
+  let genuineClaimsQuery = genuineTagged(
+    service
+      .from("redemptions")
+      .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+      .gte("claimed_at", since7d)
+  );
+  let genuineVerifiedQuery = genuineTagged(
+    service
+      .from("redemptions")
+      .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+      .eq("status", "success")
+      .gte("redeemed_at", since7d)
+  );
+  let genuineCohortVerifiedQuery = genuineTagged(
+    service
+      .from("redemptions")
+      .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+      .eq("status", "success")
+      .gte("claimed_at", since7d)
+  );
   if (scoped) {
-    genuineClaimsQuery = genuineClaimsQuery.eq("merchants.node", node);
-    genuineVerifiedQuery = genuineVerifiedQuery.eq("merchants.node", node);
-    genuineCohortVerifiedQuery = genuineCohortVerifiedQuery.eq("merchants.node", node);
+    genuineClaimsQuery = atMerchantNode(genuineClaimsQuery, node);
+    genuineVerifiedQuery = atMerchantNode(genuineVerifiedQuery, node);
+    genuineCohortVerifiedQuery = atMerchantNode(genuineCohortVerifiedQuery, node);
   }
 
   // D164 — two sets, separated structurally rather than by index.
