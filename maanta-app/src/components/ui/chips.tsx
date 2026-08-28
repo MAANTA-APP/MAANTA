@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn, isNearExpiry } from "@/lib/ui";
 import { getDealExpiryState } from "@/lib/deal-expiry";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 import { IconLock } from "@/components/ui/icons";
 
 /**
@@ -175,19 +175,24 @@ export function PlanChip({
 export function CountdownChip({
   expiresAt,
   className,
+  now,
 }: {
   expiresAt: string | null;
   className?: string;
+  /**
+   * D213 criterion 3 — when a caller renders another time-derived element
+   * beside this chip, it passes its own clock instant so the two provably
+   * read the SAME `Date` and cannot disagree. Omitted, the chip keeps its own
+   * tick, so callers that render it alone are unchanged.
+   */
+  now?: Date;
 }) {
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
-    return () => clearInterval(t);
-  }, []);
+  const ownClock = useShopperClock();
+  const at = now ?? ownClock;
   if (!expiresAt) return null;
-  const { status, displayText } = getDealExpiryState(expiresAt);
+  const { status, displayText } = getDealExpiryState(expiresAt, at);
   if (!displayText) return null;
-  const near = status === "live" && isNearExpiry(expiresAt);
+  const near = status === "live" && isNearExpiry(expiresAt, at);
   const urgent = status === "in_grace" || near;
   return (
     <span

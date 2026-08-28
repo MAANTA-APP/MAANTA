@@ -11,10 +11,10 @@ import {
   SHOPPER_LIST_READ_ERROR,
 } from "@/lib/shopper-read-state";
 import { ShopCard } from "@/components/ui/cards";
-import { CountdownChip, ClaimChip } from "@/components/ui/chips";
+import { ClaimChip } from "@/components/ui/chips";
 import { isFastVisitEnabled } from "@/lib/fast-visit";
 import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
-import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
+import { TicketRowChips } from "@/components/shopper/ticket-row-chips";
 import { FavouriteButton } from "@/components/favourite-button";
 import {
   Body,
@@ -226,16 +226,6 @@ export default async function MyDealsPage({
                 : r.status === "success"
                   ? "redeemed"
                   : "expired";
-              const fastVisitLabel = fastVisitChipLabel(
-                fastVisitChipState({
-                  featureEnabled: fastVisitOn,
-                  status: r.status,
-                  claimedAt: r.claimed_at,
-                  arrivedAt: r.arrived_at,
-                  qualifiedAt: r.fast_visit_qualified_at,
-                  windowMinutes: FAST_VISIT_WINDOW_MINUTES,
-                })
-              );
               return (
                 <Link
                   key={r.id}
@@ -252,14 +242,19 @@ export default async function MyDealsPage({
                         {formatCode(r.otp_code)}
                       </span>
                     </p>
-                    {fastVisitLabel ? (
-                      <span className="mt-1.5 inline-flex items-center rounded-full bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-secondary">
-                        {fastVisitLabel}
-                      </span>
-                    ) : null}
-                    {isActiveRow ? (
-                      <CountdownChip expiresAt={r.deals?.expires_at ?? r.expires_at} className="mt-1.5" />
-                    ) : null}
+                    {/* D213 criteria 1 and 3 — both chips are time-derived, so
+                        they are rendered by one client component sharing a
+                        single clock rather than computed here at render time. */}
+                    <TicketRowChips
+                      featureEnabled={fastVisitOn}
+                      status={r.status}
+                      claimedAt={r.claimed_at}
+                      arrivedAt={r.arrived_at}
+                      qualifiedAt={r.fast_visit_qualified_at}
+                      windowMinutes={FAST_VISIT_WINDOW_MINUTES}
+                      countdownExpiresAt={r.deals?.expires_at ?? r.expires_at}
+                      showCountdown={isActiveRow}
+                    />
                   </div>
                   <ClaimChip state={state} className="flex-none" />
                 </Link>

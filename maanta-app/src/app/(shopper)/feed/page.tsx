@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { DealCard, Page, Section, RailScroller } from "@/components/ui/claude";
-import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
+import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
 import { EmptyState } from "@/components/ui/states";
 import {
   getLiveDeals,
@@ -23,7 +23,7 @@ import { feedEmptyState } from "@/lib/feed-empty-state";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
-import { dealExpiryLabel } from "@/lib/browse";
+
 import {
   DEFAULT_FEED_SORT,
   FEED_SORT_OPTIONS,
@@ -63,7 +63,6 @@ function cardProps(
     merchantName: d.merchants?.merchant_name ?? "",
     mallName: d.merchants?.mall_name ?? d.node,
     title: d.title,
-    expiryLabel: dealExpiryLabel(d.expires_at),
     distanceLabel: distanceForDeal(d, opts.origin),
     pay: pricing.pay,
     wasKes: pricing.was,
@@ -156,8 +155,6 @@ export default async function FeedPage({
   // cross-cut VIEW: every deal stays in its own rail in its locked order, and
   // nothing here reorders, promotes or removes anything (locked-feed-order).
   //
-  // Urgency is the deal's own expires_at and nothing else — see lib/ending-soon.
-  const endingSoon = endingSoonDeals(allDeals);
   const favouriteDeals = filterDealRowsByRail(
     allDeals.filter((d) => favourites.has(d.merchant_id)),
     filter
@@ -232,35 +229,32 @@ export default async function FeedPage({
             </Section>
           ) : null}
 
-          {endingSoon.length > 0 ? (
-            <Section
-              title="Ending soon"
-              subtitle={ENDING_SOON_SUBTITLE}
-              padded={false}
-            >
-              {/* Additive: these cards also remain in their own rails. The
-                  section simply does not render when nothing is genuinely
-                  ending, which is most of the time — an "Ending soon" rail
-                  that always has content is manufacturing urgency. */}
-              <RailScroller>
-                {endingSoon.map((d) => (
-                  <DealCard
-                    key={`ending-${d.id}`}
-                    {...cardProps(d, {
-                      origin,
-                      favourites,
-                      verified,
-                      // The card keeps the deal's OWN rail tag. This section
-                      // cuts across rails, so tagging everything here
-                      // "standard" would relabel a flash deal on one screen
-                      // while its own rail still calls it flash.
-                      tag: dealRailTag(d),
-                    })}
-                  />
-                ))}
-              </RailScroller>
-            </Section>
-          ) : null}
+          {/* D213 criteria 2 and 3 — membership is decided on the client
+              clock, so a deal that expires while the feed is open leaves the
+              section and one that enters the window appears, without
+              navigation. Candidates are every rail-eligible deal; the cap
+              exclusion inside `endingSoonDeals` still applies to the
+              render-time counts. */}
+          <EndingSoonRail
+            items={allDeals.map((d) => ({
+              membership: {
+                id: d.id,
+                expires_at: d.expires_at,
+                max_claims: d.max_claims,
+                claims_count: d.claims_count,
+              },
+              card: cardProps(d, {
+                origin,
+                favourites,
+                verified,
+                // The card keeps the deal's OWN rail tag. This section cuts
+                // across rails, so tagging everything here "standard" would
+                // relabel a flash deal on one screen while its own rail still
+                // calls it flash.
+                tag: dealRailTag(d),
+              }),
+            }))}
+          />
 
           {boostedDeals.length > 0 ? (
             <Section

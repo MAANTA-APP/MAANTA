@@ -65,36 +65,51 @@ describe("rewards entry appears only when something was actually earned", () => 
 });
 
 describe("the Fast Visit chip on /my-deals stays flag-aware", () => {
+  // D213 criterion 1 moved the chip's decision from the server page into a
+  // client component so it decays on an open page. The invariants below are
+  // unchanged; only where they live moved, so the guard follows them across
+  // BOTH files rather than asserting the old server-side shape.
   const myDeals = read("app/(shopper)/my-deals/page.tsx");
+  const chips = read("components/shopper/ticket-row-chips.tsx");
 
   it("resolves the feature flag server-side and passes it to the decision", () => {
+    // The flag is a server read (app_config) and must stay one — a client
+    // component cannot be trusted to gate a dark feature.
     expect(myDeals).toContain("isFastVisitEnabled()");
-    expect(myDeals).toContain("fastVisitChipState(");
-    expect(myDeals).toContain("featureEnabled: fastVisitOn");
+    expect(myDeals).toContain("featureEnabled={fastVisitOn}");
+    expect(chips).toContain("fastVisitChipState(");
+    expect(chips).toContain("featureEnabled,");
   });
 
   it("reads the persisted arrival verdict rather than re-deriving it", () => {
-    // D191: qualification is decided at arrival and is immutable.
-    expect(myDeals).toContain("qualifiedAt: r.fast_visit_qualified_at");
+    // D191: qualification is decided at arrival and is immutable. The clock
+    // may close an open window; it may never mint eligibility.
+    expect(myDeals).toContain("qualifiedAt={r.fast_visit_qualified_at}");
+    expect(chips).toContain("qualifiedAt,");
+    expect(chips).not.toMatch(/qualifiedAt\s*[:=][^,;]*now/);
   });
 
   it("renders nothing when the decision says hidden", () => {
-    expect(myDeals).toMatch(/\{fastVisitLabel \? \(/);
-    expect(myDeals).toMatch(/\) : null\}/);
+    expect(chips).toMatch(/\{fastVisitLabel \? \(/);
+    expect(chips).toMatch(/\) : null\}/);
   });
 });
 
 describe("the Ending soon section is additive and derived from filtered rails", () => {
+  // D213 criteria 2 and 3 moved membership onto the client clock. Same
+  // invariants, new home — the guard reads both files.
   const feed = read("app/(shopper)/feed/page.tsx");
+  const rail = read("components/shopper/ending-soon-rail.tsx");
 
   it("selects from allDeals, which is after the shopper's own filters", () => {
     // Deriving from the unfiltered rails would surface a deal the shopper's
     // category or type filter had just removed.
-    expect(feed).toMatch(/const allDeals = \[[\s\S]{0,80}\];\s*[\s\S]{0,40}const endingSoon = endingSoonDeals\(allDeals\)/);
+    expect(feed).toMatch(/items=\{allDeals\.map\(/);
+    expect(rail).toContain("endingSoonDeals(");
   });
 
   it("renders nothing when nothing is genuinely ending", () => {
-    expect(feed).toMatch(/\{endingSoon\.length > 0 \? \(/);
+    expect(rail).toMatch(/selected\.length === 0[\s\S]*return null/);
   });
 
   it("keeps each card's own rail tag rather than relabelling it", () => {
@@ -113,9 +128,12 @@ describe("the Ending soon section is additive and derived from filtered rails", 
       expect(feed).toContain(title);
     }
     // Ending soon sits between the flash rail and the boosted rail; the
-    // relative order of the locked rails is unchanged.
-    expect(feed.indexOf("Top picks near you")).toBeLessThan(feed.indexOf("Ending soon"));
-    expect(feed.indexOf("Ending soon")).toBeLessThan(feed.indexOf("Neighbourhood favourites"));
+    // relative order of the locked rails is unchanged. The section's TITLE now
+    // lives in the client component, so position is asserted on the element
+    // the feed renders rather than on the heading text.
+    expect(rail).toContain('title="Ending soon"');
+    expect(feed.indexOf("Top picks near you")).toBeLessThan(feed.indexOf("<EndingSoonRail"));
+    expect(feed.indexOf("<EndingSoonRail")).toBeLessThan(feed.indexOf("Neighbourhood favourites"));
     expect(feed.indexOf("Neighbourhood favourites")).toBeLessThan(feed.indexOf("Deals near me"));
   });
 });

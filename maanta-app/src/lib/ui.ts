@@ -45,8 +45,10 @@ export function timeLeftLabel(iso: string | null | undefined) {
 }
 
 /** Near-expiry threshold used by countdown chips (rust under 60 minutes, per brief). */
-export function isNearExpiry(iso: string | null | undefined) {
-  const ms = msUntil(iso);
+export function isNearExpiry(iso: string | null | undefined, now: Date = new Date()) {
+  // `now` is injectable so a caller rendering several time-derived elements can
+  // thread one clock instant through all of them (D213 criterion 3).
+  const ms = new Date(iso ?? "").getTime() - now.getTime();
   return isFinite(ms) && ms > 0 && ms <= 60 * 60 * 1000;
 }
 

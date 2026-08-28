@@ -8,13 +8,9 @@ import {
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
-import {
-  filterBrowseDeals,
-  type BrowseChipFilter,
-} from "@/lib/browse";
+import { filterBrowseDeals, type BrowseChipFilter } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
-import { dealExpiryLabel } from "@/lib/browse";
 import {
   filterDealRowsByRail,
   sortDealRows,
@@ -226,7 +222,6 @@ export function BrowseClient({
                   merchantName={d.merchants?.merchant_name ?? ""}
                   mallName={d.merchants?.mall_name ?? d.node}
                   title={d.title}
-                  expiryLabel={dealExpiryLabel(d.expires_at)}
                   distanceLabel={distanceLabel}
                   pay={pricing.pay}
                   wasKes={pricing.was}
