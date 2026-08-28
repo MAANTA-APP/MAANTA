@@ -131,9 +131,19 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     // defect. Third time this class of looseness has bitten in this PR —
     // assert the call, never the spelling.
     const code = src();
-    expect(code).not.toMatch(/from\("merchant_transactions"\)/);
+    // The ledger is read again, deliberately — but only through reference_id,
+    // linked to the genuine-tagged redemptions established above. Reading it by
+    // transaction_type and date alone is the unscoped form this replaced.
+    if (/from\("merchant_transactions"\)/.test(code)) {
+      expect(code).toMatch(/\.in\(\s*"reference_id",/);
+      expect(code).not.toMatch(/\.eq\("transaction_type", "success_fee"\)/);
+    }
     // The fee rows come from redemptions, through the D188 chain...
-    expect(code).toMatch(/genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("success_fee_charged"\)\)/);
+    expect(code).toMatch(/genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("id, success_fee_charged"\)\)/);
+    // ...and the BILLED amount comes from the ledger, linked by reference_id,
+    // because a successful redemption can carry a fee that never posted:
+    // verify_redemption commits status='success' even when the fee step throws.
+    expect(code).toMatch(/\.in\("transaction_type", \[\.\.\.FEE_LEDGER_TYPES\]\)/);
     // ...and the sum goes through the shared helper, which is where the
     // "read that column, and a failed read is unavailable rather than zero"
     // decision now lives. Re-pointed at the same invariant rather than deleted
@@ -141,7 +151,7 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     // is a second place for the failure-vs-zero rule to drift, and
     // `evidence-scope` owns it for both pages. `sumSuccessFees` itself is
     // tested directly in pilot-fee-and-node-scope.test.ts.
-    expect(code).toMatch(/sumSuccessFees\(/);
+    expect(code).toMatch(/sumLedgerSuccessFees\(/);
     expect(code).not.toMatch(/r\.amount \?\? 0/);
     // No hand-rolled reduction may return alongside it.
     expect(code).not.toMatch(/feeRows\.reduce/);

@@ -9,9 +9,11 @@ import {
   GENUINE_JOIN_SELECT,
   genuineJoinSelect,
   genuineTagged,
-  sumSuccessFees,
+  sumLedgerSuccessFees,
   FEE_ROW_CAP,
-  type SuccessFeeRow,
+  FEE_LEDGER_TYPES,
+  type GenuineFeeRedemption,
+  type FeeLedgerRow,
 } from "@/lib/evidence-scope";
 import { withPublicMerchant } from "@/lib/data";
 import { activeDealLimit, normaliseTier } from "@/lib/plan-limits";
@@ -253,15 +255,14 @@ export default async function PilotCommandCentrePage({
         // recorded on each one. Not reconstructed from a count times KES 30:
         // that would restate history the day the fee changes.
         //
-        // Chosen over joining merchant_transactions through `reference_id`
-        // because the fee is already on the redemption, it is one query rather
-        // than two, and it does not depend on a link that a fee row predating
-        // `20260720014135_link_success_fee_ledger_to_redemption` would not
-        // carry.
+        // This is only HALF the fee read: it establishes WHICH redemptions
+        // count. What each one actually billed is read from the ledger below,
+        // because `success_fee_charged` is what the claim recorded, not what
+        // the money path managed to post. See `sumLedgerSuccessFees`.
         genuineTagged(
           service
             .from("redemptions")
-            .select(genuineJoinSelect("success_fee_charged"))
+            .select(genuineJoinSelect("id, success_fee_charged"))
             .eq("merchant_id", m.id)
             .eq("status", "success")
             .gte("redeemed_at", since)
@@ -272,9 +273,40 @@ export default async function PilotCommandCentrePage({
       const count = (r: { count: number | null; error: unknown }) =>
         r.error ? null : r.count ?? 0;
 
-      const successFeesKes = sumSuccessFees(
-        feesRes.error ? null : ((feesRes.data ?? []) as unknown as SuccessFeeRow[])
-      );
+      // Second half of the fee read: the ledger entries those redemptions
+      // actually produced, linked by `reference_id`.
+      //
+      // Two queries rather than one embed because `merchant_transactions` has
+      // no foreign key on `reference_id`, so PostgREST exposes no relationship
+      // to join through — and adding one would be a migration, which this PR
+      // does not carry.
+      const feeRedemptions = feesRes.error
+        ? null
+        : ((feesRes.data ?? []) as unknown as GenuineFeeRedemption[]);
+
+      let feeLedger: FeeLedgerRow[] | null = null;
+      if (feeRedemptions !== null) {
+        if (feeRedemptions.length === 0) {
+          // No genuine successes, so no ledger read to make and nothing owed.
+          feeLedger = [];
+        } else {
+          const ledgerRes = await service
+            .from("merchant_transactions")
+            .select("reference_id, amount")
+            .eq("merchant_id", m.id)
+            .in("transaction_type", [...FEE_LEDGER_TYPES])
+            .in(
+              "reference_id",
+              feeRedemptions.map((r) => r.id)
+            )
+            .limit(FEE_ROW_CAP);
+          feeLedger = ledgerRes.error
+            ? null
+            : ((ledgerRes.data ?? []) as unknown as FeeLedgerRow[]);
+        }
+      }
+
+      const successFeesKes = sumLedgerSuccessFees(feeRedemptions, feeLedger);
 
       return {
         merchantId: m.id,

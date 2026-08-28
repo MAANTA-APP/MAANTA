@@ -4,9 +4,11 @@ import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
 import {
   genuineTagged,
-  sumSuccessFees,
+  sumLedgerSuccessFees,
   FEE_ROW_CAP,
-  type SuccessFeeRow,
+  FEE_LEDGER_TYPES,
+  type GenuineFeeRedemption,
+  type FeeLedgerRow,
 } from "@/lib/evidence-scope";
 import { externalCohortSize, NODE0_COHORT_MANIFEST } from "@/lib/pilot-cohort";
 import { NODE_0, NODES, ALL_NODES } from "@/lib/nodes";
@@ -115,30 +117,73 @@ describe("P2-1 — pilot fees carry the genuine (D188) parent scope", () => {
     expect(admits(q, redemption({ deals: { is_demo: true } }))).toBe(false);
   });
 
-  it("reads the STORED fee amount and never recomputes it", () => {
-    // Preserving stored value matters: a redemption charged under a different
-    // fee must keep the amount the money path actually debited, or the page
-    // silently restates history the day the fee changes.
-    expect(sumSuccessFees([{ success_fee_charged: 30 }, { success_fee_charged: 25 }])).toBe(55);
-    expect(sumSuccessFees([{ success_fee_charged: "30" }])).toBe(30);
-    expect(sumSuccessFees([{ success_fee_charged: null }])).toBe(0);
+  it("reads the STORED ledger amount and never recomputes it", () => {
+    // Preserving stored value matters: a fee posted under a different rate must
+    // keep the amount the money path actually wrote, or the page silently
+    // restates history the day KES 30 changes.
+    const reds: GenuineFeeRedemption[] = [
+      { id: "r1", success_fee_charged: 30 },
+      { id: "r2", success_fee_charged: 30 },
+    ];
+    const ledger: FeeLedgerRow[] = [
+      // A charge is written negative (a wallet debit)...
+      { reference_id: "r1", amount: -30 },
+      // ...and arrears positive. Both are billed fee.
+      { reference_id: "r2", amount: "25" },
+    ];
+    expect(sumLedgerSuccessFees(reds, ledger)).toBe(55);
+  });
+
+  it("counts arrears as billed, not as absent", () => {
+    // The frozen rule is charged OR recorded as arrears. Counting only
+    // `success_fee` would under-report exactly the merchants who ran out of
+    // balance — the population the pilot watches most closely.
+    expect(FEE_LEDGER_TYPES).toContain("success_fee");
+    expect(FEE_LEDGER_TYPES).toContain("success_fee_arrears");
+  });
+
+  it("reports UNKNOWN when a genuine success produced no ledger entry", () => {
+    // The defect this replaced: verify_redemption sets status = 'success'
+    // BEFORE the fee step and runs that step inside an EXCEPTION handler that
+    // does not re-raise. So a failed fee commits a successful redemption whose
+    // `success_fee_charged` is set and whose ledger row does not exist — the
+    // RPC's own agent task says "neither charged nor recorded as arrears".
+    // Summing the redemption column reported KES 30 of revenue that never
+    // existed.
+    const reds: GenuineFeeRedemption[] = [
+      { id: "r1", success_fee_charged: 30 },
+      { id: "r2", success_fee_charged: 30 },
+    ];
+    const ledger: FeeLedgerRow[] = [{ reference_id: "r1", amount: -30 }];
+    // Not 30 (a quietly low number presented as fact), and not 60 (revenue
+    // that does not exist). Unknown.
+    expect(sumLedgerSuccessFees(reds, ledger)).toBeNull();
   });
 
   it("keeps a failed read UNAVAILABLE, never zero", () => {
     // The failure-vs-zero doctrine, on the money column where it matters most:
     // "KES 0" reads as "this merchant earned nothing", which is a conclusion
-    // manufactured from an error.
-    expect(sumSuccessFees(null)).toBeNull();
-    expect(sumSuccessFees([])).toBe(0);
-    expect(sumSuccessFees(null)).not.toBe(sumSuccessFees([]));
+    // manufactured from an error. Either half of the read failing is enough.
+    expect(sumLedgerSuccessFees(null, [])).toBeNull();
+    expect(sumLedgerSuccessFees([], null)).toBeNull();
+    expect(sumLedgerSuccessFees([], [])).toBe(0);
+    expect(sumLedgerSuccessFees(null, null)).not.toBe(sumLedgerSuccessFees([], []));
   });
 
   it("reports a truncated read as unavailable rather than a low total (D149)", () => {
-    const capped: SuccessFeeRow[] = Array.from({ length: FEE_ROW_CAP }, () => ({
+    const reds: GenuineFeeRedemption[] = Array.from({ length: FEE_ROW_CAP }, (_, i) => ({
+      id: `r${i}`,
       success_fee_charged: 30,
     }));
-    expect(sumSuccessFees(capped)).toBeNull();
-    expect(sumSuccessFees(capped.slice(0, FEE_ROW_CAP - 1))).toBe(30 * (FEE_ROW_CAP - 1));
+    const ledger: FeeLedgerRow[] = reds.map((r) => ({ reference_id: r.id, amount: -30 }));
+    expect(sumLedgerSuccessFees(reds, ledger)).toBeNull();
+    const under = reds.slice(0, FEE_ROW_CAP - 1);
+    expect(
+      sumLedgerSuccessFees(
+        under,
+        under.map((r) => ({ reference_id: r.id, amount: -30 }))
+      )
+    ).toBe(30 * (FEE_ROW_CAP - 1));
   });
 
   it("builds the pilot fee read from genuine redemptions, not the raw ledger", () => {
@@ -146,14 +191,25 @@ describe("P2-1 — pilot fees carry the genuine (D188) parent scope", () => {
     // `toContain("success_fee_charged")` and a mutation left the string alive
     // in a type annotation while the defect was fully restored.
     const code = pilotSource();
-    expect(code).not.toMatch(/from\("merchant_transactions"\)/);
-    expect(code).not.toMatch(/transaction_type/);
+    // merchant_transactions IS read now — that is the point. What must never
+    // return is reading it by TYPE AND DATE alone, with no link to the
+    // redemptions that caused the rows, which is what made the original query
+    // unscoped: a fee against a demo merchant or deal landed in a column whose
+    // neighbours were all genuine-tagged.
+    if (/from\("merchant_transactions"\)/.test(code)) {
+      expect(code).toMatch(/\.in\(\s*"reference_id",/);
+      expect(code).not.toMatch(/\.eq\("transaction_type", "success_fee"\)/);
+      expect(code).not.toMatch(/\.gte\("created_at", since\)/);
+    }
     expect(code).toMatch(
-      /genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("success_fee_charged"\)\)/
+      /genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("id, success_fee_charged"\)\)/
     );
-    // ...and the sum goes through the shared helper, so the failure-vs-zero
-    // decision cannot be re-implemented here with `?? 0`.
-    expect(code).toMatch(/sumSuccessFees\(/);
+    // ...the billed amount comes from the LEDGER, linked by reference_id...
+    expect(code).toMatch(/\.in\("transaction_type", \[\.\.\.FEE_LEDGER_TYPES\]\)/);
+    expect(code).toMatch(/\.in\(\s*"reference_id",/);
+    // ...and the total goes through the shared helper, so the failure-vs-zero
+    // and missing-entry decisions cannot be re-implemented here with `?? 0`.
+    expect(code).toMatch(/sumLedgerSuccessFees\(/);
     expect(code).not.toMatch(/r\.amount \?\? 0/);
   });
 
@@ -161,7 +217,7 @@ describe("P2-1 — pilot fees carry the genuine (D188) parent scope", () => {
     // Fees are throughput: they are incurred when the counter verifies, so
     // `redeemed_at` — matching the Verified column, not the claim cohort.
     expect(pilotSource()).toMatch(
-      /select\(genuineJoinSelect\("success_fee_charged"\)\)[\s\S]{0,200}?\.gte\("redeemed_at", since\)/
+      /select\(genuineJoinSelect\("id, success_fee_charged"\)\)[\s\S]{0,200}?\.gte\("redeemed_at", since\)/
     );
   });
 });

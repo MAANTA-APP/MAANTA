@@ -88,7 +88,7 @@ export function atMerchantNode<T>(query: T, node: string): T {
 }
 
 /**
- * Bound on fee rows pulled in one genuine-tagged fee read.
+ * Bound on rows pulled in one fee read.
  *
  * PostgREST caps rows, and a SUM over a silently truncated page is the D149
  * failure in its worst form — a money figure that is low, plausible, and wrong.
@@ -97,34 +97,79 @@ export function atMerchantNode<T>(query: T, node: string): T {
  */
 export const FEE_ROW_CAP = 500;
 
-/** A genuine-tagged redemption carrying the fee the money path recorded on it. */
-export type SuccessFeeRow = { success_fee_charged: number | string | null };
+/**
+ * The ledger entry types that represent a billed success fee.
+ *
+ * BOTH count. `deduct_success_fee_or_record_arrears` debits the wallet and
+ * writes `success_fee` when the balance covers it, and writes
+ * `success_fee_arrears` when it does not — the frozen rule is that the fee is
+ * charged OR recorded as arrears, and arrears are owed money, not absent money.
+ * Counting only `success_fee` would under-report exactly the merchants who ran
+ * out of balance, which is the population the pilot is watching most closely.
+ */
+export const FEE_LEDGER_TYPES = ["success_fee", "success_fee_arrears"] as const;
+
+/** A genuine-tagged verified redemption, with the fee the claim recorded on it. */
+export type GenuineFeeRedemption = {
+  id: string;
+  success_fee_charged: number | string | null;
+};
+
+/** A ledger entry linked back to the redemption that caused it. */
+export type FeeLedgerRow = {
+  reference_id: string | null;
+  amount: number | string | null;
+};
 
 /**
- * Sum the fees on a set of genuine-tagged verified redemptions.
+ * Total fees ACTUALLY BILLED for a set of genuine-tagged verified redemptions.
  *
- * Three outcomes, and the two `null` ones matter as much as the number:
+ * ## Why this reads the ledger and not `redemptions.success_fee_charged`
  *
- * - `rows === null` (the read FAILED) -> `null`. Never 0. A failed fee read
- *   rendered as "KES 0" reads as "this merchant earned nothing", which is a
- *   conclusion manufactured from an error (D164 / D185).
- * - `rows.length >= cap` (truncated) -> `null`, for the D149 reason above.
- * - otherwise -> the sum of the STORED `success_fee_charged` amounts.
+ * `verify_redemption` sets `status = 'success'` **before** the fee step, and
+ * runs the fee step inside `EXCEPTION WHEN OTHERS` that does not re-raise. So
+ * when the fee step throws, the transaction still commits: the redemption is
+ * `success`, its `success_fee_charged` keeps the value the claim wrote, and
+ * **no ledger row exists at all**. That is the documented third money state —
+ * the RPC's own agent task says "Success fee KES 30 was neither charged nor
+ * recorded as arrears".
  *
- * The amount is read, never recomputed: `success_fee_charged` is what the money
- * path actually debited for that verification. Multiplying a count by the
- * current KES 30 would silently restate history the day the fee changes, and
- * would disagree with the ledger for any redemption charged under a different
- * one.
+ * Summing `success_fee_charged` therefore reports revenue that never entered
+ * the ledger. On a page whose purpose is to say what the pilot has actually
+ * earned, that is the worst possible direction to be wrong in.
  *
- * Extracted so the failure-vs-zero decision can be tested by forcing each input
- * directly, rather than by scanning a page's source for a shape.
+ * ## The three outcomes, and why two of them are null
+ *
+ * - either read FAILED -> `null`. Never 0 (D164 / D185).
+ * - either read hit the cap -> `null`, because a truncated SUM is D149.
+ * - **a genuine success with no linked ledger entry** -> `null`. This is the
+ *   `unknown` state above: money is owed and was never recorded, so the true
+ *   billed total is not established. Returning the ledger sum alone would be a
+ *   quietly low number presented as fact; returning `success_fee_charged`
+ *   would be revenue that does not exist. Unknown is the honest answer, and it
+ *   is the same answer this codebase gives every other unreadable figure.
+ * - otherwise -> the sum of the linked ledger amounts, read as stored.
+ *
+ * `Math.abs` because a charge is written negative (a wallet debit) and arrears
+ * positive; both are the same KES 30 of billed fee.
  */
-export function sumSuccessFees(
-  rows: readonly SuccessFeeRow[] | null,
+export function sumLedgerSuccessFees(
+  redemptions: readonly GenuineFeeRedemption[] | null,
+  ledger: readonly FeeLedgerRow[] | null,
   cap: number = FEE_ROW_CAP
 ): number | null {
-  if (rows === null) return null;
-  if (rows.length >= cap) return null;
-  return rows.reduce((sum, r) => sum + Math.abs(Number(r.success_fee_charged ?? 0)), 0);
+  if (redemptions === null || ledger === null) return null;
+  if (redemptions.length >= cap || ledger.length >= cap) return null;
+
+  const linked = new Set(
+    ledger.map((r) => r.reference_id).filter((id): id is string => Boolean(id))
+  );
+  // Every genuine success must have produced a ledger entry. One that did not
+  // is a fee in the `unknown` state, and it makes the TOTAL unknown — not
+  // smaller.
+  for (const r of redemptions) {
+    if (!linked.has(r.id)) return null;
+  }
+
+  return ledger.reduce((sum, r) => sum + Math.abs(Number(r.amount ?? 0)), 0);
 }

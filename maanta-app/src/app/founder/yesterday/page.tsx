@@ -9,9 +9,11 @@ import {
   GENUINE_JOIN_SELECT,
   genuineJoinSelect,
   genuineTagged,
-  sumSuccessFees,
+  sumLedgerSuccessFees,
   FEE_ROW_CAP,
-  type SuccessFeeRow,
+  FEE_LEDGER_TYPES,
+  type GenuineFeeRedemption,
+  type FeeLedgerRow,
 } from "@/lib/evidence-scope";
 import { withPublicMerchant } from "@/lib/data";
 import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
@@ -149,7 +151,7 @@ export default async function YesterdayBriefPage() {
     genuineTagged(
       service
         .from("redemptions")
-        .select(genuineJoinSelect("success_fee_charged"))
+        .select(genuineJoinSelect("id, success_fee_charged"))
         .eq("status", "success")
         .gte("redeemed_at", startIso)
         .lt("redeemed_at", endIso)
@@ -199,12 +201,40 @@ export default async function YesterdayBriefPage() {
   const merchantsLive = n(merchantsLiveRes);
   const visibleDeals = demoMode.ok ? n(visibleDealsRes) : null;
 
-  // Shared with /admin/pilot: one definition of "a failed or truncated fee read
-  // is unavailable, never zero", tested by forcing each input directly rather
-  // than by scanning this file for a shape.
-  const fees = sumSuccessFees(
-    feesRes.error ? null : ((feesRes.data ?? []) as unknown as SuccessFeeRow[])
-  );
+  // The fee total is read from the LEDGER, not from
+  // `redemptions.success_fee_charged`.
+  //
+  // verify_redemption sets status = 'success' before the fee step and runs
+  // that step inside an EXCEPTION handler that does not re-raise, so a failed
+  // fee leaves a successful redemption carrying a fee amount that never
+  // reached the ledger. Summing the redemption column reports revenue that
+  // does not exist. Shared with /admin/pilot so the two pages cannot answer
+  // the same money question differently — see `sumLedgerSuccessFees`.
+  const feeRedemptions = feesRes.error
+    ? null
+    : ((feesRes.data ?? []) as unknown as GenuineFeeRedemption[]);
+
+  let feeLedger: FeeLedgerRow[] | null = null;
+  if (feeRedemptions !== null) {
+    if (feeRedemptions.length === 0) {
+      feeLedger = [];
+    } else {
+      const ledgerRes = await service
+        .from("merchant_transactions")
+        .select("reference_id, amount")
+        .in("transaction_type", [...FEE_LEDGER_TYPES])
+        .in(
+          "reference_id",
+          feeRedemptions.map((r) => r.id)
+        )
+        .limit(FEE_ROW_CAP);
+      feeLedger = ledgerRes.error
+        ? null
+        : ((ledgerRes.data ?? []) as unknown as FeeLedgerRow[]);
+    }
+  }
+
+  const fees = sumLedgerSuccessFees(feeRedemptions, feeLedger);
 
   const demoClaims =
     allClaims === null || claims === null ? null : Math.max(0, allClaims - claims);
