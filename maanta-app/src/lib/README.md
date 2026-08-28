@@ -38,8 +38,19 @@ const { data } = await withPublicMerchantRows(
 ).maybeSingle();
 ```
 
-This matches the RLS policies, the `*_public_browse` views, and `claim_deal`, so
-a shopper can never see a merchant/deal they can't claim. `getLiveDeals`,
+This matches the RLS policies, the `*_public_browse` views, and `claim_deal`'s
+**merchant** gate, so a shopper can never see a deal from a merchant who is not
+active, not visible, or shadow-banned.
+
+**It does not mean everything visible is claimable, and must not be widened to.**
+`claim_deal` refuses on per-deal state these helpers deliberately do not filter —
+`deal_claim_limit_reached` above all. A fully claimed deal is legitimate
+discovery and history content: `getLiveDeals` returns it on purpose and
+`/deals/[id]` renders it as "Fully claimed" with claiming disabled. A surface
+that advertises an **available claim opportunity** filters it out itself, as
+`endingSoonDeals` does. See "Discoverable is not claimable" in `CLAUDE.md`.
+
+`getLiveDeals`,
 `getDeal`, search, the public shop page and the BBS Mall counts all use these
 helpers — copy that pattern, don't reinvent it. A regression test in
 `__tests__/visibility.test.ts` pins the exact clauses.
