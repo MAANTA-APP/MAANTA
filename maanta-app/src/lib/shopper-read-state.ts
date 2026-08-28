@@ -74,12 +74,24 @@ export function listReadRows<T>(result: { data: T[] | null; error: unknown }): T
  *
  * Kept here so every shopper surface says the same thing, in the product's
  * closed vocabulary, and so the wording cannot drift into implying emptiness.
- * No apology, no jargon, one next step — and explicitly the fact a shopper
- * needs: *your claims are safe, we could not load them*.
+ *
+ * It says exactly what the caller knows and nothing more. `listReadState`
+ * establishes ONE fact: the query returned an error. It does not establish
+ * WHY. The first version claimed two things it could not see — that the cause
+ * was "a loading problem", and that "nothing of yours has been lost". A
+ * PostgREST schema error, an RLS or permission failure, or a service outage is
+ * none of them a connectivity problem, and none of them evidence about the
+ * state of the shopper's rows.
+ *
+ * So the copy separates what is known from what is not. "We could not load
+ * this" is observed. "This is not an empty list" is observed — the read
+ * failed, so emptiness was never established, which is the whole point of the
+ * state. Everything past that would be a guarantee made from an error, which
+ * is the same failure this state exists to prevent, pointed the other way.
  */
 export const SHOPPER_LIST_READ_ERROR = {
   title: "Couldn't load this right now",
-  sub: "This is a loading problem, not an empty list — nothing of yours has been lost. Check your connection and try again.",
+  sub: "We couldn't load this — it is not an empty list. Try again in a moment, and if it keeps failing let us know.",
 } as const;
 
 /**

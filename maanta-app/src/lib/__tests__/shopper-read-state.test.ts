@@ -47,12 +47,33 @@ describe("list reads keep failure and emptiness apart", () => {
     expect(listReadRows({ data: null, error: null })).toEqual([]);
   });
 
-  it("says loading problem, never empty, in the failure copy", () => {
+  it("says the read failed and never that the list is empty", () => {
     const text = `${SHOPPER_LIST_READ_ERROR.title} ${SHOPPER_LIST_READ_ERROR.sub}`;
     expect(text).toMatch(/not an empty list/i);
-    expect(text).toMatch(/nothing of yours has been lost/i);
     // The words that would make the failure read as an assertion of emptiness.
     expect(text).not.toMatch(/\bno (claimed|deals|tickets)\b/i);
+  });
+
+  it("claims nothing about the cause or about the shopper's data", () => {
+    // `listReadState` establishes ONE fact: the query returned an error. It
+    // does not establish why. The first version asserted two things it could
+    // not see — that the cause was "a loading problem" and that "nothing of
+    // yours has been lost". A schema error, an RLS failure or a service outage
+    // is none of them connectivity, and none of them evidence about the state
+    // of the shopper's rows. A guarantee made from an error is the same defect
+    // this state exists to prevent, pointed the other way.
+    const text = `${SHOPPER_LIST_READ_ERROR.title} ${SHOPPER_LIST_READ_ERROR.sub}`;
+    expect(text, "must not diagnose a cause it cannot see").not.toMatch(
+      /loading problem|connection|connectivity|offline|network/i
+    );
+    expect(text, "must not guarantee the state of unread data").not.toMatch(
+      /nothing.*lost|nothing.*gone|safe|intact|preserved/i
+    );
+  });
+
+  it("still gives the shopper a next step", () => {
+    // Dropping the unverifiable reassurance must not leave a dead end.
+    expect(SHOPPER_LIST_READ_ERROR.sub).toMatch(/try again/i);
   });
 });
 
