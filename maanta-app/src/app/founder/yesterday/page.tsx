@@ -330,18 +330,21 @@ export default async function YesterdayBriefPage() {
             noun={(c) => `${c} flagged redemption${c === 1 ? "" : "s"}`}
             reason="Guardian has redemptions waiting for a human decision."
             href="/admin/redemptions"
+            canOpenAdminConsole={canOpenAdminConsole}
           />
           <Alert
             count={n(pendingRes)}
             noun={(c) => `${c} merchant${c === 1 ? "" : "s"} awaiting approval`}
             reason="Merchant onboarding cannot complete until an admin reviews them."
             href="/admin/approvals"
+            canOpenAdminConsole={canOpenAdminConsole}
           />
           <Alert
             count={n(openTasksRes)}
             noun={(c) => `${c} open support task${c === 1 ? "" : "s"}`}
             reason="Operational tasks are still marked incomplete."
             href="/admin/support"
+            canOpenAdminConsole={canOpenAdminConsole}
           />
           {zeroSupply === null ? (
             <li className="rounded-card bg-white px-4 py-3 text-xs text-muted shadow-card">
@@ -433,17 +436,36 @@ function Row({ label, value }: { label: string; value: string }) {
  * renders the alert, and an unreadable count renders an explicit unavailable
  * row that says the queue could not be read.
  */
+/**
+ * One unresolved-queue alert.
+ *
+ * `canOpenAdminConsole` is required, not optional, and that is deliberate.
+ * `requireFounderPage` admits `admin` AND `cofounder`, but every `href` here
+ * points into `/admin/*`, which `requireAdminPage` admits admins only — so for
+ * a cofounder these links silently bounce to `/` and off the brief they were
+ * reading. The pilot link above was gated last round and these three were not;
+ * making the prop required means a fourth alert cannot be added without
+ * deciding the question.
+ *
+ * A cofounder still sees the alert, with the same count and reason — the queue
+ * is real and they need to know it exists. Only the navigation is withheld,
+ * with a line naming what it would take to act on it. Hiding the alert instead
+ * would be the failure this whole page exists to prevent: an operator reading
+ * silence as an all-clear.
+ */
 function Alert({
   count,
   noun,
   reason,
   href,
+  canOpenAdminConsole,
 }: {
   count: number | null;
   /** Singular noun for the queue, e.g. "redemption flagged". */
   noun: (n: number) => string;
   reason: string;
   href: string;
+  canOpenAdminConsole: boolean;
 }) {
   const state = queueAlertState(count);
   // `count === null` is redundant with the state check and present so
@@ -465,10 +487,22 @@ function Alert({
   if (state === "silent") return null;
   return (
     <li className="rounded-card bg-white px-4 py-3 shadow-card">
-      <Link href={href} className="text-sm font-semibold text-ink underline-offset-2 hover:underline">
-        {noun(count)}
-      </Link>
+      {canOpenAdminConsole ? (
+        <Link
+          href={href}
+          className="text-sm font-semibold text-ink underline-offset-2 hover:underline"
+        >
+          {noun(count)}
+        </Link>
+      ) : (
+        <p className="text-sm font-semibold text-ink">{noun(count)}</p>
+      )}
       <p className="mt-0.5 text-xs text-muted">{reason}</p>
+      {canOpenAdminConsole ? null : (
+        <p className="mt-0.5 text-xs text-muted">
+          Resolving this needs the admin console, which this role cannot open.
+        </p>
+      )}
     </li>
   );
 }

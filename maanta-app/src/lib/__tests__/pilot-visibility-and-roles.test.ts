@@ -155,3 +155,65 @@ describe("throughput columns are windowed by their own event timestamps", () => 
     expect(src).toMatch(/THROUGHPUT count/);
   });
 });
+
+describe("every admin-only link on the Yesterday brief is gated, not just the first", () => {
+  const yesterday = () =>
+    stripComments(
+      readFileSync(
+        path.join(process.cwd(), "src/app/founder/yesterday/page.tsx"),
+        "utf8"
+      )
+    );
+
+  /**
+   * Round 3, and the same defect a third time: `requireFounderPage` admits
+   * `admin` AND `cofounder`, every `/admin/*` route admits admins only, so any
+   * ungated link on this page bounces a cofounder to `/` and off the brief.
+   *
+   * Gating the pilot link fixed one instance and left three — the
+   * `/admin/redemptions`, `/admin/approvals` and `/admin/support` hrefs in the
+   * unresolved-queue alerts. Guarding the specific link that was reported would
+   * have guarded the instance and not the rule, so this asserts the property:
+   * no `/admin/*` href may be rendered by this page outside a
+   * `canOpenAdminConsole` decision.
+   */
+  it("passes the admin-console capability into every queue alert", () => {
+    const src = yesterday();
+    const alerts = src.match(/<Alert\b[\s\S]*?\/>/g) ?? [];
+    expect(alerts.length).toBeGreaterThanOrEqual(3);
+    for (const alert of alerts) {
+      expect(alert).toContain("canOpenAdminConsole={canOpenAdminConsole}");
+    }
+  });
+
+  it("makes the capability a required prop, so a fourth alert cannot skip it", () => {
+    // Optional would let the next alert be added ungated and still compile —
+    // which is exactly how three of them ended up ungated.
+    const src = yesterday();
+    expect(src).toMatch(/canOpenAdminConsole: boolean;/);
+    expect(src).not.toMatch(/canOpenAdminConsole\?: boolean/);
+  });
+
+  it("renders the alert as plain text rather than hiding it from a cofounder", () => {
+    // The queue is real and a cofounder needs to know it exists. Withholding
+    // the navigation is correct; withholding the alert would be an operator
+    // reading silence as an all-clear — the failure this page exists to stop.
+    const src = yesterday();
+    expect(src).toMatch(
+      /canOpenAdminConsole \?\s*\([\s\S]{0,400}?<Link[\s\S]{0,400}?\)\s*:\s*\(\s*<p[\s\S]{0,120}?\{noun\(count\)\}/
+    );
+    expect(src).toMatch(/which this role cannot open/);
+  });
+
+  it("leaves no /admin href on the page outside a capability check", () => {
+    // The property, not the three instances: every admin route mentioned here
+    // must sit inside a component that takes the gate.
+    const src = yesterday();
+    const adminHrefs = src.match(/href="\/admin[^"]*"/g) ?? [];
+    for (const href of adminHrefs) {
+      const idx = src.indexOf(href);
+      const window = src.slice(Math.max(0, idx - 600), idx + 600);
+      expect(window, `ungated admin link: ${href}`).toContain("canOpenAdminConsole");
+    }
+  });
+});
