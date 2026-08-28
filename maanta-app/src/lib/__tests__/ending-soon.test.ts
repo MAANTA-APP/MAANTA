@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   endingSoonDeals,
+  isFullyClaimed,
   NEAR_EXPIRY_MS,
   ENDING_SOON_LIMIT,
   ENDING_SOON_SUBTITLE,
@@ -9,7 +10,15 @@ import { isNearExpiry } from "@/lib/ui";
 
 const NOW = new Date("2026-08-27T12:00:00.000Z");
 const at = (msFromNow: number) => new Date(NOW.getTime() + msFromNow).toISOString();
-const deal = (id: string, msFromNow: number) => ({ id, expires_at: at(msFromNow) });
+/** Uncapped by default, so existing expiry cases keep testing only expiry. */
+const deal = (
+  id: string,
+  msFromNow: number,
+  cap: { max_claims: number | null; claims_count: number } = {
+    max_claims: null,
+    claims_count: 0,
+  }
+) => ({ id, expires_at: at(msFromNow), ...cap });
 
 describe("Ending soon selects on real expiry and nothing else", () => {
   it("includes only deals inside the near-expiry threshold", () => {
@@ -67,8 +76,8 @@ describe("Ending soon selects on real expiry and nothing else", () => {
     expect(
       endingSoonDeals(
         [
-          { id: "null-expiry", expires_at: null },
-          { id: "unparseable", expires_at: "not a date" },
+          { id: "null-expiry", expires_at: null, max_claims: null, claims_count: 0 },
+          { id: "unparseable", expires_at: "not a date", max_claims: null, claims_count: 0 },
         ],
         NOW
       )
@@ -87,8 +96,8 @@ describe("one definition of urgency, not two", () => {
     const outside = new Date(Date.now() + 90 * 60_000).toISOString();
     expect(isNearExpiry(inside)).toBe(true);
     expect(isNearExpiry(outside)).toBe(false);
-    expect(endingSoonDeals([{ id: "x", expires_at: inside }]).length).toBe(1);
-    expect(endingSoonDeals([{ id: "x", expires_at: outside }]).length).toBe(0);
+    expect(endingSoonDeals([{ id: "x", expires_at: inside, max_claims: null, claims_count: 0 }]).length).toBe(1);
+    expect(endingSoonDeals([{ id: "x", expires_at: outside, max_claims: null, claims_count: 0 }]).length).toBe(0);
   });
 
   it("uses the same 60-minute threshold the frozen rust state uses", () => {
@@ -105,5 +114,96 @@ describe("no fabricated urgency in the copy", () => {
   it("makes no claim about other shoppers", () => {
     // The product has no popularity signal, so any such claim would be invented.
     expect(ENDING_SOON_SUBTITLE).not.toMatch(/popular|trending|people|viewing|others|\bnearly gone\b/i);
+  });
+});
+
+describe("Ending soon means the claim window is open, not merely expiring", () => {
+  /**
+   * `claim_deal`, read from production, refuses a capped deal outright:
+   *
+   *   IF v_deal.max_claims IS NOT NULL
+   *      AND v_deal.claims_count >= v_deal.max_claims THEN
+   *     RAISE EXCEPTION 'deal_claim_limit_reached';
+   *
+   * The section subtitle promises "claim windows closing within the hour",
+   * which is a stronger claim than "expires soon". A deal at its cap has no
+   * claim window left to close, so advertising it sends a shopper to a claim
+   * the database will refuse — and the deal page already renders that row as
+   * "Fully claimed" with claiming disabled.
+   *
+   * `getLiveDeals` deliberately still returns capped deals (browsing one is
+   * legitimate), so the exclusion belongs here, in the surface making the
+   * stronger claim, not in the global live-deal contract.
+   */
+  const soon = 10 * 60_000;
+
+  it("includes a deal under its cap", () => {
+    const picked = endingSoonDeals([deal("has-room", soon, { max_claims: 10, claims_count: 9 })], NOW);
+    expect(picked.map((d) => d.id)).toEqual(["has-room"]);
+  });
+
+  it("excludes a deal exactly at its cap", () => {
+    // The boundary the RPC uses is `>=`, so equality is already refused.
+    expect(endingSoonDeals([deal("at-cap", soon, { max_claims: 10, claims_count: 10 })], NOW)).toEqual([]);
+  });
+
+  it("excludes a deal over its cap", () => {
+    // Defensive: a concurrent claim can overshoot a stale read.
+    expect(endingSoonDeals([deal("over-cap", soon, { max_claims: 10, claims_count: 11 })], NOW)).toEqual([]);
+  });
+
+  it("includes a deal with no cap at all", () => {
+    // NULL max_claims is unlimited, never "zero allowed".
+    const picked = endingSoonDeals([deal("uncapped", soon, { max_claims: null, claims_count: 999 })], NOW);
+    expect(picked.map((d) => d.id)).toEqual(["uncapped"]);
+  });
+
+  it("still excludes an under-cap deal outside the threshold", () => {
+    // Room to claim is not urgency. The 60-minute rule is unchanged.
+    expect(
+      endingSoonDeals([deal("far-off", 3 * 3600_000, { max_claims: 10, claims_count: 1 })], NOW)
+    ).toEqual([]);
+  });
+
+  it("still excludes an expired deal, capped or not", () => {
+    expect(
+      endingSoonDeals(
+        [
+          deal("gone-uncapped", -60_000, { max_claims: null, claims_count: 0 }),
+          deal("gone-capped", -60_000, { max_claims: 10, claims_count: 10 }),
+        ],
+        NOW
+      )
+    ).toEqual([]);
+  });
+
+  it("keeps soonest-first ordering once capped deals are dropped", () => {
+    // The cap filter must not disturb the locked ordering of what remains.
+    const picked = endingSoonDeals(
+      [
+        deal("third", 30 * 60_000, { max_claims: 5, claims_count: 1 }),
+        deal("capped", 1 * 60_000, { max_claims: 5, claims_count: 5 }),
+        deal("first", 5 * 60_000, { max_claims: null, claims_count: 0 }),
+        deal("second", 20 * 60_000, { max_claims: 5, claims_count: 4 }),
+      ],
+      NOW
+    );
+    expect(picked.map((d) => d.id)).toEqual(["first", "second", "third"]);
+  });
+});
+
+describe("the cap predicate matches claim_deal exactly", () => {
+  it("treats a null cap as unlimited", () => {
+    expect(isFullyClaimed({ max_claims: null, claims_count: 10_000 })).toBe(false);
+  });
+
+  it("is >= and not >, so the cap itself is full", () => {
+    expect(isFullyClaimed({ max_claims: 3, claims_count: 2 })).toBe(false);
+    expect(isFullyClaimed({ max_claims: 3, claims_count: 3 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 3, claims_count: 4 })).toBe(true);
+  });
+
+  it("treats a zero cap as full rather than unlimited", () => {
+    expect(isFullyClaimed({ max_claims: 0, claims_count: 0 })).toBe(true);
   });
 });

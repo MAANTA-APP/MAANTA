@@ -388,6 +388,40 @@ Fixed one step wider than the line reported, deliberately: the arrival check
 sits above the status check, because hiding it only for `pending` rows would
 leave the identical false claim one status later.
 
+**The ambiguity, stated once so it is not re-derived.** The persisted shape
+
+```
+arrived_at IS NOT NULL AND fast_visit_qualified_at IS NULL
+```
+
+has two causes and the schema cannot separate them:
+
+1. a **late arrival** while Fast Visit was enabled;
+2. an **arrival while Fast Visit was disabled**, so no window was ever offered.
+
+Therefore `/my-deals` must not claim *"Reward window closed"* from that shape
+alone.
+
+**The ordering `fastVisitChipState` actually implements**, top to bottom:
+
+| # | Condition | Result |
+|---|---|---|
+| 1 | persisted qualification (`fast_visit_qualified_at`) | **eligible** — survives the gate (D198) and completion |
+| 2 | feature disabled | **hidden** |
+| 3 | arrived but unqualified | **hidden** — historical gate state is not persisted |
+| 4 | completed / non-pending with no arrival | **never open** (`missed`) |
+| 5 | pending, no arrival, claim time known | the only state that may derive open/closed from the current window |
+
+**No historical feature-gate state is invented anywhere in this chain**, and
+none may be. Founder ruling 2026-08-28: the ambiguous fix is **not** to be
+broadened further right now. The `window-open` branch reads the flag as it is
+*today*, so a claim whose window elapsed while the gate was off and which was
+never arrived at still reports `missed` — a real limitation, deliberately left.
+The current schema cannot reconstruct whether Fast Visit was offered at claim
+time; if that distinction is ever needed it requires **explicit persisted
+state**, decided on its own terms, and must never be inferred from today's
+feature flag.
+
 | Mutant | Result |
 |---|---|
 | restore `"missed"` for an unverdicted arrival | ❌ 2 tests fail |
@@ -399,20 +433,57 @@ leave the identical false claim one status later.
 |---|---|
 | `npm run lint` | ✅ `No ESLint warnings or errors` |
 | `npm run typecheck` | ✅ exit 0 |
-| `npm test` | ✅ **1594 passed, 162 files** |
+| `npm test` | ✅ **1604 passed, 162 files** |
 | `npm run build` + 3 chained gates | ✅ all clean |
 | `ci` / `db-tests` on the exact head | ✅ both green |
 | SQL suites locally | **Not executed — not passing, not failing.** No SQL in scope. |
 
-### 16.4 Open, not fixed here
+### 16.4 "Ending soon" now means the claim window is open
 
-One finding is recorded and deliberately left: `endingSoonDeals` selects on
-expiry alone, so a deal that reaches `claims_count >= max_claims` shortly
-before expiry is still promoted under *"Claim windows closing within the
-hour"* even though `claim_deal` would raise `deal_claim_limit_reached`. The
-deal detail page already renders that state as "Fully claimed" and disables
-claiming, so this is the same class again — a section claiming more than its
-selection establishes. Not fixed here: "Ending Soon behavior" is inside the
-founder's do-not-touch list for this PR, and excluding versus labelling a
-fully-claimed card is a product decision about a new section rather than a
-correction. Founder's call.
+Raised by Codex, escalated rather than patched because it needed a product
+ruling, and **ruled on 2026-08-28**: Ending soon means a deal whose claim
+window is *actually still open* and whose expiry is inside the existing
+60-minute threshold. A deal with `max_claims != null AND claims_count >=
+max_claims` must not appear.
+
+The availability contract was read from the deployed `claim_deal` rather than
+inferred. In order, it refuses: `deal_not_found`, `deal_not_active`,
+`deal_paused`, `deal_expired`, `merchant_not_available`, then
+
+```sql
+IF v_deal.max_claims IS NOT NULL
+   AND v_deal.claims_count >= v_deal.max_claims THEN
+  RAISE EXCEPTION 'deal_claim_limit_reached';
+```
+
+So NULL is unlimited and the comparison is `>=`, not `>`. `isFullyClaimed`
+mirrors exactly that.
+
+**`getLiveDeals` was deliberately not changed.** Its bucket query filters
+`is_active`, `is_paused` and `expires_at`, plus the merchant conditions, and
+leaves the cap to consumers — browsing a fully-claimed deal is legitimate, and
+the detail page already renders it as "Fully claimed" with claiming disabled.
+The defect was the *stronger claim* Ending soon makes in its subtitle, so the
+exclusion lives in that section and the global live-deal contract is untouched.
+
+Preserved: the 60-minute threshold, the additive section, locked rail
+ordering, shopper category/type filtering, no fabricated popularity, no feed
+redesign.
+
+| Case | Result |
+|---|---|
+| under cap, < 60m | included |
+| exactly at cap, < 60m | excluded |
+| over cap, < 60m | excluded |
+| unlimited (NULL) cap, < 60m | included |
+| under cap, outside threshold | excluded |
+| expired, capped or not | excluded |
+
+| Mutant | Result |
+|---|---|
+| cap predicate removed entirely | ❌ 3 tests fail |
+| cap uses `>` instead of `>=` | ❌ 4 tests fail |
+| NULL cap treated as fully claimed | ❌ 4 tests fail |
+
+`ExpiringDeal` now requires `max_claims` and `claims_count`, so a future caller
+that omits them fails to compile rather than silently skipping the check.

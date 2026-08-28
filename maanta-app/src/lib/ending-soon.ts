@@ -41,14 +41,45 @@ export const NEAR_EXPIRY_MS = 60 * 60 * 1000;
 /** The most cards the section will show. Beyond this it stops being a glance. */
 export const ENDING_SOON_LIMIT = 8;
 
-type ExpiringDeal = { id: string; expires_at: string | null };
+type ExpiringDeal = {
+  id: string;
+  expires_at: string | null;
+  /** NULL means unlimited, exactly as `claim_deal` reads it. */
+  max_claims: number | null;
+  claims_count: number;
+};
 
 /**
- * Deals whose claim window genuinely ends within the near-expiry threshold,
- * soonest first.
+ * The claim cap, as the claim path actually enforces it.
  *
- * Excludes anything already expired — a lapsed deal is not "ending soon", it is
- * over, and showing it would send a shopper to a claim they cannot make.
+ * `claim_deal` raises `deal_claim_limit_reached` on
+ * `max_claims IS NOT NULL AND claims_count >= max_claims`, so NULL is
+ * unlimited and the comparison is `>=`, not `>`. Read from the deployed
+ * function rather than inferred: an off-by-one here would either advertise a
+ * claim the database refuses, or hide a deal a shopper could still claim.
+ */
+export function isFullyClaimed(deal: {
+  max_claims: number | null;
+  claims_count: number;
+}): boolean {
+  return deal.max_claims !== null && deal.claims_count >= deal.max_claims;
+}
+
+/**
+ * Deals whose claim window is genuinely still OPEN and ends within the
+ * near-expiry threshold, soonest first.
+ *
+ * Two ways a claim window can already be shut, and this section must exclude
+ * both, because its subtitle promises "claim windows closing within the hour"
+ * — a stronger claim than "this deal exists and expires soon":
+ *
+ * - **Expired.** A lapsed deal is not "ending soon", it is over.
+ * - **Fully claimed.** At the cap, `claim_deal` raises
+ *   `deal_claim_limit_reached`, so the window is shut however the clock reads.
+ *   `getLiveDeals` deliberately still returns these — the deal detail page
+ *   renders "Fully claimed" and that is a legitimate browse state — so the
+ *   exclusion belongs HERE, in the surface making the stronger claim, and not
+ *   in the global live-deal contract.
  *
  * @param now injectable so the boundary is testable without freezing the clock.
  */
@@ -59,6 +90,7 @@ export function endingSoonDeals<T extends ExpiringDeal>(
   const nowMs = now.getTime();
   const withMs = deals
     .map((d) => ({ deal: d, ms: msLeft(d.expires_at, nowMs) }))
+    .filter((x) => !isFullyClaimed(x.deal))
     .filter((x) => x.ms !== null && x.ms > 0 && x.ms <= NEAR_EXPIRY_MS) as {
     deal: T;
     ms: number;
