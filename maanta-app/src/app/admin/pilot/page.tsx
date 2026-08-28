@@ -20,6 +20,7 @@ import { activeDealLimit, normaliseTier } from "@/lib/plan-limits";
 import {
   classifyMerchant,
   cohortPosition,
+  externalCohort,
   externalCohortSize,
   evidenceClassLabel,
   type EvidenceClass,
@@ -347,6 +348,31 @@ export default async function PilotCommandCentrePage({
     })
   );
 
+  // The ladder itself: CUMULATIVE genuine verified redemptions by enrolled
+  // external merchants, since the pilot began.
+  //
+  // Not the enrolment count, and not the windowed Verified card. CLAUDE.md is
+  // explicit — "Ladder: 1 -> 5 -> 10 genuine verified redemptions", and
+  // "External field validation: 0 genuine merchant successes ... starts at
+  // zero until a real merchant serves a real shopper". Enrolling Merchant 01
+  // must NOT move this number; only a real success may. And the rungs are
+  // cumulative, so a 7-day window would silently walk the ladder backwards
+  // once a success ages out.
+  const externalIds = externalCohort().map((e) => e.merchantId);
+  const ladderRes =
+    externalIds.length === 0
+      ? null
+      : await genuineTagged(
+          service
+            .from("redemptions")
+            .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+            .in("merchant_id", externalIds)
+            .eq("status", "success")
+        );
+  // Nobody enrolled is a true zero, not an unread one.
+  const ladderSuccesses =
+    ladderRes === null ? 0 : ladderRes.error ? null : ladderRes.count ?? 0;
+
   const totals = cohortTotals(rows);
   // Split before rendering: an undifferentiated sum beside the ladder counters
   // lets an internal row increment the ladder (D174).
@@ -397,11 +423,16 @@ export default async function PilotCommandCentrePage({
 
       {/* The evidence split, stated before any activity number, because it is
           what tells the reader how to read the rest of the page. */}
-      <section className="mt-6 grid gap-3 sm:grid-cols-3">
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          label="External field validation"
+          label="Ladder — genuine verified redemptions"
+          value={fmt(ladderSuccesses)}
+          hint="Cumulative successes by enrolled external merchants, all time. THIS is the 1 → 5 → 10 ladder. Enrolling a merchant does not move it; only a real merchant serving a real shopper does."
+        />
+        <KpiCard
+          label="External merchants enrolled"
           value={externalEnrolled.toLocaleString()}
-          hint="Merchants explicitly enrolled in the Node 0 cohort manifest. This is the number the 1 → 5 → 10 ladder counts."
+          hint="Cohort size: merchants explicitly enrolled in the Node 0 manifest. A prerequisite for the ladder, never a rung on it."
         />
         <KpiCard
           label="Internal / E2E merchants"
@@ -418,7 +449,8 @@ export default async function PilotCommandCentrePage({
       {externalEnrolled === 0 ? (
         <p className="mt-3 rounded-card bg-white px-4 py-3 text-sm text-ink shadow-card">
           <strong className="font-semibold">
-            External field validation is 0.
+            External field validation is 0 — no enrolled merchant, and no
+            genuine verified redemption.
           </strong>{" "}
           No merchant has been enrolled in the Node 0 cohort manifest yet. Any
           activity below is internal or unclassified, and none of it tests the

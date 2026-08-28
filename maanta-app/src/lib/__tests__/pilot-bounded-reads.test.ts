@@ -233,3 +233,74 @@ describe("the Yesterday brief keeps the ladder's counters apart too", () => {
     );
   });
 });
+
+describe("the ladder counts genuine verified redemptions, not enrolments", () => {
+  /**
+   * Codex round 10 (P1), against MAANTA's own frozen doctrine.
+   *
+   * CLAUDE.md is explicit: "Ladder: 1 → 5 → 10 genuine verified redemptions",
+   * and "External field validation: 0 genuine merchant successes ... starts at
+   * zero until a real merchant serves a real shopper". The card rendered
+   * `externalCohortSize()` and its hint claimed that was what the ladder
+   * counts — so the day Merchant 01 was enrolled, before serving anyone, the
+   * experiment would have reported its first rung.
+   *
+   * Two distinct metrics now: cohort SIZE (a prerequisite) and ladder
+   * PROGRESS (cumulative successes).
+   */
+  const pilot = () =>
+    stripComments(readFileSync(path.join(process.cwd(), PAGES[0]), "utf8"));
+
+  it("derives the ladder from external successful redemptions", () => {
+    const src = pilot();
+    expect(src).toContain("ladderSuccesses");
+    // Scoped to enrolled merchants, filtered to successes.
+    expect(src).toMatch(/\.in\("merchant_id", externalIds\)[\s\S]{0,120}?\.eq\("status", "success"\)/);
+    // And genuine-tagged, so a demo parent cannot walk the ladder.
+    expect(src).toMatch(/genuineTagged\([\s\S]{0,300}?\.in\("merchant_id", externalIds\)/);
+  });
+
+  it("never renders the enrolment count as the ladder", () => {
+    const src = pilot();
+    // The card that carries the ladder must not read the cohort size.
+    expect(src).not.toMatch(/1 → 5 → 10 ladder counts/);
+    expect(src).toMatch(/value=\{fmt\(ladderSuccesses\)\}/);
+  });
+
+  it("keeps enrolment as its own metric, called what it is", () => {
+    const src = pilot();
+    expect(src).toContain("External merchants enrolled");
+    expect(src).toMatch(/never a rung on it/);
+  });
+
+  it("counts the ladder cumulatively, not inside the display window", () => {
+    // A windowed ladder would walk backwards as a success aged out of 7 days.
+    const src = pilot();
+    const m = src.match(/const ladderRes =[\s\S]*?;\n/);
+    expect(m, "ladder read not found").not.toBeNull();
+    expect(m![0]).not.toContain("since");
+  });
+
+  it("treats an empty cohort as a true zero and a failed read as unknown", () => {
+    const src = pilot();
+    expect(src).toMatch(/ladderRes === null \? 0 : ladderRes\.error \? null : ladderRes\.count \?\? 0/);
+  });
+});
+
+describe("the brief states the scope its queries actually carry", () => {
+  it("does not claim Node 0 for reads that have no node predicate", () => {
+    const src = stripComments(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8"));
+    // The all-class section previously said "at Node 0" while claimsIn,
+    // verifiedIn, arrivals, Fast Visits and fees carried no node filter.
+    expect(src).not.toMatch(/genuine-tagged merchant at Node 0/);
+    expect(src).toMatch(/marketplace-wide/);
+  });
+
+  it("never interpolates a possibly-undefined delta into a hint", () => {
+    // `All classes. ${delta(...)}` rendered the literal "All classes. undefined"
+    // when either side of the comparison failed to read.
+    const src = stripComments(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8"));
+    expect(src).not.toMatch(/\$\{delta\(/);
+    expect(src).toContain("withAllClasses(");
+  });
+});

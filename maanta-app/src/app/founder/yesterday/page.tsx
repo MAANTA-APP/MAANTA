@@ -316,11 +316,13 @@ export default async function YesterdayBriefPage() {
         All genuine-tagged activity — {label}
       </h2>
       <p className="mt-0.5 max-w-3xl text-xs text-muted">
-        Every genuine-tagged merchant at Node 0 — external, internal and
-        unclassified together (D188: redemption, merchant and deal all
-        non-demo). An operational view of what happened, not evidence of pull:
-        MAANTA&rsquo;s own testing is included here, and the ladder&rsquo;s own
-        counters are stated separately below.
+        Every genuine-tagged merchant, marketplace-wide — external, internal
+        and unclassified together (D188: redemption, merchant and deal all
+        non-demo). These reads carry no node predicate, so they are not a
+        Node 0 figure and are not labelled as one. An operational view of what
+        happened, not evidence of pull: MAANTA&rsquo;s own testing is included
+        here, and the ladder&rsquo;s own counters, which ARE cohort-scoped, are
+        stated separately below.
       </p>
       <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -342,7 +344,7 @@ export default async function YesterdayBriefPage() {
         <KpiCard
           label="Claims"
           value={fmt(claims)}
-          hint={`All classes. ${delta(claims, claimsPrev)}`}
+          hint={withAllClasses(delta(claims, claimsPrev))}
         />
         <KpiCard
           label="Verified visits"
@@ -361,9 +363,9 @@ export default async function YesterdayBriefPage() {
           hint="KES 30 per verified redemption, genuine-tagged only — the same evidence scope as the counts above."
         />
         <KpiCard
-          label="External field validation"
+          label="External merchants enrolled"
           value={externalCohortSize().toLocaleString()}
-          hint="Merchants enrolled in the Node 0 cohort manifest. Genuine-tagged activity does not add to this."
+          hint="Merchants explicitly enrolled in the Node 0 cohort manifest. Cohort SIZE — not the ladder, which counts genuine verified redemptions. Genuine-tagged activity does not add to this."
         />
       </section>
 
@@ -503,6 +505,20 @@ function fmt(v: number | null): string {
  * Never a percentage and never a direction word like "up" or "improving": one
  * day against one day at these volumes cannot support either.
  */
+/**
+ * Prefix a comparison with its evidence scope, without inventing one.
+ *
+ * `delta` returns undefined when either side failed to read, and a template
+ * literal turns that into the visible string "All classes. undefined" — a
+ * read failure rendered as gibberish on the page whose whole doctrine is that
+ * an unavailable figure must stay legible. Undefined has to survive to the
+ * prop boundary, so the label is prepended only when there is something to
+ * label.
+ */
+function withAllClasses(d: string | undefined): string | undefined {
+  return d === undefined ? undefined : `All classes. ${d}`;
+}
+
 function delta(today: number | null, prev: number | null): string | undefined {
   if (today === null || prev === null) return undefined;
   const d = today - prev;
