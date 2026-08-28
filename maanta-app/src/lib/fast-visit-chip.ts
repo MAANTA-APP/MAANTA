@@ -98,7 +98,19 @@ export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipStat
 export function fastVisitChipLabel(state: FastVisitChipState): string | null {
   switch (state) {
     case "qualified":
-      return "Fast Visit earned";
+      // "Reward eligible", never "earned". `fast_visit_qualified_at` is the
+      // ARRIVAL verdict — necessary for a reward and not sufficient for one.
+      // `award_fast_visit_points` inserts the ledger row only when the
+      // redemption reaches `status = 'success'` AND the configured award is
+      // positive, so a qualified claim that is still pending has earned
+      // nothing yet, and one that ends `failed` or `flagged` never will.
+      //
+      // This chip sees the redemption's own fields and not the reward ledger,
+      // so it cannot truthfully say "earned" for any case. The ticket screen
+      // can — it reads the ledger row — and says so there. Eligibility is the
+      // strongest claim this surface is entitled to make, and it is the same
+      // wording the Fast Visit panel already uses.
+      return "Fast Visit reward eligible";
     case "window-open":
       return "Fast Visit open";
     case "missed":

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   fastVisitChipState,
   fastVisitChipLabel,
@@ -47,7 +49,7 @@ describe("earned eligibility survives the gate (D198)", () => {
       input({ featureEnabled: false, qualifiedAt: at(-3), arrivedAt: at(-3) })
     );
     expect(s).toBe("qualified");
-    expect(fastVisitChipLabel(s)).toBe("Fast Visit earned");
+    expect(fastVisitChipLabel(s)).toBe("Fast Visit reward eligible");
   });
 
   it("checks the persisted verdict before the flag, not after", () => {
@@ -169,6 +171,58 @@ describe("a completed redemption can never show an open window", () => {
       expect(
         fastVisitChipState(input({ featureEnabled: false, status, qualifiedAt: null }))
       ).toBe("hidden");
+    }
+  });
+});
+
+describe("the chip never claims a reward the ledger has not paid", () => {
+  /**
+   * Codex, on PR #288 head a7ae90f. The chip labelled the `qualified` state
+   * "Fast Visit earned" from `fast_visit_qualified_at` alone.
+   *
+   * That column is the ARRIVAL verdict — necessary for a reward, not
+   * sufficient for one. `award_fast_visit_points` (read from production, not
+   * assumed) inserts the `reward_events` row only when:
+   *
+   *   v_points > 0 AND v_status = 'success' AND v_qualified_at IS NOT NULL
+   *   AND v_claimed_at IS NOT NULL AND v_arrived_at IS NOT NULL
+   *   AND v_arrived_at <= v_claimed_at + INTERVAL '15 minutes'
+   *
+   * So a shopper who checked in on time but has not yet been verified at the
+   * counter was told they had earned a reward that does not exist — and one
+   * whose redemption ends `failed` or `flagged` was told it permanently.
+   * `fast_visit_points` set to 0 (the operator's kill switch for new awards)
+   * produces the same false claim even on success.
+   *
+   * This surface reads the redemption, not the reward ledger, so it cannot
+   * truthfully say "earned" in ANY case. The ticket screen can, because it
+   * reads the ledger row — and the Fast Visit panel already says "reward
+   * eligible" for exactly this state. Two shopper surfaces describing one
+   * fact differently, with the weaker-evidenced one making the stronger
+   * claim, is the defect.
+   */
+  it("says eligible, not earned, for a qualified claim", () => {
+    expect(fastVisitChipLabel("qualified")).toBe("Fast Visit reward eligible");
+    expect(fastVisitChipLabel("qualified")).not.toMatch(/earned/i);
+  });
+
+  it("uses the same wording as the Fast Visit panel for the same state", () => {
+    // The panel says "Fast Visit reward eligible" with "Points pending".
+    // Divergent copy for one fact is how a shopper learns not to trust either.
+    const panel = readFileSync(
+      path.join(__dirname, "../../app/(shopper)/tickets/[id]/fast-visit-panel.tsx"),
+      "utf8"
+    );
+    expect(panel).toMatch(/reward eligible/);
+    expect(fastVisitChipLabel("qualified")).toMatch(/reward eligible/i);
+  });
+
+  it("makes no claim about points anywhere in the chip vocabulary", () => {
+    // The chip has no access to the ledger, so no state may imply a balance.
+    for (const state of ["qualified", "window-open", "missed", "hidden"] as const) {
+      const label = fastVisitChipLabel(state);
+      if (label === null) continue;
+      expect(label).not.toMatch(/earned|points|balance|awarded/i);
     }
   });
 });
