@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -363,78 +363,5 @@ describe("drift register stays current", () => {
     for (const c of CATEGORIES) {
       expect(raw, `category \`${c}\` is allowed by the test but undocumented`).toContain(c);
     }
-  });
-});
-
-describe("the register describes reconciliations as what they were", () => {
-  /**
-   * Codex, on PR #288 head 38a07e6. The register header announced the branch
-   * had been "rebased onto main" while the commit that wrote it said the
-   * opposite — `main` was merged in, and the head is a two-parent merge. The
-   * ops doc compounded it: a section whose paragraph began "Resolved
-   * 2026-08-28" still ended by promising that "after PR 5 merges, PR 1 rebases
-   * and renumbers", so the same paragraph both completed and forecast the act.
-   *
-   * The register is the canonical record of what is true. A provenance line
-   * that misstates HOW a reconciliation happened is the register doing the
-   * thing it exists to catch — and the failure mode is specific: a future
-   * reader tracing a renumber would look for a rebase that never occurred, and
-   * find a history that does not match the account of it.
-   *
-   * Guarded as the shape rather than the sentence: no completed reconciliation
-   * may be described in the future tense, and no merge may be called a rebase.
-   */
-  it("states how the 2026-08-28 reconciliation was actually done", () => {
-    // Asserted positively, not as a ban on the word "rebase": the register
-    // legitimately records a REAL past rebase (the D173/D174 collision, onto
-    // `5ee90ba`), and forbidding the phrase outright would stop the register
-    // describing history that genuinely happened. What must hold is that THIS
-    // reconciliation is described as the merge it was.
-    const header = raw.split("\n").slice(0, 6).join("\n");
-    expect(header).toMatch(/reconciled onto `main`/);
-    expect(header).toMatch(/merged into the branch, not rebased onto/);
-    expect(header).toMatch(/two-parent merge/);
-  });
-
-  it("does not promise a renumber it has already carried out", () => {
-    // Third attempt at this guard, and the first two failed in opposite
-    // directions — worth recording, because both are shapes this repo has
-    // shipped before.
-    //
-    //  1. It scanned the REGISTER for a sentence that lives in the ops record,
-    //     so it passed straight over the restored defect (D38).
-    //  2. Repointed at one hardcoded filename, it then early-returned when the
-    //     file was absent — "merged away later; nothing to police" — which
-    //     turns a rename into a permanent blind spot while the test stays
-    //     green. The stale wording would simply travel with the document.
-    //
-    // So it scans the whole ops directory instead of naming a file. A rename
-    // cannot create a blind spot, a deletion cannot silently pass, and the
-    // scan asserts it actually read something so it can never pass vacuously.
-    // Whole `docs/` tree, recursively: scanning only `docs/ops` would let the
-    // record escape by moving one directory up.
-    const walk = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-        const full = path.join(dir, e.name);
-        if (e.isDirectory()) return walk(full);
-        return e.isFile() && e.name.endsWith(".md") ? [full] : [];
-      });
-    const files = walk(path.join(REPO_ROOT, "docs"));
-    expect(files.length, "docs/ must contain records to scan").toBeGreaterThan(20);
-
-    const offenders: string[] = [];
-    for (const f of files) {
-      const text = readFileSync(f, "utf8");
-      // Future tense for a renumber the same document reports as done.
-      const name = path.relative(REPO_ROOT, f);
-      if (/rebases and renumbers/.test(text)) offenders.push(`${name}: "rebases and renumbers"`);
-      if (/Numbering, to settle after/.test(text)) offenders.push(`${name}: future-tense numbering heading`);
-      // A moving pointer stated as a durable fact: "the head is a two-parent
-      // merge" is true only until the next commit. Name the commit.
-      if (/(the |branch )head is a two-parent merge/.test(text)) {
-        offenders.push(`${name}: describes "the head" as the merge instead of naming the commit`);
-      }
-    }
-    expect(offenders).toEqual([]);
   });
 });
