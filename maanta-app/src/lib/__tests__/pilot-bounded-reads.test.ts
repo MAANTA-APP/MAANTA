@@ -304,3 +304,44 @@ describe("the brief states the scope its queries actually carry", () => {
     expect(src).toContain("withAllClasses(");
   });
 });
+
+describe("current-state snapshots are not filed under yesterday's date", () => {
+  /**
+   * Codex round 11. `merchantsLive` inspects merchant state now, and
+   * `visibleDeals` compares `expires_at` against this instant — neither is a
+   * figure for the displayed day. I grouped both under a heading ending in
+   * yesterday's date while fixing the P1, so a reload could attribute this
+   * morning's supply change to yesterday and the brief stopped being
+   * reproducible.
+   *
+   * Fixed with a separate heading rather than a caveat on the cards, because a
+   * reader scans headings and skips hints.
+   */
+  const brief = () =>
+    stripComments(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8"));
+
+  it("puts the two snapshot cards under their own heading", () => {
+    const src = brief();
+    const snapshotIdx = src.indexOf("Supply right now");
+    const datedIdx = src.indexOf("All genuine-tagged activity");
+    expect(snapshotIdx).toBeGreaterThan(-1);
+    expect(datedIdx).toBeGreaterThan(-1);
+    // The snapshot section must come first and must contain both cards.
+    const snapshotSection = src.slice(snapshotIdx, datedIdx);
+    expect(snapshotSection).toContain("Merchants live");
+    expect(snapshotSection).toContain("Shopper-visible deals");
+  });
+
+  it("keeps current-state cards out of the dated section", () => {
+    const src = brief();
+    const dated = src.slice(src.indexOf("All genuine-tagged activity"));
+    expect(dated).not.toContain('label="Merchants live"');
+    expect(dated).not.toContain('label="Shopper-visible deals"');
+  });
+
+  it("says out loud that the snapshot is not a figure for the displayed day", () => {
+    expect(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8")).toMatch(
+      /not a figure for \{label\}/
+    );
+  });
+});

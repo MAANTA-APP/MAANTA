@@ -312,6 +312,38 @@ export default async function YesterdayBriefPage() {
         </div>
       ) : null}
 
+      {/* Supply is CURRENT STATE, not yesterday's. Both reads below inspect
+          the merchant's status now and compare expiry against this instant, so
+          a deal published or expired this morning moves them — while every
+          other figure on this page is fixed to the displayed day. Grouping them
+          under the dated heading attributed today's supply to yesterday and
+          made the brief irreproducible on a reload. They get their own heading
+          instead of a caveat, because a reader scans headings. */}
+      <h2 className="mt-6 text-sm font-semibold text-ink">Supply right now</h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        A snapshot taken as this page loaded — not a figure for {label}. It
+        moves when a merchant is activated or a deal is published, paused or
+        expires, including after yesterday&rsquo;s cutoff.
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2">
+        <KpiCard
+          label="Merchants live"
+          value={fmt(merchantsLive)}
+          hint="Non-demo merchants a shopper could reach right now: active, visible and not shadow-banned. Not the same as enrolled pilot merchants."
+        />
+        <KpiCard
+          label="Shopper-visible deals"
+          value={fmt(visibleDeals)}
+          hint={
+            demoMode.ok
+              ? demoMode.enabled
+                ? "Demo mode is ON, so synthetic deals are shopper-visible and counted here."
+                : undefined
+              : "Demo-mode flag unreadable, so visible supply cannot be established."
+          }
+        />
+      </section>
+
       <h2 className="mt-6 text-sm font-semibold text-ink">
         All genuine-tagged activity — {label}
       </h2>
@@ -325,22 +357,6 @@ export default async function YesterdayBriefPage() {
         stated separately below.
       </p>
       <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label="Merchants live"
-          value={fmt(merchantsLive)}
-          hint="Non-demo merchants a shopper could reach: active, visible and not shadow-banned. Not the same as enrolled pilot merchants."
-        />
-        <KpiCard
-          label="Shopper-visible deals"
-          value={fmt(visibleDeals)}
-          hint={
-            demoMode.ok
-              ? demoMode.enabled
-                ? "Demo mode is ON, so synthetic deals are shopper-visible and counted here."
-                : undefined
-              : "Demo-mode flag unreadable, so visible supply cannot be established."
-          }
-        />
         <KpiCard
           label="Claims"
           value={fmt(claims)}
