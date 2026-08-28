@@ -109,8 +109,23 @@ no route, no explanation. A shopper holding a live code for a shop they cannot
 find gets silence, which reads as a broken screen rather than an incomplete shop
 record.
 
-Both surfaces now state it: *"This shop hasn't shared a map location yet — use
-the floor and unit above to find it, or ask at the mall information desk."*
+Both surfaces now state it, **naming only the locators the screen is actually
+showing** — amended 2026-08-28, see §16.5. `shopLocationUnavailable()` takes the
+shop record rather than a boolean and returns one of four strings, because
+promising a unit to a shopper looking at a screen with no unit on it is the same
+fabrication one level down:
+
+| Record | Copy |
+|---|---|
+| floor **and** unit | *"…hasn't shared a map location yet — use the floor and unit above to find it, or ask at the mall information desk."* |
+| floor only | *"…hasn't shared a map location or unit number — use the floor above…"* |
+| unit only | *"…hasn't shared a map location or floor — use the unit number above…"* |
+| neither | *"…hasn't shared a map location, floor or unit — ask at the mall information desk to find it."* |
+
+A blank string counts as absent in the **copy**, not only in the predicate: a
+record with `unit_number: "   "` renders no unit, so pointing at one would be as
+wrong as pointing at a null one. Every variant keeps a next step — dropping the
+promise must not leave a dead end.
 
 No fabricated destination and no map centred on the mall — either would send
 someone confidently to the wrong place, which is worse than saying nothing. The
@@ -487,3 +502,21 @@ redesign.
 
 `ExpiringDeal` now requires `max_claims` and `claims_count`, so a future caller
 that omits them fails to compile rather than silently skipping the check.
+
+### 16.5 The wayfinding record, corrected
+
+§4 originally recorded a single unconditional string — *"use the floor and unit
+above"* — as what both surfaces render. That was true when written and stopped
+being true in `27478d7`, which made the copy a function of the record after
+Codex found that `hasOnScreenLocationDetails` is an OR: a shop with only a floor,
+or only a unit, was promised both.
+
+Left alone, §4 would have recorded the **already-fixed defect as current
+behaviour**, which is the same failure as the §12 correction in §16.2 and the
+§16.4 correction before it. Three instances in one review round, all of them the
+durable record lagging the code it describes.
+
+Corrected in place at §4 with the four variants and the blank-string rule.
+`/shops/[id]` no longer imports `hasOnScreenLocationDetails` at all;
+`/tickets/[id]` still uses it to decide whether to render the details block,
+which is a different question from what the copy may promise.
