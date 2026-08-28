@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAppUser } from "@/lib/data";
+import { getAppUser, withPublicMerchant } from "@/lib/data";
+import { isDemoModeEnabled } from "@/lib/demo-mode";
+import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
 import { NotificationRow } from "@/components/ui/cards";
 import { EmptyState } from "@/components/ui/states";
 import {
@@ -17,6 +19,24 @@ export const dynamic = "force-dynamic";
 type Item = { title: string; body: string; at: string; unread: boolean };
 
 /**
+ * Demo exclusion for a shopper's OWN redemptions (D216).
+ *
+ * Both sides, per D188: `claim_deal` never sets `redemptions.is_demo`, so every
+ * claim made through the product is tagged `false` — including a claim against
+ * a synthetic merchant. Filtering the row alone would let a demo shop's name
+ * render in launch mode, so the parent is filtered too. The join must be
+ * `!inner`: on a left join PostgREST nulls the embed instead of dropping the
+ * row, so a `merchants.*` predicate would silently do nothing.
+ */
+function withoutDemo<T>(query: T, includeDemo: boolean): T {
+  if (includeDemo) return query;
+  const chained = query as unknown as {
+    eq: (col: string, val: unknown) => typeof chained;
+  };
+  return chained.eq("is_demo", false).eq("merchants.is_demo", false) as unknown as T;
+}
+
+/**
  * Notifications inbox (alerts only).
  * Preference toggles live at the wireframe canonical `/you/notifications`.
  */
@@ -25,15 +45,41 @@ export default async function NotificationsPage() {
   if (!user) redirect("/login?next=/notifications");
 
   const service = createServiceClient();
+  const includeDemo = await isDemoModeEnabled();
   const items: Item[] = [];
 
-  const { data: pending } = await service
-    .from("redemptions")
-    .select("expires_at, merchants(merchant_name)")
-    .eq("user_id", user.id)
-    .eq("status", "pending")
-    .gt("expires_at", new Date().toISOString())
-    .lt("expires_at", new Date(Date.now() + 2 * 3600_000).toISOString());
+  // D215/D216 — these two reads are the shopper's OWN commitments, not
+  // discovery, so they carry the demo exclusion but NOT the discovery
+  // visibility policy. The question here is redeemability, not visibility, and
+  // the two do not coincide:
+  //
+  //   - `verify_redemption` itself has no merchant status check, so the RPC is
+  //     not the gate;
+  //   - `requireMerchant("can_verify")` returns 403 for suspended / rejected /
+  //     churned BEFORE the RPC, so those tickets cannot be redeemed through the
+  //     product and an expiry deadline on them is a false urgency;
+  //   - a merely hidden (`is_visible = false`) or shadow-banned merchant CAN
+  //     still verify, so those tickets stay live and keep their notice. Gating
+  //     on the discovery policy would strip the deadline from a redeemable
+  //     ticket, and `status = 'active'` would also wrongly exclude `pending`.
+  //
+  // So this excludes exactly the statuses that block verification, derived from
+  // the same constant `requireMerchant` enforces rather than restated here.
+  const { data: pending } = await withoutDemo(
+    service
+      .from("redemptions")
+      .select("expires_at, merchants!inner(merchant_name)")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .not(
+        "merchants.status",
+        "in",
+        `(${VERIFICATION_BLOCKING_MERCHANT_STATUSES.join(",")})`
+      )
+      .gt("expires_at", new Date().toISOString())
+      .lt("expires_at", new Date(Date.now() + 2 * 3600_000).toISOString()),
+    includeDemo
+  );
   for (const r of (pending ?? []) as unknown as {
     expires_at: string;
     merchants: { merchant_name: string } | null;
@@ -46,11 +92,14 @@ export default async function NotificationsPage() {
     });
   }
 
-  const { data: flagged } = await service
-    .from("redemptions")
-    .select("redeemed_at, merchants(merchant_name)")
-    .eq("user_id", user.id)
-    .eq("status", "flagged")
+  const { data: flagged } = await withoutDemo(
+    service
+      .from("redemptions")
+      .select("redeemed_at, merchants!inner(merchant_name)")
+      .eq("user_id", user.id)
+      .eq("status", "flagged"),
+    includeDemo
+  )
     .order("redeemed_at", { ascending: false })
     .limit(5);
   for (const r of (flagged ?? []) as unknown as {
@@ -77,13 +126,26 @@ export default async function NotificationsPage() {
     // rather than reading `getLiveDeals`, so it must carry the predicate itself.
     // Without it, a merchant who posts and then pauses within 24h keeps being
     // advertised here.
-    const { data: newDeals } = await service
-      .from("deals")
-      .select("created_at, deal_type, merchants(merchant_name)")
-      .in("merchant_id", favIds)
-      .eq("is_active", true)
-      .eq("is_paused", false)
-      .gt("created_at", new Date(Date.now() - 24 * 3600_000).toISOString())
+    // D215/D216 — this one IS a discovery surface: it pushes "New deal from a
+    // saved shop" at a shopper. So it carries the full canonical policy, via
+    // the shared helper rather than three hand-written conditions, with
+    // `includeDemo` threaded so demo mode stays explicit in BOTH directions:
+    // ON keeps these notifications working (the marketplace doubles as a sales
+    // demonstration), OFF excludes synthetic deals and merchants.
+    //
+    // The two must land together: adopting `withPublicMerchant` without
+    // threading `includeDemo` would default to excluding demo rows and break
+    // demo mode — closing D215 by introducing D216's inverse.
+    const { data: newDeals } = await withPublicMerchant(
+      service
+        .from("deals")
+        .select("created_at, deal_type, merchants!inner(merchant_name)")
+        .in("merchant_id", favIds)
+        .eq("is_active", true)
+        .eq("is_paused", false)
+        .gt("created_at", new Date(Date.now() - 24 * 3600_000).toISOString()),
+      { includeDemo }
+    )
       .order("created_at", { ascending: false })
       .limit(10);
     for (const d of (newDeals ?? []) as unknown as {

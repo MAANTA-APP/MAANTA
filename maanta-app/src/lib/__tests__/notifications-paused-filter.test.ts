@@ -23,6 +23,10 @@ vi.mock("next/headers", () => ({
   cookies: () => ({ get: () => undefined }),
 }));
 
+vi.mock("@/lib/demo-mode", () => ({
+  isDemoModeEnabled: () => Promise.resolve(false),
+}));
+
 type Filters = Array<[string, unknown]>;
 const dealQueries: Filters[] = [];
 
@@ -44,6 +48,10 @@ vi.mock("@/lib/supabase/service", () => ({
       builder.gt = (col: string, val: unknown) => (filters.push([col, val]), builder);
       builder.lt = (col: string, val: unknown) => (filters.push([col, val]), builder);
       builder.in = (col: string, val: unknown) => (filters.push([col, val]), builder);
+      // The page gained `.not(...)` when D215 landed; recording it keeps this
+      // guard executing the real page rather than a stale shape of it.
+      builder.not = (col: string, op: string, val: unknown) =>
+        (filters.push([`not.${col}.${op}`, val]), builder);
       builder.limit = () => builder;
       builder.order = () => builder;
       builder.maybeSingle = () => Promise.resolve({ data: null, error: null });
