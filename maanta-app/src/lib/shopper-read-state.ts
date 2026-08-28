@@ -75,23 +75,28 @@ export function listReadRows<T>(result: { data: T[] | null; error: unknown }): T
  * Kept here so every shopper surface says the same thing, in the product's
  * closed vocabulary, and so the wording cannot drift into implying emptiness.
  *
- * It says exactly what the caller knows and nothing more. `listReadState`
- * establishes ONE fact: the query returned an error. It does not establish
- * WHY. The first version claimed two things it could not see — that the cause
- * was "a loading problem", and that "nothing of yours has been lost". A
- * PostgREST schema error, an RLS or permission failure, or a service outage is
- * none of them a connectivity problem, and none of them evidence about the
- * state of the shopper's rows.
+ * It says exactly what the caller knows and nothing more, and getting there
+ * took three passes because each one left a claim behind.
  *
- * So the copy separates what is known from what is not. "We could not load
- * this" is observed. "This is not an empty list" is observed — the read
- * failed, so emptiness was never established, which is the whole point of the
- * state. Everything past that would be a guarantee made from an error, which
- * is the same failure this state exists to prevent, pointed the other way.
+ * `listReadState` establishes ONE fact: the query returned an error.
+ *
+ *  1. The first version said the cause was "a loading problem" and that
+ *     "nothing of yours has been lost". A schema error, an RLS failure or a
+ *     service outage is none of them connectivity, and none of them evidence
+ *     about the state of the shopper's rows.
+ *  2. The second dropped those and still said "it is not an empty list" —
+ *     which asserts rows EXIST. The read failed, so emptiness was never
+ *     determined; it was not disproved. A shopper who genuinely holds no
+ *     tickets was told, falsely, that they hold some.
+ *
+ * The honest statement is that the list is UNKNOWN, not that it is non-empty.
+ * That still does the job this state exists for: the screen must not read as
+ * "you have nothing", and saying it does not show whether anything is here
+ * prevents that without inventing the opposite.
  */
 export const SHOPPER_LIST_READ_ERROR = {
   title: "Couldn't load this right now",
-  sub: "We couldn't load this — it is not an empty list. Try again in a moment, and if it keeps failing let us know.",
+  sub: "We couldn't load this, so it doesn't show whether you have anything here. Try again in a moment, and if it keeps failing let us know.",
 } as const;
 
 /**

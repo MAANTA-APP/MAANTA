@@ -47,11 +47,24 @@ describe("list reads keep failure and emptiness apart", () => {
     expect(listReadRows({ data: null, error: null })).toEqual([]);
   });
 
-  it("says the read failed and never that the list is empty", () => {
+  it("asserts neither that the list is empty NOR that it is not", () => {
+    // Both directions are claims the read cannot support. A failed query
+    // establishes that emptiness could not be DETERMINED — not that it was
+    // disproved. The second version of this copy said "it is not an empty
+    // list", which tells a shopper who genuinely holds nothing that they hold
+    // something.
     const text = `${SHOPPER_LIST_READ_ERROR.title} ${SHOPPER_LIST_READ_ERROR.sub}`;
-    expect(text).toMatch(/not an empty list/i);
-    // The words that would make the failure read as an assertion of emptiness.
-    expect(text).not.toMatch(/\bno (claimed|deals|tickets)\b/i);
+    // ...not empty:
+    expect(text, "must not assert the shopper has rows").not.toMatch(
+      /not an empty list|is not empty|you do have/i
+    );
+    // ...nor empty:
+    expect(text, "must not read as an assertion of emptiness").not.toMatch(
+      /\bno (claimed|deals|tickets)\b/i
+    );
+    // ...and must say the state is unknown, or it reads as a bare failure and
+    // the screen still looks like "you have nothing".
+    expect(text).toMatch(/doesn't show whether|couldn't load/i);
   });
 
   it("claims nothing about the cause or about the shopper's data", () => {
