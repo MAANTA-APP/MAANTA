@@ -260,3 +260,117 @@ nothing before it. Three things must hold:
 
 A check-in is scheduled for 03:00 UTC on 2026-08-28 to read `cron.job_run_details`
 and re-run the census. Until then D206 stays **open**.
+
+> **Resolved — see §12.** That check-in ran. The cron succeeded, over-cap went
+> 28 → 0, and the ledger held at 105/105. The **303** figure above is superseded:
+> the correct expectation under the function's own allocation rule is **300**,
+> and production landed there. D206 is **closed**.
+
+---
+
+## 12. Closure proof — 2026-08-28, measured on production
+
+Read-only. Nothing was mutated to produce any figure below.
+
+### 12.1 The cron ran and succeeded
+
+`cron.job_run_details` for `maanta_demo_seed_refresh` (jobid 3, schedule
+`30 2 * * *`, active):
+
+| runid | status | return_message | start | end |
+|---|---|---|---|---|
+| 769 | **succeeded** | `1 row` | 2026-08-28 02:30:00.095767+00 | 02:30:00.495429+00 |
+
+400 ms, clean. This was the first scheduled run under the rewritten function and
+the new trigger, and it is the check that mattered most: the old blanket
+`UPDATE ... SET is_active = TRUE` would have raised on its first over-cap row and
+aborted the whole refresh **silently, inside cron** — the 2026-07-29 ageing-out
+incident all over again. It did not.
+
+### 12.2 Over-cap: 28 → 0
+
+| metric | value |
+|---|---|
+| `over_cap_total` | **0** |
+| `over_cap_genuine` | 0 |
+| `over_cap_demo` | 0 |
+| `max_active_standard` | **1** (cap 1) |
+| `max_active_elite` | **2** (cap 2) |
+
+The pre-existing over-cap state was repaired by the scheduled run itself, with no
+hand-editing of production rows — which is exactly what the founder ruling
+required and what the rewrite was designed to deliver.
+
+**What the run actually did**, measured from `updated_at` inside the run minute:
+
+| effect | rows |
+|---|---|
+| set active (kept) | 258 |
+| set inactive (retired) | 29 |
+
+All 29 retirements landed on **Elite merchants that were at 3 active** (cap 2),
+each losing exactly 1 and each now at 2. **No merchant was cut below its cap**,
+and no Standard merchant lost a deal.
+
+### 12.3 Marketplace supply — 300, not the predicted 303
+
+| bucket | count |
+|---|---|
+| seed batch (`node0_100_deals`, `nairobi_150`, `node0_rehearsal`) | 258 |
+| `autoreseed` | 40 |
+| genuine (non-demo) | 2 |
+| **total active** | **300** |
+| shopper-visible (`deals_public_browse`) | 272 |
+| dark fixture shops `…059` / `…149` | **0** |
+
+**The 303 target was wrong, and the run was right.** The prediction assumed the
+refresh would retire exactly one row per over-cap merchant (289 active batch rows
+− 28 = 261). The function does not work that way and never claimed to: it
+allocates *per merchant* — cap, minus slots held by rows it does not manage,
+filled from the batch in a stable `created_at, id` order. Recomputing that rule
+independently, from the merchant/deal tables rather than from the function,
+predicts **258** batch rows kept and matches the observed state for **208 of 208**
+batch merchants, with **zero** deviations. 258 is the algorithm's fixed point.
+
+Full reconciliation of the 289 batch rows in scope:
+
+| | rows |
+|---|---|
+| kept active by the run | 258 |
+| retired by the run | 29 |
+| already inactive before the run | 2 |
+| **total** | **289** |
+
+The two rows already inactive are both **flash** deals that expired at
+2026-08-27 07:30 and were deactivated by `reseed_demo_flash_deals()`, whose
+retire step never sets `updated_at` (verified against
+`pg_get_functiondef` — the body sets `is_active = FALSE` and mentions
+`updated_at` nowhere). That is pre-existing behaviour, untouched by D206, and it
+is why the pre-run active-batch figure was 287 rather than the 289 the
+prediction was built on. Neither row was eligible to come back: `d1000000-…017`
+is a **Standard** merchant's flash row, refused by the Elite-only rule
+(this is D207's row), and `d0000000-…002` sits behind a fuller allowance at its
+Elite merchant.
+
+**Nothing is starved.** The 13 Elite merchants sitting at 1 of 2 own exactly one
+batch deal each — zero inactive batch rows available to promote. That is supply,
+not the guard. The 28 active-but-expired rows are `autoreseed` flash windows that
+have aged out; an expired-but-active deal keeps its slot by design (§4, cap test
+scenario E) and is not shopper-visible.
+
+### 12.4 Ledger unchanged
+
+105 rows, high-water `20260827120000` (`cap_enforce_on_slot_entry`), previous
+high-water `20260826130000`. Full version+name read-back diffed against the repo
+directory by md5 of the sorted `version|name` list:
+`608e0dabc573bf0f0226ae83ebf50ec1` on both sides. **105/105, no drift, no stray
+MCP-minted version.**
+
+### 12.5 Verdict
+
+**D206 CLOSED.** All three closure conditions hold: the cron succeeded, over-cap
+went 28 → 0 with Standard ≤ 1 and Elite ≤ 2 and did not recur, and the
+marketplace was not starved. The one number that missed its target missed it
+because the target was computed wrongly here, not because production misbehaved —
+the correct expected value under the function's own written rule is **300**, and
+production landed on it exactly.
