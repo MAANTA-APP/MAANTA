@@ -257,13 +257,27 @@ window.
 verdict is checked **before** the flag. With `fast_visit_enabled` off and no
 qualified claims — production today — every row renders nothing.
 
-The verdict is **read, never re-derived** (D191). An arrival inside the window
-with no persisted verdict reports `missed`, not `qualified`: the server decided,
-and the UI does not overrule it by recomputing from timestamps.
+The verdict is **read, never re-derived** (D191). An arrival with no persisted
+verdict is never upgraded to `qualified` by recomputing from timestamps: the
+server decided, and the UI does not overrule it.
+
+**And it is never reported as a miss either — amended 2026-08-28, see §16.**
+`record_shopper_arrival` writes `arrived_at` whether or not the gate is on and
+fixes the verdict once, at the first arrival ("flipping `fast_visit_enabled`
+later, in either direction, rewrites nothing"). So arrived + no verdict has two
+causes nothing persisted can separate: arrived after the window closed, or
+arrived while the feature was off so no window ever existed. The chip returns
+`hidden` for that shape, and the check sits **above** the status check so the
+rule holds for a completed redemption too. An unambiguous miss — feature on,
+window passed, no arrival recorded at all — still reports `missed`.
 
 Closed-window copy is *"Reward window closed"*, never "expired" — asserted.
 
 ## 13. Mutation results, part 2
+
+> **Superseded in part — this table and §14 describe the tree at `8418d1e`.**
+> Two of the guards below were removed on 2026-08-28 by founder ruling and the
+> chip's behaviour changed the same day. See §16 for the current position.
 
 | Mutant | Result |
 |---|---|
@@ -325,3 +339,80 @@ pending + after → closed; success + qualified → preserved; success/failed/fl
 Two mutants, both failing: removing the status guard reinstates the reported
 defect, and moving the status guard above the qualified check erases earned
 eligibility — the ordering is load-bearing in both directions.
+
+## 16. Amendments after review — 2026-08-28
+
+Three review rounds after §15 changed both the tree and this record. Written
+here rather than by editing §§9–14 in place, so the earlier account stays
+readable as what was true at `8418d1e`.
+
+### 16.1 Two guard mechanisms removed, not rewritten (`85e1392`)
+
+Codex found that two guards asserted their invariant by inspecting strings.
+Both were **removed on a founder ruling** and deliberately **not replaced** —
+no regex, phrase list, source or AST scanner, prose snapshot, or Tailwind
+matcher. 48 deletions, both in test files; no product code.
+
+| Guard | Why it was not a guard |
+|---|---|
+| the copy assertions in `shopper-read-state.test.ts` | a phrase blacklist. Both defects it named in its own comment passed it — `"You have saved shops here."` asserts rows exist, `"You haven't claimed anything."` asserts emptiness, neither matches. Its third check was **vacuous**: it ran against title + sub, and the title *"Couldn't load this right now"* satisfied it alone, so the copy was never examined |
+| the hierarchy block in `shopper-ticket-clarity.test.ts` | froze exact Tailwind class strings including order, so an equivalent reorder or a shared variant failed CI while the invariant held — and the expected string satisfied it from anywhere in the file, including dead markup |
+
+Both failed in **both** directions at once: passing the defect and failing the
+correct fix. That is the sixth guard on this branch to fail on shape rather
+than content, which is why the ruling was to stop rather than iterate.
+
+**Retained, and behavioural:** `failed` ≠ `empty` asserted directly; an error
+arriving with rows still yields `failed`; `listReadRows` returns `[]` on
+failure; `null` data with no error is `empty`; the failure state keeps its
+retry; and the panel's copy semantics — never "expired", "too late" or "no
+longer valid", labelled a reward rather than a deadline on the code.
+
+The shopper-facing implementation was untouched by this commit. The copy still
+claims neither rows nor emptiness, and the claim code still sits a size, weight
+and colour-role step above the reward timer.
+
+Structural validation of reconciliation provenance — the remedy Codex proposed
+for the register guard, and the right one — is deferred to its own drift row.
+
+### 16.2 The Fast Visit chip stops reporting an ambiguous arrival (`e11a2de`)
+
+A genuine product defect, verified against `record_shopper_arrival` in
+production rather than against its description. Detailed in §12 above. In
+short: `arrived_at` set with `fast_visit_qualified_at` NULL cannot be
+attributed, so the chip says nothing rather than announcing a miss to a shopper
+who was never offered a window. The ticket's `FastVisitPanel` already behaved
+this way; the two surfaces now agree.
+
+Fixed one step wider than the line reported, deliberately: the arrival check
+sits above the status check, because hiding it only for `pending` rows would
+leave the identical false claim one status later.
+
+| Mutant | Result |
+|---|---|
+| restore `"missed"` for an unverdicted arrival | ❌ 2 tests fail |
+| move the arrival check back below the status check (the half-fix) | ❌ 1 test fails |
+
+### 16.3 Current gate
+
+| Command | Result |
+|---|---|
+| `npm run lint` | ✅ `No ESLint warnings or errors` |
+| `npm run typecheck` | ✅ exit 0 |
+| `npm test` | ✅ **1594 passed, 162 files** |
+| `npm run build` + 3 chained gates | ✅ all clean |
+| `ci` / `db-tests` on the exact head | ✅ both green |
+| SQL suites locally | **Not executed — not passing, not failing.** No SQL in scope. |
+
+### 16.4 Open, not fixed here
+
+One finding is recorded and deliberately left: `endingSoonDeals` selects on
+expiry alone, so a deal that reaches `claims_count >= max_claims` shortly
+before expiry is still promoted under *"Claim windows closing within the
+hour"* even though `claim_deal` would raise `deal_claim_limit_reached`. The
+deal detail page already renders that state as "Fully claimed" and disables
+claiming, so this is the same class again — a section claiming more than its
+selection establishes. Not fixed here: "Ending Soon behavior" is inside the
+founder's do-not-touch list for this PR, and excluding versus labelling a
+fully-claimed card is a product decision about a new section rather than a
+correction. Founder's call.
