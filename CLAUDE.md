@@ -254,6 +254,17 @@ below. They are stated once, there. This section is how to work near them.
 - **Never invent a product rule.** If the answer isn't in the decisions log, the
   readiness tracker, the drift register or a migration, it is an open question —
   surface it, don't decide it.
+- **Discoverable is not claimable** (founder doctrine, 2026-08-28). A fully
+  claimed deal is still legitimate discovery and history content — `getLiveDeals`
+  returns it deliberately, and `/deals/[id]` renders it as "Fully claimed" with
+  claiming disabled. A surface that specifically advertises an **available claim
+  opportunity** must filter it out itself: `endingSoonDeals` excludes
+  `max_claims != null && claims_count >= max_claims`, mirroring `claim_deal`'s own
+  `>=`/NULL-unlimited contract. **Do not push eligibility predicates into the
+  global deal query.** Turning `getLiveDeals` into a catch-all eligibility filter
+  would hide deals shoppers can legitimately browse, in order to fix a claim only
+  one surface was making. Keep the exclusion in the surface making the stronger
+  claim.
 - **Backend is the source of truth for money and trust.** A UI-only change does
   not close a money, access-control or fraud gap. `claim_deal` and
   `verify_redemption` are the enforcement points; an app-layer filter narrows
