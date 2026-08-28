@@ -289,10 +289,13 @@ stays intact: each renumbered row records the id it was opened under and why it
 moved, so the finding remains traceable.
 
 The reconciliation was done by **merging `main` into the branch, not by
-rebasing it** — the head is a two-parent merge of `8418d1e` and `4dff726`, which
-keeps any existing checkout valid, and the repository squash-merges so the
-history shape does not carry through either way. Exact-head gates ran on the
-reconciled head.
+rebasing it**. Commit **`38a07e6`** is the two-parent merge of `8418d1e` and
+`4dff726`; no existing checkout was invalidated, and the repository
+squash-merges so the history shape does not carry through either way.
+
+The merge commit is named deliberately, rather than "the branch head": the head
+moves with every subsequent push, so a record phrased that way is true only
+until the next commit — as this one was.
 
 ## 16. Review round 2 — the Fast Visit chip and redemption status
 

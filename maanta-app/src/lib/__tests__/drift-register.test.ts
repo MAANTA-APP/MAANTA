@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -397,22 +397,44 @@ describe("the register describes reconciliations as what they were", () => {
   });
 
   it("does not promise a renumber it has already carried out", () => {
-    // The stale future tense lived in the PR record, not in the register, and
-    // the first version of this assertion scanned `raw` — so it passed over
-    // the restored defect. A guard that reads the wrong file is worse than no
-    // guard, because it reports safety it never checked (D38). It reads the
-    // document that actually carries the sentence, and asserts the document
-    // was found so it cannot pass by scanning nothing.
-    const record = path.join(
-      REPO_ROOT,
-      "docs",
-      "ops",
-      "pr1-shopper-clarity-2026-08-27.md"
-    );
-    if (!existsSync(record)) return; // merged away later; nothing to police
-    const text = readFileSync(record, "utf8");
-    expect(text.length).toBeGreaterThan(1000);
-    expect(text).not.toMatch(/rebases and renumbers/);
-    expect(text).not.toMatch(/Numbering, to settle after/);
+    // Third attempt at this guard, and the first two failed in opposite
+    // directions — worth recording, because both are shapes this repo has
+    // shipped before.
+    //
+    //  1. It scanned the REGISTER for a sentence that lives in the ops record,
+    //     so it passed straight over the restored defect (D38).
+    //  2. Repointed at one hardcoded filename, it then early-returned when the
+    //     file was absent — "merged away later; nothing to police" — which
+    //     turns a rename into a permanent blind spot while the test stays
+    //     green. The stale wording would simply travel with the document.
+    //
+    // So it scans the whole ops directory instead of naming a file. A rename
+    // cannot create a blind spot, a deletion cannot silently pass, and the
+    // scan asserts it actually read something so it can never pass vacuously.
+    // Whole `docs/` tree, recursively: scanning only `docs/ops` would let the
+    // record escape by moving one directory up.
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) return walk(full);
+        return e.isFile() && e.name.endsWith(".md") ? [full] : [];
+      });
+    const files = walk(path.join(REPO_ROOT, "docs"));
+    expect(files.length, "docs/ must contain records to scan").toBeGreaterThan(20);
+
+    const offenders: string[] = [];
+    for (const f of files) {
+      const text = readFileSync(f, "utf8");
+      // Future tense for a renumber the same document reports as done.
+      const name = path.relative(REPO_ROOT, f);
+      if (/rebases and renumbers/.test(text)) offenders.push(`${name}: "rebases and renumbers"`);
+      if (/Numbering, to settle after/.test(text)) offenders.push(`${name}: future-tense numbering heading`);
+      // A moving pointer stated as a durable fact: "the head is a two-parent
+      // merge" is true only until the next commit. Name the commit.
+      if (/(the |branch )head is a two-parent merge/.test(text)) {
+        offenders.push(`${name}: describes "the head" as the merge instead of naming the commit`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
