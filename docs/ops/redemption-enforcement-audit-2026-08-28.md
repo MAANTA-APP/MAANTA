@@ -5,11 +5,48 @@ traffic, establish every layer that can refuse a redemption, and confirm whether
 `VERIFICATION_BLOCKING_MERCHANT_STATUSES` — the shared predicate that decides
 whether `/notifications` shows "your claimed code expires soon" — is complete.
 
-**Method.** Static trace of the **preflight and verify** path plus production
-read-back of the RPC's security mode, grants and both refusal mechanisms — the
-errors it raises and the Guardian outcomes it returns. **No writes, no migrations.** This
+**Method.** Static trace of the client guard, the **preflight and verify**
+routes and the arrival leg, plus production read-back of the RPCs' security
+modes, grants and refusal mechanisms — both the errors they raise and the
+outcomes they return as data. **Treat the inventory as known-as-of-this-date
+rather than complete; §0 is the part that does not go stale.** **No writes, no migrations.** This
 is the desk half of the validation; the counter half is the field matrix in §6,
 which only Merchant 01 testing can run.
+
+## 0. The decision rule — read this even if you read nothing else
+
+**This inventory is NOT exhaustive, and does not need to be.** Four review
+rounds each found a refusal path the previous draft had missed: Guardian
+outcomes returned as data, a whole preflight route, a second 403 with a
+different body, a third 403 from inside the RPC, an ambiguous 200, and a
+stricter gate on the arrival leg. There is no reason to believe a fifth round
+would find nothing. Enumeration is not converging, so the document does not
+rest on it.
+
+What the conclusion rests on is a **rule**, which has survived every round
+unchanged:
+
+> A refusal justifies widening `VERIFICATION_BLOCKING_MERCHANT_STATUSES`
+> **only if it holds for every identity at that merchant, because of the
+> merchant's status.**
+
+Apply it to anything you observe, listed here or not:
+
+| If the refusal varies with… | It is | Predicate finding? |
+|---|---|---|
+| the **merchant's status** | status-shaped | **yes** |
+| which staff seat is signed in | per-seat | no |
+| which shopper or ticket | per-redemption | no |
+| how many attempts just happened | per-request | no |
+| which leg of the journey (arrival vs redemption) | per-flow | no |
+| nothing reproducible | infrastructure | no — re-test |
+
+**An unlisted refusal is not automatically a finding.** Classify it with the
+table above, and if it cannot be classified, record it and escalate rather than
+widening a live predicate on an unclassified signal. §7 covers what to do when
+the answer is genuinely "status-shaped".
+
+---
 
 **Headline: the predicate is complete for the question the notification asks.**
 The only *merchant-status-dependent* refusal anywhere on the path is
@@ -42,7 +79,14 @@ reaches the fee screen was stopped in preflight, not in verify.
 | A1 | `requireMerchant("can_verify")` | 401 · 404 · **403 blocked status** · 403 permission | **yes** |
 | A2 | `isValidOtpCode` | 400 | no |
 | A3 | Rate limit — **same `otp-check:<merchant.id>` bucket as verify** | 429 | no |
-| A4 | lookup: pending redemption for this merchant + code | `{ found: false }` (200) | no |
+| A4 | lookup: pending redemption for this merchant + code | `{ found: false }` (**200**) | no |
+
+**A4 is ambiguous and cannot be classified from the response alone.** The route
+destructures only `data`, so a Supabase timeout, permission error or outage
+yields `data = null` and returns the **same** `200 { found: false }` as a code
+that genuinely does not exist. In the field, "not found" therefore means either
+*bad code* or *the lookup failed* — check the query logs before recording it as
+a bad code, or the actual failing layer goes unrecorded.
 
 ### Step B — `POST /api/redemptions/verify` (charges the fee)
 
@@ -142,6 +186,7 @@ a ticket unredeemable.
 | rate limit (429) | no — transient | no — correct |
 | `redemption_expired` | no — per ticket | no — correct |
 | Guardian `held` / `blocked` (409) | no — per redemption and shopper | no — correct |
+| `can_verify` false at the RPC (403 `"Not authorized."`) | no — per seat | no — correct |
 
 So the predicate is complete **with respect to merchant status**, which is the
 only axis it claims to cover.
@@ -188,7 +233,8 @@ investigate.
 > |---|---|---|
 > | **409** with a Guardian reason (`held` / `blocked`) | working as designed — velocity, geofence or collusion, decided per redemption and per shopper | **not a predicate finding.** Re-test with a clean ticket |
 > | **403** `"This shop account is not active."` | the merchant's **status** is blocked | expected only in the three blocked rows; in an expect-success row it **is** the finding |
-> | **403** `"You don't have permission to do this."` | the **seat's** `can_verify`, nothing to do with merchant status | **not a predicate finding.** Restore the permission and re-test |
+> | **403** `"You don't have permission to do this."` | the **seat's** `can_verify`, checked by `requireMerchant` — nothing to do with merchant status | **not a predicate finding.** Restore the permission and re-test |
+> | **403** `"Not authorized."` | the **seat's** `can_verify` again, this time inside the RPC via `merchant_verify_authorized` — reachable when the permission is cleared *between* the guard and the RPC | **not a predicate finding.** Same cause, later layer |
 > | 429 | the shared bucket, consumed twice per redemption (§1) | wait out the window and re-test |
 > | anything else | unclassified | capture it — §6.5 |
 >
@@ -234,6 +280,21 @@ not `authenticated`**, unlike `claim_deal` and `verify_redemption` which both
 carry `authenticated`. So the arrival check-in must go through a server route
 using the service client; any client-side call fails on the grant. Exercise the
 real `/qr/[token]` path and confirm the arrival persists.
+
+> **The arrival leg has a DIFFERENT and STRICTER merchant gate than redemption,
+> and conflating the two is the single most likely way to misread this matrix.**
+>
+> `/qr/[token]` requires `status = 'active'` **and** `is_visible` **and** not
+> `is_shadow_banned` — the full public policy. So for a `pending`, hidden or
+> shadow-banned merchant the landing page renders its unavailable state and a
+> direct check-in returns 404, **while OTP redemption for that same merchant
+> still works**.
+>
+> An operator who sees the QR leg refuse for a hidden merchant must **not**
+> conclude that hidden blocks redemption. Test the two legs independently and
+> record them separately. This is a real asymmetry in the product, not a defect:
+> arrival is discovery-adjacent, redemption is an existing commitment — the same
+> distinction D215 turns on.
 
 ### 6.5 Anything unexpected
 
