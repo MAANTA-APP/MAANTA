@@ -75,10 +75,18 @@ describe("absent wayfinding is stated on both shopper surfaces", () => {
       const src = read(rel);
       expect(src).toContain("navigationState(");
       expect(src).toContain("shopLocationUnavailable(");
-      // The copy must be a function of what this surface actually renders,
-      // never the unconditional string that promised a floor and unit the
-      // screen might not be showing.
-      expect(src).toContain("hasOnScreenLocationDetails(");
+      // The copy must be a function of the RECORD, so it can name only the
+      // locators that exist. Two versions of this have now been wrong: an
+      // unconditional string promising "floor and unit", then a boolean —
+      // which collapsed floor-only and unit-only into the same "both" copy,
+      // because the predicate behind it is floor OR unit.
+      //
+      // Asserted as the invariant rather than as a named helper: the previous
+      // version required `hasOnScreenLocationDetails(` to appear, which the
+      // correct fix removed from this surface entirely. A guard pinned to a
+      // mechanism fails the repair and passes the defect.
+      expect(src).not.toMatch(/shopLocationUnavailable\(\s*(true|false)\s*\)/);
+      expect(src).toMatch(/shopLocationUnavailable\(\s*[A-Za-z_$][\w$]*\s*\)/);
       // The silent branch: `{navigate ? (...) : null}` is what this replaces.
       expect(src).not.toMatch(/\{navigate \? \([\s\S]{0,400}\) : null\}/);
     });

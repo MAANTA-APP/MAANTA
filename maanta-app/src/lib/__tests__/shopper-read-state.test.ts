@@ -65,34 +65,69 @@ describe("absent wayfinding is a stated state, not a missing control", () => {
     expect(navigationState(null)).toBe("unavailable");
   });
 
-  it("never fabricates a destination, in either variant", () => {
+  /** The four shapes a merchant record can take for on-screen wayfinding. */
+  const LOCATION_SHAPES = [
+    { floor: "1st Floor", unit_number: "B-14" },
+    { floor: "1st Floor", unit_number: null },
+    { floor: null, unit_number: "B-14" },
+    { floor: null, unit_number: null },
+  ];
+
+  it("never fabricates a destination, in any variant", () => {
     // A map centred on the mall, or any invented pin, sends a shopper
     // confidently to the wrong place — worse than saying nothing.
-    for (const copy of [shopLocationUnavailable(true), shopLocationUnavailable(false)]) {
+    for (const shop of LOCATION_SHAPES) {
+      const copy = shopLocationUnavailable(shop);
       expect(copy).not.toMatch(/https?:\/\//);
       expect(copy).not.toMatch(/what3words|\/map|lat=|lng=/);
     }
   });
 
-  it("promises floor and unit ONLY when the screen is showing them", () => {
-    // The first version always said "use the floor and unit above". On a
-    // record with neither, that points a shopper at wayfinding which is not on
-    // the screen and may not exist — a quieter version of fabricating a
-    // destination.
-    expect(shopLocationUnavailable(true)).toMatch(/floor and unit/i);
-    expect(shopLocationUnavailable(false)).not.toMatch(/floor and unit above/i);
+  it("names only the locators the screen is actually showing", () => {
+    // The defect this replaces: the copy took a boolean and said "the floor
+    // and unit above" for ANY truthy value, while hasOnScreenLocationDetails
+    // is floor OR unit. So a shop with only a floor, or only a unit, was
+    // pointed at a second locator that does not exist — fabricated wayfinding,
+    // which is the same failure as a fabricated destination one level down.
+    const both = shopLocationUnavailable({ floor: "1st Floor", unit_number: "B-14" });
+    expect(both).toMatch(/floor and unit/i);
+
+    const floorOnly = shopLocationUnavailable({ floor: "1st Floor", unit_number: null });
+    expect(floorOnly).toMatch(/use the floor above/i);
+    expect(floorOnly, "must not promise a unit that is not there").not.toMatch(
+      /floor and unit/i
+    );
+
+    const unitOnly = shopLocationUnavailable({ floor: null, unit_number: "B-14" });
+    expect(unitOnly).toMatch(/use the unit number above/i);
+    expect(unitOnly, "must not promise a floor that is not there").not.toMatch(
+      /floor and unit/i
+    );
+
+    const neither = shopLocationUnavailable({ floor: null, unit_number: null });
+    expect(neither).not.toMatch(/floor and unit above/i);
   });
 
-  it("still offers a next step when there are no details at all", () => {
+  it("treats a blank locator as absent in the copy, not just in the predicate", () => {
+    // A record with floor: "" renders nothing, so the copy must not point at
+    // it — the predicate already knows this and the copy must agree.
+    const blankUnit = shopLocationUnavailable({ floor: "1st Floor", unit_number: "   " });
+    expect(blankUnit).toMatch(/use the floor above/i);
+    expect(blankUnit).not.toMatch(/floor and unit/i);
+  });
+
+  it("still offers a next step in every variant", () => {
     // Saying only "we don't know where this is" strands the shopper.
-    expect(shopLocationUnavailable(false)).toMatch(/information desk/i);
+    for (const shop of LOCATION_SHAPES) {
+      expect(shopLocationUnavailable(shop)).toMatch(/information desk/i);
+    }
   });
 
-  it("does not call a missing shop location an error, in either variant", () => {
+  it("does not call a missing shop location an error, in any variant", () => {
     // It is a gap in the shop's record, not a failure of this screen, so
     // telling the shopper to retry would be a lie.
-    for (const copy of [shopLocationUnavailable(true), shopLocationUnavailable(false)]) {
-      expect(copy).not.toMatch(/error|try again|reload/i);
+    for (const shop of LOCATION_SHAPES) {
+      expect(shopLocationUnavailable(shop)).not.toMatch(/error|try again|reload/i);
     }
   });
 

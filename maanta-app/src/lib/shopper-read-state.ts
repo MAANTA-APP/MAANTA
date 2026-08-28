@@ -119,15 +119,35 @@ export function navigationState(
  * wayfinding that is not on the screen and may not exist — which is the same
  * class of failure as fabricating a destination, just quieter.
  *
- * So the caller passes what it renders, and the copy adapts. It never says
+ * So the caller passes the record and the copy names exactly the locators
+ * that exist — floor and unit, floor only, unit only, or neither. It never says
  * "error": a shop with no recorded location is a gap in that shop's record,
  * not a failure of this screen, and telling the shopper to retry would be a
  * lie of a different kind.
  */
-export function shopLocationUnavailable(hasOnScreenDetails: boolean): string {
-  return hasOnScreenDetails
-    ? "This shop hasn't shared a map location yet — use the floor and unit above to find it, or ask at the mall information desk."
-    : "This shop hasn't shared a map location, floor or unit — ask at the mall information desk to find it.";
+export function shopLocationUnavailable(shop: {
+  floor?: string | null;
+  unit_number?: string | null;
+}): string {
+  const floor = Boolean(shop.floor?.trim());
+  const unit = Boolean(shop.unit_number?.trim());
+
+  // Name only what is actually on the screen. The previous version took a
+  // boolean and said "the floor and unit above" for ANY truthy value — but
+  // `hasOnScreenLocationDetails` is floor OR unit, so a shop with just a floor,
+  // or just a unit, was pointed at a second locator that does not exist. That
+  // is the same defect this whole state was added to prevent, one level down:
+  // not a fabricated destination, but fabricated wayfinding to it.
+  if (floor && unit) {
+    return "This shop hasn't shared a map location yet — use the floor and unit above to find it, or ask at the mall information desk.";
+  }
+  if (floor) {
+    return "This shop hasn't shared a map location or unit number — use the floor above to find it, or ask at the mall information desk.";
+  }
+  if (unit) {
+    return "This shop hasn't shared a map location or floor — use the unit number above to find it, or ask at the mall information desk.";
+  }
+  return "This shop hasn't shared a map location, floor or unit — ask at the mall information desk to find it.";
 }
 
 /**

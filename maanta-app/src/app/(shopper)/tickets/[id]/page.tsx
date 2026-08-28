@@ -378,7 +378,7 @@ export default async function TicketPage({
         // sharpest version of this: no route and no acknowledgement that the
         // route is missing. Say it, and point at the floor/unit above.
         <p className="mt-6 text-center text-sm text-muted">
-          {shopLocationUnavailable(hasOnScreenLocationDetails(m))}
+          {shopLocationUnavailable(m)}
         </p>
       )}
 

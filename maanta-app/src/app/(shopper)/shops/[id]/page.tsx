@@ -12,7 +12,6 @@ import { shopNavigationTarget } from "@/lib/shop-location";
 import {
   navigationState,
   shopLocationUnavailable,
-  hasOnScreenLocationDetails,
 } from "@/lib/shopper-read-state";
 
 export const dynamic = "force-dynamic";
@@ -154,7 +153,7 @@ export default async function ShopProfilePage({
           // nor coordinates offered no route AND no explanation — which reads
           // as a broken screen rather than an incomplete shop record.
           <p className="mt-8 text-sm text-muted">
-            {shopLocationUnavailable(hasOnScreenLocationDetails(shop))}
+            {shopLocationUnavailable(shop)}
           </p>
         )}
       </div>
