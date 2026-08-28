@@ -260,11 +260,17 @@ below. They are stated once, there. This section is how to work near them.
   claiming disabled. A surface that specifically advertises an **available claim
   opportunity** must filter it out itself: `endingSoonDeals` excludes
   `max_claims != null && claims_count >= max_claims`, mirroring `claim_deal`'s own
-  `>=`/NULL-unlimited contract. **Do not push eligibility predicates into the
-  global deal query.** Turning `getLiveDeals` into a catch-all eligibility filter
-  would hide deals shoppers can legitimately browse, in order to fix a claim only
-  one surface was making. Keep the exclusion in the surface making the stronger
-  claim.
+  `>=`/NULL-unlimited contract. **The dividing line is whether the product still
+  intends the deal to be discoverable.** A deal that is inactive, **paused** or
+  expired is withdrawn from discovery entirely, so its filter belongs in the
+  global query and stays there — `getLiveDeals` carries `is_active`,
+  `is_paused = false` and `expires_at > now` for exactly that reason, and the
+  paused one is a frozen rule (see Paused deals below, **D25**/**D119**). Never
+  remove those. A fully claimed deal is the other case: still browsable, still
+  history, so its exclusion belongs **only** in a surface advertising an
+  available claim. **Do not push surface-only eligibility predicates — the claim
+  cap above all — into the global deal query**, which would hide deals shoppers
+  can legitimately browse in order to fix a claim only one surface was making.
 - **Backend is the source of truth for money and trust.** A UI-only change does
   not close a money, access-control or fraud gap. `claim_deal` and
   `verify_redemption` are the enforcement points; an app-layer filter narrows
