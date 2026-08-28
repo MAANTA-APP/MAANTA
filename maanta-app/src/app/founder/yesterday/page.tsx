@@ -319,13 +319,19 @@ export default async function YesterdayBriefPage() {
           under the dated heading attributed today's supply to yesterday and
           made the brief irreproducible on a reload. They get their own heading
           instead of a caveat, because a reader scans headings. */}
-      <h2 className="mt-6 text-sm font-semibold text-ink">Supply right now</h2>
+      <h2 className="mt-6 text-sm font-semibold text-ink">Right now</h2>
       <p className="mt-0.5 max-w-3xl text-xs text-muted">
-        A snapshot taken as this page loaded — not a figure for {label}. It
+        A snapshot taken as this page loaded — not figures for {label}. Supply
         moves when a merchant is activated or a deal is published, paused or
-        expires, including after yesterday&rsquo;s cutoff.
+        expires, and enrolment moves the moment a merchant is added to the
+        manifest, including after yesterday&rsquo;s cutoff.
       </p>
-      <section className="mt-2 grid gap-3 sm:grid-cols-2">
+      <section className="mt-2 grid gap-3 sm:grid-cols-3">
+        <KpiCard
+          label="External merchants enrolled"
+          value={externalCohortSize().toLocaleString()}
+          hint="Merchants explicitly enrolled in the Node 0 cohort manifest. Cohort SIZE — not the ladder, which counts genuine verified redemptions, and not derived through the genuine-tagged predicate at all."
+        />
         <KpiCard
           label="Merchants live"
           value={fmt(merchantsLive)}
@@ -378,11 +384,7 @@ export default async function YesterdayBriefPage() {
           value={fees === null ? "—" : formatKes(fees)}
           hint="KES 30 per verified redemption, genuine-tagged only — the same evidence scope as the counts above."
         />
-        <KpiCard
-          label="External merchants enrolled"
-          value={externalCohortSize().toLocaleString()}
-          hint="Merchants explicitly enrolled in the Node 0 cohort manifest. Cohort SIZE — not the ladder, which counts genuine verified redemptions. Genuine-tagged activity does not add to this."
-        />
+
       </section>
 
       {/* The ladder's counters, kept apart from the all-class figures above.

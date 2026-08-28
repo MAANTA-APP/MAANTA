@@ -55,8 +55,18 @@ export type PilotMerchantRow = {
   /** Active deals held vs the plan's cap. */
   activeDeals: number | null;
   dealCap: number;
-  /** Deals a shopper can actually see right now. */
+  /**
+   * Deals a shopper can actually see right now — INCLUDING synthetic ones
+   * while demo mode is on, because a shopper genuinely can see those. Used for
+   * the no-supply diagnosis, which would otherwise fire at a merchant whose
+   * deals are on screen.
+   */
   shopperVisibleDeals: number | null;
+  /**
+   * The same count with demo always excluded. Used for the evidence cards: a
+   * synthetic deal is never field validation, whatever a shopper can see.
+   */
+  genuineVisibleDeals: number | null;
   claims: number | null;
   arrivals: number | null;
   /**
@@ -248,6 +258,8 @@ export type CohortTotals = {
   unclassified: number;
   /** null when any contributing row failed to read. */
   shopperVisibleDeals: number | null;
+  /** Genuine (never synthetic) visible supply — the evidence figure. */
+  genuineVisibleDeals: number | null;
   claims: number | null;
   arrivals: number | null;
   /** Throughput: verified in the window, whenever claimed. */
@@ -282,6 +294,7 @@ export function cohortTotals(rows: PilotMerchantRow[]): CohortTotals {
     internal: rows.filter((r) => r.evidence === "internal").length,
     unclassified: rows.filter((r) => r.evidence === "unclassified").length,
     shopperVisibleDeals: sum((r) => r.shopperVisibleDeals),
+    genuineVisibleDeals: sum((r) => r.genuineVisibleDeals),
     claims: sum((r) => r.claims),
     arrivals: sum((r) => r.arrivals),
     verified: sum((r) => r.verified),

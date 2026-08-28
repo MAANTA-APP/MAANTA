@@ -174,6 +174,7 @@ export default async function PilotCommandCentrePage({
       const [
         activeDealsRes,
         visibleDealsRes,
+        genuineVisibleDealsRes,
         claimsRes,
         arrivalsRes,
         verifiedRes,
@@ -206,6 +207,29 @@ export default async function PilotCommandCentrePage({
             .eq("is_paused", false)
             .gt("expires_at", nowIso),
           { includeDemo: demoMode.enabled }
+        ),
+        // The same supply count with demo ALWAYS excluded.
+        //
+        // Two numbers, deliberately, because two different questions are being
+        // asked. The row diagnosis asks "can a shopper see anything from this
+        // merchant right now" — and with demo mode ON a synthetic deal really
+        // is visible, so counting it is correct there or the no-supply alert
+        // fires against a merchant whose deals are on screen. The EVIDENCE
+        // card asks "how much genuine supply do enrolled pilot merchants
+        // have" — and a synthetic deal is never field evidence, whatever a
+        // shopper can see. Collapsing them would make one of the two wrong.
+        withPublicMerchant(
+          service
+            .from("deals")
+            .select("id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)", {
+              count: "exact",
+              head: true,
+            })
+            .eq("merchant_id", m.id)
+            .eq("is_active", true)
+            .eq("is_paused", false)
+            .gt("expires_at", nowIso),
+          { includeDemo: false }
         ),
         genuineTagged(
           service
@@ -338,6 +362,7 @@ export default async function PilotCommandCentrePage({
         activeDeals: count(activeDealsRes),
         dealCap: activeDealLimit(tier),
         shopperVisibleDeals: demoMode.ok ? count(visibleDealsRes) : null,
+        genuineVisibleDeals: count(genuineVisibleDealsRes),
         claims: count(claimsRes),
         arrivals: count(arrivalsRes),
         verified: count(verifiedRes),
@@ -423,7 +448,14 @@ export default async function PilotCommandCentrePage({
 
       {/* The evidence split, stated before any activity number, because it is
           what tells the reader how to read the rest of the page. */}
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        Evidence · not windowed
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        The ladder is cumulative since the pilot began; the three cohort counts
+        are current. None of these move with the {days}-day selector.
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Ladder — genuine verified redemptions"
           value={fmt(ladderSuccesses)}
@@ -464,6 +496,26 @@ export default async function PilotCommandCentrePage({
           the headline "Verified" card while External field validation reads 0
           — an internal row incrementing the 1 → 5 → 10 ladder, which is the
           counting error D174 exists to stop. */}
+      {/* Supply is CURRENT STATE. The query has no window at all and compares
+          expiry against page-load time, so a deal published or expired this
+          minute moves it — while everything under the windowed heading below
+          is fixed to the selected period. Separate headings, because a reader
+          scans headings. */}
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        External field validation · supply right now
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        A snapshot taken as this page loaded, not a figure for the last {days}{" "}
+        days. Genuine deals only — synthetic supply is never field validation,
+        even while demo mode makes it visible to shoppers.
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2">
+        <KpiCard
+          label="Shopper-visible deals (genuine)"
+          value={fmt(byClass.external.genuineVisibleDeals)}
+        />
+      </section>
+
       <h2 className="mt-6 text-sm font-semibold text-ink">
         External field validation · last {days} days
       </h2>
@@ -472,16 +524,7 @@ export default async function PilotCommandCentrePage({
         counts. Internal and unclassified activity is reported separately below
         and never added to these figures.
       </p>
-      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          label="Shopper-visible deals"
-          value={fmt(byClass.external.shopperVisibleDeals)}
-          hint={
-            demoMode.ok
-              ? undefined
-              : "Demo-mode flag unreadable, so visible supply cannot be established."
-          }
-        />
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label={`Claims (${days}d)`} value={fmt(byClass.external.claims)} />
         <KpiCard label={`Arrivals (${days}d)`} value={fmt(byClass.external.arrivals)} />
         <KpiCard label={`Verified (${days}d)`} value={fmt(byClass.external.verified)} />
@@ -500,6 +543,11 @@ export default async function PilotCommandCentrePage({
         Internal and unclassified · last {days} days
       </h2>
       <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        Activity columns cover the selected window; the visible-deals column is
+        a snapshot taken now, marked <em>(now)</em>, because supply has no
+        window.
+      </p>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
         MAANTA testing itself, plus non-demo merchants the manifest does not
         name. Technical evidence — real rows, and not a test of whether anyone
         wants this (D174 / D184).
@@ -510,7 +558,9 @@ export default async function PilotCommandCentrePage({
             <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
               <th className="px-3 py-2 font-semibold">Class</th>
               <th className="px-3 py-2 font-semibold">Merchants</th>
-              <th className="px-3 py-2 font-semibold">Visible deals</th>
+              <th className="px-3 py-2 font-semibold">
+                Visible deals<span className="font-normal"> (now)</span>
+              </th>
               <th className="px-3 py-2 font-semibold">Claims</th>
               <th className="px-3 py-2 font-semibold">Arrivals</th>
               <th className="px-3 py-2 font-semibold">Verified</th>
@@ -527,7 +577,7 @@ export default async function PilotCommandCentrePage({
               <tr key={label} className="border-b border-line last:border-0">
                 <td className="px-3 py-2 font-semibold text-ink">{label}</td>
                 <td className="px-3 py-2">{t.merchants}</td>
-                <td className="px-3 py-2">{fmt(t.shopperVisibleDeals)}</td>
+                <td className="px-3 py-2">{fmt(t.genuineVisibleDeals)}</td>
                 <td className="px-3 py-2">{fmt(t.claims)}</td>
                 <td className="px-3 py-2">{fmt(t.arrivals)}</td>
                 <td className="px-3 py-2">{fmt(t.verified)}</td>

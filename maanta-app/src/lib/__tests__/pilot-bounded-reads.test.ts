@@ -320,16 +320,19 @@ describe("current-state snapshots are not filed under yesterday's date", () => {
   const brief = () =>
     stripComments(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8"));
 
-  it("puts the two snapshot cards under their own heading", () => {
+  it("puts every snapshot card under the snapshot heading", () => {
     const src = brief();
-    const snapshotIdx = src.indexOf("Supply right now");
+    const snapshotIdx = src.indexOf(">Right now<");
     const datedIdx = src.indexOf("All genuine-tagged activity");
     expect(snapshotIdx).toBeGreaterThan(-1);
     expect(datedIdx).toBeGreaterThan(-1);
-    // The snapshot section must come first and must contain both cards.
     const snapshotSection = src.slice(snapshotIdx, datedIdx);
+    // All three current-state figures, including enrolment — which is neither
+    // activity from the displayed day nor derived through the genuine-tagged
+    // predicate, and moves the moment a merchant joins the manifest.
     expect(snapshotSection).toContain("Merchants live");
     expect(snapshotSection).toContain("Shopper-visible deals");
+    expect(snapshotSection).toContain("External merchants enrolled");
   });
 
   it("keeps current-state cards out of the dated section", () => {
@@ -337,11 +340,108 @@ describe("current-state snapshots are not filed under yesterday's date", () => {
     const dated = src.slice(src.indexOf("All genuine-tagged activity"));
     expect(dated).not.toContain('label="Merchants live"');
     expect(dated).not.toContain('label="Shopper-visible deals"');
+    expect(dated).not.toContain('label="External merchants enrolled"');
   });
 
   it("says out loud that the snapshot is not a figure for the displayed day", () => {
     expect(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8")).toMatch(
-      /not a figure for \{label\}/
+      /not figures for \{label\}/
     );
+  });
+});
+
+describe("no windowed heading covers a figure that has no window", () => {
+  /**
+   * The audit behind Codex round 12. Every card was checked against the time
+   * basis of the query behind it, on both pages, rather than fixing the two
+   * that were reported:
+   *
+   * | Figure | Real basis |
+   * |---|---|
+   * | ladder | cumulative, all time |
+   * | cohort counts, enrolment | current |
+   * | visible deals (both pages) | current snapshot |
+   * | claims/arrivals/verified/fees | windowed or dated |
+   *
+   * Three headings previously spanned a mix. A heading that claims a period
+   * its figures do not have makes the page irreproducible — reload it and a
+   * "last 7 days" number moves.
+   */
+  const pilot = () =>
+    stripComments(readFileSync(path.join(process.cwd(), PAGES[0]), "utf8"));
+
+  it("keeps supply out of the windowed evidence section on /admin/pilot", () => {
+    const src = pilot();
+    const windowedIdx = src.indexOf("External field validation · last {days} days");
+    const internalIdx = src.indexOf("Internal and unclassified");
+    expect(windowedIdx).toBeGreaterThan(-1);
+    const windowed = src.slice(windowedIdx, internalIdx);
+    expect(windowed).not.toContain("Shopper-visible deals");
+  });
+
+  it("gives pilot supply its own snapshot heading", () => {
+    const src = pilot();
+    expect(src).toContain("External field validation · supply right now");
+    expect(src).toMatch(/not a figure for the last \{days\}/);
+  });
+
+  it("labels the unwindowed evidence grid rather than leaving it headless", () => {
+    // The ladder is cumulative and the cohort counts are current; neither
+    // moves with the day selector, and nothing said so.
+    const src = pilot();
+    expect(src).toContain("Evidence · not windowed");
+    expect(src).toMatch(/None of these move with the \{days\}-day selector/);
+  });
+
+  it("marks the internal/unclassified supply column as a snapshot", () => {
+    const src = pilot();
+    expect(src).toMatch(/Visible deals<span[\s\S]{0,80}?\(now\)/);
+  });
+});
+
+describe("synthetic supply is never counted as field evidence", () => {
+  /**
+   * Codex round 12: `includeDemo: demoMode.enabled` let a demo-tagged deal on
+   * an enrolled non-demo merchant count in the external evidence card while
+   * demo mode is on — synthetic supply presented as field validation.
+   *
+   * Two counts now, because two different questions are asked. The no-supply
+   * DIAGNOSIS must include demo deals (a shopper really can see them, so
+   * alerting "no shopper-visible supply" would be false); the EVIDENCE card
+   * must exclude them (a synthetic deal is never field validation).
+   */
+  const pilot = () =>
+    stripComments(readFileSync(path.join(process.cwd(), PAGES[0]), "utf8"));
+
+  it("reads the evidence card from the genuine-only count", () => {
+    expect(pilot()).toContain("byClass.external.genuineVisibleDeals");
+  });
+
+  it("keeps a demo-inclusive count for the no-supply diagnosis", () => {
+    // Both must exist; collapsing them makes one of the two questions wrong.
+    const src = pilot();
+    expect(src).toMatch(/includeDemo: demoMode\.enabled/);
+    expect(src).toMatch(/includeDemo: false/);
+    expect(src).toContain("genuineVisibleDeals: count(genuineVisibleDealsRes)");
+  });
+
+  it("never renders the demo-inclusive count as evidence", () => {
+    const src = pilot();
+    // The evidence cards and the class table must not read shopperVisibleDeals.
+    const evidenceIdx = src.indexOf("External field validation · supply right now");
+    const alertsIdx = src.indexOf("Needs attention");
+    expect(src.slice(evidenceIdx, alertsIdx)).not.toContain(
+      "external.shopperVisibleDeals"
+    );
+  });
+});
+
+describe("the founder dashboard teaser matches what the brief reports", () => {
+  it("does not advertise supply as yesterday's change", () => {
+    const src = stripComments(
+      readFileSync(path.join(process.cwd(), "src/app/founder/page.tsx"), "utf8")
+    );
+    expect(src).not.toMatch(/What changed yesterday: supply/);
+    expect(src).toMatch(/snapshot,\s*not as yesterday/);
   });
 });

@@ -187,9 +187,10 @@ export default async function FounderDashboardPage() {
         >
           <span className="text-sm font-semibold text-ink">Yesterday →</span>
           <span className="mt-0.5 block text-xs text-muted">
-            What changed yesterday: supply, claims, arrivals, verified visits,
-            success fees and unresolved alerts, with the genuine/demo split
-            stated.
+            What changed yesterday: claims, arrivals, verified visits, success
+            fees and unresolved alerts, with the genuine/demo split stated.
+            Current supply and cohort size are shown alongside as a snapshot,
+            not as yesterday&rsquo;s change.
           </span>
         </Link>
       </Section>

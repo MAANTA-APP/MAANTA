@@ -23,6 +23,7 @@ function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
     activeDeals: 1,
     dealCap: 1,
     shopperVisibleDeals: 1,
+    genuineVisibleDeals: 1,
     claims: 0,
     arrivals: 0,
     verified: 0,
