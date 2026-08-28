@@ -18,6 +18,7 @@ import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-
  */
 const ITEMS = [
   { href: "/admin", label: "Overview" },
+  { href: "/admin/pilot", label: "Pilot" },
   { href: "/admin/approvals", label: "Approvals" },
   { href: "/admin/merchants", label: "Merchants" },
   { href: "/admin/customers", label: "Customers" },

@@ -75,14 +75,21 @@ describe("PR 4 admin operations ratchets", () => {
   });
 
   it("uses the full D188 parent join for every genuine-tagged census", () => {
+    // PR 5 moved the predicate itself into lib/evidence-scope.ts, so this
+    // ratchet no longer matches the inline `.eq()` text it was written against
+    // — that text is gone on purpose, and its absence is now enforced by
+    // evidence-scope.test.ts, which fails if any file re-writes the filters by
+    // hand. What is asserted here is the same invariant at this call site:
+    // every genuine-tagged census on this page goes through the one helper,
+    // with the inner-join select that makes the parent filters bite.
     const src = read("app/admin/page.tsx");
+    expect(src).toContain('from "@/lib/evidence-scope"');
+    expect(src).toContain("GENUINE_JOIN_SELECT");
+    expect(src.match(/genuineTagged\(/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(
-      src.match(/merchants!inner\(is_demo,node\), deals!inner\(is_demo\)/g)
+      src.match(/\.select\(GENUINE_JOIN_SELECT, \{ count: "exact", head: true \}\)/g)
         ?.length ?? 0
-    ).toBeGreaterThanOrEqual(2);
-    expect(src.match(/\.eq\("is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
-    expect(src.match(/\.eq\("merchants\.is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
-    expect(src.match(/\.eq\("deals\.is_demo", false\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(3);
     expect(src).toContain(
       "Internal E2E activity can still be included, so this is not external field validation."
     );

@@ -18,16 +18,16 @@ in the repository or on any branch, so every claim below was checked directly.
 
 | Claimed cleared | Reality on `main` |
 |---|---|
-| `frames.json` entries for `/qr/[token]`, `/you/rewards`, `/merchant/qr/print` | **Absent.** 32 surfaces, last amended 2026-08-19. → **D209** |
+| `frames.json` entries for `/qr/[token]`, `/you/rewards`, `/merchant/qr/print` | **Absent.** 32 surfaces, last amended 2026-08-19. → **D210** (opened as D209; renumbered when #286 merged first) |
 | Dead `stats.fastVisits` removed | **Still present** in `lib/merchant-owner-stats.ts` (lines 19, 60, 97, 301, 304), rendered by no `.tsx`. PR 3 territory, untouched. |
-| Admin attention-item severity ordering | **Not sorted.** Items push in fixed order; the `urgent` no-supply item is emitted *after* several `attention` items. `/admin` is frozen under the founder's `/admin` fee-aggregation ruling (PR 5's D208), untouched. |
+| Admin attention-item severity ordering | **Not sorted.** Items push in fixed order; the `urgent` no-supply item is emitted *after* several `attention` items. `/admin` is frozen under the founder's `/admin` fee-aggregation ruling (**D208**, canonical from PR 5), untouched. |
 
 ### PR 5 overlap check — **zero**
 
 PR 5 (#286) touches 16 files, all under `admin/`, `founder/`, `lib/pilot-*`,
 `lib/evidence-scope`. PR 1 touches five, all under `(shopper)/` and
 `lib/shopper-read-state`. The only shared path is
-`docs/maanta-drift-register.md`, and both branches independently open a **D208**.
+`docs/maanta-drift-register.md`, and both branches independently opened a **D208**. Resolved 2026-08-28: #286 merged first and holds D208; this branch's rows are now **D209** and **D210**.
 PR 1 does *not* skip the number to dodge it: the register's own guard requires
 the D sequence to stay contiguous, and a deliberate hole fails CI — which it did,
 on the first run. The register's established collision rule applies instead —
@@ -65,7 +65,7 @@ forking a formatter — which is how D203 happened, exactly as the brief warns.
 `lib/ui.ts` *is* server-timezone, and its day-word comparison uses
 `toDateString()` — so between 21:00 and 24:00 EAT it names the wrong day. Its
 ten call sites are all merchant, admin and agent screens, including
-`/merchant/wallet`, where a merchant reconciles their own money. Recorded as **D208**, not fixed:
+`/merchant/wallet`, where a merchant reconciles their own money. Recorded as **D209** (opened as D208; renumbered when #286 merged first), not fixed:
 merchant surfaces are PR 3's, `/admin` is frozen.
 
 **Nothing was converted. No formatter was forked.**
@@ -162,7 +162,7 @@ and the assertion that matters is the asymmetry: `state(failed) !== state(empty)
 - **`fast_visit_enabled` untouched**; no Fast Visit surface un-darkened.
 - **The `/qr/[token]` `fastVisitEligible` hardcode left alone** — harmless while the flag is off, belongs with the flag flip.
 - **Discovery untouched** — `/feed`, `/browse`, `/map`, `/search` unchanged, as they have been all window.
-- **`/admin` untouched** — the founder's fee-aggregation ruling (PR 5's D208). **`friendlyTime` not fixed** — this branch's D208. **`frames.json` not amended** — D209 — classifying a dark surface as `gated` vs `design-ahead` is a founder call, not a guess.
+- **`/admin` untouched** — the founder's fee-aggregation ruling (**D208**, canonical from PR 5). **`friendlyTime` not fixed** — **D209**. **`frames.json` not amended** — **D210** — classifying a dark surface as `gated` vs `design-ahead` is a founder call, not a guess.
 - **D187's ~60-screen read-failure sweep not attempted.** S2 covers the shopper surfaces in scope and stops.
 
 ## 8. Frozen rules honoured
@@ -284,7 +284,7 @@ Closed-window copy is *"Reward window closed"*, never "expired" — asserted.
 
 ## 15. Numbering, to settle after PR 5 lands
 
-This branch and #286 both hold a **D208**. Per the founder's ruling, provenance
+This branch and #286 both held a **D208**. **Resolved 2026-08-28:** #286 merged first as `4dff726`, so it holds D208 canonically for the `/admin` fee-aggregation finding and this branch renumbered to **D209** (`friendlyTime()`) and **D210** (`frames.json`). Per the founder's ruling, provenance
 stays intact while developing; after PR 5 merges, PR 1 rebases and renumbers its
 rows to the next contiguous IDs before the final exact-head gates.
 
