@@ -514,9 +514,12 @@ export async function getVerifiedCounts(
 export async function getDeal(dealId: string): Promise<DealRow | null> {
   const service = createServiceClient();
   // Public detail surface: a deal is only reachable when its merchant is
-  // publicly visible. Deal-level state (expired / fully-claimed / paused) is
-  // still surfaced by the page itself — this only gates merchant visibility,
-  // matching claim_deal so a shopper can never see a deal they can't claim.
+  // publicly visible. This gates MERCHANT visibility only, matching claim_deal's
+  // merchant_not_available check — it does NOT mean everything reachable here is
+  // claimable. Deal-level state (expired / fully-claimed / paused) is surfaced by
+  // the page itself, which renders "Fully claimed" and disables claiming. A fully
+  // claimed deal is legitimate discovery and history content; see "Discoverable
+  // is not claimable" in CLAUDE.md before adding an eligibility filter here.
   const includeDemo = await isDemoModeEnabled();
   const rows = await selectDealsWithMerchants((select) =>
     withPublicMerchant(service.from("deals").select(select).eq("id", dealId), {

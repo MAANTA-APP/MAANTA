@@ -254,6 +254,23 @@ below. They are stated once, there. This section is how to work near them.
 - **Never invent a product rule.** If the answer isn't in the decisions log, the
   readiness tracker, the drift register or a migration, it is an open question —
   surface it, don't decide it.
+- **Discoverable is not claimable** (founder doctrine, 2026-08-28). A fully
+  claimed deal is still legitimate discovery and history content — `getLiveDeals`
+  returns it deliberately, and `/deals/[id]` renders it as "Fully claimed" with
+  claiming disabled. A surface that specifically advertises an **available claim
+  opportunity** must filter it out itself: `endingSoonDeals` excludes
+  `max_claims != null && claims_count >= max_claims`, mirroring `claim_deal`'s own
+  `>=`/NULL-unlimited contract. **The dividing line is whether the product still
+  intends the deal to be discoverable.** A deal that is inactive, **paused** or
+  expired is withdrawn from discovery entirely, so its filter belongs in the
+  global query and stays there — `getLiveDeals` carries `is_active`,
+  `is_paused = false` and `expires_at > now` for exactly that reason, and the
+  paused one is a frozen rule (see Paused deals below, **D25**/**D119**). Never
+  remove those. A fully claimed deal is the other case: still browsable, still
+  history, so its exclusion belongs **only** in a surface advertising an
+  available claim. **Do not push surface-only eligibility predicates — the claim
+  cap above all — into the global deal query**, which would hide deals shoppers
+  can legitimately browse in order to fix a claim only one surface was making.
 - **Backend is the source of truth for money and trust.** A UI-only change does
   not close a money, access-control or fraud gap. `claim_deal` and
   `verify_redemption` are the enforcement points; an app-layer filter narrows
@@ -333,10 +350,19 @@ for the SQL browse-view filter).
   `is_paused`).
 - Pausing a deal **immediately** removes it from shopper discovery (feed,
   browse, map, **search**) and from `deals_public_browse`; new claims are
-  blocked. `/search` was the one surface that did not filter it until
-  2026-08-19 — it builds its own query rather than reading `getLiveDeals`, so it
-  carries the predicate itself (**D119**, closed; guard
-  `maanta-app/src/lib/__tests__/search-paused-filter.test.ts`).
+  blocked. **Three** surfaces have missed this, all for the same reason — they
+  build their own query rather than reading `getLiveDeals`, so each must carry
+  the predicate itself: `/search` until 2026-08-19 (**D119**), and the shop
+  storefront `shops/[id]` and the `/notifications` inbox until 2026-08-28
+  (**D214**). Every direct `from("deals")` select was audited on 2026-08-28: the
+  shopper-discovery set is `getLiveDeals`, `/search`, `shops/[id]` and
+  `/notifications`, and all four now filter `is_paused`. Merchant, admin and
+  founder surfaces are deliberately outside this rule — `merchant/(app)/redeem`
+  filters `is_paused = true` on purpose. Guards:
+  `search-paused-filter.test.ts`, `shop-page-paused-filter.test.ts`,
+  `notifications-paused-filter.test.ts`, all under
+  `maanta-app/src/lib/__tests__/`. **A new shopper surface that selects from
+  `deals` directly is the risk; prefer `getLiveDeals`.**
 - Enforcement is the `claim_deal` RPC (`deal_paused`); UI hiding is a safety
   layer only. Stale/deep-link claim attempts get HTTP 409 + `code: "deal_paused"`.
 - Resume (while the deal is otherwise valid) restores discovery and claimability.

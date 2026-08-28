@@ -56,11 +56,17 @@ export default async function ShopProfilePage({
   // mode, so this second filter is belt-and-braces: it keeps the rule "no
   // synthetic row renders unless demo mode is on" true per-row rather than
   // relying on demo deals only ever hanging off demo merchants.
+  // D25/D119 — a paused deal leaves shopper discovery immediately. This page
+  // builds its own query rather than reading `getLiveDeals`, which is exactly
+  // how `/search` came to miss the predicate (D119), and it renders the result
+  // under a heading that says "Live deals". `claim_deal` raises `deal_paused`,
+  // so without this a shopper is shown a live-looking deal the backend refuses.
   let dealsQuery = service
     .from("deals")
     .select("id, title, image_url, expires_at, deal_type")
     .eq("merchant_id", shop.id)
     .eq("is_active", true)
+    .eq("is_paused", false)
     .gt("expires_at", new Date().toISOString());
   if (!includeDemo) dealsQuery = dealsQuery.eq("is_demo", false);
 
