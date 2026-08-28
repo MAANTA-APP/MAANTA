@@ -282,11 +282,17 @@ Closed-window copy is *"Reward window closed"*, never "expired" — asserted.
 | `npm run build` + 3 chained gates | ✅ all clean |
 | SQL suites | **Not executed — not passing, not failing.** No SQL in scope. |
 
-## 15. Numbering, to settle after PR 5 lands
+## 15. Numbering — settled 2026-08-28, after PR 5 landed
 
 This branch and #286 both held a **D208**. **Resolved 2026-08-28:** #286 merged first as `4dff726`, so it holds D208 canonically for the `/admin` fee-aggregation finding and this branch renumbered to **D209** (`friendlyTime()`) and **D210** (`frames.json`). Per the founder's ruling, provenance
-stays intact while developing; after PR 5 merges, PR 1 rebases and renumbers its
-rows to the next contiguous IDs before the final exact-head gates.
+stays intact: each renumbered row records the id it was opened under and why it
+moved, so the finding remains traceable.
+
+The reconciliation was done by **merging `main` into the branch, not by
+rebasing it** — the head is a two-parent merge of `8418d1e` and `4dff726`, which
+keeps any existing checkout valid, and the repository squash-merges so the
+history shape does not carry through either way. Exact-head gates ran on the
+reconciled head.
 
 ## 16. Review round 2 — the Fast Visit chip and redemption status
 

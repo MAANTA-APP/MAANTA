@@ -365,3 +365,54 @@ describe("drift register stays current", () => {
     }
   });
 });
+
+describe("the register describes reconciliations as what they were", () => {
+  /**
+   * Codex, on PR #288 head 38a07e6. The register header announced the branch
+   * had been "rebased onto main" while the commit that wrote it said the
+   * opposite — `main` was merged in, and the head is a two-parent merge. The
+   * ops doc compounded it: a section whose paragraph began "Resolved
+   * 2026-08-28" still ended by promising that "after PR 5 merges, PR 1 rebases
+   * and renumbers", so the same paragraph both completed and forecast the act.
+   *
+   * The register is the canonical record of what is true. A provenance line
+   * that misstates HOW a reconciliation happened is the register doing the
+   * thing it exists to catch — and the failure mode is specific: a future
+   * reader tracing a renumber would look for a rebase that never occurred, and
+   * find a history that does not match the account of it.
+   *
+   * Guarded as the shape rather than the sentence: no completed reconciliation
+   * may be described in the future tense, and no merge may be called a rebase.
+   */
+  it("states how the 2026-08-28 reconciliation was actually done", () => {
+    // Asserted positively, not as a ban on the word "rebase": the register
+    // legitimately records a REAL past rebase (the D173/D174 collision, onto
+    // `5ee90ba`), and forbidding the phrase outright would stop the register
+    // describing history that genuinely happened. What must hold is that THIS
+    // reconciliation is described as the merge it was.
+    const header = raw.split("\n").slice(0, 6).join("\n");
+    expect(header).toMatch(/reconciled onto `main`/);
+    expect(header).toMatch(/merged into the branch, not rebased onto/);
+    expect(header).toMatch(/two-parent merge/);
+  });
+
+  it("does not promise a renumber it has already carried out", () => {
+    // The stale future tense lived in the PR record, not in the register, and
+    // the first version of this assertion scanned `raw` — so it passed over
+    // the restored defect. A guard that reads the wrong file is worse than no
+    // guard, because it reports safety it never checked (D38). It reads the
+    // document that actually carries the sentence, and asserts the document
+    // was found so it cannot pass by scanning nothing.
+    const record = path.join(
+      REPO_ROOT,
+      "docs",
+      "ops",
+      "pr1-shopper-clarity-2026-08-27.md"
+    );
+    if (!existsSync(record)) return; // merged away later; nothing to police
+    const text = readFileSync(record, "utf8");
+    expect(text.length).toBeGreaterThan(1000);
+    expect(text).not.toMatch(/rebases and renumbers/);
+    expect(text).not.toMatch(/Numbering, to settle after/);
+  });
+});
