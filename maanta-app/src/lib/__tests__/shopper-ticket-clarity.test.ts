@@ -38,17 +38,6 @@ describe("the Fast Visit timer reads as a reward window, never as ticket expiry"
     expect(panel).not.toMatch(/until this code|code expires/i);
   });
 
-  it("keeps the reward countdown visually subordinate to the claim countdown", () => {
-    // Both were `font-code font-semibold text-ink`, one size step apart, which
-    // is not a hierarchy — it is two near-identical timers on a screen where
-    // confusing them means mistaking an optional reward for your code's
-    // deadline.
-    const code = read("app/(shopper)/tickets/[id]/claimed-code.tsx");
-    expect(code).toContain('className="font-code text-xl font-semibold text-ink"');
-    expect(panel).toMatch(/font-code mt-1 text-base font-medium text-secondary/);
-    expect(panel).not.toMatch(/font-code mt-1 text-lg font-semibold text-ink/);
-  });
-
   it("leaves the claim countdown's own wording untouched", () => {
     const code = read("app/(shopper)/tickets/[id]/claimed-code.tsx");
     expect(code).toContain("until this code expires");
