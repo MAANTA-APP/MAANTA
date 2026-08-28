@@ -7,6 +7,7 @@ import { KpiCard } from "@/components/ui/cards";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { friendlyTime } from "@/lib/ui";
 import { summariseAgentLeads, lockHoursLeft } from "@/lib/agent-summary";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +27,23 @@ export default async function AdminAgentDetailPage({
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: agent } = await service
+  const agentRes = await service
     .from("agents")
     .select("id, weekly_target, is_active, created_at, users(full_name, phone, email, role)")
     .eq("id", params.id)
     .maybeSingle();
+  if (agentRes.error) {
+    return (
+      <main className="max-w-3xl">
+        <h1 className="text-2xl font-bold text-ink">Agent detail</h1>
+        <div className="mt-5"><AdminReadError what="agent details" /></div>
+      </main>
+    );
+  }
+  const agent = agentRes.data;
   if (!agent) notFound();
 
-  const [{ data: leads }, { data: assisted }] = await Promise.all([
+  const [leadsRes, assistedRes] = await Promise.all([
     service
       .from("leads")
       .select("id, shop_name, status, locked_until, created_at, converted_to")
@@ -49,6 +59,17 @@ export default async function AdminAgentDetailPage({
       .order("created_at", { ascending: false })
       .limit(100),
   ]);
+
+  if (leadsRes.error || assistedRes.error) {
+    return (
+      <main className="max-w-3xl">
+        <h1 className="text-2xl font-bold text-ink">Agent detail</h1>
+        <div className="mt-5"><AdminReadError what="agent field activity" /></div>
+      </main>
+    );
+  }
+  const leads = leadsRes.data;
+  const assisted = assistedRes.data;
 
   const u = agent.users as unknown as {
     full_name: string | null;

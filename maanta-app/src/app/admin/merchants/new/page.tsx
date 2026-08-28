@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { AdminOnboardForm } from "./admin-onboard-form";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,21 @@ export default async function AdminNewMerchantPage() {
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: candidates } = await service
+  const { data: candidates, error } = await service
     .from("users")
     .select("id, full_name, phone, email, created_at")
     .eq("role", "customer")
     .order("created_at", { ascending: false })
     .limit(200);
+
+  if (error) {
+    return (
+      <main className="max-w-2xl">
+        <h1 className="text-2xl font-bold text-ink">Onboard a shop</h1>
+        <div className="mt-5"><AdminReadError what="eligible merchant-owner accounts" /></div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-2xl">

@@ -10,6 +10,7 @@ import { PlanChip } from "@/components/ui/chips";
 import { cn, formatKes } from "@/lib/ui";
 import { extrasLine, extrasTotal, youPay, type DealCharge } from "@/lib/pricing";
 import { DEAL_CATEGORIES, dealCategoryLabel, type DealCategory } from "@/lib/deal-categories";
+import { ACTIVE_DEAL_LIMITS } from "@/lib/plan-limits";
 
 type Step = "type" | "details" | "price" | "schedule" | "review";
 type ChargeDraft = { id: string; label: string; type: "fixed" | "percent"; value: string };
@@ -222,8 +223,8 @@ export function NewDealWizard({
               <tbody className="divide-y divide-line bg-white">
                 <tr>
                   <td className="px-4 py-2.5 text-ink">Active deals at once</td>
-                  <td className="px-2 py-2.5 text-center">1</td>
-                  <td className="px-2 py-2.5 text-center font-bold">2</td>
+                  <td className="px-2 py-2.5 text-center">{ACTIVE_DEAL_LIMITS.standard}</td>
+                  <td className="px-2 py-2.5 text-center font-bold">{ACTIVE_DEAL_LIMITS.elite}</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2.5 text-ink">

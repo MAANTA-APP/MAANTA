@@ -4,6 +4,8 @@ import path from "node:path";
 import {
   publishQueueCode,
   subscribeQueueCode,
+  publishRedemptionCompleted,
+  subscribeRedemptionCompleted,
 } from "@/lib/queue-code-handoff";
 
 // D193 (Cursor Security Agent MEDIUM on PR #277): the queue-row tap used to
@@ -64,6 +66,19 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
     expect(src).toContain("publishQueueCode");
   });
 
+  it("serializes ordinary polls but lets priority refreshes invalidate stale snapshots", () => {
+    const src = read("app/merchant/(app)/redeem/queue-panel.tsx");
+    expect(src).toContain("loadInFlight");
+    expect(src).toContain("priorityRefreshRequested");
+    expect(src).toContain("refreshEpoch");
+    expect(src).toContain("if (loadInFlight.current)");
+    expect(src).toContain("if (priority) priorityRefreshRequested.current = true");
+    expect(src.match(/epoch === refreshEpoch\.current/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src).toContain("const body = await res.json()");
+    expect(src).toContain("setInterval(() => void load(), QUEUE_POLL_MS)");
+    expect(src).toContain("subscribeRedemptionCompleted(() => void load(true))");
+  });
+
   it("the redeem page takes no code from searchParams", () => {
     const src = read("app/merchant/(app)/redeem/page.tsx");
     expect(src).not.toMatch(/searchParams/);
@@ -74,5 +89,37 @@ describe("D193 ratchet — the claim code never travels by URL", () => {
     const src = read("app/merchant/(app)/redeem/redeem-keypad.tsx");
     expect(src).toContain("subscribeQueueCode");
     expect(src).not.toMatch(/prefillCode/);
+  });
+});
+
+describe("redemption-completed channel (D204)", () => {
+  it("notifies every subscriber, and stops after unsubscribe", () => {
+    const seen: string[] = [];
+    const offA = subscribeRedemptionCompleted(() => seen.push("a"));
+    const offB = subscribeRedemptionCompleted(() => seen.push("b"));
+    publishRedemptionCompleted();
+    expect(seen.sort()).toEqual(["a", "b"]);
+    offA();
+    seen.length = 0;
+    publishRedemptionCompleted();
+    expect(seen).toEqual(["b"]);
+    offB();
+    seen.length = 0;
+    publishRedemptionCompleted();
+    expect(seen).toEqual([]);
+  });
+
+  it("carries no data — it is a refresh nudge, not a payload", () => {
+    let args: unknown[] = [];
+    const off = subscribeRedemptionCompleted((...a: unknown[]) => {
+      args = a;
+    });
+    publishRedemptionCompleted();
+    expect(args).toEqual([]);
+    off();
+  });
+
+  it("publishing with nobody listening is a harmless no-op", () => {
+    expect(() => publishRedemptionCompleted()).not.toThrow();
   });
 });

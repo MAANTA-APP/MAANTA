@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { QrCheckIn } from "@/app/(shopper)/qr/[token]/qr-check-in";
 
 // The QR landing states that render without a network call (SSR — effects
@@ -61,6 +63,41 @@ describe("QrCheckIn states", () => {
     expect(html).toContain("Staff will call your name.");
     expect(html).toContain("Cancel check-in");
     expect(html).toContain("your claim stays valid");
+  });
+
+  it("the single-claim branch always resolves to a real screen (D196)", () => {
+    // The cancel-stranding class of defect: the single-claim auto-check-in
+    // effect is one-shot, so any state falling back to `idle` renders
+    // "Checking you in…" forever with nothing in flight. SSR cannot run the
+    // cancel handler, but it can prove the one effect-free single-claim
+    // branch reaches a terminal screen — and the source below pins that
+    // cancel no longer targets `idle` at all.
+    const html = render({
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya" }],
+      alreadyCheckedInFor: "r1",
+    });
+    expect(html).not.toContain("Checking you in");
+    expect(html).toContain("Cancel check-in");
+  });
+
+  it("cancel lands in its own terminal state, never back in idle (D196)", () => {
+    const src = readFileSync(
+      path.resolve(process.cwd(), "src/app/(shopper)/qr/[token]/qr-check-in.tsx"),
+      "utf8"
+    );
+    const cancelBody = src.slice(
+      src.indexOf("const cancel = useCallback"),
+      src.indexOf("const shopLine")
+    );
+    expect(cancelBody).toContain('kind: "cancelled"');
+    expect(cancelBody).toContain('kind: "cancel-error"');
+    expect(cancelBody).toContain("res.ok");
+    expect(cancelBody).not.toContain('kind: "idle"');
+    // And both success and failure states must actually render something.
+    expect(src).toContain('state.kind === "cancelled"');
+    expect(src).toContain('state.kind === "cancel-error"');
+    expect(src).toContain("You&apos;ve left the queue");
+    expect(src).toContain("Couldn&apos;t leave the queue");
   });
 
   it("never uses amber — check-in is not a money action", () => {

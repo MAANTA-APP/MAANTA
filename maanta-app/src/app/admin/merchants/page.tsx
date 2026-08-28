@@ -4,6 +4,7 @@ import { requireAdminPage } from "@/lib/admin";
 import { SearchField } from "@/components/ui/inputs";
 import { StatusChip, PlanChip } from "@/components/ui/chips";
 import { formatKes } from "@/lib/ui";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,16 @@ export default async function AdminMerchantsPage({
     .order("created_at", { ascending: false })
     .limit(300);
   if (q) query = query.ilike("merchant_name", `%${q}%`);
-  const { data: merchants } = await query;
+  const { data: merchants, error } = await query;
+
+  if (error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Merchants</h1>
+        <div className="mt-5"><AdminReadError what="the merchant directory" /></div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl">

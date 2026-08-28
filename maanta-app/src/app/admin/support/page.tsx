@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { cn } from "@/lib/ui";
 import { OverrideButton } from "./override-button";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,21 @@ export default async function AdminSupportPage({
 
   const view = searchParams.view === "resolved" ? "resolved" : "open";
   const service = createServiceClient();
-  const { data: tasks } = await service
+  const { data: tasks, error } = await service
     .from("agent_tasks")
     .select("id, task_type, priority, description, is_complete, created_at, merchants(merchant_name)")
     .eq("is_complete", view === "resolved")
     .order("created_at", { ascending: false })
     .limit(50);
+
+  if (error) {
+    return (
+      <main className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-ink">Support</h1>
+        <div className="mt-5"><AdminReadError what="support tasks" /></div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl">

@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { relativeAgo } from "@/lib/ui";
 import { QUEUE_POLL_MS, type QueueEntry } from "@/lib/queue";
+import { subscribeRedemptionCompleted } from "@/lib/queue-code-handoff";
 import { publishQueueCode } from "@/lib/queue-code-handoff";
+import { IconBolt } from "@/components/ui/icons";
 
 /**
  * The shopper queue at the till — checked-in shoppers, oldest first.
@@ -30,28 +32,82 @@ export function QueuePanel() {
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const load = useCallback(async () => {
+  // Polls are serialized. A slow mall-Wi-Fi response must be allowed to
+  // finish even if it takes longer than QUEUE_POLL_MS; otherwise a timer can
+  // supersede every request forever and the queue never becomes visible.
+  //
+  // Priority refreshes (verification completed / dismiss) are different: if
+  // one arrives while a poll is in flight, that older response is no longer
+  // allowed to commit because it may contain the just-served shopper. We mark
+  // it stale and immediately run one fresh read after it settles.
+  const loadInFlight = useRef(false);
+  const priorityRefreshRequested = useRef(false);
+  const refreshEpoch = useRef(0);
+
+  const load = useCallback(async (priority = false) => {
+    if (priority) refreshEpoch.current += 1;
+
+    if (loadInFlight.current) {
+      if (priority) priorityRefreshRequested.current = true;
+      return;
+    }
+
+    loadInFlight.current = true;
     try {
-      const res = await fetch("/api/queue", { cache: "no-store" });
-      if (!res.ok) {
-        setLoadFailed(true);
-        return;
+      let runAgain = true;
+      while (runAgain) {
+        priorityRefreshRequested.current = false;
+        const epoch = refreshEpoch.current;
+
+        try {
+          const res = await fetch("/api/queue", { cache: "no-store" });
+
+          // A priority event that happened while this request was pending has
+          // made its snapshot stale. Skip both success and failure state from
+          // that request; the loop below will perform the requested fresh read.
+          if (epoch === refreshEpoch.current) {
+            if (!res.ok) {
+              setLoadFailed(true);
+            } else {
+              const body = await res.json();
+              // A priority event may arrive after fetch() resolves but while the
+              // response body is still being read. Re-check the epoch after
+              // awaiting res.json() before committing this snapshot.
+              if (
+                epoch === refreshEpoch.current &&
+                Array.isArray(body?.entries)
+              ) {
+                setEntries(body.entries);
+                setLoadFailed(false);
+              }
+            }
+          }
+        } catch {
+          // Keep the last good list. Only the current epoch may report a read
+          // failure; an invalidated request is followed by the priority read.
+          if (epoch === refreshEpoch.current) setLoadFailed(true);
+        }
+
+        runAgain = priorityRefreshRequested.current;
       }
-      const body = await res.json();
-      if (Array.isArray(body?.entries)) {
-        setEntries(body.entries);
-        setLoadFailed(false);
-      }
-    } catch {
-      // keep the last good list; remember that we have none yet
-      setLoadFailed(true);
+    } finally {
+      loadInFlight.current = false;
     }
   }, []);
 
   useEffect(() => {
     void load();
     const t = setInterval(() => void load(), QUEUE_POLL_MS);
-    return () => clearInterval(t);
+    // A completed verification drops the served shopper straight away; the
+    // poll alone left them listed and tappable for up to QUEUE_POLL_MS, and
+    // tapping that stale row showed staff a rejection screen for a customer
+    // they had just served (D204). This is a priority read: an in-flight poll
+    // may not overwrite it with a pre-verification snapshot.
+    const unsubscribe = subscribeRedemptionCompleted(() => void load(true));
+    return () => {
+      clearInterval(t);
+      unsubscribe();
+    };
   }, [load]);
 
   const dismiss = useCallback(
@@ -62,13 +118,19 @@ export function QueuePanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presentationId: id }),
       }).catch(() => null);
-      void load();
+      void load(true);
     },
     [load]
   );
 
-  // Never loaded AND the last attempt failed: an honest one-liner, not a
-  // silent nothing. Once any load has succeeded, quiet degradation resumes.
+  // Four distinct states, deliberately (G6). Before this, a first load in
+  // progress rendered exactly like "nobody is waiting" — so staff glancing
+  // down mid-fetch were told the queue was empty by a screen that simply did
+  // not know yet.
+  //
+  // 1. FAILED FIRST LOAD — never loaded and the last attempt failed. An
+  //    honest line, not a silent nothing (D164/D185: a failed read must never
+  //    look like a real zero).
   if (entries === null && loadFailed) {
     return (
       <p className="border-b border-line bg-stone px-4 py-2 text-xs text-muted">
@@ -78,7 +140,22 @@ export function QueuePanel() {
     );
   }
 
-  if (!entries || entries.length === 0) return null;
+  // 2. LOADING — first fetch still in flight.
+  if (entries === null) {
+    return (
+      <p
+        role="status"
+        className="border-b border-line bg-stone px-4 py-2 text-xs text-muted"
+      >
+        Checking for waiting shoppers…
+      </p>
+    );
+  }
+
+  // 3. EMPTY — a successful read with nobody waiting.
+  if (entries.length === 0) return null;
+
+  // 4. POPULATED — below.
 
   return (
     <section className="border-b border-line bg-stone px-4 py-3">
@@ -106,8 +183,13 @@ export function QueuePanel() {
               </p>
               <p className="truncate text-xs text-secondary">
                 {e.dealTitle} · arrived {relativeAgo(e.arrivedAt)}
-                {e.fastVisitEligible ? " · Fast Visit" : ""}
               </p>
+              {e.fastVisitEligible ? (
+                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-line bg-stone px-2 py-0.5 text-[11px] font-semibold text-ink">
+                  <IconBolt className="h-3 w-3" aria-hidden="true" />
+                  Fast Visit
+                </span>
+              ) : null}
             </button>
             <button
               type="button"

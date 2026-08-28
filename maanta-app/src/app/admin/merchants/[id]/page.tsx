@@ -11,6 +11,7 @@ import {
 } from "@/lib/elite-trial";
 import { MerchantAdminActions } from "./merchant-admin-actions";
 import { MerchantLocationForm } from "./merchant-location-form";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function AdminMerchantDetailPage({
   await requireAdminPage();
 
   const service = createServiceClient();
-  const [{ data: m }, { data: capRows }] = await Promise.all([
+  const [merchantRes, capRes] = await Promise.all([
     service
       .from("merchants")
       .select(
@@ -33,9 +34,18 @@ export default async function AdminMerchantDetailPage({
       .maybeSingle(),
     service.rpc("elite_trial_cap_status"),
   ]);
+  if (merchantRes.error || capRes.error) {
+    return (
+      <main className="max-w-3xl">
+        <h1 className="text-2xl font-bold text-ink">Merchant detail</h1>
+        <div className="mt-5"><AdminReadError what="merchant details" /></div>
+      </main>
+    );
+  }
+  const m = merchantRes.data;
   if (!m) notFound();
 
-  const trialCap: EliteTrialCapStatus | null = parseEliteTrialCapStatus(capRows);
+  const trialCap: EliteTrialCapStatus | null = parseEliteTrialCapStatus(capRes.data);
 
   const trialStatus = formatAdminTrialStatus({
     eliteTrialActive: m.elite_trial_active === true,

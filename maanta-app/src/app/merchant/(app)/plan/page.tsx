@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { SettingsRow } from "@/components/ui/cards";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatMerchantTrialStatus } from "@/lib/elite-trial";
+import { ACTIVE_DEAL_LIMITS } from "@/lib/plan-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,8 @@ export default async function PlanPage() {
         <p className="text-xl font-bold text-ink">{isElite ? "Elite" : "Standard"}</p>
         <p className="mt-1 text-sm text-muted">
           {isElite
-            ? "2 active deals · flash deals · boosts"
-            : "1 active deal · 24h fixed schedule"}
+            ? `${ACTIVE_DEAL_LIMITS.elite} active deals · flash deals · boosts`
+            : `${ACTIVE_DEAL_LIMITS.standard} active deal · 24h fixed schedule`}
         </p>
         {trialStatus && !trialStatus.body ? (
           <p className="mt-2 inline-block rounded-full bg-brand px-3 py-1 text-xs font-bold text-ink">

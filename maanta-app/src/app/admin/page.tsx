@@ -9,6 +9,9 @@ import { isNodeScoped, nodeSwitcherTargets, resolveNodeParam } from "@/lib/admin
 import { cn } from "@/lib/ui";
 import { LeadsReadError } from "@/components/agent/lead-row-list";
 import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
+import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
+import { AdminReadError } from "@/components/admin/read-error";
+import { readDemoModeEnabled } from "@/lib/demo-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +50,20 @@ export default async function AdminHomePage({
   // The node's merchant set — the join every non-node-carrying table needs.
   let merchantIds: string[] | null = null;
   if (scoped) {
-    const { data } = await service.from("merchants").select("id").eq("node", node);
+    const { data, error } = await service
+      .from("merchants")
+      .select("id")
+      .eq("node", node);
+    if (error) {
+      return (
+        <main className="min-h-dvh bg-stone px-4 pb-16 pt-6">
+          <h1 className="text-xl font-bold text-ink">Operations</h1>
+          <div className="mt-6">
+            <AdminReadError what="the selected node&apos;s merchant scope" />
+          </div>
+        </main>
+      );
+    }
     merchantIds = (data ?? []).map((m) => m.id);
   }
   // An empty node (real: a live node with no merchants yet) must filter to
@@ -63,6 +79,77 @@ export default async function AdminHomePage({
   const atNode = <T,>(q: T): T =>
     scoped ? ((q as { eq: (c: string, v: string) => T }).eq("node", node) as T) : q;
 
+  // The attention queue must use the same public-visibility predicate as
+  // shopper browse, not merely "active + unexpired". Paused deals and hidden,
+  // shadow-banned or inactive merchants are not supply.
+  // Failure-aware on purpose. isDemoModeEnabled() folds an unreachable config
+  // into OFF, which is correct for product surfaces but wrong here: the flag
+  // decides whether demo rows are excluded from the supply count below, so a
+  // failed read would quietly shrink that number — possibly to 0 — and fire
+  // the URGENT "No live deals" item from an error rather than an observation.
+  // When the read fails the count is reported as unavailable instead.
+  const demoMode = await readDemoModeEnabled();
+  const includeDemo = demoMode.enabled;
+  let shopperVisibleDealsQuery = service
+    .from("deals")
+    .select(
+      "id, merchants!inner(status,is_visible,is_shadow_banned,is_demo)",
+      { count: "exact", head: true }
+    )
+    .eq("is_active", true)
+    .eq("is_paused", false)
+    .gt("expires_at", now)
+    .eq("merchants.status", "active")
+    .eq("merchants.is_visible", true)
+    .eq("merchants.is_shadow_banned", false);
+  if (!includeDemo) {
+    shopperVisibleDealsQuery = shopperVisibleDealsQuery
+      .eq("is_demo", false)
+      .eq("merchants.is_demo", false);
+  }
+  if (scoped) shopperVisibleDealsQuery = shopperVisibleDealsQuery.eq("node", node);
+
+  // D188/D189 — a redemption row's own is_demo flag is not enough.
+  // claim_deal historically creates non-demo redemption rows even against demo
+  // merchants/deals, so every "genuine-tagged" census must join both parents.
+  let genuineClaimsQuery = service
+    .from("redemptions")
+    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("is_demo", false)
+    .eq("merchants.is_demo", false)
+    .eq("deals.is_demo", false)
+    .gte("claimed_at", since7d);
+  let genuineVerifiedQuery = service
+    .from("redemptions")
+    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("status", "success")
+    .eq("is_demo", false)
+    .eq("merchants.is_demo", false)
+    .eq("deals.is_demo", false)
+    .gte("redeemed_at", since7d);
+  let genuineCohortVerifiedQuery = service
+    .from("redemptions")
+    .select("id, merchants!inner(is_demo,node), deals!inner(is_demo)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("status", "success")
+    .eq("is_demo", false)
+    .eq("merchants.is_demo", false)
+    .eq("deals.is_demo", false)
+    .gte("claimed_at", since7d);
+  if (scoped) {
+    genuineClaimsQuery = genuineClaimsQuery.eq("merchants.node", node);
+    genuineVerifiedQuery = genuineVerifiedQuery.eq("merchants.node", node);
+    genuineCohortVerifiedQuery = genuineCohortVerifiedQuery.eq("merchants.node", node);
+  }
+
   // D164 — two sets, separated structurally rather than by index.
   //
   // `results` is its own array literal, so the claims-tracking read below
@@ -76,7 +163,7 @@ export default async function AdminHomePage({
   //
   // Both arms are handed to one Promise.all, so the reads still run in
   // parallel; the nesting costs a tick of scheduling, not a round trip.
-  const [results, claimsTrackingRes] = await Promise.all([
+  const [results, claimsTrackingRes, runtimeConfigRes, auditRes] = await Promise.all([
     Promise.all([
       atNode(
         service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "pending")
@@ -84,18 +171,7 @@ export default async function AdminHomePage({
       atNode(
         service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "active")
       ),
-      scoped
-        ? service
-            .from("deals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .gt("expires_at", now)
-            .eq("node", node)
-        : service
-            .from("deals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true)
-            .gt("expires_at", now),
+      shopperVisibleDealsQuery,
       byMerchant(
         // D164: `claimed_at`, not `created_at` — the latter never existed, so this
         // count errored and, with no read-failure guard on this page, collapsed
@@ -110,11 +186,32 @@ export default async function AdminHomePage({
           .eq("status", "success")
           .gte("redeemed_at", since7d)
       ),
+      genuineClaimsQuery,
+      genuineVerifiedQuery,
+      genuineCohortVerifiedQuery,
       byMerchant(
         service.from("redemptions").select("id", { count: "exact", head: true }).eq("status", "flagged")
       ),
       byMerchant(
         service.from("agent_tasks").select("id", { count: "exact", head: true }).eq("is_complete", false)
+      ),
+      // Plan-limit refusals only. tier_flags also carries 'trial_expired' and
+      // 'subscription_lapsed', which are lifecycle events, not a merchant
+      // attempting to publish past its plan — counting those made the console
+      // assert a plan-limit attempt that never happened (Codex P2 on #283).
+      //
+      // These two types only exist as rows at all because of this PR's
+      // caller-side audit (lib/tier-refusal-audit, D194): the trigger writes
+      // them immediately before it RAISEs, so its own INSERT is rolled back
+      // with the exception. The count is therefore only as complete as that
+      // audit — a refusal that never reached /api/deals or /api/deals/repost
+      // (a direct DB write, say) is invisible here by construction.
+      byMerchant(
+        service
+          .from("tier_flags")
+          .select("id", { count: "exact", head: true })
+          .in("flag_type", ["deal_limit_exceeded", "flash_not_allowed"])
+          .gte("created_at", since7d)
       ),
       byMerchant(
         service
@@ -144,6 +241,22 @@ export default async function AdminHomePage({
       .select("value")
       .eq("key", CLAIMS_TRACKING_CONFIG_KEY)
       .maybeSingle(),
+    // Read-only, allow-listed operational flags. No browser write path.
+    service
+      .from("app_config")
+      .select("key, value")
+      .in("key", [
+        "demo_mode_enabled",
+        "fast_visit_enabled",
+        "fast_visit_points",
+        "success_fee_kes",
+      ])
+      .order("key"),
+    service
+      .from("admin_ops_log")
+      .select("id, admin_user_id, action, target_type, target_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
   // D164 — a failed metric read must never look like a real number.
@@ -175,8 +288,12 @@ export default async function AdminHomePage({
     { count: liveDeals },
     { count: claims7d },
     { count: verified7d },
+    { count: genuineClaims7d },
+    { count: genuineVerified7d },
+    { count: genuineCohortVerified7d },
     { count: heldRedemptions },
     { count: openTasks },
+    { count: tierRefusals7d },
     { data: fees7d },
     { data: arrearsRows },
     { data: recentPending },
@@ -192,6 +309,24 @@ export default async function AdminHomePage({
     0
   );
   const targets = nodeSwitcherTargets();
+  const genuineClaims = genuineClaims7d ?? 0;
+  const genuineVerified = genuineVerified7d ?? 0;
+  const mixedClaims = Math.max(0, (claims7d ?? 0) - genuineClaims);
+  const mixedVerified = Math.max(0, (verified7d ?? 0) - genuineVerified);
+  const attentionItems = buildAdminAttentionItems({
+    pendingMerchants: pendingMerchants ?? 0,
+    heldRedemptions: heldRedemptions ?? 0,
+    openTasks: openTasks ?? 0,
+    merchantsInArrears: (arrearsRows ?? []).length,
+    tierRefusals7d: tierRefusals7d ?? 0,
+    activeMerchants: activeMerchants ?? 0,
+    liveDeals: demoMode.ok ? liveDeals ?? null : null,
+    genuineClaims7d: claims.partial ? null : genuineClaims7d ?? null,
+    genuineVerified7d: claims.partial ? null : genuineCohortVerified7d ?? null,
+  });
+  const runtimeConfig = new Map(
+    (runtimeConfigRes.data ?? []).map((row) => [String(row.key), String(row.value)])
+  );
 
   return (
     <main className="max-w-4xl">
@@ -222,39 +357,73 @@ export default async function AdminHomePage({
         })}
       </nav>
 
-      {/* Needs a human — first, because this is what a glance is for. */}
-      <h2 className="mt-7 text-base font-bold text-ink">Needs a human</h2>
-      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <QueueCard
-          label="Pending approvals"
-          value={pendingMerchants ?? 0}
-          href="/admin/approvals"
-        />
-        <QueueCard label="Held redemptions" value={heldRedemptions ?? 0} href="/admin/redemptions" />
-        <QueueCard label="Open support tasks" value={openTasks ?? 0} href="/admin/support" />
-        <QueueCard
-          label="Merchants in arrears"
-          value={(arrearsRows ?? []).length}
-          href="/admin/billing"
-        />
+      <h2 className="mt-7 text-base font-bold text-ink">Needs attention</h2>
+      <p className="mt-1 text-xs text-muted">
+        Deterministic rules only — every alert states why it fired.
+      </p>
+      <div className="mt-2 space-y-2">
+        {attentionItems.length === 0 ? (
+          <p className="rounded-card bg-white px-4 py-5 text-sm text-muted shadow-card">
+            No deterministic operational alerts right now.
+          </p>
+        ) : (
+          attentionItems.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={cn(
+                "block rounded-card border bg-white px-4 py-3.5 shadow-card hover:bg-stone-soft",
+                item.severity === "urgent" ? "border-flame/40" : "border-line"
+              )}
+            >
+              <p className="text-sm font-bold text-ink">{item.label}</p>
+              <p className="mt-1 text-xs text-muted">{item.reason}</p>
+            </Link>
+          ))
+        )}
       </div>
 
-      <h2 className="mt-7 text-base font-bold text-ink">The loop (7 days)</h2>
+      <h2 className="mt-7 text-base font-bold text-ink">Evidence split</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
-          label={claims.label}
-          value={(claims7d ?? 0).toLocaleString()}
-          hint={claims.hint ?? undefined}
+          label={`Genuine-tagged ${claims.label.toLowerCase()}`}
+          value={genuineClaims.toLocaleString()}
+          hint={claims.hint ?? "Redemption + merchant + deal are all non-demo."}
         />
-        <KpiCard label="Verified (7d)" value={(verified7d ?? 0).toLocaleString()} />
-        <KpiCard label="Success fees (7d)" value={formatKes(revenue7d)} />
+        <KpiCard
+          label={claims.partial ? "Demo/mixed claims since tracking began" : "Demo/mixed claims (7d)"}
+          value={mixedClaims.toLocaleString()}
+          hint="Anything not clean across redemption + merchant + deal."
+        />
+        <KpiCard
+          label="Genuine-tagged verified (7d)"
+          value={genuineVerified.toLocaleString()}
+        />
+        <KpiCard
+          label="Demo/mixed verified (7d)"
+          value={mixedVerified.toLocaleString()}
+        />
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        D188 rule: genuine-tagged means redemption, merchant and deal are all non-demo.
+        Internal E2E activity can still be included, so this is not external field validation.
+      </p>
+
+      <h2 className="mt-7 text-base font-bold text-ink">Operational totals (7 days)</h2>
+      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Success fees — all activity" value={formatKes(revenue7d)} />
         <KpiCard label="Arrears outstanding" value={formatKes(arrearsTotal)} />
       </div>
 
       <h2 className="mt-7 text-base font-bold text-ink">Supply</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Active merchants" value={(activeMerchants ?? 0).toLocaleString()} />
-        <KpiCard label="Live deals" value={(liveDeals ?? 0).toLocaleString()} />
+        <KpiCard
+          label="Shopper-visible deals"
+          value={
+            demoMode.ok && liveDeals != null ? liveDeals.toLocaleString() : "—"
+          }
+        />
       </div>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">
@@ -288,11 +457,71 @@ export default async function AdminHomePage({
         )}
       </div>
 
+      <h2 className="mt-7 text-base font-bold text-ink">Runtime flags</h2>
+      {runtimeConfigRes.error ? (
+        <div className="mt-2">
+          <AdminReadError what="runtime configuration" />
+        </div>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            ["demo_mode_enabled", "Demo mode"],
+            ["fast_visit_enabled", "Fast Visit"],
+            ["fast_visit_points", "Fast Visit points"],
+            ["success_fee_kes", "Success fee (KES)"],
+          ].map(([key, label]) => (
+            <div key={key} className="rounded-card bg-white p-4 shadow-card">
+              <p className="text-xs text-muted">{label}</p>
+              <p className="tnum mt-1 text-base font-bold text-ink">
+                {runtimeConfig.get(key) ?? "Unavailable"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-xs text-muted">Read-only visibility. No config write controls exist here.</p>
+
+      <div className="mt-7 flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-bold text-ink">
+          Recent admin actions{scoped ? " — all nodes" : ""}
+        </h2>
+        <Link href="/admin/audit" className="text-sm font-semibold text-secondary hover:text-ink">
+          Full audit
+        </Link>
+      </div>
+      {scoped ? (
+        <p className="mt-1 text-xs text-muted">
+          Audit events are platform-wide; they are intentionally not presented as node-scoped.
+        </p>
+      ) : null}
+      {auditRes.error ? (
+        <div className="mt-2">
+          <AdminReadError what="the admin audit trail" />
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {(auditRes.data ?? []).length === 0 ? (
+            <p className="rounded-card bg-white px-4 py-5 text-sm text-muted shadow-card">
+              No admin actions recorded yet.
+            </p>
+          ) : (
+            (auditRes.data ?? []).map((entry) => (
+              <div key={entry.id} className="rounded-card bg-white px-4 py-3 shadow-card">
+                <p className="text-sm font-semibold text-ink">{entry.action}</p>
+                <p className="mt-0.5 text-xs text-muted">
+                  {entry.target_type} · {String(entry.target_id).slice(0, 8)}… · {relativeAgo(entry.created_at)}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {scoped ? (
         <p className="mt-6 text-xs text-muted">
-          Scoped to {nodeLabel(node)}. Redemptions, fees and tasks have no node of their own —
-          they are counted through that node&apos;s merchants, so every figure above covers the
-          same set.
+          Operational metrics are scoped to {nodeLabel(node)}. Redemptions, fees and tasks have
+          no node of their own, so they are counted through that node&apos;s merchants. Runtime
+          flags and the audit trail are platform-wide and are labelled separately.
         </p>
       ) : null}
     </main>
@@ -301,16 +530,3 @@ export default async function AdminHomePage({
 
 /** A UUID no row can hold — filters an empty node to nothing rather than to everything. */
 const NO_MATCH = "00000000-0000-0000-0000-000000000000";
-
-/** A queue count that is also its own way in. Zero is stated, never hidden. */
-function QueueCard({ label, value, href }: { label: string; value: number; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="rounded-card bg-white shadow-card p-4 hover:bg-stone-soft"
-    >
-      <p className="text-xs text-muted">{label}</p>
-      <p className="tnum mt-1 text-2xl font-bold text-ink">{value.toLocaleString()}</p>
-    </Link>
-  );
-}

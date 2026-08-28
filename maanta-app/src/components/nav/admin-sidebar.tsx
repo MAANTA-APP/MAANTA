@@ -24,6 +24,7 @@ const ITEMS = [
   { href: "/admin/deals", label: "Deals" },
   { href: "/admin/redemptions", label: "Redemptions" },
   { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/audit", label: "Audit" },
   { href: "/admin/agents", label: "Agents" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/billing", label: "Billing" },

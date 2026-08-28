@@ -8,6 +8,7 @@ import { KpiCard } from "@/components/ui/cards";
 import { IconArrowLeft } from "@/components/ui/icons";
 import { friendlyTime, maskPhone, formatKes } from "@/lib/ui";
 import { summariseCustomerRedemptions } from "@/lib/customer-summary";
+import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
@@ -42,16 +43,25 @@ export default async function AdminCustomerDetailPage({
   await requireAdminPage();
 
   const service = createServiceClient();
-  const { data: user } = await service
+  const userRes = await service
     .from("users")
     .select(
       "id, full_name, email, phone, role, is_blacklisted, created_at, clerk_user_id, push_subscription"
     )
     .eq("id", params.id)
     .maybeSingle();
+  if (userRes.error) {
+    return (
+      <main className="max-w-3xl">
+        <h1 className="text-2xl font-bold text-ink">Customer detail</h1>
+        <div className="mt-5"><AdminReadError what="customer details" /></div>
+      </main>
+    );
+  }
+  const user = userRes.data;
   if (!user) notFound();
 
-  const { data: redemptions } = await service
+  const { data: redemptions, error: redemptionsError } = await service
     .from("redemptions")
     .select(
       "id, status, redeemed_at, success_fee_charged, deals(title), merchants(id, merchant_name)"
@@ -59,6 +69,15 @@ export default async function AdminCustomerDetailPage({
     .eq("user_id", params.id)
     .order("redeemed_at", { ascending: false })
     .limit(100);
+
+  if (redemptionsError) {
+    return (
+      <main className="max-w-3xl">
+        <h1 className="text-2xl font-bold text-ink">Customer detail</h1>
+        <div className="mt-5"><AdminReadError what="customer claims and redemptions" /></div>
+      </main>
+    );
+  }
 
   const rows = redemptions ?? [];
   const s = summariseCustomerRedemptions(rows);
