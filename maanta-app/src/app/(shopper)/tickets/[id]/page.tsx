@@ -12,8 +12,14 @@ import { TicketWatcher } from "./ticket-watcher";
 import { ClaimedCode } from "./claimed-code";
 import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
+import Link from "next/link";
 import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
 import { shopNavigationTarget } from "@/lib/shop-location";
+import {
+  navigationState,
+  shopLocationUnavailable,
+  hasOnScreenLocationDetails,
+} from "@/lib/shopper-read-state";
 import { isFastVisitEnabled } from "@/lib/fast-visit";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +51,7 @@ type Row = {
     id: string;
     merchant_name: string;
     floor: string | null;
+    unit_number: string | null;
     /** Nullable since D162 — a coordinate-only shop is a normal shop. */
     what3words_address: string | null;
     lat: number | null;
@@ -73,7 +80,7 @@ export default async function TicketPage({
   const { data } = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, claimed_at, arrived_at, fast_visit_qualified_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, what3words_address, lat, lng)"
+      "id, otp_code, status, fraud_flags, expires_at, redeemed_at, claimed_at, arrived_at, fast_visit_qualified_at, amount_kes, user_id, deals(id, title, expires_at, price_kes, compare_at_kes, charges, is_paused), merchants(id, merchant_name, floor, unit_number, what3words_address, lat, lng)"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -175,6 +182,27 @@ export default async function TicketPage({
             {formatCode(ticket.otp_code)}
           </span>
         </div>
+        {/* Rewards entry from a successful redemption.
+            The gate is `rewardPoints != null` — this redemption actually
+            earned something — and nothing else.
+            A first draft also showed the link when `rewardBalance == null`,
+            reasoning from /you that a null balance is a read failure worth
+            linking through. On THIS screen that is wrong: rewardBalance is
+            only ever computed when a reward row exists, so it is null in the
+            ordinary no-reward case too, and the link would have rendered for
+            every shopper — un-darkening a feature that is switched off.
+            With the flag off, award_fast_visit_points awards nothing,
+            rewardPoints stays null, and no link renders. Restrained by
+            design: a route to the Points page, no KES equivalence, no
+            cash-out, no transfer, no marketplace. */}
+        {rewardPoints != null ? (
+          <Link
+            href="/you/rewards"
+            className="mt-6 text-sm font-semibold text-ink underline underline-offset-2"
+          >
+            View your points
+          </Link>
+        ) : null}
         <ButtonLink href="/feed" full className="mt-8">
           Done
         </ButtonLink>
@@ -282,8 +310,10 @@ export default async function TicketPage({
 
       <div className="mt-4 w-full">
         <h1 className="text-xl font-bold leading-tight text-ink">{m.merchant_name}</h1>
-        {m.floor ? (
-          <p className="text-sm font-semibold text-secondary">{m.floor}</p>
+        {hasOnScreenLocationDetails(m) ? (
+          <p className="text-sm font-semibold text-secondary">
+            {[m.floor, m.unit_number].filter(Boolean).join(" · ")}
+          </p>
         ) : null}
         {ticket.deals?.title ? (
           <p className="mt-1.5 text-sm text-ink">{ticket.deals.title}</p>
@@ -331,7 +361,7 @@ export default async function TicketPage({
         </div>
       ) : null}
 
-      {navigate ? (
+      {navigationState(navigate) === "available" && navigate ? (
         <ButtonLink
           href={navigate.href}
           variant="ghost"
@@ -343,7 +373,14 @@ export default async function TicketPage({
         >
           Navigate
         </ButtonLink>
-      ) : null}
+      ) : (
+        // A shopper holding a live code for a shop they cannot find is the
+        // sharpest version of this: no route and no acknowledgement that the
+        // route is missing. Say it, and point at the floor/unit above.
+        <p className="mt-6 text-center text-sm text-muted">
+          {shopLocationUnavailable(m)}
+        </p>
+      )}
 
       <p className="mt-6 text-center text-sm font-semibold text-ink">
         Show this screen at the counter.

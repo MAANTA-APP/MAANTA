@@ -5,8 +5,16 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, getVerifiedCounts } from "@/lib/data";
 import { formatCode } from "@/lib/ui";
 import { EmptyState } from "@/components/ui/states";
+import {
+  listReadState,
+  listReadRows,
+  SHOPPER_LIST_READ_ERROR,
+} from "@/lib/shopper-read-state";
 import { ShopCard } from "@/components/ui/cards";
 import { CountdownChip, ClaimChip } from "@/components/ui/chips";
+import { isFastVisitEnabled } from "@/lib/fast-visit";
+import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
+import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { FavouriteButton } from "@/components/favourite-button";
 import {
   Body,
@@ -68,12 +76,13 @@ export default async function MyDealsPage({
   );
 
   if (tab === "shops") {
-    const { data: favs } = await service
+    const favsRead = await service
       .from("merchant_favourites")
       .select("merchant_id, merchants(id, merchant_name, floor)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    const rows = (favs ?? []) as unknown as {
+    const favsState = listReadState(favsRead);
+    const rows = listReadRows(favsRead) as unknown as {
       merchant_id: string;
       merchants: { id: string; merchant_name: string; floor: string | null } | null;
     }[];
@@ -87,7 +96,15 @@ export default async function MyDealsPage({
           <div className="mt-4">{tabLinks}</div>
         </div>
         <Section className="mt-5">
-          {rows.length === 0 ? (
+          {favsState === "failed" ? (
+            // Not "no saved shops": a failed read must never assert that the
+            // shopper saved nothing, and the invitation to go and save one
+            // would be actively wrong for someone who already has.
+            <EmptyState
+              title={SHOPPER_LIST_READ_ERROR.title}
+              sub={SHOPPER_LIST_READ_ERROR.sub}
+            />
+          ) : rows.length === 0 ? (
             <EmptyState
               title="No saved shops yet"
               sub="Tap the heart on a deal to save its shop here."
@@ -117,21 +134,35 @@ export default async function MyDealsPage({
     );
   }
 
-  const { data } = await service
+  // The error is kept, not discarded. `data ?? []` used to flatten a failed
+  // read into an empty one, and this list is where a shopper keeps the codes
+  // they redeem at a counter: telling them "No claimed deals yet" while they
+  // hold a live ticket is how a redemption silently does not happen (D202, and
+  // the same shape as D164/D185).
+  const ticketsRead = await service
     .from("redemptions")
     .select(
-      "id, otp_code, status, expires_at, redeemed_at, merchants(merchant_name), deals(title, expires_at)"
+      "id, otp_code, status, expires_at, redeemed_at, claimed_at, arrived_at, fast_visit_qualified_at, merchants(merchant_name), deals(title, expires_at)"
     )
     .eq("user_id", user.id)
     .order("redeemed_at", { ascending: false })
     .limit(50);
+  const ticketsState = listReadState(ticketsRead);
+  // Fast Visit is OFF and stays off. The chip resolves to "hidden" on every
+  // row in that state — but the flag alone is the wrong gate, because a claim
+  // that already qualified has EARNED its eligibility and must keep it if the
+  // lever is flipped back (D198). fastVisitChipState() applies both rules.
+  const fastVisitOn = await isFastVisitEnabled();
 
-  const rows = (data ?? []) as unknown as {
+  const rows = listReadRows(ticketsRead) as unknown as {
     id: string;
     otp_code: string;
     status: string;
     expires_at: string;
     redeemed_at: string | null;
+    claimed_at: string | null;
+    arrived_at: string | null;
+    fast_visit_qualified_at: string | null;
     merchants: { merchant_name: string } | null;
     deals: { title: string; expires_at: string | null } | null;
   }[];
@@ -168,7 +199,12 @@ export default async function MyDealsPage({
       </div>
 
       <Section className="mt-5">
-        {shown.length === 0 ? (
+        {ticketsState === "failed" ? (
+          <EmptyState
+            title={SHOPPER_LIST_READ_ERROR.title}
+            sub={SHOPPER_LIST_READ_ERROR.sub}
+          />
+        ) : shown.length === 0 ? (
           // Past-tab copy must not claim the shopper has never claimed — they
           // may hold active tickets on the other segment.
           <EmptyState
@@ -190,6 +226,16 @@ export default async function MyDealsPage({
                 : r.status === "success"
                   ? "redeemed"
                   : "expired";
+              const fastVisitLabel = fastVisitChipLabel(
+                fastVisitChipState({
+                  featureEnabled: fastVisitOn,
+                  status: r.status,
+                  claimedAt: r.claimed_at,
+                  arrivedAt: r.arrived_at,
+                  qualifiedAt: r.fast_visit_qualified_at,
+                  windowMinutes: FAST_VISIT_WINDOW_MINUTES,
+                })
+              );
               return (
                 <Link
                   key={r.id}
@@ -206,6 +252,11 @@ export default async function MyDealsPage({
                         {formatCode(r.otp_code)}
                       </span>
                     </p>
+                    {fastVisitLabel ? (
+                      <span className="mt-1.5 inline-flex items-center rounded-full bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-secondary">
+                        {fastVisitLabel}
+                      </span>
+                    ) : null}
                     {isActiveRow ? (
                       <CountdownChip expiresAt={r.deals?.expires_at ?? r.expires_at} className="mt-1.5" />
                     ) : null}

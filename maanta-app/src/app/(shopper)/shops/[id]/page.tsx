@@ -9,6 +9,10 @@ import { ButtonLink } from "@/components/ui/button";
 import { CoverImage } from "@/components/ui/cards";
 import { FavouriteButton } from "@/components/favourite-button";
 import { shopNavigationTarget } from "@/lib/shop-location";
+import {
+  navigationState,
+  shopLocationUnavailable,
+} from "@/lib/shopper-read-state";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +96,9 @@ export default async function ShopProfilePage({
         <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
           {shop.mall_name ?? shop.node}
           {shop.floor ? ` · ${shop.floor}` : ""}
+          {/* unit_number was already fetched and never rendered, while the
+              absent-location fallback told the shopper to use it. Render it. */}
+          {shop.unit_number ? ` · ${shop.unit_number}` : ""}
           {shop.what3words_address ? (
             <>
               {" · "}
@@ -128,7 +135,7 @@ export default async function ShopProfilePage({
           )}
         </div>
 
-        {navigate ? (
+        {navigationState(navigate) === "available" && navigate ? (
           <ButtonLink
             href={navigate.href}
             variant="ghost"
@@ -140,7 +147,15 @@ export default async function ShopProfilePage({
           >
             Navigate to shop
           </ButtonLink>
-        ) : null}
+        ) : (
+          // Absent wayfinding is stated, not silent. The control used to
+          // render as `: null`, so a shop with neither a what3words address
+          // nor coordinates offered no route AND no explanation — which reads
+          // as a broken screen rather than an incomplete shop record.
+          <p className="mt-8 text-sm text-muted">
+            {shopLocationUnavailable(shop)}
+          </p>
+        )}
       </div>
     </main>
   );
