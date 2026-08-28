@@ -28,6 +28,7 @@ import {
   pilotMerchantStatus,
   merchantConversion,
   cohortTotals,
+  totalsByEvidence,
   buildPilotAlerts,
   MIN_CLAIMS_FOR_MERCHANT_RATIO,
   type PilotMerchantRow,
@@ -347,6 +348,9 @@ export default async function PilotCommandCentrePage({
   );
 
   const totals = cohortTotals(rows);
+  // Split before rendering: an undifferentiated sum beside the ladder counters
+  // lets an internal row increment the ladder (D174).
+  const byClass = totalsByEvidence(rows);
   const alerts = buildPilotAlerts(rows);
   const externalEnrolled = externalCohortSize();
 
@@ -423,24 +427,86 @@ export default async function PilotCommandCentrePage({
         </p>
       ) : null}
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* The ladder's own counters: EXTERNAL rows only.
+          Summing every row here would put production's internal E2E success in
+          the headline "Verified" card while External field validation reads 0
+          — an internal row incrementing the 1 → 5 → 10 ladder, which is the
+          counting error D174 exists to stop. */}
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        External field validation · last {days} days
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        Enrolled pilot merchants only. This is the row the 1 → 5 → 10 ladder
+        counts. Internal and unclassified activity is reported separately below
+        and never added to these figures.
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Shopper-visible deals"
-          value={fmt(totals.shopperVisibleDeals)}
+          value={fmt(byClass.external.shopperVisibleDeals)}
           hint={
             demoMode.ok
               ? undefined
               : "Demo-mode flag unreadable, so visible supply cannot be established."
           }
         />
-        <KpiCard label={`Claims (${days}d)`} value={fmt(totals.claims)} />
-        <KpiCard label={`Arrivals (${days}d)`} value={fmt(totals.arrivals)} />
-        <KpiCard label={`Verified (${days}d)`} value={fmt(totals.verified)} />
+        <KpiCard label={`Claims (${days}d)`} value={fmt(byClass.external.claims)} />
+        <KpiCard label={`Arrivals (${days}d)`} value={fmt(byClass.external.arrivals)} />
+        <KpiCard label={`Verified (${days}d)`} value={fmt(byClass.external.verified)} />
         <KpiCard
           label={`Success fees (${days}d)`}
-          value={totals.successFeesKes === null ? "—" : formatKes(totals.successFeesKes)}
+          value={
+            byClass.external.successFeesKes === null
+              ? "—"
+              : formatKes(byClass.external.successFeesKes)
+          }
         />
       </section>
+
+      {/* Kept, labelled, and never added to the row above. */}
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        Internal and unclassified · last {days} days
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        MAANTA testing itself, plus non-demo merchants the manifest does not
+        name. Technical evidence — real rows, and not a test of whether anyone
+        wants this (D174 / D184).
+      </p>
+      <div className="mt-2 overflow-x-auto rounded-card bg-white shadow-card">
+        <table className="w-full min-w-[40rem] text-left text-sm">
+          <thead>
+            <tr className="border-b border-line text-[11px] uppercase tracking-wide text-muted">
+              <th className="px-3 py-2 font-semibold">Class</th>
+              <th className="px-3 py-2 font-semibold">Merchants</th>
+              <th className="px-3 py-2 font-semibold">Visible deals</th>
+              <th className="px-3 py-2 font-semibold">Claims</th>
+              <th className="px-3 py-2 font-semibold">Arrivals</th>
+              <th className="px-3 py-2 font-semibold">Verified</th>
+              <th className="px-3 py-2 font-semibold">Fees</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(
+              [
+                ["Internal", byClass.internal],
+                ["Unclassified", byClass.unclassified],
+              ] as const
+            ).map(([label, t]) => (
+              <tr key={label} className="border-b border-line last:border-0">
+                <td className="px-3 py-2 font-semibold text-ink">{label}</td>
+                <td className="px-3 py-2">{t.merchants}</td>
+                <td className="px-3 py-2">{fmt(t.shopperVisibleDeals)}</td>
+                <td className="px-3 py-2">{fmt(t.claims)}</td>
+                <td className="px-3 py-2">{fmt(t.arrivals)}</td>
+                <td className="px-3 py-2">{fmt(t.verified)}</td>
+                <td className="px-3 py-2">
+                  {t.successFeesKes === null ? "—" : formatKes(t.successFeesKes)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {alerts.length > 0 ? (
         <section className="mt-6">

@@ -5,6 +5,7 @@ import {
   merchantConversion,
   cohortTotals,
   buildPilotAlerts,
+  totalsByEvidence,
   MIN_CLAIMS_FOR_MERCHANT_RATIO,
   type PilotMerchantRow,
 } from "@/lib/pilot-command-centre";
@@ -370,5 +371,190 @@ describe("P2-3 — a merchant that cannot be public is diagnosed as such, before
       row({ merchantId: "banned-1", isShadowBanned: true, shopperVisibleDeals: 0 }),
     ]);
     expect(alerts.filter((a) => a.id.startsWith("no-supply"))).toHaveLength(0);
+  });
+});
+
+describe("P1 — the ladder's counters never include internal or unclassified activity", () => {
+  /**
+   * Codex round 9, and the most consequential finding on this PR.
+   *
+   * `cohortTotals` over every row discards the classification the table works
+   * so hard to establish. Production's ONLY genuine-tagged `success` belongs to
+   * an internal E2E shop, and it falls inside the default 7-day window today —
+   * so the page rendered "Verified (7d): 1" directly beside "External field
+   * validation: 0". That is an internal row incrementing the 1 → 5 → 10 ladder,
+   * which is precisely the counting error D174 exists to stop, on the surface
+   * built to prevent it.
+   */
+  const shop = (over: Partial<PilotMerchantRow>) =>
+    row({ claims: 1, arrivals: 1, verified: 1, verifiedCohort: 1, fastVisits: 1, successFeesKes: 30, ...over });
+
+  it("keeps an internal success out of the external totals", () => {
+    // The exact production shape: one internal shop with the only success.
+    const t = totalsByEvidence([
+      shop({ merchantId: "e2e", evidence: "internal" }),
+    ]);
+    expect(t.external.verified).toBe(0);
+    expect(t.external.claims).toBe(0);
+    expect(t.external.successFeesKes).toBe(0);
+    // Kept, not deleted — it is real technical evidence.
+    expect(t.internal.verified).toBe(1);
+    expect(t.all.verified).toBe(1);
+  });
+
+  it("keeps an unclassified merchant out of the external totals", () => {
+    // Fail-closed: a non-demo merchant the manifest does not name is never
+    // promoted into field evidence.
+    const t = totalsByEvidence([
+      shop({ merchantId: "u1", evidence: "unclassified" }),
+    ]);
+    expect(t.external.verified).toBe(0);
+    expect(t.unclassified.verified).toBe(1);
+  });
+
+  it("counts an enrolled external merchant, and only that merchant", () => {
+    const t = totalsByEvidence([
+      shop({ merchantId: "m01", evidence: "external" }),
+      shop({ merchantId: "e2e", evidence: "internal" }),
+      shop({ merchantId: "u1", evidence: "unclassified" }),
+    ]);
+    expect(t.external.verified).toBe(1);
+    expect(t.external.merchants).toBe(1);
+    // The three classes must not overlap, and must not silently sum together.
+    expect(t.all.verified).toBe(3);
+    expect(
+      (t.external.verified ?? 0) +
+        (t.internal.verified ?? 0) +
+        (t.unclassified.verified ?? 0)
+    ).toBe(t.all.verified);
+  });
+
+  it("preserves failure-vs-zero inside each class", () => {
+    // A null in one class poisons that class's column only — it must not leak
+    // into another class, and it must not become 0.
+    const t = totalsByEvidence([
+      shop({ merchantId: "m01", evidence: "external", claims: null }),
+      shop({ merchantId: "e2e", evidence: "internal" }),
+    ]);
+    expect(t.external.claims).toBeNull();
+    expect(t.internal.claims).toBe(1);
+  });
+
+  it("reports zero external activity when nobody is enrolled", () => {
+    // Today's state. Zero here is a true zero, not a read failure.
+    const t = totalsByEvidence([shop({ merchantId: "e2e", evidence: "internal" })]);
+    expect(t.external.merchants).toBe(0);
+    expect(t.external.verified).toBe(0);
+    expect(t.external.verified).not.toBeNull();
+  });
+});
+
+describe("P1 — the nine rules the evidence split must satisfy", () => {
+  const act = (over: Partial<PilotMerchantRow>) =>
+    row({
+      claims: 1,
+      arrivals: 1,
+      verified: 1,
+      verifiedCohort: 1,
+      fastVisits: 1,
+      successFeesKes: 30,
+      ...over,
+    });
+
+  it("1. internal 1 verified + external 0 → external Verified = 0", () => {
+    const t = totalsByEvidence([
+      act({ merchantId: "e2e", evidence: "internal" }),
+      act({
+        merchantId: "m01",
+        evidence: "external",
+        claims: 0,
+        arrivals: 0,
+        verified: 0,
+        verifiedCohort: 0,
+        fastVisits: 0,
+        successFeesKes: 0,
+      }),
+    ]);
+    expect(t.external.verified).toBe(0);
+  });
+
+  it("2. internal 1 + external 1 → external Verified = 1, not 2", () => {
+    const t = totalsByEvidence([
+      act({ merchantId: "e2e", evidence: "internal" }),
+      act({ merchantId: "m01", evidence: "external" }),
+    ]);
+    expect(t.external.verified).toBe(1);
+    expect(t.external.verified).not.toBe(2);
+  });
+
+  it("3. unclassified genuine 1 + external 1 → external Verified = 1", () => {
+    // Fail-closed: genuine-tagged is a property of the data and never promotes
+    // a merchant into the cohort.
+    const t = totalsByEvidence([
+      act({ merchantId: "u1", evidence: "unclassified" }),
+      act({ merchantId: "m01", evidence: "external" }),
+    ]);
+    expect(t.external.verified).toBe(1);
+  });
+
+  it("4. an external claim increments external claims", () => {
+    const t = totalsByEvidence([act({ merchantId: "m01", evidence: "external", claims: 3 })]);
+    expect(t.external.claims).toBe(3);
+  });
+
+  it("5. an internal Fast Visit does not increment external Fast Visits", () => {
+    const t = totalsByEvidence([
+      act({ merchantId: "e2e", evidence: "internal", fastVisits: 5 }),
+    ]);
+    expect(t.external.fastVisits).toBe(0);
+    expect(t.internal.fastVisits).toBe(5);
+  });
+
+  it("6. an internal success fee does not increment the external fee total", () => {
+    const t = totalsByEvidence([
+      act({ merchantId: "e2e", evidence: "internal", successFeesKes: 30 }),
+    ]);
+    expect(t.external.successFeesKes).toBe(0);
+    expect(t.internal.successFeesKes).toBe(30);
+  });
+
+  it("7. an external fee counts only once its own row establishes it", () => {
+    // The D188 chain and the linked-ledger requirement are enforced upstream,
+    // in the query and in sumLedgerSuccessFees; by the time a row reaches here
+    // an unestablished fee is already null, and must stay null rather than
+    // becoming 0 in the external total.
+    const unestablished = totalsByEvidence([
+      act({ merchantId: "m01", evidence: "external", successFeesKes: null }),
+    ]);
+    expect(unestablished.external.successFeesKes).toBeNull();
+
+    const established = totalsByEvidence([
+      act({ merchantId: "m01", evidence: "external", successFeesKes: 30 }),
+    ]);
+    expect(established.external.successFeesKes).toBe(30);
+  });
+
+  it("8. row and aggregate classification read the same source", () => {
+    // Not two restated rules: the aggregate filters on the very field the row
+    // carries, which `classifyMerchant` set. Flipping the row's class must move
+    // the activity between buckets with nothing else changed.
+    const asInternal = totalsByEvidence([act({ merchantId: "x", evidence: "internal" })]);
+    const asExternal = totalsByEvidence([act({ merchantId: "x", evidence: "external" })]);
+    expect(asInternal.external.verified).toBe(0);
+    expect(asInternal.internal.verified).toBe(1);
+    expect(asExternal.external.verified).toBe(1);
+    expect(asExternal.internal.verified).toBe(0);
+  });
+
+  it("9. a read failure in one class stays unavailable and does not leak", () => {
+    const t = totalsByEvidence([
+      act({ merchantId: "m01", evidence: "external", claims: null }),
+      act({ merchantId: "e2e", evidence: "internal", claims: 2 }),
+    ]);
+    expect(t.external.claims).toBeNull();
+    expect(t.external.claims).not.toBe(0);
+    expect(t.internal.claims).toBe(2);
+    // And the all-rows view is poisoned too, rather than silently shrinking.
+    expect(t.all.claims).toBeNull();
   });
 });

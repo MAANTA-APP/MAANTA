@@ -353,3 +353,41 @@ export function queueAlertState(count: number | null): AlertState {
   if (count === null) return "unavailable";
   return count > 0 ? "raise" : "silent";
 }
+
+/**
+ * Cohort totals split by evidence class — the ladder's counters kept apart
+ * from MAANTA's own testing.
+ *
+ * `cohortTotals` over every row is the wrong number for the headline, and it
+ * is wrong in the one direction that matters. The table classifies each
+ * merchant, but a single undifferentiated sum discards that: production's only
+ * genuine-tagged `success` belongs to an internal E2E shop, so an
+ * all-rows "Verified" card reads 1 while external field validation is 0 —
+ * an internal row incrementing the 1 -> 5 -> 10 ladder, which is exactly what
+ * D174 forbids and what this page was built to prevent.
+ *
+ * `all` is kept and returned, because the operational question "what happened
+ * at Node 0 today" is legitimate. It simply must never be the number standing
+ * next to the ladder without saying which class it describes.
+ */
+export type EvidenceTotals = {
+  /** The ladder. Enrolled external merchants only. 0 until Merchant 01. */
+  external: CohortTotals;
+  /** MAANTA testing itself. Technical evidence, never field evidence (D184). */
+  internal: CohortTotals;
+  /** Non-demo merchants the manifest does not name. Never promoted to external. */
+  unclassified: CohortTotals;
+  /** Every row, for the operational view. Never the ladder. */
+  all: CohortTotals;
+};
+
+export function totalsByEvidence(rows: PilotMerchantRow[]): EvidenceTotals {
+  const of = (c: EvidenceClass) =>
+    cohortTotals(rows.filter((r) => r.evidence === c));
+  return {
+    external: of("external"),
+    internal: of("internal"),
+    unclassified: of("unclassified"),
+    all: cohortTotals(rows),
+  };
+}

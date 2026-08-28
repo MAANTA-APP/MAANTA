@@ -168,3 +168,68 @@ describe("no partial re-statement of the public-merchant rule", () => {
     expect(fn.slice(0, 900)).toContain("withPublicMerchantRows(");
   });
 });
+
+describe("the ladder headline is rendered from the external class only", () => {
+  it("does not render an undifferentiated activity total beside the ladder", () => {
+    // The defect was structural, not arithmetic: `cohortTotals(rows)` is
+    // correct, it was simply the wrong set to put in the headline. So the
+    // guard is that the activity cards read from the external split.
+    const src = stripComments(
+      readFileSync(path.join(process.cwd(), PAGES[0]), "utf8")
+    );
+    expect(src).toContain("totalsByEvidence(");
+    for (const field of ["claims", "arrivals", "verified", "successFeesKes"]) {
+      expect(
+        src,
+        `activity card must read byClass.external.${field}, never the all-rows total`
+      ).toContain(`byClass.external.${field}`);
+      expect(
+        src,
+        `totals.${field} is the all-rows sum and must not reach a KPI card`
+      ).not.toContain(`fmt(totals.${field})`);
+    }
+  });
+
+  it("still shows internal and unclassified activity, rather than hiding it", () => {
+    // Kept as technical evidence (D184). Suppressing it would be its own lie.
+    const src = readFileSync(path.join(process.cwd(), PAGES[0]), "utf8");
+    expect(src).toContain("byClass.internal");
+    expect(src).toContain("byClass.unclassified");
+  });
+});
+
+describe("the Yesterday brief keeps the ladder's counters apart too", () => {
+  const brief = () =>
+    stripComments(
+      readFileSync(path.join(process.cwd(), PAGES[1]), "utf8")
+    );
+
+  it("scopes external activity by the cohort manifest, never by is_demo", () => {
+    const src = brief();
+    expect(src).toContain("externalCohort()");
+    expect(src).toContain("externalDayTotals(");
+    // The ladder's scope is an explicit id list.
+    expect(src).toMatch(/\.in\("merchant_id", externalIds\)/);
+  });
+
+  it("renders external counters from the external totals, not the all-class ones", () => {
+    const src = brief();
+    for (const f of ["claims", "verified", "arrivals", "fastVisits"]) {
+      expect(src).toContain(`external.${f}`);
+    }
+  });
+
+  it("labels the all-class figures as all-class, so the two are not confused", () => {
+    const src = readFileSync(path.join(process.cwd(), PAGES[1]), "utf8");
+    expect(src).toMatch(/All genuine-tagged activity/);
+    expect(src).toMatch(/external, internal and\s+unclassified together/);
+  });
+
+  it("says an empty cohort is zero by construction, not unread", () => {
+    // Otherwise a reader cannot tell "nobody enrolled" from "we could not
+    // establish it" — the failure-vs-zero rule applied to the ladder itself.
+    expect(readFileSync(path.join(process.cwd(), PAGES[1]), "utf8")).toMatch(
+      /zero by construction rather than unread/
+    );
+  });
+});

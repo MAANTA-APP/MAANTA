@@ -16,7 +16,11 @@ import {
   type FeeLedgerRow,
 } from "@/lib/evidence-scope";
 import { withPublicMerchant, withPublicMerchantRows } from "@/lib/data";
-import { externalCohortSize, internalMerchantIds } from "@/lib/pilot-cohort";
+import {
+  externalCohort,
+  externalCohortSize,
+  internalMerchantIds,
+} from "@/lib/pilot-cohort";
 import { queueAlertState } from "@/lib/pilot-command-centre";
 import { formatKes } from "@/lib/ui";
 
@@ -62,6 +66,10 @@ export default async function YesterdayBriefPage() {
   const service = createServiceClient();
   const demoMode = await readDemoModeEnabled();
   const internalIds = internalMerchantIds();
+  // The ladder's own population. Empty until Merchant 01 is enrolled by hand,
+  // and NEVER inferred from is_demo = false: a non-demo merchant the manifest
+  // does not name is unclassified, not external.
+  const externalIds = externalCohort().map((e) => e.merchantId);
 
   const claimsIn = (from: string, to: string) =>
     genuineTagged(
@@ -239,6 +247,20 @@ export default async function YesterdayBriefPage() {
 
   const fees = sumLedgerSuccessFees(feeRedemptions, feeLedger);
 
+  // ---------------------------------------------------------------------
+  // The ladder's counters: EXTERNAL rows only.
+  //
+  // Every figure above is genuine-tagged (D188) but carries no evidence class,
+  // so it sums external + internal + unclassified. Beside a card labelled
+  // "External field validation" that is the D174 counting error: MAANTA's own
+  // E2E success would read as pilot progress. Genuine-tagged is a property of
+  // the data; it does not make a merchant external.
+  //
+  // With nobody enrolled the answer is 0 by construction and no query is made
+  // — a true zero, not a read failure, which is why these are 0 rather than
+  // null in that branch.
+  const external = await externalDayTotals(service, externalIds, startIso, endIso);
+
   const demoClaims =
     allClaims === null || claims === null ? null : Math.max(0, allClaims - claims);
   const demoVerified =
@@ -290,7 +312,17 @@ export default async function YesterdayBriefPage() {
         </div>
       ) : null}
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        All genuine-tagged activity — {label}
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        Every genuine-tagged merchant at Node 0 — external, internal and
+        unclassified together (D188: redemption, merchant and deal all
+        non-demo). An operational view of what happened, not evidence of pull:
+        MAANTA&rsquo;s own testing is included here, and the ladder&rsquo;s own
+        counters are stated separately below.
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Merchants live"
           value={fmt(merchantsLive)}
@@ -307,7 +339,11 @@ export default async function YesterdayBriefPage() {
               : "Demo-mode flag unreadable, so visible supply cannot be established."
           }
         />
-        <KpiCard label="Claims" value={fmt(claims)} hint={delta(claims, claimsPrev)} />
+        <KpiCard
+          label="Claims"
+          value={fmt(claims)}
+          hint={`All classes. ${delta(claims, claimsPrev)}`}
+        />
         <KpiCard
           label="Verified visits"
           value={fmt(verified)}
@@ -328,6 +364,33 @@ export default async function YesterdayBriefPage() {
           label="External field validation"
           value={externalCohortSize().toLocaleString()}
           hint="Merchants enrolled in the Node 0 cohort manifest. Genuine-tagged activity does not add to this."
+        />
+      </section>
+
+      {/* The ladder's counters, kept apart from the all-class figures above.
+          Genuine-tagged is a property of the DATA; it does not make a merchant
+          external. Summing the two together is the D174 counting error. */}
+      <h2 className="mt-6 text-sm font-semibold text-ink">
+        External field validation — {label}
+      </h2>
+      <p className="mt-0.5 max-w-3xl text-xs text-muted">
+        Enrolled pilot merchants only, scoped by the cohort manifest and never
+        inferred from a non-demo flag. These are the numbers the 1 → 5 → 10
+        ladder counts. The figures above cover every genuine-tagged merchant —
+        external, internal and unclassified together — and are an operational
+        view, not evidence of pull.
+        {externalCohortSize() === 0
+          ? " No merchant is enrolled yet, so these are zero by construction rather than unread."
+          : null}
+      </p>
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <KpiCard label="Claims" value={fmt(external.claims)} />
+        <KpiCard label="Verified visits" value={fmt(external.verified)} />
+        <KpiCard label="Arrivals / check-ins" value={fmt(external.arrivals)} />
+        <KpiCard label="Fast Visits" value={fmt(external.fastVisits)} />
+        <KpiCard
+          label="Success fees"
+          value={external.feesKes === null ? "—" : formatKes(external.feesKes)}
         />
       </section>
 
@@ -576,6 +639,111 @@ function nairobiYesterday(): {
 }
 
 type NamedMerchant = { id: string; name: string };
+
+/** Yesterday's activity for the enrolled external cohort only. */
+type ExternalTotals = {
+  claims: number | null;
+  verified: number | null;
+  arrivals: number | null;
+  fastVisits: number | null;
+  feesKes: number | null;
+};
+
+/**
+ * Activity for the enrolled external merchants, and nobody else.
+ *
+ * Scoped by an explicit id list from the cohort manifest — never by
+ * `is_demo = false`, which is what makes an internal or unclassified shop look
+ * external. The D188 genuine chain still applies on top: a row must be
+ * genuine-tagged AND belong to an enrolled merchant to count.
+ *
+ * When the manifest holds no external merchants the totals are zero without a
+ * query. That zero is real: nobody is enrolled, so nothing can have happened
+ * in the cohort. It is deliberately not `null`, which on this page means "we
+ * could not establish it".
+ */
+async function externalDayTotals(
+  service: ReturnType<typeof createServiceClient>,
+  externalIds: string[],
+  startIso: string,
+  endIso: string
+): Promise<ExternalTotals> {
+  if (externalIds.length === 0) {
+    return { claims: 0, verified: 0, arrivals: 0, fastVisits: 0, feesKes: 0 };
+  }
+
+  const scoped = (column: string, extra?: (q: never) => never) => {
+    void extra;
+    return genuineTagged(
+      service
+        .from("redemptions")
+        .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+        .in("merchant_id", externalIds)
+        .gte(column, startIso)
+        .lt(column, endIso)
+    );
+  };
+
+  const [claimsRes, verifiedRes, arrivalsRes, fastVisitsRes, feeRes] =
+    await Promise.all([
+      scoped("claimed_at"),
+      genuineTagged(
+        service
+          .from("redemptions")
+          .select(GENUINE_JOIN_SELECT, { count: "exact", head: true })
+          .in("merchant_id", externalIds)
+          .eq("status", "success")
+          .gte("redeemed_at", startIso)
+          .lt("redeemed_at", endIso)
+      ),
+      scoped("arrived_at"),
+      scoped("fast_visit_qualified_at"),
+      genuineTagged(
+        service
+          .from("redemptions")
+          .select(genuineJoinSelect("id, success_fee_charged"))
+          .in("merchant_id", externalIds)
+          .eq("status", "success")
+          .gte("redeemed_at", startIso)
+          .lt("redeemed_at", endIso)
+          .limit(FEE_ROW_CAP)
+      ),
+    ]);
+
+  const n = (r: { count: number | null; error: unknown }) =>
+    r.error ? null : r.count ?? 0;
+
+  // Same ledger truth as every other fee figure: what posted, not what the
+  // claim recorded.
+  const feeRedemptions = feeRes.error
+    ? null
+    : ((feeRes.data ?? []) as unknown as GenuineFeeRedemption[]);
+  let ledger: FeeLedgerRow[] | null = null;
+  if (feeRedemptions !== null) {
+    if (feeRedemptions.length === 0) {
+      ledger = [];
+    } else {
+      const lr = await service
+        .from("merchant_transactions")
+        .select("reference_id, amount")
+        .in("transaction_type", [...FEE_LEDGER_TYPES])
+        .in(
+          "reference_id",
+          feeRedemptions.map((r) => r.id)
+        )
+        .limit(FEE_ROW_CAP);
+      ledger = lr.error ? null : ((lr.data ?? []) as unknown as FeeLedgerRow[]);
+    }
+  }
+
+  return {
+    claims: n(claimsRes),
+    verified: n(verifiedRes),
+    arrivals: n(arrivalsRes),
+    fastVisits: n(fastVisitsRes),
+    feesKes: sumLedgerSuccessFees(feeRedemptions, ledger),
+  };
+}
 
 /**
  * Row cap for the two list-building alert reads below.
