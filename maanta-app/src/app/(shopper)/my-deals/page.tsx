@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -11,10 +10,10 @@ import {
   SHOPPER_LIST_READ_ERROR,
 } from "@/lib/shopper-read-state";
 import { ShopCard } from "@/components/ui/cards";
-import { ClaimChip } from "@/components/ui/chips";
+
 import { isFastVisitEnabled } from "@/lib/fast-visit";
 import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
-import { TicketRowChips } from "@/components/shopper/ticket-row-chips";
+import { TicketRow } from "@/components/shopper/ticket-row";
 import { FavouriteButton } from "@/components/favourite-button";
 import {
   Body,
@@ -220,44 +219,27 @@ export default async function MyDealsPage({
         ) : (
           <div className="space-y-3">
             {shown.map((r) => {
-              const isActiveRow = r.status === "pending" && new Date(r.expires_at) > now;
-              const state = isActiveRow
-                ? "active"
-                : r.status === "success"
-                  ? "redeemed"
-                  : "expired";
+              // D213 criteria 1 and 3 — the row's "active" state, its
+              // countdown and its Fast Visit chip are all time-derived, so the
+              // whole row renders on one client clock. Computing "active" here
+              // and letting only the countdown tick is what made an expired row
+              // read ACTIVE beside "Expired".
               return (
-                <Link
+                <TicketRow
                   key={r.id}
                   href={`/tickets/${r.id}`}
-                  className="flex items-center gap-3 rounded-card bg-white px-4 py-4 shadow-card hover:bg-stone-soft/60"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-ink">
-                      {r.merchants?.merchant_name}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{r.deals?.title}</p>
-                    <p className="tnum mt-1 text-xs text-secondary">
-                      <span className="font-code tracking-[0.06em]">
-                        {formatCode(r.otp_code)}
-                      </span>
-                    </p>
-                    {/* D213 criteria 1 and 3 — both chips are time-derived, so
-                        they are rendered by one client component sharing a
-                        single clock rather than computed here at render time. */}
-                    <TicketRowChips
-                      featureEnabled={fastVisitOn}
-                      status={r.status}
-                      claimedAt={r.claimed_at}
-                      arrivedAt={r.arrived_at}
-                      qualifiedAt={r.fast_visit_qualified_at}
-                      windowMinutes={FAST_VISIT_WINDOW_MINUTES}
-                      countdownExpiresAt={r.deals?.expires_at ?? r.expires_at}
-                      showCountdown={isActiveRow}
-                    />
-                  </div>
-                  <ClaimChip state={state} className="flex-none" />
-                </Link>
+                  merchantName={r.merchants?.merchant_name ?? null}
+                  dealTitle={r.deals?.title ?? null}
+                  code={formatCode(r.otp_code)}
+                  featureEnabled={fastVisitOn}
+                  ticketStatus={r.status}
+                  ticketExpiresAt={r.expires_at}
+                  claimedAt={r.claimed_at}
+                  arrivedAt={r.arrived_at}
+                  qualifiedAt={r.fast_visit_qualified_at}
+                  windowMinutes={FAST_VISIT_WINDOW_MINUTES}
+                  countdownExpiresAt={r.deals?.expires_at ?? r.expires_at}
+                />
               );
             })}
           </div>

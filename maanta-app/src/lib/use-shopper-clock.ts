@@ -21,8 +21,21 @@ import { useEffect, useState } from "react";
 export const SHOPPER_CLOCK_INTERVAL_MS = 30_000;
 
 export function useShopperClock(intervalMs: number = SHOPPER_CLOCK_INTERVAL_MS): Date {
-  // Seeded at first render so the initial client paint matches what the server
-  // just rendered; the interval then advances it.
+  // NOTE the hydration behaviour, because it is easy to state wrongly: this
+  // initializer runs INDEPENDENTLY on the server and in the browser, so the two
+  // instants are close but not equal. If a render and its hydration straddle a
+  // minute, expiry or grace boundary, the two passes produce different text.
+  //
+  // That is inherent to rendering a countdown at all — `CountdownChip` already
+  // behaved this way — and it self-corrects on the first tick. What this change
+  // does widen is the surface: a card's expiry label used to be a stable
+  // server-rendered string. Elements whose text is time-derived therefore carry
+  // `suppressHydrationWarning`, which is React's designated escape for exactly
+  // this case, rather than the mismatch being left to warn.
+  //
+  // Making the two passes genuinely identical needs a server-supplied instant
+  // threaded to every consumer as a prop. That is a real design and is NOT done
+  // here.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), intervalMs);

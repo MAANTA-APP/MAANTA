@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { stripComments } from "./helpers/comment-stripping";
 import { endingSoonDeals } from "@/lib/ending-soon";
 import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
-import { dealExpiryLabel } from "@/lib/deal-expiry";
+import { dealExpiryLabel, isDealClaimable } from "@/lib/deal-expiry";
 import { isNearExpiry } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
 
@@ -76,6 +76,20 @@ describe("criterion 1 — the Fast Visit chip closes when its deadline passes", 
     expect(
       fastVisitChipState({ ...base, qualifiedAt: iso(3 * MIN), now: at(600 * MIN) })
     ).toBe("qualified");
+  });
+
+  it("the row's ACTIVE state decays with the countdown beside it", () => {
+    // The regression this caught: making the countdown live while the status
+    // chip stayed on a server-computed boolean produced an expired row reading
+    // ACTIVE next to "Expired" — accurate in one element, contradicted by the
+    // other, which is precisely what criterion 3 forbids.
+    const row = read("components/shopper/ticket-row.tsx");
+    expect(row).toContain("new Date(ticketExpiresAt) > now");
+    expect(row).toContain("<ClaimChip state={claimState}");
+    // The page must not compute row state itself and pass it down frozen.
+    const myDeals = read("app/(shopper)/my-deals/page.tsx");
+    expect(myDeals).not.toMatch(/const isActiveRow =/);
+    expect(myDeals).not.toContain("<ClaimChip");
   });
 
   it("renders the closed copy, never wording that invalidates the ticket", () => {
@@ -175,6 +189,35 @@ describe("criterion 3 — time-derived elements are accurate AND mutually consis
   });
 });
 
+describe("criterion 3 — claimability decays with the deal, not just its label", () => {
+  it("withdraws the claim offer once the deadline passes", () => {
+    // The sharp case: an initially claimable deal left open past expires_at
+    // showed "Expired" on the chip and a live "Claim deal" underneath, which
+    // claim_deal rejects with deal_expired. Offering a claim the database will
+    // refuse is the money-surface form of this whole defect class.
+    const expiresAt = iso(20 * MIN);
+    expect(isDealClaimable(expiresAt, at(0))).toBe(true);
+    expect(isDealClaimable(expiresAt, at(21 * MIN))).toBe(false);
+  });
+
+  it("gates on the clock without re-deriving data-shaped preconditions", () => {
+    // is_active, is_paused, the claim cap and an existing ticket are all data
+    // the client cannot re-derive; reflecting THOSE while a page is open is
+    // criterion 4. The gate must only withdraw on time.
+    const gate = read("components/shopper/claim-gate.tsx");
+    expect(gate).toContain("isDealClaimable(expiresAt, now)");
+    for (const dataShaped of ["is_paused", "max_claims", "claims_count", "is_active"]) {
+      expect(gate).not.toContain(dataShaped);
+    }
+  });
+
+  it("the page still decides claimability from data before the gate sees it", () => {
+    const page = read("app/(shopper)/deals/[id]/page.tsx");
+    expect(page).toMatch(/const claimable =/);
+    expect(page).toContain("<ClaimGate");
+  });
+});
+
 describe("the clock fetches nothing — criteria 1-3 are clock-derived only", () => {
   it("introduces no polling, refetch or network call", () => {
     // Criterion 4 needs fresh data; these three do not, and must not smuggle
@@ -182,8 +225,9 @@ describe("the clock fetches nothing — criteria 1-3 are clock-derived only", ()
     // shopper page.
     for (const rel of [
       "lib/use-shopper-clock.ts",
-      "components/shopper/ticket-row-chips.tsx",
+      "components/shopper/ticket-row.tsx",
       "components/shopper/ending-soon-rail.tsx",
+      "components/shopper/claim-gate.tsx",
     ]) {
       const src = read(rel);
       expect(src).not.toMatch(/\bfetch\(|useSWR|refetch|router\.refresh|revalidate/);
@@ -196,7 +240,7 @@ describe("the clock fetches nothing — criteria 1-3 are clock-derived only", ()
     expect(clock).toContain("clearInterval");
     // No component may start its own competing timer.
     for (const rel of [
-      "components/shopper/ticket-row-chips.tsx",
+      "components/shopper/ticket-row.tsx",
       "components/shopper/ending-soon-rail.tsx",
       "components/ui/claude/deal-card.tsx",
     ]) {

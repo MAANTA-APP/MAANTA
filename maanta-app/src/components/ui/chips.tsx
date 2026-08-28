@@ -172,23 +172,41 @@ export function PlanChip({
 }
 
 /** 2c Countdown chip — deal expiry + 15-minute grace; ticks every 30s. */
+type CountdownChipProps = {
+  expiresAt: string | null;
+  className?: string;
+};
+
+/**
+ * D213 criterion 3 — a caller rendering other time-derived elements beside
+ * this chip passes its own clock instant, so the two provably read the SAME
+ * `Date` and cannot disagree.
+ *
+ * The controlled and self-ticking paths are SEPARATE components on purpose: a
+ * single component calling `useShopperClock()` unconditionally would start an
+ * interval for every controlled chip too, waking and re-rendering it every 30s
+ * on a timestamp it ignores. A feed of cards would then accumulate dozens of
+ * redundant timers while claiming to share one.
+ */
 export function CountdownChip({
+  now,
+  ...props
+}: CountdownChipProps & { now?: Date }) {
+  if (now) return <CountdownChipView {...props} now={now} />;
+  return <SelfTickingCountdownChip {...props} />;
+}
+
+function SelfTickingCountdownChip(props: CountdownChipProps) {
+  const now = useShopperClock();
+  return <CountdownChipView {...props} now={now} />;
+}
+
+function CountdownChipView({
   expiresAt,
   className,
   now,
-}: {
-  expiresAt: string | null;
-  className?: string;
-  /**
-   * D213 criterion 3 — when a caller renders another time-derived element
-   * beside this chip, it passes its own clock instant so the two provably
-   * read the SAME `Date` and cannot disagree. Omitted, the chip keeps its own
-   * tick, so callers that render it alone are unchanged.
-   */
-  now?: Date;
-}) {
-  const ownClock = useShopperClock();
-  const at = now ?? ownClock;
+}: CountdownChipProps & { now: Date }) {
+  const at = now;
   if (!expiresAt) return null;
   const { status, displayText } = getDealExpiryState(expiresAt, at);
   if (!displayText) return null;
@@ -196,6 +214,7 @@ export function CountdownChip({
   const urgent = status === "in_grace" || near;
   return (
     <span
+      suppressHydrationWarning
       className={cn(
         "tnum inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
         status === "expired"

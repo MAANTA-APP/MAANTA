@@ -11,6 +11,7 @@ import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/ch
 import { IconCheck, IconPin } from "@/components/ui/icons";
 import { ButtonLink, StickyCtaBar } from "@/components/ui/button";
 import { BackIconButton } from "@/components/ui/claude";
+import { ClaimGate } from "@/components/shopper/claim-gate";
 import { ClaimFlow } from "./claim-flow";
 
 export const dynamic = "force-dynamic";
@@ -236,6 +237,25 @@ export default async function DealDetailPage({
       </div>
 
       {claimable ? (
+        // D213 criterion 3 — the server decides claimability from data the
+        // client cannot re-derive; the gate then withdraws the offer when the
+        // deadline passes, so an open page cannot show a live "Claim deal"
+        // beside an expired countdown.
+        <ClaimGate
+          expiresAt={deal.expires_at}
+          expired={
+            <StickyCtaBar>
+              <div className="space-y-2.5">
+                <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
+                  Deal ended
+                </div>
+                <ButtonLink href="/feed" variant="ghost" full>
+                  See similar deals
+                </ButtonLink>
+              </div>
+            </StickyCtaBar>
+          }
+        >
         <ClaimFlow
           dealId={deal.id}
           dealTitle={deal.title}
@@ -246,6 +266,7 @@ export default async function DealDetailPage({
           pay={pay}
           was={was}
         />
+        </ClaimGate>
       ) : existingTicketId ? (
         <StickyCtaBar>
           <div className="space-y-2.5">

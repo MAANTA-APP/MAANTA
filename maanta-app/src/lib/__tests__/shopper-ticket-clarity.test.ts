@@ -70,7 +70,7 @@ describe("the Fast Visit chip on /my-deals stays flag-aware", () => {
   // unchanged; only where they live moved, so the guard follows them across
   // BOTH files rather than asserting the old server-side shape.
   const myDeals = read("app/(shopper)/my-deals/page.tsx");
-  const chips = read("components/shopper/ticket-row-chips.tsx");
+  const chips = read("components/shopper/ticket-row.tsx");
 
   it("resolves the feature flag server-side and passes it to the decision", () => {
     // The flag is a server read (app_config) and must stay one — a client
