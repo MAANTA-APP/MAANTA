@@ -68,7 +68,50 @@ describe("the verdict is read, never re-derived (D191)", () => {
       input({ featureEnabled: true, claimedAt: at(-2), arrivedAt: at(-1), qualifiedAt: null })
     );
     expect(s).not.toBe("qualified");
-    expect(s).toBe("missed");
+  });
+
+  it("says nothing about an arrival the server never ruled on", () => {
+    // `record_shopper_arrival` writes `arrived_at` whether the gate is on or
+    // off, and decides qualification ONCE, at the first arrival, from the
+    // state of the world at that instant — flipping the gate afterwards
+    // "rewrites nothing". So arrived + no verdict has two causes that are
+    // indistinguishable in the data:
+    //
+    //   a) arrived after the window closed, with the feature on;
+    //   b) arrived while the feature was off, so no window ever existed.
+    //
+    // Reporting a miss tells shopper (b) they lost a reward never offered.
+    const arrivedInsideWindow = fastVisitChipState(
+      input({ featureEnabled: true, claimedAt: at(-2), arrivedAt: at(-1), qualifiedAt: null })
+    );
+    const arrivedAfterWindow = fastVisitChipState(
+      input({ featureEnabled: true, claimedAt: at(-60), arrivedAt: at(-30), qualifiedAt: null })
+    );
+    expect(arrivedInsideWindow).toBe("hidden");
+    expect(arrivedAfterWindow).toBe("hidden");
+    // And nothing is rendered for it, in either case.
+    expect(fastVisitChipLabel(arrivedInsideWindow)).toBeNull();
+    expect(fastVisitChipLabel(arrivedAfterWindow)).toBeNull();
+  });
+
+  it("still reports a miss when no arrival was recorded at all", () => {
+    // The unambiguous case must survive: feature on, window passed, nobody
+    // checked in. Hiding this too would erase the state rather than fix it.
+    expect(
+      fastVisitChipState(
+        input({ featureEnabled: true, claimedAt: at(-60), arrivedAt: null, qualifiedAt: null })
+      )
+    ).toBe("missed");
+  });
+
+  it("keeps an earned verdict visible even though arrival alone is hidden", () => {
+    // The qualified check runs FIRST, so hiding unverdicted arrivals must not
+    // swallow a shopper who actually qualified.
+    expect(
+      fastVisitChipState(
+        input({ featureEnabled: true, claimedAt: at(-20), arrivedAt: at(-19), qualifiedAt: at(-19) })
+      )
+    ).toBe("qualified");
   });
 });
 
@@ -163,6 +206,21 @@ describe("a completed redemption can never show an open window", () => {
           input({ featureEnabled: false, status, qualifiedAt: at(-6), arrivedAt: at(-6) })
         )
       ).toBe("qualified");
+    }
+  });
+
+  it("says nothing for a completed claim whose arrival was never ruled on", () => {
+    // The ambiguity does not disappear when the redemption completes: a
+    // shopper who checked in while the gate was off, then got verified at the
+    // counter, has the same arrived + no-verdict shape. Reporting a miss here
+    // would be the identical false claim one status later, so the arrival
+    // check sits ABOVE the status check and the rule holds for both.
+    for (const status of completed) {
+      expect(
+        fastVisitChipState(
+          input({ featureEnabled: true, status, claimedAt: at(-4), arrivedAt: at(-3), qualifiedAt: null })
+        )
+      ).toBe("hidden");
     }
   });
 

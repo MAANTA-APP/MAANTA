@@ -54,13 +54,15 @@ export type FastVisitChipInput = {
  * The chip's state for one claim.
  *
  * - `hidden` — say nothing. The feature is off and this claim earned nothing,
- *   or the claim has no recorded claim time so no window ever existed.
+ *   the claim has no recorded claim time so no window ever existed, or an
+ *   arrival was recorded with no verdict, which is ambiguous (see below).
  * - `qualified` — the persisted verdict says it made the window.
  * - `window-open` — the feature is on, nobody has arrived yet, and there is
  *   still time.
- * - `missed` — the feature is on and the window closed without a qualifying
- *   arrival. Deliberately NOT called "expired": the claim itself is untouched,
- *   and this must never read as the ticket having become invalid.
+ * - `missed` — the feature is on and the window closed with NO arrival
+ *   recorded at all, or the redemption is no longer pending so an arrival can
+ *   no longer be accepted. Deliberately NOT called "expired": the claim itself
+ *   is untouched, and this must never read as the ticket having become invalid.
  */
 export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipState {
   // Earned eligibility survives the gate (D198) AND survives completion.
@@ -75,6 +77,21 @@ export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipStat
   const claimed = new Date(input.claimedAt).getTime();
   if (!Number.isFinite(claimed)) return "hidden";
 
+  // Arrived, with no persisted verdict. This shape is AMBIGUOUS and cannot be
+  // reported: `record_shopper_arrival` records the arrival whether or not the
+  // gate is on, and decides qualification only at the first arrival, from the
+  // state of the world at that instant — "flipping fast_visit_enabled later,
+  // in either direction, rewrites nothing". So `arrived_at` set with
+  // `fast_visit_qualified_at` NULL means EITHER the shopper arrived after the
+  // window closed, OR they arrived while the feature was off and no window
+  // ever existed for them. Nothing persisted distinguishes the two.
+  //
+  // Calling it "missed" tells the second shopper they lost a reward they were
+  // never offered. The ticket's FastVisitPanel already refuses to guess here
+  // and renders nothing for any arrived-but-unqualified claim; this chip now
+  // agrees with it rather than making the stronger claim from the weaker data.
+  if (input.arrivedAt) return "hidden";
+
   // A redemption that is no longer pending can never qualify: the arrival RPC
   // refuses it outright. So the window is closed as a matter of fact, not of
   // clock — a claim verified at the counter four minutes after being made,
@@ -82,9 +99,6 @@ export function fastVisitChipState(input: FastVisitChipInput): FastVisitChipStat
   // shopper can no longer act on.
   if (input.status !== "pending") return "missed";
 
-  // Arrived, but the persisted verdict did not qualify it: the window is over
-  // for this claim however the clock reads.
-  if (input.arrivedAt) return "missed";
 
   const deadline = claimed + input.windowMinutes * 60_000;
   const now = (input.now ?? new Date()).getTime();
