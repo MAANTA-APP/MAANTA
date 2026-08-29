@@ -1,0 +1,226 @@
+{
+  "$comment": [
+    "D211 — the ONE set of semantic cases the fee contract must satisfy, proved",
+    "against BOTH implementations: `_fee_totals` in SQL (20260829120000) and",
+    "`aggregateLedgerFees` in TypeScript (lib/evidence-scope.ts).",
+    "",
+    "Two implementations of one money rule is a real risk, and the honest answer",
+    "to it is shared cases rather than a source-text scan: a phrase parser proves",
+    "the code SAYS something, these prove it DOES something. The SQL side is",
+    "generated from this file by scripts/gen-fee-contract-cases.mjs and the",
+    "generated file is checked in, with a CI drift check, so the two cannot",
+    "diverge without a red build.",
+    "",
+    "tsDivergence records where TypeScript deliberately still differs. There is",
+    "exactly one such difference and it is temporary: SQL reports availability",
+    "all-or-nothing (founder ruling 2026-08-29) while TypeScript still reports it",
+    "per bucket. B2b moves TypeScript to all-or-nothing and every tsDivergence",
+    "here must be deleted in that PR — a case still carrying one after B2b is a",
+    "contract that did not converge."
+  ],
+  "window": { "since": "2026-08-01T00:00:00Z", "until": "2026-09-01T00:00:00Z" },
+  "cases": [
+    {
+      "id": "all-four-types",
+      "description": "Every transaction type at once: both billed legs count, the reversal subtracts, the settlement is invisible.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z" }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r2", "type": "success_fee_arrears", "amount": 70, "createdAt": "2026-08-11T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T10:00:00Z" },
+        { "redemption": "r1", "type": "arrears_settlement", "amount": -30, "createdAt": "2026-08-20T10:00:01Z" }
+      ],
+      "expected": { "grossKes": 100, "reversalsKes": 30, "netKes": 70, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "charge-leg-negative",
+      "description": "success_fee is written -p_amount. Read through its own sign it is positive billed fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "arrears-leg-positive",
+      "description": "success_fee_arrears is written p_amount — POSITIVE, because it accrues a debt rather than moving the wallet. Opposite sign to the charge leg, same billed fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee_arrears", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "reversal-reduces-net-not-gross",
+      "description": "A reversal subtracts from net and leaves gross untouched. Under Math.abs over a billed set it would have added.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 30, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "settlement-excluded",
+      "description": "arrears_settlement moves an amount the arrears row already counted as billed. In gross it doubles the fee; in reversals it subtracts a fee nobody reversed.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee_arrears", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "arrears_settlement", "amount": -30, "createdAt": "2026-08-12T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "unrelated-types-excluded",
+      "description": "Top-ups, boosts, subscriptions, refunds and disputes are not fee generation. They must not move any of the three figures.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "topup", "amount": 500, "createdAt": "2026-08-11T09:00:00Z" },
+        { "redemption": "r1", "type": "boost_fee", "amount": -500, "createdAt": "2026-08-11T09:00:01Z" },
+        { "redemption": "r1", "type": "subscription", "amount": -3500, "createdAt": "2026-08-11T09:00:02Z" },
+        { "redemption": "r1", "type": "refund", "amount": 200, "createdAt": "2026-08-11T09:00:03Z" },
+        { "redemption": "r1", "type": "dispute", "amount": -50, "createdAt": "2026-08-11T09:00:04Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "invalid-polarity-charge",
+      "description": "A success_fee written POSITIVE contradicts the live function's -p_amount. Unavailable, never normalised: Math.abs read this as 30.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "invalid-polarity-reversal",
+      "description": "A fee_reversal written negative contradicts reverse_success_fee's v_fee_amount. All three unavailable under the all-or-nothing ruling.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": -30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": 30, "reversalsKes": null, "netKes": null }
+    },
+    {
+      "id": "zero-amount-fee-row",
+      "description": "Neither RPC can write a zero fee. A row that says otherwise is unexpected, not an absent fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": 0, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "missing-fee-row",
+      "description": "verify_redemption commits status='success' before the fee step and swallows its exception, so a genuine success can carry no ledger row at all. The total is unknown, not smaller.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z" }
+      ],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "zero-activity",
+      "description": "Nothing happened. That is an ANSWER, and it is zero — not unavailable. Confusing the two is how a quiet period reads as a broken read.",
+      "redemptions": [],
+      "movements": [],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-redemption",
+      "description": "D188: the redemption itself is demo-tagged. Its fee never reaches an executive figure.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "redemption": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-merchant",
+      "description": "D188: the parent merchant is demo-tagged. The ledger row itself carries nothing about its merchant, which is why this is a join and not a column read.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "merchant": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-deal",
+      "description": "D188, the live production shape: a non-demo merchant holding a demo deal, and claim_deal never sets redemptions.is_demo.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "deal": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-at-since",
+      "description": "The window is half-open [since, until). A movement exactly at since is IN.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-01T00:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-01T00:00:00Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-at-until",
+      "description": "A movement exactly at until is OUT. Its redemption is outside the candidate set too, so the period stays available.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-09-01T00:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-01T00:00:00Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-before-since",
+      "description": "A movement before the window contributes nothing.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-07-15T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "reversal-in-window-older-redemption",
+      "description": "THE reason the window follows the movement. A reversal posted this period against a redemption verified last period is this period's money movement, and the period can end net negative.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-07-15T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 0, "reversalsKes": 30, "netKes": -30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "fee-outside-window-proves-completeness",
+      "description": "The midnight case. A redemption verified inside the window whose fee row posted just after it: the fee row proves completeness across ALL dates while contributing nothing to this window's gross. Windowing the completeness SEARCH would manufacture an unavailable here.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-31T23:59:59Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-01T00:00:00Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "missing-fee-outside-window-does-not-poison",
+      "description": "A genuine success verified BEFORE the window with no fee row at all. It is a real gap, and it is not this period's gap: windowing the CANDIDATE SET on redeemed_at is what keeps one old failure from blanking every report forever.",
+      "redemptions": [
+        { "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" },
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }
+      ],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "scoped-excludes-other-merchants",
+      "description": "A scoped call must match the operator's actual scope. The out-of-scope merchant's fee and its missing fee are both invisible.",
+      "scope": ["m1"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [
+        { "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "merchant": "m2", "redeemedAt": "2026-08-11T09:00:00Z" },
+        { "key": "r3", "merchant": "m2", "redeemedAt": "2026-08-12T09:00:00Z" }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r2", "type": "success_fee", "amount": -70, "createdAt": "2026-08-11T09:00:01Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "scoped-empty-is-available-zero",
+      "description": "A live node with no merchants is a real state, not a reason to widen. Empty scope is available zeros — and must never fall back to global.",
+      "scope": [],
+      "merchants": ["m1"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    }
+  ]
+}

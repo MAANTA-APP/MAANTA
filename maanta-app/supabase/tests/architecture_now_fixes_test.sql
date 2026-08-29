@@ -106,32 +106,69 @@ BEGIN
   RAISE NOTICE 'Scenario B passed: browse views enforce public visibility';
 END $$;
 
--- Scenario C: admin success-fee revenue RPC sums in SQL.
+-- Scenario C: admin_success_fee_revenue aggregates genuine linked fees.
+--
+-- REWRITTEN by 20260829120000 (drift D211). The old version inserted two
+-- unlinked `success_fee` rows and asserted the RPC returned at least 60. Under
+-- the corrected contract those rows are invisible: a ledger row carries nothing
+-- about its merchant or deal, so a fee only counts when it links to a
+-- genuine-tagged redemption (D188). The old assertion was therefore proving
+-- that an UNSCOPED sum existed, which is the defect, not the fix.
+--
+-- What it asserts now is what the shim is actually for: a genuine-tagged,
+-- fully-billed fee reaches the number, and an unlinked row does not.
 DO $$
 DECLARE
+  v_uid UUID;
   v_mid UUID;
-  v_sum NUMERIC;
+  v_did UUID;
+  v_rid UUID;
+  v_before NUMERIC;
+  v_after  NUMERIC;
+  v_noise  NUMERIC;
 BEGIN
-  INSERT INTO public.merchants (
-    merchant_name, what3words_address, phone, node, status, is_visible, account_balance
-  )
+  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_before;
+
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
     VALUES ('__test_admin_rev', 'test.admin.rev', '+254700009921', 'BBS Mall', 'active', TRUE, 999)
     RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at)
+    VALUES (v_mid, '__test_admin_rev', 'x', NOW() + INTERVAL '30 days')
+    RETURNING id INTO v_did;
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged)
+    VALUES (v_did, v_mid, v_uid, '889901', 'success', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '10 minutes', 30)
+    RETURNING id INTO v_rid;
 
-  INSERT INTO public.merchant_transactions (
-    merchant_id, amount, transaction_type, payment_provider, provider_reference, description
-  )
+  -- A genuine, linked, correctly-signed fee.
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id)
+    VALUES (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_1', 't', v_rid);
+
+  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_after;
+  ASSERT v_after = v_before + 30,
+    format('C: expected the linked fee to add exactly 30 (%s -> %s)', v_before, v_after);
+
+  -- An UNLINKED fee row, and a top-up. Neither may move the figure: the first
+  -- cannot be tied to a genuine-tagged redemption, the second is not a fee.
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description)
     VALUES
-      (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_1', 't'),
       (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_2', 't'),
-      (v_mid, 500, 'topup', 'manual', '__test_arch_topup_1', 't');
+      (v_mid, 500, 'topup',       'manual', '__test_arch_topup_1', 't');
 
-  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_sum;
-  ASSERT v_sum >= 60, format('C: expected at least 60 fee revenue, got %s', v_sum);
+  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_noise;
+  ASSERT v_noise = v_after,
+    format('C: an unlinked fee row and a top-up must not move the figure (%s -> %s)', v_after, v_noise);
 
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
+  DELETE FROM public.redemptions WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
   DELETE FROM public.merchants WHERE id = v_mid;
-  RAISE NOTICE 'Scenario C passed: admin_success_fee_revenue aggregates';
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'Scenario C passed: admin_success_fee_revenue counts genuine linked fees only';
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL architecture_now_fixes scenarios passed.'; END $$;
