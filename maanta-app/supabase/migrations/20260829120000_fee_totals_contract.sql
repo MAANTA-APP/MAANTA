@@ -180,6 +180,33 @@ BEGIN
        AND r.redeemed_at >= p_since
        AND (p_until IS NULL OR r.redeemed_at < p_until)
   ),
+  -- Redemptions whose fee history this window has to read, found through
+  -- `idx_mtx_fee_window` instead of by scanning the ledger.
+  --
+  -- The previous shape expressed the same set as a DISJUNCTION inside the join
+  -- (`in-window OR candidate OR has-an-in-window-sibling`). That is correct and
+  -- unindexable: an OR across three branches collapses to a Filter, so the
+  -- planner drove from `redemptions` and the created_at index never applied.
+  -- Computing the set FIRST turns the same rule into an index range scan
+  -- followed by `reference_id` probes.
+  touched AS (
+    SELECT DISTINCT t.reference_id AS id
+      FROM public.merchant_transactions t
+     WHERE t.transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal')
+       AND t.reference_id IS NOT NULL
+       AND isfinite(t.created_at)
+       AND t.created_at >= p_since
+       AND (p_until IS NULL OR t.created_at < p_until)
+  ),
+  -- Deliberately unscoped: `touched` is already bounded by the window and the
+  -- index, and scoping it on `t.merchant_id` would hide a cross-merchant row
+  -- whose REDEMPTION is in scope while its movement is not. `classified` below
+  -- applies the scope, on either merchant, as it always has.
+  subject AS (
+    SELECT id FROM candidate
+    UNION
+    SELECT id FROM touched
+  ),
   classified AS (
     SELECT
       r.id AS redemption_id,
@@ -265,39 +292,47 @@ BEGIN
      -- deliberately. The seed scripts tag `merchant_transactions.is_demo`, and
      -- the money path never does (the column takes its default), so this can
      -- only ever exclude a row something synthetic created.
-     WHERE r.status = 'success'
+     WHERE t.transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal')
+       -- The three fee-bearing types, and the SAME three the CASE below
+       -- buckets as gross or reversal. Stated here rather than left to the
+       -- `bucket <> 'excluded'` filter downstream for two reasons: it is
+       -- semantics-preserving (an excluded row contributes to none of the
+       -- three answers), and it is what lets the partial index below serve
+       -- this scan instead of the planner reading every top-up in history.
+       -- `fee_totals_contract_test.sql` asserts the index predicate names
+       -- exactly this set, so the two cannot drift.
+       AND r.status = 'success'
+       -- FLAGGED SUCCESSES STILL COUNT (founder ruling 2026-08-29).
+       --
+       -- `status = 'success'` is the authoritative financial event.
+       -- `fraud_flags` and `review_required` are mutable review metadata and
+       -- do NOT independently remove an otherwise successful redemption from
+       -- earned-fee totals. If adjudication later invalidates the fee, the
+       -- correction is an explicit `fee_reversal` -- which lands in the window
+       -- its own movement falls in.
+       --
+       -- The point is auditability: a historical figure must change through a
+       -- ledger movement, not because someone toggled a review flag. Keying on
+       -- review metadata would let last month's revenue move silently, with no
+       -- row to point at.
        AND NOT t.is_demo
        AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
             OR t.merchant_id = ANY (p_merchant_ids))
-       -- Bound the scan. Without this, a one-day executive report joins and
-       -- classifies EVERY genuine linked movement in the ledger's whole
-       -- history before the aggregate throws almost all of them away -- which
-       -- is fine at Node 0 and is the D149 shape at scale: a money query that
-       -- degrades silently as the marketplace grows.
+       -- The whole linked history of every subject redemption, and nothing
+       -- else. A subject is either a completeness candidate or a redemption
+       -- touched in-window, and its WHOLE history is needed because two rules
+       -- below compare a movement against its siblings: a reversal needs its
+       -- original fee, and a duplicate fee is only visible next to the row it
+       -- duplicates.
        --
-       -- Semantics-preserving, not a narrowing. A row outside the window that
-       -- is not linked to an in-window candidate can reach neither the totals
-       -- (it fails `in_window`) nor the invalid count (which needs `in_window`
-       -- or an unbilled candidate, and every unbilled candidate is a candidate)
-       -- nor completeness (which only looks at candidates' own rows).
-       AND ((isfinite(t.created_at)
-             AND t.created_at >= p_since
-             AND (p_until IS NULL OR t.created_at < p_until))
-            OR EXISTS (SELECT 1 FROM candidate k WHERE k.id = r.id)
-            -- A redemption touched in-window brings its WHOLE linked history,
-            -- because two rules below compare a movement against its siblings:
-            -- a reversal needs its original fee, and a duplicate fee is only
-            -- visible next to the row it duplicates. Without this the sibling
-            -- would be unfetched and a reversal against an older redemption
-            -- would look original-less. Still bounded -- by the window, and by
-            -- the reference_id index -- rather than the whole ledger.
-            OR EXISTS (SELECT 1 FROM public.merchant_transactions w
-                        WHERE w.reference_id = r.id
-                          AND isfinite(w.created_at)
-                          AND w.created_at >= p_since
-                          AND (p_until IS NULL OR w.created_at < p_until)))
+       -- Semantics-preserving. A row belonging to no subject can reach none of
+       -- the three answers: it fails `in_window` so it cannot enter the totals;
+       -- the invalid count needs `in_window` or an unbilled candidate, and
+       -- every unbilled candidate is a subject; and completeness only reads a
+       -- candidate's own rows.
+       AND t.reference_id IN (SELECT id FROM subject)
   ),
   relevant AS (
     SELECT
@@ -560,6 +595,25 @@ COMMENT ON FUNCTION public.admin_success_fee_revenue(timestamptz) IS
 CREATE INDEX IF NOT EXISTS idx_mtx_reference_id
   ON public.merchant_transactions (reference_id)
   WHERE reference_id IS NOT NULL;
+
+-- The GLOBAL window's own index.
+--
+-- `idx_mtx_reference_id` accelerates each sibling lookup once a row is in
+-- hand; it cannot bound the initial scan. The only other candidate is
+-- `(merchant_id, created_at DESC)`, whose leading column a global call does
+-- not constrain -- so before this, a one-day marketplace-wide report read
+-- every row in the ledger's history to evaluate its timestamp predicate. That
+-- is the D149 shape: correct today at 8 rows, silently degrading later, on the
+-- executive money figure.
+--
+-- Column order follows the predicate: `created_at` leads because it is the
+-- range scan, and the type set is the partial WHERE rather than a second key
+-- column because every query using this index constrains all three types and
+-- none of them ranges over type. Scoped calls keep using
+-- `(merchant_id, created_at DESC)`, whose leading column they do constrain.
+CREATE INDEX IF NOT EXISTS idx_mtx_fee_window
+  ON public.merchant_transactions (created_at)
+  WHERE transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal');
 
 -- ---------------------------------------------------------------------------
 -- 5) Grants. Money aggregates are service-role only, matching the function this

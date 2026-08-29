@@ -396,6 +396,31 @@
       "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and aggregateLedgerFees drops a row whose reference is not genuine, so an unparented fee is invisible to both. B2b must count it instead of dropping it."
     },
     {
+      "id": "flagged-success-still-counts-and-its-reversal-reduces-net",
+      "description": "Founder ruling 2026-08-29: status = success is the authoritative financial event. fraud_flags and review_required are mutable review metadata and do not independently remove an otherwise successful redemption from earned-fee totals. Adjudication that invalidates the fee corrects it through an explicit fee_reversal, which reduces net in the window its own movement falls in.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "fraudFlags": ["velocity", "distance"], "reviewRequired": true }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 30, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "flagged-success-counts-before-its-reversal-lands",
+      "description": "The same flagged redemption and the same reversal, read over the window BEFORE the reversal posted. The fee counts in full and net is 30 — the correction has not happened yet. This is what auditability buys: last month's figure is what last month's ledger said, and it moves only when a movement moves it, never because a review flag was toggled afterwards.",
+      "window": { "since": "2026-08-01T00:00:00Z", "until": "2026-08-15T00:00:00Z" },
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "fraudFlags": ["velocity"], "reviewRequired": true }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

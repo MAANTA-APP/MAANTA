@@ -280,6 +280,7 @@ DO $$
 DECLARE
   v_name TEXT;
   v_rec RECORD;
+  v_indexdef TEXT;
 BEGIN
   FOREACH v_name IN ARRAY ARRAY[
     '_fee_totals', 'admin_fee_totals_global',
@@ -314,7 +315,37 @@ BEGIN
      WHERE schemaname = 'public'
        AND tablename = 'merchant_transactions'
        AND indexname = 'idx_mtx_reference_id'
-  ), 'idx_mtx_reference_id is missing — every fee figure would seq-scan the ledger';
+  ), 'idx_mtx_reference_id is missing — sibling lookups would seq-scan the ledger';
+
+  -- The global window's own index. `idx_mtx_reference_id` accelerates each
+  -- sibling lookup once a row is in hand; only this one bounds the initial
+  -- scan, and without it a marketplace-wide report reads the ledger's whole
+  -- history to evaluate its timestamp predicate.
+  ASSERT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public'
+       AND tablename = 'merchant_transactions'
+       AND indexname = 'idx_mtx_fee_window'
+  ), 'idx_mtx_fee_window is missing — the global window would scan all ledger history';
+
+  -- Leading column, checked rather than assumed: `created_at` is the range
+  -- predicate, so it must lead or the index cannot serve the scan.
+  SELECT indexdef INTO v_indexdef FROM pg_indexes
+   WHERE schemaname = 'public' AND tablename = 'merchant_transactions'
+     AND indexname = 'idx_mtx_fee_window';
+  ASSERT v_indexdef LIKE '%(created_at)%',
+    format('idx_mtx_fee_window must lead with created_at, got: %s', v_indexdef);
+
+  -- And its partial predicate must name exactly the three fee-bearing types
+  -- the contract buckets as gross or reversal. If the two ever disagree, the
+  -- index silently stops covering part of the scan it exists for.
+  FOREACH v_name IN ARRAY ARRAY['success_fee', 'success_fee_arrears', 'fee_reversal'] LOOP
+    ASSERT v_indexdef LIKE '%' || v_name || '%',
+      format('idx_mtx_fee_window must cover %s, got: %s', v_name, v_indexdef);
+  END LOOP;
+  ASSERT v_indexdef NOT LIKE '%arrears_settlement%'
+     AND v_indexdef NOT LIKE '%topup%',
+    format('idx_mtx_fee_window must not cover excluded types, got: %s', v_indexdef);
 
   RAISE NOTICE 'security settings and index passed';
 END $$;

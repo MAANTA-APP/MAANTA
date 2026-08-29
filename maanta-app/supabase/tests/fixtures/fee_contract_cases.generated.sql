@@ -49,17 +49,19 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100002', 'success',
             '2026-08-11T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-11T09:00:00Z', 70,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r2;
 
   INSERT INTO public.merchant_transactions
@@ -147,10 +149,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -213,10 +216,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -278,10 +282,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -356,10 +361,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -428,10 +434,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -528,10 +535,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -593,10 +601,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -665,10 +674,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -732,17 +742,19 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100002', 'success',
             '2026-08-11T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-11T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r2;
 
   INSERT INTO public.merchant_transactions
@@ -854,10 +866,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            TRUE)
+            TRUE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -920,10 +933,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -985,10 +999,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1049,10 +1064,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-01T00:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-01T00:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1114,10 +1130,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-09-01T00:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-09-01T00:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1178,10 +1195,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-07-15T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-15T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1244,10 +1262,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-07-15T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-15T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1323,10 +1342,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-31T23:59:59Z'::timestamptz + INTERVAL '1 hour', '2026-08-31T23:59:59Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1391,17 +1411,19 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-07-15T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-15T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_old;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100002', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1476,24 +1498,27 @@ BEGIN
     RETURNING id INTO v_d_m2;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m2, v_m_m2, v_uid, '100002', 'success',
             '2026-08-11T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-11T09:00:00Z', 70,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r2;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m2, v_m_m2, v_uid, '100003', 'success',
             '2026-08-12T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-12T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r3;
 
   INSERT INTO public.merchant_transactions
@@ -1567,10 +1592,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1635,17 +1661,19 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100002', 'pending',
             '2026-08-11T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-11T09:00:00Z', 70,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_rp;
 
   INSERT INTO public.merchant_transactions
@@ -1716,10 +1744,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1783,10 +1812,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1851,10 +1881,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -1926,10 +1957,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2003,10 +2035,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2077,10 +2110,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2151,10 +2185,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2237,10 +2272,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 70,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2317,10 +2353,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2397,10 +2434,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2475,10 +2513,11 @@ BEGIN
     RETURNING id INTO v_d_m2;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m2, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2548,10 +2587,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-20T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-20T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2616,10 +2656,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2689,10 +2730,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-20T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-20T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2769,10 +2811,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-07-15T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-15T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_old;
 
   INSERT INTO public.merchant_transactions
@@ -2843,10 +2886,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2889,6 +2933,169 @@ BEGIN
 END $case$;
 
 -- ---------------------------------------------------------------------------
+-- flagged-success-still-counts-and-its-reversal-reduces-net
+--
+-- Founder ruling 2026-08-29: status = success is the authoritative financial
+-- event. fraud_flags and review_required are mutable review metadata and do
+-- not independently remove an otherwise successful redemption from
+-- earned-fee totals. Adjudication that invalidates the fee corrects it
+-- through an explicit fee_reversal, which reduces net in the window its own
+-- movement falls in.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_flagged-success-still-counts-and-its-reversal-reduces-net_m1', 'fee.case.m1', '+254710000042',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_flagged-success-still-counts-and-its-reversal-reduces-net_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE,
+            ARRAY['velocity', 'distance']::text[], TRUE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_flagged-success-still-counts-and-its-reversal-reduces-net_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_flagged-success-still-counts-and-its-reversal-reduces-net_2', 'fixture', v_r_r1, '2026-08-20T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal',
+            v_uid);
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM TRUE,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: available = %s, expected true', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM 30,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: gross_kes = %s, expected 30', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM 30,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: reversals_kes = %s, expected 30', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM 0,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: net_kes = %s, expected 0', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 0,
+    format('flagged-success-still-counts-and-its-reversal-reduces-net: invalid_rows = %s, expected 0', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: flagged-success-still-counts-and-its-reversal-reduces-net';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- flagged-success-counts-before-its-reversal-lands
+--
+-- The same flagged redemption and the same reversal, read over the window
+-- BEFORE the reversal posted. The fee counts in full and net is 30 — the
+-- correction has not happened yet. This is what auditability buys: last
+-- month's figure is what last month's ledger said, and it moves only when a
+-- movement moves it, never because a review flag was toggled afterwards.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_flagged-success-counts-before-its-reversal-lands_m1', 'fee.case.m1', '+254710000043',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_flagged-success-counts-before-its-reversal-lands_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE,
+            ARRAY['velocity']::text[], TRUE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_flagged-success-counts-before-its-reversal-lands_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_flagged-success-counts-before-its-reversal-lands_2', 'fixture', v_r_r1, '2026-08-20T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal',
+            v_uid);
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-08-15T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM TRUE,
+    format('flagged-success-counts-before-its-reversal-lands: available = %s, expected true', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM 30,
+    format('flagged-success-counts-before-its-reversal-lands: gross_kes = %s, expected 30', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM 0,
+    format('flagged-success-counts-before-its-reversal-lands: reversals_kes = %s, expected 0', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM 30,
+    format('flagged-success-counts-before-its-reversal-lands: net_kes = %s, expected 30', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('flagged-success-counts-before-its-reversal-lands: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 0,
+    format('flagged-success-counts-before-its-reversal-lands: invalid_rows = %s, expected 0', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: flagged-success-counts-before-its-reversal-lands';
+END $case$;
+
+-- ---------------------------------------------------------------------------
 -- cross-merchant-reference
 --
 -- One merchant's wallet debit pointing at another merchant's redemption.
@@ -2912,7 +3119,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000042',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000044',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -2921,7 +3128,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000043',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000045',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -2929,10 +3136,11 @@ BEGIN
     RETURNING id INTO v_d_m2;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -2995,7 +3203,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000044',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000046',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3004,7 +3212,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000045',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000047',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3012,10 +3220,11 @@ BEGIN
     RETURNING id INTO v_d_m2;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions
@@ -3075,7 +3284,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000046',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000048',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3083,10 +3292,11 @@ BEGIN
     RETURNING id INTO v_d_m1;
 
   INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
     VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
             '2026-08-31T23:59:59Z'::timestamptz + INTERVAL '1 hour', '2026-08-31T23:59:59Z', 30,
-            FALSE)
+            FALSE,
+            NULL, FALSE)
     RETURNING id INTO v_r_r1;
 
   INSERT INTO public.merchant_transactions

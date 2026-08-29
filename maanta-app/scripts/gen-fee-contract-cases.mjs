@@ -100,13 +100,17 @@ function renderCase(c, windowDefault) {
     const m = r.merchant ?? "m1";
     p(``);
     p(`  INSERT INTO public.redemptions`);
-    p(`    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)`);
+    p(`    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)`);
     // `deal` may name a DIFFERENT merchant's deal — the corruption `claim_deal`
     // cannot produce, where a redemption's two parents disagree about whose
     // shop it belongs to.
     p(`    VALUES (v_d_${r.deal ?? m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
     p(`            ${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour', ${q(r.redeemedAt)}, ${num(r.feeSnapshot ?? 30)},`);
-    p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"})`);
+    p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"},`);
+    // Review metadata is MUTABLE and must not decide a financial figure
+    // (founder ruling 2026-08-29): a flagged success still counts, and any
+    // later correction is an explicit fee_reversal.
+    p(`            ${r.fraudFlags ? `ARRAY[${r.fraudFlags.map(q).join(", ")}]::text[]` : "NULL"}, ${r.reviewRequired ? "TRUE" : "FALSE"})`);
     p(`    RETURNING id INTO v_r_${r.key};`);
   }
 
