@@ -203,16 +203,31 @@ describe("drift register schema", () => {
     // So: anything that looks like a drift row anywhere in the file must have
     // been parsed. A row placed outside the table fails here rather than
     // vanishing.
-    const parsedIds = new Set(rows.map((r) => r.id));
-    const orphans = raw
+    // Counted per ID, not tested for membership. Matching on "is this ID
+    // parsed?" leaves a hole big enough to drive the original defect through:
+    // a SECOND row carrying an ID that already appears inside the table reads
+    // as parsed and skips every check — schema, dates, owner, evidence and
+    // uniqueness alike. A malformed duplicate `D217` after the table left all
+    // of this green until the comparison counted occurrences instead.
+    const count = (ids: string[]) =>
+      ids.reduce((m, id) => m.set(id, (m.get(id) ?? 0) + 1), new Map<string, number>());
+
+    const inFile = raw
       .split("\n")
       .map((line, i) => ({ line: line.trim(), lineNumber: i + 1 }))
       .filter(({ line }) => /^\|\s*D\d+\s*\|/.test(line))
       .map(({ line, lineNumber }) => ({
         id: (/^\|\s*(D\d+)\s*\|/.exec(line) ?? [])[1] ?? "?",
         lineNumber,
-      }))
-      .filter(({ id }) => !parsedIds.has(id))
+      }));
+    const parsedCounts = count(rows.map((r) => r.id));
+    const seen = new Map<string, number>();
+    const orphans = inFile
+      .filter(({ id }) => {
+        const n = (seen.get(id) ?? 0) + 1;
+        seen.set(id, n);
+        return n > (parsedCounts.get(id) ?? 0);
+      })
       .map(({ id, lineNumber }) => `${id} at line ${lineNumber}`);
 
     expect(
