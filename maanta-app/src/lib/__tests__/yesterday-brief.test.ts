@@ -119,7 +119,7 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     expect(code).not.toMatch(/if \(!demoMode\.enabled\) q = q\.eq\("is_demo", false\)/);
   });
 
-  it("derives success fees from genuine-tagged redemptions, not raw fee rows", () => {
+  it("derives success fees through the one shared fee reader", () => {
     // merchant_transactions filtered by type alone let a fee charged against a
     // demo merchant sit beside genuine-tagged counts under one heading — the
     // D188 conflation in money form.
@@ -128,33 +128,35 @@ describe("Yesterday — supply and fees carry the same scope as the counts besid
     // `toContain("success_fee_charged")`, and a mutation proved that useless:
     // stripping the column from both the query and the sum left the string
     // alive in a type annotation, and the guard stayed green over the restored
-    // defect. Third time this class of looseness has bitten in this PR —
-    // assert the call, never the spelling.
+    // defect. Assert the call, never the spelling.
     const code = src();
-    // The ledger is read again, deliberately — but only through reference_id,
-    // linked to the genuine-tagged redemptions established above. Reading it by
-    // transaction_type and date alone is the unscoped form this replaced.
-    if (/from\("merchant_transactions"\)/.test(code)) {
-      expect(code).toMatch(/\.in\(\s*"reference_id",/);
-      expect(code).not.toMatch(/\.eq\("transaction_type", "success_fee"\)/);
-    }
-    // The fee rows come from redemptions, through the D188 chain...
-    expect(code).toMatch(/genuineTagged\(\s*service\s*\.from\("redemptions"\)\s*\.select\(genuineJoinSelect\("id, success_fee_charged"\)\)/);
-    // ...and the BILLED amount comes from the ledger, linked by reference_id,
-    // because a successful redemption can carry a fee that never posted:
-    // verify_redemption commits status='success' even when the fee step throws.
-    expect(code).toMatch(/\.in\("transaction_type", \[\.\.\.FEE_LEDGER_TYPES\]\)/);
-    // ...and the sum goes through the shared helper, which is where the
-    // "read that column, and a failed read is unavailable rather than zero"
-    // decision now lives. Re-pointed at the same invariant rather than deleted
-    // when `/admin/pilot` needed the identical reduction: a second inline copy
-    // is a second place for the failure-vs-zero rule to drift, and
-    // `evidence-scope` owns it for both pages. `sumSuccessFees` itself is
-    // tested directly in pilot-fee-and-node-scope.test.ts.
-    expect(code).toMatch(/sumLedgerSuccessFees\(/);
+    // D211: this page no longer builds a fee query. The D188 chain, the
+    // reference_id link, the row cap and the ledger contract all live in
+    // `readLedgerFeeTotals`. A second copy here would be a second place for the
+    // money rules to drift, which is how the fee KPI acquired three callers
+    // with three chances to forget the same type filter.
+    expect(code).toMatch(/readLedgerFeeTotals\(service, \{/);
+    expect(code).not.toMatch(/from\("merchant_transactions"\)/);
+    // The caller-side type filter is gone and may not return: deciding what
+    // counts as a fee is the reader's job, and the filter that lived here had
+    // no opinion about a reversal at all.
+    expect(code).not.toMatch(/transaction_type/);
+    expect(code).not.toMatch(/FEE_LEDGER_TYPES/);
+    // No hand-rolled reduction, and no generic magnitude rule, may return.
     expect(code).not.toMatch(/r\.amount \?\? 0/);
-    // No hand-rolled reduction may return alongside it.
     expect(code).not.toMatch(/feeRows\.reduce/);
+    expect(code).not.toMatch(/Math\.abs/);
+  });
+
+  it("windows both fee reads on the ledger movement's own timestamp", () => {
+    // Both the all-class figure and the external-cohort figure. A day brief is
+    // the surface where this matters most: a reversal posted yesterday against
+    // a redemption from last month is yesterday's money movement.
+    const code = src();
+    const windows = code.match(
+      /readLedgerFeeTotals\(service, \{[\s\S]{0,200}?window: \{ since: startIso, until: endIso \}/g
+    );
+    expect(windows?.length).toBe(2);
   });
 
   it("labels the fee KPI with its evidence scope", () => {

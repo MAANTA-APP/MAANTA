@@ -21,6 +21,7 @@
  */
 
 import type { EvidenceClass } from "@/lib/pilot-cohort";
+import type { LedgerFeeTotals } from "@/lib/evidence-scope";
 import { publicMerchantBlocker } from "@/lib/merchant-visibility";
 
 /**
@@ -90,8 +91,15 @@ export type PilotMerchantRow = {
    */
   verifiedCohort: number | null;
   fastVisits: number | null;
-  /** Success fees in KES over the window; null when the figure is unavailable. */
-  successFeesKes: number | null;
+  /**
+   * Success fees over the window, reported as gross / reversals / net.
+   *
+   * Three figures rather than one because a single "Success fees" number cannot
+   * say whether a fee was given back, and a reader takes it as revenue either
+   * way (D211). Each is independently nullable: a figure that failed to read is
+   * unavailable, never zero.
+   */
+  fees: LedgerFeeTotals;
 };
 
 export type PilotStatusId =
@@ -267,7 +275,8 @@ export type CohortTotals = {
   /** Cohort: verified out of the claims made in this window. */
   verifiedCohort: number | null;
   fastVisits: number | null;
-  successFeesKes: number | null;
+  /** Gross / reversals / net, summed with the same null-poisoning rule. */
+  fees: LedgerFeeTotals;
 };
 
 /**
@@ -300,7 +309,35 @@ export function cohortTotals(rows: PilotMerchantRow[]): CohortTotals {
     verified: sum((r) => r.verified),
     verifiedCohort: sum((r) => r.verifiedCohort),
     fastVisits: sum((r) => r.fastVisits),
-    successFeesKes: sum((r) => r.successFeesKes),
+    fees: sumFeeTotals(rows.map((r) => r.fees)),
+  };
+}
+
+/**
+ * Sum gross and reversals across rows, then DERIVE net from those two.
+ *
+ * Net is recomputed rather than summed so the identity `net = gross -
+ * reversals` cannot drift between a row and its total: summing a net column
+ * independently would let rounding, a missed null or a swapped field produce a
+ * total that contradicts the two figures printed beside it.
+ */
+export function sumFeeTotals(all: readonly LedgerFeeTotals[]): LedgerFeeTotals {
+  const sum = (pick: (t: LedgerFeeTotals) => number | null): number | null => {
+    let total = 0;
+    for (const t of all) {
+      const v = pick(t);
+      if (v === null) return null;
+      total += v;
+    }
+    return total;
+  };
+  const grossKes = sum((t) => t.grossKes);
+  const reversalsKes = sum((t) => t.reversalsKes);
+  return {
+    grossKes,
+    reversalsKes,
+    netKes:
+      grossKes === null || reversalsKes === null ? null : grossKes - reversalsKes,
   };
 }
 

@@ -9,12 +9,13 @@ import {
   GENUINE_JOIN_SELECT,
   genuineJoinSelect,
   genuineTagged,
-  sumLedgerSuccessFees,
-  FEE_ROW_CAP,
-  FEE_LEDGER_TYPES,
-  type GenuineFeeRedemption,
-  type FeeLedgerRow,
+  readLedgerFeeTotals,
+  type LedgerFeeTotals,
 } from "@/lib/evidence-scope";
+import {
+  FEE_FIGURE_LABELS,
+  feeFigure,
+} from "@/components/admin/fee-figures";
 import { withPublicMerchant, withPublicMerchantRows } from "@/lib/data";
 import {
   externalCohort,
@@ -22,7 +23,6 @@ import {
   internalMerchantIds,
 } from "@/lib/pilot-cohort";
 import { queueAlertState } from "@/lib/pilot-command-centre";
-import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +98,6 @@ export default async function YesterdayBriefPage() {
     verifiedRes,
     verifiedPrevRes,
     fastVisitsRes,
-    feesRes,
     allClaimsRes,
     allVerifiedRes,
     heldRes,
@@ -151,23 +150,6 @@ export default async function YesterdayBriefPage() {
         .gte("fast_visit_qualified_at", startIso)
         .lt("fast_visit_qualified_at", endIso)
     ),
-    // Fees, scoped to the SAME evidence as the counts beside them.
-    //
-    // This read merchant_transactions by type alone, so a fee charged against a
-    // demo merchant landed under a heading whose other figures are
-    // genuine-tagged — a mixed number sitting beside filtered ones, which is
-    // the D188 conflation in money form. Derived instead from the genuine
-    // verified redemptions themselves: each success carries the fee it was
-    // charged, and the redemption chain is what makes it genuine.
-    genuineTagged(
-      service
-        .from("redemptions")
-        .select(genuineJoinSelect("id, success_fee_charged"))
-        .eq("status", "success")
-        .gte("redeemed_at", startIso)
-        .lt("redeemed_at", endIso)
-        .limit(FEE_ROW_CAP)
-    ),
     // Every claim yesterday, genuine-tagged or not. The difference between this
     // and the genuine count is the demo/mixed split — stated, not hidden.
     service
@@ -212,40 +194,23 @@ export default async function YesterdayBriefPage() {
   const merchantsLive = n(merchantsLiveRes);
   const visibleDeals = demoMode.ok ? n(visibleDealsRes) : null;
 
-  // The fee total is read from the LEDGER, not from
-  // `redemptions.success_fee_charged`.
+  // Fees come from the ONE shared fee reader, so this page and /admin/pilot
+  // cannot answer the same money question differently.
   //
-  // verify_redemption sets status = 'success' before the fee step and runs
-  // that step inside an EXCEPTION handler that does not re-raise, so a failed
-  // fee leaves a successful redemption carrying a fee amount that never
-  // reached the ledger. Summing the redemption column reports revenue that
-  // does not exist. Shared with /admin/pilot so the two pages cannot answer
-  // the same money question differently — see `sumLedgerSuccessFees`.
-  const feeRedemptions = feesRes.error
-    ? null
-    : ((feesRes.data ?? []) as unknown as GenuineFeeRedemption[]);
-
-  let feeLedger: FeeLedgerRow[] | null = null;
-  if (feeRedemptions !== null) {
-    if (feeRedemptions.length === 0) {
-      feeLedger = [];
-    } else {
-      const ledgerRes = await service
-        .from("merchant_transactions")
-        .select("reference_id, amount")
-        .in("transaction_type", [...FEE_LEDGER_TYPES])
-        .in(
-          "reference_id",
-          feeRedemptions.map((r) => r.id)
-        )
-        .limit(FEE_ROW_CAP);
-      feeLedger = ledgerRes.error
-        ? null
-        : ((ledgerRes.data ?? []) as unknown as FeeLedgerRow[]);
-    }
-  }
-
-  const fees = sumLedgerSuccessFees(feeRedemptions, feeLedger);
+  // It reads the LEDGER, not `redemptions.success_fee_charged`:
+  // verify_redemption sets status = 'success' before the fee step and runs that
+  // step inside an EXCEPTION handler that does not re-raise, so a failed fee
+  // leaves a successful redemption carrying a fee amount that never reached the
+  // ledger. And it reports gross, reversals and net separately rather than one
+  // "Success fees" number a reader takes as revenue (D211).
+  //
+  // No transaction-type filter here, deliberately. Deciding which types are
+  // fees is the reader's job — a filter at this call site is a correctness rule
+  // in the wrong place, and the one that existed had no opinion about a
+  // reversal at all.
+  const fees = await readLedgerFeeTotals(service, {
+    window: { since: startIso, until: endIso },
+  });
 
   // ---------------------------------------------------------------------
   // The ladder's counters: EXTERNAL rows only.
@@ -380,9 +345,19 @@ export default async function YesterdayBriefPage() {
           hint="Fast Visit is currently switched off, so this is expected to be 0."
         />
         <KpiCard
-          label="Success fees"
-          value={fees === null ? "—" : formatKes(fees)}
-          hint="KES 30 per verified redemption, genuine-tagged only — the same evidence scope as the counts above."
+          label={FEE_FIGURE_LABELS.net}
+          value={feeFigure(fees.netKes)}
+          hint="Gross less reversals, genuine-tagged only — the same evidence scope as the counts above."
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.gross}
+          value={feeFigure(fees.grossKes)}
+          hint="KES 30 per verified redemption: charged, plus recorded as arrears."
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.reversals}
+          value={feeFigure(fees.reversalsKes)}
+          hint="Admin-gated credits against a billed fee, counted on the day the credit posted."
         />
 
       </section>
@@ -403,14 +378,27 @@ export default async function YesterdayBriefPage() {
           ? " No merchant is enrolled yet, so these are zero by construction rather than unread."
           : null}
       </p>
-      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Four columns, not five: with four count cards the three fee figures
+          always share the row beneath them. At five, net rode up into the
+          counts row and left gross and reversals orphaned below it — which is
+          the D211 defect in layout form, a net figure presented without its
+          components. */}
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Claims" value={fmt(external.claims)} />
         <KpiCard label="Verified visits" value={fmt(external.verified)} />
         <KpiCard label="Arrivals / check-ins" value={fmt(external.arrivals)} />
         <KpiCard label="Fast Visits" value={fmt(external.fastVisits)} />
         <KpiCard
-          label="Success fees"
-          value={external.feesKes === null ? "—" : formatKes(external.feesKes)}
+          label={FEE_FIGURE_LABELS.net}
+          value={feeFigure(external.fees.netKes)}
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.gross}
+          value={feeFigure(external.fees.grossKes)}
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.reversals}
+          value={feeFigure(external.fees.reversalsKes)}
         />
       </section>
 
@@ -680,7 +668,8 @@ type ExternalTotals = {
   verified: number | null;
   arrivals: number | null;
   fastVisits: number | null;
-  feesKes: number | null;
+  /** Gross / reversals / net — three figures, never one (D211). */
+  fees: LedgerFeeTotals;
 };
 
 /**
@@ -703,7 +692,14 @@ async function externalDayTotals(
   endIso: string
 ): Promise<ExternalTotals> {
   if (externalIds.length === 0) {
-    return { claims: 0, verified: 0, arrivals: 0, fastVisits: 0, feesKes: 0 };
+    // Nobody enrolled: a true zero by construction, not an unread figure.
+    return {
+      claims: 0,
+      verified: 0,
+      arrivals: 0,
+      fastVisits: 0,
+      fees: { grossKes: 0, reversalsKes: 0, netKes: 0 },
+    };
   }
 
   const scoped = (column: string, extra?: (q: never) => never) => {
@@ -718,7 +714,7 @@ async function externalDayTotals(
     );
   };
 
-  const [claimsRes, verifiedRes, arrivalsRes, fastVisitsRes, feeRes] =
+  const [claimsRes, verifiedRes, arrivalsRes, fastVisitsRes] =
     await Promise.all([
       scoped("claimed_at"),
       genuineTagged(
@@ -732,50 +728,25 @@ async function externalDayTotals(
       ),
       scoped("arrived_at"),
       scoped("fast_visit_qualified_at"),
-      genuineTagged(
-        service
-          .from("redemptions")
-          .select(genuineJoinSelect("id, success_fee_charged"))
-          .in("merchant_id", externalIds)
-          .eq("status", "success")
-          .gte("redeemed_at", startIso)
-          .lt("redeemed_at", endIso)
-          .limit(FEE_ROW_CAP)
-      ),
     ]);
 
   const n = (r: { count: number | null; error: unknown }) =>
     r.error ? null : r.count ?? 0;
 
-  // Same ledger truth as every other fee figure: what posted, not what the
-  // claim recorded.
-  const feeRedemptions = feeRes.error
-    ? null
-    : ((feeRes.data ?? []) as unknown as GenuineFeeRedemption[]);
-  let ledger: FeeLedgerRow[] | null = null;
-  if (feeRedemptions !== null) {
-    if (feeRedemptions.length === 0) {
-      ledger = [];
-    } else {
-      const lr = await service
-        .from("merchant_transactions")
-        .select("reference_id, amount")
-        .in("transaction_type", [...FEE_LEDGER_TYPES])
-        .in(
-          "reference_id",
-          feeRedemptions.map((r) => r.id)
-        )
-        .limit(FEE_ROW_CAP);
-      ledger = lr.error ? null : ((lr.data ?? []) as unknown as FeeLedgerRow[]);
-    }
-  }
+  // Same ledger truth as every other fee figure, through the same reader:
+  // what posted, not what the claim recorded — and gross, reversals and net
+  // kept apart rather than collapsed into one number (D211).
+  const fees = await readLedgerFeeTotals(service, {
+    merchantIds: externalIds,
+    window: { since: startIso, until: endIso },
+  });
 
   return {
     claims: n(claimsRes),
     verified: n(verifiedRes),
     arrivals: n(arrivalsRes),
     fastVisits: n(fastVisitsRes),
-    feesKes: sumLedgerSuccessFees(feeRedemptions, ledger),
+    fees,
   };
 }
 

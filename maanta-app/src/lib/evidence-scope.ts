@@ -98,6 +98,88 @@ export function atMerchantNode<T>(query: T, node: string): T {
 export const FEE_ROW_CAP = 500;
 
 /**
+ * The ledger's SIGNED contract, one entry per `merchant_transactions`
+ * transaction type, and the only place that decides what each type means to a
+ * fee figure.
+ *
+ * ## Why a table and not `Math.abs`
+ *
+ * The previous total ended `+ Math.abs(Number(r.amount ?? 0))`. `Math.abs` is
+ * not arithmetic here, it is a **guess**: it says "whatever sign this row
+ * carries, treat it as billed". That is exactly wrong for a reversal, whose
+ * whole meaning is its direction — abs would have added a credit to the fees
+ * it cancels. It also silently absorbs a row written with the wrong sign,
+ * which is the one thing a money read should never do quietly.
+ *
+ * So each fee-bearing type declares the sign the money path actually writes,
+ * verified against the live RPC bodies rather than assumed, and the reader
+ * multiplies by it. A row that disagrees with its own type's contract is
+ * **unexpected polarity**: it makes the figure unknown and is reported as
+ * such, never normalised into a plausible number.
+ *
+ * ## The signs, read back from production 2026-08-29
+ *
+ * `pg_get_functiondef` on the live `deduct_success_fee_or_record_arrears` and
+ * `reverse_success_fee`:
+ *
+ * | type                  | writes        | sign     |
+ * |-----------------------|---------------|----------|
+ * | `success_fee`         | `-p_amount`   | negative |
+ * | `success_fee_arrears` | `p_amount`    | POSITIVE |
+ * | `fee_reversal`        | `v_fee_amount`| positive |
+ * | `arrears_settlement`  | `-v_settled`  | negative |
+ *
+ * The arrears row is positive because it accrues a debt rather than moving the
+ * wallet: the charge leg debits `account_balance` and is written negative, the
+ * arrears leg increments `outstanding_arrears` and is written positive. Both
+ * are the same KES 30 of billed fee, which is why both sit in `gross` with
+ * opposite orientations. **This is the point the D211 row warns about — the
+ * two rows against one redemption have opposite signs — and it is why sign
+ * alone can never classify a row. The type does.**
+ *
+ * ## Why `arrears_settlement` is excluded
+ *
+ * It generates no fee. It is the second leg of a top-up or a reversal, moving
+ * an amount that a `success_fee_arrears` row already counted as billed, out of
+ * `outstanding_arrears`. Counting it in gross would double-count the fee;
+ * counting it in reversals would subtract a fee nobody reversed. It is
+ * bookkeeping about money already measured, so it is measured nowhere here.
+ *
+ * ## Why the non-fee types are listed at all
+ *
+ * Callers no longer filter by type — that is the point of this table — so every
+ * type in the CHECK constraint arrives here and each must have a decision
+ * recorded against it. `ledger-fee-semantics.test.ts` asserts this table's keys
+ * equal the constraint's list, so adding a type to the database without
+ * deciding what it means to the fee KPI fails CI rather than silently
+ * vanishing from a money figure.
+ *
+ * The excluded entries deliberately declare NO orientation. Nothing here has
+ * verified which sign a `refund` or a `dispute` carries, and inventing one to
+ * fill the shape would be a rule this repo did not check.
+ */
+export type LedgerTypeContract =
+  | { bucket: "excluded" }
+  | { bucket: "gross" | "reversal"; orientation: 1 | -1 };
+
+export const LEDGER_TYPE_CONTRACT = {
+  // Fee-generating: both legs of "charged OR recorded as arrears".
+  success_fee: { bucket: "gross", orientation: -1 },
+  success_fee_arrears: { bucket: "gross", orientation: 1 },
+  // Fee-cancelling: an admin-gated wallet credit against a billed fee.
+  fee_reversal: { bucket: "reversal", orientation: 1 },
+  // Neither: bookkeeping, supply, or unrelated money.
+  arrears_settlement: { bucket: "excluded" },
+  topup: { bucket: "excluded" },
+  boost_fee: { bucket: "excluded" },
+  subscription: { bucket: "excluded" },
+  refund: { bucket: "excluded" },
+  dispute: { bucket: "excluded" },
+} as const satisfies Record<string, LedgerTypeContract>;
+
+export type LedgerTransactionType = keyof typeof LEDGER_TYPE_CONTRACT;
+
+/**
  * The ledger entry types that represent a billed success fee.
  *
  * BOTH count. `deduct_success_fee_or_record_arrears` debits the wallet and
@@ -106,8 +188,14 @@ export const FEE_ROW_CAP = 500;
  * charged OR recorded as arrears, and arrears are owed money, not absent money.
  * Counting only `success_fee` would under-report exactly the merchants who ran
  * out of balance, which is the population the pilot is watching most closely.
+ *
+ * DERIVED from the contract above rather than declared beside it, so the billed
+ * set is stated once. It is no longer a query filter: callers read every type
+ * and this module classifies. See {@link aggregateLedgerFees}.
  */
-export const FEE_LEDGER_TYPES = ["success_fee", "success_fee_arrears"] as const;
+export const FEE_LEDGER_TYPES = Object.entries(LEDGER_TYPE_CONTRACT)
+  .filter(([, c]) => c.bucket === "gross")
+  .map(([type]) => type) as readonly LedgerTransactionType[];
 
 /** A genuine-tagged verified redemption, with the fee the claim recorded on it. */
 export type GenuineFeeRedemption = {
@@ -115,14 +203,133 @@ export type GenuineFeeRedemption = {
   success_fee_charged: number | string | null;
 };
 
-/** A ledger entry linked back to the redemption that caused it. */
+/**
+ * A ledger movement, as the shared reader selects it.
+ *
+ * `transaction_type` and `created_at` are here because classification and
+ * windowing both moved into {@link aggregateLedgerFees}. A caller that omits
+ * either from its select cannot silently get a smaller number: the row fails
+ * its contract lookup or its window test and the figure goes unknown.
+ */
 export type FeeLedgerRow = {
+  id?: string | null;
   reference_id: string | null;
+  transaction_type: string | null;
   amount: number | string | null;
+  created_at: string | null;
 };
 
+/** The columns {@link aggregateLedgerFees} needs on every ledger movement. */
+export const FEE_LEDGER_SELECT =
+  "id, reference_id, transaction_type, amount, created_at";
+
 /**
- * Total fees ACTUALLY BILLED for a set of genuine-tagged verified redemptions.
+ * The three figures, reported separately and never collapsed into one.
+ *
+ * Separate because a single "Success fees" number cannot say whether a reversal
+ * happened, and a reader takes it as revenue either way (D211). Gross keeps the
+ * audit trail — what the money path actually billed — reversals name what was
+ * given back, and net is the one a reader should act on.
+ *
+ * Each is independently nullable. A polarity violation on a reversal row makes
+ * reversals and net unknown while gross stays established, and blanking a
+ * figure that IS known would be its own small lie.
+ */
+export type LedgerFeeTotals = {
+  /** Fees the money path billed: charged plus recorded as arrears. */
+  grossKes: number | null;
+  /** Fees given back by an admin-gated reversal. */
+  reversalsKes: number | null;
+  /** `gross - reversals`, or null if either side is unknown. */
+  netKes: number | null;
+};
+
+/** Every figure unavailable — a failed read, never a zero (D164 / D185). */
+export const UNKNOWN_FEE_TOTALS: LedgerFeeTotals = {
+  grossKes: null,
+  reversalsKes: null,
+  netKes: null,
+};
+
+/** The half-open window a fee figure covers, on the LEDGER's own clock. */
+export type FeeWindow = { since: string; until?: string | null };
+
+export type LedgerFeeInput = {
+  /**
+   * Genuine-tagged successes verified inside the window. Used ONLY for the
+   * completeness rule below — never summed.
+   */
+  redemptions: readonly GenuineFeeRedemption[] | null;
+  /**
+   * Ledger movements for the scope, of EVERY type. Must cover both the window
+   * and every row linked to `redemptions`, whenever it was posted.
+   */
+  ledger: readonly FeeLedgerRow[] | null;
+  /**
+   * Redemption ids the D188 parent join confirmed genuine-tagged. A ledger row
+   * pointing anywhere else is dropped: the row itself carries nothing about its
+   * merchant or deal, which is the D188 conflation in money form.
+   */
+  genuineReferenceIds: readonly string[] | null;
+  window: FeeWindow;
+  cap?: number;
+};
+
+/** Parse a stored numeric, refusing anything that is not a finite number. */
+function amountOf(row: FeeLedgerRow): number | null {
+  if (row.amount === null || row.amount === undefined) return null;
+  const n = Number(row.amount);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Where a movement sits relative to the window — including "cannot tell".
+ *
+ * Three answers, not two, and the third is the point. `Date.parse` and
+ * PostgreSQL do not agree on every valid `timestamptz`: `infinity` is a real
+ * value the database orders above every bound, and `Date.parse("infinity")` is
+ * `NaN`. Folding that into `false` silently drops a fee-bearing row from a
+ * figure the database had already accepted, producing a **quietly low money
+ * number** — the exact failure this module refuses everywhere else (D164 /
+ * D185). A timestamp we cannot interpret makes the figure unknown instead.
+ *
+ * `out` is different from `unknown` and must stay so: the reader deliberately
+ * fetches rows OUTSIDE the window to answer the completeness question, and
+ * those are legitimately excluded from the totals rather than poisoning them.
+ */
+type WindowPlace = "in" | "out" | "unknown";
+
+function placeInWindow(row: FeeLedgerRow, w: FeeWindow): WindowPlace {
+  if (!row.created_at) return "unknown";
+  const t = Date.parse(row.created_at);
+  if (Number.isNaN(t)) return "unknown";
+  const since = Date.parse(w.since);
+  if (Number.isNaN(since)) return "unknown";
+  if (t < since) return "out";
+  if (!w.until) return "in";
+  const until = Date.parse(w.until);
+  if (Number.isNaN(until)) return "unknown";
+  return t < until ? "in" : "out";
+}
+
+/**
+ * Gross, reversals and net fees for a genuine-tagged scope over one window.
+ *
+ * ## What each figure counts
+ *
+ * - **gross** — `success_fee` + `success_fee_arrears` rows posted in the
+ *   window, each read through its declared orientation so both arrive as a
+ *   positive KES magnitude.
+ * - **reversals** — `fee_reversal` rows posted in the window.
+ * - **net** — gross minus reversals.
+ *
+ * ## The window follows the MOVEMENT, not the redemption
+ *
+ * A reversal posted today against a redemption verified six weeks ago belongs
+ * to today's reversals: that is when the money moved, and a reader asking "what
+ * did the last 30 days earn" is asking about money movement. Windowing
+ * reversals by their redemption's date would hide every correction made to
+ * older activity — precisely the corrections a fee KPI exists to surface.
  *
  * ## Why this reads the ledger and not `redemptions.success_fee_charged`
  *
@@ -130,46 +337,255 @@ export type FeeLedgerRow = {
  * runs the fee step inside `EXCEPTION WHEN OTHERS` that does not re-raise. So
  * when the fee step throws, the transaction still commits: the redemption is
  * `success`, its `success_fee_charged` keeps the value the claim wrote, and
- * **no ledger row exists at all**. That is the documented third money state —
- * the RPC's own agent task says "Success fee KES 30 was neither charged nor
- * recorded as arrears".
+ * **no ledger row exists at all**. Summing that column reports revenue that
+ * never entered the ledger.
  *
- * Summing `success_fee_charged` therefore reports revenue that never entered
- * the ledger. On a page whose purpose is to say what the pilot has actually
- * earned, that is the worst possible direction to be wrong in.
+ * ## The unknown states, and why none of them is zero
  *
- * ## The three outcomes, and why two of them are null
- *
- * - either read FAILED -> `null`. Never 0 (D164 / D185).
- * - either read hit the cap -> `null`, because a truncated SUM is D149.
- * - **a genuine success with no linked ledger entry** -> `null`. This is the
- *   `unknown` state above: money is owed and was never recorded, so the true
- *   billed total is not established. Returning the ledger sum alone would be a
- *   quietly low number presented as fact; returning `success_fee_charged`
- *   would be revenue that does not exist. Unknown is the honest answer, and it
- *   is the same answer this codebase gives every other unreadable figure.
- * - otherwise -> the sum of the linked ledger amounts, read as stored.
- *
- * `Math.abs` because a charge is written negative (a wallet debit) and arrears
- * positive; both are the same KES 30 of billed fee.
+ * - either read FAILED -> unknown. Never 0 (D164 / D185).
+ * - either read hit the cap -> unknown, because a truncated SUM is D149.
+ * - **a genuine success in the window with no linked fee row** -> gross and net
+ *   unknown. That is the documented third money state: money is owed and was
+ *   never recorded, so the billed total is not established. Checked against
+ *   fee rows from ANY date, not just in-window ones, so a fee posted seconds
+ *   after midnight does not manufacture an unknown.
+ * - **a row whose amount contradicts its type's declared sign** -> that bucket
+ *   unknown. Not normalised: a wrong-signed money row is a fact about the
+ *   ledger, and `Math.abs` used to hide it.
  */
-export function sumLedgerSuccessFees(
-  redemptions: readonly GenuineFeeRedemption[] | null,
-  ledger: readonly FeeLedgerRow[] | null,
-  cap: number = FEE_ROW_CAP
-): number | null {
-  if (redemptions === null || ledger === null) return null;
-  if (redemptions.length >= cap || ledger.length >= cap) return null;
+export function aggregateLedgerFees(input: LedgerFeeInput): LedgerFeeTotals {
+  const { redemptions, ledger, genuineReferenceIds, window: w } = input;
+  const cap = input.cap ?? FEE_ROW_CAP;
 
-  const linked = new Set(
-    ledger.map((r) => r.reference_id).filter((id): id is string => Boolean(id))
-  );
-  // Every genuine success must have produced a ledger entry. One that did not
-  // is a fee in the `unknown` state, and it makes the TOTAL unknown — not
-  // smaller.
-  for (const r of redemptions) {
-    if (!linked.has(r.id)) return null;
+  if (redemptions === null || ledger === null || genuineReferenceIds === null) {
+    return UNKNOWN_FEE_TOTALS;
+  }
+  if (
+    redemptions.length >= cap ||
+    ledger.length >= cap ||
+    genuineReferenceIds.length >= cap
+  ) {
+    return UNKNOWN_FEE_TOTALS;
   }
 
-  return ledger.reduce((sum, r) => sum + Math.abs(Number(r.amount ?? 0)), 0);
+  const genuine = new Set(genuineReferenceIds);
+
+  let gross: number | null = 0;
+  let reversals: number | null = 0;
+  // Fee rows linked to a genuine redemption, of ANY date — the completeness
+  // question is "did this redemption's fee ever post", not "did it post today".
+  const billed = new Set<string>();
+
+  for (const row of ledger) {
+    const ref = row.reference_id;
+    if (!ref || !genuine.has(ref)) continue;
+
+    const contract =
+      row.transaction_type &&
+      Object.prototype.hasOwnProperty.call(
+        LEDGER_TYPE_CONTRACT,
+        row.transaction_type
+      )
+        ? LEDGER_TYPE_CONTRACT[row.transaction_type as LedgerTransactionType]
+        : null;
+    // An unrecognised type generates nothing here. The contract is asserted to
+    // cover the CHECK constraint in test, so this branch is a database that has
+    // moved ahead of the code, not a decision made silently at runtime.
+    if (contract === null || contract.bucket === "excluded") continue;
+
+    // Completeness is date-independent: a fee row proves the fee posted
+    // whenever it posted, so this happens before any window question.
+    if (contract.bucket === "gross") billed.add(ref);
+
+    const place = placeInWindow(row, w);
+    if (place === "out") continue;
+
+    const raw = amountOf(row);
+    const oriented = raw === null ? null : raw * contract.orientation;
+    // Unexpected polarity — including a zero-amount fee row, which neither RPC
+    // can write — or a timestamp that cannot be placed. Both exposed as
+    // unknown rather than absorbed into a plausible number.
+    const bad = place === "unknown" || oriented === null || oriented <= 0;
+
+    if (contract.bucket === "gross") {
+      gross = bad || gross === null ? null : gross + oriented!;
+    } else {
+      reversals = bad || reversals === null ? null : reversals + oriented!;
+    }
+  }
+
+  for (const r of redemptions) {
+    if (!billed.has(r.id)) {
+      gross = null;
+      break;
+    }
+  }
+
+  return {
+    grossKes: gross,
+    reversalsKes: reversals,
+    netKes: gross === null || reversals === null ? null : gross - reversals,
+  };
+}
+
+/**
+ * Minimal PostgREST surface the fee reader chains onto.
+ *
+ * Same reason as {@link EqChain}: Supabase's builder types are deep enough that
+ * threading them through four dependent reads makes tsc give up with "Type
+ * instantiation is excessively deep". The casts are confined to this file.
+ */
+type FeeQuery = {
+  eq(column: string, value: unknown): FeeQuery;
+  in(column: string, values: readonly unknown[]): FeeQuery;
+  gte(column: string, value: unknown): FeeQuery;
+  lt(column: string, value: unknown): FeeQuery;
+  not(column: string, operator: string, value: unknown): FeeQuery;
+  limit(n: number): PromiseLike<{ data: unknown[] | null; error: unknown }>;
+};
+
+/** Just enough of the service client to issue the four reads below. */
+export type FeeReadClient = {
+  from(table: string): { select(columns: string): unknown };
+};
+
+/** What a fee figure is being asked about. */
+export type FeeScope = {
+  /**
+   * Restrict to these merchants. `undefined` means every merchant; an EMPTY
+   * array means nothing is in scope, which is a true zero rather than a read
+   * failure — the caller established there is nobody to ask about.
+   */
+  merchantIds?: readonly string[];
+  window: FeeWindow;
+};
+
+/**
+ * Read gross, reversals and net fees for a scope — the ONLY fee read.
+ *
+ * ## Why the read moved here from the pages
+ *
+ * Every caller used to build the query itself, and every caller therefore had
+ * to get the same four things right: the D188 parent join, the
+ * `reference_id` link, the row cap, and which transaction types count. The last
+ * of those was a `.in("transaction_type", …)` repeated at three call sites — a
+ * correctness rule living in the callers, where a fourth surface would have had
+ * to rediscover it and a reversal would never have been noticed at all.
+ *
+ * Callers now pass a scope and a window. There is no type filter to forget,
+ * because there is no type filter: this reads every movement and
+ * {@link aggregateLedgerFees} classifies them against the ledger contract.
+ *
+ * ## The four reads, and why the last two exist
+ *
+ * 1. **Completeness set** — genuine successes verified in the window. A success
+ *    with no fee row anywhere makes gross unknown.
+ * 2. **Window rows** — every referenced movement posted in the window. This is
+ *    the read that catches a reversal against an older redemption, which is the
+ *    entire reason the window follows the movement's own timestamp.
+ * 3. **Linked rows** — movements against (1)'s redemptions whatever their date,
+ *    so a fee posted just outside the window still answers the completeness
+ *    question instead of manufacturing an unknown at a midnight boundary.
+ *    Merged with (2) and de-duplicated by row id.
+ * 4. **Genuine ids** — the D188 join over the ids (2) and (3) actually
+ *    reference. A ledger row carries nothing about its merchant or deal, so
+ *    without this a fee against a demo-tagged deal would land in a figure whose
+ *    neighbours are all genuine-tagged. That is the D188 conflation in money
+ *    form, and it is why this is a join and not a column read.
+ */
+export async function readLedgerFeeTotals(
+  service: FeeReadClient,
+  scope: FeeScope,
+  cap: number = FEE_ROW_CAP
+): Promise<LedgerFeeTotals> {
+  const { merchantIds, window: w } = scope;
+  if (merchantIds !== undefined && merchantIds.length === 0) {
+    return { grossKes: 0, reversalsKes: 0, netKes: 0 };
+  }
+
+  const windowed = (q: FeeQuery, column: string) => {
+    const gated = q.gte(column, w.since);
+    return w.until ? gated.lt(column, w.until) : gated;
+  };
+
+  const scopedRedemptions = (columns: string) => {
+    let q = genuineTagged(
+      service.from("redemptions").select(genuineJoinSelect(columns)) as FeeQuery
+    ).eq("status", "success");
+    if (merchantIds) q = q.in("merchant_id", merchantIds);
+    return q;
+  };
+
+  const movements = () => {
+    let q = service
+      .from("merchant_transactions")
+      .select(FEE_LEDGER_SELECT) as FeeQuery;
+    if (merchantIds) q = q.in("merchant_id", merchantIds);
+    // Not a type filter: a movement with no `reference_id` cannot be matched to
+    // a genuine redemption, so it can never contribute to any of the three
+    // figures. Narrowing by that keeps unrelated top-up volume from spending
+    // the row cap and turning a readable figure into an unavailable one.
+    return q.not("reference_id", "is", null);
+  };
+
+  const rows = <T,>(r: { data: unknown[] | null; error: unknown }): T[] | null =>
+    r.error ? null : ((r.data ?? []) as T[]);
+
+  const [redRes, windowRes] = await Promise.all([
+    windowed(scopedRedemptions("id, success_fee_charged"), "redeemed_at").limit(cap),
+    windowed(movements(), "created_at").limit(cap),
+  ]);
+
+  const redemptions = rows<GenuineFeeRedemption>(redRes);
+  const windowRows = rows<FeeLedgerRow>(windowRes);
+  if (redemptions === null || windowRows === null) return UNKNOWN_FEE_TOTALS;
+
+  let linkedRows: FeeLedgerRow[] = [];
+  if (redemptions.length > 0) {
+    const linkedRes = await movements()
+      .in(
+        "reference_id",
+        redemptions.map((r) => r.id)
+      )
+      .limit(cap);
+    const linked = rows<FeeLedgerRow>(linkedRes);
+    if (linked === null) return UNKNOWN_FEE_TOTALS;
+    linkedRows = linked;
+  }
+
+  // De-duplicate by row id. A row can satisfy both reads, and counting it twice
+  // would double a fee — the one arithmetic error a money KPI cannot survive.
+  const byId = new Map<string, FeeLedgerRow>();
+  const noId: FeeLedgerRow[] = [];
+  for (const row of [...windowRows, ...linkedRows]) {
+    if (row.id) byId.set(row.id, row);
+    else noId.push(row);
+  }
+  const ledger = [...Array.from(byId.values()), ...noId];
+
+  const referenced = Array.from(
+    new Set(
+      ledger
+        .map((r) => r.reference_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
+  let genuineReferenceIds: string[] = [];
+  if (referenced.length > 0) {
+    const genuineRes = await scopedRedemptions("id")
+      .in("id", referenced)
+      .limit(cap);
+    const genuineRows = rows<{ id: string }>(genuineRes);
+    if (genuineRows === null) return UNKNOWN_FEE_TOTALS;
+    genuineReferenceIds = genuineRows.map((r) => r.id);
+  }
+
+  return aggregateLedgerFees({
+    redemptions,
+    ledger,
+    genuineReferenceIds,
+    window: w,
+    cap,
+  });
 }
