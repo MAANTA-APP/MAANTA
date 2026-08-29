@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { describe, expect, it, vi } from "vitest";
 import { stripComments } from "@/lib/__tests__/helpers/comment-stripping";
 
@@ -49,7 +51,7 @@ const PAY = 1200;
 const WAS = 2000;
 
 const renderBar = (props: Record<string, unknown> = {}) =>
-  renderToStaticMarkup(
+  renderShopperTree(
     createElement(ClaimFlow, {
       dealId: "d1",
       dealTitle: "3 metres of cotton print",
@@ -120,7 +122,7 @@ describe("Direction A — anchored decision bar", () => {
 
   it("rule 7: the bar and the tile render byte-identical YOU PAY figures", () => {
     const barFigure = renderBar().match(/KES\s?[\d,]+/)?.[0];
-    const tile = renderToStaticMarkup(
+    const tile = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,

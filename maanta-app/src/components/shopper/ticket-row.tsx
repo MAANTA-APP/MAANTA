@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ClaimChip, CountdownChip } from "@/components/ui/chips";
 import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
-import { useShopperClock } from "@/lib/use-shopper-clock";
 
 /**
  * A `/my-deals` row. The whole row is a client component because its STATE is
@@ -13,6 +12,12 @@ import { useShopperClock } from "@/lib/use-shopper-clock";
  * with `now` defaulting to render time, so a row kept asserting "Fast Visit
  * open" after `claimed_at + 15 minutes` had passed on a page left open, and
  * the countdown beside it ticked independently.
+ *
+ * The instant arrives as a prop from `MyDealsList`, which owns the collection
+ * this row belongs to. That is deliberate: the row must read the SAME instant
+ * the list used to decide whether it is under Active or Past, or a row could
+ * say EXPIRED while the tab holding it still calls it active — the same
+ * contradiction one containment level out.
  *
  * They now share one clock, so the reward window and the code countdown are
  * both accurate and cannot disagree. Nothing is fetched: every input here is
@@ -34,6 +39,7 @@ export function TicketRow({
   merchantName,
   dealTitle,
   code,
+  now,
 }: {
   featureEnabled: boolean;
   claimedAt: string | null;
@@ -47,9 +53,8 @@ export function TicketRow({
   merchantName: string | null;
   dealTitle: string | null;
   code: string;
+  now: Date;
 }) {
-  const now = useShopperClock();
-
   // D213 criterion 3 — "active" is a TIME-derived state, so it decays with the
   // countdown beside it. Leaving it on a server-computed boolean while the
   // countdown ticked is what made an expired row read "ACTIVE" next to

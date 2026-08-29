@@ -1,14 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { stripComments } from "./helpers/comment-stripping";
-import { endingSoonDeals } from "@/lib/ending-soon";
+import { renderShopperTree } from "./helpers/shopper-clock";
+import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
 import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { dealExpiryLabel, isDealClaimable } from "@/lib/deal-expiry";
 import { isNearExpiry } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
+import { ClaimGate } from "@/components/shopper/claim-gate";
+import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
+import {
+  MyDealsList,
+  selectMyDealsTickets,
+  type MyDealsTicket,
+} from "@/components/shopper/my-deals-list";
 
 const read = (rel: string) =>
   stripComments(readFileSync(path.join(__dirname, "../../", rel), "utf8"));
@@ -173,17 +181,18 @@ describe("criterion 3 — time-derived elements are accurate AND mutually consis
   });
 
   it("a rendered card shows the derived label rather than a frozen one", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,
         merchantName: "Nyama Spot",
         title: "Platter",
-        expiresAt: new Date(Date.now() + 90 * MIN).toISOString(),
+        expiresAt: at(90 * MIN).toISOString(),
         variant: "vertical" as const,
         merchantId: "m1",
         showFavourite: false,
-      })
+      }),
+      T0
     );
     expect(html).toMatch(/Expires in 1h \d+m/);
   });
@@ -224,7 +233,7 @@ describe("the clock fetches nothing — criteria 1-3 are clock-derived only", ()
     // it in. A fetch here would also change the load profile of every open
     // shopper page.
     for (const rel of [
-      "lib/use-shopper-clock.ts",
+      "lib/use-shopper-clock.tsx",
       "components/shopper/ticket-row.tsx",
       "components/shopper/ending-soon-rail.tsx",
       "components/shopper/claim-gate.tsx",
@@ -235,7 +244,7 @@ describe("the clock fetches nothing — criteria 1-3 are clock-derived only", ()
   });
 
   it("keeps one shared interval rather than a timer per element", () => {
-    const clock = read("lib/use-shopper-clock.ts");
+    const clock = read("lib/use-shopper-clock.tsx");
     expect(clock).toContain("SHOPPER_CLOCK_INTERVAL_MS");
     expect(clock).toContain("clearInterval");
     // No component may start its own competing timer.
@@ -246,5 +255,198 @@ describe("the clock fetches nothing — criteria 1-3 are clock-derived only", ()
     ]) {
       expect(read(rel)).not.toContain("setInterval");
     }
+  });
+});
+
+describe("criterion 3 — Active/Past membership is decided at the current time", () => {
+  // The containment level above the row. Fixing the ROW made an expired ticket
+  // flip its own chip to EXPIRED while the tab holding it still called it
+  // active, and a Past tab opened before the boundary never admitted it. A
+  // collection is a rendered element too, so criterion 3's "section membership"
+  // covers it.
+  const ticket = (over: Partial<MyDealsTicket> = {}): MyDealsTicket => ({
+    id: "t1",
+    href: "/tickets/t1",
+    code: "123 456",
+    status: "pending",
+    expiresAt: iso(20 * MIN),
+    redeemedAt: null,
+    claimedAt: iso(0),
+    arrivedAt: null,
+    qualifiedAt: null,
+    countdownExpiresAt: iso(20 * MIN),
+    merchantName: "Nyama Spot",
+    dealTitle: "Platter",
+    ...over,
+  });
+
+  it("moves a ticket out of Active and into Past when it expires", () => {
+    // Same row, never refetched. Only `now` advanced.
+    const rows = [ticket()];
+    expect(selectMyDealsTickets(rows, "active", "newest", at(0)).map((t) => t.id)).toEqual([
+      "t1",
+    ]);
+    expect(selectMyDealsTickets(rows, "past", "newest", at(0))).toEqual([]);
+    expect(selectMyDealsTickets(rows, "active", "newest", at(21 * MIN))).toEqual([]);
+    expect(
+      selectMyDealsTickets(rows, "past", "newest", at(21 * MIN)).map((t) => t.id)
+    ).toEqual(["t1"]);
+  });
+
+  it("keeps the non-time status rules exactly as they were", () => {
+    // Only pending-and-unexpired is active. A redeemed ticket is past at every
+    // instant, and the clock never promotes anything back into Active.
+    const redeemed = ticket({ status: "success", redeemedAt: iso(2 * MIN) });
+    for (const m of [0, 21, 600]) {
+      expect(selectMyDealsTickets([redeemed], "active", "newest", at(m * MIN))).toEqual([]);
+      expect(
+        selectMyDealsTickets([redeemed], "past", "newest", at(m * MIN)).map((t) => t.id)
+      ).toEqual(["t1"]);
+    }
+  });
+
+  it("the row and the collection holding it cannot disagree", () => {
+    // The instant is decided once and handed down, so a row can never read
+    // EXPIRED under a tab that still counts it as active.
+    const rows = [ticket()];
+    const props = {
+      tickets: rows,
+      when: "active" as const,
+      sort: "newest" as const,
+      featureEnabled: false,
+      windowMinutes: 15,
+    };
+    const live = renderShopperTree(createElement(MyDealsList, props), at(0));
+    expect(live).toContain("ACTIVE");
+    expect(live).not.toContain("EXPIRED");
+
+    const past = renderShopperTree(createElement(MyDealsList, props), at(21 * MIN));
+    // Gone from Active entirely — not present-but-contradicting.
+    expect(past).not.toContain("ACTIVE");
+    expect(past).not.toContain("Nyama Spot");
+    expect(past).toContain("No claimed deals yet");
+  });
+
+  it("the page reads no clock, so it cannot freeze membership again", () => {
+    // Stated as "no clock at all" rather than pinned to the old expression:
+    // any way of partitioning these rows during the server render is the
+    // defect, not just the one that was there.
+    const page = read("app/(shopper)/my-deals/page.tsx");
+    expect(page).not.toContain("new Date()");
+    expect(page).not.toContain(".filter(");
+    expect(page).toContain("<MyDealsList");
+    expect(page).toContain("when={when}");
+  });
+});
+
+describe("criterion 3 — the first client render agrees with the server render", () => {
+  // This PR made three subtrees clock-CONDITIONAL: ClaimGate swaps the claim
+  // flow for the ended CTA, TicketRow drops its countdown, EndingSoonRail adds
+  // or removes an entire section. React cannot patch a structural mismatch — it
+  // discards the server tree and rebuilds the branch, which on a money surface
+  // means the claim flow torn down under a shopper's finger.
+  // `suppressHydrationWarning` covers text, not structure; the seeded instant
+  // is what makes the two passes identical.
+  const railItem = (id: string, expiresInMs: number) => ({
+    membership: {
+      id,
+      expires_at: iso(expiresInMs),
+      max_claims: null,
+      claims_count: 0,
+    },
+    card: {
+      href: `/deals/${id}`,
+      imageUrl: null,
+      merchantName: "Nyama Spot",
+      title: "Platter",
+      expiresAt: iso(expiresInMs),
+      variant: "vertical" as const,
+      merchantId: "m1",
+      showFavourite: false,
+    },
+  });
+
+  const tree = (): ReactNode =>
+    createElement(
+      "div",
+      null,
+      // This file is .ts, so elements are built with createElement, and
+      // ClaimGate takes `children` and `expired` as two named branches.
+      // eslint-disable-next-line react/no-children-prop
+      createElement(ClaimGate, {
+        key: "gate",
+        expiresAt: iso(30 * MIN),
+        children: createElement("span", null, "Claim deal"),
+        expired: createElement("span", null, "Deal ended"),
+      }),
+      createElement(EndingSoonRail, { key: "rail", items: [railItem("d1", 30 * MIN)] }),
+      createElement(DealCard, { key: "card", ...railItem("d2", 30 * MIN).card })
+    );
+
+  // Two hours of drift crosses every boundary in that tree: the claim window,
+  // the "within the hour" rail, the grace period and the countdown text.
+  const DRIFT = at(120 * MIN);
+
+  it("is byte-identical however far the browser's own clock has moved", () => {
+    vi.useFakeTimers();
+    try {
+      // The server pass, at the instant it seeds.
+      vi.setSystemTime(T0);
+      const server = renderShopperTree(tree(), T0);
+      // The browser's first pass. Its ambient clock is two hours ahead; the
+      // serialised seed is the same value, because it came down with the page.
+      // renderToStaticMarkup runs no effects, so this is the pre-hydration
+      // render — exactly what React reconciles against the server HTML.
+      vi.setSystemTime(DRIFT);
+      const firstClient = renderShopperTree(tree(), T0);
+      expect(firstClient).toBe(server);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("and the comparison is not vacuous — advancing the seed does change it", () => {
+    // Without this, a tree that ignored the clock entirely would pass the test
+    // above. Structure must move, not only text.
+    const server = renderShopperTree(tree(), T0);
+    const later = renderShopperTree(tree(), DRIFT);
+    expect(later).not.toBe(server);
+    expect(server).toContain("Claim deal");
+    expect(server).not.toContain("Deal ended");
+    expect(later).toContain("Deal ended");
+    expect(later).not.toContain("Claim deal");
+    expect(server).toContain(ENDING_SOON_SUBTITLE);
+    expect(later).not.toContain(ENDING_SOON_SUBTITLE);
+  });
+
+  it("refuses to render a time-derived shopper element outside the provider", () => {
+    // The mechanism that keeps the guarantee: a silent fallback to an unseeded
+    // clock is the regression, so there is no silent fallback.
+    expect(() =>
+      renderToStaticMarkup(
+        // eslint-disable-next-line react/no-children-prop
+        createElement(ClaimGate, {
+          expiresAt: iso(30 * MIN),
+          children: null,
+          expired: null,
+        })
+      )
+    ).toThrow(/ShopperClockProvider/);
+  });
+
+  it("suppresses hydration warnings only where no seed can exist", () => {
+    // The workaround is gone from every seeded surface. It survives on the one
+    // countdown rendered outside a provider (the merchant deal page), where
+    // there genuinely is no server instant to share.
+    expect(read("components/ui/claude/deal-card.tsx")).not.toContain(
+      "suppressHydrationWarning"
+    );
+    const chips = read("components/ui/chips.tsx");
+    expect(chips).toContain("suppressHydrationWarning={unseeded}");
+    expect(chips).not.toContain("suppressHydrationWarning\n");
+    // The seeded path must be preferred automatically wherever a provider is
+    // mounted, so a chip inside the shopper tree never self-ticks.
+    expect(chips).toContain("useOptionalShopperClock()");
+    expect(chips).toContain("now ?? shared");
   });
 });

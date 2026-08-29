@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 
 vi.mock("next/navigation", () => ({
@@ -21,7 +23,7 @@ import { DealCard } from "@/components/ui/claude";
 
 describe("DealCard (Claude design system)", () => {
   it("renders flash rail card with YOU PAY and struck compare price", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,
@@ -52,7 +54,7 @@ describe("DealCard (Claude design system)", () => {
   });
 
   it("renders vertical standard card with Standard badge", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d2",
         imageUrl: null,

@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { describe, expect, it, vi } from "vitest";
 
 /**
@@ -43,7 +45,7 @@ const baseProps = {
 type Variant = NonNullable<Parameters<typeof DealCard>[0]["variant"]>;
 
 const render = (variant: Variant, extra: Record<string, unknown> = {}) =>
-  renderToStaticMarkup(createElement(DealCard, { ...baseProps, ...extra, variant }));
+  renderShopperTree(createElement(DealCard, { ...baseProps, ...extra, variant }));
 
 /** Class list of the element whose text starts the KES 1,200 figure. */
 const moneyClass = (html: string): string => {

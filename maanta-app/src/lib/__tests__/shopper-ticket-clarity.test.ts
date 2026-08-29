@@ -70,6 +70,7 @@ describe("the Fast Visit chip on /my-deals stays flag-aware", () => {
   // unchanged; only where they live moved, so the guard follows them across
   // BOTH files rather than asserting the old server-side shape.
   const myDeals = read("app/(shopper)/my-deals/page.tsx");
+  const list = read("components/shopper/my-deals-list.tsx");
   const chips = read("components/shopper/ticket-row.tsx");
 
   it("resolves the feature flag server-side and passes it to the decision", () => {
@@ -77,6 +78,7 @@ describe("the Fast Visit chip on /my-deals stays flag-aware", () => {
     // component cannot be trusted to gate a dark feature.
     expect(myDeals).toContain("isFastVisitEnabled()");
     expect(myDeals).toContain("featureEnabled={fastVisitOn}");
+    expect(list).toContain("featureEnabled={featureEnabled}");
     expect(chips).toContain("fastVisitChipState(");
     expect(chips).toContain("featureEnabled,");
   });
@@ -84,7 +86,10 @@ describe("the Fast Visit chip on /my-deals stays flag-aware", () => {
   it("reads the persisted arrival verdict rather than re-deriving it", () => {
     // D191: qualification is decided at arrival and is immutable. The clock
     // may close an open window; it may never mint eligibility.
-    expect(myDeals).toContain("qualifiedAt={r.fast_visit_qualified_at}");
+    // The verdict now travels page -> list -> row; the guard follows it the
+    // whole way rather than pinning the one hop it used to make.
+    expect(myDeals).toContain("qualifiedAt: r.fast_visit_qualified_at");
+    expect(list).toContain("qualifiedAt={t.qualifiedAt}");
     expect(chips).toContain("qualifiedAt,");
     expect(chips).not.toMatch(/qualifiedAt\s*[:=][^,;]*now/);
   });

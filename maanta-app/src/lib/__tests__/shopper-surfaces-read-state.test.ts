@@ -30,13 +30,24 @@ describe("/my-deals no longer flattens a failed read into an empty list", () => 
   });
 
   it("gates the tickets empty state behind the read state", () => {
+    // D213 moved the tickets empty state into the client collection, because
+    // "you have no active deals" is a claim about membership at the CURRENT
+    // time and froze when the server decided it. The D202 invariant is
+    // unchanged and now holds structurally: the failure branch is rendered
+    // INSTEAD of the collection, so a failed read cannot reach the copy that
+    // asserts the shopper has claimed nothing.
     expect(src).toMatch(/ticketsState === "failed"/);
-    // The failure branch must come first; otherwise `shown.length === 0`
-    // matches on a failed read and claims the shopper has no deals.
     const failIdx = src.indexOf('ticketsState === "failed"');
-    const emptyIdx = src.indexOf("shown.length === 0");
+    const listIdx = src.indexOf("<MyDealsList");
     expect(failIdx).toBeGreaterThan(-1);
-    expect(failIdx).toBeLessThan(emptyIdx);
+    expect(listIdx).toBeGreaterThan(-1);
+    expect(failIdx).toBeLessThan(listIdx);
+    // The page must not keep a second, unreachable copy of that copy.
+    expect(src).not.toContain("No claimed deals yet");
+    // ...and the collection must still carry it.
+    const list = read("components/shopper/my-deals-list.tsx");
+    expect(list).toContain("No claimed deals yet");
+    expect(list).toContain("No past deals");
   });
 
   it("gates the saved-shops empty state behind its own read state", () => {

@@ -264,9 +264,7 @@ export function DealCard({
             <HeadingSm as="h3">{title}</HeadingSm>
             {(expiryLabel || distanceLabel) && (
               <Meta as="p">
-                <span suppressHydrationWarning>
-                  {[expiryLabel, distanceLabel].filter(Boolean).join(" · ")}
-                </span>
+                {[expiryLabel, distanceLabel].filter(Boolean).join(" · ")}
               </Meta>
             )}
             {pay != null ? (
