@@ -588,6 +588,30 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     }
   });
 
+  it("survives a wall-clock STEP mid-session, such as an NTP correction", () => {
+    // The case that separates monotonic from wall-clock elapsed time, and the
+    // reason `Date.now()` deltas are not good enough: a clock STEP is not
+    // elapsed time. If the device's clock jumps two hours while the page is
+    // open, the shopper's deals must not all expire at once.
+    fakeClock();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+
+      // The wall clock jumps forward; no real time has passed.
+      vi.setSystemTime(at(120 * MIN));
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS);
+
+      const last = ticks[ticks.length - 1];
+      expect(last.getTime()).toBe(T0.getTime() + SHOPPER_CLOCK_INTERVAL_MS);
+      expect(last.getTime()).toBeLessThan(at(120 * MIN).getTime());
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("runs exactly one timer and stops it on teardown", () => {
     // A second timer per element is the other failure mode: a feed of cards
     // waking dozens of times a minute while claiming to share one clock.
