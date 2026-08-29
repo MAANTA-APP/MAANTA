@@ -22,6 +22,8 @@ import {
   cardKey,
 } from "@/components/shopper/live-deal-collection";
 import { ShopLiveDeals } from "@/components/shopper/shop-live-deals";
+import { NotificationList } from "@/components/shopper/notification-list";
+import { QrCheckIn } from "@/app/(shopper)/qr/[token]/qr-check-in";
 import { DealPriceDetail } from "@/app/(shopper)/deals/[id]/deal-price-detail";
 import { SearchResults } from "@/components/shopper/search-results";
 import { FeedBody } from "@/components/shopper/feed-body";
@@ -641,6 +643,34 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     }
   });
 
+  it("never rewinds after a forward step is CORRECTED", () => {
+    // Taking the greater of the two CURRENT deltas is not monotone across
+    // ticks. A wall clock that jumps an hour forward and is then put right
+    // would emit base+1h and then fall back to the monotonic delta, rewinding
+    // almost the whole hour — every deal and ticket that expired inside it
+    // would come back to life. Elapsed time is a high-water mark.
+    fakeClock();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+
+      // Forward step: the clock follows it.
+      vi.setSystemTime(at(60 * MIN));
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS);
+      const peak = ticks[ticks.length - 1].getTime();
+      expect(peak).toBeGreaterThanOrEqual(at(60 * MIN).getTime());
+
+      // ...and the correction must not undo it.
+      vi.setSystemTime(T0);
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS);
+      expect(ticks[ticks.length - 1].getTime()).toBeGreaterThanOrEqual(peak);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("ticks the moment a backgrounded tab is reopened", () => {
     // A backgrounded interval is throttled and a suspended one stops, so the
     // first thing a returning shopper would otherwise see is the state from
@@ -1146,5 +1176,84 @@ describe("criterion 3 — an empty segment describes itself honestly", () => {
     const html = list([ticket()], "past", at(0));
     expect(html).toContain("No past deals");
     expect(html).not.toContain("No claimed deals yet");
+  });
+});
+
+describe("criterion 3 — surfaces the first discovery audit missed", () => {
+  // Two surfaces my own audit got wrong. `/notifications` I excluded outright,
+  // reasoning from its DEALS read — rows recording a past event, which really
+  // are timeless — and generalising that to the whole page. The code reminder
+  // beside them is built from `expires_at > now` and is not timeless at all.
+  // `/qr/[token]` I did not consider, because it is a counter surface rather
+  // than a discovery one; claimability is criterion 3 wherever it renders.
+
+  it("withdraws a code reminder once the code it describes has expired", () => {
+    // Worse than a stale card: a shopper acts on an inbox row by walking to a
+    // shop, and this row's whole job is saying their code still has time.
+    const items = [
+      {
+        title: "Nyama Spot",
+        body: "Your claimed code expires soon",
+        at: iso(0),
+        unread: true,
+        expiresAt: iso(30 * MIN),
+      },
+    ];
+    const live = renderShopperTree(createElement(NotificationList, { items }), at(0));
+    expect(live).toContain("Your claimed code expires soon");
+
+    const gone = renderShopperTree(
+      createElement(NotificationList, { items }),
+      at(31 * MIN)
+    );
+    expect(gone).not.toContain("Your claimed code expires soon");
+    expect(gone).toContain("Nothing yet");
+  });
+
+  it("keeps rows that record a past event, which do not go stale", () => {
+    // The half of my original reasoning that was right: "New deal from a saved
+    // shop" is a timestamped event, not a claim about the present.
+    const items = [
+      { title: "Nyama Spot", body: "New deal from a saved shop", at: iso(0), unread: false },
+    ];
+    for (const when of [at(0), at(600 * MIN)]) {
+      expect(renderShopperTree(createElement(NotificationList, { items }), when)).toContain(
+        "New deal from a saved shop"
+      );
+    }
+  });
+
+  it("takes an expired claim out of the QR chooser", () => {
+    const claims = [
+      { redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: iso(20 * MIN) },
+      { redemptionId: "r2", dealTitle: "Shoe Deal", expiresAt: iso(90 * MIN) },
+    ];
+    const props = {
+      token: "t",
+      merchantId: "m1",
+      merchantName: "Nyama Spot",
+      merchantFloor: null,
+      claims,
+      alreadyCheckedInFor: null,
+    };
+    const both = renderShopperTree(createElement(QrCheckIn, props), at(0));
+    expect(both).toContain("Summer Abaya");
+    expect(both).toContain("Shoe Deal");
+
+    const one = renderShopperTree(createElement(QrCheckIn, props), at(21 * MIN));
+    expect(one).not.toContain("Summer Abaya");
+    expect(one).toContain("Shoe Deal");
+  });
+
+  it("does not check a shopper in on their behalf when the other claim expires", () => {
+    // "Ask, never guess" is this component's rule. Withdrawing a dead option is
+    // a display change; silently checking them into the survivor is an ACTION
+    // taken while they were mid-decision at a counter.
+    const src = read("app/(shopper)/qr/[token]/qr-check-in.tsx");
+    expect(src).toContain("if (alreadyCheckedInFor || claims.length !== 1) return;");
+    expect(src).not.toContain("liveClaims.length !== 1) return;");
+    // Selection and the empty state read the live set; the auto path does not.
+    expect(src).toContain("{liveClaims.map((c) => (");
+    expect(src).toContain("if (liveClaims.length === 0 && state.kind !== \"checked-in\")");
   });
 });

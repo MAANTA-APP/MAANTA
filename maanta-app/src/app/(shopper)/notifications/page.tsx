@@ -4,8 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, withPublicMerchant } from "@/lib/data";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
-import { NotificationRow } from "@/components/ui/cards";
-import { EmptyState } from "@/components/ui/states";
+import { NotificationList } from "@/components/shopper/notification-list";
 import {
   BackToYouLink,
   Body,
@@ -16,7 +15,19 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Item = { title: string; body: string; at: string; unread: boolean };
+type Item = {
+  title: string;
+  body: string;
+  at: string;
+  unread: boolean;
+  /**
+   * When this notification stops being true. D213 criterion 3 — the code
+   * reminder below is built from `expires_at > now`, so it is a time-derived
+   * claim like any other and must not outlive its own deadline on an open page.
+   * Most rows are records of a past event and carry no expiry.
+   */
+  expiresAt?: string | null;
+};
 
 /**
  * Demo exclusion for a shopper's OWN redemptions (D216).
@@ -89,6 +100,9 @@ export default async function NotificationsPage() {
       body: "Your claimed code expires soon",
       at: new Date().toISOString(),
       unread: true,
+      // Carried, not discarded: without it the reminder says a dead code
+      // expires soon, indefinitely.
+      expiresAt: r.expires_at,
     });
   }
 
@@ -184,15 +198,7 @@ export default async function NotificationsPage() {
       </div>
 
       <Section title="Alerts" className="mt-6">
-        {items.length === 0 ? (
-          <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
-        ) : (
-          <div className="space-y-3">
-            {items.map((n, i) => (
-              <NotificationRow key={i} {...n} />
-            ))}
-          </div>
-        )}
+        <NotificationList items={items} />
       </Section>
     </Page>
   );

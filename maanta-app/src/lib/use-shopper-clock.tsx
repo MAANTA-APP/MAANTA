@@ -48,10 +48,12 @@ const ShopperClockSeedContext = createContext<Date | null>(null);
  *   showing time left after `verify_redemption` would reject it.
  * - `Date.now()` deltas keep running through suspend, but jump on a clock step.
  *
- * So elapsed time is the **greater** of the two, which encodes the property
- * that actually matters: *the clock may never run slower than real time.* A
- * suspend or a forward step is taken from the wall clock; a backward step is
- * absorbed by the monotonic reading. This deliberately reverses an earlier
+ * So elapsed time is the **greater** of the two, kept as a high-water mark
+ * across ticks, which encodes the property that actually matters: *the clock
+ * may never run slower than real time, and may never run backwards.* A suspend
+ * or a forward step is taken from the wall clock; a backward step is absorbed
+ * by the monotonic reading; and a forward step that is later CORRECTED cannot
+ * rewind, because the mark it already reached is kept. This deliberately reverses an earlier
  * version of this function that used the monotonic reading alone — that choice
  * treated a rare, small NTP step as more important than a guaranteed, hours-long
  * suspend, which is backwards for a phone in a shopping mall.
@@ -84,6 +86,13 @@ export function startShopperClock(
   const base = seed.getTime();
   const monotonicStart = performance.now();
   const wallStart = Date.now();
+  // The high-water mark, not just the greater of the two CURRENT deltas.
+  // Taking the max per tick is not monotone across ticks: a wall clock that
+  // jumps an hour forward and is then corrected would emit base+1h and then
+  // fall back to the monotonic delta, rewinding almost the whole hour and
+  // resurrecting every deal and ticket that expired in it. Elapsed time may
+  // only ever increase.
+  let elapsedHighWater = 0;
 
   const tick = () => {
     const elapsed = Math.max(
@@ -91,7 +100,8 @@ export function startShopperClock(
       Date.now() - wallStart,
       0
     );
-    onTick(new Date(base + elapsed));
+    if (elapsed > elapsedHighWater) elapsedHighWater = elapsed;
+    onTick(new Date(base + elapsedHighWater));
   };
 
   // Immediate, so the clock is demonstrably live from the first effect rather

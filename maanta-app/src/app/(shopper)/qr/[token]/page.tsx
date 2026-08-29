@@ -91,6 +91,11 @@ export default async function QrLandingPage({
   }>).map((row) => ({
     redemptionId: row.id,
     dealTitle: row.deals?.title ?? "Deal",
+    // D213 criterion 3 — carried, not dropped. The query filters
+    // `expires_at > now` once; a shopper standing at the counter with the
+    // chooser open would otherwise keep an expired claim selectable, and only
+    // learn it was dead when the check-in API rejected the tap.
+    expiresAt: row.expires_at,
   }));
 
   // The queue row alone is not enough: its claim must still be live, or a
