@@ -30,23 +30,44 @@ const ShopperClockSeedContext = createContext<Date | null>(null);
 /**
  * Drives the shared instant forward, in SERVER time.
  *
- * It advances the seed by elapsed **monotonic** time and never reads the
- * device's wall clock. That is the whole point: deadlines are evaluated by the
- * database in server time, and now that the clock decides claimability,
- * Active/Past membership and discovery membership, a device whose clock is
- * wrong would not merely mislabel a countdown — it would withdraw a claim the
- * database would still accept, or keep advertising a deal the database has
- * already expired. A shopper with a fast phone would be shown fewer deals than
- * exist. Reading `new Date()` here silently replaces the authority with the
- * least trustworthy clock in the system.
+ * Deadlines are evaluated by the database in server time, and the clock now
+ * decides claimability, Active/Past membership and discovery membership — so a
+ * device whose clock is wrong would not merely mislabel a countdown. It would
+ * withdraw a claim the database would still accept, or keep advertising a deal
+ * the database has already expired. The seed is therefore the authority and the
+ * device clock is never read as an absolute time.
  *
- * `performance.now()` is monotonic and unaffected by the user changing their
- * clock or by NTP steps, so elapsed time is measured honestly even when the
- * absolute wall clock is not.
+ * **Elapsed** time is a separate question from absolute time, and neither
+ * available source is trustworthy alone:
  *
- * The residual error is the response's transit time, which the seed cannot
- * know and this does not try to guess — sub-second, bounded, and in the safe
- * direction (very slightly behind the server) rather than unbounded skew.
+ * - `performance.now()` is monotonic, so it is immune to the user changing
+ *   their clock and to NTP steps — but on several platforms it PAUSES while the
+ *   device is suspended. A locked phone is the normal case at a mall, so
+ *   trusting it alone leaves the clock hours behind after a shopper reopens the
+ *   tab: expired deals still offered, and a claimed-code countdown still
+ *   showing time left after `verify_redemption` would reject it.
+ * - `Date.now()` deltas keep running through suspend, but jump on a clock step.
+ *
+ * So elapsed time is the **greater** of the two, which encodes the property
+ * that actually matters: *the clock may never run slower than real time.* A
+ * suspend or a forward step is taken from the wall clock; a backward step is
+ * absorbed by the monotonic reading. This deliberately reverses an earlier
+ * version of this function that used the monotonic reading alone — that choice
+ * treated a rare, small NTP step as more important than a guaranteed, hours-long
+ * suspend, which is backwards for a phone in a shopping mall.
+ *
+ * A resume also ticks immediately rather than waiting up to a full interval,
+ * because the whole point is the state a shopper sees the moment they reopen
+ * the tab.
+ *
+ * **Known residual, accepted deliberately:** the seed is already as old as the
+ * response's render, transport and hydration by the time this starts, and that
+ * lag is preserved rather than corrected. It cannot be measured from a single
+ * timestamp — separating skew from latency needs a round trip, which is a
+ * network call and belongs with criterion 4, not here. It is bounded by page
+ * load time and leaves the clock slightly BEHIND server truth, which fails
+ * towards offering a claim the database then refuses rather than silently
+ * hiding one it would have accepted.
  *
  * Split out of the provider's effect so the advancing behaviour is directly
  * testable: a seeded clock that never moves is uniformly stale — every element
@@ -61,14 +82,40 @@ export function startShopperClock(
   seed: Date
 ): () => void {
   const base = seed.getTime();
-  const startedAt = performance.now();
-  const tick = () => onTick(new Date(base + (performance.now() - startedAt)));
+  const monotonicStart = performance.now();
+  const wallStart = Date.now();
+
+  const tick = () => {
+    const elapsed = Math.max(
+      performance.now() - monotonicStart,
+      Date.now() - wallStart,
+      0
+    );
+    onTick(new Date(base + elapsed));
+  };
+
   // Immediate, so the clock is demonstrably live from the first effect rather
   // than one interval later. It runs after the hydration commit, so the tree
   // React reconciled against the server HTML is still the seeded one.
   tick();
   const timer = setInterval(tick, intervalMs);
-  return () => clearInterval(timer);
+
+  // A backgrounded tab's interval is throttled and a suspended device's is
+  // stopped, so the first thing a returning shopper would otherwise see is the
+  // state from before they locked their phone.
+  const hasDom = typeof document !== "undefined" && typeof window !== "undefined";
+  if (hasDom) {
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("pageshow", tick);
+  }
+
+  return () => {
+    clearInterval(timer);
+    if (hasDom) {
+      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("pageshow", tick);
+    }
+  };
 }
 
 /**
@@ -93,9 +140,9 @@ export function startShopperClock(
  *
  * It then advances only after hydration, from this one timer — effects run
  * after the hydration commit, so the tree React reconciles against the server
- * HTML is still the seeded one — and it advances in SERVER time, by elapsed
- * monotonic time rather than by reading the device's wall clock. See
- * `startShopperClock`.
+ * HTML is still the seeded one — and it advances in SERVER time, never reading
+ * the device's clock as an absolute. See `startShopperClock` for how elapsed
+ * time is measured and why neither available source is trusted alone.
  */
 export function ShopperClockProvider({
   serverNow,

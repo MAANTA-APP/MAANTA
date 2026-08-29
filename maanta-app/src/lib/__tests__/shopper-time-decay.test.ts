@@ -588,27 +588,98 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     }
   });
 
-  it("survives a wall-clock STEP mid-session, such as an NTP correction", () => {
-    // The case that separates monotonic from wall-clock elapsed time, and the
-    // reason `Date.now()` deltas are not good enough: a clock STEP is not
-    // elapsed time. If the device's clock jumps two hours while the page is
-    // open, the shopper's deals must not all expire at once.
+  it("never runs SLOWER than real time, so a suspended device catches up", () => {
+    // The property that matters, and the reason monotonic time alone is not
+    // enough: `performance.now()` pauses across device suspend on several
+    // platforms, and a locked phone is the normal case at a mall. Trusting it
+    // alone leaves the clock hours behind on reopen — expired deals still
+    // offered, and a claimed-code countdown still showing time left after
+    // verification would reject it.
+    //
+    // Under fake timers `setSystemTime` moves the wall clock without advancing
+    // monotonic time, which is exactly the shape of a resume.
     fakeClock();
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
       const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      expect(ticks[0].getTime()).toBe(T0.getTime());
 
-      // The wall clock jumps forward; no real time has passed.
+      // Two hours pass with the device asleep: the wall clock moved, elapsed
+      // monotonic time did not.
       vi.setSystemTime(at(120 * MIN));
       vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS);
 
       const last = ticks[ticks.length - 1];
-      expect(last.getTime()).toBe(T0.getTime() + SHOPPER_CLOCK_INTERVAL_MS);
-      expect(last.getTime()).toBeLessThan(at(120 * MIN).getTime());
+      expect(last.getTime()).toBeGreaterThanOrEqual(at(120 * MIN).getTime());
       stop();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("never runs BACKWARDS, whatever the device clock does", () => {
+    // The other half of taking the greater of the two readings: a backward
+    // step — a user correcting their clock, an NTP slew — must not rewind the
+    // shopper's deadlines and resurrect an expired deal.
+    fakeClock();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 2);
+      const before = ticks[ticks.length - 1].getTime();
+
+      // The device clock jumps two hours into the past.
+      vi.setSystemTime(at(-120 * MIN));
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS);
+
+      expect(ticks[ticks.length - 1].getTime()).toBeGreaterThanOrEqual(before);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ticks the moment a backgrounded tab is reopened", () => {
+    // A backgrounded interval is throttled and a suspended one stops, so the
+    // first thing a returning shopper would otherwise see is the state from
+    // before they locked their phone — for up to a full interval.
+    const listeners: Record<string, (() => void)[]> = {};
+    const add = (k: string, fn: () => void) => {
+      (listeners[k] ??= []).push(fn);
+    };
+    const remove = (k: string, fn: () => void) => {
+      listeners[k] = (listeners[k] ?? []).filter((f) => f !== fn);
+    };
+    const g = globalThis as unknown as Record<string, unknown>;
+    const hadDoc = "document" in g;
+    const hadWin = "window" in g;
+    g.document = { addEventListener: add, removeEventListener: remove };
+    g.window = { addEventListener: add, removeEventListener: remove };
+    fakeClock();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const before = ticks.length;
+
+      vi.setSystemTime(at(120 * MIN));
+      listeners["visibilitychange"]?.forEach((f) => f());
+
+      expect(ticks.length).toBeGreaterThan(before);
+      expect(ticks[ticks.length - 1].getTime()).toBeGreaterThanOrEqual(
+        at(120 * MIN).getTime()
+      );
+
+      // ...and teardown removes them, or a navigated-away page keeps ticking.
+      stop();
+      expect(listeners["visibilitychange"]).toHaveLength(0);
+      expect(listeners["pageshow"]).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+      if (!hadDoc) delete g.document;
+      if (!hadWin) delete g.window;
     }
   });
 
@@ -636,7 +707,8 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     // wiring: an advancing helper nothing calls proves nothing.
     const clock = read("lib/use-shopper-clock.tsx");
     expect(clock).toContain("startShopperClock(intervalMs, setNow, seed)");
-    // ...and it must not reach for the device's wall clock anywhere.
+    // The device clock may inform ELAPSED time; it must never be read as an
+    // absolute instant, which is what reintroduces unbounded skew.
     expect(clock).not.toMatch(/onTick\(new Date\(\)\)/);
     expect(clock).toContain("performance.now()");
     expect(clock).toContain("useState(seed)");
