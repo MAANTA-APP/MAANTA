@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatCode, msUntil } from "@/lib/ui";
+import { formatCode } from "@/lib/ui";
 import { formatClaimCountdown } from "@/lib/claim-ticket-time";
-import { useShopperClockSeed } from "@/lib/use-shopper-clock";
+import {
+  useShopperClockSeed,
+  startShopperClock,
+} from "@/lib/use-shopper-clock";
 
 /**
  * S5 — the claimed-code hero. The single most important screen in the product:
@@ -34,10 +37,13 @@ export function ClaimedCode({
   const seed = useShopperClockSeed();
   const [left, setLeft] = useState(() => new Date(expiresAt).getTime() - seed.getTime());
   useEffect(() => {
-    setLeft(msUntil(expiresAt));
-    const t = setInterval(() => setLeft(msUntil(expiresAt)), 1000);
-    return () => clearInterval(t);
-  }, [expiresAt]);
+    // Server time, advanced monotonically. `msUntil` reads the device clock,
+    // and this is the countdown a shopper trusts at the counter: a skewed
+    // phone must not tell them their code died while the database still
+    // accepts it.
+    const until = new Date(expiresAt).getTime();
+    return startShopperClock(1000, (d) => setLeft(until - d.getTime()), seed);
+  }, [expiresAt, seed]);
 
   const expired = left <= 0;
 

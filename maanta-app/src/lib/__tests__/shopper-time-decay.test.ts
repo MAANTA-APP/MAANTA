@@ -701,8 +701,27 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
     ]) {
       const src = read(rel);
       expect(src).toContain("useShopperClockSeed()");
-      expect(src).toContain("1000");
+      expect(src).toContain("startShopperClock(1000");
       expect(src).not.toContain("useShopperClock()");
+    }
+  });
+
+  it("runs on SERVER time too — the counter is where skew would hurt most", () => {
+    // These keep their own 1s timer, so they had their own copy of the
+    // device-clock defect: a skewed phone telling a shopper at the counter
+    // that their code died while the database still accepts it, or that the
+    // reward window is still open when it has closed.
+    for (const rel of [
+      "app/(shopper)/tickets/[id]/claimed-code.tsx",
+      "app/(shopper)/tickets/[id]/fast-visit-panel.tsx",
+    ]) {
+      const src = read(rel);
+      // Advanced through the shared monotonic mechanism, seeded from the
+      // server — never read straight off the device.
+      expect(src).toContain("startShopperClock(");
+      expect(src).not.toMatch(/setInterval\(/);
+      expect(src).not.toMatch(/Date\.now\(\)/);
+      expect(src).not.toMatch(/\bmsUntil\(/);
     }
   });
 });

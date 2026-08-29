@@ -7,7 +7,10 @@ import {
   formatArrivalDuration,
   formatRewardCountdown,
 } from "@/lib/fast-visit-window";
-import { useShopperClockSeed } from "@/lib/use-shopper-clock";
+import {
+  useShopperClockSeed,
+  startShopperClock,
+} from "@/lib/use-shopper-clock";
 
 /**
  * The Fast Visit reward window on the claimed ticket — deliberately SECONDARY
@@ -52,10 +55,12 @@ export function FastVisitPanel({
 
   useEffect(() => {
     if (!windowOpen) return;
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [windowOpen]);
+    // Server time, advanced monotonically — the same mechanism the shared
+    // clock uses, at 1s instead of 30s. Reading `Date.now()` here would hand
+    // the reward deadline to the device's clock, and this window decides
+    // whether a shopper is told they still have time to walk over.
+    return startShopperClock(1000, (d) => setNow(d.getTime()), seed);
+  }, [windowOpen, seed]);
 
   // Historical claim with no recorded claim time: no window ever existed.
   if (!deadline || !claimedAt) return null;
