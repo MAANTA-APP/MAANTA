@@ -193,27 +193,56 @@ describe("drift register schema", () => {
     expect(rows.length, "no drift rows parsed — did the table header change?").toBeGreaterThan(0);
   });
 
-  it("parses EVERY row-shaped line below the table header, whatever its ID", () => {
+  it("accounts for EVERY line that starts a table row, wherever it sits", () => {
     // This has already happened once for real. Three rows were appended AFTER
     // the horizontal rule that ends the table, so `parseRows` never saw them,
     // every check below silently skipped them, and the suite was then cited as
     // proof that they were well-formed. A guard that cannot see a row cannot
     // fail on it, which makes a green run evidence of nothing.
     //
-    // It is written against LINE NUMBERS, deliberately, because two earlier
-    // versions of this guard each carried their own idea of what a row looks
-    // like and each was too narrow: one matched IDs by membership, so a second
-    // row reusing an existing ID read as parsed; the next matched `D\d+`, so a
-    // `D-217` or `FU218` row — both accepted by the schema — slipped past. A
-    // second grammar is a second thing to drift. `parseRows` already records
-    // the line it produced each row from, so the only question asked here is:
-    // did the parser see this line? Nothing about IDs, cells, or shape is
-    // restated.
-    const lines = raw.split("\n");
-    const headerLine = lines.findIndex((l) => /^\|\s*ID\s*\|/.test(l.trim())) + 1;
-    expect(headerLine, "register table header not found").toBeGreaterThan(0);
+    // Written to have as little of its own opinion as possible, because three
+    // earlier versions each carried one and each was too narrow: matching IDs
+    // by membership let a row reusing an existing ID pass; matching `D\d+` let
+    // `D-217` and `FU218` through, both accepted by the schema; requiring a
+    // closing pipe let a row whose last cell lost its trailing `|` through.
+    // Every one of those was a SECOND grammar disagreeing with the parser's.
+    //
+    // So the only opinion left is "a table row starts with a pipe", and
+    // everything else is answered by position or by the parser itself:
+    // `parseRows` records the line it produced each row from, and reports the
+    // lines it rejected. Anything else beginning with `|` must be the status
+    // legend, whose extent is pinned below — not "anything above the header",
+    // which would let a row pasted just above it disappear.
+    const all = raw.split("\n").map((l) => l.trim());
+
+    const driftHeaders = all
+      .map((line, i) => ({ line, lineNumber: i + 1 }))
+      .filter(({ line }) => /^\|\s*ID\s*\|/.test(line));
+    expect(
+      driftHeaders.length,
+      "expected exactly one drift table header — a second one silently splits the table"
+    ).toBe(1);
+    const driftHeaderLine = driftHeaders[0].lineNumber;
+
+    const legendIndex = all.findIndex((line) =>
+      /^\|\s*Status\s*\|\s*Meaning\s*\|/.test(line)
+    );
+    expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
+    // The legend is the CONTIGUOUS run of pipe lines from its own header, and
+    // it is exactly its header, its alignment row and one line per status.
+    // Pinning the size is what stops a drift row pasted onto the end of the
+    // legend from being waved through as part of it.
+    let legendEnd = legendIndex;
+    while (legendEnd + 1 < all.length && all[legendEnd + 1].startsWith("|")) legendEnd++;
+    const legendLines = new Set<number>();
+    for (let i = legendIndex; i <= legendEnd; i++) legendLines.add(i + 1);
+    expect(
+      legendLines.size,
+      "the status legend should be its header, its alignment row and one line per status"
+    ).toBe(2 + STATUSES.length);
 
     const accountedFor = new Set<number>(rows.map((r) => r.lineNumber));
+    accountedFor.add(driftHeaderLine);
     // Lines the parser rejected already fail in "exists and is parseable"; they
     // are seen, so they are not orphans.
     for (const problem of parseProblems) {
@@ -221,12 +250,10 @@ describe("drift register schema", () => {
       if (Number.isFinite(n)) accountedFor.add(n);
     }
 
-    const orphans = lines
-      .map((line, i) => ({ line: line.trim(), lineNumber: i + 1 }))
-      // Only below the header: the status legend above it is a real table and
-      // is not where a drift row can be mistakenly appended.
-      .filter(({ lineNumber }) => lineNumber > headerLine)
-      .filter(({ line }) => line.startsWith("|") && line.endsWith("|"))
+    const orphans = all
+      .map((line, i) => ({ line, lineNumber: i + 1 }))
+      .filter(({ line }) => line.startsWith("|"))
+      .filter(({ lineNumber }) => !legendLines.has(lineNumber))
       // The alignment row is punctuation, not a row.
       .filter(({ line }) => !/^\|[\s:|-]+\|$/.test(line))
       .filter(({ lineNumber }) => !accountedFor.has(lineNumber))
@@ -234,7 +261,7 @@ describe("drift register schema", () => {
 
     expect(
       orphans,
-      "these lines look like table rows but the parser never saw them, so every\n" +
+      "these lines start a table row but the parser never saw them, so every\n" +
         "check in this file skips them. Move them inside the table — a row the\n" +
         "guard cannot see is not a tracked gap"
     ).toEqual([]);
