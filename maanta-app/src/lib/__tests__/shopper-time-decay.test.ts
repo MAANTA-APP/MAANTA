@@ -837,3 +837,42 @@ describe("criterion 3 — an expired deal cannot remain in a discovery collectio
     expect(empty).not.toMatch(/food deals right now|flash deals right now/);
   });
 });
+
+describe("criterion 3 — membership changes must not leak per-deal client state", () => {
+  it("keys every card in a live collection by its deal", () => {
+    // Asserted on the source because the failure needs a REMOUNT to observe and
+    // these suites render to static markup, where keys leave no trace.
+    //
+    // The defect it prevents is not cosmetic. React reconciles an unkeyed child
+    // by position, so when the flash lead expires and the next deal takes the
+    // slot, the promoted deal reuses the expired one's component instance —
+    // and `FavouriteButton` reads `initial` into local state exactly once. A
+    // shopper tapping the heart on the new lead would submit the PREVIOUS
+    // merchant's saved state: a wrong write to their own data, caused by a card
+    // that only moved. Withdrawing members is what makes this reachable, so the
+    // guard belongs with the withdrawal.
+    const src = read("components/shopper/live-deal-collection.tsx");
+    const cards = src.match(/<DealCard[^>]*/g) ?? [];
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card, `unkeyed <DealCard>: ${card}`).toContain("key={");
+      expect(card, `key must carry the deal id: ${card}`).toContain(".id}");
+    }
+  });
+
+  it("keys the rows on every other collection that withdraws members", () => {
+    for (const rel of [
+      "components/shopper/shop-live-deals.tsx",
+      "components/shopper/my-deals-list.tsx",
+      "components/shopper/ending-soon-rail.tsx",
+    ]) {
+      const src = read(rel);
+      for (const el of src.match(/<(DealCard|TicketRow|Link)[^>]*/g) ?? []) {
+        if (!el.includes("key=")) continue;
+        // Any prefix is fine; the key must END in the row's own id, so two
+        // different deals can never share one.
+        expect(el, `key must carry the row id: ${el}`).toMatch(/key=\{[^}]*\bid\}/);
+      }
+    }
+  });
+});

@@ -86,9 +86,17 @@ export function LiveDealCollection({
         {/* Direction A: the first deal is the one image-forward lead; the rest
             of the rail continues beneath it. The lead IS position 1, so when
             the previous lead expires the next deal inherits the slot rather
-            than the rail losing its head. */}
+            than the rail losing its head.
+
+            KEYED BY DEAL, like every other card here. The lead is the one slot
+            whose occupant changes identity in place, and React reconciles an
+            unkeyed child by position: the promoted deal would reuse the expired
+            one's component instance, and `FavouriteButton` reads `initial` into
+            local state exactly once. A shopper tapping the heart on the new
+            lead would then submit the PREVIOUS merchant's saved state — a wrong
+            write to their own data, from a card that merely moved. */}
         <div className="px-4">
-          <DealCard variant="lead" {...first.card} />
+          <DealCard key={`${keyPrefix}lead-${first.id}`} variant="lead" {...first.card} />
         </div>
         {rest.length > 0 ? (
           <RailScroller className="mt-3">
