@@ -207,7 +207,17 @@ BEGIN
         WHEN 'fee_reversal'        THEN  t.amount
         ELSE NULL
       END AS oriented_amount,
+      t.created_at AS movement_at,
+      r.redeemed_at,
+      r.success_fee_charged AS fee_snapshot,
+      -- Three ways a row can contradict the chain it hangs from. Each is
+      -- representable by a direct insert and none is possible through the
+      -- sanctioned path.
       (t.merchant_id IS DISTINCT FROM r.merchant_id) AS merchant_mismatch,
+      -- `claim_deal` always copies the deal's merchant into the redemption, so
+      -- a redemption naming merchant A against merchant B's deal is the same
+      -- corruption one level up, and it would attribute B's supply to A.
+      (d.merchant_id IS DISTINCT FROM r.merchant_id) AS deal_mismatch,
       -- A reversal must be corroborated by its audit row.
       --
       -- `reverse_success_fee` writes three things atomically: the wallet
@@ -229,6 +239,21 @@ BEGIN
             AND fr.redemption_id  = r.id
             AND fr.merchant_id    = r.merchant_id
             AND fr.amount         = t.amount
+            -- `reverse_success_fee` raises unless the approver's role is
+            -- `admin`, so a genuine audit row always names one. The column is
+            -- nullable, so an approver-less row is representable and would
+            -- otherwise satisfy every other part of this check.
+            --
+            -- Non-NULL rather than "is an admin today": roles change for
+            -- legitimate reasons, and re-checking a past approval against a
+            -- present role would blank old periods whenever someone's role
+            -- moved. What is durable is that an approver was recorded.
+            AND fr.approver_user_id IS NOT NULL
+            -- Both the ledger row and the audit row derive from
+            -- `redemptions.success_fee_charged`. Matching them to each other
+            -- only proves they were written together; matching them to the
+            -- snapshot is what ties them to the fee that was actually billed.
+            AND fr.amount         = r.success_fee_charged
        )) AS reversal_uncorroborated
       FROM public.merchant_transactions t
       JOIN public.redemptions r ON r.id = t.reference_id
@@ -246,6 +271,21 @@ BEGIN
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
             OR t.merchant_id = ANY (p_merchant_ids))
+       -- Bound the scan. Without this, a one-day executive report joins and
+       -- classifies EVERY genuine linked movement in the ledger's whole
+       -- history before the aggregate throws almost all of them away -- which
+       -- is fine at Node 0 and is the D149 shape at scale: a money query that
+       -- degrades silently as the marketplace grows.
+       --
+       -- Semantics-preserving, not a narrowing. A row outside the window that
+       -- is not linked to an in-window candidate can reach neither the totals
+       -- (it fails `in_window`) nor the invalid count (which needs `in_window`
+       -- or an unbilled candidate, and every unbilled candidate is a candidate)
+       -- nor completeness (which only looks at candidates' own rows).
+       AND ((isfinite(t.created_at)
+             AND t.created_at >= p_since
+             AND (p_until IS NULL OR t.created_at < p_until))
+            OR EXISTS (SELECT 1 FROM candidate k WHERE k.id = r.id))
   ),
   relevant AS (
     SELECT
@@ -260,6 +300,24 @@ BEGIN
         OR c.oriented_amount <= 0
         OR NOT isfinite(c.created_at)
         OR c.merchant_mismatch
+        OR c.deal_mismatch
+        -- The amount must be the fee that was actually billed.
+        -- `deduct_success_fee_or_record_arrears` writes the redemption's own
+        -- `success_fee_charged` and pins it to the canonical config fee, and
+        -- nothing in the schema updates that snapshot afterwards. A correctly
+        -- signed row carrying a different number was not written by the money
+        -- path, and reporting it means reporting revenue nobody billed.
+        OR c.oriented_amount IS DISTINCT FROM c.fee_snapshot
+        -- A fee cannot predate the verification that caused it.
+        -- `verify_redemption` sets `redeemed_at` and writes the fee in one
+        -- transaction, so `created_at >= redeemed_at` always holds. Without
+        -- this, a fee posted against a PENDING redemption that later became
+        -- successful is retroactively legitimised by the status it acquired
+        -- afterwards, and a report covering the earlier period counts it.
+        OR (c.bucket = 'gross'
+            AND isfinite(c.movement_at)
+            AND c.redeemed_at IS NOT NULL
+            AND c.movement_at < c.redeemed_at)
         OR c.reversal_uncorroborated) AS malformed
       FROM classified c
      WHERE c.bucket <> 'excluded'

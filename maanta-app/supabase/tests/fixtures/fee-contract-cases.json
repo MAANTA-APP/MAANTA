@@ -25,7 +25,7 @@
       "description": "Every transaction type at once: both billed legs count, the reversal subtracts, the settlement is invisible.",
       "redemptions": [
         { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
-        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z" }
+        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z", "feeSnapshot": 70 }
       ],
       "movements": [
         { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
@@ -204,7 +204,7 @@
       "merchants": ["m1", "m2"],
       "redemptions": [
         { "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" },
-        { "key": "r2", "merchant": "m2", "redeemedAt": "2026-08-11T09:00:00Z" },
+        { "key": "r2", "merchant": "m2", "redeemedAt": "2026-08-11T09:00:00Z", "feeSnapshot": 70 },
         { "key": "r3", "merchant": "m2", "redeemedAt": "2026-08-12T09:00:00Z" }
       ],
       "movements": [
@@ -227,7 +227,7 @@
       "description": "deduct_success_fee_or_record_arrears will write a fee against a pending redemption if service_role asks it to. A fee may only be counted against a redemption the counter actually verified, and readLedgerFeeTotals builds its genuine set with status = success.",
       "redemptions": [
         { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
-        { "key": "rp", "redeemedAt": "2026-08-11T09:00:00Z", "status": "pending" }
+        { "key": "rp", "redeemedAt": "2026-08-11T09:00:00Z", "status": "pending", "feeSnapshot": 70 }
       ],
       "movements": [
         { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
@@ -308,13 +308,49 @@
     {
       "id": "reversal-audit-row-disagrees-on-amount",
       "description": "The audit row points at the right ledger row but records a different amount. The ledger says KES 70 was returned and the approval says KES 30 — one of them is wrong and nothing here can tell which, so the figure is not established.",
-      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "feeSnapshot": 70 }],
       "movements": [
         { "redemption": "r1", "type": "success_fee", "amount": -70, "createdAt": "2026-08-10T09:00:01Z" },
         { "redemption": "r1", "type": "fee_reversal", "amount": 70, "createdAt": "2026-08-15T09:00:00Z", "auditAmount": 30 }
       ],
       "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
       "notYetInTypeScript": "Same gap: aggregateLedgerFees cannot see fee_reversals, so it cannot notice the approval disagreeing with the ledger. B2b must join the audit table or carry a corroborated flag."
+    },
+    {
+      "id": "reversal-audit-without-an-approver",
+      "description": "A reversal and a matching audit row, but approver_user_id is NULL. reverse_success_fee raises unless the approver's role is admin, so a genuine audit row always names one — and the column is nullable, so an approver-less row is representable and satisfies every other part of corroboration.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "noApprover": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees cannot see fee_reversals at all, so it cannot notice a missing approver. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
+      "id": "fee-amount-disagrees-with-redemption-snapshot",
+      "description": "A correctly-signed success_fee of KES 70 against a redemption whose success_fee_charged is 30. deduct_success_fee_or_record_arrears writes the redemption's own snapshot and pins it to the canonical config fee, and nothing updates that snapshot afterwards — so this row was not written by the money path, and counting it reports revenue nobody billed.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -70, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries success_fee_charged but aggregateLedgerFees never compares it to the ledger amount — it deliberately reads the stored ledger value instead. B2b must decide whether the snapshot is a corroborating check or whether the two implementations differ here on purpose."
+    },
+    {
+      "id": "redemption-linked-to-another-merchants-deal",
+      "description": "A redemption naming merchant m1 against merchant m2's deal. claim_deal always copies the deal's merchant into the redemption, so the two parents disagreeing is the cross-merchant corruption one level up — and it would attribute m2's supply to m1.",
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "deal": "m2", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "The D188 join in readLedgerFeeTotals confirms both parents are non-demo but never compares them to each other, and FeeLedgerRow carries neither. B2b must add the comparison to the reader."
+    },
+    {
+      "id": "gross-posted-before-verification",
+      "description": "A fee written while the redemption was still pending, which later became successful. verify_redemption sets redeemed_at and writes the fee in one transaction, so a fee can never predate its own verification — without this rule the later status transition retroactively legitimises the earlier row.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-20T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:00Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries no redeemed_at, so aggregateLedgerFees cannot compare a movement to its verification. B2b must add it to the row type and the reader's select."
     },
     {
       "id": "cross-merchant-reference",

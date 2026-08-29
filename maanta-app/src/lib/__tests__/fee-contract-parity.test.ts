@@ -55,6 +55,8 @@ type Case = {
     merchant?: string;
     redeemedAt: string;
     status?: string;
+    feeSnapshot?: number;
+    deal?: string;
     demo?: Demo;
   }[];
   movements: {
@@ -66,6 +68,7 @@ type Case = {
     isDemo?: boolean;
     orphan?: boolean;
     auditAmount?: number;
+    noApprover?: boolean;
   }[];
   expected: {
     grossKes: number | null;
@@ -123,7 +126,7 @@ function inputsFor(c: Case) {
       const t = Date.parse(r.redeemedAt);
       return t >= since && (until === null || t < until);
     })
-    .map((r) => ({ id: r.key, success_fee_charged: 30 }));
+    .map((r) => ({ id: r.key, success_fee_charged: r.feeSnapshot ?? 30 }));
 
   const ledger: FeeLedgerRow[] = c.movements.map((m, i) => ({
     id: `${c.id}-${i}`,
@@ -178,6 +181,10 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "orphan-reversal-without-audit-row",
       "second-reversal-riding-on-an-existing-audit-row",
       "reversal-audit-row-disagrees-on-amount",
+      "reversal-audit-without-an-approver",
+      "fee-amount-disagrees-with-redemption-snapshot",
+      "redemption-linked-to-another-merchants-deal",
+      "gross-posted-before-verification",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -311,9 +318,13 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "demo-tagged-movement-excluded",
+      "fee-amount-disagrees-with-redemption-snapshot",
+      "gross-posted-before-verification",
       "malformed-fee-outside-window-does-not-prove-completeness",
       "orphan-reversal-without-audit-row",
+      "redemption-linked-to-another-merchants-deal",
       "reversal-audit-row-disagrees-on-amount",
+      "reversal-audit-without-an-approver",
       "second-reversal-riding-on-an-existing-audit-row",
     ]);
     for (const c of gaps) {

@@ -101,8 +101,11 @@ function renderCase(c, windowDefault) {
     p(``);
     p(`  INSERT INTO public.redemptions`);
     p(`    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)`);
-    p(`    VALUES (v_d_${m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
-    p(`            ${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour', ${q(r.redeemedAt)}, 30,`);
+    // `deal` may name a DIFFERENT merchant's deal — the corruption `claim_deal`
+    // cannot produce, where a redemption's two parents disagree about whose
+    // shop it belongs to.
+    p(`    VALUES (v_d_${r.deal ?? m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
+    p(`            ${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour', ${q(r.redeemedAt)}, ${num(r.feeSnapshot ?? 30)},`);
     p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"})`);
     p(`    RETURNING id INTO v_r_${r.key};`);
   }
@@ -133,9 +136,10 @@ function renderCase(c, windowDefault) {
       (mv.auditAmount ?? mv.amount) > 0;
     if (mv.type === "fee_reversal" && !mv.orphan && auditable) {
       p(`  INSERT INTO public.fee_reversals`);
-      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note)`);
+      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)`);
       p(`    VALUES (v_r_${mv.redemption}, v_m_${redemptionMerchant(redemptions, mv.redemption)},`);
-      p(`            v_tx, ${amount(mv.auditAmount ?? mv.amount)}, 'fixture reversal');`);
+      p(`            v_tx, ${amount(mv.auditAmount ?? mv.amount)}, 'fixture reversal',`);
+      p(`            ${mv.noApprover ? "NULL" : "v_uid"});`);
     }
   }
 
