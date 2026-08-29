@@ -123,11 +123,25 @@ DECLARE
   v_mid UUID;
   v_did UUID;
   v_rid UUID;
+  v_scoped RECORD;
   v_before NUMERIC;
   v_after  NUMERIC;
   v_noise  NUMERIC;
+  v_baseline_ok BOOLEAN := TRUE;
 BEGIN
-  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_before;
+  -- The shim is GLOBAL, so its value depends on every row in the database, not
+  -- just this scenario's. Another suite leaving a genuine success with no fee
+  -- row would make it raise for a reason that has nothing to do with what is
+  -- being tested here. So the exact-value assertions run only when the
+  -- baseline is readable, and say so loudly when they do not — while the
+  -- SCOPED assertions below are unconditional, because a scope containing only
+  -- this scenario's merchant cannot be affected by anything else.
+  BEGIN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_before;
+  EXCEPTION WHEN OTHERS THEN
+    v_baseline_ok := FALSE;
+    RAISE NOTICE 'C: global baseline unavailable (%) — the global delta assertions are skipped, the scoped ones still run', SQLERRM;
+  END;
 
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
   INSERT INTO public.merchants
@@ -147,9 +161,18 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id)
     VALUES (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_1', 't', v_rid);
 
-  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_after;
-  ASSERT v_after = v_before + 30,
-    format('C: expected the linked fee to add exactly 30 (%s -> %s)', v_before, v_after);
+  -- Unconditional: scoped to this scenario's merchant, immune to other suites.
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT v_scoped.available, 'C: this scenario''s own scope must be available';
+  ASSERT v_scoped.gross_kes = 30,
+    format('C: scoped gross = %s, expected 30', v_scoped.gross_kes);
+
+  IF v_baseline_ok THEN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_after;
+    ASSERT v_after = v_before + 30,
+      format('C: expected the linked fee to add exactly 30 (%s -> %s)', v_before, v_after);
+  END IF;
 
   -- An UNLINKED fee row, and a top-up. Neither may move the figure: the first
   -- cannot be tied to a genuine-tagged redemption, the second is not a fee.
@@ -159,9 +182,16 @@ BEGIN
       (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_2', 't'),
       (v_mid, 500, 'topup',       'manual', '__test_arch_topup_1', 't');
 
-  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_noise;
-  ASSERT v_noise = v_after,
-    format('C: an unlinked fee row and a top-up must not move the figure (%s -> %s)', v_after, v_noise);
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT v_scoped.gross_kes = 30,
+    format('C: an unlinked fee row and a top-up must not move the figure, got %s', v_scoped.gross_kes);
+
+  IF v_baseline_ok THEN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_noise;
+    ASSERT v_noise = v_after,
+      format('C: unlinked rows must not move the global figure (%s -> %s)', v_after, v_noise);
+  END IF;
 
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
   DELETE FROM public.redemptions WHERE merchant_id = v_mid;

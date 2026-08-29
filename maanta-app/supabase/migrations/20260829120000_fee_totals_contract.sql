@@ -176,9 +176,11 @@ BEGIN
              FILTER (WHERE o.bucket = 'reversal' AND o.oriented_amount > 0), 0),
     -- Invalid: a fee-bearing row whose oriented amount is not strictly
     -- positive. Includes a zero-amount fee row, which neither RPC can write.
-    COUNT(*)::integer
-      FILTER (WHERE o.bucket <> 'excluded'
-                AND (o.oriented_amount IS NULL OR o.oriented_amount <= 0))
+    -- The cast wraps the whole aggregate: `FILTER` binds to the aggregate call
+    -- itself, so `COUNT(*)::integer FILTER (...)` is a syntax error rather than
+    -- a filtered count.
+    (COUNT(*) FILTER (WHERE o.bucket <> 'excluded'
+                        AND (o.oriented_amount IS NULL OR o.oriented_amount <= 0)))::integer
     INTO v_gross, v_reversals, v_invalid
     FROM oriented o
    WHERE o.created_at >= p_since
