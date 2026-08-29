@@ -421,6 +421,24 @@
       "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
     },
     {
+      "id": "unplaceable-fee-on-an-older-redemption-still-surfaces",
+      "description": "A fee row with created_at = infinity on a redemption verified BEFORE the window. It belongs to no window, so no window can exclude it on date grounds — and if the subject set skips it, it is never classified, never flagged, and the report returns an available zero over money that moved. The existing infinity case only passes because its redemption is itself in-window.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "old", "type": "success_fee", "amount": -30, "createdAt": "infinity" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals fetches windowed rows plus rows linked to in-window candidates, so an unplaceable row on an older redemption is never fetched at all. B2b must widen the reader's select to include non-finite timestamps."
+    },
+    {
+      "id": "deal-owner-sees-corruption-on-its-own-deal",
+      "description": "A deal owned by m2 whose redemption and fee movement both name m1. Scoping only on the redemption's and movement's merchants leaves m2 reading an available zero while the corruption sits on m2's own deal — the same one-sided blindness already fixed for the transaction/redemption mismatch, one parent over.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "deal": "m2", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals scopes its reads on merchant_id and never on the deal owner, and FeeLedgerRow carries neither. B2b must add the deal arm to the reader's scope."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

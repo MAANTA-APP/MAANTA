@@ -194,9 +194,21 @@ BEGIN
       FROM public.merchant_transactions t
      WHERE t.transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal')
        AND t.reference_id IS NOT NULL
-       AND isfinite(t.created_at)
-       AND t.created_at >= p_since
-       AND (p_until IS NULL OR t.created_at < p_until)
+       -- Windowed rows, PLUS every row whose timestamp cannot be placed at all.
+       --
+       -- An unplaceable row (`infinity`, `-infinity`) belongs to no window, so
+       -- no window can legitimately exclude it on date grounds -- and if it is
+       -- not read here it is never classified, never flagged, and the report
+       -- returns an available zero over money that moved. That is the opposite
+       -- of the "one bad row must not blank every period" rule: those rows have
+       -- a date placing them elsewhere. This one has none.
+       --
+       -- The consequence is deliberate: an unplaceable fee row makes EVERY
+       -- report unavailable until it is corrected. It has to, because there is
+       -- no period it could belong to instead.
+       AND (NOT isfinite(t.created_at)
+            OR (t.created_at >= p_since
+                AND (p_until IS NULL OR t.created_at < p_until)))
   ),
   -- Deliberately unscoped: `touched` is already bounded by the window and the
   -- index, and scoping it on `t.merchant_id` would hide a cross-merchant row
@@ -317,9 +329,17 @@ BEGIN
        -- row to point at.
        AND NOT t.is_demo
        AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+       -- Scope matches on ANY of the three merchants a corrupt chain can name:
+       -- the redemption's, the movement's, or the DEAL's. A well-formed chain
+       -- has all three equal, so this is a no-op on real data; on a corrupt one
+       -- it makes the inconsistency visible from every side rather than
+       -- invisible from two of them. Without the deal arm, a deal owned by B
+       -- whose redemption and movement both name A leaves B reading available
+       -- zero while the corruption sits on B's own deal.
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
-            OR t.merchant_id = ANY (p_merchant_ids))
+            OR t.merchant_id = ANY (p_merchant_ids)
+            OR d.merchant_id = ANY (p_merchant_ids))
        -- The whole linked history of every subject redemption, and nothing
        -- else. A subject is either a completeness candidate or a redemption
        -- touched in-window, and its WHOLE history is needed because two rules
@@ -342,6 +362,11 @@ BEGIN
       isfinite(c.created_at)
         AND c.created_at >= p_since
         AND (p_until IS NULL OR c.created_at < p_until) AS in_window,
+      -- A row whose timestamp cannot be placed belongs to no window, so it can
+      -- never be excluded from one on date grounds. Carried separately from
+      -- `in_window` because the invalid count must see it even though the
+      -- totals must not.
+      NOT isfinite(c.movement_at) AS unplaceable,
       (c.oriented_amount IS NULL
         OR c.oriented_amount = 'NaN'::numeric
         OR c.oriented_amount <= 0
@@ -391,6 +416,7 @@ BEGIN
       y.bucket,
       y.oriented_amount,
       y.in_window,
+      y.unplaceable,
       (y.malformed_base
         -- KES 60 reported for one KES 30 success fee, every row of it
         -- individually valid.
@@ -442,6 +468,10 @@ BEGIN
       -- a link to a candidate never ages out.
       (COUNT(*) FILTER (WHERE x.malformed
                           AND (x.in_window
+                               -- No window owns an unplaceable row, so every
+                               -- window must surface it. Excluding it here is
+                               -- how it would return to being silently dropped.
+                               OR x.unplaceable
                                OR (x.bucket = 'gross'
                                    AND EXISTS (SELECT 1 FROM unbilled u
                                                 WHERE u.id = x.redemption_id)))))::integer AS invalid

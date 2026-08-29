@@ -3096,6 +3096,161 @@ BEGIN
 END $case$;
 
 -- ---------------------------------------------------------------------------
+-- unplaceable-fee-on-an-older-redemption-still-surfaces
+--
+-- A fee row with created_at = infinity on a redemption verified BEFORE the
+-- window. It belongs to no window, so no window can exclude it on date
+-- grounds — and if the subject set skips it, it is never classified, never
+-- flagged, and the report returns an available zero over money that moved.
+-- The existing infinity case only passes because its redemption is itself
+-- in-window.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_old UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_unplaceable-fee-on-an-older-redemption-still-surfaces_m1', 'fee.case.m1', '+254710000044',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_unplaceable-fee-on-an-older-redemption-still-surfaces_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-07-15T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-15T09:00:00Z', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_old;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_unplaceable-fee-on-an-older-redemption-still-surfaces_1', 'fixture', v_r_old, 'infinity',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('unplaceable-fee-on-an-older-redemption-still-surfaces: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: unplaceable-fee-on-an-older-redemption-still-surfaces';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- deal-owner-sees-corruption-on-its-own-deal
+--
+-- A deal owned by m2 whose redemption and fee movement both name m1. Scoping
+-- only on the redemption's and movement's merchants leaves m2 reading an
+-- available zero while the corruption sits on m2's own deal — the same
+-- one-sided blindness already fixed for the transaction/redemption mismatch,
+-- one parent over.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_m_m2 UUID;
+  v_d_m2 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_deal-owner-sees-corruption-on-its-own-deal_m1', 'fee.case.m1', '+254710000045',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_deal-owner-sees-corruption-on-its-own-deal_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_deal-owner-sees-corruption-on-its-own-deal_m2', 'fee.case.m2', '+254710000046',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m2;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m2, '__fee_case_deal-owner-sees-corruption-on-its-own-deal_m2', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m2;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m2, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_deal-owner-sees-corruption-on-its-own-deal_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m2]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('deal-owner-sees-corruption-on-its-own-deal: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('deal-owner-sees-corruption-on-its-own-deal: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('deal-owner-sees-corruption-on-its-own-deal: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('deal-owner-sees-corruption-on-its-own-deal: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('deal-owner-sees-corruption-on-its-own-deal: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('deal-owner-sees-corruption-on-its-own-deal: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m2;
+  DELETE FROM public.merchants WHERE id = v_m_m2;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: deal-owner-sees-corruption-on-its-own-deal';
+END $case$;
+
+-- ---------------------------------------------------------------------------
 -- cross-merchant-reference
 --
 -- One merchant's wallet debit pointing at another merchant's redemption.
@@ -3119,7 +3274,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000044',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000047',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3128,7 +3283,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000045',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000048',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3203,7 +3358,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000046',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000049',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3212,7 +3367,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000047',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000050',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3284,7 +3439,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000048',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000051',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)

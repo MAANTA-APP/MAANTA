@@ -194,6 +194,8 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "fee-row-with-no-redemption-parent",
       "flagged-success-still-counts-and-its-reversal-reduces-net",
       "flagged-success-counts-before-its-reversal-lands",
+      "unplaceable-fee-on-an-older-redemption-still-surfaces",
+      "deal-owner-sees-corruption-on-its-own-deal",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -326,6 +328,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
     expect(gaps.map((c) => c.id).sort()).toEqual([
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
+      "deal-owner-sees-corruption-on-its-own-deal",
       "demo-tagged-movement-excluded",
       "duplicate-gross-rows-for-one-redemption",
       "fee-amount-disagrees-with-redemption-snapshot",
@@ -339,6 +342,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "reversal-posted-before-verification",
       "reversal-without-an-original-fee",
       "second-reversal-riding-on-an-existing-audit-row",
+      "unplaceable-fee-on-an-older-redemption-still-surfaces",
     ]);
     for (const c of gaps) {
       expect(c.notYetInTypeScript!.length, `${c.id} must say what B2b changes`)
