@@ -10,6 +10,7 @@ import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { dealExpiryLabel, isDealClaimable } from "@/lib/deal-expiry";
 import { isNearExpiry } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
+import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
 import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
 import {
@@ -154,6 +155,30 @@ describe("criterion 3 — time-derived elements are accurate AND mutually consis
       expect(read(caller)).not.toContain("expiryLabel=");
       expect(read(caller)).not.toContain("expiryLabel:");
     }
+  });
+
+  it("the countdown chip renders from the shared instant, not one of its own", () => {
+    // The chip is the most-rendered time-derived element on every shopper
+    // surface, and a chip frozen on some other instant is stale in a way no
+    // consistency check can see: it agrees with itself in both render passes.
+    // So its TEXT is asserted against the instant it was given.
+    const expiresAt = iso(30 * MIN);
+    const el = () => createElement(CountdownChip, { expiresAt });
+    expect(renderShopperTree(el(), at(0))).toMatch(/Expires in 30m/);
+    expect(renderShopperTree(el(), at(35 * MIN))).toMatch(/Grace period/);
+    expect(renderShopperTree(el(), at(50 * MIN))).toContain("Expired");
+  });
+
+  it("an explicit instant from a caller wins over the shared one", () => {
+    // How a card guarantees its label and its chip cannot straddle a boundary:
+    // it owns the instant and hands it in. That must actually take effect.
+    const expiresAt = iso(30 * MIN);
+    const html = renderShopperTree(
+      createElement(CountdownChip, { expiresAt, now: at(50 * MIN) }),
+      at(0)
+    );
+    expect(html).toContain("Expired");
+    expect(html).not.toMatch(/Expires in/);
   });
 
   it("label, urgency and claimability all move together across the boundary", () => {
