@@ -7,6 +7,7 @@ import { stripComments } from "./helpers/comment-stripping";
 import { renderShopperTree } from "./helpers/shopper-clock";
 import {
   startShopperClock,
+  makeShopperClockReader,
   SHOPPER_CLOCK_INTERVAL_MS,
 } from "@/lib/use-shopper-clock";
 import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
@@ -17,7 +18,7 @@ import { DealCard } from "@/components/ui/claude";
 import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
 import { ExpiryGate } from "@/components/shopper/expiry-gate";
-import { FastShopperClock } from "@/components/shopper/fast-shopper-clock";
+import { FastShopperClock } from "@/lib/use-shopper-clock";
 import { RewardActivity } from "@/components/shopper/reward-activity";
 import {
   LiveDealCollection,
@@ -555,7 +556,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       // Immediate, so the clock is demonstrably live from the first effect
       // rather than one interval later.
       expect(ticks).toHaveLength(1);
@@ -582,7 +587,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
       // The device is two hours ahead of the server.
       vi.setSystemTime(at(120 * MIN));
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       expect(ticks[0].getTime()).toBe(T0.getTime());
       vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 2);
       // Elapsed time is honoured; the device's absolute clock is not.
@@ -608,7 +617,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       expect(ticks[0].getTime()).toBe(T0.getTime());
 
       // Two hours pass with the device asleep: the wall clock moved, elapsed
@@ -632,7 +645,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 2);
       const before = ticks[ticks.length - 1].getTime();
 
@@ -657,7 +674,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
 
       // Forward step: the clock follows it.
       vi.setSystemTime(at(60 * MIN));
@@ -695,7 +716,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       const before = ticks.length;
 
       vi.setSystemTime(at(120 * MIN));
@@ -724,7 +749,11 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      const stop = startShopperClock(
+        SHOPPER_CLOCK_INTERVAL_MS,
+        (d) => ticks.push(d),
+        makeShopperClockReader(T0)
+      );
       vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 10);
       expect(ticks).toHaveLength(11);
       stop();
@@ -740,7 +769,7 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     // Wiring, for the same reason the card's `now={now}` is asserted on the
     // wiring: an advancing helper nothing calls proves nothing.
     const clock = read("lib/use-shopper-clock.tsx");
-    expect(clock).toContain("startShopperClock(intervalMs, setNow, seed)");
+    expect(clock).toContain("startShopperClock(intervalMs, setNow, read)");
     // The device clock may inform ELAPSED time; it must never be read as an
     // absolute instant, which is what reintroduces unbounded skew.
     expect(clock).not.toMatch(/onTick\(new Date\(\)\)/);
@@ -809,9 +838,10 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
     // at 1s, so the guard follows the invariant to the boundary that sets it.
     const page = read("app/(shopper)/tickets/[id]/page.tsx");
     expect(page).toContain("<FastShopperClock>");
-    const fast = read("components/shopper/fast-shopper-clock.tsx");
+    const fast = read("lib/use-shopper-clock.tsx");
     expect(fast).toContain("intervalMs = 1000");
-    expect(fast).toContain("<ShopperClockProvider");
+    // A cadence, not a clock: it samples the page's one reader.
+    expect(fast).toContain("const read = useShopperClockReader();");
     for (const rel of [
       "app/(shopper)/tickets/[id]/claimed-code.tsx",
       "app/(shopper)/tickets/[id]/fast-visit-panel.tsx",
@@ -837,10 +867,31 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
     // node environment where effects never run. The behavioural half below
     // covers what can be observed — that first render inherits, which is the
     // hydration case.
-    const src = read("components/shopper/fast-shopper-clock.tsx");
-    expect(src).toContain("const parentNow = useShopperClock();");
-    expect(src).toContain("useState(() => parentNow)");
-    expect(src).not.toContain("useShopperClockSeed()");
+    const src = read("lib/use-shopper-clock.tsx");
+    // It does not create an origin at all — there is one per page, in the
+    // reader, and every cadence samples it. A sampled VALUE used as an origin
+    // can only ever be as fresh as that sample, which is how a child mounting
+    // between the parent's ticks lost up to a full interval permanently.
+    expect(src).toContain("export function makeShopperClockReader");
+    expect(src).toContain("const read = useShopperClockReader();");
+    expect(src).toMatch(/parentNow\.getTime\(\) === seed\.getTime\(\) \? seed : read\(\)/);
+    // Exactly one origin is constructed in the module: the provider's.
+    expect((src.match(/makeShopperClockReader\(/g) ?? []).length).toBe(2);
+  });
+
+  it("keeps ONE elapsed high-water mark for the page, not one per cadence", () => {
+    // Two marks can disagree; one cannot. The reader owns it, so a faster
+    // subtree and the screen around it read the same elapsed time by
+    // construction rather than by both being correct.
+    const src = read("lib/use-shopper-clock.tsx");
+    expect((src.match(/elapsedHighWater/g) ?? []).length).toBeGreaterThan(0);
+    const readerBody = src.slice(src.indexOf("export function makeShopperClockReader"));
+    expect(readerBody.slice(0, readerBody.indexOf("export function startShopperClock")))
+      .toContain("elapsedHighWater");
+    // The ticker must not hold one of its own.
+    const tickerBody = src.slice(src.indexOf("export function startShopperClock"));
+    expect(tickerBody.slice(0, tickerBody.indexOf("export function ShopperClockProvider")))
+      .not.toContain("elapsedHighWater");
   });
 
   it("inherits the instant at first render rather than starting a new one", () => {

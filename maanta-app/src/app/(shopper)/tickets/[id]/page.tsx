@@ -10,7 +10,7 @@ import { IconCheck } from "@/components/ui/icons";
 import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
 import { ExpiryGate } from "@/components/shopper/expiry-gate";
-import { FastShopperClock } from "@/components/shopper/fast-shopper-clock";
+import { FastShopperClock } from "@/lib/use-shopper-clock";
 import { LiveTimeLabel } from "@/components/shopper/live-time-label";
 import { ClaimedCode } from "./claimed-code";
 import { FastVisitPanel } from "./fast-visit-panel";

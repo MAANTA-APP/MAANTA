@@ -26,6 +26,8 @@ export const SHOPPER_CLOCK_INTERVAL_MS = 30_000;
 
 const ShopperClockContext = createContext<Date | null>(null);
 const ShopperClockSeedContext = createContext<Date | null>(null);
+/** The one clock on the page. Subtrees sample it faster; none creates another. */
+const ShopperClockReaderContext = createContext<ShopperClockReader | null>(null);
 
 /**
  * Drives the shared instant forward, in SERVER time.
@@ -76,13 +78,24 @@ const ShopperClockSeedContext = createContext<Date | null>(null);
  * agrees with every other and all of them are wrong — which no render
  * comparison can detect, because both passes produce the same wrong output.
  *
+ * It TICKS a clock; it does not own one. The origin lives in the reader it is
+ * given, so several cadences can drive the same clock.
+ *
  * Returns its own teardown.
  */
-export function startShopperClock(
-  intervalMs: number,
-  onTick: (now: Date) => void,
-  seed: Date
-): () => void {
+export type ShopperClockReader = () => Date;
+
+/**
+ * The clock ITSELF: one origin, one high-water mark, readable at any moment.
+ *
+ * Separating this from the ticking is the whole point. A subtree that needs a
+ * faster cadence must sample the SAME clock more often, never start a second
+ * one — two origins drift apart the instant they are created at different
+ * times, and a child created between the parent's ticks silently inherits
+ * whatever staleness the parent's last tick had. There is one origin per page
+ * and every cadence reads it.
+ */
+export function makeShopperClockReader(seed: Date): ShopperClockReader {
   const base = seed.getTime();
   const monotonicStart = performance.now();
   const wallStart = Date.now();
@@ -91,18 +104,27 @@ export function startShopperClock(
   // jumps an hour forward and is then corrected would emit base+1h and then
   // fall back to the monotonic delta, rewinding almost the whole hour and
   // resurrecting every deal and ticket that expired in it. Elapsed time may
-  // only ever increase.
+  // only ever increase. It lives HERE, not per timer, so a faster subtree and
+  // the screen around it can never hold different marks.
   let elapsedHighWater = 0;
 
-  const tick = () => {
+  return () => {
     const elapsed = Math.max(
       performance.now() - monotonicStart,
       Date.now() - wallStart,
       0
     );
     if (elapsed > elapsedHighWater) elapsedHighWater = elapsed;
-    onTick(new Date(base + elapsedHighWater));
+    return new Date(base + elapsedHighWater);
   };
+}
+
+export function startShopperClock(
+  intervalMs: number,
+  onTick: (now: Date) => void,
+  read: ShopperClockReader
+): () => void {
+  const tick = () => onTick(read());
 
   // Immediate, so the clock is demonstrably live from the first effect rather
   // than one interval later. It runs after the hydration commit, so the tree
@@ -166,15 +188,76 @@ export function ShopperClockProvider({
   // Keyed on the string so the identity is stable across re-renders; a fresh
   // `Date` object each render would restart the effect below.
   const seed = useMemo(() => new Date(serverNow), [serverNow]);
+  // One origin for the whole page, created once. `FastShopperClock` samples
+  // THIS, rather than starting a clock of its own.
+  const [read] = useState(() => makeShopperClockReader(seed));
   const [now, setNow] = useState(seed);
 
-  useEffect(() => startShopperClock(intervalMs, setNow, seed), [intervalMs, seed]);
+  useEffect(() => startShopperClock(intervalMs, setNow, read), [intervalMs, read]);
+
+  return (
+    <ShopperClockReaderContext.Provider value={read}>
+      <ShopperClockSeedContext.Provider value={seed}>
+        <ShopperClockContext.Provider value={now}>{children}</ShopperClockContext.Provider>
+      </ShopperClockSeedContext.Provider>
+    </ShopperClockReaderContext.Provider>
+  );
+}
+
+/**
+ * A faster cadence for one subtree, on the SAME clock.
+ *
+ * The ticket screen needs 1s, not 30s: its countdown is deliberately fast, so a
+ * screenshot of a code is visibly stale. Running the credential at 1s and the
+ * screen around it at 30s left up to ~29 seconds where the code read "this code
+ * has expired" beside a CLAIMED chip and a live watcher. Two correct clocks at
+ * different cadences are still two clocks.
+ *
+ * So this does NOT create a clock. It reads the page's one origin — same base,
+ * same elapsed high-water mark — and merely samples it every second. That is
+ * the difference between a cadence and a clock, and getting it wrong produced
+ * two separate defects: seeding from the layout's immutable seed rewound a
+ * late mount by however long the shopper had been in the app, and then sampling
+ * the parent's last TICK lost up to a full parent interval permanently, because
+ * a sampled value used as an origin can only ever be as fresh as that sample.
+ *
+ * The initial value is the parent's instant so the first render is unchanged —
+ * during SSR and hydration the parent has not ticked, so that IS the seed and
+ * the structural guarantee holds; on a later mount the parent has ticked, and
+ * reading the clock directly avoids one frame of stale credential.
+ */
+export function FastShopperClock({
+  intervalMs = 1000,
+  children,
+}: {
+  intervalMs?: number;
+  children: ReactNode;
+}) {
+  const read = useShopperClockReader();
+  const seed = useShopperClockSeed();
+  const parentNow = useShopperClock();
+  const [now, setNow] = useState(() =>
+    parentNow.getTime() === seed.getTime() ? seed : read()
+  );
+
+  useEffect(() => startShopperClock(intervalMs, setNow, read), [intervalMs, read]);
 
   return (
     <ShopperClockSeedContext.Provider value={seed}>
       <ShopperClockContext.Provider value={now}>{children}</ShopperClockContext.Provider>
     </ShopperClockSeedContext.Provider>
   );
+}
+
+/** The page's one clock, readable at any instant. */
+export function useShopperClockReader(): ShopperClockReader {
+  const read = useContext(ShopperClockReaderContext);
+  if (!read) {
+    throw new Error(
+      "useShopperClockReader requires <ShopperClockProvider> (D213)."
+    );
+  }
+  return read;
 }
 
 /**
