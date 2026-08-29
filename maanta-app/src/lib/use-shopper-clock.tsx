@@ -28,22 +28,46 @@ const ShopperClockContext = createContext<Date | null>(null);
 const ShopperClockSeedContext = createContext<Date | null>(null);
 
 /**
- * Drives the shared instant forward. Split out of the provider's effect so the
- * advancing behaviour is directly testable: a seeded clock that never moves is
- * uniformly stale — every element agrees with every other and all of them are
- * wrong — which no render comparison can detect, because both render passes
- * produce the same wrong output.
+ * Drives the shared instant forward, in SERVER time.
  *
- * Returns its own teardown. The first tick is immediate rather than one
- * interval away: this runs from an effect, so hydration has already committed,
- * and the seed is by then as old as the response took to reach the browser.
+ * It advances the seed by elapsed **monotonic** time and never reads the
+ * device's wall clock. That is the whole point: deadlines are evaluated by the
+ * database in server time, and now that the clock decides claimability,
+ * Active/Past membership and discovery membership, a device whose clock is
+ * wrong would not merely mislabel a countdown — it would withdraw a claim the
+ * database would still accept, or keep advertising a deal the database has
+ * already expired. A shopper with a fast phone would be shown fewer deals than
+ * exist. Reading `new Date()` here silently replaces the authority with the
+ * least trustworthy clock in the system.
+ *
+ * `performance.now()` is monotonic and unaffected by the user changing their
+ * clock or by NTP steps, so elapsed time is measured honestly even when the
+ * absolute wall clock is not.
+ *
+ * The residual error is the response's transit time, which the seed cannot
+ * know and this does not try to guess — sub-second, bounded, and in the safe
+ * direction (very slightly behind the server) rather than unbounded skew.
+ *
+ * Split out of the provider's effect so the advancing behaviour is directly
+ * testable: a seeded clock that never moves is uniformly stale — every element
+ * agrees with every other and all of them are wrong — which no render
+ * comparison can detect, because both passes produce the same wrong output.
+ *
+ * Returns its own teardown.
  */
 export function startShopperClock(
   intervalMs: number,
-  onTick: (now: Date) => void
+  onTick: (now: Date) => void,
+  seed: Date
 ): () => void {
-  onTick(new Date());
-  const timer = setInterval(() => onTick(new Date()), intervalMs);
+  const base = seed.getTime();
+  const startedAt = performance.now();
+  const tick = () => onTick(new Date(base + (performance.now() - startedAt)));
+  // Immediate, so the clock is demonstrably live from the first effect rather
+  // than one interval later. It runs after the hydration commit, so the tree
+  // React reconciled against the server HTML is still the seeded one.
+  tick();
+  const timer = setInterval(tick, intervalMs);
   return () => clearInterval(timer);
 }
 
@@ -69,7 +93,9 @@ export function startShopperClock(
  *
  * It then advances only after hydration, from this one timer — effects run
  * after the hydration commit, so the tree React reconciles against the server
- * HTML is still the seeded one.
+ * HTML is still the seeded one — and it advances in SERVER time, by elapsed
+ * monotonic time rather than by reading the device's wall clock. See
+ * `startShopperClock`.
  */
 export function ShopperClockProvider({
   serverNow,
@@ -85,7 +111,7 @@ export function ShopperClockProvider({
   const seed = useMemo(() => new Date(serverNow), [serverNow]);
   const [now, setNow] = useState(seed);
 
-  useEffect(() => startShopperClock(intervalMs, setNow), [intervalMs, seed]);
+  useEffect(() => startShopperClock(intervalMs, setNow, seed), [intervalMs, seed]);
 
   return (
     <ShopperClockSeedContext.Provider value={seed}>

@@ -531,19 +531,27 @@ describe("criterion 3 — the first client render agrees with the server render"
 });
 
 describe("criterion 3 — a shared instant is worthless unless it advances", () => {
+  // `performance` must be faked alongside the timers: the clock advances by
+  // elapsed MONOTONIC time, so without it `advanceTimersByTime` would move the
+  // timers and the wall clock while elapsed time stood still.
+  const fakeClock = () =>
+    vi.useFakeTimers({
+      toFake: ["setInterval", "clearInterval", "Date", "performance"],
+    });
+
   // The counterexample the whole design has to survive: one clock, threaded
   // everywhere, that never moves. Every element agrees with every other and
   // all of them are wrong. No render comparison can see it — both passes
   // produce the same stale output — so the advancing behaviour is asserted
   // directly.
   it("ticks once immediately, then on every interval", () => {
-    vi.useFakeTimers();
+    fakeClock();
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d));
-      // Immediate, because by the time this runs hydration has committed and
-      // the seed is already as old as the response took to arrive.
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      // Immediate, so the clock is demonstrably live from the first effect
+      // rather than one interval later.
       expect(ticks).toHaveLength(1);
       expect(ticks[0].getTime()).toBe(T0.getTime());
 
@@ -557,14 +565,37 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     }
   });
 
+  it("advances the SERVER seed, never the device's wall clock", () => {
+    // Deadlines are evaluated by the database in server time. Now that the
+    // clock decides claimability and membership, a wrong device clock would
+    // withdraw a claim the database would still accept, or keep advertising a
+    // deal it has already expired — a shopper with a fast phone would simply
+    // be shown fewer deals than exist.
+    fakeClock();
+    try {
+      // The device is two hours ahead of the server.
+      vi.setSystemTime(at(120 * MIN));
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
+      expect(ticks[0].getTime()).toBe(T0.getTime());
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 2);
+      // Elapsed time is honoured; the device's absolute clock is not.
+      expect(ticks[2].getTime()).toBe(T0.getTime() + SHOPPER_CLOCK_INTERVAL_MS * 2);
+      expect(ticks[2].getTime()).toBeLessThan(at(120 * MIN).getTime());
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("runs exactly one timer and stops it on teardown", () => {
     // A second timer per element is the other failure mode: a feed of cards
     // waking dozens of times a minute while claiming to share one clock.
-    vi.useFakeTimers();
+    fakeClock();
     try {
       vi.setSystemTime(T0);
       const ticks: Date[] = [];
-      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d));
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d), T0);
       vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 10);
       expect(ticks).toHaveLength(11);
       stop();
@@ -580,7 +611,10 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     // Wiring, for the same reason the card's `now={now}` is asserted on the
     // wiring: an advancing helper nothing calls proves nothing.
     const clock = read("lib/use-shopper-clock.tsx");
-    expect(clock).toContain("startShopperClock(intervalMs, setNow)");
+    expect(clock).toContain("startShopperClock(intervalMs, setNow, seed)");
+    // ...and it must not reach for the device's wall clock anywhere.
+    expect(clock).not.toMatch(/onTick\(new Date\(\)\)/);
+    expect(clock).toContain("performance.now()");
     expect(clock).toContain("useState(seed)");
   });
 });
