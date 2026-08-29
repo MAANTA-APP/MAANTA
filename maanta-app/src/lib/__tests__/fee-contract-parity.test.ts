@@ -192,6 +192,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "reversal-posted-before-verification",
       "reversal-without-an-original-fee",
       "fee-row-with-no-redemption-parent",
+      "unparented-fee-with-an-unplaceable-timestamp",
       "flagged-success-still-counts-and-its-reversal-reduces-net",
       "flagged-success-counts-before-its-reversal-lands",
       "unplaceable-fee-on-an-older-redemption-still-surfaces",
@@ -342,6 +343,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "reversal-posted-before-verification",
       "reversal-without-an-original-fee",
       "second-reversal-riding-on-an-existing-audit-row",
+      "unparented-fee-with-an-unplaceable-timestamp",
       "unplaceable-fee-on-an-older-redemption-still-surfaces",
     ]);
     for (const c of gaps) {

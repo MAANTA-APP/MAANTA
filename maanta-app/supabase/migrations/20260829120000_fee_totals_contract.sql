@@ -500,9 +500,16 @@ BEGIN
        AND NOT t.is_demo
        AND NOT m.is_demo
        AND (NOT p_scoped OR t.merchant_id = ANY (p_merchant_ids))
-       AND isfinite(t.created_at)
-       AND t.created_at >= p_since
-       AND (p_until IS NULL OR t.created_at < p_until)
+       -- Placement follows the same three-valued rule as `touched`: a row
+       -- whose timestamp cannot be placed belongs to NO window, so every
+       -- window has to surface it. Requiring isfinite() here was how an
+       -- unparented row at `infinity` escaped BOTH validation paths at once --
+       -- it cannot reach `classified` either, having no parent to join
+       -- through -- and the report answered an available zero over money that
+       -- had moved.
+       AND (NOT isfinite(t.created_at)
+            OR (t.created_at >= p_since
+                AND (p_until IS NULL OR t.created_at < p_until)))
        AND NOT EXISTS (
          SELECT 1 FROM public.redemptions r WHERE r.id = t.reference_id
        )

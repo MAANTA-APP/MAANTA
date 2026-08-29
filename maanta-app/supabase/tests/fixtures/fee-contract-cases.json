@@ -396,6 +396,17 @@
       "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and aggregateLedgerFees drops a row whose reference is not genuine, so an unparented fee is invisible to both. B2b must count it instead of dropping it."
     },
     {
+      "id": "unparented-fee-with-an-unplaceable-timestamp",
+      "description": "The unparented row and the unplaceable row in the same movement: no redemption parent AND created_at = infinity. It cannot reach the classified join — there is nothing to join through — so the only path that can see it is the unparented count, and a window predicate requiring isfinite() dropped it from that too. Both validation paths missed one row, and the debited merchant's report answered an available zero. No window owns an unplaceable timestamp, so every window must surface it.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "infinity", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and never fetches a non-finite timestamp, so an unparented unplaceable fee is doubly invisible to TypeScript. B2b must count it instead of dropping it."
+    },
+    {
       "id": "flagged-success-still-counts-and-its-reversal-reduces-net",
       "description": "Founder ruling 2026-08-29: status = success is the authoritative financial event. fraud_flags and review_required are mutable review metadata and do not independently remove an otherwise successful redemption from earned-fee totals. Adjudication that invalidates the fee corrects it through an explicit fee_reversal, which reduces net in the window its own movement falls in.",
       "redemptions": [
