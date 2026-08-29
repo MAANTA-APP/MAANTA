@@ -1,5 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
+
+// These fixtures are dated. D213 made every discovery collection withdraw
+// expired deals on the shared clock, so the seed is pinned to the fixtures'
+// own era — this file is about the CATEGORY filter, and evaluating them at the
+// wall clock would empty the list for an unrelated and correct reason.
+const AT = new Date("2026-08-19T12:00:00Z");
+const renderAt = (node: Parameters<typeof renderShopperTree>[0]) =>
+  renderShopperTree(node, AT);
 import { createElement } from "react";
 
 vi.mock("next/navigation", () => ({
@@ -89,7 +99,7 @@ const base = {
 };
 
 const render = (category: "all" | "food" | "fashion") =>
-  renderToStaticMarkup(
+  renderAt(
     createElement(BrowseClient, { ...base, deals: DEALS, category })
   );
 
@@ -128,7 +138,7 @@ describe("an empty category does not claim the mall is empty", () => {
   const foodOnly = [deal("1", "food", "Sambusa platter")];
 
   it("names the category and offers the way back", () => {
-    const html = renderToStaticMarkup(
+    const html = renderAt(
       createElement(BrowseClient, { ...base, deals: foodOnly, category: "fashion" })
     );
     expect(html).toContain("fashion");
@@ -136,7 +146,7 @@ describe("an empty category does not claim the mall is empty", () => {
   });
 
   it("does not blame the merchant when a category emptied the favourites view", () => {
-    const html = renderToStaticMarkup(
+    const html = renderAt(
       createElement(BrowseClient, {
         ...base,
         deals: foodOnly,

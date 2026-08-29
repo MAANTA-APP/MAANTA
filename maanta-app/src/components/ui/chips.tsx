@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn, isNearExpiry } from "@/lib/ui";
 import { getDealExpiryState } from "@/lib/deal-expiry";
+import {
+  useOptionalShopperClock,
+  useUnseededClock,
+} from "@/lib/use-shopper-clock";
 import { IconLock } from "@/components/ui/icons";
 
 /**
@@ -172,25 +175,61 @@ export function PlanChip({
 }
 
 /** 2c Countdown chip — deal expiry + 15-minute grace; ticks every 30s. */
-export function CountdownChip({
-  expiresAt,
-  className,
-}: {
+type CountdownChipProps = {
   expiresAt: string | null;
   className?: string;
-}) {
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => forceTick((n) => n + 1), 30_000);
-    return () => clearInterval(t);
-  }, []);
+};
+
+/**
+ * D213 criterion 3 — the chip never reads a clock of its own where a shared one
+ * exists.
+ *
+ * Three sources, in order: an explicit `now` from a caller that renders other
+ * time-derived elements beside this chip; otherwise the server-seeded shopper
+ * clock, which every `(shopper)` route mounts; otherwise an unseeded local
+ * clock, which today means only the merchant deal page. Context presence is
+ * identical on the server and in the browser, so choosing between the branches
+ * cannot itself cause a hydration mismatch.
+ *
+ * The unseeded path is the only one whose first client render can differ from
+ * the server's, so it — and only it — suppresses the warning on its text.
+ */
+export function CountdownChip({
+  now,
+  ...props
+}: CountdownChipProps & { now?: Date }) {
+  const shared = useOptionalShopperClock();
+  const instant = now ?? shared;
+  if (instant) return <CountdownChipView {...props} now={instant} />;
+  return <SelfTickingCountdownChip {...props} />;
+}
+
+/**
+ * Separate component on purpose: calling the ticking hook inside
+ * `CountdownChip` would start an interval for every seeded chip too, waking and
+ * re-rendering it every 30s on a timestamp it ignores. A feed of cards would
+ * accumulate dozens of redundant timers while claiming to share one.
+ */
+function SelfTickingCountdownChip(props: CountdownChipProps) {
+  const now = useUnseededClock();
+  return <CountdownChipView {...props} now={now} unseeded />;
+}
+
+function CountdownChipView({
+  expiresAt,
+  className,
+  now,
+  unseeded = false,
+}: CountdownChipProps & { now: Date; unseeded?: boolean }) {
+  const at = now;
   if (!expiresAt) return null;
-  const { status, displayText } = getDealExpiryState(expiresAt);
+  const { status, displayText } = getDealExpiryState(expiresAt, at);
   if (!displayText) return null;
-  const near = status === "live" && isNearExpiry(expiresAt);
+  const near = status === "live" && isNearExpiry(expiresAt, at);
   const urgent = status === "in_grace" || near;
   return (
     <span
+      suppressHydrationWarning={unseeded}
       className={cn(
         "tnum inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
         status === "expired"

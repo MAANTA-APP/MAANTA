@@ -16,6 +16,7 @@ import {
 import type { DealRow } from "@/lib/data";
 import { IconPin, IconSearch } from "@/components/ui/icons";
 import { inputClass } from "@/components/ui/inputs";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 const BrowseMap = dynamic(
   () => import("@/components/browse/browse-map").then((m) => m.BrowseMap),
@@ -65,8 +66,12 @@ export function MapClient({
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const onBounds = useCallback((b: MapBounds) => setBounds(b), []);
 
+  // D213 criterion 3 — the shared clock, so a pin and its list row disappear
+  // together when the deal expires while the map is open.
+  const now = useShopperClock();
+
   const filtered = useMemo(() => {
-    const base = filterBrowseDeals(deals, { rail, time, bounds });
+    const base = filterBrowseDeals(deals, { rail, time, bounds, now });
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter(
@@ -74,7 +79,7 @@ export function MapClient({
         d.title.toLowerCase().includes(q) ||
         (d.merchants?.merchant_name ?? "").toLowerCase().includes(q)
     );
-  }, [deals, rail, time, bounds, query]);
+  }, [deals, rail, time, bounds, query, now]);
 
   const pins = useMemo(() => dealsToPins(filtered), [filtered]);
 

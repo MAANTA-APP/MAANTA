@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { IconCheck } from "@/components/ui/icons";
 import {
   fastVisitDeadline,
   formatArrivalDuration,
   formatRewardCountdown,
 } from "@/lib/fast-visit-window";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 /**
  * The Fast Visit reward window on the claimed ticket — deliberately SECONDARY
@@ -37,15 +37,10 @@ export function FastVisitPanel({
   qualifiedAt: string | null;
 }) {
   const deadline = fastVisitDeadline(claimedAt);
-  const [now, setNow] = useState(() => Date.now());
-  const windowOpen =
-    deadline !== null && arrivedAt === null && deadline.getTime() - now > 0;
-
-  useEffect(() => {
-    if (!windowOpen) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [windowOpen]);
+  // D213 — the ticket subtree's single 1s instant (FastShopperClock). The
+  // cadence is deliberate and unchanged; what changed is that the whole screen
+  // now shares it, so this window and the credential beside it cannot disagree.
+  const now = useShopperClock().getTime();
 
   // Historical claim with no recorded claim time: no window ever existed.
   if (!deadline || !claimedAt) return null;

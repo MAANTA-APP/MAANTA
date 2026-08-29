@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -11,10 +10,14 @@ import {
   SHOPPER_LIST_READ_ERROR,
 } from "@/lib/shopper-read-state";
 import { ShopCard } from "@/components/ui/cards";
-import { CountdownChip, ClaimChip } from "@/components/ui/chips";
+
 import { isFastVisitEnabled } from "@/lib/fast-visit";
 import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
-import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
+import {
+  MyDealsList,
+  type MyDealsSort,
+  type MyDealsTicket,
+} from "@/components/shopper/my-deals-list";
 import { FavouriteButton } from "@/components/favourite-button";
 import {
   Body,
@@ -27,30 +30,6 @@ import { MyDealsControls } from "./my-deals-controls";
 
 export const dynamic = "force-dynamic";
 
-type SortKey = "newest" | "ending" | "redeemed";
-
-function sortRedemptions<T extends { expires_at: string; redeemed_at: string | null }>(
-  rows: T[],
-  sort: SortKey
-): T[] {
-  const copy = [...rows];
-  if (sort === "ending") {
-    return copy.sort(
-      (a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime()
-    );
-  }
-  if (sort === "redeemed") {
-    return copy.sort((a, b) => {
-      const ar = a.redeemed_at ? new Date(a.redeemed_at).getTime() : 0;
-      const br = b.redeemed_at ? new Date(b.redeemed_at).getTime() : 0;
-      return br - ar;
-    });
-  }
-  return copy.sort(
-    (a, b) => new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime()
-  );
-}
-
 /** 8l My deals (claimed) + 8ab Favourites (Shops tab) + 8t empty. */
 export default async function MyDealsPage({
   searchParams,
@@ -62,7 +41,7 @@ export default async function MyDealsPage({
 
   const tab = searchParams.tab === "shops" ? "shops" : "deals";
   const when = searchParams.when === "past" ? "past" : "active";
-  const sort = (searchParams.sort as SortKey) ?? "newest";
+  const sort = (searchParams.sort as MyDealsSort) ?? "newest";
   const service = createServiceClient();
 
   const tabLinks = (
@@ -167,13 +146,26 @@ export default async function MyDealsPage({
     deals: { title: string; expires_at: string | null } | null;
   }[];
 
-  const now = new Date();
-  const isActive = (r: (typeof rows)[number]) =>
-    r.status === "pending" && new Date(r.expires_at) > now;
-  const shown = sortRedemptions(
-    rows.filter((r) => (when === "active" ? isActive(r) : !isActive(r))),
-    sort
-  );
+  // D213 criterion 3 — this page does not read a clock. Which segment holds a
+  // ticket is time-derived, so partitioning it here would freeze Active/Past
+  // membership at render time; the whole already-authorised set is handed to
+  // the client collection, which decides membership on the shared clock. No
+  // refetch is involved: these are the same rows, classified at the right
+  // moment instead of the wrong one.
+  const tickets: MyDealsTicket[] = rows.map((r) => ({
+    id: r.id,
+    href: `/tickets/${r.id}`,
+    code: formatCode(r.otp_code),
+    status: r.status,
+    expiresAt: r.expires_at,
+    redeemedAt: r.redeemed_at,
+    claimedAt: r.claimed_at,
+    arrivedAt: r.arrived_at,
+    qualifiedAt: r.fast_visit_qualified_at,
+    countdownExpiresAt: r.deals?.expires_at ?? r.expires_at,
+    merchantName: r.merchants?.merchant_name ?? null,
+    dealTitle: r.deals?.title ?? null,
+  }));
 
   return (
     <Page className="px-0 pt-6">
@@ -204,68 +196,14 @@ export default async function MyDealsPage({
             title={SHOPPER_LIST_READ_ERROR.title}
             sub={SHOPPER_LIST_READ_ERROR.sub}
           />
-        ) : shown.length === 0 ? (
-          // Past-tab copy must not claim the shopper has never claimed — they
-          // may hold active tickets on the other segment.
-          <EmptyState
-            title={when === "past" ? "No past deals" : "No claimed deals yet"}
-            sub={
-              when === "past"
-                ? "Redeemed and expired deals will show here."
-                : undefined
-            }
-            actionLabel="Browse deals"
-            actionHref="/feed"
-          />
         ) : (
-          <div className="space-y-3">
-            {shown.map((r) => {
-              const isActiveRow = r.status === "pending" && new Date(r.expires_at) > now;
-              const state = isActiveRow
-                ? "active"
-                : r.status === "success"
-                  ? "redeemed"
-                  : "expired";
-              const fastVisitLabel = fastVisitChipLabel(
-                fastVisitChipState({
-                  featureEnabled: fastVisitOn,
-                  status: r.status,
-                  claimedAt: r.claimed_at,
-                  arrivedAt: r.arrived_at,
-                  qualifiedAt: r.fast_visit_qualified_at,
-                  windowMinutes: FAST_VISIT_WINDOW_MINUTES,
-                })
-              );
-              return (
-                <Link
-                  key={r.id}
-                  href={`/tickets/${r.id}`}
-                  className="flex items-center gap-3 rounded-card bg-white px-4 py-4 shadow-card hover:bg-stone-soft/60"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-ink">
-                      {r.merchants?.merchant_name}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{r.deals?.title}</p>
-                    <p className="tnum mt-1 text-xs text-secondary">
-                      <span className="font-code tracking-[0.06em]">
-                        {formatCode(r.otp_code)}
-                      </span>
-                    </p>
-                    {fastVisitLabel ? (
-                      <span className="mt-1.5 inline-flex items-center rounded-full bg-cream px-2.5 py-0.5 text-[11px] font-semibold text-secondary">
-                        {fastVisitLabel}
-                      </span>
-                    ) : null}
-                    {isActiveRow ? (
-                      <CountdownChip expiresAt={r.deals?.expires_at ?? r.expires_at} className="mt-1.5" />
-                    ) : null}
-                  </div>
-                  <ClaimChip state={state} className="flex-none" />
-                </Link>
-              );
-            })}
-          </div>
+          <MyDealsList
+            tickets={tickets}
+            when={when}
+            sort={sort}
+            featureEnabled={fastVisitOn}
+            windowMinutes={FAST_VISIT_WINDOW_MINUTES}
+          />
         )}
       </Section>
     </Page>

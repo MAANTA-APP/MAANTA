@@ -8,13 +8,9 @@ import {
 } from "@/components/ui/claude";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
 import { EmptyState } from "@/components/ui/states";
-import {
-  filterBrowseDeals,
-  type BrowseChipFilter,
-} from "@/lib/browse";
+import { filterBrowseDeals, type BrowseChipFilter } from "@/lib/browse";
 import type { DealRow } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
-import { dealExpiryLabel } from "@/lib/browse";
 import {
   filterDealRowsByRail,
   sortDealRows,
@@ -27,6 +23,8 @@ import { inputClass } from "@/components/ui/inputs";
 import { BrowseControls } from "@/app/(shopper)/browse/browse-controls";
 import { BrowseChips } from "@/app/(shopper)/browse/browse-chips";
 import { DealCategoryChips } from "@/components/browse/deal-category-chips";
+import { liveDealsAt } from "@/lib/live-deals";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 import {
   dealCategoryLabel,
   filterDealsByCategory,
@@ -122,6 +120,11 @@ export function BrowseClient({
     [query]
   );
 
+  // D213 criterion 3 — the shared clock, so `filterBrowseDeals` withdraws a
+  // deal that expires while /browse sits open. It is the same predicate the
+  // server query already applied; only the instant it is evaluated at changes.
+  const now = useShopperClock();
+
   const listDeals = useMemo(() => {
     const base = filterBrowseDeals(
       filterDealsByCategory(filterDealRowsByRail(deals, filter), category),
@@ -129,15 +132,19 @@ export function BrowseClient({
         rail: "all",
         chip,
         favouriteMerchantIds: favSet,
+        now,
       }
     );
     return sortDealRows(applySearch(base), sort, origin);
-  }, [deals, filter, category, chip, favSet, sort, origin, applySearch]);
+  }, [deals, filter, category, chip, favSet, sort, origin, applySearch, now]);
 
   // True when this node has live deals but none in the chosen category, so the
   // empty state can say which filter emptied the list instead of guessing.
+  // Both sides read the current time: once every deal has expired the answer is
+  // "nothing is live", not "your category emptied it".
+  const stillLive = liveDealsAt(deals, now);
   const categoryEmptied =
-    deals.length > 0 && filterDealsByCategory(deals, category).length === 0;
+    stillLive.length > 0 && filterDealsByCategory(stillLive, category).length === 0;
 
   const empty = browseEmptyState({
     chip,
@@ -226,7 +233,6 @@ export function BrowseClient({
                   merchantName={d.merchants?.merchant_name ?? ""}
                   mallName={d.merchants?.mall_name ?? d.node}
                   title={d.title}
-                  expiryLabel={dealExpiryLabel(d.expires_at)}
                   distanceLabel={distanceLabel}
                   pay={pricing.pay}
                   wasKes={pricing.was}

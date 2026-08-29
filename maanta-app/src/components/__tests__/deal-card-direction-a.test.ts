@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { describe, expect, it, vi } from "vitest";
 
 /**
@@ -43,7 +45,7 @@ const baseProps = {
 type Variant = NonNullable<Parameters<typeof DealCard>[0]["variant"]>;
 
 const render = (variant: Variant, extra: Record<string, unknown> = {}) =>
-  renderToStaticMarkup(createElement(DealCard, { ...baseProps, ...extra, variant }));
+  renderShopperTree(createElement(DealCard, { ...baseProps, ...extra, variant }));
 
 /** Class list of the element whose text starts the KES 1,200 figure. */
 const moneyClass = (html: string): string => {
@@ -111,15 +113,30 @@ describe("Direction A DealCard variants", () => {
   });
 
   it("the feed wires lead to the first flash deal and rows to the standard list", () => {
+    // D213 moved rail membership into a client collection so an expired deal
+    // leaves its rail. The lead/rows wiring came with it: the page still
+    // DECLARES which rail leads and which draws as rows, and the collection
+    // applies it to whichever members are still live. Same invariants, two
+    // homes — including that the lead is position 1 of the flash rail, which is
+    // now "the first surviving member" rather than a frozen index.
     const src = readFileSync(
       path.resolve(__dirname, "../../app/(shopper)/feed/page.tsx"),
       "utf8"
     );
-    expect(src).toContain('variant="lead"');
-    expect(src).toContain("flashDeals[0]");
-    expect(src).toContain("flashDeals.slice(1)");
-    expect(src).toContain('variant="row"');
-    // The vertical stack of image cards must not silently return to rail 3.
+    const collection = readFileSync(
+      path.resolve(__dirname, "../shopper/live-deal-collection.tsx"),
+      "utf8"
+    );
+    // The page declares it, on the flash rail and the standard rail.
+    expect(src).toMatch(/lead\n\s*items=\{items\(flashDeals, "flash"\)\}/);
+    expect(src).toContain('cardVariant="row"');
+    expect(src).toContain('items={items(nearDeals, "standard")}');
+    // The collection applies it.
+    expect(collection).toContain('variant="lead"');
+    expect(collection).toContain("const [first, ...rest] = live");
+    // The vertical stack of image cards must not silently return to rail 3,
+    // in either file.
     expect(src).not.toContain('variant="vertical"');
+    expect(collection).not.toContain('variant="vertical"');
   });
 });

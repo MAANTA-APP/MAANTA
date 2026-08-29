@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// The ticket timers seed from the server instant and throw without the
+// provider, so these harnesses mount the same one a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 import { ClaimedCode } from "@/app/(shopper)/tickets/[id]/claimed-code";
 
@@ -18,7 +20,7 @@ const MIN = 60 * SEC;
 const HOUR = 60 * MIN;
 
 function render(expiresInMs: number) {
-  return renderToStaticMarkup(
+  return renderShopperTree(
     createElement(ClaimedCode, {
       code: "136456",
       expiresAt: new Date(Date.now() + expiresInMs).toISOString(),

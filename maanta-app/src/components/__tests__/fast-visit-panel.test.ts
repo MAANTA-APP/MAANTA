@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// The ticket timers seed from the server instant and throw without the
+// provider, so these harnesses mount the same one a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 import { FastVisitPanel } from "@/app/(shopper)/tickets/[id]/fast-visit-panel";
 
@@ -19,7 +21,7 @@ function render(
   arrivedAt: string | null,
   qualifiedAt: string | null = null
 ) {
-  return renderToStaticMarkup(
+  return renderShopperTree(
     createElement(FastVisitPanel, { claimedAt, arrivedAt, qualifiedAt })
   );
 }

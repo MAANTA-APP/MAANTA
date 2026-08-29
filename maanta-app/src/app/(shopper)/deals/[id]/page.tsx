@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
-import { dealPricing, chargeAmount, extrasLine } from "@/lib/pricing";
+import { dealPricing } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { isDealClaimable } from "@/lib/deal-expiry";
@@ -11,6 +11,9 @@ import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/ch
 import { IconCheck, IconPin } from "@/components/ui/icons";
 import { ButtonLink, StickyCtaBar } from "@/components/ui/button";
 import { BackIconButton } from "@/components/ui/claude";
+import { ClaimGate } from "@/components/shopper/claim-gate";
+import { ExpiryGate } from "@/components/shopper/expiry-gate";
+import { DealPriceDetail } from "./deal-price-detail";
 import { ClaimFlow } from "./claim-flow";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +36,15 @@ export default async function DealDetailPage({
   // If this shopper already holds a live ticket, surface it — especially when
   // the merchant has since paused the deal (ticket stays valid until expiry).
   let existingTicketId: string | null = null;
+  let existingTicketExpiresAt: string | null = null;
   if (user) {
     const service = createServiceClient();
     const { data: existing } = await service
       .from("redemptions")
-      .select("id")
+      // `expires_at` is SELECTED, not only filtered on: the CTA it drives is
+      // time-derived, and a page left open past the ticket's own deadline kept
+      // offering "View your ticket" for a ticket that had died (D213).
+      .select("id, expires_at")
       .eq("user_id", user.id)
       .eq("deal_id", deal.id)
       .eq("status", "pending")
@@ -64,6 +71,8 @@ export default async function DealDetailPage({
       .limit(1)
       .maybeSingle();
     existingTicketId = existing?.id ?? null;
+    existingTicketExpiresAt =
+      (existing as { expires_at?: string | null } | null)?.expires_at ?? null;
   }
 
   // Most viewers here are signed out — browsing does not require an account. By
@@ -91,6 +100,33 @@ export default async function DealDetailPage({
     deal.max_claims != null && deal.claims_count >= deal.max_claims;
   const m = deal.merchants;
   const { pay, was, extras, charges } = dealPricing(deal);
+
+  // One ended state, shared by the branch that starts there and the branch the
+  // clock sends there, so a CTA withdrawn on an open page lands on exactly what
+  // a fresh render would have shown — fully-claimed and paused wordings
+  // included.
+  const endedCta = (
+        <StickyCtaBar>
+          <div className="space-y-2.5">
+            <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
+              {fullyClaimed
+                ? "Fully claimed"
+                : paused
+                  ? "Deal paused by merchant"
+                  : "Deal ended"}
+            </div>
+            {paused ? (
+              <p className="text-center text-xs text-muted">
+                No new claims while paused. Already-claimed tickets remain in My
+                deals until expiry.
+              </p>
+            ) : null}
+            <ButtonLink href="/feed" variant="ghost" full>
+              See similar deals
+            </ButtonLink>
+          </div>
+        </StickyCtaBar>
+  );
 
   return (
     <main className="pb-28">
@@ -168,57 +204,16 @@ export default async function DealDetailPage({
           ) : null}
         </section>
 
-        {pay != null && (!claimable || extras > 0) ? (
-          <div className="mt-5">
-            {/* Direction A: on a claimable deal the figure lives in the
-                anchored decision bar beside the action, so it is not repeated
-                here. When the deal cannot be claimed there is no bar, and the
-                shopper still has to be able to see what it costs. The itemised
-                breakdown below is detail-only either way (frozen rule 7). */}
-            {!claimable ? (
-              <>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
-                  You pay
-                </div>
-                <div className="tnum text-2xl font-bold text-ink">
-                  KES {pay.toLocaleString("en-KE")}
-                </div>
-                {extras > 0 ? (
-                  <div className="tnum mt-0.5 text-sm text-secondary">{extrasLine(extras)}</div>
-                ) : null}
-                {was != null ? (
-                  <div className="tnum text-sm text-secondary line-through">
-                    Was KES {was.toLocaleString("en-KE")}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-
-            {extras > 0 && deal.price_kes != null ? (
-              <div className="mt-3 flex flex-col gap-2 rounded-card bg-white shadow-card p-3.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-secondary">Deal price</span>
-                  <span className="tnum font-medium">
-                    KES {Math.round(deal.price_kes).toLocaleString("en-KE")}
-                  </span>
-                </div>
-                {charges.map((c, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span className="text-secondary">{c.label}</span>
-                    <span className="tnum font-medium">
-                      KES {chargeAmount(c, deal.price_kes!).toLocaleString("en-KE")}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex items-baseline justify-between border-t border-line pt-2">
-                  <span className="text-sm font-bold">Total you pay</span>
-                  <span className="tnum text-lg font-bold">
-                    KES {pay.toLocaleString("en-KE")}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-          </div>
+        {pay != null ? (
+          <DealPriceDetail
+            pay={pay}
+            was={was}
+            extras={extras}
+            charges={charges}
+            priceKes={deal.price_kes}
+            serverClaimable={claimable}
+            expiresAt={deal.expires_at}
+          />
         ) : null}
 
         <p className="mt-4 flex items-center gap-1.5 text-sm text-ink">
@@ -236,6 +231,25 @@ export default async function DealDetailPage({
       </div>
 
       {claimable ? (
+        // D213 criterion 3 — the server decides claimability from data the
+        // client cannot re-derive; the gate then withdraws the offer when the
+        // deadline passes, so an open page cannot show a live "Claim deal"
+        // beside an expired countdown.
+        <ClaimGate
+          expiresAt={deal.expires_at}
+          expired={
+            <StickyCtaBar>
+              <div className="space-y-2.5">
+                <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
+                  Deal ended
+                </div>
+                <ButtonLink href="/feed" variant="ghost" full>
+                  See similar deals
+                </ButtonLink>
+              </div>
+            </StickyCtaBar>
+          }
+        >
         <ClaimFlow
           dealId={deal.id}
           dealTitle={deal.title}
@@ -246,43 +260,30 @@ export default async function DealDetailPage({
           pay={pay}
           was={was}
         />
+        </ClaimGate>
       ) : existingTicketId ? (
-        <StickyCtaBar>
-          <div className="space-y-2.5">
-            {paused ? (
-              <p className="text-center text-xs text-muted">
-                Deal paused by merchant — your ticket stays valid until expiry.
-              </p>
-            ) : null}
-            <ButtonLink href={`/tickets/${existingTicketId}`} full>
-              View your ticket
-            </ButtonLink>
-            <ButtonLink href="/my-deals" variant="ghost" full>
-              My deals
-            </ButtonLink>
-          </div>
-        </StickyCtaBar>
-      ) : (
-        <StickyCtaBar>
-          <div className="space-y-2.5">
-            <div className="flex h-12 w-full items-center justify-center rounded-full bg-cream-dark text-base font-semibold text-faint">
-              {fullyClaimed
-                ? "Fully claimed"
-                : paused
-                  ? "Deal paused by merchant"
-                  : "Deal ended"}
+        // D213 criterion 3 — the ticket has its own deadline, so this CTA has
+        // one too. Past it the shopper is offered the ended state, which is
+        // exactly what a fresh render would have shown them.
+        <ExpiryGate expiresAt={existingTicketExpiresAt} expired={endedCta}>
+          <StickyCtaBar>
+            <div className="space-y-2.5">
+              {paused ? (
+                <p className="text-center text-xs text-muted">
+                  Deal paused by merchant — your ticket stays valid until expiry.
+                </p>
+              ) : null}
+              <ButtonLink href={`/tickets/${existingTicketId}`} full>
+                View your ticket
+              </ButtonLink>
+              <ButtonLink href="/my-deals" variant="ghost" full>
+                My deals
+              </ButtonLink>
             </div>
-            {paused ? (
-              <p className="text-center text-xs text-muted">
-                No new claims while paused. Already-claimed tickets remain in My
-                deals until expiry.
-              </p>
-            ) : null}
-            <ButtonLink href="/feed" variant="ghost" full>
-              See similar deals
-            </ButtonLink>
-          </div>
-        </StickyCtaBar>
+          </StickyCtaBar>
+        </ExpiryGate>
+      ) : (
+        endedCta
       )}
     </main>
   );

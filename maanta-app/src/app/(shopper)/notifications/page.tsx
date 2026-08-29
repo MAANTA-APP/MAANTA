@@ -4,8 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, withPublicMerchant } from "@/lib/data";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
-import { NotificationRow } from "@/components/ui/cards";
-import { EmptyState } from "@/components/ui/states";
+import { NotificationList } from "@/components/shopper/notification-list";
 import {
   BackToYouLink,
   Body,
@@ -16,7 +15,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Item = { title: string; body: string; at: string; unread: boolean };
+type Item = {
+  title: string;
+  body: string;
+  at: string;
+  unread: boolean;
+  /** When this notification STARTS being true. Absent means "already". */
+  visibleFrom?: string | null;
+  /**
+   * When this notification stops being true. D213 criterion 3 — the code
+   * reminder below is built from `expires_at > now`, so it is a time-derived
+   * claim like any other and must not outlive its own deadline on an open page.
+   * Most rows are records of a past event and carry no expiry.
+   */
+  expiresAt?: string | null;
+};
 
 /**
  * Demo exclusion for a shopper's OWN redemptions (D216).
@@ -76,8 +89,14 @@ export default async function NotificationsPage() {
         "in",
         `(${VERIFICATION_BLOCKING_MERCHANT_STATUSES.join(",")})`
       )
-      .gt("expires_at", new Date().toISOString())
-      .lt("expires_at", new Date(Date.now() + 2 * 3600_000).toISOString()),
+      // D213 criterion 3 — the upper bound is NOT applied here. "Expires soon"
+      // is a WINDOW, and a window has two edges: a claim with three hours left
+      // when the page opened enters it an hour later, and a server-side `.lt`
+      // would have excluded it from the payload entirely, so no amount of
+      // client filtering could admit it. Both edges are applied on the shared
+      // clock instead. This is not a wider fetch for its own sake: it is the
+      // same live pending set, bounded by the shopper's own claims.
+      .gt("expires_at", new Date().toISOString()),
     includeDemo
   );
   for (const r of (pending ?? []) as unknown as {
@@ -87,8 +106,20 @@ export default async function NotificationsPage() {
     items.push({
       title: r.merchants?.merchant_name ?? "Maanta",
       body: "Your claimed code expires soon",
-      at: new Date().toISOString(),
+      // The moment the reminder becomes TRUE, not the moment the page happened
+      // to render. A row admitted an hour after load would otherwise appear
+      // already "1h" old, while opening the page at that same instant shows it
+      // as "now" — the aged page and a reload disagreeing about the same row.
+      at: new Date(new Date(r.expires_at).getTime() - 2 * 3600_000).toISOString(),
       unread: true,
+      // Carried, not discarded: without it the reminder says a dead code
+      // expires soon, indefinitely.
+      expiresAt: r.expires_at,
+      // ...and the near edge, so the row appears when the claim enters the
+      // window rather than only when the page is reloaded inside it.
+      visibleFrom: new Date(
+        new Date(r.expires_at).getTime() - 2 * 3600_000
+      ).toISOString(),
     });
   }
 
@@ -161,6 +192,12 @@ export default async function NotificationsPage() {
             : "New deal from a saved shop",
         at: d.created_at,
         unread: false,
+        // The event itself stays true forever, but this alert is scoped to the
+        // last 24 hours by its own query — so an open page must drop it at the
+        // same boundary a fresh render would, or the two disagree.
+        expiresAt: new Date(
+          new Date(d.created_at).getTime() + 24 * 3600_000
+        ).toISOString(),
       });
     }
   }
@@ -184,15 +221,7 @@ export default async function NotificationsPage() {
       </div>
 
       <Section title="Alerts" className="mt-6">
-        {items.length === 0 ? (
-          <EmptyState title="Nothing yet" sub="Deal alerts and code reminders land here" />
-        ) : (
-          <div className="space-y-3">
-            {items.map((n, i) => (
-              <NotificationRow key={i} {...n} />
-            ))}
-          </div>
-        )}
+        <NotificationList items={items} />
       </Section>
     </Page>
   );

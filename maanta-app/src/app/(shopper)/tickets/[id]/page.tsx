@@ -9,11 +9,14 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconCheck } from "@/components/ui/icons";
 import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
+import { ExpiryGate } from "@/components/shopper/expiry-gate";
+import { FastShopperClock } from "@/lib/use-shopper-clock";
+import { LiveTimeLabel } from "@/components/shopper/live-time-label";
 import { ClaimedCode } from "./claimed-code";
 import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
 import Link from "next/link";
-import { absoluteTimeLabel } from "@/lib/claim-ticket-time";
+
 import { shopNavigationTarget } from "@/lib/shop-location";
 import {
   navigationState,
@@ -163,7 +166,7 @@ export default async function TicketPage({
         </p>
         {ticket.redeemed_at ? (
           <p className="tnum mt-1 text-sm text-secondary">
-            Redeemed {absoluteTimeLabel(ticket.redeemed_at)}
+            Redeemed <LiveTimeLabel iso={ticket.redeemed_at} />
           </p>
         ) : null}
         {rewardPoints != null ? (
@@ -232,9 +235,10 @@ export default async function TicketPage({
     );
   }
 
-  // Redemption expired.
-  if (expired) {
-    return (
+  // Redemption expired. Built once and used twice: the server renders it
+  // directly when the ticket is already dead, and `ExpiryGate` swaps to the
+  // SAME view when a pending ticket crosses its deadline on an open page.
+  const expiredView = (
       <main className="flex min-h-[80dvh] flex-col px-5 pt-6">
         <div className="flex justify-center">
           <ClaimChip state="expired" />
@@ -255,10 +259,12 @@ export default async function TicketPage({
           See live deals
         </ButtonLink>
       </main>
-    );
+  );
+
+  if (expired) {
+    return expiredView;
   }
 
-  // Pending, live code — the hero (S5). Zero amber actions: the screen IS the credential.
   // The Fast Visit reward window renders only while the feature gate is on
   // (app_config.fast_visit_enabled — dark until merchant counter QRs exist at
   // Node 0), and always BELOW the code: the reward is secondary to the credential.
@@ -270,7 +276,17 @@ export default async function TicketPage({
   // eligibility is never erased") and /you/page.tsx already honours it; this
   // screen did not. D198.
   const fastVisitOn = await isFastVisitEnabled();
+  // D213 criterion 3 — the WHOLE pending screen is time-derived, not just the
+  // countdown inside it. Leaving the status chip, the live watcher and the
+  // "still valid until" line on a server-decided boolean while the code ticked
+  // is the original /my-deals defect on the credential screen.
   return (
+    // D213 — the credential screen runs on ONE instant at 1s. The gate and the
+    // countdown inside it used to tick at 30s and 1s respectively, so for up to
+    // ~29 seconds the code read "expired" beside a CLAIMED chip and a live
+    // watcher. Same seed, faster cadence, one clock.
+    <FastShopperClock>
+    <ExpiryGate expiresAt={ticket.expires_at} expired={expiredView}>
     <main className="flex flex-col items-center px-5 pb-10 pt-4">
       <TicketWatcher active />
       <div className="flex w-full items-center">
@@ -285,7 +301,7 @@ export default async function TicketPage({
 
       {ticket.deals?.is_paused === true ? (
         <p className="mt-3 w-full rounded-card border border-line bg-cream px-3 py-2.5 text-center text-xs text-muted">
-          Your ticket is still valid until {absoluteTimeLabel(ticket.expires_at)}.
+          Your ticket is still valid until <LiveTimeLabel iso={ticket.expires_at} />.
           The merchant paused new claims — show this code at the till as usual.
         </p>
       ) : null}
@@ -319,10 +335,12 @@ export default async function TicketPage({
           <p className="mt-1.5 text-sm text-ink">{ticket.deals.title}</p>
         ) : null}
         <p className="tnum mt-0.5 text-sm text-secondary">
-          {ticket.deals?.expires_at
-            ? `Deal ends ${absoluteTimeLabel(ticket.deals.expires_at)} · `
-            : ""}
-          code valid until {absoluteTimeLabel(ticket.expires_at)}
+          {ticket.deals?.expires_at ? (
+            <>
+              Deal ends <LiveTimeLabel iso={ticket.deals.expires_at} /> ·{" "}
+            </>
+          ) : null}
+          code valid until <LiveTimeLabel iso={ticket.expires_at} />
         </p>
       </div>
 
@@ -389,5 +407,7 @@ export default async function TicketPage({
         If the timer isn&apos;t moving, it&apos;s a screenshot.
       </p>
     </main>
+    </ExpiryGate>
+    </FastShopperClock>
   );
 }

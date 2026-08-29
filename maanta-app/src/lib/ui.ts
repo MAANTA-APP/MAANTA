@@ -45,8 +45,10 @@ export function timeLeftLabel(iso: string | null | undefined) {
 }
 
 /** Near-expiry threshold used by countdown chips (rust under 60 minutes, per brief). */
-export function isNearExpiry(iso: string | null | undefined) {
-  const ms = msUntil(iso);
+export function isNearExpiry(iso: string | null | undefined, now: Date = new Date()) {
+  // `now` is injectable so a caller rendering several time-derived elements can
+  // thread one clock instant through all of them (D213 criterion 3).
+  const ms = new Date(iso ?? "").getTime() - now.getTime();
   return isFinite(ms) && ms > 0 && ms <= 60 * 60 * 1000;
 }
 
@@ -67,8 +69,8 @@ export function friendlyTime(iso: string) {
 }
 
 /** Relative age: "2m", "1h", "1d" */
-export function relativeAge(iso: string) {
-  const ms = Date.now() - new Date(iso).getTime();
+export function relativeAge(iso: string, now: Date = new Date()) {
+  const ms = now.getTime() - new Date(iso).getTime();
   const mins = Math.floor(ms / 60000);
   if (mins < 1) return "now";
   if (mins < 60) return `${mins}m`;
@@ -88,8 +90,8 @@ export function relativeAge(iso: string) {
  * in the joining, not in either half, so the fix belongs here rather than in a
  * caller's template.
  */
-export function relativeAgo(iso: string) {
-  const age = relativeAge(iso);
+export function relativeAgo(iso: string, now: Date = new Date()) {
+  const age = relativeAge(iso, now);
   return age === "now" ? "just now" : `${age} ago`;
 }
 

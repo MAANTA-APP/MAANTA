@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// The chooser withdraws expired claims on the shared clock and therefore
+// needs the provider a shopper route mounts.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -14,7 +16,7 @@ import { QrCheckIn } from "@/app/(shopper)/qr/[token]/qr-check-in";
 const TOKEN = "a".repeat(32);
 
 function render(props: Partial<Parameters<typeof QrCheckIn>[0]> = {}) {
-  return renderToStaticMarkup(
+  return renderShopperTree(
     createElement(QrCheckIn, {
       token: TOKEN,
       merchantId: "merchant-1",
@@ -27,6 +29,8 @@ function render(props: Partial<Parameters<typeof QrCheckIn>[0]> = {}) {
   );
 }
 
+const LIVE = new Date(Date.now() + 60 * 60_000).toISOString();
+
 describe("QrCheckIn states", () => {
   it("no active claim: says so and links to the shop's existing page only", () => {
     const html = render();
@@ -38,8 +42,8 @@ describe("QrCheckIn states", () => {
   it("several claims: asks which deal, never guesses", () => {
     const html = render({
       claims: [
-        { redemptionId: "r1", dealTitle: "Summer Abaya" },
-        { redemptionId: "r2", dealTitle: "Shoe Deal" },
+        { redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE },
+        { redemptionId: "r2", dealTitle: "Shoe Deal", expiresAt: LIVE },
       ],
     });
     expect(html).toContain("Which deal are you using?");
@@ -49,14 +53,14 @@ describe("QrCheckIn states", () => {
 
   it("one claim: goes straight into checking in", () => {
     const html = render({
-      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya" }],
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE }],
     });
     expect(html).toContain("Checking you in…");
   });
 
   it("already checked in: says so, and cancel names what it does NOT do", () => {
     const html = render({
-      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya" }],
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE }],
       alreadyCheckedInFor: "r1",
     });
     expect(html).toContain("already checked in");
@@ -73,7 +77,7 @@ describe("QrCheckIn states", () => {
     // branch reaches a terminal screen — and the source below pins that
     // cancel no longer targets `idle` at all.
     const html = render({
-      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya" }],
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE }],
       alreadyCheckedInFor: "r1",
     });
     expect(html).not.toContain("Checking you in");
@@ -103,7 +107,7 @@ describe("QrCheckIn states", () => {
   it("never uses amber — check-in is not a money action", () => {
     for (const html of [
       render(),
-      render({ claims: [{ redemptionId: "r1", dealTitle: "A" }], alreadyCheckedInFor: "r1" }),
+      render({ claims: [{ redemptionId: "r1", dealTitle: "A", expiresAt: LIVE }], alreadyCheckedInFor: "r1" }),
     ]) {
       expect(html).not.toContain("text-brand");
     }

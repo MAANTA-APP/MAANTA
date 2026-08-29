@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { describe, expect, it, vi } from "vitest";
 import { stripComments } from "@/lib/__tests__/helpers/comment-stripping";
 
@@ -49,7 +51,7 @@ const PAY = 1200;
 const WAS = 2000;
 
 const renderBar = (props: Record<string, unknown> = {}) =>
-  renderToStaticMarkup(
+  renderShopperTree(
     createElement(ClaimFlow, {
       dealId: "d1",
       dealTitle: "3 metres of cotton print",
@@ -120,7 +122,7 @@ describe("Direction A — anchored decision bar", () => {
 
   it("rule 7: the bar and the tile render byte-identical YOU PAY figures", () => {
     const barFigure = renderBar().match(/KES\s?[\d,]+/)?.[0];
-    const tile = renderToStaticMarkup(
+    const tile = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,
@@ -139,14 +141,19 @@ describe("Direction A — anchored decision bar", () => {
 
   it("deal detail keeps the itemised breakdown and drops the duplicate hero", () => {
     const src = code("app/(shopper)/deals/[id]/page.tsx");
+    const detail = code("app/(shopper)/deals/[id]/deal-price-detail.tsx");
     expect(src).toContain("pay={pay}");
     expect(src).toContain("was={was}");
-    // The standalone body figure is gated on the deal NOT being claimable —
-    // matched loosely so prettier's line breaks are not part of the contract.
-    expect(src).toMatch(/!claimable\s*\?/);
+    // D213 moved the body figure and the breakdown into a client component, so
+    // the figure appears in the same tick the decision bar is withdrawn on an
+    // open page. The invariants are unchanged and now read from that file: the
+    // standalone figure is still gated on the deal NOT being claimable — but
+    // "claimable" is now the server verdict AND the clock, which is the point.
+    expect(detail).toMatch(/!claimable\s*\?/);
+    expect(detail).toContain("serverClaimable && isDealClaimable(expiresAt, now)");
     // Rule 7: the breakdown survives, on detail only.
-    expect(src).toContain("Deal price");
-    expect(src).toContain("Total you pay");
+    expect(detail).toContain("Deal price");
+    expect(detail).toContain("Total you pay");
     expect(code("app/(shopper)/tickets/[id]/page.tsx")).not.toContain("Total you pay");
   });
 

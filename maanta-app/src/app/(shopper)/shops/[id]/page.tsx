@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, getVerifiedCounts, withPublicMerchantRows } from "@/lib/data";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
-import { W3wChip, CountdownChip } from "@/components/ui/chips";
-import { IconArrowLeft, IconCheck, IconChevronRight, IconImage } from "@/components/ui/icons";
+import { W3wChip } from "@/components/ui/chips";
+import {
+  ShopLiveDeals,
+  type ShopDealRow,
+} from "@/components/shopper/shop-live-deals";
+import { IconArrowLeft, IconCheck, IconImage } from "@/components/ui/icons";
 import { ButtonLink } from "@/components/ui/button";
-import { CoverImage } from "@/components/ui/cards";
 import { FavouriteButton } from "@/components/favourite-button";
 import { shopNavigationTarget } from "@/lib/shop-location";
 import {
@@ -119,26 +122,7 @@ export default async function ShopProfilePage({
 
         <h2 className="mt-7 text-base font-bold text-ink">Live deals</h2>
         <div className="mt-3 space-y-3">
-          {(deals ?? []).length === 0 ? (
-            <p className="text-sm text-muted">No live deals right now.</p>
-          ) : (
-            (deals ?? []).map((d) => (
-              <Link
-                key={d.id}
-                href={`/deals/${d.id}`}
-                className="flex items-center gap-3 rounded-card bg-white shadow-card p-3 hover:bg-cream/50"
-              >
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-cream">
-                  <CoverImage src={d.image_url} alt="" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink">{d.title}</p>
-                  <CountdownChip expiresAt={d.expires_at} className="mt-1" />
-                </div>
-                <IconChevronRight className="h-4 w-4 text-faint" />
-              </Link>
-            ))
-          )}
+          <ShopLiveDeals deals={(deals ?? []) as ShopDealRow[]} />
         </div>
 
         {navigationState(navigate) === "available" && navigate ? (

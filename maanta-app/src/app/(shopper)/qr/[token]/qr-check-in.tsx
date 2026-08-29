@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ButtonLink, Button } from "@/components/ui/button";
 import { IconCheck } from "@/components/ui/icons";
+import { isUnexpiredAt } from "@/lib/live-deals";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 /**
  * The interactive half of the QR landing page.
@@ -20,7 +22,7 @@ import { IconCheck } from "@/components/ui/icons";
  * A late arrival is simply a normal check-in — no failure language (§11).
  */
 
-type Claim = { redemptionId: string; dealTitle: string };
+type Claim = { redemptionId: string; dealTitle: string; expiresAt: string };
 
 type CheckedIn = {
   merchantName: string;
@@ -102,12 +104,24 @@ export function QrCheckIn({
   );
 
   // Single-claim auto check-in — once, on mount.
+  //
+  // Deliberately keyed on the claim set the page ARRIVED with, not on the live
+  // one. A shopper standing at the counter deciding between two claims must not
+  // have one of them checked in on their behalf just because the other expired
+  // while they were reading: this component's rule is "ask, never guess", and
+  // the auto path exists only because a single claim leaves nothing to ask.
   useEffect(() => {
     if (autoFired.current) return;
     if (alreadyCheckedInFor || claims.length !== 1) return;
     autoFired.current = true;
     void checkIn(claims[0].redemptionId);
   }, [alreadyCheckedInFor, claims, checkIn]);
+
+  // D213 criterion 3 — an expired claim leaves the chooser rather than staying
+  // selectable until the check-in API rejects the tap. Selection only; the
+  // auto-check-in above stays on the arrival set.
+  const now = useShopperClock();
+  const liveClaims = claims.filter((c) => isUnexpiredAt(c.expiresAt, now));
 
   const cancel = useCallback(async (redemptionId: string) => {
     try {
@@ -145,7 +159,7 @@ export function QrCheckIn({
     ? `${merchantName}, ${merchantFloor}`
     : merchantName;
 
-  if (claims.length === 0 && state.kind !== "checked-in") {
+  if (liveClaims.length === 0 && state.kind !== "checked-in") {
     return (
       <div className="text-center">
         <h1 className="text-xl font-bold text-ink">{shopLine}</h1>
@@ -287,7 +301,7 @@ export function QrCheckIn({
         Which deal are you using?
       </p>
       <div className="mt-6 space-y-3">
-        {claims.map((c) => (
+        {liveClaims.map((c) => (
           <button
             key={c.redemptionId}
             type="button"

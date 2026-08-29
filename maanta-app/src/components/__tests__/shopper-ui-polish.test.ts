@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 
 vi.mock("next/navigation", () => ({
@@ -30,13 +32,13 @@ import type { DealRow } from "@/lib/data";
 
 describe("Shopper UI polish", () => {
   it("BackToYouLink renders a history-aware back control", () => {
-    const html = renderToStaticMarkup(createElement(BackToYouLink));
+    const html = renderShopperTree(createElement(BackToYouLink));
     expect(html).toContain("Back");
     expect(html).toContain('type="button"');
   });
 
   it("SegmentedLinks renders compact tabs with active segment", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(SegmentedLinks, {
         active: "deals",
         tabs: [
@@ -53,7 +55,7 @@ describe("Shopper UI polish", () => {
   });
 
   it("FavouriteButton extends its tap target and exposes toggle state", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(FavouriteButton, { merchantId: "m1", initial: false })
     );
     // The card overlays shrink the visible heart below 44px; the invisible
@@ -65,7 +67,7 @@ describe("Shopper UI polish", () => {
   });
 
   it("ProfileCard exposes Edit profile affordance", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(ProfileCard, {
         fullName: "Amina Okello",
         phoneMasked: "+254 ••• ••• 123",
@@ -78,7 +80,7 @@ describe("Shopper UI polish", () => {
   });
 
   it("LanguageCard shows English active and Kiswahili coming soon", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(LanguageCard, { preferredLanguage: "en" })
     );
     expect(html).toContain("English");
@@ -121,7 +123,7 @@ describe("Shopper UI polish", () => {
       },
     };
 
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(BrowseClient, {
         node: "BBS Mall",
         deals: [deal],
@@ -145,7 +147,7 @@ describe("Shopper UI polish", () => {
   });
 
   it("BrowseChips renders expiring, flash, and favourites chips", () => {
-    const html = renderToStaticMarkup(createElement(BrowseChips));
+    const html = renderShopperTree(createElement(BrowseChips));
     expect(html).toContain("Expiring soon");
     expect(html).toContain("Flash");
     expect(html).toContain("Favourites");
@@ -154,7 +156,7 @@ describe("Shopper UI polish", () => {
   });
 
   it("BrowseClient shows sign-in prompt for Favourites when signed out", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(BrowseClient, {
         node: "BBS Mall",
         deals: [],

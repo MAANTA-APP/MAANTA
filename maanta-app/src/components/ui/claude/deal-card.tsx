@@ -8,6 +8,8 @@ import { HeadingMd, HeadingSm, Meta, Label } from "@/components/ui/claude/typogr
 import { cn } from "@/lib/ui";
 import { extrasLine } from "@/lib/pricing";
 import { DealKpis } from "@/components/ui/claude/deal-kpis";
+import { dealExpiryLabel } from "@/lib/deal-expiry";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 export type DealRailBadge = "flash" | "boosted" | "standard" | null;
 
@@ -43,7 +45,6 @@ export function DealCard({
   merchantName,
   mallName,
   title,
-  expiryLabel,
   distanceLabel,
   pay,
   wasKes,
@@ -64,7 +65,6 @@ export function DealCard({
   merchantName: string;
   mallName?: string | null;
   title: string;
-  expiryLabel?: string | null;
   distanceLabel?: string | null;
   pay?: number | null;
   wasKes?: number | null;
@@ -82,6 +82,14 @@ export function DealCard({
   showFavourite?: boolean;
   className?: string;
 }) {
+  // D213 criterion 3 — one clock instant for every time-derived element on
+  // this card. The label was previously a server-computed string prop, so it
+  // froze at render while the chip beside it kept ticking: one card, two
+  // claims about one deal, only one of them true. Deriving it here from the
+  // SAME `now` the chip receives makes them accurate and mutually consistent
+  // by construction rather than by convention.
+  const now = useShopperClock();
+  const expiryLabel = expiresAt ? dealExpiryLabel(expiresAt, now) : null;
   // Direction A (decisions log 2026-08-22) adds two editorial variants:
   // "lead" — the one image-forward hero at the top of a rail, price anchored
   // in a bottom bar; "row" — the compact list row everything else recedes to.
@@ -110,7 +118,7 @@ export function DealCard({
             </div>
             {expiresAt ? (
               <div className="absolute bottom-3 left-3">
-                <CountdownChip expiresAt={expiresAt} className="bg-white/95" />
+                <CountdownChip expiresAt={expiresAt} className="bg-white/95" now={now} />
               </div>
             ) : null}
           </div>
@@ -197,11 +205,11 @@ export function DealCard({
             {/* The countdown must stay inside the link (it is part of the
                 link's accessible name) and inside the min-w-0 column — a long
                 label ("Grace period: N minutes left") in a shrink-0 side
-                column would starve the title at 360px. The static expiryLabel
-                is unused on rows: the chip is the live form of the same fact. */}
+                column would starve the title at 360px. The row omits the meta
+                label entirely: the chip is the live form of the same fact. */}
             {expiresAt ? (
               <div className="mt-1.5">
-                <CountdownChip expiresAt={expiresAt} />
+                <CountdownChip expiresAt={expiresAt} now={now} />
               </div>
             ) : null}
             <DealKpis
@@ -244,7 +252,7 @@ export function DealCard({
             </div>
             {expiresAt ? (
               <div className="absolute bottom-3 left-3">
-                <CountdownChip expiresAt={expiresAt} className="bg-white/95" />
+                <CountdownChip expiresAt={expiresAt} className="bg-white/95" now={now} />
               </div>
             ) : null}
           </div>

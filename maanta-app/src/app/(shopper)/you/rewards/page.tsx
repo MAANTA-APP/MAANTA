@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
 import { getAppUser } from "@/lib/data";
 import { getRewardBalance, listRewardEvents } from "@/lib/fast-visit";
-import {
-  FAST_VISIT_WINDOW_MINUTES,
-  formatArrivalDuration,
-} from "@/lib/fast-visit-window";
-import { relativeAgo } from "@/lib/ui";
+import { RewardActivity } from "@/components/shopper/reward-activity";
+import { FAST_VISIT_WINDOW_MINUTES } from "@/lib/fast-visit-window";
 import {
   BackToYouLink,
   Body,
@@ -76,36 +73,16 @@ export default async function RewardsPage() {
             code.
           </div>
         ) : (
-          <div className="space-y-3">
-            {events.map((e) => {
-              const claimed = e.redemptions?.claimed_at ?? null;
-              const arrived = e.redemptions?.arrived_at ?? null;
-              return (
-                <div
-                  key={e.id}
-                  className="flex items-start justify-between rounded-card bg-white px-4 py-3.5 shadow-card"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-ink">
-                      Fast Visit reward
-                    </p>
-                    <p className="mt-0.5 text-xs text-secondary">
-                      {e.merchants?.merchant_name ?? "Shop"}
-                      {claimed && arrived
-                        ? ` · Arrived in ${formatArrivalDuration(claimed, arrived)}`
-                        : ""}
-                    </p>
-                    <Meta as="p" className="mt-0.5">
-                      {relativeAgo(e.awarded_at)}
-                    </Meta>
-                  </div>
-                  <span className="tnum shrink-0 text-sm font-bold text-ink">
-                    +{e.points}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <RewardActivity
+            rows={events.map((e) => ({
+              id: e.id,
+              points: e.points,
+              awardedAt: e.awarded_at,
+              merchantName: e.merchants?.merchant_name ?? null,
+              claimedAt: e.redemptions?.claimed_at ?? null,
+              arrivedAt: e.redemptions?.arrived_at ?? null,
+            }))}
+          />
         )}
       </Section>
     </Page>

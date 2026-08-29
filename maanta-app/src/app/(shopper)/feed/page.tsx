@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
-import { DealCard, Page, Section, RailScroller } from "@/components/ui/claude";
-import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
-import { EmptyState } from "@/components/ui/states";
+import { Page } from "@/components/ui/claude";
+import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
+import { LiveDealCollection } from "@/components/shopper/live-deal-collection";
+import { FeedBody } from "@/components/shopper/feed-body";
 import {
   getLiveDeals,
   getSelectedNode,
@@ -19,11 +20,10 @@ import {
   filterDealsByCategory,
   parseDealCategory,
 } from "@/lib/deal-categories";
-import { feedEmptyState } from "@/lib/feed-empty-state";
 import { NotificationOptIn } from "./notification-opt-in";
 import { FeedControls } from "./feed-controls";
 import { nodeCoords } from "@/lib/nodes";
-import { dealExpiryLabel } from "@/lib/browse";
+
 import {
   DEFAULT_FEED_SORT,
   FEED_SORT_OPTIONS,
@@ -63,7 +63,6 @@ function cardProps(
     merchantName: d.merchants?.merchant_name ?? "",
     mallName: d.merchants?.mall_name ?? d.node,
     title: d.title,
-    expiryLabel: dealExpiryLabel(d.expires_at),
     distanceLabel: distanceForDeal(d, opts.origin),
     pay: pricing.pay,
     wasKes: pricing.was,
@@ -129,8 +128,10 @@ export default async function FeedPage({
   // Counts at each stage, so an empty screen can name the filter that actually
   // emptied it instead of guessing. `liveTotal` is before any shopper filter;
   // `afterCategoryTotal` is after the category and before the deal type.
-  const liveTotal = flash.length + boosted.length + nearMe.length;
-  const afterCategoryTotal = flashDeals.length + boostedDeals.length + nearDeals.length;
+  // Kept as ROWS, not counts: `FeedBody` recomputes both totals at the current
+  // time, so an all-expired feed says the market is quiet instead of blaming a
+  // filter that removed nothing.
+  const afterCategoryRows = [...flashDeals, ...boostedDeals, ...nearDeals];
 
   if (filter !== "all") {
     flashDeals = filter === "flash" ? flashDeals : [];
@@ -156,8 +157,6 @@ export default async function FeedPage({
   // cross-cut VIEW: every deal stays in its own rail in its locked order, and
   // nothing here reorders, promotes or removes anything (locked-feed-order).
   //
-  // Urgency is the deal's own expires_at and nothing else — see lib/ending-soon.
-  const endingSoon = endingSoonDeals(allDeals);
   const favouriteDeals = filterDealRowsByRail(
     allDeals.filter((d) => favourites.has(d.merchant_id)),
     filter
@@ -169,8 +168,6 @@ export default async function FeedPage({
     return true;
   });
 
-  const total = flashDeals.length + boostedDeals.length + nearDeals.length;
-
   // Verified redemptions per shop, for the decision KPIs on the tall cards.
   // One query over the merchants actually on screen — the KPI is omitted rather
   // than guessed if a shop is missing from the map.
@@ -179,6 +176,18 @@ export default async function FeedPage({
       new Set([...allDeals, ...uniqueFavourites].map((d) => d.merchant_id))
     )
   );
+
+  // D213 criterion 3 — each rail is handed its members with their expiry, and
+  // the client collection withdraws the ones that expire while the page is
+  // open. Order is untouched: these are the server's locked orders, and a
+  // locked order holds on any subset of its rail, which is why removing a
+  // member is safe and re-sorting would not be.
+  const items = (rows: typeof allDeals, tag: "flash" | "boosted" | "standard") =>
+    rows.map((d) => ({
+      id: d.id,
+      expiresAt: d.expires_at,
+      card: cardProps(d, { origin, favourites, verified, tag }),
+    }));
 
   return (
     <Page>
@@ -195,143 +204,101 @@ export default async function FeedPage({
       ) : null}
       {user ? <NotificationOptIn /> : null}
 
-      {total === 0 ? (
-        <EmptyState {...feedEmptyState({ liveTotal, afterCategoryTotal, category, filter })} />
-      ) : (
-        <>
-          {flashDeals.length > 0 ? (
-            <Section
-              title="Top picks near you"
-              subtitle="Flash deals — grab them while they last"
-              action={
-                <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
-                  See all ›
-                </Link>
-              }
-              padded={false}
-            >
-              {/* Direction A: the first flash deal is the one image-forward
-                  lead; the rest of the rail continues beneath it. Order is
-                  unchanged — the lead IS position 1 (locked-feed-order). */}
-              <div className="px-4">
-                <DealCard
-                  variant="lead"
-                  {...cardProps(flashDeals[0], { origin, favourites, verified, tag: "flash" })}
-                />
-              </div>
-              {flashDeals.length > 1 ? (
-                <RailScroller className="mt-3">
-                  {flashDeals.slice(1).map((d) => (
-                    <DealCard
-                      key={d.id}
-                      {...cardProps(d, { origin, favourites, verified, tag: "flash" })}
-                    />
-                  ))}
-                </RailScroller>
-              ) : null}
-            </Section>
-          ) : null}
+      <FeedBody
+        liveExpiries={[...flash, ...boosted, ...nearMe].map((d) => d.expires_at)}
+        afterCategoryExpiries={afterCategoryRows.map((d) => d.expires_at)}
+        shownExpiries={allDeals.map((d) => d.expires_at)}
+        category={category}
+        filter={filter}
+      >
+        <LiveDealCollection
+          title="Top picks near you"
+          subtitle="Flash deals — grab them while they last"
+          action={
+            <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
+              See all ›
+            </Link>
+          }
+          padded={false}
+          lead
+          items={items(flashDeals, "flash")}
+        />
 
-          {endingSoon.length > 0 ? (
-            <Section
-              title="Ending soon"
-              subtitle={ENDING_SOON_SUBTITLE}
-              padded={false}
-            >
-              {/* Additive: these cards also remain in their own rails. The
-                  section simply does not render when nothing is genuinely
-                  ending, which is most of the time — an "Ending soon" rail
-                  that always has content is manufacturing urgency. */}
-              <RailScroller>
-                {endingSoon.map((d) => (
-                  <DealCard
-                    key={`ending-${d.id}`}
-                    {...cardProps(d, {
-                      origin,
-                      favourites,
-                      verified,
-                      // The card keeps the deal's OWN rail tag. This section
-                      // cuts across rails, so tagging everything here
-                      // "standard" would relabel a flash deal on one screen
-                      // while its own rail still calls it flash.
-                      tag: dealRailTag(d),
-                    })}
-                  />
-                ))}
-              </RailScroller>
-            </Section>
-          ) : null}
+        {/* D213 criteria 2 and 3 — membership is decided on the client
+            clock, so a deal that expires while the feed is open leaves the
+            section and one that enters the window appears, without
+            navigation. Candidates are every rail-eligible deal; the cap
+            exclusion inside `endingSoonDeals` still applies to the
+            render-time counts. */}
+        <EndingSoonRail
+          items={allDeals.map((d) => ({
+            membership: {
+              id: d.id,
+              expires_at: d.expires_at,
+              max_claims: d.max_claims,
+              claims_count: d.claims_count,
+            },
+            card: cardProps(d, {
+              origin,
+              favourites,
+              verified,
+              // The card keeps the deal's OWN rail tag. This section cuts
+              // across rails, so tagging everything here "standard" would
+              // relabel a flash deal on one screen while its own rail still
+              // calls it flash.
+              tag: dealRailTag(d),
+            }),
+          }))}
+        />
 
-          {boostedDeals.length > 0 ? (
-            <Section
-              title="Neighbourhood favourites"
-              subtitle="Boosted deals near you"
-              action={
-                <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
-                  See all ›
-                </Link>
-              }
-              padded={false}
-            >
-              <RailScroller>
-                {boostedDeals.map((d) => (
-                  <DealCard
-                    key={d.id}
-                    {...cardProps(d, { origin, favourites, verified, tag: "boosted" })}
-                  />
-                ))}
-              </RailScroller>
-            </Section>
-          ) : null}
+        <LiveDealCollection
+          title="Neighbourhood favourites"
+          subtitle="Boosted deals near you"
+          action={
+            <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
+              See all ›
+            </Link>
+          }
+          padded={false}
+          items={items(boostedDeals, "boosted")}
+        />
 
-          {nearDeals.length > 0 ? (
-            <Section
-              title="Deals near me"
-              subtitle="Standard deals at your mall"
-              action={
-                <Link href="/map" className="text-xs font-semibold text-muted">
-                  Map ›
-                </Link>
-              }
-            >
-              {/* Direction A: one hero up top, everything else recedes — the
-                  standard list draws as compact rows instead of stacked
-                  image cards. Same deals, same order, same name. */}
-              <div className="space-y-rail">
-                {nearDeals.map((d) => (
-                  <DealCard
-                    key={d.id}
-                    variant="row"
-                    {...cardProps(d, { origin, favourites, verified, tag: "standard" })}
-                  />
-                ))}
-              </div>
-            </Section>
-          ) : null}
+        {/* Direction A: one hero up top, everything else recedes — the
+            standard list draws as compact rows instead of stacked image
+            cards. Same deals, same order, same name. */}
+        <LiveDealCollection
+          title="Deals near me"
+          subtitle="Standard deals at your mall"
+          action={
+            <Link href="/map" className="text-xs font-semibold text-muted">
+              Map ›
+            </Link>
+          }
+          layout="rows"
+          cardVariant="row"
+          items={items(nearDeals, "standard")}
+        />
 
-          {uniqueFavourites.length > 0 ? (
-            <Section title="Your favourites" padded={false}>
-              <RailScroller>
-                {uniqueFavourites.map((d) => (
-                  <DealCard
-                    key={`fav-${d.id}`}
-                    {...cardProps(d, {
-                      origin,
-                      favourites,
-                      tag:
-                        d.deal_type === "flash"
-                          ? "flash"
-                          : d.boost_active
-                            ? "boosted"
-                            : "standard",
-                    })}
-                  />
-                ))}
-              </RailScroller>
-            </Section>
-          ) : null}
-        </>
-      )}
+        <LiveDealCollection
+          title="Your favourites"
+          padded={false}
+          keyPrefix="fav-"
+          items={uniqueFavourites.map((d) => ({
+            id: d.id,
+            expiresAt: d.expires_at,
+            card: cardProps(d, {
+              origin,
+              favourites,
+              tag:
+                d.deal_type === "flash"
+                  ? "flash"
+                  : d.boost_active
+                    ? "boosted"
+                    : "standard",
+            }),
+          }))}
+        />
+      </FeedBody>
     </Page>
   );
 }

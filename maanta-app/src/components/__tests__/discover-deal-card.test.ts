@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
+// Shopper time-derived elements read the server-seeded clock and throw
+// without it, so these harnesses mount the same provider a shopper route does.
+import { renderShopperTree } from "@/lib/__tests__/helpers/shopper-clock";
 import { createElement } from "react";
 
 vi.mock("next/navigation", () => ({
@@ -21,14 +23,18 @@ import { DealCard } from "@/components/ui/claude";
 
 describe("DealCard (Claude design system)", () => {
   it("renders flash rail card with YOU PAY and struck compare price", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d1",
         imageUrl: null,
         merchantName: "Nyama Spot",
         mallName: "BBS Mall",
         title: "Platter for two",
-        expiryLabel: "Expires in 2h",
+        // D213 criterion 3 — the card derives its own expiry label from
+        // `expiresAt` on the shopper clock. There is no `expiryLabel` prop to
+        // pass any more, precisely so a server-frozen string cannot sit beside
+        // a ticking chip disagreeing with it.
+        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
         distanceLabel: "120 m",
         pay: 500,
         wasKes: 900,
@@ -43,12 +49,12 @@ describe("DealCard (Claude design system)", () => {
     expect(html).toContain("KES 900");
     expect(html).toContain("line-through");
     expect(html).toContain("120 m");
-    expect(html).toContain("Expires in 2h");
+    expect(html).toMatch(/Expires in \d+h \d+m/);
     expect(html).toContain("Flash");
   });
 
   it("renders vertical standard card with Standard badge", () => {
-    const html = renderToStaticMarkup(
+    const html = renderShopperTree(
       createElement(DealCard, {
         href: "/deals/d2",
         imageUrl: null,

@@ -508,10 +508,21 @@ describe("the surfaces are wired to the shared taxonomy", () => {
     // The behaviour itself is covered below by exercising `feedEmptyState`
     // directly. This only pins that the page still routes through it: an inlined
     // conditional here is how the copy and the counts drift apart again.
+    // D213 moved the choice between the rails and the empty state onto the
+    // shared clock, because once every deal expires the rails vanish and a
+    // server-decided empty state would never appear. The counts moved with it
+    // and are recomputed at the current time — passing them as frozen numbers
+    // would make an all-expired feed blame a filter that removed nothing.
     const feed = code("src/app/(shopper)/feed/page.tsx");
-    expect(feed).toContain("feedEmptyState({");
-    expect(feed).toMatch(/const liveTotal =/);
-    expect(feed).toMatch(/const afterCategoryTotal =/);
+    const body = code("src/components/shopper/feed-body.tsx");
+    expect(body).toContain("feedEmptyState({");
+    expect(body).toMatch(/liveTotal: count\(liveExpiries\)/);
+    expect(body).toMatch(/afterCategoryTotal: count\(afterCategoryExpiries\)/);
+    // The page must still supply both populations, unfiltered and after the
+    // category, or the copy cannot tell which filter emptied the screen.
+    expect(feed).toContain("liveExpiries={");
+    expect(feed).toContain("afterCategoryExpiries={");
+    expect(feed).not.toContain("feedEmptyState(");
   });
 });
 
