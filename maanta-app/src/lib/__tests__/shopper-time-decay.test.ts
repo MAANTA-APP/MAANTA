@@ -1352,6 +1352,16 @@ describe("criterion 3 — every remaining time-derived shopper render", () => {
     // The event stays true forever; the alert does not. The row's own truth and
     // the collection's membership rule are different things, and only the
     // second one is time-derived here.
+    //
+    // Asserted at BOTH ends. A first version of this guard built the item
+    // literal itself, so it proved the list filters an expiry it is given and
+    // said nothing about whether the page supplies one — and a mutant that
+    // stopped supplying it passed. The page must carry the same 24h boundary
+    // its own query uses.
+    const page = read("app/(shopper)/notifications/page.tsx");
+    expect(page).toContain('.gt("created_at"');
+    expect(page).toMatch(/getTime\(\) \+ 24 \* 3600_000/);
+
     const items = [
       {
         title: "Nyama Spot",
