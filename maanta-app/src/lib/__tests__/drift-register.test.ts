@@ -213,23 +213,57 @@ describe("drift register schema", () => {
     // verified by content. Nothing is excused for merely resembling something.
     const all = raw.split("\n").map((l) => l.trim());
 
+    // The WHOLE header, not its first cell. Anchoring on `| ID |` alone would
+    // treat a header that gained, lost or renamed a later column as the
+    // verified one, exempting it while the documented schema no longer matches
+    // the eight cells every row is parsed into.
+    const HEADER_CELLS = [
+      "ID",
+      "Status",
+      "Category",
+      "Opened",
+      "Domain",
+      "Claim vs reality",
+      "Evidence / next step",
+      "Owner",
+    ];
+    const cellsOf = (line: string) =>
+      line.startsWith("|") && line.endsWith("|")
+        ? line.slice(1, -1).split("|").map((c) => c.trim())
+        : null;
+
     const driftHeaders = all
       .map((line, i) => ({ line, lineNumber: i + 1 }))
-      .filter(({ line }) => /^\|\s*ID\s*\|/.test(line));
+      .filter(({ line }) => {
+        const cells = cellsOf(line);
+        return !!cells && cells.length === HEADER_CELLS.length &&
+          cells.every((c, i2) => c === HEADER_CELLS[i2]);
+      });
     expect(
       driftHeaders.length,
-      "expected exactly one drift table header — a second one silently splits the table"
+      `expected exactly one header reading ${HEADER_CELLS.join(" | ")} — a renamed,\n` +
+        "added or removed column leaves the rows parsed into cells the schema no\n" +
+        "longer describes, and a second header silently splits the table"
     ).toBe(1);
     const driftHeaderLine = driftHeaders[0].lineNumber;
 
     const accountedFor = new Set<number>(rows.map((r) => r.lineNumber));
     accountedFor.add(driftHeaderLine);
-    // THE separator — the one line after the one header — not any line that
-    // happens to be made of pipes, colons and hyphens.
+    // THE separator — the one line after the one header — and a real one: eight
+    // delimiter cells, matching the header. The character-class check this
+    // replaces accepted `| |` and a one-cell `|---|`, neither of which is the
+    // alignment row for an eight-column table, and Markdown would stop
+    // rendering the register as that table at all.
+    const separatorCells = cellsOf(all[driftHeaderLine]);
     expect(
-      all[driftHeaderLine],
-      "the line after the drift header should be the table's alignment row"
-    ).toMatch(/^\|[\s:|-]+\|$/);
+      separatorCells?.length,
+      "the line after the drift header should be an alignment row with one cell per column"
+    ).toBe(HEADER_CELLS.length);
+    for (const cell of separatorCells ?? []) {
+      expect(cell, `alignment cell is not a Markdown delimiter: "${cell}"`).toMatch(
+        /^:?-{3,}:?$/
+      );
+    }
     accountedFor.add(driftHeaderLine + 1);
     // Lines the parser rejected already fail in "exists and is parseable"; they
     // are seen, so they are not orphans.
@@ -245,19 +279,34 @@ describe("drift register schema", () => {
       /^\|\s*Status\s*\|\s*Meaning\s*\|/.test(line)
     );
     expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
+    const legendSeparator = cellsOf(all[legendIndex + 1]);
     expect(
-      all[legendIndex + 1],
-      "the line after the legend header should be its alignment row"
-    ).toMatch(/^\|[\s:|-]+\|$/);
+      legendSeparator?.length,
+      "the line after the legend header should be its two-cell alignment row"
+    ).toBe(2);
+    for (const cell of legendSeparator ?? []) {
+      expect(cell, `legend alignment cell is not a delimiter: "${cell}"`).toMatch(
+        /^:?-{3,}:?$/
+      );
+    }
 
     const legendLines = new Set<number>([legendIndex + 1, legendIndex + 2]);
     const documented: string[] = [];
     for (let i = legendIndex + 2; i < all.length && all[i].startsWith("|"); i++) {
-      const status = /^\|\s*`([^`]+)`\s*\|/.exec(all[i])?.[1];
+      // The COMPLETE row: exactly two cells, a backticked status and a
+      // non-empty meaning. Stopping at the status delimiter let a row with
+      // extra cells contribute its status and then be exempted, so the legend
+      // was still not verified before exclusion.
+      const cells = cellsOf(all[i]);
+      const status = cells?.length === 2 ? /^`([^`]+)`$/.exec(cells[0])?.[1] : undefined;
       expect(
         status,
-        `legend line ${i + 1} is not a \`status\` | meaning row: ${all[i].slice(0, 60)}`
+        `legend line ${i + 1} is not a two-cell \`status\` | meaning row: ${all[i].slice(0, 60)}`
       ).toBeDefined();
+      expect(
+        cells?.[1],
+        `legend line ${i + 1} explains \`${status}\` with an empty meaning`
+      ).toBeTruthy();
       documented.push(status!);
       legendLines.add(i + 1);
     }
