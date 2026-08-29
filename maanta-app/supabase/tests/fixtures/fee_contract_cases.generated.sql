@@ -610,10 +610,6 @@ BEGIN
             '__fee_case_invalid-polarity-reversal_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
             FALSE)
     RETURNING id INTO v_tx;
-  INSERT INTO public.fee_reversals
-    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
-    VALUES (v_r_r1, v_m_m1,
-            v_tx, -30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1871,10 +1867,6 @@ BEGIN
             '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_2', 'fixture', v_r_r1, '2026-09-15T09:00:00Z',
             FALSE)
     RETURNING id INTO v_tx;
-  INSERT INTO public.fee_reversals
-    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
-    VALUES (v_r_r1, v_m_m1,
-            v_tx, -30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);

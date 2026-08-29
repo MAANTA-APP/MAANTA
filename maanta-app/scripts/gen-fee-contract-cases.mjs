@@ -123,7 +123,15 @@ function renderCase(c, windowDefault) {
     p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)},`);
     p(`            ${mv.isDemo ? "TRUE" : "FALSE"})`);
     p(`    RETURNING id INTO v_tx;`);
-    if (mv.type === "fee_reversal" && !mv.orphan) {
+    // `fee_reversals.amount` is CHECKed > 0 and `reverse_success_fee` refuses a
+    // non-positive fee, so a wrong-signed reversal could only ever have reached
+    // the ledger by a direct insert -- which means it has no audit row by
+    // construction, not by fixture convenience. Emitting one would be a shape
+    // the database cannot hold.
+    const auditable =
+      typeof (mv.auditAmount ?? mv.amount) === "number" &&
+      (mv.auditAmount ?? mv.amount) > 0;
+    if (mv.type === "fee_reversal" && !mv.orphan && auditable) {
       p(`  INSERT INTO public.fee_reversals`);
       p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note)`);
       p(`    VALUES (v_r_${mv.redemption}, v_m_${redemptionMerchant(redemptions, mv.redemption)},`);
