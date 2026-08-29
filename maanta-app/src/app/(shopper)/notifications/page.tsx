@@ -20,6 +20,8 @@ type Item = {
   body: string;
   at: string;
   unread: boolean;
+  /** When this notification STARTS being true. Absent means "already". */
+  visibleFrom?: string | null;
   /**
    * When this notification stops being true. D213 criterion 3 — the code
    * reminder below is built from `expires_at > now`, so it is a time-derived
@@ -87,8 +89,14 @@ export default async function NotificationsPage() {
         "in",
         `(${VERIFICATION_BLOCKING_MERCHANT_STATUSES.join(",")})`
       )
-      .gt("expires_at", new Date().toISOString())
-      .lt("expires_at", new Date(Date.now() + 2 * 3600_000).toISOString()),
+      // D213 criterion 3 — the upper bound is NOT applied here. "Expires soon"
+      // is a WINDOW, and a window has two edges: a claim with three hours left
+      // when the page opened enters it an hour later, and a server-side `.lt`
+      // would have excluded it from the payload entirely, so no amount of
+      // client filtering could admit it. Both edges are applied on the shared
+      // clock instead. This is not a wider fetch for its own sake: it is the
+      // same live pending set, bounded by the shopper's own claims.
+      .gt("expires_at", new Date().toISOString()),
     includeDemo
   );
   for (const r of (pending ?? []) as unknown as {
@@ -103,6 +111,11 @@ export default async function NotificationsPage() {
       // Carried, not discarded: without it the reminder says a dead code
       // expires soon, indefinitely.
       expiresAt: r.expires_at,
+      // ...and the near edge, so the row appears when the claim enters the
+      // window rather than only when the page is reloaded inside it.
+      visibleFrom: new Date(
+        new Date(r.expires_at).getTime() - 2 * 3600_000
+      ).toISOString(),
     });
   }
 
@@ -175,6 +188,12 @@ export default async function NotificationsPage() {
             : "New deal from a saved shop",
         at: d.created_at,
         unread: false,
+        // The event itself stays true forever, but this alert is scoped to the
+        // last 24 hours by its own query — so an open page must drop it at the
+        // same boundary a fresh render would, or the two disagree.
+        expiresAt: new Date(
+          new Date(d.created_at).getTime() + 24 * 3600_000
+        ).toISOString(),
       });
     }
   }

@@ -12,10 +12,12 @@ import {
 import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
 import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { dealExpiryLabel, isDealClaimable } from "@/lib/deal-expiry";
-import { isNearExpiry } from "@/lib/ui";
+import { isNearExpiry, relativeAge, relativeAgo } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
 import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
+import { ExpiryGate } from "@/components/shopper/expiry-gate";
+import { RewardActivity } from "@/components/shopper/reward-activity";
 import {
   LiveDealCollection,
   liveItemsAt,
@@ -1255,5 +1257,150 @@ describe("criterion 3 — surfaces the first discovery audit missed", () => {
     // Selection and the empty state read the live set; the auto path does not.
     expect(src).toContain("{liveClaims.map((c) => (");
     expect(src).toContain("if (liveClaims.length === 0 && state.kind !== \"checked-in\")");
+  });
+});
+
+describe("criterion 3 — every remaining time-derived shopper render", () => {
+  // Found by a systematic sweep rather than one review round at a time: every
+  // time-formatting helper and every server-side timestamp comparison on a
+  // shopper surface. The lesson from two earlier misses is encoded in how this
+  // was searched — the unit that decays is a QUERY or a LABEL, not a page.
+
+  it("switches the WHOLE ticket screen, not just the code inside it", () => {
+    // The worst instance in the product: a credential screen contradicting
+    // itself at a counter. The status chip, the live watcher and "your ticket
+    // is still valid until…" were decided by the server while the code beneath
+    // them ticked to "this code has expired".
+    const page = read("app/(shopper)/tickets/[id]/page.tsx");
+    expect(page).toContain("<ExpiryGate expiresAt={ticket.expires_at}");
+    expect(page).toContain("expired={expiredView}");
+    // One construction, used by both branches — a second copy is how the two
+    // states drift apart.
+    expect(page).toContain("const expiredView = (");
+    expect((page.match(/<ClaimChip state="expired"/g) ?? []).length).toBe(1);
+  });
+
+  it("swaps a subtree strictly at the deadline, from either branch", () => {
+    const live = renderShopperTree(
+      // eslint-disable-next-line react/no-children-prop
+      createElement(ExpiryGate, {
+        expiresAt: iso(30 * MIN),
+        children: createElement("span", null, "still valid"),
+        expired: createElement("span", null, "this code has expired"),
+      }),
+      at(0)
+    );
+    expect(live).toContain("still valid");
+    const dead = renderShopperTree(
+      // eslint-disable-next-line react/no-children-prop
+      createElement(ExpiryGate, {
+        expiresAt: iso(30 * MIN),
+        children: createElement("span", null, "still valid"),
+        expired: createElement("span", null, "this code has expired"),
+      }),
+      at(31 * MIN)
+    );
+    expect(dead).toContain("this code has expired");
+    expect(dead).not.toContain("still valid");
+  });
+
+  it("withdraws the existing-ticket CTA when that ticket dies", () => {
+    // `claimable` already contains `!existingTicketId`, so ClaimGate never
+    // mounts on this branch — the page offered "View your ticket" forever for
+    // a ticket that had expired.
+    const page = read("app/(shopper)/deals/[id]/page.tsx");
+    expect(page).toContain('.select("id, expires_at")');
+    expect(page).toContain("<ExpiryGate expiresAt={existingTicketExpiresAt}");
+    expect(page).toContain("expired={endedCta}");
+    // The ended state is one construction shared by both routes into it.
+    expect(page).toContain("const endedCta = (");
+  });
+
+  it("admits a reminder when a claim ENTERS the expires-soon window", () => {
+    // A collection that can only shrink is still stale. The server no longer
+    // applies the upper bound at all: a `.lt` would have excluded the row from
+    // the payload, and no client filter can admit what was never sent.
+    const page = read("app/(shopper)/notifications/page.tsx");
+    expect(page).not.toContain('.lt("expires_at"');
+    expect(page).toContain("visibleFrom:");
+
+    const items = [
+      {
+        title: "Nyama Spot",
+        body: "Your claimed code expires soon",
+        at: iso(0),
+        unread: true,
+        visibleFrom: iso(60 * MIN),
+        expiresAt: iso(180 * MIN),
+      },
+    ];
+    const early = renderShopperTree(createElement(NotificationList, { items }), at(0));
+    expect(early).not.toContain("expires soon");
+    const inside = renderShopperTree(
+      createElement(NotificationList, { items }),
+      at(61 * MIN)
+    );
+    expect(inside).toContain("expires soon");
+    const after = renderShopperTree(
+      createElement(NotificationList, { items }),
+      at(181 * MIN)
+    );
+    expect(after).not.toContain("expires soon");
+  });
+
+  it("drops a saved-shop alert at the same 24h boundary its query uses", () => {
+    // The event stays true forever; the alert does not. The row's own truth and
+    // the collection's membership rule are different things, and only the
+    // second one is time-derived here.
+    const items = [
+      {
+        title: "Nyama Spot",
+        body: "New deal from a saved shop",
+        at: iso(0),
+        unread: false,
+        expiresAt: iso(24 * 60 * MIN),
+      },
+    ];
+    expect(
+      renderShopperTree(createElement(NotificationList, { items }), at(23 * 60 * MIN))
+    ).toContain("New deal from a saved shop");
+    expect(
+      renderShopperTree(createElement(NotificationList, { items }), at(25 * 60 * MIN))
+    ).not.toContain("New deal from a saved shop");
+  });
+
+  it("ages reward activity on the clock, but not the arrival duration", () => {
+    const rows = [
+      {
+        id: "e1",
+        points: 10,
+        awardedAt: iso(0),
+        merchantName: "Nyama Spot",
+        claimedAt: iso(0),
+        arrivedAt: iso(4 * MIN),
+      },
+    ];
+    const fresh = renderShopperTree(createElement(RewardActivity, { rows }), at(0));
+    expect(fresh).toContain("just now");
+    const later = renderShopperTree(
+      createElement(RewardActivity, { rows }),
+      at(180 * MIN)
+    );
+    expect(later).not.toContain("just now");
+    expect(later).toMatch(/3h ago/);
+    // The gap between two persisted timestamps is a fact about the past and
+    // must NOT move.
+    expect(fresh).toContain("Arrived in");
+    expect(later).toContain("Arrived in");
+    const arrivedFresh = /Arrived in ([^<·]*)/.exec(fresh)?.[1];
+    const arrivedLater = /Arrived in ([^<·]*)/.exec(later)?.[1];
+    expect(arrivedLater).toBe(arrivedFresh);
+  });
+
+  it("keeps relativeAge's injectable clock defaulted, so no caller changed", () => {
+    // Every other surface in the app calls it with one argument.
+    expect(relativeAge(iso(0), at(90 * MIN))).toBe("1h");
+    expect(relativeAgo(iso(0), at(90 * MIN))).toBe("1h ago");
+    expect(typeof relativeAge(new Date().toISOString())).toBe("string");
   });
 });

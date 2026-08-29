@@ -69,8 +69,8 @@ export function friendlyTime(iso: string) {
 }
 
 /** Relative age: "2m", "1h", "1d" */
-export function relativeAge(iso: string) {
-  const ms = Date.now() - new Date(iso).getTime();
+export function relativeAge(iso: string, now: Date = new Date()) {
+  const ms = now.getTime() - new Date(iso).getTime();
   const mins = Math.floor(ms / 60000);
   if (mins < 1) return "now";
   if (mins < 60) return `${mins}m`;
@@ -90,8 +90,8 @@ export function relativeAge(iso: string) {
  * in the joining, not in either half, so the fix belongs here rather than in a
  * caller's template.
  */
-export function relativeAgo(iso: string) {
-  const age = relativeAge(iso);
+export function relativeAgo(iso: string, now: Date = new Date()) {
+  const age = relativeAge(iso, now);
   return age === "now" ? "just now" : `${age} ago`;
 }
 

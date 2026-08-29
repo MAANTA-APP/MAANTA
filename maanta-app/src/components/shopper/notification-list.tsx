@@ -10,7 +10,9 @@ export type NotificationItem = {
   body: string;
   at: string;
   unread: boolean;
-  /** Absent for a record of a past event; set for a claim that goes false. */
+  /** When the row starts being true. Absent means "already". */
+  visibleFrom?: string | null;
+  /** When the row stops being true. Absent means "never". */
   expiresAt?: string | null;
 };
 
@@ -28,13 +30,27 @@ export type NotificationItem = {
  * time. An inbox row that stays false is worse than a stale card, because a
  * shopper acts on it by walking to a shop.
  *
- * So an item carries an expiry when it has one, and is withdrawn at it. The
+ * An item therefore carries the edges of its own truth — `visibleFrom` and
+ * `expiresAt` — and the list applies both. Note the second miss this closes:
+ * the saved-shop alert IS a timeless event, but the query that produces it is
+ * scoped to 24 hours, so an open page must drop it at the same boundary a
+ * fresh render would or the two disagree. The row's own truth and the
+ * collection's membership rule are different things.
+ *
+ * The
  * empty state moves with the rows for the same reason it does elsewhere: it is
  * a claim about the current contents.
  */
 export function NotificationList({ items }: { items: NotificationItem[] }) {
   const now = useShopperClock();
-  const shown = items.filter((n) => isUnexpiredAt(n.expiresAt ?? null, now));
+  // Both edges. A collection that can only ever SHRINK is still stale: a claim
+  // with three hours left when the page opened enters the "expires soon"
+  // window an hour later, and the row has to appear then, not on reload.
+  const shown = items.filter(
+    (n) =>
+      isUnexpiredAt(n.expiresAt ?? null, now) &&
+      (!n.visibleFrom || new Date(n.visibleFrom).getTime() <= now.getTime())
+  );
 
   if (shown.length === 0) {
     return (

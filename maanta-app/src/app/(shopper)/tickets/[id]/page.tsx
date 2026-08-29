@@ -9,6 +9,7 @@ import { InlineAlert } from "@/components/ui/inline-alert";
 import { IconCheck } from "@/components/ui/icons";
 import { BackIconButton } from "@/components/ui/claude";
 import { TicketWatcher } from "./ticket-watcher";
+import { ExpiryGate } from "@/components/shopper/expiry-gate";
 import { ClaimedCode } from "./claimed-code";
 import { FastVisitPanel } from "./fast-visit-panel";
 import { DEAL_GRACE_MINUTES } from "@/lib/deal-expiry";
@@ -232,9 +233,10 @@ export default async function TicketPage({
     );
   }
 
-  // Redemption expired.
-  if (expired) {
-    return (
+  // Redemption expired. Built once and used twice: the server renders it
+  // directly when the ticket is already dead, and `ExpiryGate` swaps to the
+  // SAME view when a pending ticket crosses its deadline on an open page.
+  const expiredView = (
       <main className="flex min-h-[80dvh] flex-col px-5 pt-6">
         <div className="flex justify-center">
           <ClaimChip state="expired" />
@@ -255,10 +257,12 @@ export default async function TicketPage({
           See live deals
         </ButtonLink>
       </main>
-    );
+  );
+
+  if (expired) {
+    return expiredView;
   }
 
-  // Pending, live code — the hero (S5). Zero amber actions: the screen IS the credential.
   // The Fast Visit reward window renders only while the feature gate is on
   // (app_config.fast_visit_enabled — dark until merchant counter QRs exist at
   // Node 0), and always BELOW the code: the reward is secondary to the credential.
@@ -270,7 +274,12 @@ export default async function TicketPage({
   // eligibility is never erased") and /you/page.tsx already honours it; this
   // screen did not. D198.
   const fastVisitOn = await isFastVisitEnabled();
+  // D213 criterion 3 — the WHOLE pending screen is time-derived, not just the
+  // countdown inside it. Leaving the status chip, the live watcher and the
+  // "still valid until" line on a server-decided boolean while the code ticked
+  // is the original /my-deals defect on the credential screen.
   return (
+    <ExpiryGate expiresAt={ticket.expires_at} expired={expiredView}>
     <main className="flex flex-col items-center px-5 pb-10 pt-4">
       <TicketWatcher active />
       <div className="flex w-full items-center">
@@ -389,5 +398,6 @@ export default async function TicketPage({
         If the timer isn&apos;t moving, it&apos;s a screenshot.
       </p>
     </main>
+    </ExpiryGate>
   );
 }
