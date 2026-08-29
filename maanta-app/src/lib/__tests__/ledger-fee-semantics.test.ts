@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
@@ -12,7 +14,11 @@ import {
   type GenuineFeeRedemption,
 } from "@/lib/evidence-scope";
 import { sumFeeTotals } from "@/lib/pilot-command-centre";
-import { FEE_FIGURE_LABELS } from "@/components/admin/fee-figures";
+import {
+  FEE_FIGURE_LABELS,
+  FeeBreakdownCell,
+} from "@/components/admin/fee-figures";
+import { readLedgerFeeTotals } from "@/lib/evidence-scope";
 
 /**
  * D211 — "Success fees" measured GROSS linked fee entries and said so nowhere.
@@ -370,6 +376,33 @@ describe("REQUIRED PROOF 6 — the three figures cannot be mislabelled or swappe
     }
   });
 
+  it("RENDERS net as the cell's headline, with its components beneath", () => {
+    // A source scan cannot see which figure a component actually prints. The
+    // cell is the surface a reader looks at in both pilot tables, so a swap
+    // here shows gross where net belongs — the D211 defect restored inside the
+    // fix for it. Three different values, so an exchange cannot pass.
+    const html = renderToStaticMarkup(
+      h(FeeBreakdownCell, {
+        totals: { grossKes: 100, reversalsKes: 30, netKes: 70 },
+      })
+    );
+    const headline = html.slice(0, html.indexOf("<span", 1));
+    expect(headline, "the leading figure must be NET").toContain("70");
+    expect(headline, "gross must not lead the cell").not.toContain("100");
+    // Both components still visible: a net figure with no visible components is
+    // the same opaque number D211 opened against.
+    expect(html).toContain("100");
+    expect(html).toContain("30");
+  });
+
+  it("RENDERS an unavailable figure as a dash, never as zero", () => {
+    const html = renderToStaticMarkup(
+      h(FeeBreakdownCell, { totals: UNKNOWN_FEE_TOTALS })
+    );
+    expect(html).toContain("—");
+    expect(html).not.toMatch(/KES\s*0/);
+  });
+
   it("distinguishes the three figures by value, so a swap cannot pass", () => {
     // Three different numbers. A guard built on 30/0/30 would survive gross and
     // net being exchanged.
@@ -391,6 +424,22 @@ describe("REQUIRED PROOF 6 — the three figures cannot be mislabelled or swappe
       { grossKes: 50, reversalsKes: 20, netKes: 30 },
     ];
     const t = sumFeeTotals(rows);
+    expect(t.grossKes).toBe(150);
+    expect(t.reversalsKes).toBe(50);
+    expect(t.netKes).toBe(100);
+    expect(t.netKes).toBe(t.grossKes! - t.reversalsKes!);
+  });
+
+  it("DERIVES the total's net rather than trusting any row's own net", () => {
+    // A row whose net contradicts its own components cannot come out of
+    // `aggregateLedgerFees` — but a hand-built row, a future caller or a
+    // partially-migrated fixture can produce one, and summing a net column
+    // would carry that contradiction into a printed total. Deriving means the
+    // identity holds whatever arrives.
+    const t = sumFeeTotals([
+      { grossKes: 100, reversalsKes: 30, netKes: 999 },
+      { grossKes: 50, reversalsKes: 20, netKes: -999 },
+    ]);
     expect(t.grossKes).toBe(150);
     expect(t.reversalsKes).toBe(50);
     expect(t.netKes).toBe(100);
@@ -458,6 +507,180 @@ describe("the window follows the ledger movement, not the redemption", () => {
       });
       expect(t.reversalsKes).toBe(0);
     }
+  });
+});
+
+/**
+ * A faithful-enough PostgREST fake: it EVALUATES the filters it is given.
+ *
+ * Recording the calls would only prove a query was built. These tests are about
+ * what the query lets through — above all that no transaction-type filter
+ * survives anywhere, because `FEE_LEDGER_TYPES` holds only the two billed types
+ * and a filter to it would drop every `fee_reversal` row before the aggregator
+ * ever saw one. The reversal figure would then read 0 forever, on every
+ * surface, and no source scan of the PAGES would notice: the defect would be
+ * inside the shared reader they delegate to.
+ */
+function fakeService(tables: Record<string, Record<string, unknown>[]>) {
+  const seen: { table: string; column: string; op: string }[] = [];
+  const get = (row: Record<string, unknown>, column: string): unknown =>
+    column.split(".").reduce<unknown>(
+      (v, part) => (v as Record<string, unknown> | null)?.[part],
+      row
+    );
+
+  const build = (table: string, rows: Record<string, unknown>[]) => {
+    let current = rows;
+    const q = {
+      eq(column: string, value: unknown) {
+        seen.push({ table, column, op: "eq" });
+        current = current.filter((r) => get(r, column) === value);
+        return q;
+      },
+      in(column: string, values: readonly unknown[]) {
+        seen.push({ table, column, op: "in" });
+        current = current.filter((r) => values.includes(get(r, column)));
+        return q;
+      },
+      gte(column: string, value: unknown) {
+        seen.push({ table, column, op: "gte" });
+        current = current.filter(
+          (r) => String(get(r, column) ?? "") >= String(value)
+        );
+        return q;
+      },
+      lt(column: string, value: unknown) {
+        seen.push({ table, column, op: "lt" });
+        current = current.filter(
+          (r) => String(get(r, column) ?? "") < String(value)
+        );
+        return q;
+      },
+      not(column: string, op: string, value: unknown) {
+        seen.push({ table, column, op: `not.${op}` });
+        if (op === "is" && value === null) {
+          current = current.filter((r) => get(r, column) != null);
+        }
+        return q;
+      },
+      limit(n: number) {
+        return Promise.resolve({ data: current.slice(0, n), error: null });
+      },
+    };
+    return q;
+  };
+
+  return {
+    seen,
+    service: {
+      from(table: string) {
+        return { select: () => build(table, tables[table] ?? []) };
+      },
+    },
+  };
+}
+
+/** A genuine-tagged redemption row as the join returns it. */
+const genuineRedemption = (id: string) => ({
+  id,
+  success_fee_charged: 30,
+  merchant_id: "m1",
+  status: "success",
+  is_demo: false,
+  merchants: { is_demo: false, node: "bbs-mall" },
+  deals: { is_demo: false },
+});
+
+describe("the shared reader lets a reversal through, and filters no type", () => {
+  const setup = () =>
+    fakeService({
+      redemptions: [
+        { ...genuineRedemption("r_new"), redeemed_at: IN },
+        // Verified before the window; its reversal lands inside it.
+        { ...genuineRedemption("r_old"), redeemed_at: BEFORE },
+      ],
+      merchant_transactions: [
+        { id: "t1", merchant_id: "m1", reference_id: "r_new", transaction_type: "success_fee", amount: -30, created_at: IN },
+        { id: "t2", merchant_id: "m1", reference_id: "r_old", transaction_type: "success_fee", amount: -30, created_at: BEFORE },
+        { id: "t3", merchant_id: "m1", reference_id: "r_old", transaction_type: "fee_reversal", amount: 30, created_at: IN },
+        { id: "t4", merchant_id: "m1", reference_id: "r_old", transaction_type: "arrears_settlement", amount: -30, created_at: IN },
+        { id: "t5", merchant_id: "m1", reference_id: null, transaction_type: "topup", amount: 500, created_at: IN },
+      ],
+    });
+
+  it("counts this window's fee and this window's reversal against an older redemption", async () => {
+    const { service } = setup();
+    const t = await readLedgerFeeTotals(service, {
+      merchantIds: ["m1"],
+      window: WINDOW,
+    });
+    // The old fee posted before the window, so it is not this window's gross.
+    expect(t.grossKes).toBe(30);
+    // Its reversal posted inside the window, so it IS this window's reversal.
+    // A type filter to the billed set would have dropped it and read 0.
+    expect(t.reversalsKes).toBe(30);
+    expect(t.netKes).toBe(0);
+  });
+
+  it("applies no transaction_type filter anywhere in the read", async () => {
+    const { service, seen } = setup();
+    await readLedgerFeeTotals(service, { merchantIds: ["m1"], window: WINDOW });
+    expect(seen.filter((f) => f.column === "transaction_type")).toEqual([]);
+  });
+
+  it("windows movements on created_at and redemptions on redeemed_at", async () => {
+    const { service, seen } = setup();
+    await readLedgerFeeTotals(service, { merchantIds: ["m1"], window: WINDOW });
+    const ledgerWindow = seen.filter(
+      (f) => f.table === "merchant_transactions" && f.column === "created_at"
+    );
+    expect(ledgerWindow.map((f) => f.op)).toEqual(["gte", "lt"]);
+    const redemptionWindow = seen.filter(
+      (f) => f.table === "redemptions" && f.column === "redeemed_at"
+    );
+    expect(redemptionWindow.map((f) => f.op)).toEqual(["gte", "lt"]);
+  });
+
+  it("keeps the D188 parent predicates on every redemption read", async () => {
+    const { service, seen } = setup();
+    await readLedgerFeeTotals(service, { merchantIds: ["m1"], window: WINDOW });
+    for (const column of ["is_demo", "merchants.is_demo", "deals.is_demo"]) {
+      expect(
+        seen.some((f) => f.table === "redemptions" && f.column === column),
+        `redemptions must be filtered on ${column}`
+      ).toBe(true);
+    }
+  });
+
+  it("drops a movement whose redemption is not genuine-tagged", async () => {
+    const { service } = fakeService({
+      redemptions: [
+        {
+          ...genuineRedemption("r_demo"),
+          redeemed_at: IN,
+          deals: { is_demo: true },
+        },
+      ],
+      merchant_transactions: [
+        { id: "t1", merchant_id: "m1", reference_id: "r_demo", transaction_type: "success_fee", amount: -30, created_at: IN },
+      ],
+    });
+    const t = await readLedgerFeeTotals(service, {
+      merchantIds: ["m1"],
+      window: WINDOW,
+    });
+    // The ledger row carries nothing about its deal. Only the parent join can
+    // see this, which is why the reader makes it and the aggregator trusts it.
+    expect(t).toEqual({ grossKes: 0, reversalsKes: 0, netKes: 0 });
+  });
+
+  it("reports a true zero when the scope names nobody", async () => {
+    const { service } = setup();
+    const t = await readLedgerFeeTotals(service, {
+      merchantIds: [],
+      window: WINDOW,
+    });
+    expect(t).toEqual({ grossKes: 0, reversalsKes: 0, netKes: 0 });
   });
 });
 
