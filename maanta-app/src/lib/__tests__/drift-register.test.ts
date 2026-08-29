@@ -193,6 +193,35 @@ describe("drift register schema", () => {
     expect(rows.length, "no drift rows parsed — did the table header change?").toBeGreaterThan(0);
   });
 
+  it("parses EVERY row-shaped line in the file, not just the ones in the table", () => {
+    // This has already happened once. Three rows were appended AFTER the
+    // horizontal rule that ends the table, so `parseRows` never saw them, every
+    // check below silently skipped them, and the suite was then cited as proof
+    // that they were well-formed. A guard that cannot see a row cannot fail on
+    // it, which makes a green run evidence of nothing.
+    //
+    // So: anything that looks like a drift row anywhere in the file must have
+    // been parsed. A row placed outside the table fails here rather than
+    // vanishing.
+    const parsedIds = new Set(rows.map((r) => r.id));
+    const orphans = raw
+      .split("\n")
+      .map((line, i) => ({ line: line.trim(), lineNumber: i + 1 }))
+      .filter(({ line }) => /^\|\s*D\d+\s*\|/.test(line))
+      .map(({ line, lineNumber }) => ({
+        id: (/^\|\s*(D\d+)\s*\|/.exec(line) ?? [])[1] ?? "?",
+        lineNumber,
+      }))
+      .filter(({ id }) => !parsedIds.has(id))
+      .map(({ id, lineNumber }) => `${id} at line ${lineNumber}`);
+
+    expect(
+      orphans,
+      "these rows are outside the table, so every check in this file skips them.\n" +
+        "Move them inside it — a row the guard cannot see is not a tracked gap"
+    ).toEqual([]);
+  });
+
   it("uses well-formed, unique IDs", () => {
     const bad = rows.filter((r) => !/^(D|FU)-?\d+$/.test(r.id));
     expect(bad.map((r) => `${r.id} (line ${r.lineNumber})`), "malformed IDs").toEqual([]);
