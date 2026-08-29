@@ -811,7 +811,6 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
     expect(page).toContain("<FastShopperClock>");
     const fast = read("components/shopper/fast-shopper-clock.tsx");
     expect(fast).toContain("intervalMs = 1000");
-    expect(fast).toContain("useShopperClockSeed()");
     expect(fast).toContain("<ShopperClockProvider");
     for (const rel of [
       "app/(shopper)/tickets/[id]/claimed-code.tsx",
@@ -825,9 +824,29 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
     }
   });
 
-  it("inherits the server seed rather than starting a new one", () => {
+  it("starts from the parent's CURRENT instant, not the parent's seed", () => {
+    // The seed is the moment the (shopper) layout first mounted and never
+    // advances, and that layout PERSISTS across soft navigation. Seeding from
+    // it meant a shopper twenty minutes into the app who opened a ticket
+    // started its clock twenty minutes in the past — a freshly claimed
+    // 15-minute credential reading as live long after the database expired it.
+    //
+    // Asserted on the wiring, and stated as such rather than dressed up: the
+    // divergence between a parent's seed and its current instant only exists
+    // AFTER effects have run, and these suites render to static markup in a
+    // node environment where effects never run. The behavioural half below
+    // covers what can be observed — that first render inherits, which is the
+    // hydration case.
+    const src = read("components/shopper/fast-shopper-clock.tsx");
+    expect(src).toContain("const parentNow = useShopperClock();");
+    expect(src).toContain("useState(() => parentNow)");
+    expect(src).not.toContain("useShopperClockSeed()");
+  });
+
+  it("inherits the instant at first render rather than starting a new one", () => {
     // Re-providing must not reseed: a fresh instant here would reintroduce the
-    // SSR/first-client mismatch the outer provider exists to prevent.
+    // SSR/first-client mismatch the outer provider exists to prevent. At first
+    // render the parent's current instant IS its seed, so this is that case.
     // eslint-disable-next-line react/no-children-prop
     const tree = createElement(FastShopperClock, {
       children: createElement(CountdownChip, { expiresAt: iso(30 * MIN) }),
