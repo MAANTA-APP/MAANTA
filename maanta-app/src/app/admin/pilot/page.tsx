@@ -2,18 +2,18 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { AdminReadError } from "@/components/admin/read-error";
+import {
+  FEE_FIGURE_LABELS,
+  FeeBreakdownCell,
+  feeFigure,
+} from "@/components/admin/fee-figures";
 import { KpiCard } from "@/components/ui/cards";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
 import { NODE_0, nodeLabel } from "@/lib/nodes";
 import {
   GENUINE_JOIN_SELECT,
-  genuineJoinSelect,
   genuineTagged,
-  sumLedgerSuccessFees,
-  FEE_ROW_CAP,
-  FEE_LEDGER_TYPES,
-  type GenuineFeeRedemption,
-  type FeeLedgerRow,
+  readLedgerFeeTotals,
 } from "@/lib/evidence-scope";
 import { withPublicMerchant } from "@/lib/data";
 import { activeDealLimit, normaliseTier } from "@/lib/plan-limits";
@@ -34,7 +34,6 @@ import {
   MIN_CLAIMS_FOR_MERCHANT_RATIO,
   type PilotMerchantRow,
 } from "@/lib/pilot-command-centre";
-import { formatKes } from "@/lib/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -180,7 +179,7 @@ export default async function PilotCommandCentrePage({
         verifiedRes,
         verifiedCohortRes,
         fastVisitsRes,
-        feesRes,
+        fees,
       ] = await Promise.all([
         service
           .from("deals")
@@ -280,75 +279,30 @@ export default async function PilotCommandCentrePage({
             // verdict's own timestamp, not by when the claim happened.
             .gte("fast_visit_qualified_at", since)
         ),
-        // Fees, on the SAME evidence scope as every count beside them.
+        // Fees, on the SAME evidence scope as every count beside them, and
+        // read through the one shared fee reader.
         //
-        // This read merchant_transactions by type alone — no redemption, deal
-        // or merchant scope at all — so a fee charged against a demo-tagged
-        // redemption or deal landed in a column sitting next to genuine-tagged
-        // activity, under a page that states its counts are genuine-tagged.
-        // That is the D188 conflation in money form: the merchant row can be
-        // non-demo while the redemption's deal is not, and `redemptions.is_demo`
-        // is never set by claim_deal, so nothing about the ledger row itself
-        // reveals the mixture.
+        // This page used to build the fee query itself: a genuine-tagged
+        // redemption read, then a `merchant_transactions` read filtered
+        // `.in("transaction_type", FEE_LEDGER_TYPES)`. That type filter was a
+        // correctness rule living in the caller — it decided what counted as a
+        // fee, in three separate places, and none of them had any opinion about
+        // a reversal. `readLedgerFeeTotals` owns both decisions now: which rows
+        // are genuine-tagged (the D188 parent chain) and what each transaction
+        // type means (the ledger contract). There is no type filter here to get
+        // wrong, because there is no type filter.
         //
-        // Derived instead from the genuine verified redemptions themselves —
-        // the same chain, the same window (`redeemed_at`, matching the verified
-        // THROUGHPUT column) — and reading the fee the money path actually
-        // recorded on each one. Not reconstructed from a count times KES 30:
-        // that would restate history the day the fee changes.
-        //
-        // This is only HALF the fee read: it establishes WHICH redemptions
-        // count. What each one actually billed is read from the ledger below,
-        // because `success_fee_charged` is what the claim recorded, not what
-        // the money path managed to post. See `sumLedgerSuccessFees`.
-        genuineTagged(
-          service
-            .from("redemptions")
-            .select(genuineJoinSelect("id, success_fee_charged"))
-            .eq("merchant_id", m.id)
-            .eq("status", "success")
-            .gte("redeemed_at", since)
-            .limit(FEE_ROW_CAP)
-        ),
+        // The window follows each ledger movement's own `created_at`, so a
+        // reversal posted inside the window against an older redemption lands
+        // in this window's reversals — which is the point of reporting them.
+        readLedgerFeeTotals(service, {
+          merchantIds: [m.id],
+          window: { since },
+        }),
       ]);
 
       const count = (r: { count: number | null; error: unknown }) =>
         r.error ? null : r.count ?? 0;
-
-      // Second half of the fee read: the ledger entries those redemptions
-      // actually produced, linked by `reference_id`.
-      //
-      // Two queries rather than one embed because `merchant_transactions` has
-      // no foreign key on `reference_id`, so PostgREST exposes no relationship
-      // to join through — and adding one would be a migration, which this PR
-      // does not carry.
-      const feeRedemptions = feesRes.error
-        ? null
-        : ((feesRes.data ?? []) as unknown as GenuineFeeRedemption[]);
-
-      let feeLedger: FeeLedgerRow[] | null = null;
-      if (feeRedemptions !== null) {
-        if (feeRedemptions.length === 0) {
-          // No genuine successes, so no ledger read to make and nothing owed.
-          feeLedger = [];
-        } else {
-          const ledgerRes = await service
-            .from("merchant_transactions")
-            .select("reference_id, amount")
-            .eq("merchant_id", m.id)
-            .in("transaction_type", [...FEE_LEDGER_TYPES])
-            .in(
-              "reference_id",
-              feeRedemptions.map((r) => r.id)
-            )
-            .limit(FEE_ROW_CAP);
-          feeLedger = ledgerRes.error
-            ? null
-            : ((ledgerRes.data ?? []) as unknown as FeeLedgerRow[]);
-        }
-      }
-
-      const successFeesKes = sumLedgerSuccessFees(feeRedemptions, feeLedger);
 
       return {
         merchantId: m.id,
@@ -368,7 +322,7 @@ export default async function PilotCommandCentrePage({
         verified: count(verifiedRes),
         verifiedCohort: count(verifiedCohortRes),
         fastVisits: count(fastVisitsRes),
-        successFeesKes,
+        fees,
       } satisfies PilotMerchantRow;
     })
   );
@@ -529,14 +483,29 @@ export default async function PilotCommandCentrePage({
         <KpiCard label={`Arrivals (${days}d)`} value={fmt(byClass.external.arrivals)} />
         <KpiCard label={`Verified (${days}d)`} value={fmt(byClass.external.verified)} />
         <KpiCard
-          label={`Success fees (${days}d)`}
-          value={
-            byClass.external.successFeesKes === null
-              ? "—"
-              : formatKes(byClass.external.successFeesKes)
-          }
+          label={`${FEE_FIGURE_LABELS.net} (${days}d)`}
+          value={feeFigure(byClass.external.fees.netKes)}
         />
       </section>
+
+      {/* The audit trail behind the headline, never folded into it. */}
+      <section className="mt-3 grid gap-3 sm:grid-cols-2">
+        <KpiCard
+          label={`${FEE_FIGURE_LABELS.gross} (${days}d)`}
+          value={feeFigure(byClass.external.fees.grossKes)}
+        />
+        <KpiCard
+          label={`${FEE_FIGURE_LABELS.reversals} (${days}d)`}
+          value={feeFigure(byClass.external.fees.reversalsKes)}
+        />
+      </section>
+      <p className="mt-1.5 max-w-3xl text-xs text-muted">
+        Gross is what the money path billed — charged, plus recorded as arrears.
+        Reversals are admin-gated credits against a billed fee. Net is gross less
+        reversals, and is the figure to act on. Each is windowed by the ledger
+        movement&rsquo;s own timestamp, so a reversal posted in the last {days}{" "}
+        days counts here even when the redemption it corrects is older.
+      </p>
 
       {/* Kept, labelled, and never added to the row above. */}
       <h2 className="mt-6 text-sm font-semibold text-ink">
@@ -564,7 +533,9 @@ export default async function PilotCommandCentrePage({
               <th className="px-3 py-2 font-semibold">Claims</th>
               <th className="px-3 py-2 font-semibold">Arrivals</th>
               <th className="px-3 py-2 font-semibold">Verified</th>
-              <th className="px-3 py-2 font-semibold">Fees</th>
+              <th className="px-3 py-2 font-semibold">
+                {FEE_FIGURE_LABELS.net}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -582,7 +553,7 @@ export default async function PilotCommandCentrePage({
                 <td className="px-3 py-2">{fmt(t.arrivals)}</td>
                 <td className="px-3 py-2">{fmt(t.verified)}</td>
                 <td className="px-3 py-2">
-                  {t.successFeesKes === null ? "—" : formatKes(t.successFeesKes)}
+                  <FeeBreakdownCell totals={t.fees} />
                 </td>
               </tr>
             ))}
@@ -642,7 +613,9 @@ export default async function PilotCommandCentrePage({
                   <th className="px-3 py-2 font-semibold">Arrivals*</th>
                   <th className="px-3 py-2 font-semibold">Verified*</th>
                   <th className="px-3 py-2 font-semibold">Fast Visits*</th>
-                  <th className="px-3 py-2 font-semibold">Fees</th>
+                  <th className="px-3 py-2 font-semibold">
+                    {FEE_FIGURE_LABELS.net}
+                  </th>
                   <th className="px-3 py-2 font-semibold">Status</th>
                 </tr>
               </thead>
@@ -685,7 +658,7 @@ export default async function PilotCommandCentrePage({
                       <td className="px-3 py-2 tabular-nums">{fmt(r.verified)}</td>
                       <td className="px-3 py-2 tabular-nums">{fmt(r.fastVisits)}</td>
                       <td className="px-3 py-2 tabular-nums">
-                        {r.successFeesKes === null ? "—" : formatKes(r.successFeesKes)}
+                        <FeeBreakdownCell totals={r.fees} />
                       </td>
                       <td className="px-3 py-2">
                         <span className="text-xs font-semibold text-ink">{status.label}</span>
