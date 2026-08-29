@@ -262,6 +262,27 @@
       "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
     },
     {
+      "id": "valid-and-malformed-gross-evidence",
+      "description": "An in-window redemption with a valid in-window fee AND a second, malformed gross row outside the window. The valid row already answered the completeness question, so the malformed one has no bearing on this period — and invalidating it would blank the period permanently, because a link to a candidate never ages out.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": 70, "createdAt": "2026-09-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "demo-tagged-movement-excluded",
+      "description": "A synthetic movement sitting BESIDE a real one on the same genuine redemption. The demo row is well-formed and correctly signed, so nothing but its own is_demo tag distinguishes it — without that filter it adds KES 70 of invented revenue to a real figure. D188's lesson is that redemptions.is_demo is not a discriminator because claim_deal never sets it, which is a reason to add the parent join, not a reason to ignore a tag the seed scripts do set deliberately.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee_arrears", "amount": 70, "createdAt": "2026-08-11T09:00:01Z", "isDemo": true }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 },
+      "notYetInTypeScript": "FeeLedgerRow carries no is_demo and readLedgerFeeTotals does not select it, so aggregateLedgerFees counts a synthetic movement as genuine. B2b must add the column to the row type, the select, and the aggregator's drop rule."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

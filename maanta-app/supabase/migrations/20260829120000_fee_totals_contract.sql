@@ -212,7 +212,14 @@ BEGIN
       JOIN public.redemptions r ON r.id = t.reference_id
       JOIN public.merchants   m ON m.id = r.merchant_id
       JOIN public.deals       d ON d.id = r.deal_id
+     -- FOUR demo tags, not three. D188's lesson is that `redemptions.is_demo`
+     -- is not a discriminator because `claim_deal` never sets it — which is a
+     -- reason to add the parent join, NOT a reason to ignore a tag that IS set
+     -- deliberately. The seed scripts tag `merchant_transactions.is_demo`, and
+     -- the money path never does (the column takes its default), so this can
+     -- only ever exclude a row something synthetic created.
      WHERE r.status = 'success'
+       AND NOT t.is_demo
        AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
@@ -230,39 +237,19 @@ BEGIN
         OR c.oriented_amount = 'NaN'::numeric
         OR c.oriented_amount <= 0
         OR NOT isfinite(c.created_at)
-        OR c.merchant_mismatch) AS malformed,
-      EXISTS (SELECT 1 FROM candidate k WHERE k.id = c.redemption_id) AS candidate_linked
+        OR c.merchant_mismatch) AS malformed
       FROM classified c
      WHERE c.bucket <> 'excluded'
   ),
-  totals AS (
-    SELECT
-      COALESCE(SUM(x.oriented_amount)
-               FILTER (WHERE x.bucket = 'gross'    AND x.in_window AND NOT x.malformed), 0) AS gross,
-      COALESCE(SUM(x.oriented_amount)
-               FILTER (WHERE x.bucket = 'reversal' AND x.in_window AND NOT x.malformed), 0) AS reversals,
-      -- In-window rows always count. Out-of-window ones count ONLY when they
-      -- are gross, because gross is the only bucket completeness rests on.
-      --
-      -- Without that restriction a malformed REVERSAL posted in September,
-      -- linked to an August redemption, would blank the August report forever:
-      -- it cannot enter August's totals and cannot prove August's
-      -- completeness, so it has no bearing on August at all. It is invalid in
-      -- its OWN window, where it does have bearing. That is the same rule that
-      -- windows the candidate set, applied to the evidence rather than to the
-      -- subject.
-      (COUNT(*) FILTER (WHERE x.malformed
-                          AND (x.in_window
-                               OR (x.candidate_linked AND x.bucket = 'gross'))))::integer AS invalid
-      FROM relevant x
-  ),
-  -- Completeness. Question 3: the search spans ALL DATES, so a fee posted
-  -- seconds after midnight still proves its redemption billed. It must be a
-  -- WELL-FORMED gross row: a zero, wrong-signed or cross-merchant row is not a
-  -- fee, and treating it as proof of billing would let a malformed row buy an
+  -- Completeness, computed ONCE and then used twice.
+  --
+  -- The search spans ALL DATES, so a fee posted seconds after midnight still
+  -- proves its redemption billed. It must be a WELL-FORMED gross row: a zero,
+  -- wrong-signed, NaN, unplaceable or cross-merchant row is not a fee, and
+  -- treating it as proof of billing would let a malformed row buy an
   -- `available = true` with nothing behind it.
-  missing AS (
-    SELECT (COUNT(*))::integer AS n
+  unbilled AS (
+    SELECT k.id
       FROM candidate k
      WHERE NOT EXISTS (
        SELECT 1 FROM relevant x
@@ -270,7 +257,37 @@ BEGIN
           AND x.bucket = 'gross'
           AND NOT x.malformed
      )
-  )
+  ),
+  totals AS (
+    SELECT
+      COALESCE(SUM(x.oriented_amount)
+               FILTER (WHERE x.bucket = 'gross'    AND x.in_window AND NOT x.malformed), 0) AS gross,
+      COALESCE(SUM(x.oriented_amount)
+               FILTER (WHERE x.bucket = 'reversal' AND x.in_window AND NOT x.malformed), 0) AS reversals,
+      -- WHICH ROWS THIS PERIOD'S ANSWER DEPENDS ON. This predicate has been
+      -- wrong in both directions and is the part of the function worth
+      -- distrusting:
+      --
+      --   * in-window rows always count — they are what the totals are made of;
+      --   * an out-of-window row counts ONLY if it is gross AND its redemption
+      --     has no well-formed gross row anywhere. That is exactly "evidence
+      --     the completeness answer rests on".
+      --
+      -- Everything else has no bearing on this period and must not blank it.
+      -- A malformed REVERSAL in September cannot enter August's totals or
+      -- prove August's completeness — it is invalid in its own window. And a
+      -- malformed gross row is irrelevant once a VALID gross row for the same
+      -- redemption exists, because the valid one already answered the
+      -- question. Both of those blanked historical periods permanently, since
+      -- a link to a candidate never ages out.
+      (COUNT(*) FILTER (WHERE x.malformed
+                          AND (x.in_window
+                               OR (x.bucket = 'gross'
+                                   AND EXISTS (SELECT 1 FROM unbilled u
+                                                WHERE u.id = x.redemption_id)))))::integer AS invalid
+      FROM relevant x
+  ),
+  missing AS (SELECT (COUNT(*))::integer AS n FROM unbilled)
   SELECT t.gross, t.reversals, t.invalid, m.n
     INTO v_gross, v_reversals, v_invalid, v_missing
     FROM totals t CROSS JOIN missing m;

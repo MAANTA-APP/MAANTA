@@ -63,6 +63,7 @@ type Case = {
     type: string;
     amount: number | string;
     createdAt: string;
+    isDemo?: boolean;
   }[];
   expected: {
     grossKes: number | null;
@@ -170,6 +171,8 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "nan-amount",
       "infinite-created-at",
       "malformed-later-reversal-does-not-blank-an-earlier-period",
+      "valid-and-malformed-gross-evidence",
+      "demo-tagged-movement-excluded",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -302,6 +305,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
     expect(gaps.map((c) => c.id).sort()).toEqual([
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
+      "demo-tagged-movement-excluded",
       "malformed-fee-outside-window-does-not-prove-completeness",
     ]);
     for (const c of gaps) {
@@ -314,7 +318,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
   it("still runs every other case through TypeScript", () => {
     // The skip must stay narrow. Two skipped, all the rest asserted.
     const skipped = spec.cases.filter((c) => c.notYetInTypeScript).length;
-    expect(spec.cases.length - skipped).toBe(26);
+    expect(spec.cases.length - skipped).toBe(27);
   });
 
   it("only ever diverges by reporting availability per bucket", () => {

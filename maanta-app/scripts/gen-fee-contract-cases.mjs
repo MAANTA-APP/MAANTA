@@ -110,10 +110,11 @@ function renderCase(c, windowDefault) {
   for (const mv of movements) {
     p(``);
     p(`  INSERT INTO public.merchant_transactions`);
-    p(`    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at)`);
+    p(`    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)`);
     const mvMerchant = mv.merchant ?? redemptionMerchant(redemptions, mv.redemption);
     p(`    VALUES (v_m_${mvMerchant}, ${amount(mv.amount)}, ${q(mv.type)}, 'manual',`);
-    p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)});`);
+    p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)},`);
+    p(`            ${mv.isDemo ? "TRUE" : "FALSE"});`);
   }
 
   p(``);
