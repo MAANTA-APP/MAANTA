@@ -378,7 +378,12 @@ export default async function YesterdayBriefPage() {
           ? " No merchant is enrolled yet, so these are zero by construction rather than unread."
           : null}
       </p>
-      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Four columns, not five: with four count cards the three fee figures
+          always share the row beneath them. At five, net rode up into the
+          counts row and left gross and reversals orphaned below it — which is
+          the D211 defect in layout form, a net figure presented without its
+          components. */}
+      <section className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Claims" value={fmt(external.claims)} />
         <KpiCard label="Verified visits" value={fmt(external.verified)} />
         <KpiCard label="Arrivals / check-ins" value={fmt(external.arrivals)} />
