@@ -282,16 +282,34 @@ function amountOf(row: FeeLedgerRow): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** True when a movement's own timestamp falls inside the window. */
-function inWindow(row: FeeLedgerRow, w: FeeWindow): boolean {
-  if (!row.created_at) return false;
+/**
+ * Where a movement sits relative to the window — including "cannot tell".
+ *
+ * Three answers, not two, and the third is the point. `Date.parse` and
+ * PostgreSQL do not agree on every valid `timestamptz`: `infinity` is a real
+ * value the database orders above every bound, and `Date.parse("infinity")` is
+ * `NaN`. Folding that into `false` silently drops a fee-bearing row from a
+ * figure the database had already accepted, producing a **quietly low money
+ * number** — the exact failure this module refuses everywhere else (D164 /
+ * D185). A timestamp we cannot interpret makes the figure unknown instead.
+ *
+ * `out` is different from `unknown` and must stay so: the reader deliberately
+ * fetches rows OUTSIDE the window to answer the completeness question, and
+ * those are legitimately excluded from the totals rather than poisoning them.
+ */
+type WindowPlace = "in" | "out" | "unknown";
+
+function placeInWindow(row: FeeLedgerRow, w: FeeWindow): WindowPlace {
+  if (!row.created_at) return "unknown";
   const t = Date.parse(row.created_at);
-  if (Number.isNaN(t)) return false;
+  if (Number.isNaN(t)) return "unknown";
   const since = Date.parse(w.since);
-  if (Number.isNaN(since) || t < since) return false;
-  if (!w.until) return true;
+  if (Number.isNaN(since)) return "unknown";
+  if (t < since) return "out";
+  if (!w.until) return "in";
   const until = Date.parse(w.until);
-  return !Number.isNaN(until) && t < until;
+  if (Number.isNaN(until)) return "unknown";
+  return t < until ? "in" : "out";
 }
 
 /**
@@ -375,14 +393,19 @@ export function aggregateLedgerFees(input: LedgerFeeInput): LedgerFeeTotals {
     // moved ahead of the code, not a decision made silently at runtime.
     if (contract === null || contract.bucket === "excluded") continue;
 
+    // Completeness is date-independent: a fee row proves the fee posted
+    // whenever it posted, so this happens before any window question.
     if (contract.bucket === "gross") billed.add(ref);
-    if (!inWindow(row, w)) continue;
+
+    const place = placeInWindow(row, w);
+    if (place === "out") continue;
 
     const raw = amountOf(row);
     const oriented = raw === null ? null : raw * contract.orientation;
     // Unexpected polarity — including a zero-amount fee row, which neither RPC
-    // can write. Exposed as unknown rather than absorbed.
-    const bad = oriented === null || oriented <= 0;
+    // can write — or a timestamp that cannot be placed. Both exposed as
+    // unknown rather than absorbed into a plausible number.
+    const bad = place === "unknown" || oriented === null || oriented <= 0;
 
     if (contract.bucket === "gross") {
       gross = bad || gross === null ? null : gross + oriented!;

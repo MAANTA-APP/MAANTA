@@ -553,16 +553,65 @@ describe("the window follows the ledger movement, not the redemption", () => {
     expect(t.netKes).toBe(0);
   });
 
-  it("treats an unparseable or missing timestamp as outside the window", () => {
-    for (const created_at of [null, "not-a-date"]) {
+  it("treats a timestamp it cannot PLACE as unknown, never as excluded", () => {
+    // `Date.parse` and PostgreSQL do not agree on every valid `timestamptz`.
+    // `infinity` is a real value the database orders above every bound and
+    // would return from the open-ended `/admin/pilot` read, while
+    // `Date.parse("infinity")` is NaN. Dropping such a row would understate a
+    // money figure the database had already accepted — a quietly low number
+    // presented as fact, which is the one direction this module never goes.
+    for (const created_at of [null, "not-a-date", "infinity", "-infinity"]) {
       const t = aggregateLedgerFees({
         redemptions: [],
         ledger: [{ ...tx("r1", "fee_reversal", 30), created_at }],
         genuineReferenceIds: ["r1"],
         window: WINDOW,
       });
-      expect(t.reversalsKes).toBe(0);
+      expect(t.reversalsKes, `created_at = ${created_at}`).toBeNull();
+      expect(t.netKes, `created_at = ${created_at}`).toBeNull();
     }
+  });
+
+  it("poisons only the bucket the unplaceable row belongs to", () => {
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [
+        tx("r1", "success_fee", -30),
+        { ...tx("r1", "fee_reversal", 30), created_at: "infinity" },
+      ],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    expect(t.grossKes).toBe(30);
+    expect(t.reversalsKes).toBeNull();
+    expect(t.netKes).toBeNull();
+  });
+
+  it("still answers completeness from a row it cannot place", () => {
+    // The fee posted; only WHEN is in doubt. Gross is unknown because the row
+    // cannot be placed, not because the redemption looks unbilled — and the
+    // distinction matters if the placement rule ever changes.
+    const t = aggregateLedgerFees({
+      redemptions: [red("r1")],
+      ledger: [{ ...tx("r1", "success_fee", -30), created_at: "infinity" }],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    expect(t.grossKes).toBeNull();
+  });
+
+  it("keeps a row the database legitimately placed outside the window excluded", () => {
+    // `out` must stay distinct from `unknown`: the reader deliberately fetches
+    // rows outside the window to answer completeness, and those must not
+    // poison a total that is otherwise fully established.
+    const t = aggregateLedgerFees({
+      redemptions: [red("r1")],
+      ledger: [tx("r1", "success_fee", -30, BEFORE)],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    expect(t.grossKes).toBe(0);
+    expect(t.netKes).toBe(0);
   });
 });
 
@@ -577,6 +626,15 @@ describe("the window follows the ledger movement, not the redemption", () => {
  * surface, and no source scan of the PAGES would notice: the defect would be
  * inside the shared reader they delegate to.
  */
+function isoUtc(value: unknown): string {
+  const s = String(value);
+  expect(
+    s,
+    "this fake orders timestamps as strings, which is only correct for ISO-8601 UTC"
+  ).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+  return s;
+}
+
 function fakeService(tables: Record<string, Record<string, unknown>[]>) {
   const seen: { table: string; column: string; op: string }[] = [];
   const get = (row: Record<string, unknown>, column: string): unknown =>
@@ -600,16 +658,27 @@ function fakeService(tables: Record<string, Record<string, unknown>[]>) {
       },
       gte(column: string, value: unknown) {
         seen.push({ table, column, op: "gte" });
-        current = current.filter(
-          (r) => String(get(r, column) ?? "") >= String(value)
-        );
+        // Lexicographic ordering is only chronological for a FIXED ISO-UTC
+        // shape. PostgREST could return `+00:00` instead of `Z`, or a
+        // different fractional precision, and this fake would then order rows
+        // differently from the real thing — the tests would be passing against
+        // a fiction. So the shape is asserted rather than assumed.
+        isoUtc(value);
+        current = current.filter((r) => {
+          const held = get(r, column);
+          if (held == null) return false;
+          return isoUtc(held) >= String(value);
+        });
         return q;
       },
       lt(column: string, value: unknown) {
         seen.push({ table, column, op: "lt" });
-        current = current.filter(
-          (r) => String(get(r, column) ?? "") < String(value)
-        );
+        isoUtc(value);
+        current = current.filter((r) => {
+          const held = get(r, column);
+          if (held == null) return false;
+          return isoUtc(held) < String(value);
+        });
         return q;
       },
       not(column: string, op: string, value: unknown) {
