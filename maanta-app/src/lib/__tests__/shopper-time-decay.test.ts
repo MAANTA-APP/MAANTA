@@ -19,8 +19,10 @@ import { ClaimGate } from "@/components/shopper/claim-gate";
 import {
   LiveDealCollection,
   liveItemsAt,
+  cardKey,
 } from "@/components/shopper/live-deal-collection";
 import { ShopLiveDeals } from "@/components/shopper/shop-live-deals";
+import { DealPriceDetail } from "@/app/(shopper)/deals/[id]/deal-price-detail";
 import { SearchResults } from "@/components/shopper/search-results";
 import { FeedBody } from "@/components/shopper/feed-body";
 import { isUnexpiredAt } from "@/lib/live-deals";
@@ -395,10 +397,13 @@ describe("criterion 3 — Active/Past membership is decided at the current time"
     expect(live).not.toContain("EXPIRED");
 
     const past = renderShopperTree(createElement(MyDealsList, props), at(21 * MIN));
-    // Gone from Active entirely — not present-but-contradicting.
+    // Gone from Active entirely — not present-but-contradicting. The copy
+    // says the SEGMENT is empty, not that nothing was ever claimed: the
+    // ticket is under Past, one tap away.
     expect(past).not.toContain("ACTIVE");
     expect(past).not.toContain("Nyama Spot");
-    expect(past).toContain("No claimed deals yet");
+    expect(past).toContain("No active deals");
+    expect(past).not.toContain("No claimed deals yet");
   });
 
   it("the page reads no clock, so it cannot freeze membership again", () => {
@@ -851,13 +856,36 @@ describe("criterion 3 — membership changes must not leak per-deal client state
     // merchant's saved state: a wrong write to their own data, caused by a card
     // that only moved. Withdrawing members is what makes this reachable, so the
     // guard belongs with the withdrawal.
+    // Asserting the SHAPE of a key is not enough, and this guard was weaker
+    // than it looked: `key={!!first.id}` contains both `key={` and `.id}` while
+    // producing the same `true` for every deal, so promotion would still reuse
+    // the expired lead's instance with the test green. The value semantics are
+    // therefore behavioural (below) and the source assertion only pins that
+    // every card routes through the one named function.
     const src = read("components/shopper/live-deal-collection.tsx");
     const cards = src.match(/<DealCard[^>]*/g) ?? [];
     expect(cards.length).toBeGreaterThan(0);
     for (const card of cards) {
-      expect(card, `unkeyed <DealCard>: ${card}`).toContain("key={");
-      expect(card, `key must carry the deal id: ${card}`).toContain(".id}");
+      expect(card, `card must key through cardKey(): ${card}`).toMatch(
+        /key=\{cardKey\([^)]*,\s*\w+\.id\)\}/
+      );
     }
+  });
+
+  it("gives two different deals two different keys", () => {
+    // The property that actually matters: a key that does not vary by deal is
+    // the defect, however it is spelled.
+    const a = "6f1c1a4e-0000-4000-8000-000000000001";
+    const b = "6f1c1a4e-0000-4000-8000-000000000002";
+    expect(cardKey("", a)).not.toBe(cardKey("", b));
+    expect(cardKey("fav-", a)).not.toBe(cardKey("fav-", b));
+    // Prefixes separate slots, so the same deal in two rails does not collide.
+    expect(cardKey("lead-", a)).not.toBe(cardKey("", a));
+    // ...and the same deal in the same slot is stable, or nothing would ever
+    // keep its state across a re-render.
+    expect(cardKey("", a)).toBe(cardKey("", a));
+    // A boolean-ish or constant key is exactly what this rules out.
+    expect(new Set([cardKey("", a), cardKey("", b)]).size).toBe(2);
   });
 
   it("keys the rows on every other collection that withdraws members", () => {
@@ -874,5 +902,100 @@ describe("criterion 3 — membership changes must not leak per-deal client state
         expect(el, `key must carry the row id: ${el}`).toMatch(/key=\{[^}]*\bid\}/);
       }
     }
+  });
+});
+
+describe("criterion 3 — the price survives the claim bar it was hiding behind", () => {
+  // Direction A puts YOU PAY in the anchored decision bar on a claimable deal,
+  // so the detail block deliberately renders it only when the deal cannot be
+  // claimed. Once ClaimGate withdrew the bar on an open page, the bar was gone
+  // and the block was still gated on the SERVER's `claimable` — an aged render
+  // showed no price at all, while a fresh render of the same expired deal
+  // showed one. Two renders of one state disagreeing is the contradiction
+  // criterion 3 forbids between two elements.
+  const detail = (serverClaimable: boolean, extras = 0) =>
+    createElement(DealPriceDetail, {
+      pay: 450,
+      was: 800,
+      extras,
+      charges: [],
+      priceKes: 450,
+      serverClaimable,
+      expiresAt: iso(30 * MIN),
+    });
+
+  it("hands the figure over as the bar leaves, in the same tick", () => {
+    const claimable = renderShopperTree(detail(true), at(0));
+    expect(claimable).not.toContain("You pay");
+
+    const ended = renderShopperTree(detail(true), at(31 * MIN));
+    expect(ended).toContain("You pay");
+    expect(ended).toContain("KES 450");
+  });
+
+  it("matches a fresh render of the same expired deal", () => {
+    // The aged page and a reload must not disagree about whether a price exists.
+    const aged = renderShopperTree(detail(true), at(31 * MIN));
+    const fresh = renderShopperTree(detail(false), at(31 * MIN));
+    expect(aged).toContain("You pay");
+    expect(fresh).toContain("You pay");
+  });
+
+  it("still shows the price immediately when data, not time, blocks the claim", () => {
+    // Paused, fully claimed, already ticketed: unclaimable for reasons the
+    // clock knows nothing about, and the price was always shown at once.
+    const html = renderShopperTree(detail(false), at(0));
+    expect(html).toContain("You pay");
+    expect(html).toContain("KES 450");
+  });
+});
+
+describe("criterion 3 — an empty segment describes itself honestly", () => {
+  const ticket = (over: Partial<MyDealsTicket> = {}): MyDealsTicket => ({
+    id: "t1",
+    href: "/tickets/t1",
+    code: "123 456",
+    status: "pending",
+    expiresAt: iso(20 * MIN),
+    redeemedAt: null,
+    claimedAt: iso(0),
+    arrivedAt: null,
+    qualifiedAt: null,
+    countdownExpiresAt: iso(20 * MIN),
+    merchantName: "Nyama Spot",
+    dealTitle: "Platter",
+    ...over,
+  });
+  const list = (tickets: MyDealsTicket[], when: "active" | "past", nowAt: Date) =>
+    renderShopperTree(
+      createElement(MyDealsList, {
+        tickets,
+        when,
+        sort: "newest" as const,
+        featureEnabled: false,
+        windowMinutes: 15,
+      }),
+      nowAt
+    );
+
+  it("does not tell a shopper who has tickets that they have never claimed", () => {
+    // Reachable without navigating now: the last active ticket expires, moves
+    // to Past, and the Active tab would otherwise deny the history one tap away.
+    const html = list([ticket()], "active", at(21 * MIN));
+    expect(html).toContain("No active deals");
+    expect(html).not.toContain("No claimed deals yet");
+    expect(html).toContain("under Past");
+  });
+
+  it("still says nothing has ever been claimed when nothing has", () => {
+    const html = list([], "active", at(0));
+    expect(html).toContain("No claimed deals yet");
+    expect(html).not.toContain("No active deals");
+  });
+
+  it("keeps the Past copy unchanged", () => {
+    const html = list([ticket()], "past", at(0));
+    expect(html).toContain("No past deals");
+    expect(html).not.toContain("No claimed deals yet");
   });
 });

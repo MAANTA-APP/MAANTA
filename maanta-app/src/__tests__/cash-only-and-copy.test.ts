@@ -55,7 +55,12 @@ describe("cash-only guardrail — no in-app shopper payment UI", () => {
     // be claimed) and the anchored decision bar (the default, claimable view).
     // Reading only the page would leave the surface most shoppers see
     // uncovered — Direction A slice 3 moved the figure into the bar.
-    expect(read("src/app/(shopper)/deals/[id]/page.tsx")).toMatch(/You pay/);
+    // D213 moved the body figure into a client component so it appears the
+    // moment the decision bar is withdrawn on an open page. Same two halves,
+    // one of them in a new file.
+    expect(read("src/app/(shopper)/deals/[id]/deal-price-detail.tsx")).toMatch(
+      /You pay/
+    );
     expect(read("src/app/(shopper)/deals/[id]/claim-flow.tsx")).toMatch(/You pay/);
   });
 

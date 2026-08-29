@@ -11,6 +11,19 @@ export type LiveDealItem = {
   card: ComponentProps<typeof DealCard>;
 };
 
+/**
+ * The React key for a card in a withdrawing collection.
+ *
+ * One named function so the wiring can be pinned without pinning an expression:
+ * a guard asserting only the SHAPE of a key (`key={` ... `.id}`) is satisfied by
+ * `key={!!first.id}`, which is constant for every deal and reintroduces exactly
+ * the state-inheritance defect the key exists to prevent. This is asserted
+ * behaviourally instead — distinct deals must produce distinct keys.
+ */
+export function cardKey(prefix: string, id: string): string {
+  return `${prefix}${id}`;
+}
+
 /** Still-live items, in the order given. Order is the server's, never re-derived. */
 export function liveItemsAt(items: LiveDealItem[], now: Date): LiveDealItem[] {
   return items.filter((i) => isUnexpiredAt(i.expiresAt, now));
@@ -78,7 +91,7 @@ export function LiveDealCollection({
     layout === "rows" ? (
       <div className="space-y-rail">
         {live.map((i) => (
-          <DealCard key={`${keyPrefix}${i.id}`} {...i.card} variant={cardVariant ?? i.card.variant} />
+          <DealCard key={cardKey(keyPrefix, i.id)} {...i.card} variant={cardVariant ?? i.card.variant} />
         ))}
       </div>
     ) : lead ? (
@@ -96,12 +109,12 @@ export function LiveDealCollection({
             lead would then submit the PREVIOUS merchant's saved state — a wrong
             write to their own data, from a card that merely moved. */}
         <div className="px-4">
-          <DealCard key={`${keyPrefix}lead-${first.id}`} variant="lead" {...first.card} />
+          <DealCard key={cardKey(`${keyPrefix}lead-`, first.id)} variant="lead" {...first.card} />
         </div>
         {rest.length > 0 ? (
           <RailScroller className="mt-3">
             {rest.map((i) => (
-              <DealCard key={`${keyPrefix}${i.id}`} {...i.card} />
+              <DealCard key={cardKey(keyPrefix, i.id)} {...i.card} />
             ))}
           </RailScroller>
         ) : null}
@@ -109,7 +122,7 @@ export function LiveDealCollection({
     ) : (
       <RailScroller>
         {live.map((i) => (
-          <DealCard key={`${keyPrefix}${i.id}`} {...i.card} />
+          <DealCard key={cardKey(keyPrefix, i.id)} {...i.card} />
         ))}
       </RailScroller>
     );

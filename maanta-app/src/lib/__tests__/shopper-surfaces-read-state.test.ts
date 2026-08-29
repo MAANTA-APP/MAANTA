@@ -48,6 +48,9 @@ describe("/my-deals no longer flattens a failed read into an empty list", () => 
     const list = read("components/shopper/my-deals-list.tsx");
     expect(list).toContain("No claimed deals yet");
     expect(list).toContain("No past deals");
+    // ...and the segment-empty copy, which must not deny a history the other
+    // segment holds.
+    expect(list).toContain("No active deals");
   });
 
   it("gates the saved-shops empty state behind its own read state", () => {

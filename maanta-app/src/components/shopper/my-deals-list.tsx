@@ -96,14 +96,29 @@ export function MyDealsList({
   const shown = selectMyDealsTickets(tickets, when, sort, now);
 
   if (shown.length === 0) {
-    // Past-tab copy must not claim the shopper has never claimed — they may
-    // hold active tickets on the other segment.
+    // Neither segment may claim the shopper has never claimed while the OTHER
+    // one holds their tickets. "No claimed deals yet" is true only of someone
+    // with no tickets at all — and D213 made the false case reachable without
+    // navigating: when the last active ticket expires on an open Active tab it
+    // moves to Past, and copy saying they have never claimed would contradict
+    // the history one tap away.
+    const hasAny = tickets.length > 0;
+    const copy =
+      when === "past"
+        ? {
+            title: "No past deals",
+            sub: "Redeemed and expired deals will show here.",
+          }
+        : hasAny
+          ? {
+              title: "No active deals",
+              sub: "Redeemed and expired deals are under Past.",
+            }
+          : { title: "No claimed deals yet", sub: undefined };
     return (
       <EmptyState
-        title={when === "past" ? "No past deals" : "No claimed deals yet"}
-        sub={
-          when === "past" ? "Redeemed and expired deals will show here." : undefined
-        }
+        title={copy.title}
+        sub={copy.sub}
         actionLabel="Browse deals"
         actionHref="/feed"
       />
