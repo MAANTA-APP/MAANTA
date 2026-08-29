@@ -176,7 +176,18 @@ BEGIN
       JOIN public.deals     d ON d.id = r.deal_id
      WHERE r.status = 'success'
        AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
-       AND (NOT p_scoped OR r.merchant_id = ANY (p_merchant_ids))
+       -- Scope matches the redemption's merchant OR its deal's owner, for the
+       -- same reason `classified` below does. A success naming merchant A
+       -- against B's deal, with NO fee movement at all, cannot be recovered by
+       -- `touched` or `classified` -- there is no movement to reach it
+       -- through -- so scoping completeness on `r.merchant_id` alone left B
+       -- reading an available zero while A and the global report both
+       -- surfaced the missing fee. On a well-formed chain the two merchants
+       -- are equal and the extra arm is a no-op; only a corrupt chain differs,
+       -- and both owners should see corruption on a chain they are part of.
+       AND (NOT p_scoped
+            OR r.merchant_id = ANY (p_merchant_ids)
+            OR d.merchant_id = ANY (p_merchant_ids))
        AND r.redeemed_at >= p_since
        AND (p_until IS NULL OR r.redeemed_at < p_until)
   ),
