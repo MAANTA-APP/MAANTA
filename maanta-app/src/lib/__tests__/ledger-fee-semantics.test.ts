@@ -1,0 +1,532 @@
+import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { stripComments } from "./helpers/comment-stripping";
+import {
+  aggregateLedgerFees,
+  FEE_LEDGER_TYPES,
+  FEE_ROW_CAP,
+  LEDGER_TYPE_CONTRACT,
+  UNKNOWN_FEE_TOTALS,
+  type FeeLedgerRow,
+  type GenuineFeeRedemption,
+} from "@/lib/evidence-scope";
+import { sumFeeTotals } from "@/lib/pilot-command-centre";
+import { FEE_FIGURE_LABELS } from "@/components/admin/fee-figures";
+
+/**
+ * D211 — "Success fees" measured GROSS linked fee entries and said so nowhere.
+ *
+ * `reverse_success_fee` writes a positive `fee_reversal` row and, when arrears
+ * were standing, a negative `arrears_settlement` row, both carrying the
+ * redemption's `reference_id`. Neither type was in the billed set, so a
+ * reversal could not double-count — but a reversed fee still counted in full
+ * toward a number a reader takes as revenue.
+ *
+ * ## The ledger's signed contract, read back from production 2026-08-29
+ *
+ * `pg_get_functiondef` on the live functions:
+ *
+ * | type                  | writes         | sign     | bucket    |
+ * |-----------------------|----------------|----------|-----------|
+ * | `success_fee`         | `-p_amount`    | negative | gross     |
+ * | `success_fee_arrears` | `p_amount`     | POSITIVE | gross     |
+ * | `fee_reversal`        | `v_fee_amount` | positive | reversals |
+ * | `arrears_settlement`  | `-v_settled`   | negative | excluded  |
+ *
+ * The arrears leg is positive because it accrues a debt rather than moving the
+ * wallet. **Two rows against one redemption therefore carry opposite signs**,
+ * which is the exact hazard the D211 row warned about, and the reason sign can
+ * never classify a row while `Math.abs` could never be the arithmetic.
+ */
+
+/** The constraint declaration itself, never a fee predicate in a function body. */
+const CHECK_DECL = /CHECK\s*\(+\s*transaction_type\s*(?:=\s*ANY|IN\s*\()/i;
+
+const WINDOW = { since: "2026-08-01T00:00:00Z", until: "2026-09-01T00:00:00Z" };
+const IN = "2026-08-15T12:00:00Z";
+const BEFORE = "2026-07-15T12:00:00Z";
+
+const red = (id: string): GenuineFeeRedemption => ({
+  id,
+  success_fee_charged: 30,
+});
+
+let rowSeq = 0;
+const tx = (
+  reference_id: string,
+  transaction_type: string,
+  amount: number | string,
+  created_at = IN
+): FeeLedgerRow => ({
+  id: `tx${++rowSeq}`,
+  reference_id,
+  transaction_type,
+  amount,
+  created_at,
+});
+
+/** The common case: one genuine redemption, whatever movements are given. */
+const totals = (
+  ledger: FeeLedgerRow[],
+  redemptions: GenuineFeeRedemption[] = [red("r1")],
+  genuineReferenceIds = ["r1"]
+) =>
+  aggregateLedgerFees({
+    redemptions,
+    ledger,
+    genuineReferenceIds,
+    window: WINDOW,
+  });
+
+describe("the ledger contract is stated once and covers the whole CHECK", () => {
+  /**
+   * The CHECK constraint as the database holds it, taken from the migration
+   * that last declared it. Parsed rather than retyped: a hand-copied list is a
+   * second place for the type set to drift, and drift here means a new
+   * transaction type silently contributing nothing to a money figure.
+   */
+  const constraintTypes = (): string[] => {
+    // The LATEST migration that declares it, found by scanning rather than by
+    // filename. Pinning a filename would keep this guard reading a superseded
+    // constraint: a future migration adding a transaction type writes a NEW
+    // file, and the guard would stay green while the database moved on — the
+    // exact silent drift it exists to catch.
+    const dir = path.join(process.cwd(), "supabase/migrations");
+    const declaring = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .map((f) => readFileSync(path.join(dir, f), "utf8"))
+      // Anchored on CHECK: several migrations query
+      // `transaction_type IN ('success_fee', …)` inside a function body, and
+      // matching those would read a fee predicate as though it were the
+      // constraint.
+      .filter((sql) => CHECK_DECL.test(sql));
+    expect(
+      declaring.length,
+      "some migration must declare the transaction_type CHECK"
+    ).toBeGreaterThan(0);
+    const sql = declaring[declaring.length - 1];
+    const m =
+      sql.match(
+        /CHECK\s*\(+\s*transaction_type\s*=\s*ANY\s*\(\s*ARRAY\[([\s\S]*?)\]/i
+      ) ?? sql.match(/CHECK\s*\(+\s*transaction_type\s+IN\s*\(([\s\S]*?)\)/i);
+    expect(m, "the CHECK on transaction_type must be findable").toBeTruthy();
+    return Array.from(m![1].matchAll(/'([a-z_]+)'/g)).map((x) => x[1]);
+  };
+
+  it("decides every transaction type the database can hold", () => {
+    // Not "covers the fee ones". Callers no longer filter by type, so every
+    // type arrives at the aggregator and each needs a recorded decision. A new
+    // type added to the database without one must fail HERE, in CI, rather
+    // than quietly vanishing from a money figure in production.
+    const inDb = constraintTypes().sort();
+    expect(inDb.length).toBeGreaterThan(0);
+    expect(Object.keys(LEDGER_TYPE_CONTRACT).sort()).toEqual(inDb);
+  });
+
+  it("declares no orientation for a type nothing has verified", () => {
+    // `refund` and `dispute` have no verified sign in this repo. Filling the
+    // shape with a guess would be inventing a money rule to satisfy a type.
+    for (const [type, c] of Object.entries(LEDGER_TYPE_CONTRACT)) {
+      if (c.bucket === "excluded") {
+        expect(c, `${type} must not claim a sign`).not.toHaveProperty(
+          "orientation"
+        );
+      } else {
+        expect([1, -1], `${type} must declare its sign`).toContain(
+          c.orientation
+        );
+      }
+    }
+  });
+
+  it("keeps both billed legs in gross, with OPPOSITE orientations", () => {
+    // The frozen rule is charged OR recorded as arrears, and arrears are owed
+    // money rather than absent money. Counting only `success_fee` would
+    // under-report exactly the merchants who ran out of balance — the
+    // population the pilot watches most closely.
+    expect(FEE_LEDGER_TYPES).toContain("success_fee");
+    expect(FEE_LEDGER_TYPES).toContain("success_fee_arrears");
+    expect(LEDGER_TYPE_CONTRACT.success_fee).toEqual({
+      bucket: "gross",
+      orientation: -1,
+    });
+    expect(LEDGER_TYPE_CONTRACT.success_fee_arrears).toEqual({
+      bucket: "gross",
+      orientation: 1,
+    });
+    // This is the whole reason sign cannot classify a row.
+    expect(LEDGER_TYPE_CONTRACT.success_fee.orientation).not.toBe(
+      LEDGER_TYPE_CONTRACT.success_fee_arrears.orientation
+    );
+  });
+
+  it("derives the billed set from the contract instead of restating it", () => {
+    expect([...FEE_LEDGER_TYPES].sort()).toEqual(
+      Object.entries(LEDGER_TYPE_CONTRACT)
+        .filter(([, c]) => c.bucket === "gross")
+        .map(([t]) => t)
+        .sort()
+    );
+  });
+});
+
+describe("REQUIRED PROOF 1 — a reversal cannot increase net fees", () => {
+  it("subtracts the reversal from net", () => {
+    const t = totals([tx("r1", "success_fee", -30), tx("r1", "fee_reversal", 30)]);
+    expect(t.grossKes).toBe(30);
+    expect(t.reversalsKes).toBe(30);
+    expect(t.netKes).toBe(0);
+  });
+
+  it("never lets a reversal raise net above the fee-only figure", () => {
+    const feeOnly = totals([tx("r1", "success_fee", -30)]);
+    const reversed = totals([
+      tx("r1", "success_fee", -30),
+      tx("r1", "fee_reversal", 30),
+    ]);
+    expect(reversed.netKes!).toBeLessThan(feeOnly.netKes!);
+    // The mutant this kills: `netKes: gross + reversals`. It would read 60 —
+    // a fee that was given back, reported as double revenue.
+    expect(reversed.netKes).not.toBe(60);
+  });
+});
+
+describe("REQUIRED PROOF 2 — a reversal cannot increase gross fees", () => {
+  it("leaves gross untouched by a reversal", () => {
+    const feeOnly = totals([tx("r1", "success_fee", -30)]);
+    const reversed = totals([
+      tx("r1", "success_fee", -30),
+      tx("r1", "fee_reversal", 30),
+    ]);
+    expect(reversed.grossKes).toBe(feeOnly.grossKes);
+    // The mutant: `fee_reversal` given `bucket: "gross"`. It would read 60,
+    // and `Math.abs` over the old billed set would have done exactly that had
+    // the type ever been added to it.
+    expect(reversed.grossKes).toBe(30);
+  });
+
+  it("reports gross zero and a reversal when only the credit is in window", () => {
+    // The fee posted before the window, its reversal inside it. Gross for THIS
+    // window is 0 and net is negative — money left in the period. Reporting a
+    // reversal as gross would have shown 30 earned in a month that earned
+    // nothing.
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [
+        tx("r1", "success_fee", -30, BEFORE),
+        tx("r1", "fee_reversal", 30, IN),
+      ],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    expect(t.grossKes).toBe(0);
+    expect(t.reversalsKes).toBe(30);
+    expect(t.netKes).toBe(-30);
+  });
+});
+
+describe("REQUIRED PROOF 3 — an arrears settlement is not newly generated fee", () => {
+  it("counts a settlement in neither gross nor reversals", () => {
+    const withSettlement = totals([
+      tx("r1", "success_fee_arrears", 30),
+      tx("r1", "fee_reversal", 30),
+      tx("r1", "arrears_settlement", -30),
+    ]);
+    // The settlement moves an amount the arrears row already counted as
+    // billed. In gross it would double the fee; in reversals it would subtract
+    // a fee nobody reversed.
+    expect(withSettlement.grossKes).toBe(30);
+    expect(withSettlement.reversalsKes).toBe(30);
+    expect(withSettlement.netKes).toBe(0);
+  });
+
+  it("does not let a settlement alone establish a fee", () => {
+    // A settlement carrying a genuine reference_id with no fee row beside it:
+    // the redemption's fee never posted, so gross is unknown, not 30 and not 0.
+    const t = totals([tx("r1", "arrears_settlement", -30)]);
+    expect(t.grossKes).toBeNull();
+    expect(t.netKes).toBeNull();
+  });
+
+  it("keeps the settlement out of the contract's billed set", () => {
+    expect(FEE_LEDGER_TYPES).not.toContain("arrears_settlement");
+    expect(LEDGER_TYPE_CONTRACT.arrears_settlement.bucket).toBe("excluded");
+  });
+});
+
+describe("REQUIRED PROOF 4 — a caller omitting its former type filter changes nothing", () => {
+  it("returns the same three figures with every unrelated type present", () => {
+    // The pre-D211 shape: each caller passed rows it had already narrowed with
+    // `.in("transaction_type", FEE_LEDGER_TYPES)`. That filter was correctness
+    // living in the caller. Handing the aggregator the UNFILTERED ledger must
+    // produce the identical answer, or the caller was still carrying a rule.
+    const feeRowsOnly = [
+      tx("r1", "success_fee", -30),
+      tx("r1", "fee_reversal", 30),
+    ];
+    const everything = [
+      ...feeRowsOnly,
+      tx("r1", "arrears_settlement", -30),
+      tx("r1", "topup", 500),
+      tx("r1", "boost_fee", -100),
+      tx("r1", "subscription", -3500),
+      tx("r1", "refund", 200),
+      tx("r1", "dispute", -50),
+    ];
+    expect(totals(everything)).toEqual(totals(feeRowsOnly));
+  });
+
+  it("keeps neither surface's fee query, so there is no filter to omit", () => {
+    // Structural, because the point is that the rule cannot live in a caller.
+    for (const rel of [
+      "src/app/admin/pilot/page.tsx",
+      "src/app/founder/yesterday/page.tsx",
+    ]) {
+      const code = stripComments(
+        readFileSync(path.join(process.cwd(), rel), "utf8")
+      );
+      expect(code, rel).toMatch(/readLedgerFeeTotals\(service, \{/);
+      expect(code, rel).not.toMatch(/from\("merchant_transactions"\)/);
+      expect(code, rel).not.toMatch(/transaction_type/);
+      expect(code, rel).not.toMatch(/FEE_LEDGER_TYPES/);
+    }
+  });
+});
+
+describe("REQUIRED PROOF 5 — a generic magnitude rule cannot return", () => {
+  it("does not normalise a wrong-signed fee row", () => {
+    // `Math.abs` was never arithmetic here. It said "whatever sign this row
+    // carries, treat it as billed" — which absorbs a row the money path could
+    // not have written. A `success_fee` of +30 contradicts the live function's
+    // `-p_amount`, so the figure is UNKNOWN. Under `Math.abs` it read 30.
+    const t = totals([tx("r1", "success_fee", 30)]);
+    expect(t.grossKes).toBeNull();
+    expect(t.netKes).toBeNull();
+    expect(t.grossKes).not.toBe(30);
+  });
+
+  it("does not normalise a wrong-signed reversal", () => {
+    const t = totals([tx("r1", "success_fee", -30), tx("r1", "fee_reversal", -30)]);
+    expect(t.reversalsKes).toBeNull();
+    expect(t.netKes).toBeNull();
+    // Gross is still established: blanking a figure that IS known would be its
+    // own small lie.
+    expect(t.grossKes).toBe(30);
+  });
+
+  it("refuses a zero-amount fee row, which neither RPC can write", () => {
+    expect(totals([tx("r1", "success_fee", 0)]).grossKes).toBeNull();
+  });
+
+  it("reads the STORED amount and never recomputes it", () => {
+    // A fee posted under a different rate must keep the amount the money path
+    // actually wrote, or the page silently restates history the day KES 30
+    // changes. Strings included: PostgREST returns numeric as text.
+    const t = totals(
+      [tx("r1", "success_fee", "-25"), tx("r2", "success_fee_arrears", "40")],
+      [red("r1"), red("r2")],
+      ["r1", "r2"]
+    );
+    expect(t.grossKes).toBe(65);
+  });
+
+  it("carries no generic magnitude call in the fee path", () => {
+    const code = stripComments(
+      readFileSync(path.join(process.cwd(), "src/lib/evidence-scope.ts"), "utf8")
+    );
+    expect(code).not.toMatch(/Math\.abs/);
+  });
+});
+
+describe("REQUIRED PROOF 6 — the three figures cannot be mislabelled or swapped", () => {
+  it("gives each figure a distinct label, from one source", () => {
+    const labels = Object.values(FEE_FIGURE_LABELS);
+    expect(new Set(labels).size).toBe(labels.length);
+    // "Success fees" unqualified is the D211 defect itself: a number a reader
+    // takes as revenue with nothing saying which one it is.
+    for (const l of labels) expect(l).not.toBe("Success fees");
+    expect(FEE_FIGURE_LABELS.gross).toMatch(/gross/i);
+    expect(FEE_FIGURE_LABELS.reversals).toMatch(/reversal/i);
+    expect(FEE_FIGURE_LABELS.net).toMatch(/net/i);
+  });
+
+  it("prints every fee figure through the shared labels", () => {
+    // A page that spells a label inline is a page whose words can stop matching
+    // its arithmetic — which is precisely what D211 recorded.
+    for (const rel of [
+      "src/app/admin/pilot/page.tsx",
+      "src/app/founder/yesterday/page.tsx",
+    ]) {
+      const code = stripComments(
+        readFileSync(path.join(process.cwd(), rel), "utf8")
+      );
+      expect(code, rel).toMatch(/FEE_FIGURE_LABELS\.net/);
+      expect(code, rel).toMatch(/FEE_FIGURE_LABELS\.gross/);
+      expect(code, rel).toMatch(/FEE_FIGURE_LABELS\.reversals/);
+      expect(code, rel).not.toMatch(/label="Success fees"/);
+      expect(code, rel).not.toMatch(/Success fees \(\$\{days\}d\)/);
+    }
+  });
+
+  it("distinguishes the three figures by value, so a swap cannot pass", () => {
+    // Three different numbers. A guard built on 30/0/30 would survive gross and
+    // net being exchanged.
+    const t = totals([
+      tx("r1", "success_fee", -30),
+      tx("r2", "success_fee_arrears", 70),
+      tx("r1", "fee_reversal", 30),
+    ], [red("r1"), red("r2")], ["r1", "r2"]);
+    expect(t.grossKes).toBe(100);
+    expect(t.reversalsKes).toBe(30);
+    expect(t.netKes).toBe(70);
+  });
+
+  it("derives net from gross and reversals at every level", () => {
+    // Row-level and total-level must satisfy the same identity, or a table can
+    // print a total that contradicts the two figures beside it.
+    const rows = [
+      { grossKes: 100, reversalsKes: 30, netKes: 70 },
+      { grossKes: 50, reversalsKes: 20, netKes: 30 },
+    ];
+    const t = sumFeeTotals(rows);
+    expect(t.grossKes).toBe(150);
+    expect(t.reversalsKes).toBe(50);
+    expect(t.netKes).toBe(100);
+    expect(t.netKes).toBe(t.grossKes! - t.reversalsKes!);
+  });
+
+  it("keeps a summed net unknown when any component is unknown", () => {
+    const t = sumFeeTotals([
+      { grossKes: 100, reversalsKes: 30, netKes: 70 },
+      { grossKes: 50, reversalsKes: null, netKes: null },
+    ]);
+    expect(t.grossKes).toBe(150);
+    expect(t.reversalsKes).toBeNull();
+    expect(t.netKes).toBeNull();
+  });
+});
+
+describe("the window follows the ledger movement, not the redemption", () => {
+  it("counts a reversal posted in the window against an older redemption", () => {
+    // The requirement in one case. Windowing by the redemption's own date would
+    // hide every correction made to older activity.
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [tx("old", "fee_reversal", 30, IN)],
+      genuineReferenceIds: ["old"],
+      window: WINDOW,
+    });
+    expect(t.reversalsKes).toBe(30);
+  });
+
+  it("excludes a movement posted outside the window", () => {
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [tx("old", "fee_reversal", 30, BEFORE)],
+      genuineReferenceIds: ["old"],
+      window: WINDOW,
+    });
+    expect(t.reversalsKes).toBe(0);
+  });
+
+  it("answers completeness from fee rows of ANY date", () => {
+    // A redemption verified at 23:59:59 whose fee row lands at 00:00:00.1 the
+    // next day is complete, not unknown. Manufacturing an unknown at a midnight
+    // boundary would make a daily brief unreadable on exactly the days it
+    // matters.
+    const t = aggregateLedgerFees({
+      redemptions: [red("r1")],
+      ledger: [tx("r1", "success_fee", -30, "2026-09-01T00:00:00.100Z")],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    // The fee is outside the window, so it adds nothing — but it does answer
+    // "did this redemption's fee post".
+    expect(t.grossKes).toBe(0);
+    expect(t.netKes).toBe(0);
+  });
+
+  it("treats an unparseable or missing timestamp as outside the window", () => {
+    for (const created_at of [null, "not-a-date"]) {
+      const t = aggregateLedgerFees({
+        redemptions: [],
+        ledger: [{ ...tx("r1", "fee_reversal", 30), created_at }],
+        genuineReferenceIds: ["r1"],
+        window: WINDOW,
+      });
+      expect(t.reversalsKes).toBe(0);
+    }
+  });
+});
+
+describe("the unknown states, none of which is zero", () => {
+  it("keeps a failed read UNAVAILABLE, never zero (D164 / D185)", () => {
+    // "KES 0" reads as "this merchant earned nothing", a conclusion
+    // manufactured from an error. Any of the three inputs failing is enough.
+    const base = { window: WINDOW };
+    expect(
+      aggregateLedgerFees({ ...base, redemptions: null, ledger: [], genuineReferenceIds: [] })
+    ).toEqual(UNKNOWN_FEE_TOTALS);
+    expect(
+      aggregateLedgerFees({ ...base, redemptions: [], ledger: null, genuineReferenceIds: [] })
+    ).toEqual(UNKNOWN_FEE_TOTALS);
+    expect(
+      aggregateLedgerFees({ ...base, redemptions: [], ledger: [], genuineReferenceIds: null })
+    ).toEqual(UNKNOWN_FEE_TOTALS);
+    expect(
+      aggregateLedgerFees({ ...base, redemptions: [], ledger: [], genuineReferenceIds: [] })
+    ).toEqual({ grossKes: 0, reversalsKes: 0, netKes: 0 });
+  });
+
+  it("reports a truncated read as unavailable rather than a low total (D149)", () => {
+    const many = Array.from({ length: FEE_ROW_CAP }, (_, i) => red(`r${i}`));
+    expect(
+      aggregateLedgerFees({
+        redemptions: many,
+        ledger: [],
+        genuineReferenceIds: [],
+        window: WINDOW,
+      })
+    ).toEqual(UNKNOWN_FEE_TOTALS);
+  });
+
+  it("reports UNKNOWN gross when a genuine success produced no ledger entry", () => {
+    // verify_redemption sets status = 'success' BEFORE the fee step and runs
+    // that step inside an EXCEPTION handler that does not re-raise, so a failed
+    // fee commits a successful redemption whose ledger row does not exist.
+    const t = totals(
+      [tx("r1", "success_fee", -30)],
+      [red("r1"), red("r2")],
+      ["r1", "r2"]
+    );
+    // Not 30 (a quietly low number presented as fact) and not 60 (revenue that
+    // does not exist). Unknown.
+    expect(t.grossKes).toBeNull();
+    expect(t.netKes).toBeNull();
+  });
+
+  it("drops a movement pointing outside the genuine-tagged set (D188)", () => {
+    // A ledger row carries nothing about its merchant or deal. Without the
+    // parent join a fee against a demo-tagged deal lands in a figure whose
+    // neighbours are all genuine-tagged — the D188 conflation in money form.
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [tx("demo", "success_fee", -30), tx("demo", "fee_reversal", 30)],
+      genuineReferenceIds: [],
+      window: WINDOW,
+    });
+    expect(t).toEqual({ grossKes: 0, reversalsKes: 0, netKes: 0 });
+  });
+
+  it("ignores a movement with no reference_id at all", () => {
+    const t = aggregateLedgerFees({
+      redemptions: [],
+      ledger: [{ ...tx("r1", "success_fee", -30), reference_id: null }],
+      genuineReferenceIds: ["r1"],
+      window: WINDOW,
+    });
+    expect(t.grossKes).toBe(0);
+  });
+});

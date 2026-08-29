@@ -9,6 +9,10 @@ import {
   MIN_CLAIMS_FOR_MERCHANT_RATIO,
   type PilotMerchantRow,
 } from "@/lib/pilot-command-centre";
+import {
+  UNKNOWN_FEE_TOTALS,
+  type LedgerFeeTotals,
+} from "@/lib/evidence-scope";
 
 function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
   return {
@@ -29,10 +33,23 @@ function row(over: Partial<PilotMerchantRow> = {}): PilotMerchantRow {
     verified: 0,
     verifiedCohort: 0,
     fastVisits: 0,
-    successFeesKes: 0,
+    fees: feesOf(0),
     ...over,
   };
 }
+
+/**
+ * A fee figure for a fixture: gross, optional reversals, net derived.
+ *
+ * Derived rather than passed so a fixture cannot assert an impossible row —
+ * a net that disagrees with its own gross and reversals would let a swapped
+ * field in `sumFeeTotals` pass against a fixture that was already wrong.
+ */
+const feesOf = (grossKes: number, reversalsKes = 0): LedgerFeeTotals => ({
+  grossKes,
+  reversalsKes,
+  netKes: grossKes - reversalsKes,
+});
 
 describe("pilot status — deterministic, and every status states its condition", () => {
   it("reports an unreadable row as unavailable before diagnosing anything", () => {
@@ -199,12 +216,12 @@ describe("funnel figures use the claim cohort, never throughput", () => {
 describe("cohort totals — a null poisons its column rather than shrinking it", () => {
   it("sums clean rows", () => {
     const t = cohortTotals([
-      row({ claims: 2, verified: 1, verifiedCohort: 1, arrivals: 1, fastVisits: 0, successFeesKes: 30 }),
-      row({ claims: 3, verified: 2, verifiedCohort: 2, arrivals: 2, fastVisits: 1, successFeesKes: 60 }),
+      row({ claims: 2, verified: 1, verifiedCohort: 1, arrivals: 1, fastVisits: 0, fees: feesOf(30) }),
+      row({ claims: 3, verified: 2, verifiedCohort: 2, arrivals: 2, fastVisits: 1, fees: feesOf(60) }),
     ]);
     expect(t.claims).toBe(5);
     expect(t.verified).toBe(3);
-    expect(t.successFeesKes).toBe(90);
+    expect(t.fees.netKes).toBe(90);
     expect(t.merchants).toBe(2);
   });
 
@@ -388,7 +405,7 @@ describe("P1 — the ladder's counters never include internal or unclassified ac
    * built to prevent it.
    */
   const shop = (over: Partial<PilotMerchantRow>) =>
-    row({ claims: 1, arrivals: 1, verified: 1, verifiedCohort: 1, fastVisits: 1, successFeesKes: 30, ...over });
+    row({ claims: 1, arrivals: 1, verified: 1, verifiedCohort: 1, fastVisits: 1, fees: feesOf(30), ...over });
 
   it("keeps an internal success out of the external totals", () => {
     // The exact production shape: one internal shop with the only success.
@@ -397,7 +414,7 @@ describe("P1 — the ladder's counters never include internal or unclassified ac
     ]);
     expect(t.external.verified).toBe(0);
     expect(t.external.claims).toBe(0);
-    expect(t.external.successFeesKes).toBe(0);
+    expect(t.external.fees.netKes).toBe(0);
     // Kept, not deleted — it is real technical evidence.
     expect(t.internal.verified).toBe(1);
     expect(t.all.verified).toBe(1);
@@ -458,7 +475,7 @@ describe("P1 — the nine rules the evidence split must satisfy", () => {
       verified: 1,
       verifiedCohort: 1,
       fastVisits: 1,
-      successFeesKes: 30,
+      fees: feesOf(30),
       ...over,
     });
 
@@ -473,7 +490,7 @@ describe("P1 — the nine rules the evidence split must satisfy", () => {
         verified: 0,
         verifiedCohort: 0,
         fastVisits: 0,
-        successFeesKes: 0,
+        fees: feesOf(0),
       }),
     ]);
     expect(t.external.verified).toBe(0);
@@ -513,26 +530,26 @@ describe("P1 — the nine rules the evidence split must satisfy", () => {
 
   it("6. an internal success fee does not increment the external fee total", () => {
     const t = totalsByEvidence([
-      act({ merchantId: "e2e", evidence: "internal", successFeesKes: 30 }),
+      act({ merchantId: "e2e", evidence: "internal", fees: feesOf(30) }),
     ]);
-    expect(t.external.successFeesKes).toBe(0);
-    expect(t.internal.successFeesKes).toBe(30);
+    expect(t.external.fees.netKes).toBe(0);
+    expect(t.internal.fees.netKes).toBe(30);
   });
 
   it("7. an external fee counts only once its own row establishes it", () => {
     // The D188 chain and the linked-ledger requirement are enforced upstream,
-    // in the query and in sumLedgerSuccessFees; by the time a row reaches here
+    // in the query and in aggregateLedgerFees; by the time a row reaches here
     // an unestablished fee is already null, and must stay null rather than
     // becoming 0 in the external total.
     const unestablished = totalsByEvidence([
-      act({ merchantId: "m01", evidence: "external", successFeesKes: null }),
+      act({ merchantId: "m01", evidence: "external", fees: UNKNOWN_FEE_TOTALS }),
     ]);
-    expect(unestablished.external.successFeesKes).toBeNull();
+    expect(unestablished.external.fees.netKes).toBeNull();
 
     const established = totalsByEvidence([
-      act({ merchantId: "m01", evidence: "external", successFeesKes: 30 }),
+      act({ merchantId: "m01", evidence: "external", fees: feesOf(30) }),
     ]);
-    expect(established.external.successFeesKes).toBe(30);
+    expect(established.external.fees.netKes).toBe(30);
   });
 
   it("8. row and aggregate classification read the same source", () => {

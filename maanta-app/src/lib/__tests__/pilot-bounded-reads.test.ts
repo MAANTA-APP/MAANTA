@@ -178,7 +178,7 @@ describe("the ladder headline is rendered from the external class only", () => {
       readFileSync(path.join(process.cwd(), PAGES[0]), "utf8")
     );
     expect(src).toContain("totalsByEvidence(");
-    for (const field of ["claims", "arrivals", "verified", "successFeesKes"]) {
+    for (const field of ["claims", "arrivals", "verified"]) {
       expect(
         src,
         `activity card must read byClass.external.${field}, never the all-rows total`
@@ -187,6 +187,20 @@ describe("the ladder headline is rendered from the external class only", () => {
         src,
         `totals.${field} is the all-rows sum and must not reach a KPI card`
       ).not.toContain(`fmt(totals.${field})`);
+    }
+    // The fee figure is three fields since D211, and all three carry the same
+    // rule: the ladder headline reads the EXTERNAL split, never the all-rows
+    // sum, because an internal E2E fee beside "External field validation" is
+    // the D174 counting error in money form.
+    for (const field of ["grossKes", "reversalsKes", "netKes"]) {
+      expect(
+        src,
+        `fee card must read byClass.external.fees.${field}`
+      ).toContain(`byClass.external.fees.${field}`);
+      expect(
+        src,
+        `totals.fees.${field} is the all-rows sum and must not reach a KPI card`
+      ).not.toContain(`totals.fees.${field}`);
     }
   });
 
