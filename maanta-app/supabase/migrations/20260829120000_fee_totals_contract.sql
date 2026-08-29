@@ -134,23 +134,64 @@ BEGIN
     RAISE EXCEPTION 'invalid_scope: a global call must not supply merchant ids';
   END IF;
 
-  -- Monetary totals. Question 1 above: windowed on the MOVEMENT's own clock.
+  -- One statement, four answers, so the totals, the invalid count and the
+  -- completeness check can never be computed over row sets that disagree.
   --
-  -- Scoped on `r.merchant_id` rather than `t.merchant_id`: the D188 chain is
-  -- what every other genuine-tagged figure counts through, and the two must not
-  -- be able to disagree about which merchant a fee belongs to.
-  WITH genuine_movement AS (
-    SELECT t.transaction_type, t.amount, t.created_at
-      FROM public.merchant_transactions t
-      JOIN public.redemptions r ON r.id = t.reference_id
-      JOIN public.merchants   m ON m.id = r.merchant_id
-      JOIN public.deals       d ON d.id = r.deal_id
-     WHERE NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+  -- `candidate`  — genuine successes verified in [p_since, p_until). Question 2.
+  -- `classified` — every genuine linked movement, bucketed and oriented.
+  -- `relevant`   — the fee-bearing ones, each marked in_window and malformed.
+  --
+  -- A movement is MALFORMED when it contradicts something the money path
+  -- guarantees. Each of these is representable in the database and each was
+  -- found by review rather than by imagination:
+  --
+  --   * oriented amount NULL or <= 0 — a sign contradicting its own type, or a
+  --     zero fee neither RPC can write.
+  --   * oriented amount NaN — a valid `numeric` value. PostgreSQL orders NaN
+  --     ABOVE every finite number, so `> 0` accepts it and `<= 0` does not
+  --     catch it, and SUM propagates it: without this the function would return
+  --     gross = NaN with invalid_rows = 0 and available = true. Verified in
+  --     psql, not assumed.
+  --   * created_at not finite — `infinity` is a valid `timestamptz` that sorts
+  --     above every bound. `Date.parse('infinity')` is NaN, so the TypeScript
+  --     contract already calls it unknown; SQL must agree or the two
+  --     implementations answer differently on the same row.
+  --   * the movement's own `merchant_id` differs from its redemption's. Nothing
+  --     enforces equality, and `deduct_success_fee_or_record_arrears` takes a
+  --     caller-supplied reference id, so one merchant's wallet debit can point
+  --     at another's redemption. Attributing it to either merchant is a guess;
+  --     it is surfaced instead. The scope predicate deliberately matches on
+  --     EITHER merchant so such a row is visible from both scopes rather than
+  --     invisible from one — it can never contribute to a total, so appearing
+  --     twice costs nothing.
+  --
+  -- Malformed rows count toward `invalid_rows` when they are in the window OR
+  -- when an in-window candidate's completeness would otherwise rest on them.
+  -- Not "any malformed row ever": one bad row from last year must not blank
+  -- every future period, which is the same rule that windows the candidate set.
+  WITH candidate AS (
+    SELECT r.id
+      FROM public.redemptions r
+      JOIN public.merchants m ON m.id = r.merchant_id
+      JOIN public.deals     d ON d.id = r.deal_id
+     WHERE r.status = 'success'
+       AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
        AND (NOT p_scoped OR r.merchant_id = ANY (p_merchant_ids))
+       AND r.redeemed_at >= p_since
+       AND (p_until IS NULL OR r.redeemed_at < p_until)
   ),
-  oriented AS (
+  classified AS (
     SELECT
-      CASE gm.transaction_type
+      r.id AS redemption_id,
+      t.created_at,
+      -- A fee may only be counted against a redemption the counter actually
+      -- verified. `deduct_success_fee_or_record_arrears` will write a row
+      -- against a pending, failed or flagged redemption if service_role asks
+      -- it to, and `readLedgerFeeTotals` builds its genuine set with
+      -- `.eq("status", "success")` — so without this the SQL and TypeScript
+      -- contracts disagree, and the SQL one reports a fee against an unverified
+      -- redemption as earned.
+      CASE t.transaction_type
         WHEN 'success_fee'         THEN 'gross'
         WHEN 'success_fee_arrears' THEN 'gross'
         WHEN 'fee_reversal'        THEN 'reversal'
@@ -160,59 +201,68 @@ BEGIN
       -- a row that contradicts its own type is a fact about the ledger, and
       -- normalising it away is how a wrong-signed row becomes a plausible
       -- number.
-      CASE gm.transaction_type
-        WHEN 'success_fee'         THEN -gm.amount
-        WHEN 'success_fee_arrears' THEN  gm.amount
-        WHEN 'fee_reversal'        THEN  gm.amount
+      CASE t.transaction_type
+        WHEN 'success_fee'         THEN -t.amount
+        WHEN 'success_fee_arrears' THEN  t.amount
+        WHEN 'fee_reversal'        THEN  t.amount
         ELSE NULL
       END AS oriented_amount,
-      gm.created_at
-      FROM genuine_movement gm
+      (t.merchant_id IS DISTINCT FROM r.merchant_id) AS merchant_mismatch
+      FROM public.merchant_transactions t
+      JOIN public.redemptions r ON r.id = t.reference_id
+      JOIN public.merchants   m ON m.id = r.merchant_id
+      JOIN public.deals       d ON d.id = r.deal_id
+     WHERE r.status = 'success'
+       AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+       AND (NOT p_scoped
+            OR r.merchant_id = ANY (p_merchant_ids)
+            OR t.merchant_id = ANY (p_merchant_ids))
+  ),
+  relevant AS (
+    SELECT
+      c.redemption_id,
+      c.bucket,
+      c.oriented_amount,
+      isfinite(c.created_at)
+        AND c.created_at >= p_since
+        AND (p_until IS NULL OR c.created_at < p_until) AS in_window,
+      (c.oriented_amount IS NULL
+        OR c.oriented_amount = 'NaN'::numeric
+        OR c.oriented_amount <= 0
+        OR NOT isfinite(c.created_at)
+        OR c.merchant_mismatch) AS malformed,
+      EXISTS (SELECT 1 FROM candidate k WHERE k.id = c.redemption_id) AS candidate_linked
+      FROM classified c
+     WHERE c.bucket <> 'excluded'
+  ),
+  totals AS (
+    SELECT
+      COALESCE(SUM(x.oriented_amount)
+               FILTER (WHERE x.bucket = 'gross'    AND x.in_window AND NOT x.malformed), 0) AS gross,
+      COALESCE(SUM(x.oriented_amount)
+               FILTER (WHERE x.bucket = 'reversal' AND x.in_window AND NOT x.malformed), 0) AS reversals,
+      (COUNT(*) FILTER (WHERE x.malformed
+                          AND (x.in_window OR x.candidate_linked)))::integer AS invalid
+      FROM relevant x
+  ),
+  -- Completeness. Question 3: the search spans ALL DATES, so a fee posted
+  -- seconds after midnight still proves its redemption billed. It must be a
+  -- WELL-FORMED gross row: a zero, wrong-signed or cross-merchant row is not a
+  -- fee, and treating it as proof of billing would let a malformed row buy an
+  -- `available = true` with nothing behind it.
+  missing AS (
+    SELECT (COUNT(*))::integer AS n
+      FROM candidate k
+     WHERE NOT EXISTS (
+       SELECT 1 FROM relevant x
+        WHERE x.redemption_id = k.id
+          AND x.bucket = 'gross'
+          AND NOT x.malformed
+     )
   )
-  SELECT
-    COALESCE(SUM(o.oriented_amount)
-             FILTER (WHERE o.bucket = 'gross'    AND o.oriented_amount > 0), 0),
-    COALESCE(SUM(o.oriented_amount)
-             FILTER (WHERE o.bucket = 'reversal' AND o.oriented_amount > 0), 0),
-    -- Invalid: a fee-bearing row whose oriented amount is not strictly
-    -- positive. Includes a zero-amount fee row, which neither RPC can write.
-    -- The cast wraps the whole aggregate: `FILTER` binds to the aggregate call
-    -- itself, so `COUNT(*)::integer FILTER (...)` is a syntax error rather than
-    -- a filtered count.
-    (COUNT(*) FILTER (WHERE o.bucket <> 'excluded'
-                        AND (o.oriented_amount IS NULL OR o.oriented_amount <= 0)))::integer
-    INTO v_gross, v_reversals, v_invalid
-    FROM oriented o
-   WHERE o.created_at >= p_since
-     AND (p_until IS NULL OR o.created_at < p_until);
-
-  -- Completeness. Questions 2 and 3 above, and the distinction between them is
-  -- the easiest thing here to get wrong:
-  --   * the CANDIDATE SET is windowed on `r.redeemed_at`, so a missing fee on a
-  --     redemption outside the period cannot make this period unavailable;
-  --   * the SEARCH for each candidate's fee row carries NO date predicate, so a
-  --     fee posted just outside the window still proves its redemption billed.
-  --
-  -- verify_redemption sets status = 'success' BEFORE the fee step and runs that
-  -- step inside an EXCEPTION handler that does not re-raise, so a failed fee
-  -- commits a successful redemption with no ledger row at all. That is the
-  -- third money state, and it makes the total unknown rather than smaller.
-  SELECT COUNT(*)::integer
-    INTO v_missing
-    FROM public.redemptions r
-    JOIN public.merchants m ON m.id = r.merchant_id
-    JOIN public.deals     d ON d.id = r.deal_id
-   WHERE r.status = 'success'
-     AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
-     AND (NOT p_scoped OR r.merchant_id = ANY (p_merchant_ids))
-     AND r.redeemed_at >= p_since
-     AND (p_until IS NULL OR r.redeemed_at < p_until)
-     AND NOT EXISTS (
-       SELECT 1
-         FROM public.merchant_transactions t
-        WHERE t.reference_id = r.id
-          AND t.transaction_type IN ('success_fee', 'success_fee_arrears')
-     );
+  SELECT t.gross, t.reversals, t.invalid, m.n
+    INTO v_gross, v_reversals, v_invalid, v_missing
+    FROM totals t CROSS JOIN missing m;
 
   IF v_missing > 0 OR v_invalid > 0 THEN
     -- All three together. A partial money figure on an executive surface is

@@ -26,6 +26,13 @@ const TARGET = path.join(ROOT, "supabase/tests/fixtures/fee_contract_cases.gener
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const num = (n) => (n === null || n === undefined ? "NULL" : String(n));
+/**
+ * A numeric literal. A STRING amount is emitted quoted and cast, which is how
+ * `NaN` reaches the database — it is a valid `numeric` value with no JSON
+ * spelling, and it is the one that defeats a `> 0` / `<= 0` pair.
+ */
+const amount = (n) =>
+  typeof n === "string" ? `${q(n)}::numeric` : num(n);
 
 /** `merchants.phone` is format-checked, so each merchant needs a distinct one. */
 let phoneSeq = 0;
@@ -93,7 +100,7 @@ function renderCase(c, windowDefault) {
     p(``);
     p(`  INSERT INTO public.redemptions`);
     p(`    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)`);
-    p(`    VALUES (v_d_${m}, v_m_${m}, v_uid, ${q(String(++otp))}, 'success',`);
+    p(`    VALUES (v_d_${m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
     p(`            ${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour', ${q(r.redeemedAt)}, 30,`);
     p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"})`);
     p(`    RETURNING id INTO v_r_${r.key};`);
@@ -104,7 +111,8 @@ function renderCase(c, windowDefault) {
     p(``);
     p(`  INSERT INTO public.merchant_transactions`);
     p(`    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at)`);
-    p(`    VALUES (v_m_${redemptionMerchant(redemptions, mv.redemption)}, ${num(mv.amount)}, ${q(mv.type)}, 'manual',`);
+    const mvMerchant = mv.merchant ?? redemptionMerchant(redemptions, mv.redemption);
+    p(`    VALUES (v_m_${mvMerchant}, ${amount(mv.amount)}, ${q(mv.type)}, 'manual',`);
     p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)});`);
   }
 

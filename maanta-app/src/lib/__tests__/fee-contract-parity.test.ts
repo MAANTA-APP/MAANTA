@@ -50,8 +50,20 @@ type Case = {
   window?: { since: string; until: string | null };
   scope?: string[];
   merchants?: string[];
-  redemptions: { key: string; merchant?: string; redeemedAt: string; demo?: Demo }[];
-  movements: { redemption: string; type: string; amount: number; createdAt: string }[];
+  redemptions: {
+    key: string;
+    merchant?: string;
+    redeemedAt: string;
+    status?: string;
+    demo?: Demo;
+  }[];
+  movements: {
+    redemption: string;
+    merchant?: string;
+    type: string;
+    amount: number | string;
+    createdAt: string;
+  }[];
   expected: {
     grossKes: number | null;
     reversalsKes: number | null;
@@ -61,6 +73,8 @@ type Case = {
     invalidRows: number;
   };
   tsDivergence?: { grossKes: number | null; reversalsKes: number | null; netKes: number | null };
+  /** A case TypeScript cannot answer yet, with what B2b must change. */
+  notYetInTypeScript?: string;
 };
 
 const spec = JSON.parse(readFileSync(SOURCE, "utf8")) as {
@@ -85,9 +99,16 @@ function inputsFor(c: Case) {
     const r = c.redemptions.find((x) => x.key === key);
     return c.scope.includes(r?.merchant ?? "m1");
   };
+  // `status = 'success'` belongs here because it is the READER's predicate, not
+  // the aggregator's: `readLedgerFeeTotals` builds its genuine set with
+  // `.eq("status", "success")`, so a fee against a pending redemption never
+  // reaches `aggregateLedgerFees` at all. The harness has to reproduce that
+  // division of labour or the two implementations answer different questions.
   const genuine = (key: string) => {
     const r = c.redemptions.find((x) => x.key === key);
-    return !!r && isGenuine(r.demo) && inScope(key);
+    return (
+      !!r && (r.status ?? "success") === "success" && isGenuine(r.demo) && inScope(key)
+    );
   };
 
   const since = Date.parse(w.since);
@@ -145,6 +166,12 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "missing-fee-outside-window-does-not-poison",
       "scoped-excludes-other-merchants",
       "scoped-empty-is-available-zero",
+      "fee-against-non-success-redemption-excluded",
+      "nan-amount",
+      "infinite-created-at",
+      "cross-merchant-reference",
+      "cross-merchant-reference-from-debited-scope",
+      "malformed-fee-outside-window-does-not-prove-completeness",
     ]) {
       expect(ids, `case "${required}" must exist in the shared fixture`).toContain(
         required
@@ -154,6 +181,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
   });
 
   for (const c of spec.cases) {
+    if (c.notYetInTypeScript) continue;
     it(`${c.id} — ${c.description}`, () => {
       const want = c.tsDivergence ?? {
         grossKes: c.expected.grossKes,
@@ -254,12 +282,38 @@ describe("the TypeScript divergence is temporary and tracked", () => {
     const diverging = spec.cases.filter((c) => c.tsDivergence).map((c) => c.id);
     expect(diverging.sort()).toEqual(
       [
+        "infinite-created-at",
         "invalid-polarity-charge",
         "invalid-polarity-reversal",
         "missing-fee-row",
+        "nan-amount",
         "zero-amount-fee-row",
       ].sort()
     );
+  });
+
+  it("names what B2b must change for every case TypeScript cannot answer", () => {
+    // Two cases are not merely reported differently — TypeScript gets them
+    // WRONG, and skipping them silently would turn a known gap into an unknown
+    // one. Each must say what closes it, and B2b must delete these along with
+    // the tsDivergence entries.
+    const gaps = spec.cases.filter((c) => c.notYetInTypeScript);
+    expect(gaps.map((c) => c.id).sort()).toEqual([
+      "cross-merchant-reference",
+      "cross-merchant-reference-from-debited-scope",
+      "malformed-fee-outside-window-does-not-prove-completeness",
+    ]);
+    for (const c of gaps) {
+      expect(c.notYetInTypeScript!.length, `${c.id} must say what B2b changes`)
+        .toBeGreaterThan(40);
+      expect(c.tsDivergence, `${c.id}: a gap is not a divergence`).toBeUndefined();
+    }
+  });
+
+  it("still runs every other case through TypeScript", () => {
+    // The skip must stay narrow. Two skipped, all the rest asserted.
+    const skipped = spec.cases.filter((c) => c.notYetInTypeScript).length;
+    expect(spec.cases.length - skipped).toBe(25);
   });
 
   it("only ever diverges by reporting availability per bucket", () => {
