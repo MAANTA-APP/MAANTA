@@ -5,6 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement, type ReactNode } from "react";
 import { stripComments } from "./helpers/comment-stripping";
 import { renderShopperTree } from "./helpers/shopper-clock";
+import {
+  startShopperClock,
+  SHOPPER_CLOCK_INTERVAL_MS,
+} from "@/lib/use-shopper-clock";
 import { endingSoonDeals, ENDING_SOON_SUBTITLE } from "@/lib/ending-soon";
 import { fastVisitChipState, fastVisitChipLabel } from "@/lib/fast-visit-chip";
 import { dealExpiryLabel, isDealClaimable } from "@/lib/deal-expiry";
@@ -473,5 +477,60 @@ describe("criterion 3 — the first client render agrees with the server render"
     // mounted, so a chip inside the shopper tree never self-ticks.
     expect(chips).toContain("useOptionalShopperClock()");
     expect(chips).toContain("now ?? shared");
+  });
+});
+
+describe("criterion 3 — a shared instant is worthless unless it advances", () => {
+  // The counterexample the whole design has to survive: one clock, threaded
+  // everywhere, that never moves. Every element agrees with every other and
+  // all of them are wrong. No render comparison can see it — both passes
+  // produce the same stale output — so the advancing behaviour is asserted
+  // directly.
+  it("ticks once immediately, then on every interval", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d));
+      // Immediate, because by the time this runs hydration has committed and
+      // the seed is already as old as the response took to arrive.
+      expect(ticks).toHaveLength(1);
+      expect(ticks[0].getTime()).toBe(T0.getTime());
+
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 3);
+      expect(ticks).toHaveLength(4);
+      // Each tick carries the CURRENT time, not a re-emitted stale one.
+      expect(ticks[3].getTime()).toBe(T0.getTime() + SHOPPER_CLOCK_INTERVAL_MS * 3);
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("runs exactly one timer and stops it on teardown", () => {
+    // A second timer per element is the other failure mode: a feed of cards
+    // waking dozens of times a minute while claiming to share one clock.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      const ticks: Date[] = [];
+      const stop = startShopperClock(SHOPPER_CLOCK_INTERVAL_MS, (d) => ticks.push(d));
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 10);
+      expect(ticks).toHaveLength(11);
+      stop();
+      vi.advanceTimersByTime(SHOPPER_CLOCK_INTERVAL_MS * 10);
+      expect(ticks).toHaveLength(11);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("is what the provider actually mounts", () => {
+    // Wiring, for the same reason the card's `now={now}` is asserted on the
+    // wiring: an advancing helper nothing calls proves nothing.
+    const clock = read("lib/use-shopper-clock.tsx");
+    expect(clock).toContain("startShopperClock(intervalMs, setNow)");
+    expect(clock).toContain("useState(seed)");
   });
 });

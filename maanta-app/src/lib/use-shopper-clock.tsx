@@ -27,6 +27,26 @@ export const SHOPPER_CLOCK_INTERVAL_MS = 30_000;
 const ShopperClockContext = createContext<Date | null>(null);
 
 /**
+ * Drives the shared instant forward. Split out of the provider's effect so the
+ * advancing behaviour is directly testable: a seeded clock that never moves is
+ * uniformly stale — every element agrees with every other and all of them are
+ * wrong — which no render comparison can detect, because both render passes
+ * produce the same wrong output.
+ *
+ * Returns its own teardown. The first tick is immediate rather than one
+ * interval away: this runs from an effect, so hydration has already committed,
+ * and the seed is by then as old as the response took to reach the browser.
+ */
+export function startShopperClock(
+  intervalMs: number,
+  onTick: (now: Date) => void
+): () => void {
+  onTick(new Date());
+  const timer = setInterval(() => onTick(new Date()), intervalMs);
+  return () => clearInterval(timer);
+}
+
+/**
  * Seeds the clock from ONE server-generated instant, mounted at the shopper
  * layout boundary.
  *
@@ -46,7 +66,9 @@ const ShopperClockContext = createContext<Date | null>(null);
  * With one serialised instant, the server render and the FIRST client render
  * are identical by construction, whatever the browser's own clock says.
  *
- * The clock then advances only after hydration, from this single timer.
+ * It then advances only after hydration, from this one timer — effects run
+ * after the hydration commit, so the tree React reconciles against the server
+ * HTML is still the seeded one.
  */
 export function ShopperClockProvider({
   serverNow,
@@ -62,15 +84,7 @@ export function ShopperClockProvider({
   const seed = useMemo(() => new Date(serverNow), [serverNow]);
   const [now, setNow] = useState(seed);
 
-  useEffect(() => {
-    // Effects run only AFTER hydration has committed, so the tree React
-    // reconciles against the server HTML is still the seeded one. The first
-    // advance is immediate rather than one interval away, because the seed is
-    // already as old as the response took to reach the browser.
-    setNow(new Date());
-    const timer = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(timer);
-  }, [intervalMs, seed]);
+  useEffect(() => startShopperClock(intervalMs, setNow), [intervalMs, seed]);
 
   return (
     <ShopperClockContext.Provider value={now}>{children}</ShopperClockContext.Provider>
