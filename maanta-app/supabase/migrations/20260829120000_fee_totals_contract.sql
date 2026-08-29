@@ -217,9 +217,21 @@ BEGIN
        -- The consequence is deliberate: an unplaceable fee row makes EVERY
        -- report unavailable until it is corrected. It has to, because there is
        -- no period it could belong to instead.
-       AND (NOT isfinite(t.created_at)
-            OR (t.created_at >= p_since
-                AND (p_until IS NULL OR t.created_at < p_until)))
+       --
+       -- Written as explicit bounds rather than `NOT isfinite(t.created_at)`
+       -- because the two are equivalent here and only one of them is
+       -- indexable. `created_at` is NOT NULL and the only non-finite
+       -- `timestamptz` values are the two extremes, so the predicates select
+       -- the same rows -- but `NOT isfinite(...)` is opaque to the planner, so
+       -- the whole disjunction collapses to a Filter and `idx_mtx_fee_window`
+       -- is scanned end to end with no bound at all. Measured on 400k rows:
+       -- the `isfinite` form gives an Index Scan with the window only in the
+       -- Filter; this form gives a BitmapOr of three real Index Conds. The
+       -- index exists to bound the global window, and this is what lets it.
+       AND (   (t.created_at >= p_since
+                AND (p_until IS NULL OR t.created_at < p_until))
+            OR t.created_at =  'infinity'::timestamptz
+            OR t.created_at = '-infinity'::timestamptz)
   ),
   -- Deliberately unscoped: `touched` is already bounded by the window and the
   -- index, and scoping it on `t.merchant_id` would hide a cross-merchant row
@@ -518,9 +530,12 @@ BEGIN
        -- it cannot reach `classified` either, having no parent to join
        -- through -- and the report answered an available zero over money that
        -- had moved.
-       AND (NOT isfinite(t.created_at)
-            OR (t.created_at >= p_since
-                AND (p_until IS NULL OR t.created_at < p_until)))
+       -- Explicit bounds rather than `NOT isfinite(...)`, for the indexability
+       -- reason spelled out on `touched` above. Same rows, one plan.
+       AND (   (t.created_at >= p_since
+                AND (p_until IS NULL OR t.created_at < p_until))
+            OR t.created_at =  'infinity'::timestamptz
+            OR t.created_at = '-infinity'::timestamptz)
        AND NOT EXISTS (
          SELECT 1 FROM public.redemptions r WHERE r.id = t.reference_id
        )

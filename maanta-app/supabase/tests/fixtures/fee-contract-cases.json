@@ -440,6 +440,25 @@
       "notYetInTypeScript": "readLedgerFeeTotals fetches windowed rows plus rows linked to in-window candidates, so an unplaceable row on an older redemption is never fetched at all. B2b must widen the reader's select to include non-finite timestamps."
     },
     {
+      "id": "negative-infinity-fee-on-an-older-redemption-surfaces",
+      "description": "The same shape at the other extreme. `-infinity` sorts BELOW every bound where `infinity` sorts above, so a window predicate written as explicit bounds has to name both — cover only the positive extreme and a fee row at `-infinity` is dropped from the subject set and never flagged, which is the identical available zero one sign over.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "old", "type": "success_fee", "amount": -30, "createdAt": "-infinity" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals fetches windowed rows plus rows linked to in-window candidates, so an unplaceable row on an older redemption is never fetched at all. B2b must widen the reader's select to include non-finite timestamps at both extremes."
+    },
+    {
+      "id": "unparented-fee-at-negative-infinity",
+      "description": "The unparented unplaceable row at the other extreme: no redemption parent, `created_at = -infinity`. It cannot reach the classified join and the unparented count is the only path that can see it, so that count must name both extremes too.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "-infinity", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and never fetches a non-finite timestamp, so an unparented row at either extreme is doubly invisible to TypeScript. B2b must count it instead of dropping it."
+    },
+    {
       "id": "deal-owner-sees-corruption-on-its-own-deal",
       "description": "A deal owned by m2 whose redemption and fee movement both name m1. Scoping only on the redemption's and movement's merchants leaves m2 reading an available zero while the corruption sits on m2's own deal — the same one-sided blindness already fixed for the transaction/redemption mismatch, one parent over. Both diagnostics fire: the movement is invalid on the deal mismatch, and because a malformed gross row cannot prove billing, the redemption is also unbilled. That is the same pairing every malformed-gross case shows, and it is now identical to what the global report says about this chain.",
       "scope": ["m2"],
