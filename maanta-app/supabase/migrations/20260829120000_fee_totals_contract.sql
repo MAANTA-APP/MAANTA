@@ -188,8 +188,21 @@ BEGIN
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
             OR d.merchant_id = ANY (p_merchant_ids))
-       AND r.redeemed_at >= p_since
-       AND (p_until IS NULL OR r.redeemed_at < p_until)
+       -- Windowed on the verification event -- but a verification time that
+       -- cannot be placed belongs to no window, exactly as on the movement
+       -- side, so every window has to surface it. `-infinity` fails
+       -- `>= p_since`, `infinity` fails `< p_until`, and NULL fails both, so
+       -- a plain range silently dropped a genuine success from EVERY
+       -- candidate set; with no fee movement to reach it through `touched`,
+       -- nothing else could see it and the report answered an available zero
+       -- over an unbilled success. Measured before fixing: `-infinity` with no
+       -- fee returned available 0 from both a bounded and an open-ended
+       -- window.
+       AND (   (r.redeemed_at >= p_since
+                AND (p_until IS NULL OR r.redeemed_at < p_until))
+            OR r.redeemed_at IS NULL
+            OR r.redeemed_at =  'infinity'::timestamptz
+            OR r.redeemed_at = '-infinity'::timestamptz)
   ),
   -- Redemptions whose fee history this window has to read, found through
   -- `idx_mtx_fee_window` instead of by scanning the ledger.
@@ -359,10 +372,21 @@ BEGIN
        -- invisible from two of them. Without the deal arm, a deal owned by B
        -- whose redemption and movement both name A leaves B reading available
        -- zero while the corruption sits on B's own deal.
+       --
+       -- A FOURTH merchant can be named, by the reversal's audit row.
+       -- `fee_reversals.merchant_id` is an independent foreign key, so an
+       -- audit naming C against a chain that is otherwise all A is
+       -- representable. It fails corroboration, so A and global correctly read
+       -- unavailable -- but without this arm C, whose name is on the approval,
+       -- read an available zero. Measured before fixing.
        AND (NOT p_scoped
             OR r.merchant_id = ANY (p_merchant_ids)
             OR t.merchant_id = ANY (p_merchant_ids)
-            OR d.merchant_id = ANY (p_merchant_ids))
+            OR d.merchant_id = ANY (p_merchant_ids)
+            OR EXISTS (SELECT 1
+                         FROM public.fee_reversals fr_scope
+                        WHERE fr_scope.redemption_id = r.id
+                          AND fr_scope.merchant_id = ANY (p_merchant_ids)))
        -- The whole linked history of every subject redemption, and nothing
        -- else. A subject is either a completeness candidate or a redemption
        -- touched in-window, and its WHOLE history is needed because two rules
@@ -382,6 +406,7 @@ BEGIN
       c.redemption_id,
       c.bucket,
       c.oriented_amount,
+      c.movement_at,
       isfinite(c.created_at)
         AND c.created_at >= p_since
         AND (p_until IS NULL OR c.created_at < p_until) AS in_window,
@@ -430,7 +455,14 @@ BEGIN
     SELECT
       x.*,
       COUNT(*) FILTER (WHERE x.bucket = 'gross' AND NOT x.malformed_base)
-        OVER (PARTITION BY x.redemption_id) AS wellformed_gross_siblings
+        OVER (PARTITION BY x.redemption_id) AS wellformed_gross_siblings,
+      -- Not just "was there a fee", but "was there a fee YET". A reversal
+      -- timestamped before the charge it reverses satisfied a bare count, and
+      -- a window holding the reversal but not the later charge then reported
+      -- gross 0, reversals 30, NET -30, available. Measured before fixing:
+      -- negative success-fee revenue, presented as fact.
+      MIN(x.movement_at) FILTER (WHERE x.bucket = 'gross' AND NOT x.malformed_base)
+        OVER (PARTITION BY x.redemption_id) AS earliest_wellformed_gross_at
       FROM relevant x
   ),
   marked AS (
@@ -445,8 +477,25 @@ BEGIN
         -- individually valid.
         OR (y.bucket = 'gross' AND NOT y.malformed_base
             AND y.wellformed_gross_siblings > 1)
-        -- Money returned for a fee that was never charged.
-        OR (y.bucket = 'reversal' AND y.wellformed_gross_siblings = 0)
+        -- Money returned for a fee that was never charged -- or not charged
+        -- YET. `reverse_success_fee` reads the gross row before it writes the
+        -- credit, so a genuine reversal always postdates its charge. A bare
+        -- sibling count could not tell the two apart, and a window holding
+        -- such a reversal but not its later charge reported gross 0,
+        -- reversals 30, net -30, available: a NEGATIVE success-fee figure on
+        -- an executive card, which is criterion 1 rather than a diagnostic
+        -- nicety.
+        --
+        -- Compared against the EARLIEST well-formed gross row, not any of
+        -- them: on a duplicated fee the first charge is the one the reversal
+        -- could legitimately answer. A non-finite `movement_at` is already
+        -- malformed on its own, so the finite guard only avoids re-flagging a
+        -- row for a reason it already carries.
+        OR (y.bucket = 'reversal'
+            AND (y.wellformed_gross_siblings = 0
+                 OR (isfinite(y.movement_at)
+                     AND y.earliest_wellformed_gross_at IS NOT NULL
+                     AND y.movement_at < y.earliest_wellformed_gross_at)))
       ) AS malformed
       FROM scored y
   ),
@@ -539,10 +588,58 @@ BEGIN
        AND NOT EXISTS (
          SELECT 1 FROM public.redemptions r WHERE r.id = t.reference_id
        )
+  ),
+  -- The audit table, read in the OTHER direction.
+  --
+  -- Every rule above starts from a MOVEMENT and asks what corroborates it: a
+  -- `fee_reversal` row must have a `fee_reversals` entry behind it. Nothing
+  -- started from the audit table, so an entry whose `wallet_transaction_id`
+  -- points at something that is NOT a reversal movement for its own
+  -- redemption -- the gross fee, a top-up, or a NULL -- satisfies every table
+  -- constraint and was never examined, because there was no reversal movement
+  -- to reach it through. The report stayed available while an approved record
+  -- asserted that money had been returned. Measured before fixing: gross 30,
+  -- net 30, available, with an approved reversal on file.
+  --
+  -- The table is `UNIQUE(redemption_id)`, so such a row also blocks
+  -- `reverse_success_fee` from ever performing that reversal properly. It is
+  -- not only a wrong figure; it is a stuck one.
+  --
+  -- Deliberately keyed on the redemption chain's demo tags, not the audit
+  -- row's own merchant: D188's canonical join is the genuineness test, and an
+  -- audit naming the wrong merchant is corruption to surface rather than a
+  -- reason to look away.
+  orphan_audits AS (
+    SELECT (COUNT(*))::integer AS n
+      FROM public.fee_reversals fr
+      JOIN public.redemptions r ON r.id = fr.redemption_id
+      JOIN public.merchants   m ON m.id = r.merchant_id
+      JOIN public.deals       d ON d.id = r.deal_id
+     WHERE r.status = 'success'
+       AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+       AND (NOT p_scoped
+            OR fr.merchant_id = ANY (p_merchant_ids)
+            OR r.merchant_id  = ANY (p_merchant_ids)
+            OR d.merchant_id  = ANY (p_merchant_ids))
+       -- Same three-valued placement as every other window predicate here.
+       AND (   (fr.created_at >= p_since
+                AND (p_until IS NULL OR fr.created_at < p_until))
+            OR fr.created_at =  'infinity'::timestamptz
+            OR fr.created_at = '-infinity'::timestamptz)
+       AND NOT EXISTS (
+         SELECT 1
+           FROM public.merchant_transactions rt
+          WHERE rt.id = fr.wallet_transaction_id
+            AND rt.transaction_type = 'fee_reversal'
+            AND rt.reference_id = fr.redemption_id
+       )
   )
-  SELECT t.gross, t.reversals, t.invalid + u.n, m.n
+  SELECT t.gross, t.reversals, t.invalid + u.n + oa.n, m.n
     INTO v_gross, v_reversals, v_invalid, v_missing
-    FROM totals t CROSS JOIN missing m CROSS JOIN unparented u;
+    FROM totals t
+    CROSS JOIN missing m
+    CROSS JOIN unparented u
+    CROSS JOIN orphan_audits oa;
 
   IF v_missing > 0 OR v_invalid > 0 THEN
     -- All three together. A partial money figure on an executive surface is

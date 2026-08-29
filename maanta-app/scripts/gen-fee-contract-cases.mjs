@@ -105,7 +105,17 @@ function renderCase(c, windowDefault) {
     // cannot produce, where a redemption's two parents disagree about whose
     // shop it belongs to.
     p(`    VALUES (v_d_${r.deal ?? m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
-    p(`            ${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour', ${q(r.redeemedAt)}, ${num(r.feeSnapshot ?? 30)},`);
+    // `redeemed_at` is nullable in production, and `infinity`/`-infinity` are
+    // valid timestamptz values, so a genuine success can carry a verification
+    // time that belongs to no window. `expires_at` is derived from it for a
+    // real row, but a NULL verification time still needs a usable expiry, so
+    // it falls back to a fixed one rather than propagating the NULL.
+    const redeemedAt = r.redeemedAt === null ? "NULL" : q(r.redeemedAt);
+    const expiresAt =
+      r.redeemedAt === null
+        ? `'2026-08-10T10:00:00Z'::timestamptz`
+        : `${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour'`;
+    p(`            ${expiresAt}, ${redeemedAt}, ${num(r.feeSnapshot ?? 30)},`);
     p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"},`);
     // Review metadata is MUTABLE and must not decide a financial figure
     // (founder ruling 2026-08-29): a flagged success still counts, and any
@@ -141,9 +151,21 @@ function renderCase(c, windowDefault) {
     if (mv.type === "fee_reversal" && !mv.orphan && auditable) {
       p(`  INSERT INTO public.fee_reversals`);
       p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)`);
-      p(`    VALUES (v_r_${mv.redemption}, v_m_${redemptionMerchant(redemptions, mv.redemption)},`);
+      // `fee_reversals.merchant_id` is an independent foreign key, so the audit
+      // row can name a merchant the rest of the chain never mentions.
+      p(`    VALUES (v_r_${mv.redemption}, v_m_${mv.auditMerchant ?? redemptionMerchant(redemptions, mv.redemption)},`);
       p(`            v_tx, ${amount(mv.auditAmount ?? mv.amount)}, 'fixture reversal',`);
       p(`            ${mv.noApprover ? "NULL" : "v_uid"});`);
+    }
+    // An audit row hung off a movement that is NOT a reversal. The table's
+    // constraints permit it and no reversal movement exists to reach it
+    // through, which is exactly why the contract has to read the audit table
+    // in its own right.
+    if (mv.auditPointsHere) {
+      p(`  INSERT INTO public.fee_reversals`);
+      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)`);
+      p(`    VALUES (v_r_${mv.redemption}, v_m_${mv.auditMerchant ?? redemptionMerchant(redemptions, mv.redemption)},`);
+      p(`            v_tx, ${amount(mv.auditPointsHere)}, 'fixture orphan audit', v_uid);`);
     }
   }
 
@@ -170,8 +192,16 @@ function renderCase(c, windowDefault) {
   p(`    format(${q(`${c.id}: invalid_rows = %s, expected ${e.invalidRows}`)}, v_row.invalid_rows);`);
 
   p(``);
+  // Audit rows first, ALL of them, before any transaction is deleted. An audit
+  // row's merchant is an independent foreign key, so it can name a merchant
+  // whose own ledger holds nothing while pointing at another merchant's
+  // movement — deleting per merchant in one pass then trips
+  // `fee_reversals_wallet_transaction_id_fkey` on the first merchant whose
+  // transactions go.
   for (const m of merchantKeys) {
     p(`  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_${m};`);
+  }
+  for (const m of merchantKeys) {
     p(`  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_${m};`);
     p(`  DELETE FROM public.redemptions WHERE merchant_id = v_m_${m};`);
     p(`  DELETE FROM public.deals WHERE merchant_id = v_m_${m};`);

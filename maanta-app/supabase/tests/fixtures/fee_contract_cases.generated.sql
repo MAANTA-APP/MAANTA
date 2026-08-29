@@ -1552,11 +1552,11 @@ BEGIN
     format('scoped-excludes-other-merchants: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -2544,11 +2544,11 @@ BEGIN
     format('redemption-linked-to-another-merchants-deal: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -3463,11 +3463,11 @@ BEGIN
     format('deal-owner-sees-corruption-on-its-own-deal: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -3542,17 +3542,402 @@ BEGIN
     format('deal-owner-sees-a-missing-fee-on-its-own-deal: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchants WHERE id = v_m_m2;
   DELETE FROM public.users WHERE id = v_uid;
   RAISE NOTICE 'fee contract case passed: deal-owner-sees-a-missing-fee-on-its-own-deal';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- success-with-an-unplaceable-verification-time
+--
+-- A genuine unbilled success whose redeemed_at is `-infinity`. The candidate
+-- set is windowed on the verification event, and `-infinity` fails `>=
+-- since` while `infinity` fails `< until`, so a plain range dropped it from
+-- EVERY window — and with no fee movement there is nothing for `touched` or
+-- `classified` to reach it through. Measured before the fix: available 0
+-- from both a bounded and an open-ended window, over a success nobody
+-- billed. The movement side already treats an unplaceable timestamp as
+-- belonging to no window; the verification side has to say the same thing.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_success-with-an-unplaceable-verification-time_m1', 'fee.case.m1', '+254710000052',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_success-with-an-unplaceable-verification-time_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '-infinity'::timestamptz + INTERVAL '1 hour', '-infinity', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('success-with-an-unplaceable-verification-time: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-an-unplaceable-verification-time: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-an-unplaceable-verification-time: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-an-unplaceable-verification-time: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 1,
+    format('success-with-an-unplaceable-verification-time: missing_fee_rows = %s, expected 1', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 0,
+    format('success-with-an-unplaceable-verification-time: invalid_rows = %s, expected 0', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: success-with-an-unplaceable-verification-time';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- success-with-no-verification-time-at-all
+--
+-- The third shape of the same hole: `redemptions.redeemed_at` is nullable,
+-- so a success can carry no verification time at all, and NULL fails both
+-- halves of a range comparison. It belongs to no window for the same reason
+-- the two extremes do, and an unbilled one must not read as an available
+-- zero.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_success-with-no-verification-time-at-all_m1', 'fee.case.m1', '+254710000053',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_success-with-no-verification-time-at-all_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T10:00:00Z'::timestamptz, NULL, 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('success-with-no-verification-time-at-all: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-no-verification-time-at-all: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-no-verification-time-at-all: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('success-with-no-verification-time-at-all: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 1,
+    format('success-with-no-verification-time-at-all: missing_fee_rows = %s, expected 1', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 0,
+    format('success-with-no-verification-time-at-all: invalid_rows = %s, expected 0', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: success-with-no-verification-time-at-all';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- reversal-audit-naming-a-third-merchant
+--
+-- A fourth merchant a corrupt chain can name. `fee_reversals.merchant_id` is
+-- an independent foreign key, so an audit row can name m3 while the
+-- movement, redemption and deal all name m1. Corroboration fails, so m1 and
+-- global correctly read unavailable — but m3, whose name is on the approval,
+-- read an available zero. Scope has to match every merchant a chain names,
+-- and the audit row is one of them.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_m_m3 UUID;
+  v_d_m3 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m1', 'fee.case.m1', '+254710000054',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_reversal-audit-naming-a-third-merchant_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m3', 'fee.case.m3', '+254710000055',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m3;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m3, '__fee_case_reversal-audit-naming-a-third-merchant_m3', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m3;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_reversal-audit-naming-a-third-merchant_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_reversal-audit-naming-a-third-merchant_2', 'fixture', v_r_r1, '2026-08-12T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)
+    VALUES (v_r_r1, v_m_m3,
+            v_tx, 30, 'fixture reversal',
+            v_uid);
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m3]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('reversal-audit-naming-a-third-merchant: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-naming-a-third-merchant: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-naming-a-third-merchant: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-naming-a-third-merchant: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('reversal-audit-naming-a-third-merchant: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('reversal-audit-naming-a-third-merchant: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m3;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m3;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m3;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m3;
+  DELETE FROM public.merchants WHERE id = v_m_m3;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: reversal-audit-naming-a-third-merchant';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- audit-row-pointing-at-a-non-reversal-movement
+--
+-- The audit table read in the other direction. Every rule here starts from a
+-- movement and asks what corroborates it; nothing started from
+-- `fee_reversals`, so a row whose wallet_transaction_id points at the GROSS
+-- fee — every table constraint satisfied, no reversal movement anywhere —
+-- was never examined, because there was no reversal movement to reach it
+-- through. Measured before the fix: gross 30, net 30, available, with an
+-- approved reversal on file. The table is UNIQUE(redemption_id), so that row
+-- also blocks reverse_success_fee from ever doing the reversal properly: not
+-- just a wrong figure, a stuck one.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_audit-row-pointing-at-a-non-reversal-movement_m1', 'fee.case.m1', '+254710000056',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_audit-row-pointing-at-a-non-reversal-movement_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_audit-row-pointing-at-a-non-reversal-movement_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture orphan audit', v_uid);
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('audit-row-pointing-at-a-non-reversal-movement: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('audit-row-pointing-at-a-non-reversal-movement: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('audit-row-pointing-at-a-non-reversal-movement: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('audit-row-pointing-at-a-non-reversal-movement: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('audit-row-pointing-at-a-non-reversal-movement: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('audit-row-pointing-at-a-non-reversal-movement: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: audit-row-pointing-at-a-non-reversal-movement';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- reversal-posted-before-its-own-charge
+--
+-- A reversal timestamped BEFORE the gross row it reverses.
+-- `reverse_success_fee` reads the gross row before writing the credit, so a
+-- genuine reversal always postdates its charge — but a bare sibling count
+-- could not tell the two apart. With the redemption verified outside the
+-- window, a window holding the reversal and not the later charge returned
+-- gross 0, reversals 30, net -30, available: a NEGATIVE success-fee figure
+-- presented as fact. Measured before the fix.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_reversal-posted-before-its-own-charge_m1', 'fee.case.m1', '+254710000057',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_reversal-posted-before-its-own-charge_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-07-01T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-07-01T09:00:00Z', 30,
+            FALSE,
+            NULL, FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_reversal-posted-before-its-own-charge_1', 'fixture', v_r_r1, '2026-08-10T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal',
+            v_uid);
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_reversal-posted-before-its-own-charge_2', 'fixture', v_r_r1, '2026-09-10T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('reversal-posted-before-its-own-charge: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-posted-before-its-own-charge: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-posted-before-its-own-charge: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-posted-before-its-own-charge: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('reversal-posted-before-its-own-charge: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('reversal-posted-before-its-own-charge: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: reversal-posted-before-its-own-charge';
 END $case$;
 
 -- ---------------------------------------------------------------------------
@@ -3579,7 +3964,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000052',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000058',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3588,7 +3973,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000053',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000059',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3627,11 +4012,11 @@ BEGIN
     format('cross-merchant-reference: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -3663,7 +4048,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000054',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000060',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3672,7 +4057,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000055',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000061',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3711,11 +4096,11 @@ BEGIN
     format('cross-merchant-reference-from-debited-scope: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
   DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -3744,7 +4129,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000056',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000062',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)

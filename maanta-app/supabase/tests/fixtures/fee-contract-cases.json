@@ -479,6 +479,56 @@
       "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions on merchant_id alone, so a redemption against another merchant's deal never enters the deal owner's candidate set. B2b must scope completeness on the deal owner too."
     },
     {
+      "id": "success-with-an-unplaceable-verification-time",
+      "description": "A genuine unbilled success whose redeemed_at is `-infinity`. The candidate set is windowed on the verification event, and `-infinity` fails `>= since` while `infinity` fails `< until`, so a plain range dropped it from EVERY window — and with no fee movement there is nothing for `touched` or `classified` to reach it through. Measured before the fix: available 0 from both a bounded and an open-ended window, over a success nobody billed. The movement side already treats an unplaceable timestamp as belonging to no window; the verification side has to say the same thing.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "-infinity" }],
+      "movements": [],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a non-finite or NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
+    },
+    {
+      "id": "success-with-no-verification-time-at-all",
+      "description": "The third shape of the same hole: `redemptions.redeemed_at` is nullable, so a success can carry no verification time at all, and NULL fails both halves of a range comparison. It belongs to no window for the same reason the two extremes do, and an unbilled one must not read as an available zero.",
+      "redemptions": [{ "key": "r1", "redeemedAt": null }],
+      "movements": [],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
+    },
+    {
+      "id": "reversal-audit-naming-a-third-merchant",
+      "description": "A fourth merchant a corrupt chain can name. `fee_reversals.merchant_id` is an independent foreign key, so an audit row can name m3 while the movement, redemption and deal all name m1. Corroboration fails, so m1 and global correctly read unavailable — but m3, whose name is on the approval, read an available zero. Scope has to match every merchant a chain names, and the audit row is one of them.",
+      "scope": ["m3"],
+      "merchants": ["m1", "m3"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-12T09:00:00Z", "auditMerchant": "m3" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals at all, so it can neither corroborate a reversal nor scope on the merchant its audit names. B2b must add both."
+    },
+    {
+      "id": "audit-row-pointing-at-a-non-reversal-movement",
+      "description": "The audit table read in the other direction. Every rule here starts from a movement and asks what corroborates it; nothing started from `fee_reversals`, so a row whose wallet_transaction_id points at the GROSS fee — every table constraint satisfied, no reversal movement anywhere — was never examined, because there was no reversal movement to reach it through. Measured before the fix: gross 30, net 30, available, with an approved reversal on file. The table is UNIQUE(redemption_id), so that row also blocks reverse_success_fee from ever doing the reversal properly: not just a wrong figure, a stuck one.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z", "auditPointsHere": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so an audit row with no reversal movement behind it is invisible to TypeScript entirely. B2b must read the audit table in both directions."
+    },
+    {
+      "id": "reversal-posted-before-its-own-charge",
+      "description": "A reversal timestamped BEFORE the gross row it reverses. `reverse_success_fee` reads the gross row before writing the credit, so a genuine reversal always postdates its charge — but a bare sibling count could not tell the two apart. With the redemption verified outside the window, a window holding the reversal and not the later charge returned gross 0, reversals 30, net -30, available: a NEGATIVE success-fee figure presented as fact. Measured before the fix.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-01T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-10T09:00:00Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-10T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees has no notion of a redemption's other rows, so it cannot compare a reversal against the timestamp of the fee it reverses. B2b must add the sibling ordering comparison."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],
