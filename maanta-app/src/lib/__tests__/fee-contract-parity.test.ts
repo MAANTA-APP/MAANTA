@@ -64,6 +64,8 @@ type Case = {
     amount: number | string;
     createdAt: string;
     isDemo?: boolean;
+    orphan?: boolean;
+    auditAmount?: number;
   }[];
   expected: {
     grossKes: number | null;
@@ -173,6 +175,9 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "malformed-later-reversal-does-not-blank-an-earlier-period",
       "valid-and-malformed-gross-evidence",
       "demo-tagged-movement-excluded",
+      "orphan-reversal-without-audit-row",
+      "second-reversal-riding-on-an-existing-audit-row",
+      "reversal-audit-row-disagrees-on-amount",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -307,6 +312,9 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "cross-merchant-reference-from-debited-scope",
       "demo-tagged-movement-excluded",
       "malformed-fee-outside-window-does-not-prove-completeness",
+      "orphan-reversal-without-audit-row",
+      "reversal-audit-row-disagrees-on-amount",
+      "second-reversal-riding-on-an-existing-audit-row",
     ]);
     for (const c of gaps) {
       expect(c.notYetInTypeScript!.length, `${c.id} must say what B2b changes`)

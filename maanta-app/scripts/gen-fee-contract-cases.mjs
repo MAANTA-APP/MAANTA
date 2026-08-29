@@ -70,6 +70,7 @@ function renderCase(c, windowDefault) {
     p(`  v_d_${m} UUID;`);
   }
   for (const r of redemptions) p(`  v_r_${r.key} UUID;`);
+  p(`  v_tx UUID;`);
   p(`  v_row RECORD;`);
   p(`BEGIN`);
   p(`  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;`);
@@ -106,6 +107,12 @@ function renderCase(c, windowDefault) {
     p(`    RETURNING id INTO v_r_${r.key};`);
   }
 
+  // A fee_reversal is only real if `reverse_success_fee` wrote it, and that RPC
+  // writes a `fee_reversals` audit row pointing back at the ledger row through
+  // `wallet_transaction_id`. So the fixtures create that audit row too --
+  // otherwise every reversal case would be testing an orphan, and the suite
+  // would flatter a path it is meant to check. A case sets `orphan: true` on a
+  // reversal to test the uncorroborated shape deliberately.
   let ref = 0;
   for (const mv of movements) {
     p(``);
@@ -114,7 +121,14 @@ function renderCase(c, windowDefault) {
     const mvMerchant = mv.merchant ?? redemptionMerchant(redemptions, mv.redemption);
     p(`    VALUES (v_m_${mvMerchant}, ${amount(mv.amount)}, ${q(mv.type)}, 'manual',`);
     p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)},`);
-    p(`            ${mv.isDemo ? "TRUE" : "FALSE"});`);
+    p(`            ${mv.isDemo ? "TRUE" : "FALSE"})`);
+    p(`    RETURNING id INTO v_tx;`);
+    if (mv.type === "fee_reversal" && !mv.orphan) {
+      p(`  INSERT INTO public.fee_reversals`);
+      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note)`);
+      p(`    VALUES (v_r_${mv.redemption}, v_m_${redemptionMerchant(redemptions, mv.redemption)},`);
+      p(`            v_tx, ${amount(mv.auditAmount ?? mv.amount)}, 'fixture reversal');`);
+    }
   }
 
   p(``);
@@ -141,6 +155,7 @@ function renderCase(c, windowDefault) {
 
   p(``);
   for (const m of merchantKeys) {
+    p(`  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_${m};`);
     p(`  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_${m};`);
     p(`  DELETE FROM public.redemptions WHERE merchant_id = v_m_${m};`);
     p(`  DELETE FROM public.deals WHERE merchant_id = v_m_${m};`);

@@ -283,6 +283,40 @@
       "notYetInTypeScript": "FeeLedgerRow carries no is_demo and readLedgerFeeTotals does not select it, so aggregateLedgerFees counts a synthetic movement as genuine. B2b must add the column to the row type, the select, and the aggregator's drop rule."
     },
     {
+      "id": "orphan-reversal-without-audit-row",
+      "description": "A correctly-signed fee_reversal inserted straight into the ledger, with no fee_reversals audit row behind it. No wallet was credited and no admin approved anything, yet every other test passes it — so it would subtract from net and read as money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows, so it cannot corroborate a reversal against fee_reversals at all. B2b must either have readLedgerFeeTotals join the audit table or carry a corroborated flag on the row."
+    },
+    {
+      "id": "second-reversal-riding-on-an-existing-audit-row",
+      "description": "A genuine reversal with its audit row, plus a SECOND fee_reversal ledger row on the same redemption and no audit row of its own. Corroborating by redemption alone would let the second row borrow the first row's audit trail and double the money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-16T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows and cannot corroborate a reversal against fee_reversals at all. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
+      "id": "reversal-audit-row-disagrees-on-amount",
+      "description": "The audit row points at the right ledger row but records a different amount. The ledger says KES 70 was returned and the approval says KES 30 — one of them is wrong and nothing here can tell which, so the figure is not established.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -70, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 70, "createdAt": "2026-08-15T09:00:00Z", "auditAmount": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "Same gap: aggregateLedgerFees cannot see fee_reversals, so it cannot notice the approval disagreeing with the ledger. B2b must join the audit table or carry a corroborated flag."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

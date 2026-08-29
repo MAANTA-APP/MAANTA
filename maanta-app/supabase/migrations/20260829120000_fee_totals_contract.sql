@@ -207,7 +207,29 @@ BEGIN
         WHEN 'fee_reversal'        THEN  t.amount
         ELSE NULL
       END AS oriented_amount,
-      (t.merchant_id IS DISTINCT FROM r.merchant_id) AS merchant_mismatch
+      (t.merchant_id IS DISTINCT FROM r.merchant_id) AS merchant_mismatch,
+      -- A reversal must be corroborated by its audit row.
+      --
+      -- `reverse_success_fee` writes three things atomically: the wallet
+      -- credit, this ledger row, and a `fee_reversals` audit row pointing back
+      -- at it through `wallet_transaction_id`. A `fee_reversal` row inserted
+      -- directly by service_role has none of that -- no wallet was credited and
+      -- no admin approved anything -- yet it is correctly signed, so every
+      -- other test here passes it and it SUBTRACTS from net. A fabricated or
+      -- orphaned reversal would read as money returned.
+      --
+      -- Gross needs no equivalent because its evidence is the redemption
+      -- itself, which the D188 chain already requires. The asymmetry is not an
+      -- inconsistency: a reversal has an audit table precisely because it is
+      -- an admin action rather than a consequence of one.
+      (t.transaction_type = 'fee_reversal'
+       AND NOT EXISTS (
+         SELECT 1 FROM public.fee_reversals fr
+          WHERE fr.wallet_transaction_id = t.id
+            AND fr.redemption_id  = r.id
+            AND fr.merchant_id    = r.merchant_id
+            AND fr.amount         = t.amount
+       )) AS reversal_uncorroborated
       FROM public.merchant_transactions t
       JOIN public.redemptions r ON r.id = t.reference_id
       JOIN public.merchants   m ON m.id = r.merchant_id
@@ -237,7 +259,8 @@ BEGIN
         OR c.oriented_amount = 'NaN'::numeric
         OR c.oriented_amount <= 0
         OR NOT isfinite(c.created_at)
-        OR c.merchant_mismatch) AS malformed
+        OR c.merchant_mismatch
+        OR c.reversal_uncorroborated) AS malformed
       FROM classified c
      WHERE c.bucket <> 'excluded'
   ),

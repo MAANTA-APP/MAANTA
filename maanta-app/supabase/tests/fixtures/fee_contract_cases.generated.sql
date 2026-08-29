@@ -34,6 +34,7 @@ DECLARE
   v_d_m1 UUID;
   v_r_r1 UUID;
   v_r_r2 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -65,25 +66,33 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_all-four-types_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 70, 'success_fee_arrears', 'manual',
             '__fee_case_all-four-types_2', 'fixture', v_r_r2, '2026-08-11T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
             '__fee_case_all-four-types_3', 'fixture', v_r_r1, '2026-08-20T10:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal');
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'arrears_settlement', 'manual',
             '__fee_case_all-four-types_4', 'fixture', v_r_r1, '2026-08-20T10:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -101,6 +110,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('all-four-types: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -121,6 +131,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -145,7 +156,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_charge-leg-negative_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -163,6 +175,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('charge-leg-negative: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -184,6 +197,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -208,7 +222,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'success_fee_arrears', 'manual',
             '__fee_case_arrears-leg-positive_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -226,6 +241,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('arrears-leg-positive: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -246,6 +262,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -270,13 +287,19 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_reversal-reduces-net-not-gross_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
             '__fee_case_reversal-reduces-net-not-gross_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -294,6 +317,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('reversal-reduces-net-not-gross: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -315,6 +339,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -339,13 +364,15 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'success_fee_arrears', 'manual',
             '__fee_case_settlement-excluded_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'arrears_settlement', 'manual',
             '__fee_case_settlement-excluded_2', 'fixture', v_r_r1, '2026-08-12T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -363,6 +390,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('settlement-excluded: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -383,6 +411,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -407,37 +436,43 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_unrelated-types-excluded_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 500, 'topup', 'manual',
             '__fee_case_unrelated-types-excluded_2', 'fixture', v_r_r1, '2026-08-11T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -500, 'boost_fee', 'manual',
             '__fee_case_unrelated-types-excluded_3', 'fixture', v_r_r1, '2026-08-11T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -3500, 'subscription', 'manual',
             '__fee_case_unrelated-types-excluded_4', 'fixture', v_r_r1, '2026-08-11T09:00:02Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 200, 'refund', 'manual',
             '__fee_case_unrelated-types-excluded_5', 'fixture', v_r_r1, '2026-08-11T09:00:03Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -50, 'dispute', 'manual',
             '__fee_case_unrelated-types-excluded_6', 'fixture', v_r_r1, '2026-08-11T09:00:04Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -455,6 +490,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('unrelated-types-excluded: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -475,6 +511,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -499,7 +536,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'success_fee', 'manual',
             '__fee_case_invalid-polarity-charge_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -517,6 +555,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('invalid-polarity-charge: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -537,6 +576,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -561,13 +601,19 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_invalid-polarity-reversal_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'fee_reversal', 'manual',
             '__fee_case_invalid-polarity-reversal_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, -30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -585,6 +631,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('invalid-polarity-reversal: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -605,6 +652,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -629,7 +677,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 0, 'success_fee', 'manual',
             '__fee_case_zero-amount-fee-row_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -647,6 +696,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('zero-amount-fee-row: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -669,6 +719,7 @@ DECLARE
   v_d_m1 UUID;
   v_r_r1 UUID;
   v_r_r2 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -700,7 +751,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_missing-fee-row_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -718,6 +770,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('missing-fee-row: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -737,6 +790,7 @@ DECLARE
   v_uid UUID;
   v_m_m1 UUID;
   v_d_m1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -766,6 +820,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('zero-activity: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -786,6 +841,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -810,7 +866,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_d188-demo-redemption_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -828,6 +885,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('d188-demo-redemption: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -849,6 +907,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -873,7 +932,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_d188-demo-merchant_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -891,6 +951,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('d188-demo-merchant: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -911,6 +972,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -935,7 +997,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_d188-demo-deal_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -953,6 +1016,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('d188-demo-deal: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -972,6 +1036,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -996,7 +1061,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_boundary-movement-at-since_1', 'fixture', v_r_r1, '2026-08-01T00:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1014,6 +1080,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('boundary-movement-at-since: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1034,6 +1101,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1058,7 +1126,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_boundary-movement-at-until_1', 'fixture', v_r_r1, '2026-09-01T00:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1076,6 +1145,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('boundary-movement-at-until: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1095,6 +1165,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1119,7 +1190,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_boundary-movement-before-since_1', 'fixture', v_r_r1, '2026-07-15T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1137,6 +1209,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('boundary-movement-before-since: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1158,6 +1231,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1182,13 +1256,19 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_reversal-in-window-older-redemption_1', 'fixture', v_r_r1, '2026-07-15T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
             '__fee_case_reversal-in-window-older-redemption_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1206,6 +1286,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('reversal-in-window-older-redemption: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1228,6 +1309,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1252,7 +1334,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_fee-outside-window-proves-completeness_1', 'fixture', v_r_r1, '2026-09-01T00:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1270,6 +1353,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('fee-outside-window-proves-completeness: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1293,6 +1377,7 @@ DECLARE
   v_d_m1 UUID;
   v_r_old UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1324,7 +1409,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_missing-fee-outside-window-does-not-poison_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1342,6 +1428,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('missing-fee-outside-window-does-not-poison: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1366,6 +1453,7 @@ DECLARE
   v_r_r1 UUID;
   v_r_r2 UUID;
   v_r_r3 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1413,13 +1501,15 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_scoped-excludes-other-merchants_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m2, -70, 'success_fee', 'manual',
             '__fee_case_scoped-excludes-other-merchants_2', 'fixture', v_r_r2, '2026-08-11T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1437,10 +1527,12 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('scoped-excludes-other-merchants: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -1461,6 +1553,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1485,7 +1578,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_scoped-empty-is-available-zero_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[]::uuid[]);
@@ -1503,6 +1597,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('scoped-empty-is-available-zero: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1526,6 +1621,7 @@ DECLARE
   v_d_m1 UUID;
   v_r_r1 UUID;
   v_r_rp UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1557,13 +1653,15 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_fee-against-non-success-redemption-excluded_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -70, 'success_fee', 'manual',
             '__fee_case_fee-against-non-success-redemption-excluded_2', 'fixture', v_r_rp, '2026-08-11T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1581,6 +1679,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('fee-against-non-success-redemption-excluded: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1603,6 +1702,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1627,7 +1727,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 'NaN'::numeric, 'success_fee', 'manual',
             '__fee_case_nan-amount_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1645,6 +1746,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('nan-amount: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1667,6 +1769,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1691,7 +1794,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_infinite-created-at_1', 'fixture', v_r_r1, 'infinity',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1709,6 +1813,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('infinite-created-at: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1732,6 +1837,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1756,13 +1862,19 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'fee_reversal', 'manual',
             '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_2', 'fixture', v_r_r1, '2026-09-15T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, -30, 'fixture reversal');
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1780,6 +1892,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('malformed-later-reversal-does-not-blank-an-earlier-period: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1803,6 +1916,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1827,13 +1941,15 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_valid-and-malformed-gross-evidence_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 70, 'success_fee', 'manual',
             '__fee_case_valid-and-malformed-gross-evidence_2', 'fixture', v_r_r1, '2026-09-15T09:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1851,6 +1967,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('valid-and-malformed-gross-evidence: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
@@ -1876,6 +1993,7 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
@@ -1900,13 +2018,15 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, -30, 'success_fee', 'manual',
             '__fee_case_demo-tagged-movement-excluded_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   INSERT INTO public.merchant_transactions
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 70, 'success_fee_arrears', 'manual',
             '__fee_case_demo-tagged-movement-excluded_2', 'fixture', v_r_r1, '2026-08-11T09:00:01Z',
-            TRUE);
+            TRUE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -1924,12 +2044,250 @@ BEGIN
   ASSERT v_row.invalid_rows = 0,
     format('demo-tagged-movement-excluded: invalid_rows = %s, expected 0', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
   DELETE FROM public.users WHERE id = v_uid;
   RAISE NOTICE 'fee contract case passed: demo-tagged-movement-excluded';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- orphan-reversal-without-audit-row
+--
+-- A correctly-signed fee_reversal inserted straight into the ledger, with no
+-- fee_reversals audit row behind it. No wallet was credited and no admin
+-- approved anything, yet every other test passes it — so it would subtract
+-- from net and read as money returned.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_orphan-reversal-without-audit-row_m1', 'fee.case.m1', '+254710000030',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_orphan-reversal-without-audit-row_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_orphan-reversal-without-audit-row_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_orphan-reversal-without-audit-row_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('orphan-reversal-without-audit-row: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('orphan-reversal-without-audit-row: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('orphan-reversal-without-audit-row: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('orphan-reversal-without-audit-row: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('orphan-reversal-without-audit-row: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('orphan-reversal-without-audit-row: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: orphan-reversal-without-audit-row';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- second-reversal-riding-on-an-existing-audit-row
+--
+-- A genuine reversal with its audit row, plus a SECOND fee_reversal ledger
+-- row on the same redemption and no audit row of its own. Corroborating by
+-- redemption alone would let the second row borrow the first row's audit
+-- trail and double the money returned.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_second-reversal-riding-on-an-existing-audit-row_m1', 'fee.case.m1', '+254710000031',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_second-reversal-riding-on-an-existing-audit-row_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_second-reversal-riding-on-an-existing-audit-row_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_second-reversal-riding-on-an-existing-audit-row_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal');
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 30, 'fee_reversal', 'manual',
+            '__fee_case_second-reversal-riding-on-an-existing-audit-row_3', 'fixture', v_r_r1, '2026-08-16T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('second-reversal-riding-on-an-existing-audit-row: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('second-reversal-riding-on-an-existing-audit-row: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('second-reversal-riding-on-an-existing-audit-row: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('second-reversal-riding-on-an-existing-audit-row: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('second-reversal-riding-on-an-existing-audit-row: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('second-reversal-riding-on-an-existing-audit-row: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: second-reversal-riding-on-an-existing-audit-row';
+END $case$;
+
+-- ---------------------------------------------------------------------------
+-- reversal-audit-row-disagrees-on-amount
+--
+-- The audit row points at the right ledger row but records a different
+-- amount. The ledger says KES 70 was returned and the approval says KES 30 —
+-- one of them is wrong and nothing here can tell which, so the figure is not
+-- established.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_tx UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_reversal-audit-row-disagrees-on-amount_m1', 'fee.case.m1', '+254710000032',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_reversal-audit-row-disagrees-on-amount_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, -70, 'success_fee', 'manual',
+            '__fee_case_reversal-audit-row-disagrees-on-amount_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
+    VALUES (v_m_m1, 70, 'fee_reversal', 'manual',
+            '__fee_case_reversal-audit-row-disagrees-on-amount_2', 'fixture', v_r_r1, '2026-08-15T09:00:00Z',
+            FALSE)
+    RETURNING id INTO v_tx;
+  INSERT INTO public.fee_reversals
+    (redemption_id, merchant_id, wallet_transaction_id, amount, note)
+    VALUES (v_r_r1, v_m_m1,
+            v_tx, 30, 'fixture reversal');
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
+    format('reversal-audit-row-disagrees-on-amount: available = %s, expected false', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-row-disagrees-on-amount: gross_kes = %s, expected NULL', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-row-disagrees-on-amount: reversals_kes = %s, expected NULL', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
+    format('reversal-audit-row-disagrees-on-amount: net_kes = %s, expected NULL', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('reversal-audit-row-disagrees-on-amount: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 1,
+    format('reversal-audit-row-disagrees-on-amount: invalid_rows = %s, expected 1', v_row.invalid_rows);
+
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: reversal-audit-row-disagrees-on-amount';
 END $case$;
 
 -- ---------------------------------------------------------------------------
@@ -1949,13 +2307,14 @@ DECLARE
   v_m_m2 UUID;
   v_d_m2 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000030',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000033',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1964,7 +2323,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000031',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000034',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1982,7 +2341,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m2, -30, 'success_fee', 'manual',
             '__fee_case_cross-merchant-reference_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -2000,10 +2360,12 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('cross-merchant-reference: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -2028,13 +2390,14 @@ DECLARE
   v_m_m2 UUID;
   v_d_m2 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000032',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000035',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -2043,7 +2406,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000033',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000036',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -2061,7 +2424,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m2, -30, 'success_fee', 'manual',
             '__fee_case_cross-merchant-reference-from-debited-scope_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m2]::uuid[]);
@@ -2079,10 +2443,12 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('cross-merchant-reference-from-debited-scope: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m2;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m2;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m2;
   DELETE FROM public.deals WHERE merchant_id = v_m_m2;
@@ -2104,13 +2470,14 @@ DECLARE
   v_m_m1 UUID;
   v_d_m1 UUID;
   v_r_r1 UUID;
+  v_tx UUID;
   v_row RECORD;
 BEGIN
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000034',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000037',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -2128,7 +2495,8 @@ BEGIN
     (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)
     VALUES (v_m_m1, 30, 'success_fee', 'manual',
             '__fee_case_malformed-fee-outside-window-does-not-prove-completeness_1', 'fixture', v_r_r1, '2026-09-01T00:00:00Z',
-            FALSE);
+            FALSE)
+    RETURNING id INTO v_tx;
 
   SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
     '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
@@ -2146,6 +2514,7 @@ BEGIN
   ASSERT v_row.invalid_rows = 1,
     format('malformed-fee-outside-window-does-not-prove-completeness: invalid_rows = %s, expected 1', v_row.invalid_rows);
 
+  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
   DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
   DELETE FROM public.deals WHERE merchant_id = v_m_m1;
