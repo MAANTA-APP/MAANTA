@@ -3621,68 +3621,6 @@ BEGIN
 END $case$;
 
 -- ---------------------------------------------------------------------------
--- success-with-no-verification-time-at-all
---
--- The third shape of the same hole: `redemptions.redeemed_at` is nullable,
--- so a success can carry no verification time at all, and NULL fails both
--- halves of a range comparison. It belongs to no window for the same reason
--- the two extremes do, and an unbilled one must not read as an available
--- zero.
--- ---------------------------------------------------------------------------
-DO $case$
-DECLARE
-  v_uid UUID;
-  v_m_m1 UUID;
-  v_d_m1 UUID;
-  v_r_r1 UUID;
-  v_tx UUID;
-  v_row RECORD;
-BEGIN
-  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
-
-  INSERT INTO public.merchants
-    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_success-with-no-verification-time-at-all_m1', 'fee.case.m1', '+254710000053',
-            'BBS Mall', 'active', TRUE, 1000, FALSE)
-    RETURNING id INTO v_m_m1;
-  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
-    VALUES (v_m_m1, '__fee_case_success-with-no-verification-time-at-all_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
-    RETURNING id INTO v_d_m1;
-
-  INSERT INTO public.redemptions
-    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo, fraud_flags, review_required)
-    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
-            '2026-08-10T10:00:00Z'::timestamptz, NULL, 30,
-            FALSE,
-            NULL, FALSE)
-    RETURNING id INTO v_r_r1;
-
-  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
-    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
-
-  ASSERT v_row.available IS NOT DISTINCT FROM FALSE,
-    format('success-with-no-verification-time-at-all: available = %s, expected false', v_row.available);
-  ASSERT v_row.gross_kes IS NOT DISTINCT FROM NULL,
-    format('success-with-no-verification-time-at-all: gross_kes = %s, expected NULL', v_row.gross_kes);
-  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM NULL,
-    format('success-with-no-verification-time-at-all: reversals_kes = %s, expected NULL', v_row.reversals_kes);
-  ASSERT v_row.net_kes IS NOT DISTINCT FROM NULL,
-    format('success-with-no-verification-time-at-all: net_kes = %s, expected NULL', v_row.net_kes);
-  ASSERT v_row.missing_fee_rows = 1,
-    format('success-with-no-verification-time-at-all: missing_fee_rows = %s, expected 1', v_row.missing_fee_rows);
-  ASSERT v_row.invalid_rows = 0,
-    format('success-with-no-verification-time-at-all: invalid_rows = %s, expected 0', v_row.invalid_rows);
-
-  DELETE FROM public.fee_reversals WHERE merchant_id = v_m_m1;
-  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
-  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
-  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
-  DELETE FROM public.merchants WHERE id = v_m_m1;
-  DELETE FROM public.users WHERE id = v_uid;
-  RAISE NOTICE 'fee contract case passed: success-with-no-verification-time-at-all';
-END $case$;
-
--- ---------------------------------------------------------------------------
 -- reversal-audit-naming-a-third-merchant
 --
 -- A fourth merchant a corrupt chain can name. `fee_reversals.merchant_id` is
@@ -3707,7 +3645,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m1', 'fee.case.m1', '+254710000054',
+    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m1', 'fee.case.m1', '+254710000053',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3716,7 +3654,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m3', 'fee.case.m3', '+254710000055',
+    VALUES ('__fee_case_reversal-audit-naming-a-third-merchant_m3', 'fee.case.m3', '+254710000054',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m3;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3806,7 +3744,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_audit-row-pointing-at-a-non-reversal-movement_m1', 'fee.case.m1', '+254710000056',
+    VALUES ('__fee_case_audit-row-pointing-at-a-non-reversal-movement_m1', 'fee.case.m1', '+254710000055',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3881,7 +3819,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_reversal-posted-before-its-own-charge_m1', 'fee.case.m1', '+254710000057',
+    VALUES ('__fee_case_reversal-posted-before-its-own-charge_m1', 'fee.case.m1', '+254710000056',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3964,7 +3902,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000058',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000057',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -3973,7 +3911,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000059',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000058',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -4048,7 +3986,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000060',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000059',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -4057,7 +3995,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000061',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000060',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -4129,7 +4067,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000062',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000061',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)

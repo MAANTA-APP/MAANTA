@@ -487,14 +487,6 @@
       "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a non-finite or NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
     },
     {
-      "id": "success-with-no-verification-time-at-all",
-      "description": "The third shape of the same hole: `redemptions.redeemed_at` is nullable, so a success can carry no verification time at all, and NULL fails both halves of a range comparison. It belongs to no window for the same reason the two extremes do, and an unbilled one must not read as an available zero.",
-      "redemptions": [{ "key": "r1", "redeemedAt": null }],
-      "movements": [],
-      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
-      "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
-    },
-    {
       "id": "reversal-audit-naming-a-third-merchant",
       "description": "A fourth merchant a corrupt chain can name. `fee_reversals.merchant_id` is an independent foreign key, so an audit row can name m3 while the movement, redemption and deal all name m1. Corroboration fails, so m1 and global correctly read unavailable — but m3, whose name is on the approval, read an available zero. Scope has to match every merchant a chain names, and the audit row is one of them.",
       "scope": ["m3"],

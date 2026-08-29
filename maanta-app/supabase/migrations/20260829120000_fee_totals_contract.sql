@@ -191,16 +191,19 @@ BEGIN
        -- Windowed on the verification event -- but a verification time that
        -- cannot be placed belongs to no window, exactly as on the movement
        -- side, so every window has to surface it. `-infinity` fails
-       -- `>= p_since`, `infinity` fails `< p_until`, and NULL fails both, so
-       -- a plain range silently dropped a genuine success from EVERY
-       -- candidate set; with no fee movement to reach it through `touched`,
-       -- nothing else could see it and the report answered an available zero
-       -- over an unbilled success. Measured before fixing: `-infinity` with no
-       -- fee returned available 0 from both a bounded and an open-ended
-       -- window.
+       -- `>= p_since` and `infinity` fails `< p_until`, so a plain range
+       -- silently dropped a genuine success from EVERY candidate set; with
+       -- no fee movement to reach it through `touched`, nothing else could
+       -- see it and the report answered an available zero over an unbilled
+       -- success. Measured before fixing: `-infinity` with no fee returned
+       -- available 0 from both a bounded and an open-ended window.
+       --
+       -- Only the two extremes. `redemptions.redeemed_at` is NOT NULL in
+       -- production, so a NULL branch here would be a rule that can never
+       -- fire -- read from `information_schema` after a first draft added
+       -- one and CI rejected the fixture the real schema cannot hold.
        AND (   (r.redeemed_at >= p_since
                 AND (p_until IS NULL OR r.redeemed_at < p_until))
-            OR r.redeemed_at IS NULL
             OR r.redeemed_at =  'infinity'::timestamptz
             OR r.redeemed_at = '-infinity'::timestamptz)
   ),
@@ -595,9 +598,11 @@ BEGIN
   -- `fee_reversal` row must have a `fee_reversals` entry behind it. Nothing
   -- started from the audit table, so an entry whose `wallet_transaction_id`
   -- points at something that is NOT a reversal movement for its own
-  -- redemption -- the gross fee, a top-up, or a NULL -- satisfies every table
-  -- constraint and was never examined, because there was no reversal movement
-  -- to reach it through. The report stayed available while an approved record
+  -- redemption -- the gross fee, a top-up, an arrears settlement -- satisfies
+  -- every table constraint and was never examined, because there was no
+  -- reversal movement to reach it through. The column is NOT NULL in
+  -- production, so such a row always points SOMEWHERE; the only question
+  -- is whether it points at a reversal. The report stayed available while an approved record
   -- asserted that money had been returned. Measured before fixing: gross 30,
   -- net 30, available, with an approved reversal on file.
   --
