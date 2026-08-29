@@ -193,6 +193,160 @@ describe("drift register schema", () => {
     expect(rows.length, "no drift rows parsed — did the table header change?").toBeGreaterThan(0);
   });
 
+  it("accounts for EVERY line that starts a table row, wherever it sits", () => {
+    // This has already happened once for real. Three rows were appended AFTER
+    // the horizontal rule that ends the table, so `parseRows` never saw them,
+    // every check below silently skipped them, and the suite was then cited as
+    // proof that they were well-formed. A guard that cannot see a row cannot
+    // fail on it, which makes a green run evidence of nothing.
+    //
+    // Five revisions of this test failed the same way: each carried an opinion
+    // about what a row looks like, and the parser disagreed. IDs by membership
+    // let a duplicate through; `D\d+` let `D-217` and `FU218` through; a
+    // required closing pipe let a row missing its last bar through; excluding
+    // everything above the header let a row pasted there through; exempting
+    // any alignment-LOOKING line let `| - | - | … |` through; and pinning the
+    // legend by line COUNT let a row replacing one of its statuses through.
+    //
+    // So the last opinion is gone too: a line that contains a pipe is table
+    // structure, because this register's prose contains none. Every exemption
+    // is a specific line, identified by position and verified in full — nothing
+    // is excused for merely resembling something.
+    const all = raw.split("\n").map((l) => l.trim());
+
+    // The WHOLE header, not its first cell. Anchoring on `| ID |` alone would
+    // treat a header that gained, lost or renamed a later column as the
+    // verified one, exempting it while the documented schema no longer matches
+    // the eight cells every row is parsed into.
+    const HEADER_CELLS = [
+      "ID",
+      "Status",
+      "Category",
+      "Opened",
+      "Domain",
+      "Claim vs reality",
+      "Evidence / next step",
+      "Owner",
+    ];
+    const cellsOf = (line: string) =>
+      line.startsWith("|") && line.endsWith("|")
+        ? line.slice(1, -1).split("|").map((c) => c.trim())
+        : null;
+
+    const driftHeaders = all
+      .map((line, i) => ({ line, lineNumber: i + 1 }))
+      .filter(({ line }) => {
+        const cells = cellsOf(line);
+        return !!cells && cells.length === HEADER_CELLS.length &&
+          cells.every((c, i2) => c === HEADER_CELLS[i2]);
+      });
+    expect(
+      driftHeaders.length,
+      `expected exactly one header reading ${HEADER_CELLS.join(" | ")} — a renamed,\n` +
+        "added or removed column leaves the rows parsed into cells the schema no\n" +
+        "longer describes, and a second header silently splits the table"
+    ).toBe(1);
+    const driftHeaderLine = driftHeaders[0].lineNumber;
+
+    const accountedFor = new Set<number>(rows.map((r) => r.lineNumber));
+    accountedFor.add(driftHeaderLine);
+    // THE separator — the one line after the one header — and a real one: eight
+    // delimiter cells, matching the header. The character-class check this
+    // replaces accepted `| |` and a one-cell `|---|`, neither of which is the
+    // alignment row for an eight-column table, and Markdown would stop
+    // rendering the register as that table at all.
+    const separatorCells = cellsOf(all[driftHeaderLine]);
+    expect(
+      separatorCells?.length,
+      "the line after the drift header should be an alignment row with one cell per column"
+    ).toBe(HEADER_CELLS.length);
+    for (const cell of separatorCells ?? []) {
+      expect(cell, `alignment cell is not a Markdown delimiter: "${cell}"`).toMatch(
+        /^:?-{3,}:?$/
+      );
+    }
+    accountedFor.add(driftHeaderLine + 1);
+    // Lines the parser rejected already fail in "exists and is parseable"; they
+    // are seen, so they are not orphans.
+    for (const problem of parseProblems) {
+      const n = Number(/line (\d+)/.exec(problem)?.[1]);
+      if (Number.isFinite(n)) accountedFor.add(n);
+    }
+
+    // The status legend, verified line by line before any of it is excused. A
+    // count alone is not enough: swapping one status line for a drift row keeps
+    // the count and hides the row.
+    // The COMPLETE legend header, for the same reason as the drift one: a
+    // prefix match accepts `| Status | Meaning | Extra |` and then excuses it,
+    // while the two-cell separator and status rows below satisfy everything
+    // else, so the documented legend schema drifts silently.
+    const LEGEND_CELLS = ["Status", "Meaning"];
+    const legendIndex = all.findIndex((line) => {
+      const cells = cellsOf(line);
+      return !!cells && cells.length === LEGEND_CELLS.length &&
+        cells.every((c, i) => c === LEGEND_CELLS[i]);
+    });
+    expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
+    const legendSeparator = cellsOf(all[legendIndex + 1]);
+    expect(
+      legendSeparator?.length,
+      "the line after the legend header should be its two-cell alignment row"
+    ).toBe(2);
+    for (const cell of legendSeparator ?? []) {
+      expect(cell, `legend alignment cell is not a delimiter: "${cell}"`).toMatch(
+        /^:?-{3,}:?$/
+      );
+    }
+
+    const legendLines = new Set<number>([legendIndex + 1, legendIndex + 2]);
+    const documented: string[] = [];
+    for (let i = legendIndex + 2; i < all.length && all[i].startsWith("|"); i++) {
+      // The COMPLETE row: exactly two cells, a backticked status and a
+      // non-empty meaning. Stopping at the status delimiter let a row with
+      // extra cells contribute its status and then be exempted, so the legend
+      // was still not verified before exclusion.
+      const cells = cellsOf(all[i]);
+      const status = cells?.length === 2 ? /^`([^`]+)`$/.exec(cells[0])?.[1] : undefined;
+      expect(
+        status,
+        `legend line ${i + 1} is not a two-cell \`status\` | meaning row: ${all[i].slice(0, 60)}`
+      ).toBeDefined();
+      expect(
+        cells?.[1],
+        `legend line ${i + 1} explains \`${status}\` with an empty meaning`
+      ).toBeTruthy();
+      documented.push(status!);
+      legendLines.add(i + 1);
+    }
+    expect(
+      [...documented].sort(),
+      "the legend must explain each status exactly once, and nothing else"
+    ).toEqual([...STATUSES].sort());
+
+    // CONTAINS a pipe — not "starts with" one. Requiring the opening bar was
+    // the mirror image of the closing-bar mistake fixed a commit earlier, and
+    // it let a row that lost its leading `|` through by exactly the same route.
+    //
+    // This is safe to state so broadly because the register's prose contains no
+    // pipes at all: every one in the file is table structure. The guard now
+    // relies on that and therefore enforces it — a future prose pipe fails here
+    // loudly, which is the right direction. A silent false negative is what
+    // this whole test exists to prevent.
+    const orphans = all
+      .map((line, i) => ({ line, lineNumber: i + 1 }))
+      .filter(({ line }) => line.includes("|"))
+      .filter(({ lineNumber }) => !legendLines.has(lineNumber))
+      .filter(({ lineNumber }) => !accountedFor.has(lineNumber))
+      .map(({ lineNumber }) => `line ${lineNumber}`);
+
+    expect(
+      orphans,
+      "these lines start a table row but the parser never saw them, so every\n" +
+        "check in this file skips them. Move them inside the table — a row the\n" +
+        "guard cannot see is not a tracked gap"
+    ).toEqual([]);
+  });
+
   it("uses well-formed, unique IDs", () => {
     const bad = rows.filter((r) => !/^(D|FU)-?\d+$/.test(r.id));
     expect(bad.map((r) => `${r.id} (line ${r.lineNumber})`), "malformed IDs").toEqual([]);
