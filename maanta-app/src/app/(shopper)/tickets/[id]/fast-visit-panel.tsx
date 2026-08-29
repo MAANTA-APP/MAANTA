@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { IconCheck } from "@/components/ui/icons";
 import {
   fastVisitDeadline,
   formatArrivalDuration,
   formatRewardCountdown,
 } from "@/lib/fast-visit-window";
-import {
-  useShopperClockSeed,
-  startShopperClock,
-} from "@/lib/use-shopper-clock";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 /**
  * The Fast Visit reward window on the claimed ticket — deliberately SECONDARY
@@ -41,26 +37,10 @@ export function FastVisitPanel({
   qualifiedAt: string | null;
 }) {
   const deadline = fastVisitDeadline(claimedAt);
-  // D213 — seeded from the server instant, not `Date.now()`. `windowOpen`
-  // decides STRUCTURE (the counting card, the ended card, or nothing), so an
-  // initializer that ran independently here could switch the subtree between
-  // the server render and hydration, which React cannot patch. The 1s tick is
-  // kept: this counter is deliberately faster than the shared 30s clock,
-  // because a visibly moving countdown is what makes a screenshotted code
-  // obviously stale. It starts after hydration.
-  const seed = useShopperClockSeed();
-  const [now, setNow] = useState(() => seed.getTime());
-  const windowOpen =
-    deadline !== null && arrivedAt === null && deadline.getTime() - now > 0;
-
-  useEffect(() => {
-    if (!windowOpen) return;
-    // Server time, advanced monotonically — the same mechanism the shared
-    // clock uses, at 1s instead of 30s. Reading `Date.now()` here would hand
-    // the reward deadline to the device's clock, and this window decides
-    // whether a shopper is told they still have time to walk over.
-    return startShopperClock(1000, (d) => setNow(d.getTime()), seed);
-  }, [windowOpen, seed]);
+  // D213 — the ticket subtree's single 1s instant (FastShopperClock). The
+  // cadence is deliberate and unchanged; what changed is that the whole screen
+  // now shares it, so this window and the credential beside it cannot disagree.
+  const now = useShopperClock().getTime();
 
   // Historical claim with no recorded claim time: no window ever existed.
   if (!deadline || !claimedAt) return null;

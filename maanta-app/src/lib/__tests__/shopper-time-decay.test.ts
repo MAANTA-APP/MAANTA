@@ -17,6 +17,7 @@ import { DealCard } from "@/components/ui/claude";
 import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
 import { ExpiryGate } from "@/components/shopper/expiry-gate";
+import { FastShopperClock } from "@/components/shopper/fast-shopper-clock";
 import { RewardActivity } from "@/components/shopper/reward-activity";
 import {
   LiveDealCollection,
@@ -25,6 +26,7 @@ import {
 } from "@/components/shopper/live-deal-collection";
 import { ShopLiveDeals } from "@/components/shopper/shop-live-deals";
 import { NotificationList } from "@/components/shopper/notification-list";
+import { LiveTimeLabel } from "@/components/shopper/live-time-label";
 import { QrCheckIn } from "@/app/(shopper)/qr/[token]/qr-check-in";
 import { DealPriceDetail } from "@/app/(shopper)/deals/[id]/deal-price-detail";
 import { SearchResults } from "@/components/shopper/search-results";
@@ -799,15 +801,39 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
   it("keeps the deliberate 1s cadence rather than joining the 30s clock", () => {
     // Slowing these to the shared clock would be a silent product regression:
     // the anti-screenshot property depends on visible movement.
+    //
+    // The cadence is unchanged; where it comes from moved. Each component used
+    // to own a 1s timer, which meant the credential ticked at 1s while the gate
+    // around it ticked at 30s — up to ~29 seconds of the code reading "expired"
+    // beside a CLAIMED chip. The whole ticket subtree now runs on ONE instant
+    // at 1s, so the guard follows the invariant to the boundary that sets it.
+    const page = read("app/(shopper)/tickets/[id]/page.tsx");
+    expect(page).toContain("<FastShopperClock>");
+    const fast = read("components/shopper/fast-shopper-clock.tsx");
+    expect(fast).toContain("intervalMs = 1000");
+    expect(fast).toContain("useShopperClockSeed()");
+    expect(fast).toContain("<ShopperClockProvider");
     for (const rel of [
       "app/(shopper)/tickets/[id]/claimed-code.tsx",
       "app/(shopper)/tickets/[id]/fast-visit-panel.tsx",
     ]) {
       const src = read(rel);
-      expect(src).toContain("useShopperClockSeed()");
-      expect(src).toContain("startShopperClock(1000");
-      expect(src).not.toContain("useShopperClock()");
+      // They read the nearest provider, so a component moved between subtrees
+      // cannot silently keep the wrong cadence.
+      expect(src).toContain("useShopperClock()");
+      expect(src).not.toContain("setInterval");
     }
+  });
+
+  it("inherits the server seed rather than starting a new one", () => {
+    // Re-providing must not reseed: a fresh instant here would reintroduce the
+    // SSR/first-client mismatch the outer provider exists to prevent.
+    // eslint-disable-next-line react/no-children-prop
+    const tree = createElement(FastShopperClock, {
+      children: createElement(CountdownChip, { expiresAt: iso(30 * MIN) }),
+    });
+    expect(renderShopperTree(tree, at(0))).toMatch(/Expires in 30m/);
+    expect(renderShopperTree(tree, at(50 * MIN))).toContain("Expired");
   });
 
   it("runs on SERVER time too — the counter is where skew would hurt most", () => {
@@ -820,9 +846,9 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
       "app/(shopper)/tickets/[id]/fast-visit-panel.tsx",
     ]) {
       const src = read(rel);
-      // Advanced through the shared monotonic mechanism, seeded from the
-      // server — never read straight off the device.
-      expect(src).toContain("startShopperClock(");
+      // Server time, via the subtree provider — never read straight off the
+      // device, and never a private timer that could drift from its siblings.
+      expect(src).toContain("useShopperClock()");
       expect(src).not.toMatch(/setInterval\(/);
       expect(src).not.toMatch(/Date\.now\(\)/);
       expect(src).not.toMatch(/\bmsUntil\(/);
@@ -1412,5 +1438,66 @@ describe("criterion 3 — every remaining time-derived shopper render", () => {
     expect(relativeAge(iso(0), at(90 * MIN))).toBe("1h");
     expect(relativeAgo(iso(0), at(90 * MIN))).toBe("1h ago");
     expect(typeof relativeAge(new Date().toISOString())).toBe("string");
+  });
+});
+
+describe("criterion 3 — the last three from the sweep's own review", () => {
+  it("ages a reminder from when it becomes true, not from page load", () => {
+    // A row admitted an hour after load would otherwise appear already "1h"
+    // old, while opening the page at that same instant shows it as "now" — the
+    // aged page and a reload disagreeing about one row.
+    const page = read("app/(shopper)/notifications/page.tsx");
+    expect(page).toMatch(/at: new Date\(new Date\(r\.expires_at\)\.getTime\(\) - 2 \* 3600_000\)/);
+    expect(page).not.toMatch(/at: new Date\(\)\.toISOString\(\),\n\s*unread: true/);
+  });
+
+  it("measures a notification's age from the shared clock, not its own", () => {
+    // NotificationRow called `relativeAge(at)` with its default, so inside the
+    // seeded list the server and the first client render could straddle a
+    // minute boundary — the mismatch the seed exists to prevent, reintroduced
+    // by a shared component that had never heard of it.
+    const items = [
+      { title: "Nyama Spot", body: "Your claimed code expires soon", at: iso(0), unread: true },
+    ];
+    const tree = createElement(NotificationList, { items });
+    // Same seed, same text, whatever the ambient clock says.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(at(0));
+      const server = renderShopperTree(tree, at(0));
+      vi.setSystemTime(at(600 * MIN));
+      expect(renderShopperTree(tree, at(0))).toBe(server);
+    } finally {
+      vi.useRealTimers();
+    }
+    // ...and it does advance with the seed.
+    expect(renderShopperTree(tree, at(180 * MIN))).toContain("3h");
+    expect(read("components/shopper/notification-list.tsx")).toContain("now={now}");
+  });
+
+  it("moves the day word on an absolute ticket time", () => {
+    // "19:40 today" is two claims and only one is fixed. A ticket open across
+    // Nairobi midnight said "today" about yesterday, on the line telling a
+    // shopper when their code dies.
+    const iso1 = "2026-08-28T16:40:00.000Z"; // 19:40 Nairobi, 28 Aug
+    const sameDay = renderShopperTree(
+      createElement(LiveTimeLabel, { iso: iso1 }),
+      new Date("2026-08-28T20:00:00.000Z")
+    );
+    const nextDay = renderShopperTree(
+      createElement(LiveTimeLabel, { iso: iso1 }),
+      new Date("2026-08-29T20:00:00.000Z")
+    );
+    expect(sameDay).toContain("today");
+    expect(nextDay).not.toContain("today");
+    // The time itself never moves — only the word about which day it is.
+    expect(sameDay).toContain("19:40");
+    expect(nextDay).toContain("19:40");
+  });
+
+  it("leaves no absolute ticket label frozen on the server", () => {
+    const page = read("app/(shopper)/tickets/[id]/page.tsx");
+    expect(page).not.toContain("absoluteTimeLabel(");
+    expect((page.match(/<LiveTimeLabel /g) ?? []).length).toBeGreaterThanOrEqual(4);
   });
 });

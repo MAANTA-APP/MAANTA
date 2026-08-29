@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { formatCode } from "@/lib/ui";
 import { formatClaimCountdown } from "@/lib/claim-ticket-time";
-import {
-  useShopperClockSeed,
-  startShopperClock,
-} from "@/lib/use-shopper-clock";
+import { useShopperClock } from "@/lib/use-shopper-clock";
 
 /**
  * S5 — the claimed-code hero. The single most important screen in the product:
@@ -30,20 +26,12 @@ export function ClaimedCode({
   code: string;
   expiresAt: string;
 }) {
-  // D213 — seeded from the server instant so the first client render shows
-  // the same number the server did. The 1s tick is deliberate and kept (a
-  // visibly moving countdown is what makes a screenshotted code obviously
-  // stale); it starts after hydration.
-  const seed = useShopperClockSeed();
-  const [left, setLeft] = useState(() => new Date(expiresAt).getTime() - seed.getTime());
-  useEffect(() => {
-    // Server time, advanced monotonically. `msUntil` reads the device clock,
-    // and this is the countdown a shopper trusts at the counter: a skewed
-    // phone must not tell them their code died while the database still
-    // accepts it.
-    const until = new Date(expiresAt).getTime();
-    return startShopperClock(1000, (d) => setLeft(until - d.getTime()), seed);
-  }, [expiresAt, seed]);
+  // D213 — the ticket subtree runs on ONE instant at 1s (FastShopperClock), so
+  // this countdown and the gate that swaps the whole screen cross the deadline
+  // together. They used to be two correct clocks at different cadences, which
+  // left up to ~29s where the code read "expired" beside a CLAIMED chip.
+  const now = useShopperClock();
+  const left = new Date(expiresAt).getTime() - now.getTime();
 
   const expired = left <= 0;
 

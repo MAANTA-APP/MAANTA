@@ -67,6 +67,7 @@ export function NotificationList({ items }: { items: NotificationItem[] }) {
           body={n.body}
           at={n.at}
           unread={n.unread}
+          now={now}
         />
       ))}
     </div>

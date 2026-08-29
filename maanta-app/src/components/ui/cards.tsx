@@ -251,11 +251,20 @@ export function NotificationRow({
   body,
   at,
   unread = false,
+  now,
 }: {
   title: string;
   body: string;
   at: string;
   unread?: boolean;
+  /**
+   * D213 — the instant this row's age is measured from. Supplied by a shopper
+   * surface so the age reads the seeded shared clock; without it the row would
+   * call `new Date()` independently on the server and in the browser and could
+   * straddle a minute boundary across hydration. Defaulted, so the merchant
+   * alerts list (outside the shopper clock) is unchanged.
+   */
+  now?: Date;
 }) {
   return (
     <div
@@ -275,7 +284,7 @@ export function NotificationRow({
         <p className={cn("text-sm text-ink", unread ? "font-bold" : "font-semibold")}>{title}</p>
         <p className="mt-0.5 text-xs text-muted">{body}</p>
       </div>
-      <span className="text-[11px] text-faint">{relativeAge(at)}</span>
+      <span className="text-[11px] text-faint">{relativeAge(at, now)}</span>
     </div>
   );
 }

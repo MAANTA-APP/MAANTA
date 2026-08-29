@@ -106,7 +106,11 @@ export default async function NotificationsPage() {
     items.push({
       title: r.merchants?.merchant_name ?? "Maanta",
       body: "Your claimed code expires soon",
-      at: new Date().toISOString(),
+      // The moment the reminder becomes TRUE, not the moment the page happened
+      // to render. A row admitted an hour after load would otherwise appear
+      // already "1h" old, while opening the page at that same instant shows it
+      // as "now" — the aged page and a reload disagreeing about the same row.
+      at: new Date(new Date(r.expires_at).getTime() - 2 * 3600_000).toISOString(),
       unread: true,
       // Carried, not discarded: without it the reminder says a dead code
       // expires soon, indefinitely.
