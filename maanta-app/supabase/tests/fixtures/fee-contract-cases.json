@@ -306,6 +306,18 @@
       "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows and cannot corroborate a reversal against fee_reversals at all. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
     },
     {
+      "id": "second-reversal-sharing-the-first-audit-timestamp",
+      "description": "The same double-reversal shape with the borrowed timestamp closed off: the second fee_reversal carries the SAME created_at as the first, so every column corroboration compares — redemption, merchant, amount, approver, snapshot and now the shared instant — matches the first row's audit. Only the wallet_transaction_id link tells them apart, which is what this case exists to keep pinned; without it the second row borrows the first's approval and doubles the money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows and cannot corroborate a reversal against fee_reversals at all. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
       "id": "reversal-audit-row-disagrees-on-amount",
       "description": "The audit row points at the right ledger row but records a different amount. The ledger says KES 70 was returned and the approval says KES 30 — one of them is wrong and nothing here can tell which, so the figure is not established.",
       "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "feeSnapshot": 70 }],
@@ -483,8 +495,40 @@
       "description": "A genuine unbilled success whose redeemed_at is `-infinity`. The candidate set is windowed on the verification event, and `-infinity` fails `>= since` while `infinity` fails `< until`, so a plain range dropped it from EVERY window — and with no fee movement there is nothing for `touched` or `classified` to reach it through. Measured before the fix: available 0 from both a bounded and an open-ended window, over a success nobody billed. The movement side already treats an unplaceable timestamp as belonging to no window; the verification side has to say the same thing.",
       "redemptions": [{ "key": "r1", "redeemedAt": "-infinity" }],
       "movements": [],
-      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
       "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a non-finite or NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
+    },
+    {
+      "id": "billed-success-with-an-unplaceable-verification-time",
+      "description": "The same `-infinity` verification time, but WITH a valid fee. Placing it in every window is not enough on its own: the ordering check passes, because no finite timestamp is less than `-infinity`, so the gross row is well-formed, `unbilled` is empty, and the report went back to available. An unplaceable verification time is corruption in its own right and has to be counted whether or not a fee exists — the two are separate questions and only one of them was being asked.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "-infinity" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees never inspects the redemption's own timestamp for placeability, only the movement's. B2b must add it."
+    },
+    {
+      "id": "orphan-audit-pointing-at-another-merchants-transaction",
+      "description": "An audit row for m1 whose wallet_transaction_id points at m2's top-up. Neither `touched` nor `classified` looks at an excluded transaction type, so nothing reaches that row through the movement paths, and the orphan-audit count scoped only on the audit's own chain — leaving m2 reading an available zero over a malformed audit naming m2's own wallet transaction. The next incomplete application of one parent, found by looking for exactly that.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "merchant": "m2", "type": "topup", "amount": 500, "createdAt": "2026-08-11T09:00:00Z", "auditPointsHere": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so an audit pointing at another merchant's transaction is invisible to TypeScript on both the counting and the scoping side. B2b must add both."
+    },
+    {
+      "id": "audit-and-reversal-timestamped-apart",
+      "description": "A reversal whose audit row matches on every column the corroboration checked — transaction, redemption, merchant, amount, approver — but carries a different created_at. `reverse_success_fee` writes both rows in one transaction and both columns default to now(), which is transaction-start and therefore identical across the two inserts (read from production: the RPC supplies neither timestamp). So a pair that disagrees was assembled outside the atomic path, and until this rule it could still subtract from net as a real reversal.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-12T09:00:00Z", "auditCreatedAt": "2026-08-12T09:00:05Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 2 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so it cannot compare the audit's timestamp with the movement's. B2b must add it."
     },
     {
       "id": "reversal-audit-naming-a-third-merchant",

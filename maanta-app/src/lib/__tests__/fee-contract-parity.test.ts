@@ -183,6 +183,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "demo-tagged-movement-excluded",
       "orphan-reversal-without-audit-row",
       "second-reversal-riding-on-an-existing-audit-row",
+      "second-reversal-sharing-the-first-audit-timestamp",
       "reversal-audit-row-disagrees-on-amount",
       "reversal-audit-without-an-approver",
       "fee-amount-disagrees-with-redemption-snapshot",
@@ -201,6 +202,9 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "deal-owner-sees-corruption-on-its-own-deal",
       "deal-owner-sees-a-missing-fee-on-its-own-deal",
       "success-with-an-unplaceable-verification-time",
+      "billed-success-with-an-unplaceable-verification-time",
+      "orphan-audit-pointing-at-another-merchants-transaction",
+      "audit-and-reversal-timestamped-apart",
       "reversal-audit-naming-a-third-merchant",
       "audit-row-pointing-at-a-non-reversal-movement",
       "reversal-posted-before-its-own-charge",
@@ -334,7 +338,9 @@ describe("the TypeScript divergence is temporary and tracked", () => {
     // the tsDivergence entries.
     const gaps = spec.cases.filter((c) => c.notYetInTypeScript);
     expect(gaps.map((c) => c.id).sort()).toEqual([
+      "audit-and-reversal-timestamped-apart",
       "audit-row-pointing-at-a-non-reversal-movement",
+      "billed-success-with-an-unplaceable-verification-time",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "deal-owner-sees-a-missing-fee-on-its-own-deal",
@@ -346,6 +352,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "gross-posted-before-verification",
       "malformed-fee-outside-window-does-not-prove-completeness",
       "negative-infinity-fee-on-an-older-redemption-surfaces",
+      "orphan-audit-pointing-at-another-merchants-transaction",
       "orphan-reversal-without-audit-row",
       "redemption-linked-to-another-merchants-deal",
       "reversal-audit-naming-a-third-merchant",
@@ -355,6 +362,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "reversal-posted-before-verification",
       "reversal-without-an-original-fee",
       "second-reversal-riding-on-an-existing-audit-row",
+      "second-reversal-sharing-the-first-audit-timestamp",
       "success-with-an-unplaceable-verification-time",
       "unparented-fee-at-negative-infinity",
       "unparented-fee-with-an-unplaceable-timestamp",

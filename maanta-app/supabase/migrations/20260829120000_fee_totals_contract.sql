@@ -327,6 +327,16 @@ BEGIN
             -- present role would blank old periods whenever someone's role
             -- moved. What is durable is that an approver was recorded.
             AND fr.approver_user_id IS NOT NULL
+            -- The two rows are written in ONE transaction and both
+            -- `created_at` columns default to `now()`, which is
+            -- transaction-start and therefore stable across both inserts --
+            -- read from production: `reverse_success_fee` supplies neither
+            -- timestamp, and both defaults are `now()`. So a genuine pair
+            -- carries the SAME instant, and a pair that does not was assembled
+            -- outside the atomic path. Safe to require: production holds zero
+            -- `fee_reversals` rows and zero reversal movements, so this cannot
+            -- blank an existing figure.
+            AND fr.created_at     = t.created_at
             -- Both the ledger row and the audit row derive from
             -- `redemptions.success_fee_charged`. Matching them to each other
             -- only proves they were written together; matching them to the
@@ -625,7 +635,16 @@ BEGIN
        AND (NOT p_scoped
             OR fr.merchant_id = ANY (p_merchant_ids)
             OR r.merchant_id  = ANY (p_merchant_ids)
-            OR d.merchant_id  = ANY (p_merchant_ids))
+            OR d.merchant_id  = ANY (p_merchant_ids)
+            -- And the merchant whose wallet transaction the audit POINTS AT.
+            -- An audit for A pointing at B's top-up names B's ledger row, and
+            -- neither `touched` nor `classified` looks at an excluded type, so
+            -- without this arm B read an available zero over a malformed chain
+            -- naming B's own transaction.
+            OR EXISTS (SELECT 1
+                         FROM public.merchant_transactions rt_scope
+                        WHERE rt_scope.id = fr.wallet_transaction_id
+                          AND rt_scope.merchant_id = ANY (p_merchant_ids)))
        -- Same three-valued placement as every other window predicate here.
        AND (   (fr.created_at >= p_since
                 AND (p_until IS NULL OR fr.created_at < p_until))
@@ -637,14 +656,36 @@ BEGIN
           WHERE rt.id = fr.wallet_transaction_id
             AND rt.transaction_type = 'fee_reversal'
             AND rt.reference_id = fr.redemption_id
+            -- Same shared-instant rule as corroboration, and here it also
+            -- covers what corroboration cannot see: an unequal pair whose
+            -- MOVEMENT falls outside the window is never classified, so
+            -- without this the audit reads as attached and nothing surfaces
+            -- it. A pair inside the window is counted by both paths --
+            -- `invalid_rows` counts rows that cannot be trusted, not distinct
+            -- incidents, and availability is what it drives.
+            AND rt.created_at = fr.created_at
        )
+  ),
+  -- A verification time that cannot be placed is itself corruption, not merely
+  -- a placement problem. The movement side already says so -- a non-finite
+  -- `created_at` is malformed -- and without the same rule here a `-infinity`
+  -- success WITH a valid fee stayed available: the ordering check passes,
+  -- because no finite timestamp is less than `-infinity`, so `unbilled` is
+  -- empty and nothing else looks at the redemption's own clock. Counted
+  -- independently of whether a fee exists, because those are two questions.
+  unplaceable_verifications AS (
+    SELECT (COUNT(*))::integer AS n
+      FROM candidate k
+      JOIN public.redemptions r ON r.id = k.id
+     WHERE NOT isfinite(r.redeemed_at)
   )
-  SELECT t.gross, t.reversals, t.invalid + u.n + oa.n, m.n
+  SELECT t.gross, t.reversals, t.invalid + u.n + oa.n + uv.n, m.n
     INTO v_gross, v_reversals, v_invalid, v_missing
     FROM totals t
     CROSS JOIN missing m
     CROSS JOIN unparented u
-    CROSS JOIN orphan_audits oa;
+    CROSS JOIN orphan_audits oa
+    CROSS JOIN unplaceable_verifications uv;
 
   IF v_missing > 0 OR v_invalid > 0 THEN
     -- All three together. A partial money figure on an executive surface is

@@ -150,12 +150,16 @@ function renderCase(c, windowDefault) {
       (mv.auditAmount ?? mv.amount) > 0;
     if (mv.type === "fee_reversal" && !mv.orphan && auditable) {
       p(`  INSERT INTO public.fee_reversals`);
-      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)`);
+      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id, created_at)`);
       // `fee_reversals.merchant_id` is an independent foreign key, so the audit
       // row can name a merchant the rest of the chain never mentions.
       p(`    VALUES (v_r_${mv.redemption}, v_m_${mv.auditMerchant ?? redemptionMerchant(redemptions, mv.redemption)},`);
       p(`            v_tx, ${amount(mv.auditAmount ?? mv.amount)}, 'fixture reversal',`);
-      p(`            ${mv.noApprover ? "NULL" : "v_uid"});`);
+      // `reverse_success_fee` writes both rows in ONE transaction and both
+      // `created_at` columns default to `now()`, so a genuine pair shares an
+      // instant. The fixture mirrors that by default and lets a case put the
+      // two apart deliberately.
+      p(`            ${mv.noApprover ? "NULL" : "v_uid"}, ${q(mv.auditCreatedAt ?? mv.createdAt)});`);
     }
     // An audit row hung off a movement that is NOT a reversal. The table's
     // constraints permit it and no reversal movement exists to reach it
@@ -163,9 +167,10 @@ function renderCase(c, windowDefault) {
     // in its own right.
     if (mv.auditPointsHere) {
       p(`  INSERT INTO public.fee_reversals`);
-      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id)`);
+      p(`    (redemption_id, merchant_id, wallet_transaction_id, amount, note, approver_user_id, created_at)`);
       p(`    VALUES (v_r_${mv.redemption}, v_m_${mv.auditMerchant ?? redemptionMerchant(redemptions, mv.redemption)},`);
-      p(`            v_tx, ${amount(mv.auditPointsHere)}, 'fixture orphan audit', v_uid);`);
+      p(`            v_tx, ${amount(mv.auditPointsHere)}, 'fixture orphan audit', v_uid,`);
+      p(`            ${q(mv.auditCreatedAt ?? mv.createdAt)});`);
     }
   }
 
