@@ -200,19 +200,17 @@ describe("drift register schema", () => {
     // proof that they were well-formed. A guard that cannot see a row cannot
     // fail on it, which makes a green run evidence of nothing.
     //
-    // Written to have as little of its own opinion as possible, because three
-    // earlier versions each carried one and each was too narrow: matching IDs
-    // by membership let a row reusing an existing ID pass; matching `D\d+` let
-    // `D-217` and `FU218` through, both accepted by the schema; requiring a
-    // closing pipe let a row whose last cell lost its trailing `|` through.
-    // Every one of those was a SECOND grammar disagreeing with the parser's.
+    // Five revisions of this test failed the same way: each carried an opinion
+    // about what a row looks like, and the parser disagreed. IDs by membership
+    // let a duplicate through; `D\d+` let `D-217` and `FU218` through; a
+    // required closing pipe let a row missing its last bar through; excluding
+    // everything above the header let a row pasted there through; exempting
+    // any alignment-LOOKING line let `| - | - | … |` through; and pinning the
+    // legend by line COUNT let a row replacing one of its statuses through.
     //
-    // So the only opinion left is "a table row starts with a pipe", and
-    // everything else is answered by position or by the parser itself:
-    // `parseRows` records the line it produced each row from, and reports the
-    // lines it rejected. Anything else beginning with `|` must be the status
-    // legend, whose extent is pinned below — not "anything above the header",
-    // which would let a row pasted just above it disappear.
+    // So there is now exactly one opinion — a table row starts with a pipe —
+    // and every exemption is a specific line, identified by position and
+    // verified by content. Nothing is excused for merely resembling something.
     const all = raw.split("\n").map((l) => l.trim());
 
     const driftHeaders = all
@@ -224,25 +222,15 @@ describe("drift register schema", () => {
     ).toBe(1);
     const driftHeaderLine = driftHeaders[0].lineNumber;
 
-    const legendIndex = all.findIndex((line) =>
-      /^\|\s*Status\s*\|\s*Meaning\s*\|/.test(line)
-    );
-    expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
-    // The legend is the CONTIGUOUS run of pipe lines from its own header, and
-    // it is exactly its header, its alignment row and one line per status.
-    // Pinning the size is what stops a drift row pasted onto the end of the
-    // legend from being waved through as part of it.
-    let legendEnd = legendIndex;
-    while (legendEnd + 1 < all.length && all[legendEnd + 1].startsWith("|")) legendEnd++;
-    const legendLines = new Set<number>();
-    for (let i = legendIndex; i <= legendEnd; i++) legendLines.add(i + 1);
-    expect(
-      legendLines.size,
-      "the status legend should be its header, its alignment row and one line per status"
-    ).toBe(2 + STATUSES.length);
-
     const accountedFor = new Set<number>(rows.map((r) => r.lineNumber));
     accountedFor.add(driftHeaderLine);
+    // THE separator — the one line after the one header — not any line that
+    // happens to be made of pipes, colons and hyphens.
+    expect(
+      all[driftHeaderLine],
+      "the line after the drift header should be the table's alignment row"
+    ).toMatch(/^\|[\s:|-]+\|$/);
+    accountedFor.add(driftHeaderLine + 1);
     // Lines the parser rejected already fail in "exists and is parseable"; they
     // are seen, so they are not orphans.
     for (const problem of parseProblems) {
@@ -250,12 +238,38 @@ describe("drift register schema", () => {
       if (Number.isFinite(n)) accountedFor.add(n);
     }
 
+    // The status legend, verified line by line before any of it is excused. A
+    // count alone is not enough: swapping one status line for a drift row keeps
+    // the count and hides the row.
+    const legendIndex = all.findIndex((line) =>
+      /^\|\s*Status\s*\|\s*Meaning\s*\|/.test(line)
+    );
+    expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
+    expect(
+      all[legendIndex + 1],
+      "the line after the legend header should be its alignment row"
+    ).toMatch(/^\|[\s:|-]+\|$/);
+
+    const legendLines = new Set<number>([legendIndex + 1, legendIndex + 2]);
+    const documented: string[] = [];
+    for (let i = legendIndex + 2; i < all.length && all[i].startsWith("|"); i++) {
+      const status = /^\|\s*`([^`]+)`\s*\|/.exec(all[i])?.[1];
+      expect(
+        status,
+        `legend line ${i + 1} is not a \`status\` | meaning row: ${all[i].slice(0, 60)}`
+      ).toBeDefined();
+      documented.push(status!);
+      legendLines.add(i + 1);
+    }
+    expect(
+      [...documented].sort(),
+      "the legend must explain each status exactly once, and nothing else"
+    ).toEqual([...STATUSES].sort());
+
     const orphans = all
       .map((line, i) => ({ line, lineNumber: i + 1 }))
       .filter(({ line }) => line.startsWith("|"))
       .filter(({ lineNumber }) => !legendLines.has(lineNumber))
-      // The alignment row is punctuation, not a row.
-      .filter(({ line }) => !/^\|[\s:|-]+\|$/.test(line))
       .filter(({ lineNumber }) => !accountedFor.has(lineNumber))
       .map(({ lineNumber }) => `line ${lineNumber}`);
 
