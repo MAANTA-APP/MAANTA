@@ -208,9 +208,10 @@ describe("drift register schema", () => {
     // any alignment-LOOKING line let `| - | - | … |` through; and pinning the
     // legend by line COUNT let a row replacing one of its statuses through.
     //
-    // So there is now exactly one opinion — a table row starts with a pipe —
-    // and every exemption is a specific line, identified by position and
-    // verified by content. Nothing is excused for merely resembling something.
+    // So the last opinion is gone too: a line that contains a pipe is table
+    // structure, because this register's prose contains none. Every exemption
+    // is a specific line, identified by position and verified in full — nothing
+    // is excused for merely resembling something.
     const all = raw.split("\n").map((l) => l.trim());
 
     // The WHOLE header, not its first cell. Anchoring on `| ID |` alone would
@@ -275,9 +276,16 @@ describe("drift register schema", () => {
     // The status legend, verified line by line before any of it is excused. A
     // count alone is not enough: swapping one status line for a drift row keeps
     // the count and hides the row.
-    const legendIndex = all.findIndex((line) =>
-      /^\|\s*Status\s*\|\s*Meaning\s*\|/.test(line)
-    );
+    // The COMPLETE legend header, for the same reason as the drift one: a
+    // prefix match accepts `| Status | Meaning | Extra |` and then excuses it,
+    // while the two-cell separator and status rows below satisfy everything
+    // else, so the documented legend schema drifts silently.
+    const LEGEND_CELLS = ["Status", "Meaning"];
+    const legendIndex = all.findIndex((line) => {
+      const cells = cellsOf(line);
+      return !!cells && cells.length === LEGEND_CELLS.length &&
+        cells.every((c, i) => c === LEGEND_CELLS[i]);
+    });
     expect(legendIndex, "status legend header not found").toBeGreaterThanOrEqual(0);
     const legendSeparator = cellsOf(all[legendIndex + 1]);
     expect(
@@ -315,9 +323,18 @@ describe("drift register schema", () => {
       "the legend must explain each status exactly once, and nothing else"
     ).toEqual([...STATUSES].sort());
 
+    // CONTAINS a pipe — not "starts with" one. Requiring the opening bar was
+    // the mirror image of the closing-bar mistake fixed a commit earlier, and
+    // it let a row that lost its leading `|` through by exactly the same route.
+    //
+    // This is safe to state so broadly because the register's prose contains no
+    // pipes at all: every one in the file is table structure. The guard now
+    // relies on that and therefore enforces it — a future prose pipe fails here
+    // loudly, which is the right direction. A silent false negative is what
+    // this whole test exists to prevent.
     const orphans = all
       .map((line, i) => ({ line, lineNumber: i + 1 }))
-      .filter(({ line }) => line.startsWith("|"))
+      .filter(({ line }) => line.includes("|"))
       .filter(({ lineNumber }) => !legendLines.has(lineNumber))
       .filter(({ lineNumber }) => !accountedFor.has(lineNumber))
       .map(({ lineNumber }) => `line ${lineNumber}`);
