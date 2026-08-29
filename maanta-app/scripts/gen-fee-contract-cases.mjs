@@ -121,9 +121,9 @@ function renderCase(c, windowDefault) {
     p(``);
     p(`  INSERT INTO public.merchant_transactions`);
     p(`    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at, is_demo)`);
-    const mvMerchant = mv.merchant ?? redemptionMerchant(redemptions, mv.redemption);
+    const mvMerchant = mv.merchant ?? (mv.unlinked ? merchantKeys[0] : redemptionMerchant(redemptions, mv.redemption));
     p(`    VALUES (v_m_${mvMerchant}, ${amount(mv.amount)}, ${q(mv.type)}, 'manual',`);
-    p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', v_r_${mv.redemption}, ${q(mv.createdAt)},`);
+    p(`            ${q(`__fee_case_${c.id}_${++ref}`)}, 'fixture', ${mv.unlinked ? "NULL" : `v_r_${mv.redemption}`}, ${q(mv.createdAt)},`);
     p(`            ${mv.isDemo ? "TRUE" : "FALSE"})`);
     p(`    RETURNING id INTO v_tx;`);
     // `fee_reversals.amount` is CHECKed > 0 and `reverse_success_fee` refuses a

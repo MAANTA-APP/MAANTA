@@ -67,6 +67,7 @@ type Case = {
     createdAt: string;
     isDemo?: boolean;
     orphan?: boolean;
+    unlinked?: boolean;
     auditAmount?: number;
     noApprover?: boolean;
   }[];
@@ -188,6 +189,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "duplicate-gross-rows-for-one-redemption",
       "reversal-posted-before-verification",
       "reversal-without-an-original-fee",
+      "fee-row-with-no-redemption-parent",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -323,6 +325,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "demo-tagged-movement-excluded",
       "duplicate-gross-rows-for-one-redemption",
       "fee-amount-disagrees-with-redemption-snapshot",
+      "fee-row-with-no-redemption-parent",
       "gross-posted-before-verification",
       "malformed-fee-outside-window-does-not-prove-completeness",
       "orphan-reversal-without-audit-row",

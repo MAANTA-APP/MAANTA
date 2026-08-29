@@ -385,6 +385,17 @@
       "notYetInTypeScript": "aggregateLedgerFees has no notion of a redemption's other rows, so it cannot tell a reversal has no fee behind it. B2b must add the sibling comparison."
     },
     {
+      "id": "fee-row-with-no-redemption-parent",
+      "description": "deduct_success_fee_or_record_arrears takes p_reference_id DEFAULT NULL and merchant_transactions.reference_id has no foreign key, so an authorized caller can move a merchant's wallet and leave the fee row pointing at nothing. Every other rule is about a row that joins and then contradicts something; this is the row that never joins, and the inner join discarded it silently while the report said zero and called itself available.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-12T09:00:00Z", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and aggregateLedgerFees drops a row whose reference is not genuine, so an unparented fee is invisible to both. B2b must count it instead of dropping it."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

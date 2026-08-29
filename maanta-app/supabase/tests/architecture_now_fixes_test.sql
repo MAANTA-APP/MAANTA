@@ -182,15 +182,33 @@ BEGIN
       (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_2', 't'),
       (v_mid, 500, 'topup',       'manual', '__test_arch_topup_1', 't');
 
+  -- An UNLINKED fee row does not leave the figure unchanged -- it makes it
+  -- UNAVAILABLE, which is the stronger and more honest answer. The wallet
+  -- moved; the row simply points at no redemption, so nothing here can say
+  -- what was billed. Silently ignoring it (the behaviour this assertion
+  -- originally described) reported zero for money that had moved.
   SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
     NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
-  ASSERT v_scoped.gross_kes = 30,
-    format('C: an unlinked fee row and a top-up must not move the figure, got %s', v_scoped.gross_kes);
+  ASSERT NOT v_scoped.available,
+    'C: an unlinked fee row must make the figure unavailable, not leave it unchanged';
+  ASSERT v_scoped.gross_kes IS NULL,
+    format('C: an unavailable figure must be NULL, got %s', v_scoped.gross_kes);
+  ASSERT v_scoped.invalid_rows >= 1,
+    format('C: the unlinked row must be counted invalid, got %s', v_scoped.invalid_rows);
+
+  -- The top-up on its own is not a fee and must not do that.
+  DELETE FROM public.merchant_transactions
+   WHERE provider_reference = '__test_arch_fee_2';
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT v_scoped.available AND v_scoped.gross_kes = 30,
+    format('C: a top-up must not move the figure, got available=%s gross=%s',
+           v_scoped.available, v_scoped.gross_kes);
 
   IF v_baseline_ok THEN
     SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_noise;
     ASSERT v_noise = v_after,
-      format('C: unlinked rows must not move the global figure (%s -> %s)', v_after, v_noise);
+      format('C: a top-up must not move the global figure (%s -> %s)', v_after, v_noise);
   END IF;
 
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;

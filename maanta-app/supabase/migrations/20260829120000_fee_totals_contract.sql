@@ -412,10 +412,39 @@ BEGIN
                                                 WHERE u.id = x.redemption_id)))))::integer AS invalid
       FROM marked x
   ),
-  missing AS (SELECT (COUNT(*))::integer AS n FROM unbilled)
-  SELECT t.gross, t.reversals, t.invalid, m.n
+  missing AS (SELECT (COUNT(*))::integer AS n FROM unbilled),
+  -- Fee movements with NO redemption parent at all.
+  --
+  -- Every other rule here is about a row that JOINS and then contradicts
+  -- something. This is the row that never joins: `p_reference_id` on
+  -- `deduct_success_fee_or_record_arrears` is `DEFAULT NULL`, and
+  -- `merchant_transactions.reference_id` has no foreign key, so an authorized
+  -- caller can move a merchant's wallet and leave the fee row pointing at
+  -- nothing. The inner join above discards it silently, and the report says
+  -- zero and calls itself available -- money moved, and the figure denies it.
+  --
+  -- Deliberately narrow: a row pointing at a DEMO redemption is demo activity
+  -- and correctly ignored, and one pointing at a non-success redemption is
+  -- already ruled on and has its own case. Only "there is no redemption row
+  -- there at all" counts here.
+  unparented AS (
+    SELECT (COUNT(*))::integer AS n
+      FROM public.merchant_transactions t
+      JOIN public.merchants m ON m.id = t.merchant_id
+     WHERE t.transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal')
+       AND NOT t.is_demo
+       AND NOT m.is_demo
+       AND (NOT p_scoped OR t.merchant_id = ANY (p_merchant_ids))
+       AND isfinite(t.created_at)
+       AND t.created_at >= p_since
+       AND (p_until IS NULL OR t.created_at < p_until)
+       AND NOT EXISTS (
+         SELECT 1 FROM public.redemptions r WHERE r.id = t.reference_id
+       )
+  )
+  SELECT t.gross, t.reversals, t.invalid + u.n, m.n
     INTO v_gross, v_reversals, v_invalid, v_missing
-    FROM totals t CROSS JOIN missing m;
+    FROM totals t CROSS JOIN missing m CROSS JOIN unparented u;
 
   IF v_missing > 0 OR v_invalid > 0 THEN
     -- All three together. A partial money figure on an executive surface is
