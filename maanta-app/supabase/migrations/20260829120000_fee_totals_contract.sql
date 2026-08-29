@@ -285,7 +285,19 @@ BEGIN
        AND ((isfinite(t.created_at)
              AND t.created_at >= p_since
              AND (p_until IS NULL OR t.created_at < p_until))
-            OR EXISTS (SELECT 1 FROM candidate k WHERE k.id = r.id))
+            OR EXISTS (SELECT 1 FROM candidate k WHERE k.id = r.id)
+            -- A redemption touched in-window brings its WHOLE linked history,
+            -- because two rules below compare a movement against its siblings:
+            -- a reversal needs its original fee, and a duplicate fee is only
+            -- visible next to the row it duplicates. Without this the sibling
+            -- would be unfetched and a reversal against an older redemption
+            -- would look original-less. Still bounded -- by the window, and by
+            -- the reference_id index -- rather than the whole ledger.
+            OR EXISTS (SELECT 1 FROM public.merchant_transactions w
+                        WHERE w.reference_id = r.id
+                          AND isfinite(w.created_at)
+                          AND w.created_at >= p_since
+                          AND (p_until IS NULL OR w.created_at < p_until)))
   ),
   relevant AS (
     SELECT
@@ -314,13 +326,45 @@ BEGIN
         -- this, a fee posted against a PENDING redemption that later became
         -- successful is retroactively legitimised by the status it acquired
         -- afterwards, and a report covering the earlier period counts it.
-        OR (c.bucket = 'gross'
-            AND isfinite(c.movement_at)
+        -- Both buckets. `reverse_success_fee` refuses a redemption that is not
+        -- already `success`, so a reversal cannot predate verification either.
+        OR (isfinite(c.movement_at)
             AND c.redeemed_at IS NOT NULL
             AND c.movement_at < c.redeemed_at)
-        OR c.reversal_uncorroborated) AS malformed
+        OR c.reversal_uncorroborated) AS malformed_base
       FROM classified c
      WHERE c.bucket <> 'excluded'
+  ),
+  -- Two rules a row cannot answer on its own, only next to its siblings.
+  --
+  -- `verify_redemption` writes exactly one fee per redemption and
+  -- `reverse_success_fee` refuses a redemption with no fee to reverse -- but
+  -- `deduct_success_fee_or_record_arrears` takes a caller-supplied reference
+  -- id, so a retry or a direct call can post a second well-formed fee, and a
+  -- reversal can be fabricated against a redemption that was never billed.
+  -- Both shapes are individually well-formed; only the set gives them away.
+  scored AS (
+    SELECT
+      x.*,
+      COUNT(*) FILTER (WHERE x.bucket = 'gross' AND NOT x.malformed_base)
+        OVER (PARTITION BY x.redemption_id) AS wellformed_gross_siblings
+      FROM relevant x
+  ),
+  marked AS (
+    SELECT
+      y.redemption_id,
+      y.bucket,
+      y.oriented_amount,
+      y.in_window,
+      (y.malformed_base
+        -- KES 60 reported for one KES 30 success fee, every row of it
+        -- individually valid.
+        OR (y.bucket = 'gross' AND NOT y.malformed_base
+            AND y.wellformed_gross_siblings > 1)
+        -- Money returned for a fee that was never charged.
+        OR (y.bucket = 'reversal' AND y.wellformed_gross_siblings = 0)
+      ) AS malformed
+      FROM scored y
   ),
   -- Completeness, computed ONCE and then used twice.
   --
@@ -333,7 +377,7 @@ BEGIN
     SELECT k.id
       FROM candidate k
      WHERE NOT EXISTS (
-       SELECT 1 FROM relevant x
+       SELECT 1 FROM marked x
         WHERE x.redemption_id = k.id
           AND x.bucket = 'gross'
           AND NOT x.malformed
@@ -366,7 +410,7 @@ BEGIN
                                OR (x.bucket = 'gross'
                                    AND EXISTS (SELECT 1 FROM unbilled u
                                                 WHERE u.id = x.redemption_id)))))::integer AS invalid
-      FROM relevant x
+      FROM marked x
   ),
   missing AS (SELECT (COUNT(*))::integer AS n FROM unbilled)
   SELECT t.gross, t.reversals, t.invalid, m.n

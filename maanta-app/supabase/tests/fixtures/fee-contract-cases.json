@@ -353,6 +353,38 @@
       "notYetInTypeScript": "GenuineFeeRedemption carries no redeemed_at, so aggregateLedgerFees cannot compare a movement to its verification. B2b must add it to the row type and the reader's select."
     },
     {
+      "id": "duplicate-gross-rows-for-one-redemption",
+      "description": "Two well-formed success_fee rows against one redemption: same merchant, same snapshot, both after verification. Every row is individually valid and the sum reports KES 60 for a KES 30 fee. verify_redemption writes exactly one, but deduct_success_fee_or_record_arrears takes a caller-supplied reference id, so a retry or a direct call produces this.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:02Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 2 },
+      "notYetInTypeScript": "aggregateLedgerFees sums each row independently and has no notion of a redemption's other fee rows. B2b must add the sibling comparison."
+    },
+    {
+      "id": "reversal-posted-before-verification",
+      "description": "A corroborated reversal dated before its redemption was verified. reverse_success_fee refuses a redemption that is not already success, so a reversal cannot predate verification any more than a fee can.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-20T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-20T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-10T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries no redeemed_at, so aggregateLedgerFees cannot compare any movement to its verification. B2b must add it to the row type and the reader's select."
+    },
+    {
+      "id": "reversal-without-an-original-fee",
+      "description": "An in-window reversal, fully corroborated, against an older redemption that was never billed at all. reverse_success_fee raises no_fee_to_reverse for exactly this, so the shape is fabricated — and because the redemption is outside the candidate window, nothing else here would have noticed. It would report money returned for a fee that was never charged.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [
+        { "redemption": "old", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees has no notion of a redemption's other rows, so it cannot tell a reversal has no fee behind it. B2b must add the sibling comparison."
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

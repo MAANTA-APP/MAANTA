@@ -185,6 +185,9 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "fee-amount-disagrees-with-redemption-snapshot",
       "redemption-linked-to-another-merchants-deal",
       "gross-posted-before-verification",
+      "duplicate-gross-rows-for-one-redemption",
+      "reversal-posted-before-verification",
+      "reversal-without-an-original-fee",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -318,6 +321,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "demo-tagged-movement-excluded",
+      "duplicate-gross-rows-for-one-redemption",
       "fee-amount-disagrees-with-redemption-snapshot",
       "gross-posted-before-verification",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -325,6 +329,8 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "redemption-linked-to-another-merchants-deal",
       "reversal-audit-row-disagrees-on-amount",
       "reversal-audit-without-an-approver",
+      "reversal-posted-before-verification",
+      "reversal-without-an-original-fee",
       "second-reversal-riding-on-an-existing-audit-row",
     ]);
     for (const c of gaps) {
