@@ -193,47 +193,50 @@ describe("drift register schema", () => {
     expect(rows.length, "no drift rows parsed — did the table header change?").toBeGreaterThan(0);
   });
 
-  it("parses EVERY row-shaped line in the file, not just the ones in the table", () => {
-    // This has already happened once. Three rows were appended AFTER the
-    // horizontal rule that ends the table, so `parseRows` never saw them, every
-    // check below silently skipped them, and the suite was then cited as proof
-    // that they were well-formed. A guard that cannot see a row cannot fail on
-    // it, which makes a green run evidence of nothing.
+  it("parses EVERY row-shaped line below the table header, whatever its ID", () => {
+    // This has already happened once for real. Three rows were appended AFTER
+    // the horizontal rule that ends the table, so `parseRows` never saw them,
+    // every check below silently skipped them, and the suite was then cited as
+    // proof that they were well-formed. A guard that cannot see a row cannot
+    // fail on it, which makes a green run evidence of nothing.
     //
-    // So: anything that looks like a drift row anywhere in the file must have
-    // been parsed. A row placed outside the table fails here rather than
-    // vanishing.
-    // Counted per ID, not tested for membership. Matching on "is this ID
-    // parsed?" leaves a hole big enough to drive the original defect through:
-    // a SECOND row carrying an ID that already appears inside the table reads
-    // as parsed and skips every check — schema, dates, owner, evidence and
-    // uniqueness alike. A malformed duplicate `D217` after the table left all
-    // of this green until the comparison counted occurrences instead.
-    const count = (ids: string[]) =>
-      ids.reduce((m, id) => m.set(id, (m.get(id) ?? 0) + 1), new Map<string, number>());
+    // It is written against LINE NUMBERS, deliberately, because two earlier
+    // versions of this guard each carried their own idea of what a row looks
+    // like and each was too narrow: one matched IDs by membership, so a second
+    // row reusing an existing ID read as parsed; the next matched `D\d+`, so a
+    // `D-217` or `FU218` row — both accepted by the schema — slipped past. A
+    // second grammar is a second thing to drift. `parseRows` already records
+    // the line it produced each row from, so the only question asked here is:
+    // did the parser see this line? Nothing about IDs, cells, or shape is
+    // restated.
+    const lines = raw.split("\n");
+    const headerLine = lines.findIndex((l) => /^\|\s*ID\s*\|/.test(l.trim())) + 1;
+    expect(headerLine, "register table header not found").toBeGreaterThan(0);
 
-    const inFile = raw
-      .split("\n")
+    const accountedFor = new Set<number>(rows.map((r) => r.lineNumber));
+    // Lines the parser rejected already fail in "exists and is parseable"; they
+    // are seen, so they are not orphans.
+    for (const problem of parseProblems) {
+      const n = Number(/line (\d+)/.exec(problem)?.[1]);
+      if (Number.isFinite(n)) accountedFor.add(n);
+    }
+
+    const orphans = lines
       .map((line, i) => ({ line: line.trim(), lineNumber: i + 1 }))
-      .filter(({ line }) => /^\|\s*D\d+\s*\|/.test(line))
-      .map(({ line, lineNumber }) => ({
-        id: (/^\|\s*(D\d+)\s*\|/.exec(line) ?? [])[1] ?? "?",
-        lineNumber,
-      }));
-    const parsedCounts = count(rows.map((r) => r.id));
-    const seen = new Map<string, number>();
-    const orphans = inFile
-      .filter(({ id }) => {
-        const n = (seen.get(id) ?? 0) + 1;
-        seen.set(id, n);
-        return n > (parsedCounts.get(id) ?? 0);
-      })
-      .map(({ id, lineNumber }) => `${id} at line ${lineNumber}`);
+      // Only below the header: the status legend above it is a real table and
+      // is not where a drift row can be mistakenly appended.
+      .filter(({ lineNumber }) => lineNumber > headerLine)
+      .filter(({ line }) => line.startsWith("|") && line.endsWith("|"))
+      // The alignment row is punctuation, not a row.
+      .filter(({ line }) => !/^\|[\s:|-]+\|$/.test(line))
+      .filter(({ lineNumber }) => !accountedFor.has(lineNumber))
+      .map(({ lineNumber }) => `line ${lineNumber}`);
 
     expect(
       orphans,
-      "these rows are outside the table, so every check in this file skips them.\n" +
-        "Move them inside it — a row the guard cannot see is not a tracked gap"
+      "these lines look like table rows but the parser never saw them, so every\n" +
+        "check in this file skips them. Move them inside the table — a row the\n" +
+        "guard cannot see is not a tracked gap"
     ).toEqual([]);
   });
 
