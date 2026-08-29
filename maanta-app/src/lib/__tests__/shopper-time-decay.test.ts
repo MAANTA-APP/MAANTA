@@ -16,6 +16,8 @@ import { isNearExpiry } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
 import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
+import { ClaimedCode } from "@/app/(shopper)/tickets/[id]/claimed-code";
+import { FastVisitPanel } from "@/app/(shopper)/tickets/[id]/fast-visit-panel";
 import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
 import {
   MyDealsList,
@@ -532,5 +534,69 @@ describe("criterion 3 — a shared instant is worthless unless it advances", () 
     const clock = read("lib/use-shopper-clock.tsx");
     expect(clock).toContain("startShopperClock(intervalMs, setNow)");
     expect(clock).toContain("useState(seed)");
+  });
+});
+
+describe("criterion 3 — the faster ticket timers start from the same instant", () => {
+  // The ticket route runs two 1s timers on purpose: a countdown that visibly
+  // moves is what makes a screenshotted code obviously stale, and the shared
+  // 30s clock is too slow for that. Being INSIDE the provider does nothing on
+  // its own — they have to seed from it, or the ticket route keeps the exact
+  // structural mismatch the provider exists to remove.
+  const ticket = (expiresInMs: number, claimedMs: number) =>
+    createElement(
+      "div",
+      null,
+      createElement(ClaimedCode, {
+        key: "code",
+        code: "123456",
+        expiresAt: iso(expiresInMs),
+      }),
+      createElement(FastVisitPanel, {
+        key: "panel",
+        claimedAt: iso(claimedMs),
+        arrivedAt: null,
+        qualifiedAt: null,
+      })
+    );
+
+  it("renders identically however far the browser's own clock has moved", () => {
+    // The Fast Visit window closes 15 minutes after the claim, so 30 minutes of
+    // drift crosses it — and that boundary switches the CARD, not just text.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(T0);
+      const server = renderShopperTree(ticket(40 * MIN, 0), T0);
+      vi.setSystemTime(at(30 * MIN));
+      const firstClient = renderShopperTree(ticket(40 * MIN, 0), T0);
+      expect(firstClient).toBe(server);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("and advancing the seed does change both of them", () => {
+    const server = renderShopperTree(ticket(40 * MIN, 0), T0);
+    const later = renderShopperTree(ticket(40 * MIN, 0), at(30 * MIN));
+    expect(later).not.toBe(server);
+    // The reward window is a card swap, not a text change.
+    expect(server).not.toMatch(/window ended/i);
+    expect(later).toMatch(/window ended/i);
+    // ...and the claim countdown moved with it, on the same seed.
+    expect(server).not.toBe(later);
+  });
+
+  it("keeps the deliberate 1s cadence rather than joining the 30s clock", () => {
+    // Slowing these to the shared clock would be a silent product regression:
+    // the anti-screenshot property depends on visible movement.
+    for (const rel of [
+      "app/(shopper)/tickets/[id]/claimed-code.tsx",
+      "app/(shopper)/tickets/[id]/fast-visit-panel.tsx",
+    ]) {
+      const src = read(rel);
+      expect(src).toContain("useShopperClockSeed()");
+      expect(src).toContain("1000");
+      expect(src).not.toContain("useShopperClock()");
+    }
   });
 });

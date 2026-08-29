@@ -7,6 +7,7 @@ import {
   formatArrivalDuration,
   formatRewardCountdown,
 } from "@/lib/fast-visit-window";
+import { useShopperClockSeed } from "@/lib/use-shopper-clock";
 
 /**
  * The Fast Visit reward window on the claimed ticket — deliberately SECONDARY
@@ -37,12 +38,21 @@ export function FastVisitPanel({
   qualifiedAt: string | null;
 }) {
   const deadline = fastVisitDeadline(claimedAt);
-  const [now, setNow] = useState(() => Date.now());
+  // D213 — seeded from the server instant, not `Date.now()`. `windowOpen`
+  // decides STRUCTURE (the counting card, the ended card, or nothing), so an
+  // initializer that ran independently here could switch the subtree between
+  // the server render and hydration, which React cannot patch. The 1s tick is
+  // kept: this counter is deliberately faster than the shared 30s clock,
+  // because a visibly moving countdown is what makes a screenshotted code
+  // obviously stale. It starts after hydration.
+  const seed = useShopperClockSeed();
+  const [now, setNow] = useState(() => seed.getTime());
   const windowOpen =
     deadline !== null && arrivedAt === null && deadline.getTime() - now > 0;
 
   useEffect(() => {
     if (!windowOpen) return;
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [windowOpen]);

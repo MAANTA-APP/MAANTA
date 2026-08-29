@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatCode, msUntil } from "@/lib/ui";
 import { formatClaimCountdown } from "@/lib/claim-ticket-time";
+import { useShopperClockSeed } from "@/lib/use-shopper-clock";
 
 /**
  * S5 — the claimed-code hero. The single most important screen in the product:
@@ -26,8 +27,14 @@ export function ClaimedCode({
   code: string;
   expiresAt: string;
 }) {
-  const [left, setLeft] = useState(() => msUntil(expiresAt));
+  // D213 — seeded from the server instant so the first client render shows
+  // the same number the server did. The 1s tick is deliberate and kept (a
+  // visibly moving countdown is what makes a screenshotted code obviously
+  // stale); it starts after hydration.
+  const seed = useShopperClockSeed();
+  const [left, setLeft] = useState(() => new Date(expiresAt).getTime() - seed.getTime());
   useEffect(() => {
+    setLeft(msUntil(expiresAt));
     const t = setInterval(() => setLeft(msUntil(expiresAt)), 1000);
     return () => clearInterval(t);
   }, [expiresAt]);

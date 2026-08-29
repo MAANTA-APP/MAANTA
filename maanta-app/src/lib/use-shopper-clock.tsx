@@ -25,6 +25,7 @@ import {
 export const SHOPPER_CLOCK_INTERVAL_MS = 30_000;
 
 const ShopperClockContext = createContext<Date | null>(null);
+const ShopperClockSeedContext = createContext<Date | null>(null);
 
 /**
  * Drives the shared instant forward. Split out of the provider's effect so the
@@ -87,7 +88,9 @@ export function ShopperClockProvider({
   useEffect(() => startShopperClock(intervalMs, setNow), [intervalMs, seed]);
 
   return (
-    <ShopperClockContext.Provider value={now}>{children}</ShopperClockContext.Provider>
+    <ShopperClockSeedContext.Provider value={seed}>
+      <ShopperClockContext.Provider value={now}>{children}</ShopperClockContext.Provider>
+    </ShopperClockSeedContext.Provider>
   );
 }
 
@@ -107,6 +110,28 @@ export function useShopperClock(): Date {
     );
   }
   return now;
+}
+
+/**
+ * The seed itself — the server instant, which never advances.
+ *
+ * For the few time-derived elements that legitimately need a FASTER tick than
+ * the shared 30s clock: the ticket's claim countdown and Fast Visit window both
+ * run at 1s, deliberately, because a counter countdown that visibly moves is
+ * what makes a screenshot of a code obviously stale. Those keep their own
+ * interval but must still start from the SAME instant the server rendered from,
+ * or they reintroduce exactly the structural mismatch the provider exists to
+ * remove. Seed initial state from this; tick from your own timer afterwards.
+ */
+export function useShopperClockSeed(): Date {
+  const seed = useContext(ShopperClockSeedContext);
+  if (!seed) {
+    throw new Error(
+      "useShopperClockSeed requires <ShopperClockProvider>. A time-derived " +
+        "shopper element must start from the server-rendered instant (D213)."
+    );
+  }
+  return seed;
 }
 
 /** The shared instant if one is mounted, otherwise `null`. */
