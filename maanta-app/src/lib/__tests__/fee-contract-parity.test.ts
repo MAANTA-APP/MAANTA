@@ -185,20 +185,34 @@ describe("the generated SQL half stays in step with its source", () => {
     }
   });
 
-  it("asserts all six returned fields, not just the money ones", () => {
+  it("ASSERTS all six returned fields in every case, not merely mentions them", () => {
     // available and the two diagnostic counts are part of the contract. A
-    // generator that emitted only the three numerics would pass every case
-    // while proving nothing about the all-or-nothing rule.
+    // generator emitting only the three numerics would pass every case while
+    // proving nothing about the all-or-nothing rule.
+    //
+    // Counted as ASSERT statements, not as string occurrences. An earlier
+    // version of this test used `toContain("v_row.missing_fee_rows")` and a
+    // mutation proved it vacuous: deleting the assertion left the field named
+    // inside the surviving `format()` argument of a neighbouring one, and the
+    // guard stayed green over a generator that had stopped checking it. Same
+    // failure as the four vacuous guards earlier in this release train —
+    // asserting that the code SAYS a thing rather than DOES it.
     const sql = readFileSync(GENERATED, "utf8");
     for (const field of [
-      "v_row.available",
-      "v_row.gross_kes",
-      "v_row.reversals_kes",
-      "v_row.net_kes",
-      "v_row.missing_fee_rows",
-      "v_row.invalid_rows",
+      "available",
+      "gross_kes",
+      "reversals_kes",
+      "net_kes",
+      "missing_fee_rows",
+      "invalid_rows",
     ]) {
-      expect(sql).toContain(field);
+      const asserts = sql.match(
+        new RegExp(`ASSERT v_row\\.${field}\\b`, "g")
+      ) ?? [];
+      expect(
+        asserts.length,
+        `every case must ASSERT ${field}; found ${asserts.length} for ${spec.cases.length} cases`
+      ).toBe(spec.cases.length);
     }
   });
 
