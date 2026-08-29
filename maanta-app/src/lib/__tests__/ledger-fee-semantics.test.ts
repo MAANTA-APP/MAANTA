@@ -46,9 +46,6 @@ import { readLedgerFeeTotals } from "@/lib/evidence-scope";
  * never classify a row while `Math.abs` could never be the arithmetic.
  */
 
-/** The constraint declaration itself, never a fee predicate in a function body. */
-const CHECK_DECL = /CHECK\s*\(+\s*transaction_type\s*(?:=\s*ANY|IN\s*\()/i;
-
 const WINDOW = { since: "2026-08-01T00:00:00Z", until: "2026-09-01T00:00:00Z" };
 const IN = "2026-08-15T12:00:00Z";
 const BEFORE = "2026-07-15T12:00:00Z";
@@ -92,34 +89,93 @@ describe("the ledger contract is stated once and covers the whole CHECK", () => 
    * second place for the type set to drift, and drift here means a new
    * transaction type silently contributing nothing to a money figure.
    */
+  /**
+   * The transaction types the database accepts, replayed from the migration
+   * history rather than retyped.
+   *
+   * Follows the NAMED constraint through its events in order — every
+   * `DROP CONSTRAINT merchant_transactions_transaction_type_check` and every
+   * `ADD CONSTRAINT merchant_transactions_transaction_type_check … CHECK (…)`
+   * — because three things all look like "a migration mentioning a CHECK" and
+   * only one of them is a declaration:
+   *
+   * - A migration that DROPS the constraint and does not replace it leaves the
+   *   column unconstrained. Picking "the last file whose text resembles a
+   *   CHECK" would skip that file and keep parsing a superseded declaration,
+   *   so the guard would pass while the live schema accepted anything.
+   * - Several RPC bodies query `transaction_type IN ('success_fee', …)` as a
+   *   fee predicate inside `$$ … $$`. That is a WHERE clause, not a constraint.
+   * - A comment can contain either shape. Comments are stripped first.
+   *
+   * The last event wins, and a terminal drop is a failure rather than a silent
+   * fallback to an older list.
+   */
+  const CONSTRAINT = "merchant_transactions_transaction_type_check";
+
+  /** Strip `--` line comments and `/* *\/` blocks before matching anything. */
+  const withoutSqlComments = (sql: string): string =>
+    sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+
   const constraintTypes = (): string[] => {
-    // The LATEST migration that declares it, found by scanning rather than by
-    // filename. Pinning a filename would keep this guard reading a superseded
-    // constraint: a future migration adding a transaction type writes a NEW
-    // file, and the guard would stay green while the database moved on — the
-    // exact silent drift it exists to catch.
     const dir = path.join(process.cwd(), "supabase/migrations");
-    const declaring = readdirSync(dir)
-      .filter((f) => f.endsWith(".sql"))
-      .sort()
-      .map((f) => readFileSync(path.join(dir, f), "utf8"))
-      // Anchored on CHECK: several migrations query
-      // `transaction_type IN ('success_fee', …)` inside a function body, and
-      // matching those would read a fee predicate as though it were the
-      // constraint.
-      .filter((sql) => CHECK_DECL.test(sql));
+    const event = new RegExp(
+      `(?:DROP\\s+CONSTRAINT\\s+(?:IF\\s+EXISTS\\s+)?${CONSTRAINT})` +
+        `|(?:ADD\\s+CONSTRAINT\\s+${CONSTRAINT}\\s+CHECK\\s*\\(([\\s\\S]*?)\\)\\s*;)`,
+      "gi"
+    );
+
+    let declared: string[] | null = null;
+    let dropped = false;
+    let events = 0;
+
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+      const sql = withoutSqlComments(
+        readFileSync(path.join(dir, file), "utf8")
+      );
+      event.lastIndex = 0;
+      for (let m = event.exec(sql); m !== null; m = event.exec(sql)) {
+        events += 1;
+        if (m[1] === undefined) {
+          dropped = true;
+          declared = null;
+          continue;
+        }
+        dropped = false;
+        declared = Array.from(m[1].matchAll(/'([a-z_]+)'/g)).map((x) => x[1]);
+      }
+    }
+
+    expect(events, `no migration touches ${CONSTRAINT}`).toBeGreaterThan(0);
     expect(
-      declaring.length,
-      "some migration must declare the transaction_type CHECK"
-    ).toBeGreaterThan(0);
-    const sql = declaring[declaring.length - 1];
-    const m =
-      sql.match(
-        /CHECK\s*\(+\s*transaction_type\s*=\s*ANY\s*\(\s*ARRAY\[([\s\S]*?)\]/i
-      ) ?? sql.match(/CHECK\s*\(+\s*transaction_type\s+IN\s*\(([\s\S]*?)\)/i);
-    expect(m, "the CHECK on transaction_type must be findable").toBeTruthy();
-    return Array.from(m![1].matchAll(/'([a-z_]+)'/g)).map((x) => x[1]);
+      dropped,
+      `${CONSTRAINT} is dropped and never re-added — transaction_type is unconstrained`
+    ).toBe(false);
+    expect(declared, `${CONSTRAINT} has no surviving declaration`).not.toBeNull();
+    expect(declared!.length).toBeGreaterThan(0);
+    return declared!;
   };
+
+  it("follows the constraint's last event, not the last file that mentions one", () => {
+    // The replay must land on the 2026-07-22 declaration, which is the one that
+    // added `fee_reversal`. Landing anywhere earlier means a later event was
+    // missed; landing on a fee predicate inside an RPC body means the anchor is
+    // wrong.
+    expect(constraintTypes()).toContain("fee_reversal");
+    expect(constraintTypes()).toContain("arrears_settlement");
+  });
+
+  it("ignores a CHECK-shaped line that is only a comment", () => {
+    // The stripper is the thing under test here: a commented-out constraint is
+    // not a constraint, and treating one as the live declaration would let a
+    // reviewer's note redefine what the database accepts.
+    const commented = withoutSqlComments(
+      `-- ALTER TABLE t ADD CONSTRAINT ${CONSTRAINT} CHECK (transaction_type IN ('bogus'));\n` +
+        `/* ALTER TABLE t DROP CONSTRAINT ${CONSTRAINT}; */\n` +
+        `SELECT 1;`
+    );
+    expect(commented).not.toContain(CONSTRAINT);
+    expect(commented).toContain("SELECT 1;");
+  });
 
   it("decides every transaction type the database can hold", () => {
     // Not "covers the fee ones". Callers no longer filter by type, so every
