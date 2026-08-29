@@ -16,6 +16,15 @@ import { isNearExpiry } from "@/lib/ui";
 import { DealCard } from "@/components/ui/claude";
 import { CountdownChip } from "@/components/ui/chips";
 import { ClaimGate } from "@/components/shopper/claim-gate";
+import {
+  LiveDealCollection,
+  liveItemsAt,
+} from "@/components/shopper/live-deal-collection";
+import { ShopLiveDeals } from "@/components/shopper/shop-live-deals";
+import { SearchResults } from "@/components/shopper/search-results";
+import { FeedBody } from "@/components/shopper/feed-body";
+import { isUnexpiredAt } from "@/lib/live-deals";
+import { filterBrowseDeals } from "@/lib/browse";
 import { ClaimedCode } from "@/app/(shopper)/tickets/[id]/claimed-code";
 import { FastVisitPanel } from "@/app/(shopper)/tickets/[id]/fast-visit-panel";
 import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
@@ -48,6 +57,40 @@ const MIN = 60_000;
 const T0 = new Date("2026-08-28T12:00:00.000Z");
 const at = (ms: number) => new Date(T0.getTime() + ms);
 const iso = (ms: number) => at(ms).toISOString();
+
+/** A minimal `DealRow` for the browse/map filter, live until `expiresInMs`. */
+const browseRow = (id: string, expiresInMs: number) => ({
+  id,
+  merchant_id: "m1",
+  title: `Deal ${id}`,
+  description: "",
+  image_url: "",
+  deal_type: "standard" as const,
+  flash_duration_hours: 6,
+  is_active: true,
+  is_paused: false,
+  max_claims: null,
+  claims_count: 0,
+  success_fee: 30,
+  boost_active: false,
+  price_kes: 500,
+  compare_at_kes: 800,
+  charges: null,
+  node: "BBS Mall",
+  starts_at: iso(-60 * MIN),
+  expires_at: iso(expiresInMs),
+  merchants: {
+    id: "m1",
+    merchant_name: "Nyama Spot",
+    floor: "1",
+    unit_number: "A",
+    what3words_address: "a.b.c",
+    lat: -1.274,
+    lng: 36.85,
+    mall_name: "BBS Mall",
+    node: "BBS Mall",
+  },
+});
 
 const deal = (
   id: string,
@@ -598,5 +641,199 @@ describe("criterion 3 — the faster ticket timers start from the same instant",
       expect(src).toContain("1000");
       expect(src).not.toContain("useShopperClock()");
     }
+  });
+});
+
+describe("criterion 3 — an expired deal cannot remain in a discovery collection", () => {
+  // The founder ruling of 2026-08-29: shipping an "Expired" card inside "Live
+  // deals" would reproduce the row-versus-section regression already corrected
+  // on /my-deals. `/shops/[id]` is the sharpest instance — its query filters
+  // `expires_at > now` and its heading says, literally, "Live deals".
+  //
+  // The rule mirrors the SERVER predicate exactly: strictly `expires_at > now`.
+  // Not `isLiveNow`, which allows 15 minutes of grace so an already-claimed
+  // code still redeems; a discovery surface that used the grace would be more
+  // permissive than the query it mirrors.
+  const card = (id: string, expiresInMs: number) => ({
+    id,
+    expiresAt: iso(expiresInMs),
+    card: {
+      href: `/deals/${id}`,
+      imageUrl: null,
+      merchantName: "Nyama Spot",
+      title: `Deal ${id}`,
+      expiresAt: iso(expiresInMs),
+      variant: "vertical" as const,
+      merchantId: "m1",
+      showFavourite: false,
+    },
+  });
+
+  it("withdraws exactly at expiry, with no grace", () => {
+    const at30 = iso(30 * MIN);
+    expect(isUnexpiredAt(at30, at(29 * MIN))).toBe(true);
+    expect(isUnexpiredAt(at30, at(30 * MIN))).toBe(false);
+    // The ticket grace is 15 minutes; discovery must not borrow it.
+    expect(isUnexpiredAt(at30, at(31 * MIN))).toBe(false);
+    expect(isUnexpiredAt(at30, at(44 * MIN))).toBe(false);
+  });
+
+  it("keeps a row whose expiry cannot be read rather than deleting it", () => {
+    // `deals.expires_at` is NOT NULL in production (D29), so this cannot come
+    // from a real row — and silently removing a card because a value failed to
+    // parse is a worse failure than showing it.
+    expect(isUnexpiredAt(null, at(0))).toBe(true);
+    expect(isUnexpiredAt("not-a-date", at(0))).toBe(true);
+  });
+
+  it("preserves the server's order on the surviving subset", () => {
+    // A locked rail order is an order WITHIN a rail, so it holds on any subset.
+    // That is exactly why removing a member is safe and re-sorting is not.
+    const items = [card("a", 90 * MIN), card("b", 10 * MIN), card("c", 60 * MIN)];
+    expect(liveItemsAt(items, at(0)).map((i) => i.id)).toEqual(["a", "b", "c"]);
+    expect(liveItemsAt(items, at(20 * MIN)).map((i) => i.id)).toEqual(["a", "c"]);
+    expect(liveItemsAt(items, at(70 * MIN)).map((i) => i.id)).toEqual(["a"]);
+    expect(liveItemsAt(items, at(95 * MIN))).toEqual([]);
+  });
+
+  it("takes the whole section with the last member, heading included", () => {
+    // The worst state is not a stale card — it is a heading over nothing. A
+    // section that renders its title on the server and its contents on the
+    // clock produces exactly that.
+    const props = {
+      title: "Top picks near you",
+      subtitle: "Flash deals — grab them while they last",
+      items: [card("a", 30 * MIN)],
+    };
+    const live = renderShopperTree(createElement(LiveDealCollection, props), at(0));
+    expect(live).toContain("Top picks near you");
+    expect(live).toContain("Deal a");
+
+    const gone = renderShopperTree(
+      createElement(LiveDealCollection, props),
+      at(31 * MIN)
+    );
+    expect(gone).not.toContain("Top picks near you");
+    expect(gone).not.toContain("Deal a");
+    expect(gone).not.toContain("Expired");
+  });
+
+  it("never renders an expired card beside a live one", () => {
+    const props = {
+      title: "Deals near me",
+      items: [card("live", 90 * MIN), card("gone", 10 * MIN)],
+    };
+    const html = renderShopperTree(
+      createElement(LiveDealCollection, props),
+      at(20 * MIN)
+    );
+    expect(html).toContain("Deals near me");
+    expect(html).toContain("Deal live");
+    expect(html).not.toContain("Deal gone");
+    // The heading is only honest if nothing under it reads Expired.
+    expect(html).not.toContain("Expired");
+  });
+
+  it("promotes the next deal into the lead slot rather than losing the rail head", () => {
+    // The lead IS position 1 of the flash rail. When the lead expires the rail
+    // must keep a head, not render a rail with a hole where its hero was.
+    const props = {
+      title: "Top picks near you",
+      lead: true,
+      items: [card("first", 20 * MIN), card("second", 90 * MIN)],
+    };
+    const before = renderShopperTree(createElement(LiveDealCollection, props), at(0));
+    const after = renderShopperTree(
+      createElement(LiveDealCollection, props),
+      at(25 * MIN)
+    );
+    expect(before).toContain("Deal first");
+    expect(after).not.toContain("Deal first");
+    expect(after).toContain("Deal second");
+    expect(after).toContain("Top picks near you");
+  });
+
+  it("`shops/[id]` cannot show an Expired row under its Live deals heading", () => {
+    const deals = [
+      { id: "d1", title: "Platter", image_url: null, expires_at: iso(30 * MIN) },
+    ];
+    const live = renderShopperTree(createElement(ShopLiveDeals, { deals }), at(0));
+    expect(live).toContain("Platter");
+    expect(live).not.toContain("No live deals right now");
+
+    const gone = renderShopperTree(
+      createElement(ShopLiveDeals, { deals }),
+      at(31 * MIN)
+    );
+    expect(gone).not.toContain("Platter");
+    expect(gone).not.toContain("Expired");
+    // States the absence rather than leaving the heading over nothing.
+    expect(gone).toContain("No live deals right now");
+  });
+
+  it("`/search` says there are no results rather than listing expired ones", () => {
+    const items = [card("s1", 30 * MIN)];
+    const live = renderShopperTree(
+      createElement(SearchResults, { items, query: "platter" }),
+      at(0)
+    );
+    expect(live).toContain("Deal s1");
+
+    const gone = renderShopperTree(
+      createElement(SearchResults, { items, query: "platter" }),
+      at(31 * MIN)
+    );
+    expect(gone).not.toContain("Deal s1");
+    expect(gone).not.toContain("Expired");
+    expect(gone).toContain("No results for");
+  });
+
+  it("`/browse` and `/map` withdraw through the same predicate", () => {
+    // Both already filter client-side, so the predicate belongs in the filter
+    // they share rather than in two more collections.
+    const rows = [
+      { ...browseRow("keep", 90 * MIN) },
+      { ...browseRow("drop", 10 * MIN) },
+    ];
+    expect(filterBrowseDeals(rows, { now: at(0) }).map((d) => d.id)).toEqual([
+      "keep",
+      "drop",
+    ]);
+    expect(filterBrowseDeals(rows, { now: at(20 * MIN) }).map((d) => d.id)).toEqual([
+      "keep",
+    ]);
+    // Unconditional: a shopper's own filters cannot bring an expired deal back.
+    expect(
+      filterBrowseDeals(rows, { now: at(20 * MIN), chip: "all" }).map((d) => d.id)
+    ).toEqual(["keep"]);
+    expect(
+      filterBrowseDeals(rows, { now: at(20 * MIN), rail: "all", time: "any" }).map(
+        (d) => d.id
+      )
+    ).toEqual(["keep"]);
+  });
+
+  it("the feed states the quiet market rather than blaming a filter", () => {
+    // Counts are recomputed at `now`. Frozen numbers would make an all-expired
+    // feed say a category or deal-type filter emptied it, which removed nothing.
+    const expiries = [iso(10 * MIN), iso(20 * MIN)];
+    const body = (when: Date) =>
+      renderShopperTree(
+        // eslint-disable-next-line react/no-children-prop
+        createElement(FeedBody, {
+          liveExpiries: expiries,
+          afterCategoryExpiries: expiries,
+          shownExpiries: expiries,
+          category: "food" as const,
+          filter: "flash" as const,
+          children: createElement("div", null, "rails"),
+        }),
+        when
+      );
+    expect(body(at(0))).toContain("rails");
+    const empty = body(at(25 * MIN));
+    expect(empty).not.toContain("rails");
+    expect(empty).toContain("No deals live right now");
+    expect(empty).not.toMatch(/food deals right now|flash deals right now/);
   });
 });

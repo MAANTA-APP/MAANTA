@@ -10,9 +10,7 @@ import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { dealPricing } from "@/lib/pricing";
 import { ALL_NODES } from "@/lib/nodes";
 import { SearchControls } from "./search-controls";
-import { EmptyState } from "@/components/ui/states";
-import { DealCard } from "@/components/ui/claude";
-import { ButtonLink } from "@/components/ui/button";
+import { SearchResults } from "@/components/shopper/search-results";
 
 export const dynamic = "force-dynamic";
 
@@ -87,50 +85,47 @@ export default async function SearchPage({
       <h1 className="text-2xl font-bold text-ink">Search</h1>
       <SearchControls initialQuery={q} initialType={type} />
 
-      {!searched ? null : results.length === 0 ? (
-        <div className="mt-6 text-center">
-          <EmptyState
-            title={q ? `No results for "${q}"` : "No results"}
-            sub="Try a different word, or browse all live deals."
-          />
-          <ButtonLink href="/feed" variant="ghost" size="sm" className="-mt-8">
-            Browse deals
-          </ButtonLink>
-        </div>
-      ) : (
-        <div className="mt-5 space-y-3">
-          {results.map((d) => {
+      {!searched ? null : (
+        <SearchResults
+          query={q}
+          items={results.map((d) => {
             // Show YOU PAY on results too — same lib/pricing source as the feed,
             // so a shopper sees a consistent price everywhere it appears.
             const priced = dealPricing(d);
-            return (
+            return {
+              id: d.id,
+              expiresAt: d.expires_at,
               // Founder request 2026-08-22: search results were the thinnest
               // card in the app — a price and a verified count, with no
               // was-price, no time left and no scarcity, so deciding needed a
               // tap. They now use the same row card the feed uses, with the
               // decision KPIs.
-              <DealCard
-                key={d.id}
-                variant="row"
-                href={`/deals/${d.id}`}
-                imageUrl={d.image_url}
-                merchantName={d.merchants?.merchant_name ?? ""}
-                mallName={d.merchants?.floor ?? null}
-                title={d.title}
-                tag={d.deal_type === "flash" ? "flash" : d.boost_active ? "boosted" : "standard"}
-                expiresAt={d.expires_at}
-                merchantId={d.merchant_id}
-                showFavourite={false}
-                pay={priced.pay}
-                wasKes={priced.was}
-                extras={priced.extras}
-                claimsCount={d.claims_count}
-                maxClaims={d.max_claims}
-                verifiedCount={verified.get(d.merchant_id) ?? 0}
-              />
-            );
+              card: {
+                variant: "row" as const,
+                href: `/deals/${d.id}`,
+                imageUrl: d.image_url,
+                merchantName: d.merchants?.merchant_name ?? "",
+                mallName: d.merchants?.floor ?? null,
+                title: d.title,
+                tag:
+                  d.deal_type === "flash"
+                    ? ("flash" as const)
+                    : d.boost_active
+                      ? ("boosted" as const)
+                      : ("standard" as const),
+                expiresAt: d.expires_at,
+                merchantId: d.merchant_id,
+                showFavourite: false,
+                pay: priced.pay,
+                wasKes: priced.was,
+                extras: priced.extras,
+                claimsCount: d.claims_count,
+                maxClaims: d.max_claims,
+                verifiedCount: verified.get(d.merchant_id) ?? 0,
+              },
+            };
           })}
-        </div>
+        />
       )}
     </main>
   );

@@ -1,4 +1,5 @@
 import type { DealRow } from "@/lib/data";
+import { isUnexpiredAt } from "@/lib/live-deals";
 
 export type BrowseRailFilter = "all" | "flash" | "boosted" | "standard";
 export type BrowseTimeFilter = "any" | "now" | "today";
@@ -140,6 +141,12 @@ export function filterBrowseDeals(
         : null;
 
   return deals.filter((d) => {
+    // D213 criterion 3 — the expiry predicate the server query already applied,
+    // re-applied at the CURRENT time. Unconditional and first: an expired deal
+    // is withdrawn from discovery whatever the shopper's own filters say, and
+    // server-side this is a no-op because the query excluded it already.
+    if (!isUnexpiredAt(d.expires_at, now)) return false;
+
     if (rail !== "all" && dealRail(d) !== rail) return false;
 
     if (opts.chip !== undefined) {

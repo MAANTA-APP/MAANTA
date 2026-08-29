@@ -70,9 +70,13 @@ describe("browse helpers", () => {
         expires_at: new Date("2026-07-27T20:00:00Z").toISOString(),
       }),
     ];
-    expect(filterBrowseDeals(deals, { rail: "flash" }).map((d) => d.id)).toEqual([
-      "flash",
-    ]);
+    // `now` is pinned because these fixtures are dated: D213 made
+    // `filterBrowseDeals` apply the server's `expires_at > now` predicate
+    // unconditionally, so evaluating them at the wall clock withdraws both.
+    // This case is about the RAIL filter, so it is asserted at their own era.
+    expect(
+      filterBrowseDeals(deals, { rail: "flash", now }).map((d) => d.id)
+    ).toEqual(["flash"]);
     expect(
       filterBrowseDeals(deals, { time: "now", now }).map((d) => d.id)
     ).toEqual(["flash"]);
@@ -148,8 +152,13 @@ describe("browse helpers", () => {
       }}),
     ];
     const bounds = { south: -1.28, west: 36.84, north: -1.26, east: 36.86 };
+    // `now` pinned to the fixtures' own era — this case is about BOUNDS, and
+    // D213's unconditional expiry predicate would otherwise withdraw both.
     expect(
-      filterBrowseDeals(deals, { bounds }).map((d) => d.id)
+      filterBrowseDeals(deals, {
+        bounds,
+        now: new Date("2026-07-26T12:00:00Z"),
+      }).map((d) => d.id)
     ).toEqual(["in"]);
   });
 

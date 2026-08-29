@@ -85,14 +85,17 @@ describe("deal KPIs", () => {
   });
 
   it("search results carry the KPIs — the surface that prompted this", () => {
+    // D213 moved the results list into a client collection so an expired
+    // result leaves it; the card props are now built as an object on the page
+    // instead of as JSX attributes. Same KPIs, same surface, new spelling.
     const search = readFileSync(
       path.resolve(__dirname, "../../app/(shopper)/search/page.tsx"),
       "utf8"
     );
-    expect(search).toContain('variant="row"');
-    expect(search).toContain("claimsCount={d.claims_count}");
-    expect(search).toContain("maxClaims={d.max_claims}");
-    expect(search).toContain("wasKes={priced.was}");
+    expect(search).toContain('variant: "row" as const');
+    expect(search).toContain("claimsCount: d.claims_count");
+    expect(search).toContain("maxClaims: d.max_claims");
+    expect(search).toContain("wasKes: priced.was");
     // The thin legacy card must not come back to this surface.
     expect(search).not.toContain("DealCardHorizontal");
   });
