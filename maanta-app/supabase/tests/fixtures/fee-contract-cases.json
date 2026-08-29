@@ -252,6 +252,16 @@
       "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
     },
     {
+      "id": "malformed-later-reversal-does-not-blank-an-earlier-period",
+      "description": "An August redemption and a valid August fee, followed by a wrong-signed reversal in September. The reversal cannot enter August's totals and cannot prove August's completeness, so it has no bearing on August — it is invalid in its own window, not in this one. Invalidating it here would blank the August report forever.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": -30, "createdAt": "2026-09-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
       "id": "cross-merchant-reference",
       "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
       "scope": ["m1"],

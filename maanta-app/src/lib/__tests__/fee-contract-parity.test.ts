@@ -169,6 +169,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "fee-against-non-success-redemption-excluded",
       "nan-amount",
       "infinite-created-at",
+      "malformed-later-reversal-does-not-blank-an-earlier-period",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
       "malformed-fee-outside-window-does-not-prove-completeness",
@@ -313,7 +314,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
   it("still runs every other case through TypeScript", () => {
     // The skip must stay narrow. Two skipped, all the rest asserted.
     const skipped = spec.cases.filter((c) => c.notYetInTypeScript).length;
-    expect(spec.cases.length - skipped).toBe(25);
+    expect(spec.cases.length - skipped).toBe(26);
   });
 
   it("only ever diverges by reporting availability per bucket", () => {

@@ -241,8 +241,19 @@ BEGIN
                FILTER (WHERE x.bucket = 'gross'    AND x.in_window AND NOT x.malformed), 0) AS gross,
       COALESCE(SUM(x.oriented_amount)
                FILTER (WHERE x.bucket = 'reversal' AND x.in_window AND NOT x.malformed), 0) AS reversals,
+      -- In-window rows always count. Out-of-window ones count ONLY when they
+      -- are gross, because gross is the only bucket completeness rests on.
+      --
+      -- Without that restriction a malformed REVERSAL posted in September,
+      -- linked to an August redemption, would blank the August report forever:
+      -- it cannot enter August's totals and cannot prove August's
+      -- completeness, so it has no bearing on August at all. It is invalid in
+      -- its OWN window, where it does have bearing. That is the same rule that
+      -- windows the candidate set, applied to the evidence rather than to the
+      -- subject.
       (COUNT(*) FILTER (WHERE x.malformed
-                          AND (x.in_window OR x.candidate_linked)))::integer AS invalid
+                          AND (x.in_window
+                               OR (x.candidate_linked AND x.bucket = 'gross'))))::integer AS invalid
       FROM relevant x
   ),
   -- Completeness. Question 3: the search spans ALL DATES, so a fee posted

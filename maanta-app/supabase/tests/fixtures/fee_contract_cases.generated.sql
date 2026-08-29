@@ -1680,6 +1680,75 @@ BEGIN
 END $case$;
 
 -- ---------------------------------------------------------------------------
+-- malformed-later-reversal-does-not-blank-an-earlier-period
+--
+-- An August redemption and a valid August fee, followed by a wrong-signed
+-- reversal in September. The reversal cannot enter August's totals and
+-- cannot prove August's completeness, so it has no bearing on August — it is
+-- invalid in its own window, not in this one. Invalidating it here would
+-- blank the August report forever.
+-- ---------------------------------------------------------------------------
+DO $case$
+DECLARE
+  v_uid UUID;
+  v_m_m1 UUID;
+  v_d_m1 UUID;
+  v_r_r1 UUID;
+  v_row RECORD;
+BEGIN
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
+    VALUES ('__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_m1', 'fee.case.m1', '+254710000027',
+            'BBS Mall', 'active', TRUE, 1000, FALSE)
+    RETURNING id INTO v_m_m1;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
+    VALUES (v_m_m1, '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_m1', 'x', NOW() + INTERVAL '30 days', FALSE)
+    RETURNING id INTO v_d_m1;
+
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged, is_demo)
+    VALUES (v_d_m1, v_m_m1, v_uid, '100001', 'success',
+            '2026-08-10T09:00:00Z'::timestamptz + INTERVAL '1 hour', '2026-08-10T09:00:00Z', 30,
+            FALSE)
+    RETURNING id INTO v_r_r1;
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at)
+    VALUES (v_m_m1, -30, 'success_fee', 'manual',
+            '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_1', 'fixture', v_r_r1, '2026-08-10T09:00:01Z');
+
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id, created_at)
+    VALUES (v_m_m1, -30, 'fee_reversal', 'manual',
+            '__fee_case_malformed-later-reversal-does-not-blank-an-earlier-period_2', 'fixture', v_r_r1, '2026-09-15T09:00:00Z');
+
+  SELECT * INTO v_row FROM public.admin_fee_totals_for_merchants(
+    '2026-08-01T00:00:00Z', '2026-09-01T00:00:00Z', ARRAY[v_m_m1]::uuid[]);
+
+  ASSERT v_row.available IS NOT DISTINCT FROM TRUE,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: available = %s, expected true', v_row.available);
+  ASSERT v_row.gross_kes IS NOT DISTINCT FROM 30,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: gross_kes = %s, expected 30', v_row.gross_kes);
+  ASSERT v_row.reversals_kes IS NOT DISTINCT FROM 0,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: reversals_kes = %s, expected 0', v_row.reversals_kes);
+  ASSERT v_row.net_kes IS NOT DISTINCT FROM 30,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: net_kes = %s, expected 30', v_row.net_kes);
+  ASSERT v_row.missing_fee_rows = 0,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: missing_fee_rows = %s, expected 0', v_row.missing_fee_rows);
+  ASSERT v_row.invalid_rows = 0,
+    format('malformed-later-reversal-does-not-blank-an-earlier-period: invalid_rows = %s, expected 0', v_row.invalid_rows);
+
+  DELETE FROM public.merchant_transactions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.redemptions WHERE merchant_id = v_m_m1;
+  DELETE FROM public.deals WHERE merchant_id = v_m_m1;
+  DELETE FROM public.merchants WHERE id = v_m_m1;
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'fee contract case passed: malformed-later-reversal-does-not-blank-an-earlier-period';
+END $case$;
+
+-- ---------------------------------------------------------------------------
 -- cross-merchant-reference
 --
 -- One merchant's wallet debit pointing at another merchant's redemption.
@@ -1702,7 +1771,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000027',
+    VALUES ('__fee_case_cross-merchant-reference_m1', 'fee.case.m1', '+254710000028',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1711,7 +1780,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000028',
+    VALUES ('__fee_case_cross-merchant-reference_m2', 'fee.case.m2', '+254710000029',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1780,7 +1849,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000029',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m1', 'fee.case.m1', '+254710000030',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1789,7 +1858,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000030',
+    VALUES ('__fee_case_cross-merchant-reference-from-debited-scope_m2', 'fee.case.m2', '+254710000031',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m2;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
@@ -1855,7 +1924,7 @@ BEGIN
 
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible, account_balance, is_demo)
-    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000031',
+    VALUES ('__fee_case_malformed-fee-outside-window-does-not-prove-completeness_m1', 'fee.case.m1', '+254710000032',
             'BBS Mall', 'active', TRUE, 1000, FALSE)
     RETURNING id INTO v_m_m1;
   INSERT INTO public.deals (merchant_id, title, image_url, expires_at, is_demo)
