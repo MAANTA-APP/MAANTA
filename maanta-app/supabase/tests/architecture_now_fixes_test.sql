@@ -106,32 +106,117 @@ BEGIN
   RAISE NOTICE 'Scenario B passed: browse views enforce public visibility';
 END $$;
 
--- Scenario C: admin success-fee revenue RPC sums in SQL.
+-- Scenario C: admin_success_fee_revenue aggregates genuine linked fees.
+--
+-- REWRITTEN by 20260829120000 (drift D211). The old version inserted two
+-- unlinked `success_fee` rows and asserted the RPC returned at least 60. Under
+-- the corrected contract those rows are invisible: a ledger row carries nothing
+-- about its merchant or deal, so a fee only counts when it links to a
+-- genuine-tagged redemption (D188). The old assertion was therefore proving
+-- that an UNSCOPED sum existed, which is the defect, not the fix.
+--
+-- What it asserts now is what the shim is actually for: a genuine-tagged,
+-- fully-billed fee reaches the number, and an unlinked row does not.
 DO $$
 DECLARE
+  v_uid UUID;
   v_mid UUID;
-  v_sum NUMERIC;
+  v_did UUID;
+  v_rid UUID;
+  v_scoped RECORD;
+  v_before NUMERIC;
+  v_after  NUMERIC;
+  v_noise  NUMERIC;
+  v_baseline_ok BOOLEAN := TRUE;
 BEGIN
-  INSERT INTO public.merchants (
-    merchant_name, what3words_address, phone, node, status, is_visible, account_balance
-  )
+  -- The shim is GLOBAL, so its value depends on every row in the database, not
+  -- just this scenario's. Another suite leaving a genuine success with no fee
+  -- row would make it raise for a reason that has nothing to do with what is
+  -- being tested here. So the exact-value assertions run only when the
+  -- baseline is readable, and say so loudly when they do not — while the
+  -- SCOPED assertions below are unconditional, because a scope containing only
+  -- this scenario's merchant cannot be affected by anything else.
+  BEGIN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_before;
+  EXCEPTION WHEN OTHERS THEN
+    v_baseline_ok := FALSE;
+    RAISE NOTICE 'C: global baseline unavailable (%) — the global delta assertions are skipped, the scoped ones still run', SQLERRM;
+  END;
+
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_uid;
+  INSERT INTO public.merchants
+    (merchant_name, what3words_address, phone, node, status, is_visible, account_balance)
     VALUES ('__test_admin_rev', 'test.admin.rev', '+254700009921', 'BBS Mall', 'active', TRUE, 999)
     RETURNING id INTO v_mid;
+  INSERT INTO public.deals (merchant_id, title, image_url, expires_at)
+    VALUES (v_mid, '__test_admin_rev', 'x', NOW() + INTERVAL '30 days')
+    RETURNING id INTO v_did;
+  INSERT INTO public.redemptions
+    (deal_id, merchant_id, user_id, otp_code, status, expires_at, redeemed_at, success_fee_charged)
+    VALUES (v_did, v_mid, v_uid, '889901', 'success', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '10 minutes', 30)
+    RETURNING id INTO v_rid;
 
-  INSERT INTO public.merchant_transactions (
-    merchant_id, amount, transaction_type, payment_provider, provider_reference, description
-  )
+  -- A genuine, linked, correctly-signed fee.
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description, reference_id)
+    VALUES (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_1', 't', v_rid);
+
+  -- Unconditional: scoped to this scenario's merchant, immune to other suites.
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT v_scoped.available, 'C: this scenario''s own scope must be available';
+  ASSERT v_scoped.gross_kes = 30,
+    format('C: scoped gross = %s, expected 30', v_scoped.gross_kes);
+
+  IF v_baseline_ok THEN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_after;
+    ASSERT v_after = v_before + 30,
+      format('C: expected the linked fee to add exactly 30 (%s -> %s)', v_before, v_after);
+  END IF;
+
+  -- An UNLINKED fee row, and a top-up. Neither may move the figure: the first
+  -- cannot be tied to a genuine-tagged redemption, the second is not a fee.
+  INSERT INTO public.merchant_transactions
+    (merchant_id, amount, transaction_type, payment_provider, provider_reference, description)
     VALUES
-      (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_1', 't'),
       (v_mid, -30, 'success_fee', 'manual', '__test_arch_fee_2', 't'),
-      (v_mid, 500, 'topup', 'manual', '__test_arch_topup_1', 't');
+      (v_mid, 500, 'topup',       'manual', '__test_arch_topup_1', 't');
 
-  SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_sum;
-  ASSERT v_sum >= 60, format('C: expected at least 60 fee revenue, got %s', v_sum);
+  -- An UNLINKED fee row does not leave the figure unchanged -- it makes it
+  -- UNAVAILABLE, which is the stronger and more honest answer. The wallet
+  -- moved; the row simply points at no redemption, so nothing here can say
+  -- what was billed. Silently ignoring it (the behaviour this assertion
+  -- originally described) reported zero for money that had moved.
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT NOT v_scoped.available,
+    'C: an unlinked fee row must make the figure unavailable, not leave it unchanged';
+  ASSERT v_scoped.gross_kes IS NULL,
+    format('C: an unavailable figure must be NULL, got %s', v_scoped.gross_kes);
+  ASSERT v_scoped.invalid_rows >= 1,
+    format('C: the unlinked row must be counted invalid, got %s', v_scoped.invalid_rows);
+
+  -- The top-up on its own is not a fee and must not do that.
+  DELETE FROM public.merchant_transactions
+   WHERE provider_reference = '__test_arch_fee_2';
+  SELECT * INTO v_scoped FROM public.admin_fee_totals_for_merchants(
+    NOW() - INTERVAL '1 hour', NULL, ARRAY[v_mid]);
+  ASSERT v_scoped.available AND v_scoped.gross_kes = 30,
+    format('C: a top-up must not move the figure, got available=%s gross=%s',
+           v_scoped.available, v_scoped.gross_kes);
+
+  IF v_baseline_ok THEN
+    SELECT public.admin_success_fee_revenue(NOW() - INTERVAL '1 hour') INTO v_noise;
+    ASSERT v_noise = v_after,
+      format('C: a top-up must not move the global figure (%s -> %s)', v_after, v_noise);
+  END IF;
 
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_mid;
+  DELETE FROM public.redemptions WHERE merchant_id = v_mid;
+  DELETE FROM public.deals WHERE merchant_id = v_mid;
   DELETE FROM public.merchants WHERE id = v_mid;
-  RAISE NOTICE 'Scenario C passed: admin_success_fee_revenue aggregates';
+  DELETE FROM public.users WHERE id = v_uid;
+  RAISE NOTICE 'Scenario C passed: admin_success_fee_revenue counts genuine linked fees only';
 END $$;
 
 DO $$ BEGIN RAISE NOTICE 'ALL architecture_now_fixes scenarios passed.'; END $$;

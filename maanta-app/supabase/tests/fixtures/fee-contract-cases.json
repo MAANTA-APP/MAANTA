@@ -1,0 +1,613 @@
+{
+  "$comment": [
+    "D211 — the ONE set of semantic cases the fee contract must satisfy, proved",
+    "against BOTH implementations: `_fee_totals` in SQL (20260829120000) and",
+    "`aggregateLedgerFees` in TypeScript (lib/evidence-scope.ts).",
+    "",
+    "Two implementations of one money rule is a real risk, and the honest answer",
+    "to it is shared cases rather than a source-text scan: a phrase parser proves",
+    "the code SAYS something, these prove it DOES something. The SQL side is",
+    "generated from this file by scripts/gen-fee-contract-cases.mjs and the",
+    "generated file is checked in, with a CI drift check, so the two cannot",
+    "diverge without a red build.",
+    "",
+    "tsDivergence records where TypeScript deliberately still differs. There is",
+    "exactly one such difference and it is temporary: SQL reports availability",
+    "all-or-nothing (founder ruling 2026-08-29) while TypeScript still reports it",
+    "per bucket. B2b moves TypeScript to all-or-nothing and every tsDivergence",
+    "here must be deleted in that PR — a case still carrying one after B2b is a",
+    "contract that did not converge."
+  ],
+  "window": { "since": "2026-08-01T00:00:00Z", "until": "2026-09-01T00:00:00Z" },
+  "cases": [
+    {
+      "id": "all-four-types",
+      "description": "Every transaction type at once: both billed legs count, the reversal subtracts, the settlement is invisible.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z", "feeSnapshot": 70 }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r2", "type": "success_fee_arrears", "amount": 70, "createdAt": "2026-08-11T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T10:00:00Z" },
+        { "redemption": "r1", "type": "arrears_settlement", "amount": -30, "createdAt": "2026-08-20T10:00:01Z" }
+      ],
+      "expected": { "grossKes": 100, "reversalsKes": 30, "netKes": 70, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "charge-leg-negative",
+      "description": "success_fee is written -p_amount. Read through its own sign it is positive billed fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "arrears-leg-positive",
+      "description": "success_fee_arrears is written p_amount — POSITIVE, because it accrues a debt rather than moving the wallet. Opposite sign to the charge leg, same billed fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee_arrears", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "reversal-reduces-net-not-gross",
+      "description": "A reversal subtracts from net and leaves gross untouched. Under Math.abs over a billed set it would have added.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 30, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "settlement-excluded",
+      "description": "arrears_settlement moves an amount the arrears row already counted as billed. In gross it doubles the fee; in reversals it subtracts a fee nobody reversed.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee_arrears", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "arrears_settlement", "amount": -30, "createdAt": "2026-08-12T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "unrelated-types-excluded",
+      "description": "Top-ups, boosts, subscriptions, refunds and disputes are not fee generation. They must not move any of the three figures.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "topup", "amount": 500, "createdAt": "2026-08-11T09:00:00Z" },
+        { "redemption": "r1", "type": "boost_fee", "amount": -500, "createdAt": "2026-08-11T09:00:01Z" },
+        { "redemption": "r1", "type": "subscription", "amount": -3500, "createdAt": "2026-08-11T09:00:02Z" },
+        { "redemption": "r1", "type": "refund", "amount": 200, "createdAt": "2026-08-11T09:00:03Z" },
+        { "redemption": "r1", "type": "dispute", "amount": -50, "createdAt": "2026-08-11T09:00:04Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "invalid-polarity-charge",
+      "description": "A success_fee written POSITIVE contradicts the live function's -p_amount. Unavailable, never normalised: Math.abs read this as 30.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": 30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "invalid-polarity-reversal",
+      "description": "A fee_reversal written negative contradicts reverse_success_fee's v_fee_amount. All three unavailable under the all-or-nothing ruling.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": -30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": 30, "reversalsKes": null, "netKes": null }
+    },
+    {
+      "id": "zero-amount-fee-row",
+      "description": "Neither RPC can write a zero fee. A row that says otherwise is unexpected, not an absent fee.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": 0, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "missing-fee-row",
+      "description": "verify_redemption commits status='success' before the fee step and swallows its exception, so a genuine success can carry no ledger row at all. The total is unknown, not smaller.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "redeemedAt": "2026-08-11T09:00:00Z" }
+      ],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "zero-activity",
+      "description": "Nothing happened. That is an ANSWER, and it is zero — not unavailable. Confusing the two is how a quiet period reads as a broken read.",
+      "redemptions": [],
+      "movements": [],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-redemption",
+      "description": "D188: the redemption itself is demo-tagged. Its fee never reaches an executive figure.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "redemption": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-merchant",
+      "description": "D188: the parent merchant is demo-tagged. The ledger row itself carries nothing about its merchant, which is why this is a join and not a column read.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "merchant": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "d188-demo-deal",
+      "description": "D188, the live production shape: a non-demo merchant holding a demo deal, and claim_deal never sets redemptions.is_demo.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "demo": { "deal": true } }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-at-since",
+      "description": "The window is half-open [since, until). A movement exactly at since is IN.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-01T00:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-01T00:00:00Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-at-until",
+      "description": "A movement exactly at until is OUT. Its redemption is outside the candidate set too, so the period stays available.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-09-01T00:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-01T00:00:00Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "boundary-movement-before-since",
+      "description": "A movement before the window contributes nothing.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-07-15T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "reversal-in-window-older-redemption",
+      "description": "THE reason the window follows the movement. A reversal posted this period against a redemption verified last period is this period's money movement, and the period can end net negative.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-07-15T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 0, "reversalsKes": 30, "netKes": -30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "fee-outside-window-proves-completeness",
+      "description": "The midnight case. A redemption verified inside the window whose fee row posted just after it: the fee row proves completeness across ALL dates while contributing nothing to this window's gross. Windowing the completeness SEARCH would manufacture an unavailable here.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-31T23:59:59Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-01T00:00:00Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "missing-fee-outside-window-does-not-poison",
+      "description": "A genuine success verified BEFORE the window with no fee row at all. It is a real gap, and it is not this period's gap: windowing the CANDIDATE SET on redeemed_at is what keeps one old failure from blanking every report forever.",
+      "redemptions": [
+        { "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" },
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }
+      ],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "scoped-excludes-other-merchants",
+      "description": "A scoped call must match the operator's actual scope. The out-of-scope merchant's fee and its missing fee are both invisible.",
+      "scope": ["m1"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [
+        { "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "r2", "merchant": "m2", "redeemedAt": "2026-08-11T09:00:00Z", "feeSnapshot": 70 },
+        { "key": "r3", "merchant": "m2", "redeemedAt": "2026-08-12T09:00:00Z" }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r2", "type": "success_fee", "amount": -70, "createdAt": "2026-08-11T09:00:01Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "scoped-empty-is-available-zero",
+      "description": "A live node with no merchants is a real state, not a reason to widen. Empty scope is available zeros — and must never fall back to global.",
+      "scope": [],
+      "merchants": ["m1"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "fee-against-non-success-redemption-is-invalid",
+      "description": "deduct_success_fee_or_record_arrears can move a merchant's wallet against a pending redemption when service_role supplies that reference. It is not earned revenue, but it cannot disappear: the period must be unavailable rather than report an available zero while money moved.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
+        { "key": "rp", "redeemedAt": "2026-08-11T09:00:00Z", "status": "pending", "feeSnapshot": 70 }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "rp", "type": "success_fee", "amount": -70, "createdAt": "2026-08-11T09:00:01Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "B2b must retain fee-bearing rows whose referenced redemption is non-success long enough to surface them as invalid; the current reader filters them out before aggregation."
+    },
+    {
+      "id": "nan-amount",
+      "description": "NaN is a valid numeric. PostgreSQL orders it ABOVE every finite value, so `> 0` accepts it and `<= 0` does not catch it, and SUM propagates it — without an explicit rejection the figure would be NaN with invalid_rows 0 and available true.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": "NaN", "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "infinite-created-at",
+      "description": "`infinity` is a valid timestamptz sorting above every bound, so SQL would include it while Date.parse('infinity') is NaN and TypeScript already calls it unknown. Both must refuse it or the two contracts answer differently on the same row.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "infinity" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "tsDivergence": { "grossKes": null, "reversalsKes": 0, "netKes": null }
+    },
+    {
+      "id": "malformed-later-reversal-does-not-blank-an-earlier-period",
+      "description": "An August redemption and a valid August fee, followed by a wrong-signed reversal in September. The reversal cannot enter August's totals and cannot prove August's completeness, so it has no bearing on August — it is invalid in its own window, not in this one. Invalidating it here would blank the August report forever.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": -30, "createdAt": "2026-09-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "valid-and-malformed-gross-evidence",
+      "description": "An in-window redemption with a valid in-window fee AND a second, malformed gross row outside the window. The valid row already answered the completeness question, so the malformed one has no bearing on this period — and invalidating it would blank the period permanently, because a link to a candidate never ages out.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": 70, "createdAt": "2026-09-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "demo-tagged-movement-excluded",
+      "description": "A synthetic movement sitting BESIDE a real one on the same genuine redemption. The demo row is well-formed and correctly signed, so nothing but its own is_demo tag distinguishes it — without that filter it adds KES 70 of invented revenue to a real figure. D188's lesson is that redemptions.is_demo is not a discriminator because claim_deal never sets it, which is a reason to add the parent join, not a reason to ignore a tag the seed scripts do set deliberately.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee_arrears", "amount": 70, "createdAt": "2026-08-11T09:00:01Z", "isDemo": true }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 },
+      "notYetInTypeScript": "FeeLedgerRow carries no is_demo and readLedgerFeeTotals does not select it, so aggregateLedgerFees counts a synthetic movement as genuine. B2b must add the column to the row type, the select, and the aggregator's drop rule."
+    },
+    {
+      "id": "orphan-reversal-without-audit-row",
+      "description": "A correctly-signed fee_reversal inserted straight into the ledger, with no fee_reversals audit row behind it. No wallet was credited and no admin approved anything, yet every other test passes it — so it would subtract from net and read as money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows, so it cannot corroborate a reversal against fee_reversals at all. B2b must either have readLedgerFeeTotals join the audit table or carry a corroborated flag on the row."
+    },
+    {
+      "id": "second-reversal-riding-on-an-existing-audit-row",
+      "description": "A genuine reversal with its audit row, plus a SECOND fee_reversal ledger row on the same redemption and no audit row of its own. Corroborating by redemption alone would let the second row borrow the first row's audit trail and double the money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-16T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows and cannot corroborate a reversal against fee_reversals at all. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
+      "id": "second-reversal-sharing-the-first-audit-timestamp",
+      "description": "The same double-reversal shape with the borrowed timestamp closed off: the second fee_reversal carries the SAME created_at as the first, so every column corroboration compares — redemption, merchant, amount, approver, snapshot and now the shared instant — matches the first row's audit. Only the wallet_transaction_id link tells them apart, which is what this case exists to keep pinned; without it the second row borrows the first's approval and doubles the money returned.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "orphan": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees sees only merchant_transactions rows and cannot corroborate a reversal against fee_reversals at all. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
+      "id": "reversal-audit-row-disagrees-on-amount",
+      "description": "The audit row points at the right ledger row but records a different amount. The ledger says KES 70 was returned and the approval says KES 30 — one of them is wrong and nothing here can tell which, so the figure is not established.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "feeSnapshot": 70 }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -70, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 70, "createdAt": "2026-08-15T09:00:00Z", "auditAmount": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "Same gap: aggregateLedgerFees cannot see fee_reversals, so it cannot notice the approval disagreeing with the ledger. B2b must join the audit table or carry a corroborated flag."
+    },
+    {
+      "id": "reversal-audit-without-an-approver",
+      "description": "A reversal and a matching audit row, but approver_user_id is NULL. reverse_success_fee raises unless the approver's role is admin, so a genuine audit row always names one — and the column is nullable, so an approver-less row is representable and satisfies every other part of corroboration.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z", "noApprover": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees cannot see fee_reversals at all, so it cannot notice a missing approver. B2b must join the audit table in readLedgerFeeTotals or carry a corroborated flag on the row."
+    },
+    {
+      "id": "fee-amount-disagrees-with-redemption-snapshot",
+      "description": "A correctly-signed success_fee of KES 70 against a redemption whose success_fee_charged is 30. deduct_success_fee_or_record_arrears writes the redemption's own snapshot and pins it to the canonical config fee, and nothing updates that snapshot afterwards — so this row was not written by the money path, and counting it reports revenue nobody billed.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -70, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries success_fee_charged but aggregateLedgerFees never compares it to the ledger amount — it deliberately reads the stored ledger value instead. B2b must decide whether the snapshot is a corroborating check or whether the two implementations differ here on purpose."
+    },
+    {
+      "id": "redemption-linked-to-another-merchants-deal",
+      "description": "A redemption naming merchant m1 against merchant m2's deal. claim_deal always copies the deal's merchant into the redemption, so the two parents disagreeing is the cross-merchant corruption one level up — and it would attribute m2's supply to m1.",
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "deal": "m2", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "The D188 join in readLedgerFeeTotals confirms both parents are non-demo but never compares them to each other, and FeeLedgerRow carries neither. B2b must add the comparison to the reader."
+    },
+    {
+      "id": "gross-posted-before-verification",
+      "description": "A fee written while the redemption was still pending, which later became successful. verify_redemption sets redeemed_at and writes the fee in one transaction, so a fee can never predate its own verification — without this rule the later status transition retroactively legitimises the earlier row.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-20T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:00Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries no redeemed_at, so aggregateLedgerFees cannot compare a movement to its verification. B2b must add it to the row type and the reader's select."
+    },
+    {
+      "id": "duplicate-gross-rows-for-one-redemption",
+      "description": "Two well-formed success_fee rows against one redemption: same merchant, same snapshot, both after verification. Every row is individually valid and the sum reports KES 60 for a KES 30 fee. verify_redemption writes exactly one, but deduct_success_fee_or_record_arrears takes a caller-supplied reference id, so a retry or a direct call produces this.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:02Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 2 },
+      "notYetInTypeScript": "aggregateLedgerFees sums each row independently and has no notion of a redemption's other fee rows. B2b must add the sibling comparison."
+    },
+    {
+      "id": "reversal-posted-before-verification",
+      "description": "A corroborated reversal dated before its redemption was verified. reverse_success_fee refuses a redemption that is not already success, so a reversal cannot predate verification any more than a fee can.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-20T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-20T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-10T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "GenuineFeeRedemption carries no redeemed_at, so aggregateLedgerFees cannot compare any movement to its verification. B2b must add it to the row type and the reader's select."
+    },
+    {
+      "id": "reversal-without-an-original-fee",
+      "description": "An in-window reversal, fully corroborated, against an older redemption that was never billed at all. reverse_success_fee raises no_fee_to_reverse for exactly this, so the shape is fabricated — and because the redemption is outside the candidate window, nothing else here would have noticed. It would report money returned for a fee that was never charged.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [
+        { "redemption": "old", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-15T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees has no notion of a redemption's other rows, so it cannot tell a reversal has no fee behind it. B2b must add the sibling comparison."
+    },
+    {
+      "id": "fee-row-with-no-redemption-parent",
+      "description": "deduct_success_fee_or_record_arrears takes p_reference_id DEFAULT NULL and merchant_transactions.reference_id has no foreign key, so an authorized caller can move a merchant's wallet and leave the fee row pointing at nothing. Every other rule is about a row that joins and then contradicts something; this is the row that never joins, and the inner join discarded it silently while the report said zero and called itself available.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-12T09:00:00Z", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and aggregateLedgerFees drops a row whose reference is not genuine, so an unparented fee is invisible to both. B2b must count it instead of dropping it."
+    },
+    {
+      "id": "unparented-fee-with-an-unplaceable-timestamp",
+      "description": "The unparented row and the unplaceable row in the same movement: no redemption parent AND created_at = infinity. It cannot reach the classified join — there is nothing to join through — so the only path that can see it is the unparented count, and a window predicate requiring isfinite() dropped it from that too. Both validation paths missed one row, and the debited merchant's report answered an available zero. No window owns an unplaceable timestamp, so every window must surface it.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "infinity", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and never fetches a non-finite timestamp, so an unparented unplaceable fee is doubly invisible to TypeScript. B2b must count it instead of dropping it."
+    },
+    {
+      "id": "flagged-success-still-counts-and-its-reversal-reduces-net",
+      "description": "Founder ruling 2026-08-29: status = success is the authoritative financial event. fraud_flags and review_required are mutable review metadata and do not independently remove an otherwise successful redemption from earned-fee totals. Adjudication that invalidates the fee corrects it through an explicit fee_reversal, which reduces net in the window its own movement falls in.",
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "fraudFlags": ["velocity", "distance"], "reviewRequired": true }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 30, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "flagged-success-counts-before-its-reversal-lands",
+      "description": "The same flagged redemption and the same reversal, read over the window BEFORE the reversal posted. The fee counts in full and net is 30 — the correction has not happened yet. This is what auditability buys: last month's figure is what last month's ledger said, and it moves only when a movement moves it, never because a review flag was toggled afterwards.",
+      "window": { "since": "2026-08-01T00:00:00Z", "until": "2026-08-15T00:00:00Z" },
+      "redemptions": [
+        { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z", "fraudFlags": ["velocity"], "reviewRequired": true }
+      ],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-20T09:00:00Z" }
+      ],
+      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+    },
+    {
+      "id": "unplaceable-fee-on-an-older-redemption-still-surfaces",
+      "description": "A fee row with created_at = infinity on a redemption verified BEFORE the window. It belongs to no window, so no window can exclude it on date grounds — and if the subject set skips it, it is never classified, never flagged, and the report returns an available zero over money that moved. The existing infinity case only passes because its redemption is itself in-window.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "old", "type": "success_fee", "amount": -30, "createdAt": "infinity" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals fetches windowed rows plus rows linked to in-window candidates, so an unplaceable row on an older redemption is never fetched at all. B2b must widen the reader's select to include non-finite timestamps."
+    },
+    {
+      "id": "negative-infinity-fee-on-an-older-redemption-surfaces",
+      "description": "The same shape at the other extreme. `-infinity` sorts BELOW every bound where `infinity` sorts above, so a window predicate written as explicit bounds has to name both — cover only the positive extreme and a fee row at `-infinity` is dropped from the subject set and never flagged, which is the identical available zero one sign over.",
+      "redemptions": [{ "key": "old", "redeemedAt": "2026-07-15T09:00:00Z" }],
+      "movements": [{ "redemption": "old", "type": "success_fee", "amount": -30, "createdAt": "-infinity" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals fetches windowed rows plus rows linked to in-window candidates, so an unplaceable row on an older redemption is never fetched at all. B2b must widen the reader's select to include non-finite timestamps at both extremes."
+    },
+    {
+      "id": "unparented-fee-at-negative-infinity",
+      "description": "The unparented unplaceable row at the other extreme: no redemption parent, `created_at = -infinity`. It cannot reach the classified join and the unparented count is the only path that can see it, so that count must name both extremes too.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "-infinity", "unlinked": true }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals narrows movements with .not(\"reference_id\", \"is\", null) and never fetches a non-finite timestamp, so an unparented row at either extreme is doubly invisible to TypeScript. B2b must count it instead of dropping it."
+    },
+    {
+      "id": "deal-owner-sees-corruption-on-its-own-deal",
+      "description": "A deal owned by m2 whose redemption and fee movement both name m1. Scoping only on the redemption's and movement's merchants leaves m2 reading an available zero while the corruption sits on m2's own deal — the same one-sided blindness already fixed for the transaction/redemption mismatch, one parent over. Both diagnostics fire: the movement is invalid on the deal mismatch, and because a malformed gross row cannot prove billing, the redemption is also unbilled. That is the same pairing every malformed-gross case shows, and it is now identical to what the global report says about this chain.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "deal": "m2", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals scopes its reads on merchant_id and never on the deal owner, and FeeLedgerRow carries neither. B2b must add the deal arm to the reader's scope."
+    },
+    {
+      "id": "deal-owner-sees-a-missing-fee-on-its-own-deal",
+      "description": "The same one-sided blindness as the deal-owner corruption case, but with NO fee movement at all — which is the shape the classified scope arm cannot reach, because there is no movement to reach the redemption through. A success naming m1 against m2's deal and never billed left m2 reading an available zero while m1 and the global report both reported the missing fee. Completeness must be scoped the same way classification is.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "deal": "m2", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 0 },
+      "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions on merchant_id alone, so a redemption against another merchant's deal never enters the deal owner's candidate set. B2b must scope completeness on the deal owner too."
+    },
+    {
+      "id": "success-with-an-unplaceable-verification-time",
+      "description": "A genuine unbilled success whose redeemed_at is `-infinity`. The candidate set is windowed on the verification event, and `-infinity` fails `>= since` while `infinity` fails `< until`, so a plain range dropped it from EVERY window — and with no fee movement there is nothing for `touched` or `classified` to reach it through. Measured before the fix: available 0 from both a bounded and an open-ended window, over a success nobody billed. The movement side already treats an unplaceable timestamp as belonging to no window; the verification side has to say the same thing.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "-infinity" }],
+      "movements": [],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals selects candidate redemptions with a plain redeemed_at range, so a non-finite or NULL verification time is never fetched. B2b must give the reader the same three-valued placement."
+    },
+    {
+      "id": "billed-success-with-an-unplaceable-verification-time",
+      "description": "The same `-infinity` verification time, but WITH a valid fee. Placing it in every window is not enough on its own: the ordering check passes, because no finite timestamp is less than `-infinity`, so the gross row is well-formed, `unbilled` is empty, and the report went back to available. An unplaceable verification time is corruption in its own right and has to be counted whether or not a fee exists — the two are separate questions and only one of them was being asked.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "-infinity" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees never inspects the redemption's own timestamp for placeability, only the movement's. B2b must add it."
+    },
+    {
+      "id": "orphan-audit-pointing-at-another-merchants-transaction",
+      "description": "An audit row for m1 whose wallet_transaction_id points at m2's top-up. Neither `touched` nor `classified` looks at an excluded transaction type, so nothing reaches that row through the movement paths, and the orphan-audit count scoped only on the audit's own chain — leaving m2 reading an available zero over a malformed audit naming m2's own wallet transaction. The next incomplete application of one parent, found by looking for exactly that.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "merchant": "m2", "type": "topup", "amount": 500, "createdAt": "2026-08-11T09:00:00Z", "auditPointsHere": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so an audit pointing at another merchant's transaction is invisible to TypeScript on both the counting and the scoping side. B2b must add both."
+    },
+    {
+      "id": "audit-and-reversal-timestamped-apart",
+      "description": "A reversal whose audit row matches on every column the corroboration checked — transaction, redemption, merchant, amount, approver — but carries a different created_at. `reverse_success_fee` writes both rows in one transaction and both columns default to now(), which is transaction-start and therefore identical across the two inserts (read from production: the RPC supplies neither timestamp). So a pair that disagrees was assembled outside the atomic path, and until this rule it could still subtract from net as a real reversal.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-12T09:00:00Z", "auditCreatedAt": "2026-08-12T09:00:05Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 2 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so it cannot compare the audit's timestamp with the movement's. B2b must add it."
+    },
+    {
+      "id": "reversal-audit-naming-a-third-merchant",
+      "description": "A fourth merchant a corrupt chain can name. `fee_reversals.merchant_id` is an independent foreign key, so an audit row can name m3 while the movement, redemption and deal all name m1. Corroboration fails, so m1 and global correctly read unavailable — but m3, whose name is on the approval, read an available zero. Scope has to match every merchant a chain names, and the audit row is one of them.",
+      "scope": ["m3"],
+      "merchants": ["m1", "m3"],
+      "redemptions": [{ "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-12T09:00:00Z", "auditMerchant": "m3" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals at all, so it can neither corroborate a reversal nor scope on the merchant its audit names. B2b must add both."
+    },
+    {
+      "id": "audit-row-pointing-at-a-non-reversal-movement",
+      "description": "The audit table read in the other direction. Every rule here starts from a movement and asks what corroborates it; nothing started from `fee_reversals`, so a row whose wallet_transaction_id points at the GROSS fee — every table constraint satisfied, no reversal movement anywhere — was never examined, because there was no reversal movement to reach it through. Measured before the fix: gross 30, net 30, available, with an approved reversal on file. The table is UNIQUE(redemption_id), so that row also blocks reverse_success_fee from ever doing the reversal properly: not just a wrong figure, a stuck one.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z", "auditPointsHere": 30 }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so an audit row with no reversal movement behind it is invisible to TypeScript entirely. B2b must read the audit table in both directions."
+    },
+    {
+      "id": "audit-against-non-success-redemption-is-invalid",
+      "description": "An approval record against a pending redemption cannot disappear merely because successful-redemption classification never admits its parent. Even when it points at an excluded transaction type, the audit direction must make the period unavailable.",
+      "redemptions": [{ "key": "rp", "redeemedAt": "2026-08-10T09:00:00Z", "status": "pending" }],
+      "movements": [{ "redemption": "rp", "type": "topup", "amount": 30, "createdAt": "2026-08-10T09:00:01Z", "auditPointsHere": 30 }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "B2b must read fee_reversals from the audit side without discarding audit chains merely because the referenced redemption is not successful."
+    },
+    {
+      "id": "reversal-posted-before-its-own-charge",
+      "description": "A reversal timestamped BEFORE the gross row it reverses. `reverse_success_fee` reads the gross row before writing the credit, so a genuine reversal always postdates its charge — but a bare sibling count could not tell the two apart. With the redemption verified outside the window, a window holding the reversal and not the later charge returned gross 0, reversals 30, net -30, available: a NEGATIVE success-fee figure presented as fact. Measured before the fix.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-07-01T09:00:00Z" }],
+      "movements": [
+        { "redemption": "r1", "type": "fee_reversal", "amount": 30, "createdAt": "2026-08-10T09:00:00Z" },
+        { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-09-10T09:00:00Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees has no notion of a redemption's other rows, so it cannot compare a reversal against the timestamp of the fee it reverses. B2b must add the sibling ordering comparison."
+    },
+    {
+      "id": "cross-merchant-reference",
+      "description": "One merchant's wallet debit pointing at another merchant's redemption. Nothing in the schema enforces equality and the fee RPC takes a caller-supplied reference id, so it is representable. Attributing it to either merchant is a guess, so it is surfaced instead — and it is visible from BOTH scopes rather than invisible from one.",
+      "scope": ["m1"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [
+        { "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }
+      ],
+      "movements": [
+        { "redemption": "r1", "merchant": "m2", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "FeeLedgerRow carries no merchant_id, so aggregateLedgerFees cannot see the mismatch at all. B2b must add it to the row type and to readLedgerFeeTotals' select."
+    },
+    {
+      "id": "cross-merchant-reference-from-debited-scope",
+      "description": "The same corrupt row seen from the OTHER side: the merchant whose wallet was actually debited. Scoping only on the redemption's merchant would make this row invisible here, so the debited merchant's report would read available and complete while its wallet moved.",
+      "scope": ["m2"],
+      "merchants": ["m1", "m2"],
+      "redemptions": [
+        { "key": "r1", "merchant": "m1", "redeemedAt": "2026-08-10T09:00:00Z" }
+      ],
+      "movements": [
+        { "redemption": "r1", "merchant": "m2", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" }
+      ],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "FeeLedgerRow carries no merchant_id, so aggregateLedgerFees cannot see the mismatch from either side. B2b must add it to the row type and to readLedgerFeeTotals' select."
+    },
+    {
+      "id": "malformed-fee-outside-window-does-not-prove-completeness",
+      "description": "The completeness search spans all dates, so a malformed row would otherwise buy an available:true with nothing behind it. A zero, wrong-signed or cross-merchant row is not a fee, whatever its date.",
+      "redemptions": [{ "key": "r1", "redeemedAt": "2026-08-31T23:59:59Z" }],
+      "movements": [{ "redemption": "r1", "type": "success_fee", "amount": 30, "createdAt": "2026-09-01T00:00:00Z" }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 1, "invalidRows": 1 },
+      "notYetInTypeScript": "aggregateLedgerFees adds a gross row to `billed` BEFORE testing its polarity, so a malformed out-of-window row still satisfies its completeness check. B2b must move that test ahead of the billed.add."
+    }
+  ]
+}
