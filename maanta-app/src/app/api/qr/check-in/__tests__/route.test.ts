@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST, DELETE } from "../route";
+import { GET, POST, DELETE } from "../route";
 
 // The QR check-in route. The properties that matter:
 //
@@ -43,6 +43,7 @@ const rpc = vi.fn(() => ({ single: rpcSingle }));
 // Service client — arrival RPC + token resolve + queue rows.
 let merchantRow: Record<string, unknown> | null;
 let waitingRow: { id: string; expires_at: string } | null;
+let claimRow: { id: string } | null;
 /** Rows the renew UPDATE matched — empty means it lost a race (D197). */
 let renewMatched: Array<{ id: string }>;
 /** Payloads passed to .update(), so a test can assert what was written. */
@@ -56,13 +57,21 @@ vi.mock("@/lib/supabase/service", () => ({
     rpc,
     from: (table: string) => {
       if (table === "merchants") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve({ data: merchantRow, error: null }),
-            }),
-          }),
-        };
+        const merchantChain: Record<string, unknown> = {};
+        merchantChain.select = () => merchantChain;
+        merchantChain.eq = () => merchantChain;
+        merchantChain.maybeSingle = () =>
+          Promise.resolve({ data: merchantRow, error: null });
+        return merchantChain;
+      }
+      if (table === "redemptions") {
+        const claimChain: Record<string, unknown> = {};
+        claimChain.select = () => claimChain;
+        claimChain.eq = () => claimChain;
+        claimChain.gt = () => claimChain;
+        claimChain.maybeSingle = () =>
+          Promise.resolve({ data: claimRow, error: null });
+        return claimChain;
       }
       // merchant_presentations. `select` is overloaded in the real client: it
       // opens a read chain, and it also TERMINATES an update chain. The mock
@@ -129,6 +138,7 @@ describe("POST /api/qr/check-in", () => {
       is_shadow_banned: false,
     };
     waitingRow = null;
+    claimRow = { id: RID };
     renewMatched = [{ id: "p-1" }];
     queueInsertError = null;
     queueUpdateError = null;
@@ -301,6 +311,44 @@ describe("POST /api/qr/check-in", () => {
     expect(queueCapture).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "user-1", renewed: false })
     );
+  });
+});
+
+describe("GET /api/qr/check-in", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    merchantRow = {
+      id: "merchant-token-1",
+      merchant_name: "Pepper Pot",
+      node: "BBS Mall",
+      status: "active",
+      is_visible: true,
+      is_shadow_banned: false,
+    };
+    waitingRow = { id: "p-1", expires_at: FUTURE };
+    claimRow = { id: RID };
+  });
+
+  const getReq = () =>
+    new Request(
+      `http://localhost/api/qr/check-in?token=${TOKEN}&redemptionId=${RID}`
+    );
+
+  it("confirms only a live queue row backed by a live owned claim", async () => {
+    const res = await GET(getReq());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ checkedIn: true, expiresAt: FUTURE });
+  });
+
+  it("reports lapsed when either the queue row or claim is no longer live", async () => {
+    waitingRow = null;
+    const noQueue = await GET(getReq());
+    expect(await noQueue.json()).toEqual({ checkedIn: false, expiresAt: null });
+
+    waitingRow = { id: "p-1", expires_at: FUTURE };
+    claimRow = null;
+    const noClaim = await GET(getReq());
+    expect(await noClaim.json()).toEqual({ checkedIn: false, expiresAt: null });
   });
 });
 

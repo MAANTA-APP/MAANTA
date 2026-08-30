@@ -31,6 +31,9 @@ type CheckedIn = {
   claimedAt?: string | null;
 };
 
+/** D217's total bound from the expected queue lapse to a neutral answer. */
+export const QUEUE_CONFIRMATION_BOUND_MS = 30_000;
+
 export function QrCheckIn({
   token,
   merchantId,
@@ -38,6 +41,7 @@ export function QrCheckIn({
   merchantFloor,
   claims,
   alreadyCheckedInFor,
+  alreadyCheckedInExpiresAt,
 }: {
   token: string;
   merchantId: string;
@@ -45,25 +49,32 @@ export function QrCheckIn({
   merchantFloor: string | null;
   claims: Claim[];
   alreadyCheckedInFor: string | null;
+  alreadyCheckedInExpiresAt: string | null;
 }) {
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "posting" }
-    | { kind: "checked-in"; info: CheckedIn; redemptionId: string; already: boolean }
+    | { kind: "checked-in"; info: CheckedIn; redemptionId: string; already: boolean; queueExpiresAt: string }
+    | { kind: "confirming-membership"; redemptionId: string }
+    | { kind: "membership-lapsed"; redemptionId: string }
+    | { kind: "membership-unknown"; redemptionId: string; message: string }
     | { kind: "cancelled"; redemptionId: string }
     | { kind: "cancel-error"; redemptionId: string; message: string }
     | { kind: "error"; message: string }
   >(
-    alreadyCheckedInFor
+    alreadyCheckedInFor && alreadyCheckedInExpiresAt
       ? {
           kind: "checked-in",
           info: { merchantName, arrivedAt: "", fastVisitEligible: false },
           redemptionId: alreadyCheckedInFor,
           already: true,
+          queueExpiresAt: alreadyCheckedInExpiresAt,
         }
       : { kind: "idle" }
   );
   const autoFired = useRef(false);
+  const confirmationFiredFor = useRef<string | null>(null);
+  const now = useShopperClock();
 
   const checkIn = useCallback(
     async (redemptionId: string) => {
@@ -87,6 +98,7 @@ export function QrCheckIn({
           kind: "checked-in",
           redemptionId,
           already: false,
+          queueExpiresAt: body.queueExpiresAt,
           info: {
             merchantName: body.merchantName ?? merchantName,
             arrivedAt: body.arrivedAt ?? "",
@@ -103,6 +115,54 @@ export function QrCheckIn({
     [token, merchantName]
   );
 
+  const confirmMembership = useCallback(
+    async (redemptionId: string, timeoutMs = QUEUE_CONFIRMATION_BOUND_MS) => {
+      setState({ kind: "confirming-membership", redemptionId });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        Math.max(0, Math.min(QUEUE_CONFIRMATION_BOUND_MS, timeoutMs))
+      );
+      try {
+        const query = new URLSearchParams({ token, redemptionId });
+        const res = await fetch(`/api/qr/check-in?${query.toString()}`, {
+          method: "GET",
+          signal: controller.signal,
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          setState({
+            kind: "membership-unknown",
+            redemptionId,
+            message: "We couldn’t confirm whether you’re still checked in.",
+          });
+          return;
+        }
+        if (body?.checkedIn === true && typeof body.expiresAt === "string") {
+          confirmationFiredFor.current = null;
+          setState({
+            kind: "checked-in",
+            redemptionId,
+            already: true,
+            queueExpiresAt: body.expiresAt,
+            info: { merchantName, arrivedAt: "", fastVisitEligible: false },
+          });
+          return;
+        }
+        setState({ kind: "membership-lapsed", redemptionId });
+      } catch {
+        setState({
+          kind: "membership-unknown",
+          redemptionId,
+          message: "We couldn’t confirm whether you’re still checked in.",
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    },
+    [merchantName, token]
+  );
+
   // Single-claim auto check-in — once, on mount.
   //
   // Deliberately keyed on the claim set the page ARRIVED with, not on the live
@@ -117,10 +177,29 @@ export function QrCheckIn({
     void checkIn(claims[0].redemptionId);
   }, [alreadyCheckedInFor, claims, checkIn]);
 
+  // D217: the clock may decide WHEN to ask, never the answer. On the first
+  // shared-clock tick at or after the expected lapse (at most 30 seconds),
+  // withdraw both checked-in claims before making the server confirmation.
+  useEffect(() => {
+    if (state.kind !== "checked-in") return;
+    if (new Date(state.queueExpiresAt).getTime() > now.getTime()) return;
+    const key = `${state.redemptionId}:${state.queueExpiresAt}`;
+    if (confirmationFiredFor.current === key) return;
+    confirmationFiredFor.current = key;
+    // The 30-second bound is TOTAL from the expected lapse, not another 30
+    // seconds after this (up-to-30-second) clock tick noticed it. Spend only
+    // the part of that budget that remains, so a hung request cannot extend
+    // checked-in ambiguity to almost a minute.
+    const lapsedByMs = Math.max(0, now.getTime() - new Date(state.queueExpiresAt).getTime());
+    void confirmMembership(
+      state.redemptionId,
+      QUEUE_CONFIRMATION_BOUND_MS - lapsedByMs
+    );
+  }, [confirmMembership, now, state]);
+
   // D213 criterion 3 — an expired claim leaves the chooser rather than staying
   // selectable until the check-in API rejects the tap. Selection only; the
   // auto-check-in above stays on the arrival set.
-  const now = useShopperClock();
   const liveClaims = claims.filter((c) => isUnexpiredAt(c.expiresAt, now));
 
   const cancel = useCallback(async (redemptionId: string) => {
@@ -212,6 +291,52 @@ export function QrCheckIn({
         <p className="mt-2 text-xs text-muted">
           Cancelling only leaves the queue — your claim stays valid.
         </p>
+      </div>
+    );
+  }
+
+  if (state.kind === "confirming-membership") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-ink">Confirming your queue status…</h1>
+        <p className="mt-3 text-sm text-secondary">
+          MAANTA is checking with the shop before showing a status.
+        </p>
+      </div>
+    );
+  }
+
+  if (state.kind === "membership-lapsed") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-ink">You’re no longer checked in.</h1>
+        <p className="mt-3 text-sm text-secondary">
+          Your queue entry ended. Your claim may still be valid.
+        </p>
+        <Button full className="mt-8" onClick={() => void checkIn(state.redemptionId)}>
+          Check in again
+        </Button>
+        <ButtonLink href={`/tickets/${state.redemptionId}`} variant="ghost" full className="mt-3">
+          Show my code
+        </ButtonLink>
+      </div>
+    );
+  }
+
+  if (state.kind === "membership-unknown") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-bold text-ink">Queue status unavailable</h1>
+        <p className="mt-3 text-sm text-secondary">{state.message}</p>
+        <p className="mt-2 text-xs text-muted">
+          MAANTA won’t say you’re checked in until the shop confirms it.
+        </p>
+        <Button full className="mt-8" onClick={() => void confirmMembership(state.redemptionId)}>
+          Try again
+        </Button>
+        <ButtonLink href={`/tickets/${state.redemptionId}`} variant="ghost" full className="mt-3">
+          Show my code
+        </ButtonLink>
       </div>
     );
   }

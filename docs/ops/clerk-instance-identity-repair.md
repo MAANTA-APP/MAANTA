@@ -139,6 +139,12 @@ Run as one transaction, substituting the two ids from detection:
 ```sql
 BEGIN;
 
+-- D124: the identity-freeze trigger permits this operator repair only when
+-- the transaction carries the service_role claim. Run this in the Supabase
+-- SQL editor; the MCP execute_sql session classifier does not provide this
+-- practical repair path.
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
 -- 1. Release the new sub from the duplicate row.
 UPDATE public.users
    SET clerk_user_id = NULL

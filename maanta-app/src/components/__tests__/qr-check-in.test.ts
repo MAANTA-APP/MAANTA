@@ -24,6 +24,7 @@ function render(props: Partial<Parameters<typeof QrCheckIn>[0]> = {}) {
       merchantFloor: "1st floor",
       claims: [],
       alreadyCheckedInFor: null,
+      alreadyCheckedInExpiresAt: props.alreadyCheckedInFor ? LIVE : null,
       ...props,
     })
   );
@@ -111,5 +112,37 @@ describe("QrCheckIn states", () => {
     ]) {
       expect(html).not.toContain("text-brand");
     }
+  });
+
+  it("withdraws checked-in certainty at lapse and never rejoins automatically (D217)", () => {
+    const src = readFileSync(
+      path.resolve(process.cwd(), "src/app/(shopper)/qr/[token]/qr-check-in.tsx"),
+      "utf8"
+    );
+    expect(src).toContain('state.kind !== "checked-in"');
+    expect(src).toContain("new Date(state.queueExpiresAt).getTime() > now.getTime()");
+    expect(src).toContain('kind: "confirming-membership"');
+    expect(src).toContain('kind: "membership-lapsed"');
+    expect(src).toContain('kind: "membership-unknown"');
+    expect(src).toContain("QUEUE_CONFIRMATION_BOUND_MS - lapsedByMs");
+    expect(src).toContain("Math.min(QUEUE_CONFIRMATION_BOUND_MS, timeoutMs)");
+    expect(src).toContain("Confirming your queue status");
+    expect(src).toContain("Queue status unavailable");
+    expect(src).toContain("You’re no longer checked in");
+
+    const confirmationEffect = src.slice(
+      src.indexOf("// D217: the clock may decide WHEN"),
+      src.indexOf("// D213 criterion 3")
+    );
+    expect(confirmationEffect).toContain("void confirmMembership(");
+    expect(confirmationEffect).toContain("state.redemptionId");
+    expect(confirmationEffect).not.toContain("checkIn(");
+
+    const lapsedState = src.slice(
+      src.indexOf('state.kind === "membership-lapsed"'),
+      src.indexOf('state.kind === "membership-unknown"')
+    );
+    expect(lapsedState).toContain("Check in again");
+    expect(lapsedState).toContain("checkIn(state.redemptionId)");
   });
 });
