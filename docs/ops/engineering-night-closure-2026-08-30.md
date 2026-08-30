@@ -19,22 +19,39 @@ the separately authorized production migration apply.
 | Merchant money | Wallet balance is rendered through `formatKes` | D180 |
 | Founder console | Segment loading and Sentry-reporting error boundaries added | D181 |
 | Nairobi time | `friendlyTime` uses the Nairobi wall clock and Nairobi calendar day | D209 |
-| Shopper inventory | Inventory-advertising routes refresh within 30 seconds and on resume | D213 criterion 4 |
-| Counter queue | Queue lapse is confirmed server-side; uncertainty is neutral; rejoin is explicit only | D217 |
+| Shopper inventory | Inventory-advertising routes refresh within 30 seconds and on resume; cached discovery routes use a short-lived, per-shopper cache bypass | D213 criterion 4 |
+| Counter queue | Queue membership is polled from the server on a 15-second cadence with a 15-second response budget; uncertainty is neutral and rejoin is explicit only | D217 |
 | Ledger grants | Fresh deployments revoke authenticated INSERT/UPDATE/DELETE on `merchant_transactions` | D169, pending CI/apply |
 | Identity repair | Runbook now supplies the D124 service-role session claim | D155 |
 | Drift governance | The second register is explicitly historical and D86's exercised process control is closed | D27, D86 |
 
 ## Verification
 
-- Full Vitest board: **173 files, 1,719 tests passed**.
+- Full Vitest board: **174 files, 1,725 tests passed**.
 - ESLint: **no warnings or errors**.
 - TypeScript: **passed** (`tsc --noEmit`).
 - Production build: **passed**, including token, canonical and server-form gates.
 - `git diff --check`: **passed**.
 - Focused QR confirmation suite: API and component tests cover live membership,
-  missing queue/claim, total confirmation bound, neutral failure state and the
-  explicit-only rejoin path.
+  missing queue/claim, the server-authoritative 15s + 15s total confirmation
+  bound, neutral failure state and the explicit-only rejoin path.
+- Focused inventory suite: proves Feed/Browse/Map await a short-lived HttpOnly
+  bypass marker before their RSC refresh, while ordinary reads retain the
+  shared node cache and context-free `getLiveDeals` tests remain intact.
+
+## Post-review closure
+
+Two valid blocking findings arrived after the first remote-green head and are
+fixed in this tree:
+
+1. The SSR-seeded shopper clock could lag real server time during response and
+   hydration, extending a checked-in claim after its real queue lapse. A fixed
+   server-membership poll now closes the bound independently of that clock.
+2. `router.refresh()` could receive the stale half of Next's cached
+   stale-while-revalidate cycle, leaving exhausted inventory visible for a
+   second interval. Polling refreshes now bypass that cache for a short-lived
+   requesting-shopper window without globally evicting the shared
+   node cache.
 
 The disposable PostgreSQL gate could not run in this execution image: Docker
 and the Supabase CLI are both absent, and privilege escalation is unavailable.

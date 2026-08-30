@@ -33,6 +33,19 @@ type CheckedIn = {
 
 /** D217's total bound from the expected queue lapse to a neutral answer. */
 export const QUEUE_CONFIRMATION_BOUND_MS = 30_000;
+/**
+ * The shared shopper clock starts from the server render, so hydration delay
+ * cannot be part of D217's correctness bound. A server poll at half the bound,
+ * with the other half reserved for its response, closes that gap.
+ */
+export const QUEUE_MEMBERSHIP_POLL_MS = 15_000;
+export const QUEUE_MEMBERSHIP_REQUEST_TIMEOUT_MS =
+  QUEUE_CONFIRMATION_BOUND_MS - QUEUE_MEMBERSHIP_POLL_MS;
+
+type MembershipResult =
+  | { kind: "live"; expiresAt: string }
+  | { kind: "lapsed" }
+  | { kind: "unknown" };
 
 export function QrCheckIn({
   token,
@@ -76,6 +89,42 @@ export function QrCheckIn({
   const confirmationFiredFor = useRef<string | null>(null);
   const now = useShopperClock();
 
+  const readMembership = useCallback(
+    async (
+      redemptionId: string,
+      timeoutMs: number,
+      outerSignal?: AbortSignal
+    ): Promise<MembershipResult> => {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      outerSignal?.addEventListener("abort", abort, { once: true });
+      const timeout = window.setTimeout(
+        abort,
+        Math.max(0, Math.min(QUEUE_CONFIRMATION_BOUND_MS, timeoutMs))
+      );
+      try {
+        const query = new URLSearchParams({ token, redemptionId });
+        const res = await fetch(`/api/qr/check-in?${query.toString()}`, {
+          method: "GET",
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) return { kind: "unknown" };
+        if (body?.checkedIn === true && typeof body.expiresAt === "string") {
+          return { kind: "live", expiresAt: body.expiresAt };
+        }
+        return { kind: "lapsed" };
+      } catch {
+        return { kind: "unknown" };
+      } finally {
+        window.clearTimeout(timeout);
+        outerSignal?.removeEventListener("abort", abort);
+      }
+    },
+    [token]
+  );
+
   const checkIn = useCallback(
     async (redemptionId: string) => {
       setState({ kind: "posting" });
@@ -118,49 +167,29 @@ export function QrCheckIn({
   const confirmMembership = useCallback(
     async (redemptionId: string, timeoutMs = QUEUE_CONFIRMATION_BOUND_MS) => {
       setState({ kind: "confirming-membership", redemptionId });
-      const controller = new AbortController();
-      const timeout = window.setTimeout(
-        () => controller.abort(),
-        Math.max(0, Math.min(QUEUE_CONFIRMATION_BOUND_MS, timeoutMs))
-      );
-      try {
-        const query = new URLSearchParams({ token, redemptionId });
-        const res = await fetch(`/api/qr/check-in?${query.toString()}`, {
-          method: "GET",
-          signal: controller.signal,
-        });
-        const body = await res.json().catch(() => null);
-        if (!res.ok) {
-          setState({
-            kind: "membership-unknown",
-            redemptionId,
-            message: "We couldn’t confirm whether you’re still checked in.",
-          });
-          return;
-        }
-        if (body?.checkedIn === true && typeof body.expiresAt === "string") {
-          confirmationFiredFor.current = null;
-          setState({
-            kind: "checked-in",
-            redemptionId,
-            already: true,
-            queueExpiresAt: body.expiresAt,
-            info: { merchantName, arrivedAt: "", fastVisitEligible: false },
-          });
-          return;
-        }
-        setState({ kind: "membership-lapsed", redemptionId });
-      } catch {
+      const result = await readMembership(redemptionId, timeoutMs);
+      if (result.kind === "live") {
+        confirmationFiredFor.current = null;
         setState({
-          kind: "membership-unknown",
+          kind: "checked-in",
           redemptionId,
-          message: "We couldn’t confirm whether you’re still checked in.",
+          already: true,
+          queueExpiresAt: result.expiresAt,
+          info: { merchantName, arrivedAt: "", fastVisitEligible: false },
         });
-      } finally {
-        window.clearTimeout(timeout);
+        return;
       }
+      if (result.kind === "lapsed") {
+        setState({ kind: "membership-lapsed", redemptionId });
+        return;
+      }
+      setState({
+        kind: "membership-unknown",
+        redemptionId,
+        message: "We couldn’t confirm whether you’re still checked in.",
+      });
     },
-    [merchantName, token]
+    [merchantName, readMembership]
   );
 
   // Single-claim auto check-in — once, on mount.
@@ -176,6 +205,50 @@ export function QrCheckIn({
     autoFired.current = true;
     void checkIn(claims[0].redemptionId);
   }, [alreadyCheckedInFor, claims, checkIn]);
+
+  // Server-authoritative backstop. The shopper clock deliberately preserves
+  // the SSR seed to keep every time-derived label in step, but a slow response
+  // or hydration can make that seed older than the browser's wall clock. Poll
+  // independently so that no such delay can extend a checked-in claim: within
+  // 15 seconds we ask the server and within the remaining 15 seconds we either
+  // have its answer or withdraw certainty.
+  useEffect(() => {
+    if (state.kind !== "checked-in") return;
+    let inFlight = false;
+    let controller: AbortController | null = null;
+    const redemptionId = state.redemptionId;
+
+    const pollMembership = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      controller = new AbortController();
+      const result = await readMembership(
+        redemptionId,
+        QUEUE_MEMBERSHIP_REQUEST_TIMEOUT_MS,
+        controller.signal
+      );
+      if (controller.signal.aborted) return;
+      if (result.kind === "lapsed") {
+        setState({ kind: "membership-lapsed", redemptionId });
+      } else if (result.kind === "unknown") {
+        setState({
+          kind: "membership-unknown",
+          redemptionId,
+          message: "We couldn’t confirm whether you’re still checked in.",
+        });
+      }
+      inFlight = false;
+    };
+
+    const timer = window.setInterval(
+      pollMembership,
+      QUEUE_MEMBERSHIP_POLL_MS
+    );
+    return () => {
+      window.clearInterval(timer);
+      controller?.abort();
+    };
+  }, [readMembership, state]);
 
   // D217: the clock may decide WHEN to ask, never the answer. On the first
   // shared-clock tick at or after the expected lapse (at most 30 seconds),
