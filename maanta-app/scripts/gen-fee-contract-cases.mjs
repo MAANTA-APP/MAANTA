@@ -105,16 +105,11 @@ function renderCase(c, windowDefault) {
     // cannot produce, where a redemption's two parents disagree about whose
     // shop it belongs to.
     p(`    VALUES (v_d_${r.deal ?? m}, v_m_${m}, v_uid, ${q(String(++otp))}, ${q(r.status ?? "success")},`);
-    // `redeemed_at` is nullable in production, and `infinity`/`-infinity` are
-    // valid timestamptz values, so a genuine success can carry a verification
-    // time that belongs to no window. `expires_at` is derived from it for a
-    // real row, but a NULL verification time still needs a usable expiry, so
-    // it falls back to a fixed one rather than propagating the NULL.
-    const redeemedAt = r.redeemedAt === null ? "NULL" : q(r.redeemedAt);
-    const expiresAt =
-      r.redeemedAt === null
-        ? `'2026-08-10T10:00:00Z'::timestamptz`
-        : `${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour'`;
+    // `redeemed_at` is NOT NULL in production. `infinity`/`-infinity` are still
+    // valid timestamptz values, so a success can carry an unplaceable time, but
+    // the fixture must never manufacture a NULL row the real schema rejects.
+    const redeemedAt = q(r.redeemedAt);
+    const expiresAt = `${q(r.redeemedAt)}::timestamptz + INTERVAL '1 hour'`;
     p(`            ${expiresAt}, ${redeemedAt}, ${num(r.feeSnapshot ?? 30)},`);
     p(`            ${r.demo?.redemption ? "TRUE" : "FALSE"},`);
     // Review metadata is MUTABLE and must not decide a financial figure

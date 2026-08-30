@@ -175,7 +175,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "missing-fee-outside-window-does-not-poison",
       "scoped-excludes-other-merchants",
       "scoped-empty-is-available-zero",
-      "fee-against-non-success-redemption-excluded",
+      "fee-against-non-success-redemption-is-invalid",
       "nan-amount",
       "infinite-created-at",
       "malformed-later-reversal-does-not-blank-an-earlier-period",
@@ -207,6 +207,7 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
       "audit-and-reversal-timestamped-apart",
       "reversal-audit-naming-a-third-merchant",
       "audit-row-pointing-at-a-non-reversal-movement",
+      "audit-against-non-success-redemption-is-invalid",
       "reversal-posted-before-its-own-charge",
       "cross-merchant-reference",
       "cross-merchant-reference-from-debited-scope",
@@ -338,6 +339,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
     // the tsDivergence entries.
     const gaps = spec.cases.filter((c) => c.notYetInTypeScript);
     expect(gaps.map((c) => c.id).sort()).toEqual([
+      "audit-against-non-success-redemption-is-invalid",
       "audit-and-reversal-timestamped-apart",
       "audit-row-pointing-at-a-non-reversal-movement",
       "billed-success-with-an-unplaceable-verification-time",
@@ -347,6 +349,7 @@ describe("the TypeScript divergence is temporary and tracked", () => {
       "deal-owner-sees-corruption-on-its-own-deal",
       "demo-tagged-movement-excluded",
       "duplicate-gross-rows-for-one-redemption",
+      "fee-against-non-success-redemption-is-invalid",
       "fee-amount-disagrees-with-redemption-snapshot",
       "fee-row-with-no-redemption-parent",
       "gross-posted-before-verification",
@@ -376,9 +379,9 @@ describe("the TypeScript divergence is temporary and tracked", () => {
   });
 
   it("still runs every other case through TypeScript", () => {
-    // The skip must stay narrow. Two skipped, all the rest asserted.
+    // The skip must stay narrow. Every other case is asserted in TypeScript.
     const skipped = spec.cases.filter((c) => c.notYetInTypeScript).length;
-    expect(spec.cases.length - skipped).toBe(29);
+    expect(spec.cases.length - skipped).toBe(28);
   });
 
   it("only ever diverges by reporting availability per bucket", () => {

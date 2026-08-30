@@ -223,8 +223,8 @@
       "expected": { "grossKes": 0, "reversalsKes": 0, "netKes": 0, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
     },
     {
-      "id": "fee-against-non-success-redemption-excluded",
-      "description": "deduct_success_fee_or_record_arrears will write a fee against a pending redemption if service_role asks it to. A fee may only be counted against a redemption the counter actually verified, and readLedgerFeeTotals builds its genuine set with status = success.",
+      "id": "fee-against-non-success-redemption-is-invalid",
+      "description": "deduct_success_fee_or_record_arrears can move a merchant's wallet against a pending redemption when service_role supplies that reference. It is not earned revenue, but it cannot disappear: the period must be unavailable rather than report an available zero while money moved.",
       "redemptions": [
         { "key": "r1", "redeemedAt": "2026-08-10T09:00:00Z" },
         { "key": "rp", "redeemedAt": "2026-08-11T09:00:00Z", "status": "pending", "feeSnapshot": 70 }
@@ -233,7 +233,8 @@
         { "redemption": "r1", "type": "success_fee", "amount": -30, "createdAt": "2026-08-10T09:00:01Z" },
         { "redemption": "rp", "type": "success_fee", "amount": -70, "createdAt": "2026-08-11T09:00:01Z" }
       ],
-      "expected": { "grossKes": 30, "reversalsKes": 0, "netKes": 30, "available": true, "missingFeeRows": 0, "invalidRows": 0 }
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "B2b must retain fee-bearing rows whose referenced redemption is non-success long enough to surface them as invalid; the current reader filters them out before aggregation."
     },
     {
       "id": "nan-amount",
@@ -552,6 +553,14 @@
       ],
       "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
       "notYetInTypeScript": "readLedgerFeeTotals never reads fee_reversals, so an audit row with no reversal movement behind it is invisible to TypeScript entirely. B2b must read the audit table in both directions."
+    },
+    {
+      "id": "audit-against-non-success-redemption-is-invalid",
+      "description": "An approval record against a pending redemption cannot disappear merely because successful-redemption classification never admits its parent. Even when it points at an excluded transaction type, the audit direction must make the period unavailable.",
+      "redemptions": [{ "key": "rp", "redeemedAt": "2026-08-10T09:00:00Z", "status": "pending" }],
+      "movements": [{ "redemption": "rp", "type": "topup", "amount": 30, "createdAt": "2026-08-10T09:00:01Z", "auditPointsHere": 30 }],
+      "expected": { "grossKes": null, "reversalsKes": null, "netKes": null, "available": false, "missingFeeRows": 0, "invalidRows": 1 },
+      "notYetInTypeScript": "B2b must read fee_reversals from the audit side without discarding audit chains merely because the referenced redemption is not successful."
     },
     {
       "id": "reversal-posted-before-its-own-charge",

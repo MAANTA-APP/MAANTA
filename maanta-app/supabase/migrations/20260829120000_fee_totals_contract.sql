@@ -263,12 +263,11 @@ BEGIN
       r.id AS redemption_id,
       t.created_at,
       -- A fee may only be counted against a redemption the counter actually
-      -- verified. `deduct_success_fee_or_record_arrears` will write a row
-      -- against a pending, failed or flagged redemption if service_role asks
-      -- it to, and `readLedgerFeeTotals` builds its genuine set with
-      -- `.eq("status", "success")` — so without this the SQL and TypeScript
-      -- contracts disagree, and the SQL one reports a fee against an unverified
-      -- redemption as earned.
+      -- verified. `deduct_success_fee_or_record_arrears` can write against a
+      -- pending or failed redemption when service_role supplies that reference.
+      -- Those rows are excluded from earned totals here and independently
+      -- counted as invalid by `non_success_movements` below; otherwise an
+      -- available zero could hide a wallet movement.
       CASE t.transaction_type
         WHEN 'success_fee'         THEN 'gross'
         WHEN 'success_fee_arrears' THEN 'gross'
@@ -630,8 +629,7 @@ BEGIN
       JOIN public.redemptions r ON r.id = fr.redemption_id
       JOIN public.merchants   m ON m.id = r.merchant_id
       JOIN public.deals       d ON d.id = r.deal_id
-     WHERE r.status = 'success'
-       AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+     WHERE NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
        AND (NOT p_scoped
             OR fr.merchant_id = ANY (p_merchant_ids)
             OR r.merchant_id  = ANY (p_merchant_ids)
@@ -666,6 +664,39 @@ BEGIN
             AND rt.created_at = fr.created_at
        )
   ),
+  -- A fee-bearing movement against an existing but non-success redemption is
+  -- neither earned revenue nor safely ignorable. The service-role fee RPC
+  -- accepts a caller-supplied reference id, so this shape can move a merchant's
+  -- wallet. Excluding it from `classified` is correct for the totals; failing
+  -- to validate it is not -- that returned an available zero while money had
+  -- moved. This CTE closes the validation side independently of the successful
+  -- redemption set.
+  --
+  -- Demo chains remain excluded under D188. Scope follows every merchant the
+  -- malformed chain can name: redemption, movement, deal owner, and audit.
+  non_success_movements AS (
+    SELECT (COUNT(*))::integer AS n
+      FROM public.merchant_transactions t
+      JOIN public.redemptions r ON r.id = t.reference_id
+      JOIN public.merchants   m ON m.id = r.merchant_id
+      JOIN public.deals       d ON d.id = r.deal_id
+     WHERE t.transaction_type IN ('success_fee', 'success_fee_arrears', 'fee_reversal')
+       AND r.status IS DISTINCT FROM 'success'
+       AND NOT t.is_demo
+       AND NOT r.is_demo AND NOT m.is_demo AND NOT d.is_demo
+       AND (NOT p_scoped
+            OR r.merchant_id = ANY (p_merchant_ids)
+            OR t.merchant_id = ANY (p_merchant_ids)
+            OR d.merchant_id = ANY (p_merchant_ids)
+            OR EXISTS (SELECT 1
+                         FROM public.fee_reversals fr_scope
+                        WHERE fr_scope.redemption_id = r.id
+                          AND fr_scope.merchant_id = ANY (p_merchant_ids)))
+       AND (   (t.created_at >= p_since
+                AND (p_until IS NULL OR t.created_at < p_until))
+            OR t.created_at =  'infinity'::timestamptz
+            OR t.created_at = '-infinity'::timestamptz)
+  ),
   -- A verification time that cannot be placed is itself corruption, not merely
   -- a placement problem. The movement side already says so -- a non-finite
   -- `created_at` is malformed -- and without the same rule here a `-infinity`
@@ -679,12 +710,13 @@ BEGIN
       JOIN public.redemptions r ON r.id = k.id
      WHERE NOT isfinite(r.redeemed_at)
   )
-  SELECT t.gross, t.reversals, t.invalid + u.n + oa.n + uv.n, m.n
+  SELECT t.gross, t.reversals, t.invalid + u.n + oa.n + ns.n + uv.n, m.n
     INTO v_gross, v_reversals, v_invalid, v_missing
     FROM totals t
     CROSS JOIN missing m
     CROSS JOIN unparented u
     CROSS JOIN orphan_audits oa
+    CROSS JOIN non_success_movements ns
     CROSS JOIN unplaceable_verifications uv;
 
   IF v_missing > 0 OR v_invalid > 0 THEN
