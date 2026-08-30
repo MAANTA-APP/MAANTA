@@ -15,6 +15,7 @@ DECLARE
   v_mid UUID;
   v_plan TEXT := '';
   v_line TEXT;
+  v_created_at_filter BOOLEAN := FALSE;
 BEGIN
   INSERT INTO public.merchants
     (merchant_name, what3words_address, phone, node, status, is_visible,
@@ -73,6 +74,8 @@ BEGIN
             OR t.created_at = '-infinity'::timestamptz)
   $explain$ LOOP
     v_plan := v_plan || v_line || E'\n';
+    v_created_at_filter := v_created_at_filter
+      OR (v_line LIKE '%Filter:%' AND v_line LIKE '%created_at%');
   END LOOP;
 
   ASSERT v_plan LIKE '%BitmapOr%',
@@ -81,7 +84,7 @@ BEGIN
            / length('Index Cond:') >= 3,
     format('fee window must expose three Index Cond branches, got:%s%s',
            E'\n', v_plan);
-  ASSERT v_plan NOT LIKE '%Filter: %created_at%',
+  ASSERT NOT v_created_at_filter,
     format('created_at window must not collapse into a Filter, got:%s%s',
            E'\n', v_plan);
 
@@ -89,4 +92,3 @@ BEGIN
 END $$;
 
 ROLLBACK;
-
