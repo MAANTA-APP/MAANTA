@@ -1,5 +1,5 @@
 import { MapClient } from "./map-client";
-import { getLiveDeals, getSelectedNode } from "@/lib/data";
+import { getShopperLiveDeals, getSelectedNode } from "@/lib/data";
 import { DEFAULT_NODE, nodeCoords } from "@/lib/nodes";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function MapPage({
 }) {
   const node = getSelectedNode();
   const origin = nodeCoords(node) ?? nodeCoords(DEFAULT_NODE)!;
-  const { flash, boosted, nearMe } = await getLiveDeals(node);
+  const { flash, boosted, nearMe } = await getShopperLiveDeals(node);
   const deals = [...flash, ...boosted, ...nearMe];
 
   return (

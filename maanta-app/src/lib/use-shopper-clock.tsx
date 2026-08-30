@@ -19,8 +19,9 @@ import {
  * `Date`, not two `new Date()` calls that can straddle a boundary.
  *
  * It deliberately fetches nothing. Criteria 1-3 are clock-derived: every input
- * is already in the browser. Inventory exhaustion (criterion 4) needs fresh
- * server data and is separate work.
+ * is already in the browser. Inventory exhaustion (criterion 4) is handled by
+ * the route-aware `InventoryRefresh` mounted beside this provider; that concern
+ * needs fresh server data rather than another clock.
  */
 export const SHOPPER_CLOCK_INTERVAL_MS = 30_000;
 
@@ -68,7 +69,7 @@ const ShopperClockReaderContext = createContext<ShopperClockReader | null>(null)
  * response's render, transport and hydration by the time this starts, and that
  * lag is preserved rather than corrected. It cannot be measured from a single
  * timestamp — separating skew from latency needs a round trip, which is a
- * network call and belongs with criterion 4, not here. It is bounded by page
+ * network call and belongs with server-data refresh, not this clock. It is bounded by page
  * load time and leaves the clock slightly BEHIND server truth, which fails
  * towards offering a claim the database then refuses rather than silently
  * hiding one it would have accepted.

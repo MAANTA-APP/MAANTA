@@ -47,6 +47,14 @@ BEGIN
   ASSERT NOT has_table_privilege('authenticated', 'public.redemptions', 'DELETE'),
     'A: authenticated must not DELETE redemptions';
 
+  -- D169: production already held this posture; the migration chain must too.
+  ASSERT NOT has_table_privilege('authenticated', 'public.merchant_transactions', 'INSERT'),
+    'A: authenticated must not INSERT merchant_transactions';
+  ASSERT NOT has_table_privilege('authenticated', 'public.merchant_transactions', 'UPDATE'),
+    'A: authenticated must not UPDATE merchant_transactions';
+  ASSERT NOT has_table_privilege('authenticated', 'public.merchant_transactions', 'DELETE'),
+    'A: authenticated must not DELETE merchant_transactions';
+
   RAISE NOTICE 'Scenario A passed: writes revoked on core tables; base SELECT revoked on merchants/deals (20260820120000), retained on redemptions';
 END $$;
 

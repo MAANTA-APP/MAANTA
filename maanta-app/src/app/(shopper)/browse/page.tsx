@@ -3,7 +3,7 @@ import { BrowseClient } from "@/components/browse/browse-client";
 import {
   getAppUser,
   getFavouriteMerchantIds,
-  getLiveDeals,
+  getShopperLiveDeals,
   getSelectedNode,
 } from "@/lib/data";
 import { parseBrowseChip } from "@/lib/browse";
@@ -51,7 +51,7 @@ export default async function BrowsePage({
   const chip = parseBrowseChip(searchParams?.chip);
   const category = parseDealCategory(searchParams?.category);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
-    getLiveDeals(node),
+    getShopperLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);

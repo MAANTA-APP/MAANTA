@@ -17,6 +17,10 @@ import {
   lockedFlashOrder,
   lockedStandardOrder,
 } from "@/lib/deal-list-controls";
+import {
+  SHOPPER_INVENTORY_BYPASS_COOKIE,
+  shouldBypassLiveDealsCache,
+} from "@/lib/shopper-inventory";
 
 export { isMissingLatLngColumnError } from "@/lib/supabase/postgrest-errors";
 export {
@@ -469,12 +473,14 @@ async function getLiveDealsUncached(
 }
 
 /** Short-lived cache for hot Feed/Browse reads (30s per node). */
-export async function getLiveDeals(node: string): Promise<{
+export type LiveDealsResult = {
   flash: DealRow[];
   boosted: DealRow[];
   nearMe: DealRow[];
   verifiedByMerchant: Map<string, number>;
-}> {
+};
+
+export async function getLiveDeals(node: string): Promise<LiveDealsResult> {
   // Resolved OUTSIDE the cached function on purpose. Inside, the flag would be
   // baked into the cache entry and a demo-mode toggle would keep serving the
   // old answer for up to 30s — long enough to show synthetic deals after
@@ -487,6 +493,24 @@ export async function getLiveDeals(node: string): Promise<{
     ["live-deals", node, mode],
     { revalidate: 30, tags: [`live-deals-${node}`] }
   )();
+}
+
+/** Request-scoped reader for the three cached shopper discovery surfaces. */
+export async function getShopperLiveDeals(
+  node: string
+): Promise<LiveDealsResult> {
+  // A polling refresh carries a short-lived, server-issued cookie. That one
+  // read must observe current inventory rather than Next's stale cache entry;
+  // ordinary navigation still benefits from the hot per-node cache.
+  if (
+    shouldBypassLiveDealsCache(
+      cookies().get(SHOPPER_INVENTORY_BYPASS_COOKIE)?.value
+    )
+  ) {
+    const includeDemo = await isDemoModeEnabled();
+    return getLiveDealsUncached(node, includeDemo);
+  }
+  return getLiveDeals(node);
 }
 
 /** Verified (status=success) redemption counts per merchant. */

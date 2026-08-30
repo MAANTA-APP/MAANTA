@@ -583,7 +583,9 @@ export function NewDealWizard({
                   ? dealCategoryLabel(category) + " \u00b7 "
                   : ""}
                 {dealType === "flash" ? `Flash · ${flashHours}h` : "Standard · 24h"}
-                {maxClaims ? ` · max ${maxClaims} claims` : ""}
+                {maxClaims
+                  ? ` · max ${maxClaims} ${maxClaims === "1" ? "claim" : "claims"}`
+                  : ""}
               </p>
             </div>
             <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />

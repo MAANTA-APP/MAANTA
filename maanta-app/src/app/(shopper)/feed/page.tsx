@@ -6,7 +6,7 @@ import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
 import { LiveDealCollection } from "@/components/shopper/live-deal-collection";
 import { FeedBody } from "@/components/shopper/feed-body";
 import {
-  getLiveDeals,
+  getShopperLiveDeals,
   getSelectedNode,
   getAppUser,
   getFavouriteMerchantIds,
@@ -104,7 +104,7 @@ export default async function FeedPage({
   const filter = parseDealListFilter(searchParams?.filter);
   const category = parseDealCategory(searchParams?.category);
   const [{ flash, boosted, nearMe }, user] = await Promise.all([
-    getLiveDeals(node),
+    getShopperLiveDeals(node),
     getAppUser(),
   ]);
   const favourites = await getFavouriteMerchantIds(user?.id);

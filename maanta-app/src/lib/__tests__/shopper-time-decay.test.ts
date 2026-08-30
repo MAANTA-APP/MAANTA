@@ -58,8 +58,8 @@ const read = (rel: string) =>
  * which is exactly what the shared clock supplies at runtime — plus the wiring
  * that guarantees the same instant reaches every element of one card.
  *
- * Criterion 4 (inventory exhaustion) is NOT covered here: it needs fresh server
- * data, not a clock, and is separate work.
+ * Criterion 4 (inventory exhaustion) is covered separately by
+ * `shopper-inventory-refresh.test.ts`: it needs fresh server data, not a clock.
  */
 
 const MIN = 60_000;
@@ -1333,6 +1333,7 @@ describe("criterion 3 — surfaces the first discovery audit missed", () => {
       merchantFloor: null,
       claims,
       alreadyCheckedInFor: null,
+      alreadyCheckedInExpiresAt: null,
     };
     const both = renderShopperTree(createElement(QrCheckIn, props), at(0));
     expect(both).toContain("Summer Abaya");

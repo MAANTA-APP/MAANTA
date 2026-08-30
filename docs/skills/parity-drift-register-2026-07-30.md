@@ -1,6 +1,11 @@
 # Parity drift register — 2026-07-30
 
-Buckets required by the parity audit brief. Each item: evidence → consequence → action.
+> Historical narrative companion only — not a state tracker. The canonical
+> open/closed state is `docs/maanta-drift-register.md`, and every item below is
+> resolved or carried forward there by D-number. Do not add new findings here.
+
+Buckets required by the original parity audit brief. Each item: evidence →
+consequence → action.
 
 ---
 

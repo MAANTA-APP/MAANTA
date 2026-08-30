@@ -1,4 +1,5 @@
 import { maskPhone as maskPhoneServer } from "@/lib/phone-mask";
+import { NAIROBI_TZ, nairobiYmd } from "@/lib/claim-ticket-time";
 
 /** Tiny class-name joiner (no dependency). */
 export function cn(...parts: Array<string | false | null | undefined>) {
@@ -52,20 +53,36 @@ export function isNearExpiry(iso: string | null | undefined, now: Date = new Dat
   return isFinite(ms) && ms > 0 && ms <= 60 * 60 * 1000;
 }
 
+/** Normalize ICU's environment-dependent midnight form to a 12-hour label. */
+export function normalizeTwelveHourTime(time: string): string {
+  // Node's ICU data is not identical across runtimes: en-KE hour12 renders
+  // midnight as either 12:xx or 0:xx. The latter is not a valid 12-hour label.
+  return time.replace(/^0:/, "12:");
+}
+
 /** "Today, 10:42am" / "Yesterday, 9:14am" / "2 Jul, 9:14am" */
-export function friendlyTime(iso: string) {
+export function friendlyTime(iso: string, now: Date = new Date()) {
   const d = new Date(iso);
-  const now = new Date();
-  const time = d
-    .toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit", hour12: true })
+  const time = normalizeTwelveHourTime(
+    d.toLocaleTimeString("en-KE", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: NAIROBI_TZ,
+    })
     .replace(" ", "")
-    .toLowerCase();
-  const sameDay = d.toDateString() === now.toDateString();
+    .toLowerCase()
+  );
+  const sameDay = nairobiYmd(d) === nairobiYmd(now);
   if (sameDay) return `Today, ${time}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${time}`;
-  return `${d.getDate()} ${d.toLocaleDateString("en-KE", { month: "short" })}, ${time}`;
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (nairobiYmd(d) === nairobiYmd(yesterday)) return `Yesterday, ${time}`;
+  const date = d.toLocaleDateString("en-KE", {
+    day: "numeric",
+    month: "short",
+    timeZone: NAIROBI_TZ,
+  });
+  return `${date}, ${time}`;
 }
 
 /** Relative age: "2m", "1h", "1d" */

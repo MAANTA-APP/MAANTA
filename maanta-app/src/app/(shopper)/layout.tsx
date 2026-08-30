@@ -3,6 +3,7 @@ import { OfflineBanner } from "@/components/ui/states";
 import { DemoModeBanner } from "@/components/demo-mode-banner";
 import { AppProviders } from "@/components/auth/app-providers";
 import { ShopperClockProvider } from "@/lib/use-shopper-clock";
+import { ShopperInventoryRefresh } from "@/components/shopper/inventory-refresh";
 
 // The clock seed below must be the instant this response was generated, not a
 // build-time one, or every shopper page would ship a stale first paint.
@@ -17,6 +18,7 @@ export default function ShopperLayout({ children }: { children: React.ReactNode 
   return (
     <AppProviders>
       <ShopperClockProvider serverNow={serverNow}>
+        <ShopperInventoryRefresh />
         <div className="mx-auto flex min-h-dvh w-full max-w-mobile flex-col border-x border-line bg-stone">
           <DemoModeBanner />
           <OfflineBanner context="shopper" />

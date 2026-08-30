@@ -63,7 +63,7 @@ export function nairobiTime(iso: string): string {
 }
 
 /** Calendar date in Nairobi as "YYYY-MM-DD", for same-day comparison. */
-function nairobiYmd(d: Date): string {
+export function nairobiYmd(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: NAIROBI_TZ,
     year: "numeric",

@@ -41,6 +41,82 @@ const TOKEN_SHAPE = /^[0-9a-f]{32}$/;
 const UUID_SHAPE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Server-authoritative queue-membership confirmation (D217).
+ *
+ * A client clock may decide when confirmation is due, but never whether the
+ * shopper is still queued. The token, session user, queue row, and live claim
+ * must all name the same merchant/redemption chain.
+ */
+export async function GET(request: Request) {
+  const appUser = await ensureAppUser<{ id: string }>("id");
+  if (!appUser) {
+    return NextResponse.json(
+      { error: "Sign in required.", code: "sign_in_required" },
+      { status: 401 }
+    );
+  }
+
+  const url = new URL(request.url);
+  const token = (url.searchParams.get("token") ?? "").trim();
+  const redemptionId = (url.searchParams.get("redemptionId") ?? "").trim();
+  if (!TOKEN_SHAPE.test(token) || !UUID_SHAPE.test(redemptionId)) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const service = createServiceClient();
+  const { data: merchant, error: merchantError } = await service
+    .from("merchants")
+    .select("id")
+    .eq("qr_token", token)
+    .eq("status", "active")
+    .eq("is_visible", true)
+    .eq("is_shadow_banned", false)
+    .maybeSingle<{ id: string }>();
+  if (merchantError) {
+    return NextResponse.json(
+      { error: "Could not confirm your queue status.", code: "queue_confirm_failed" },
+      { status: 503 }
+    );
+  }
+  if (!merchant) return NextResponse.json({ checkedIn: false });
+
+  const nowIso = new Date().toISOString();
+  const [{ data: waiting, error: waitingError }, { data: claim, error: claimError }] =
+    await Promise.all([
+      service
+        .from("merchant_presentations")
+        .select("expires_at")
+        .eq("redemption_id", redemptionId)
+        .eq("shopper_id", appUser.id)
+        .eq("merchant_id", merchant.id)
+        .eq("status", "waiting")
+        .gt("expires_at", nowIso)
+        .maybeSingle<{ expires_at: string }>(),
+      service
+        .from("redemptions")
+        .select("id")
+        .eq("id", redemptionId)
+        .eq("user_id", appUser.id)
+        .eq("merchant_id", merchant.id)
+        .eq("status", "pending")
+        .gt("expires_at", nowIso)
+        .maybeSingle<{ id: string }>(),
+    ]);
+
+  if (waitingError || claimError) {
+    return NextResponse.json(
+      { error: "Could not confirm your queue status.", code: "queue_confirm_failed" },
+      { status: 503 }
+    );
+  }
+
+  return NextResponse.json({
+    checkedIn: Boolean(waiting && claim),
+    expiresAt: waiting && claim ? waiting.expires_at : null,
+  });
+}
+
 export async function POST(request: Request) {
   const appUser = await ensureAppUser<{ id: string }>("id");
   if (!appUser) {
@@ -286,6 +362,7 @@ export async function POST(request: Request) {
     arrivedAt: arrival.arrived_at,
     fastVisitEligible: arrival.fast_visit_eligible,
     firstArrival: arrival.first_arrival,
+    queueExpiresAt: expiresAt,
   });
 }
 
