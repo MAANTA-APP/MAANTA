@@ -6,14 +6,12 @@
 -- migration applied, e.g.:
 --   psql "$DATABASE_URL" -f supabase/tests/fee_totals_contract_test.sql
 --
--- Two halves:
+-- Two sections:
 --
 --   1. The SEMANTIC cases, generated from
---      supabase/tests/fixtures/fee-contract-cases.json — the same file
---      `fee-contract-parity.test.ts` runs against `aggregateLedgerFees`. One
---      money rule lives in two languages here, and shared cases are what hold
---      them together; a phrase parser over the source would only prove the code
---      SAYS the right thing.
+--      supabase/tests/fixtures/fee-contract-cases.json. B2b delegates every
+--      application read to this SQL contract, so these are the one executable
+--      semantic rules rather than one half of a parity approximation.
 --
 --   2. The things a fixture cannot express: argument validation, grants,
 --      function security settings, and the compatibility shim's behaviour.

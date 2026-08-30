@@ -4,10 +4,9 @@
 -- Source:    supabase/tests/fixtures/fee-contract-cases.json
 -- Generator: scripts/gen-fee-contract-cases.mjs
 --
--- These are the SAME semantic cases `fee-contract-parity.test.ts` runs
--- against `aggregateLedgerFees`. Editing this file by hand breaks that
--- equivalence silently, which is the one thing the shared fixture exists to
--- prevent — so a drift check in CI regenerates it and fails on any diff.
+-- `fee-contract-parity.test.ts` verifies that this generated proof stays in
+-- sync with its JSON source. Editing this file by hand breaks that link, so
+-- the CI drift check regenerates it and fails on any diff.
 --
 -- Included by supabase/tests/fee_totals_contract_test.sql via \ir. It is
 -- under fixtures/ rather than tests/ because the runner globs

@@ -12,7 +12,13 @@ import { claimsWindow, CLAIMS_TRACKING_CONFIG_KEY } from "@/lib/claims-window";
 import { buildAdminAttentionItems } from "@/lib/admin-ops-health";
 import { AdminReadError } from "@/components/admin/read-error";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
-import { GENUINE_JOIN_SELECT, atMerchantNode, genuineTagged } from "@/lib/evidence-scope";
+import {
+  GENUINE_JOIN_SELECT,
+  atMerchantNode,
+  genuineTagged,
+  readLedgerFeeTotals,
+} from "@/lib/evidence-scope";
+import { FEE_FIGURE_LABELS, feeFigure } from "@/components/admin/fee-figures";
 
 export const dynamic = "force-dynamic";
 
@@ -204,13 +210,10 @@ export default async function AdminHomePage({
           .in("flag_type", ["deal_limit_exceeded", "flash_not_allowed"])
           .gte("created_at", since7d)
       ),
-      byMerchant(
-        service
-          .from("merchant_transactions")
-          .select("amount")
-          .eq("transaction_type", "success_fee")
-          .gte("created_at", since7d)
-      ),
+      readLedgerFeeTotals(service, {
+        merchantIds: merchantIds ?? undefined,
+        window: { since: since7d },
+      }),
       atNode(
         service.from("merchants").select("outstanding_arrears").gt("outstanding_arrears", 0)
       ),
@@ -285,7 +288,7 @@ export default async function AdminHomePage({
     { count: heldRedemptions },
     { count: openTasks },
     { count: tierRefusals7d },
-    { data: fees7d },
+    fees7d,
     { data: arrearsRows },
     { data: recentPending },
   ] = results;
@@ -294,7 +297,6 @@ export default async function AdminHomePage({
     (claimsTrackingRes.data as { value?: string } | null)?.value ?? null
   );
 
-  const revenue7d = (fees7d ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0);
   const arrearsTotal = (arrearsRows ?? []).reduce(
     (s, r) => s + Number(r.outstanding_arrears ?? 0),
     0
@@ -402,7 +404,9 @@ export default async function AdminHomePage({
 
       <h2 className="mt-7 text-base font-bold text-ink">Operational totals (7 days)</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Success fees — all activity" value={formatKes(revenue7d)} />
+        <KpiCard label={FEE_FIGURE_LABELS.net} value={feeFigure(fees7d.netKes)} />
+        <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(fees7d.grossKes)} />
+        <KpiCard label={FEE_FIGURE_LABELS.reversals} value={feeFigure(fees7d.reversalsKes)} />
         <KpiCard label="Arrears outstanding" value={formatKes(arrearsTotal)} />
       </div>
 

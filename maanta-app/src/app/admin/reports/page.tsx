@@ -3,7 +3,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireAdminPage } from "@/lib/admin";
 import { KpiCard } from "@/components/ui/cards";
 import { LeadsReadError } from "@/components/agent/lead-row-list";
-import { cn, formatKes } from "@/lib/ui";
+import { cn } from "@/lib/ui";
+import { readLedgerFeeTotals } from "@/lib/evidence-scope";
+import { FEE_FIGURE_LABELS, feeFigure } from "@/components/admin/fee-figures";
 
 export const dynamic = "force-dynamic";
 
@@ -31,8 +33,7 @@ export default async function AdminReportsPage({
       .select("id", { count: "exact", head: true })
       .eq("status", "success")
       .gte("redeemed_at", since),
-    // SQL SUM — never pull fee rows into JS (PostgREST 1000-row cap under-reports).
-    service.rpc("admin_success_fee_revenue", { p_since: since }),
+    readLedgerFeeTotals(service, { window: { since } }),
     service
       .from("merchants")
       .select("id", { count: "exact", head: true })
@@ -72,13 +73,11 @@ export default async function AdminReportsPage({
 
   const [
     { count: verified },
-    { data: feeRevenue },
+    feeTotals,
     { count: activeShops },
     { count: liveDeals },
     { data: chartRows },
   ] = results;
-
-  const revenue = Number(feeRevenue ?? 0) || 0;
 
   // Redemptions-per-day, last 14 days (SQL GROUP BY via RPC).
   const days: { label: string; count: number }[] = [];
@@ -122,7 +121,9 @@ export default async function AdminReportsPage({
 
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Verified redemptions" value={(verified ?? 0).toLocaleString()} />
-        <KpiCard label="Success-fee revenue" value={formatKes(revenue)} />
+        <KpiCard label={FEE_FIGURE_LABELS.net} value={feeFigure(feeTotals.netKes)} />
+        <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(feeTotals.grossKes)} />
+        <KpiCard label={FEE_FIGURE_LABELS.reversals} value={feeFigure(feeTotals.reversalsKes)} />
         <KpiCard label="Active shops" value={activeShops ?? 0} />
         <KpiCard label="Live deals" value={liveDeals ?? 0} />
       </div>

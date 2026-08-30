@@ -2,38 +2,22 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  aggregateLedgerFees,
-  type FeeLedgerRow,
-  type GenuineFeeRedemption,
-} from "@/lib/evidence-scope";
 
 /**
- * D211 / B2a — one money rule, two languages, one set of cases.
+ * D211 / B2b — one SQL money rule, one complete set of semantic cases.
  *
- * `_fee_totals` (migration 20260829120000) and `aggregateLedgerFees` both
- * answer "what did success fees earn in this period". Two implementations of
- * one rule is a second place for it to drift, and the honest guard against that
- * is not a scan of either source — a phrase parser proves the code SAYS the
- * right thing — but the SAME semantic cases run against both.
+ * `_fee_totals` (migration 20260829120000) answers "what did success fees earn
+ * in this period". B2b removed the application-side relational implementation;
+ * every surface now delegates here, so these cases are the one executable
+ * semantic contract rather than a parity approximation.
  *
  * `supabase/tests/fixtures/fee-contract-cases.json` is that source. The SQL
  * half is generated from it and checked in; this file runs the TypeScript half
  * and also fails when the generated SQL is stale, so a fixture edited without
  * regenerating is a red build rather than a quietly weaker suite.
  *
- * ## The one divergence, and why it is written down rather than hidden
- *
- * SQL reports availability all-or-nothing: any missing fee row or any invalid
- * polarity makes gross, reversals AND net unavailable together (founder ruling
- * 2026-08-29 — an executive surface must never show a partial total).
- * TypeScript still reports it per bucket, which is the behaviour PR B merged.
- *
- * B2a does not change merged TypeScript behaviour, so the difference is
- * recorded per case in `tsDivergence` and asserted, rather than papered over
- * with a looser comparison. **B2b moves TypeScript to all-or-nothing and must
- * delete every `tsDivergence`** — the test below fails once none remain, which
- * is the reminder to delete this scaffolding with them.
+ * TypeScript separately proves that transport errors, unavailable rows and
+ * malformed partial rows map all three cards to unavailable.
  */
 
 const ROOT = process.cwd();
@@ -91,62 +75,7 @@ const spec = JSON.parse(readFileSync(SOURCE, "utf8")) as {
   cases: Case[];
 };
 
-const isGenuine = (d?: Demo) => !d?.redemption && !d?.merchant && !d?.deal;
-
-/**
- * Build the aggregator's three inputs the way `readLedgerFeeTotals` does.
- *
- * The reader is what supplies scope and the D188 join in TypeScript, so the
- * fixture has to reproduce that division of labour or the two implementations
- * would be answering different questions: SQL does the join itself, TypeScript
- * receives its result.
- */
-function inputsFor(c: Case) {
-  const w = c.window ?? spec.window;
-  const inScope = (key: string) => {
-    if (!Array.isArray(c.scope)) return true;
-    const r = c.redemptions.find((x) => x.key === key);
-    return c.scope.includes(r?.merchant ?? "m1");
-  };
-  // `status = 'success'` belongs here because it is the READER's predicate, not
-  // the aggregator's: `readLedgerFeeTotals` builds its genuine set with
-  // `.eq("status", "success")`, so a fee against a pending redemption never
-  // reaches `aggregateLedgerFees` at all. The harness has to reproduce that
-  // division of labour or the two implementations answer different questions.
-  const genuine = (key: string) => {
-    const r = c.redemptions.find((x) => x.key === key);
-    return (
-      !!r && (r.status ?? "success") === "success" && isGenuine(r.demo) && inScope(key)
-    );
-  };
-
-  const since = Date.parse(w.since);
-  const until = w.until ? Date.parse(w.until) : null;
-
-  const redemptions: GenuineFeeRedemption[] = c.redemptions
-    .filter((r) => genuine(r.key))
-    .filter((r) => {
-      const t = Date.parse(r.redeemedAt);
-      return t >= since && (until === null || t < until);
-    })
-    .map((r) => ({ id: r.key, success_fee_charged: r.feeSnapshot ?? 30 }));
-
-  const ledger: FeeLedgerRow[] = c.movements.map((m, i) => ({
-    id: `${c.id}-${i}`,
-    reference_id: m.redemption,
-    transaction_type: m.type,
-    amount: m.amount,
-    created_at: m.createdAt,
-  }));
-
-  const genuineReferenceIds = c.redemptions
-    .filter((r) => genuine(r.key))
-    .map((r) => r.key);
-
-  return { redemptions, ledger, genuineReferenceIds, window: w };
-}
-
-describe("the fee contract holds in TypeScript on the shared cases", () => {
+describe("the SQL fee contract covers the complete shared case set", () => {
   it("covers every semantic dimension the contract has", () => {
     // Not a count — a checklist. A case quietly dropped from the fixture would
     // weaken BOTH implementations at once, which is the failure mode a shared
@@ -220,17 +149,12 @@ describe("the fee contract holds in TypeScript on the shared cases", () => {
     expect(new Set(ids).size, "case ids must be unique").toBe(ids.length);
   });
 
-  for (const c of spec.cases) {
-    if (c.notYetInTypeScript) continue;
-    it(`${c.id} — ${c.description}`, () => {
-      const want = c.tsDivergence ?? {
-        grossKes: c.expected.grossKes,
-        reversalsKes: c.expected.reversalsKes,
-        netKes: c.expected.netKes,
-      };
-      expect(aggregateLedgerFees(inputsFor(c))).toEqual(want);
-    });
-  }
+  it("has no B2a TypeScript divergence or gap annotations left", () => {
+    for (const c of spec.cases) {
+      expect(c.tsDivergence, c.id).toBeUndefined();
+      expect(c.notYetInTypeScript, c.id).toBeUndefined();
+    }
+  });
 });
 
 describe("the generated SQL half stays in step with its source", () => {
@@ -311,95 +235,5 @@ describe("the generated SQL half stays in step with its source", () => {
     const call = block.slice(start, block.indexOf(";", start));
     expect(call).toContain("ARRAY[v_m_m1]::uuid[]");
     expect(call).not.toContain("v_m_m2");
-  });
-});
-
-describe("the TypeScript divergence is temporary and tracked", () => {
-  it("names every case where TypeScript still differs from SQL", () => {
-    // Exactly the four all-or-nothing cases, and nothing else. A divergence
-    // appearing anywhere else means the two contracts parted company on
-    // something nobody decided.
-    const diverging = spec.cases.filter((c) => c.tsDivergence).map((c) => c.id);
-    expect(diverging.sort()).toEqual(
-      [
-        "infinite-created-at",
-        "invalid-polarity-charge",
-        "invalid-polarity-reversal",
-        "missing-fee-row",
-        "nan-amount",
-        "zero-amount-fee-row",
-      ].sort()
-    );
-  });
-
-  it("names what B2b must change for every case TypeScript cannot answer", () => {
-    // Two cases are not merely reported differently — TypeScript gets them
-    // WRONG, and skipping them silently would turn a known gap into an unknown
-    // one. Each must say what closes it, and B2b must delete these along with
-    // the tsDivergence entries.
-    const gaps = spec.cases.filter((c) => c.notYetInTypeScript);
-    expect(gaps.map((c) => c.id).sort()).toEqual([
-      "audit-against-non-success-redemption-is-invalid",
-      "audit-and-reversal-timestamped-apart",
-      "audit-row-pointing-at-a-non-reversal-movement",
-      "billed-success-with-an-unplaceable-verification-time",
-      "cross-merchant-reference",
-      "cross-merchant-reference-from-debited-scope",
-      "deal-owner-sees-a-missing-fee-on-its-own-deal",
-      "deal-owner-sees-corruption-on-its-own-deal",
-      "demo-tagged-movement-excluded",
-      "duplicate-gross-rows-for-one-redemption",
-      "fee-against-non-success-redemption-is-invalid",
-      "fee-amount-disagrees-with-redemption-snapshot",
-      "fee-row-with-no-redemption-parent",
-      "gross-posted-before-verification",
-      "malformed-fee-outside-window-does-not-prove-completeness",
-      "negative-infinity-fee-on-an-older-redemption-surfaces",
-      "orphan-audit-pointing-at-another-merchants-transaction",
-      "orphan-reversal-without-audit-row",
-      "redemption-linked-to-another-merchants-deal",
-      "reversal-audit-naming-a-third-merchant",
-      "reversal-audit-row-disagrees-on-amount",
-      "reversal-audit-without-an-approver",
-      "reversal-posted-before-its-own-charge",
-      "reversal-posted-before-verification",
-      "reversal-without-an-original-fee",
-      "second-reversal-riding-on-an-existing-audit-row",
-      "second-reversal-sharing-the-first-audit-timestamp",
-      "success-with-an-unplaceable-verification-time",
-      "unparented-fee-at-negative-infinity",
-      "unparented-fee-with-an-unplaceable-timestamp",
-      "unplaceable-fee-on-an-older-redemption-still-surfaces",
-    ]);
-    for (const c of gaps) {
-      expect(c.notYetInTypeScript!.length, `${c.id} must say what B2b changes`)
-        .toBeGreaterThan(40);
-      expect(c.tsDivergence, `${c.id}: a gap is not a divergence`).toBeUndefined();
-    }
-  });
-
-  it("still runs every other case through TypeScript", () => {
-    // The skip must stay narrow. Every other case is asserted in TypeScript.
-    const skipped = spec.cases.filter((c) => c.notYetInTypeScript).length;
-    expect(spec.cases.length - skipped).toBe(28);
-  });
-
-  it("only ever diverges by reporting availability per bucket", () => {
-    // The divergence must be THIS one and not a second, quieter one. In every
-    // diverging case SQL makes all three unavailable; TypeScript agrees that
-    // net is unavailable and differs only on the sibling bucket.
-    for (const c of spec.cases) {
-      if (!c.tsDivergence) continue;
-      expect(c.expected.available, `${c.id}`).toBe(false);
-      expect(c.expected.grossKes, `${c.id}`).toBeNull();
-      expect(c.expected.reversalsKes, `${c.id}`).toBeNull();
-      expect(c.expected.netKes, `${c.id}`).toBeNull();
-      expect(c.tsDivergence.netKes, `${c.id}: net must be unavailable in both`).toBeNull();
-      const differs =
-        c.tsDivergence.grossKes !== null || c.tsDivergence.reversalsKes !== null;
-      expect(differs, `${c.id}: a tsDivergence identical to SQL is dead weight`).toBe(
-        true
-      );
-    }
   });
 });

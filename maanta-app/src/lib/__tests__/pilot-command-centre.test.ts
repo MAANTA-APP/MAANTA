@@ -538,7 +538,7 @@ describe("P1 — the nine rules the evidence split must satisfy", () => {
 
   it("7. an external fee counts only once its own row establishes it", () => {
     // The D188 chain and the linked-ledger requirement are enforced upstream,
-    // in the query and in aggregateLedgerFees; by the time a row reaches here
+    // in the query and in the SQL fee contract; by the time a row reaches here
     // an unestablished fee is already null, and must stay null rather than
     // becoming 0 in the external total.
     const unestablished = totalsByEvidence([
