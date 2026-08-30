@@ -83,7 +83,9 @@ describe("the dashboard's honesty rules", () => {
     for (const label of [
       "Genuine-tagged ${claims.label.toLowerCase()}",
       "Genuine-tagged verified (7d)",
-      "Success fees — all activity",
+      "FEE_FIGURE_LABELS.net",
+      "FEE_FIGURE_LABELS.gross",
+      "FEE_FIGURE_LABELS.reversals",
     ]) {
       expect(dashboard).toContain(label);
     }

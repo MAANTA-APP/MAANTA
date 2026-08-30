@@ -7,8 +7,9 @@ import { OperationsLinks } from "@/components/founder/operations-links";
 import { createServiceClient } from "@/lib/supabase/service";
 import { HeadingLg, Body, Page, Section } from "@/components/ui/claude";
 import { KpiCard } from "@/components/ui/cards";
-import { formatKes } from "@/lib/ui";
 import { NODES } from "@/lib/nodes";
+import { readLedgerFeeTotals } from "@/lib/evidence-scope";
+import { FEE_FIGURE_LABELS, feeFigure } from "@/components/admin/fee-figures";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,6 @@ export default async function FounderDashboardPage() {
     liveDealsRes,
     claims7dRes,
     verified7dRes,
-    // SQL SUM via RPC — same rule as /admin/reports: never pull fee rows into
-    // JS, PostgREST's 1000-row cap silently under-reports the sum (D149).
     revenue7dRes,
     openTasksRes,
     pendingMerchantsRes,
@@ -62,7 +61,7 @@ export default async function FounderDashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("status", "success")
       .gte("redeemed_at", since7d),
-    service.rpc("admin_success_fee_revenue", { p_since: since7d }),
+    readLedgerFeeTotals(service, { window: { since: since7d } }),
     service
       .from("agent_tasks")
       .select("id", { count: "exact", head: true })
@@ -96,7 +95,6 @@ export default async function FounderDashboardPage() {
     liveDealsRes,
     claims7dRes,
     verified7dRes,
-    revenue7dRes,
     openTasksRes,
     pendingMerchantsRes,
     dealsByNodeRes,
@@ -129,7 +127,7 @@ export default async function FounderDashboardPage() {
   const openTasks = openTasksRes.count;
   const pendingMerchants = pendingMerchantsRes.count;
 
-  const revenue7d = Number(revenue7dRes.data ?? 0) || 0;
+  const revenue7d = revenue7dRes;
   const nodeCounts = new Map<string, number>();
   for (const d of dealsByNodeRes.data ?? []) {
     nodeCounts.set(d.node, (nodeCounts.get(d.node) ?? 0) + 1);
@@ -157,7 +155,9 @@ export default async function FounderDashboardPage() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard label="Live deals now" value={(liveDeals ?? 0).toLocaleString()} />
           <KpiCard label="Verified (7d)" value={(verified7d ?? 0).toLocaleString()} />
-          <KpiCard label="Fee revenue (7d)" value={formatKes(revenue7d)} />
+          <KpiCard label={`${FEE_FIGURE_LABELS.net} (7d)`} value={feeFigure(revenue7d.netKes)} />
+          <KpiCard label={`${FEE_FIGURE_LABELS.gross} (7d)`} value={feeFigure(revenue7d.grossKes)} />
+          <KpiCard label={`${FEE_FIGURE_LABELS.reversals} (7d)`} value={feeFigure(revenue7d.reversalsKes)} />
           <KpiCard label="Pending approvals" value={(pendingMerchants ?? 0).toLocaleString()} />
         </div>
       </Section>

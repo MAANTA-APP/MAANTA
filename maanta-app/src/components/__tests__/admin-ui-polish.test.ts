@@ -56,7 +56,8 @@ describe("Admin UI polish", () => {
     // merchant_transactions silently under-reports the money figure. The RPC
     // exists precisely so no surface ever sums fee rows client-side.
     const src = read("src/app/founder/page.tsx");
-    expect(src).toContain("admin_success_fee_revenue");
+    expect(src).toContain("readLedgerFeeTotals");
+    expect(src).toContain("FEE_FIGURE_LABELS.net");
     expect(src).not.toContain('.select("amount")');
   });
 
