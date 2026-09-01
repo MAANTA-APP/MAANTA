@@ -4,7 +4,8 @@ Portable markdown set for launch operations. Notion is the drafting/approval
 source of truth for ops docs; this folder mirrors approved exports (repo is
 the source of truth for anything describing code behavior). Consolidated
 2026-07-09 from the launch-handoff and operating-system doc packs; index
-updated 2026-08-02 (waitlist backend row corrected); previously 2026-07-30,
+updated 2026-09-01 (Node 0 pilot documentation set; documentation register);
+previously 2026-08-02 (waitlist backend row corrected) and 2026-07-30,
 which added the drift register and the 2026-07-30 operating
 documents (previously 2026-07-28, comprehensive audit links).
 
@@ -16,6 +17,39 @@ documents (previously 2026-07-28, comprehensive audit links).
 | `maanta-claude-operating-system.md` | The operating playbook: tracks, cadences, doc rules |
 | `maanta-decisions-log.md` | Repo mirror of load-bearing decisions and where they bite in code |
 | `maanta-drift-register.md` | Open/closed record of known claim-vs-reality gaps. Rows close only when they name a guard, or say `no guard: <reason>` — enforced in CI |
+| `maanta-documentation-register.md` | **Every audience-facing and operational document** — owner, status, source of truth, last verified, review trigger, classification — plus the P0–P3 gap matrix. Read it before writing a new doc |
+| `maanta-glossary.md` | The closed vocabulary. What each term means, and the near-synonyms that change the commercial or legal meaning |
+
+## Node 0 pilot (BBS Mall) — the operating set
+
+Read in this order for a pilot day.
+
+| File | Purpose |
+|---|---|
+| `ops/merchant-01-pilot-runsheet.md` | **The end-to-end Merchant 01 sequence** — onboarding, QR placement, staff seat, deal, claim, arrival, counter, money read-back, evidence classification, failure capture |
+| `ops/node0-known-limitations.md` | What is live, what is dark, what is unproven, and what must never be promised. Config verified against production |
+| `ops/evidence-classification-guide.md` | Demo / internal / unclassified / external, the correct SQL, the two counters, the tripwire, and the prompted-or-organic record |
+| `ops/node0-evidence-protocol-2026-08-24.md` | The ratified pre-registered lines: rungs, tripwire, kill criterion, the separate shopper-pull phase |
+| `ops/field-operator-day-sheet.md` | The day around the visit: open, capture, onboard, escalate, close, and the never-do lists |
+| `ops/first-merchant-loop-test.md` | The seven money proofs and the abort conditions |
+| `ops/d158-self-serve-live-test.md` | Self-serve onboarding observation checklist — a checklist, not a script |
+
+### Hand-outs (printed, with a contact written on)
+
+| File | Given to |
+|---|---|
+| `ops/merchant-welcome-pack.md` | The shop owner, on activation day |
+| `ops/merchant-staff-counter-card.md` | The person at the till |
+| `ops/shopper-pilot-card.md` | A pilot shopper |
+
+## Stakeholder, investor, marketing and legal
+
+| File | Purpose |
+|---|---|
+| `stakeholder/maanta-stakeholder-report.md` | DRAFT · CONFIDENTIAL — the holistic orientation: what MAANTA is, the loop, the model, Node 0, current state, evidence methodology, risks, success and failure criteria |
+| `investor/maanta-investor-overview.md` | DRAFT · CONFIDENTIAL — investor structure and data-room checklist, with RESEARCH REQUIRED left honestly empty |
+| `marketing/marketing-claims-register.md` | What may be claimed now, what is prohibited until evidence exists, the vocabulary, and where every number comes from |
+| `legal/legal-gap-checklist-2026-09-01.md` | DRAFT — REQUIRES QUALIFIED LEGAL REVIEW. What exists, the four capabilities that shipped after the drafts, and the documents that do not exist |
 
 ## Launch execution
 

@@ -1,6 +1,7 @@
 # Field operator day sheet
 
-**Status:** DRAFT — written 2026-08-22, not yet run for a full day.
+**Status:** DRAFT — written 2026-08-22, **updated 2026-09-01** (counter QR
+placement, and the runsheet pointer). Not yet run for a full day.
 **Audience:** the node manager and agents working the BBS Mall floor.
 **Staffing (frozen, decisions log 2026-07-31):** one node manager and up to
 four agents per node. Agents are shopper- and merchant-facing on the floor:
@@ -8,14 +9,22 @@ onboarding shops, setting up staff accounts, helping at the counter.
 
 This is the day around the work. The visit protocol is
 `docs/ops/first-merchant-loop-test.md`; what you leave with a shop is
-`docs/ops/merchant-welcome-pack.md`.
+`docs/ops/merchant-welcome-pack.md`, plus
+`docs/ops/merchant-staff-counter-card.md` at the till and
+`docs/ops/shopper-pilot-card.md` for a shopper.
+
+**Running Merchant 01?** Use `docs/ops/merchant-01-pilot-runsheet.md` — the full
+sequence in one place. Before any pilot day, read
+`docs/ops/node0-known-limitations.md`: it lists what is live, what is switched
+off, and what must not be promised.
 
 ---
 
 ## Carry
 
 - Your phone, charged, signed in, and a power bank. Everything you do is on it.
-- Printed merchant welcome packs, with your contact already written on them.
+- Printed merchant welcome packs, staff counter cards and shopper cards, with
+  your contact already written on them.
 - The current support contact (see **Open question** below).
 - Something to write on that is not your phone.
 
@@ -51,8 +60,14 @@ Onboarding happens **at the shop**, not over the phone:
    drag it onto the door if it is off. If the phone refuses or the reading is
    vague, place the pin by hand; it is never a reason to stop onboarding.
 3. An admin approves the shop — you cannot approve it yourself.
-4. Run the **first merchant loop test** before telling them they are live.
-5. Leave the welcome pack, with your contact written on it.
+4. **Print and place the counter QR.** The owner (owner only) opens
+   `/merchant/qr/print` and prints the sheet. The **same** code goes at the
+   entrance **and** at the till. Print at A5 or larger and test it with your own
+   phone before it goes up. The sheet promises no reward, deliberately — do not
+   write one on it.
+5. Run the **first merchant loop test** before telling them they are live.
+6. Leave the welcome pack and the staff counter card, with your contact written
+   on both.
 
 ### Helping at a counter
 
@@ -80,6 +95,9 @@ relationship goes to the **founder, same day**.
 ## Close the day (10 minutes)
 
 - [ ] Every visit written up **today** — shop, floor/unit, shop location pin, outcome.
+- [ ] Every event classified — demo, internal or genuine external
+      (`docs/ops/evidence-classification-guide.md`). Genuine-tagged is not
+      automatically external.
 - [ ] Every test deal ended or expiring — no test deal left live overnight.
 - [ ] Every promise you made recorded, with the date you promised it by.
 - [ ] Failures and surprises sent up, even small ones. A pilot is worth only
@@ -112,6 +130,13 @@ relationship goes to the **founder, same day**.
 - **Demo mode is on.** The feed shows a synthetic marketplace. During any test,
   send the shopper to the deal by **direct link**, never by browsing the feed —
   a demo deal can be claimed and no real shop can verify that code.
+- **The QR records arrival; it never redeems.** A shopper in the counter queue
+  has not been served and the shop has not been charged. The 6-digit code the
+  shopper presents is still the only thing that completes a redemption, and
+  staff verification is still what makes it authoritative.
+- **There are no MAANTA Points right now.** `fast_visit_enabled` is `false` on
+  production (verified 2026-09-01), so nothing is awarded and no eligibility is
+  stamped. Never tell a shopper or merchant a reward is available.
 
 ## Things you never do
 
@@ -121,6 +146,9 @@ relationship goes to the **founder, same day**.
 - Never re-run a verification that reported an uncertain fee outcome — it
   completed, and retrying risks charging twice.
 - Never promise a payment rail (M-Pesa top-up) that has not been confirmed live.
+- Never promise points, rewards or a paid Elite price. There is no published
+  Elite price and no replacement number is authorized — where one must appear,
+  the product says "Pricing coming soon".
 - Never tell a merchant they are live before the loop test has passed.
 
 ### Never, because it destroys the evidence
