@@ -17,11 +17,13 @@ DECLARE
   v_presentation uuid;
   v_result record;
   v_count integer;
+  v_distinct_count bigint;
   v_status text;
   v_called_at timestamptz;
   v_called_by uuid;
   v_notification_expires_at timestamptz;
   v_notification_created_at timestamptz;
+  v_call_generation bigint;
   v_function_def text;
   v_verify_def text;
 BEGIN
@@ -55,9 +57,11 @@ BEGIN
   ASSERT v_result.newly_called, 'first call must report newly_called';
   ASSERT v_result.shopper_id = v_shopper, 'function must return the queued shopper';
 
-  SELECT status, called_at, called_by INTO v_status, v_called_at, v_called_by
+  SELECT status, called_at, called_by, call_generation
+    INTO v_status, v_called_at, v_called_by, v_call_generation
   FROM public.merchant_presentations WHERE id = v_presentation;
-  ASSERT v_status = 'called' AND v_called_at IS NOT NULL AND v_called_by = v_staff,
+  ASSERT v_status = 'called' AND v_called_at IS NOT NULL
+      AND v_called_by = v_staff AND v_call_generation = 1,
     'staff call must persist called state, timestamp, and actor';
 
   SELECT count(*), max(expires_at), max(created_at)
@@ -71,11 +75,35 @@ BEGIN
     'durable call alert must retain its queue-expiry snapshot';
   ASSERT v_notification_created_at = v_called_at,
     'durable alert time must equal the post-lock called_at clock';
+  SELECT max(call_generation) INTO v_call_generation
+  FROM public.notifications WHERE presentation_id = v_presentation;
+  ASSERT v_call_generation = 1,
+    'first call notification must carry generation one';
 
   SELECT * INTO v_result FROM public.call_shopper_forward(v_presentation, v_merchant, v_owner);
   ASSERT NOT v_result.newly_called, 'retry must be idempotent';
   SELECT count(*) INTO v_count FROM public.notifications WHERE presentation_id = v_presentation;
   ASSERT v_count = 1, 'retry must not duplicate the inbox row';
+
+  -- Explicit rejoin reuses the presentation identity but preserves its call
+  -- generation. The next staff call advances it and must write a new alert;
+  -- an idempotent retry of either call must not suppress the other.
+  UPDATE public.merchant_presentations
+  SET status = 'waiting', called_at = NULL, called_by = NULL,
+      expires_at = clock_timestamp() + interval '10 minutes'
+  WHERE id = v_presentation;
+  SELECT * INTO v_result
+  FROM public.call_shopper_forward(v_presentation, v_merchant, v_owner);
+  ASSERT v_result.newly_called, 'call after explicit rejoin must be a new transition';
+  SELECT count(*), count(DISTINCT call_generation), max(call_generation), max(created_at)
+    INTO v_count, v_distinct_count, v_call_generation, v_notification_created_at
+  FROM public.notifications WHERE presentation_id = v_presentation;
+  ASSERT v_count = 2 AND v_distinct_count = 2 AND v_call_generation = 2,
+    'second call generation must create exactly one fresh durable alert';
+  SELECT called_at INTO v_called_at
+  FROM public.merchant_presentations WHERE id = v_presentation;
+  ASSERT v_notification_created_at = v_called_at,
+    'latest alert time must equal the latest called_at';
 
   SELECT status INTO v_status FROM public.redemptions WHERE id = v_redemption;
   ASSERT v_status = 'pending', 'calling forward must never verify the deal code';
@@ -159,7 +187,7 @@ BEGIN
     AND presentation_id IS NULL
     AND expires_at = v_notification_expires_at
     AND message = 'It''s your turn — please go to the counter.';
-  ASSERT v_count = 1,
+  ASSERT v_count = 2,
     'ephemeral presentation deletion must preserve durable notification evidence';
 
   DELETE FROM public.notifications WHERE user_id = v_shopper;
