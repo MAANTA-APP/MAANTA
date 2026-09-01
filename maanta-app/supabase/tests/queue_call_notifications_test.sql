@@ -21,7 +21,9 @@ DECLARE
   v_called_at timestamptz;
   v_called_by uuid;
   v_notification_expires_at timestamptz;
+  v_notification_created_at timestamptz;
   v_function_def text;
+  v_verify_def text;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_shopper_auth) RETURNING id INTO v_shopper;
   INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth) RETURNING id INTO v_owner;
@@ -58,7 +60,8 @@ BEGIN
   ASSERT v_status = 'called' AND v_called_at IS NOT NULL AND v_called_by = v_staff,
     'staff call must persist called state, timestamp, and actor';
 
-  SELECT count(*), max(expires_at) INTO v_count, v_notification_expires_at
+  SELECT count(*), max(expires_at), max(created_at)
+    INTO v_count, v_notification_expires_at, v_notification_created_at
   FROM public.notifications
   WHERE presentation_id = v_presentation
     AND user_id = v_shopper
@@ -66,6 +69,8 @@ BEGIN
   ASSERT v_count = 1, 'call and durable shopper notification must commit together';
   ASSERT v_notification_expires_at IS NOT NULL,
     'durable call alert must retain its queue-expiry snapshot';
+  ASSERT v_notification_created_at = v_called_at,
+    'durable alert time must equal the post-lock called_at clock';
 
   SELECT * INTO v_result FROM public.call_shopper_forward(v_presentation, v_merchant, v_owner);
   ASSERT NOT v_result.newly_called, 'retry must be idempotent';
@@ -110,10 +115,22 @@ BEGIN
       AND strpos(v_function_def, 'SELECT p.* INTO v_row') > 0
       AND strpos(v_function_def, 'FROM public.redemptions r')
         < strpos(v_function_def, 'SELECT p.* INTO v_row'),
-    'call path must lock redemption before presentation, matching verification';
+    'call path must lock redemption before presentation';
   ASSERT strpos(v_function_def, 'v_now := clock_timestamp();')
       > strpos(v_function_def, 'SELECT p.* INTO v_row'),
     'queue deadlines must use a fresh clock after both lock waits';
+
+  SELECT pg_get_functiondef(
+    'public.verify_redemption(uuid,text,text,boolean,text)'::regprocedure
+  ) INTO v_verify_def;
+  ASSERT strpos(
+    v_verify_def,
+    'IF v_redemption.expires_at < clock_timestamp() THEN'
+  ) > 0, 'verification must refresh expiry after its redemption lock wait';
+  ASSERT strpos(
+    v_verify_def,
+    'IF v_redemption.expires_at < NOW() THEN'
+  ) = 0, 'transaction-stable verification expiry check must be absent';
 
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   SELECT count(*) INTO v_count
