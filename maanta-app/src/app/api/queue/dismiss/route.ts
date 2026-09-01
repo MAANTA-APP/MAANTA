@@ -31,10 +31,10 @@ export async function POST(request: Request) {
   const service = createServiceClient();
   const { data } = await service
     .from("merchant_presentations")
-    .update({ status: "dismissed" })
+    .update({ status: "dismissed", called_at: null, called_by: null })
     .eq("id", presentationId)
     .eq("merchant_id", merchant.id)
-    .eq("status", "waiting")
+    .in("status", ["waiting", "called"])
     .select("id");
 
   if (!data || data.length === 0) {
