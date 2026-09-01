@@ -66,3 +66,49 @@ because anything was lost.
 PR #313 is unreviewed feature work that arrived during Node 0 Field Validation
 Mode, where product and engineering are frozen absent field evidence. Whether it
 lands is a founder decision, not a maintenance one.
+
+## Branch disposition — founder ruling, 2026-09-01
+
+**The five `codex/*` branches are deliberately retained. Do not delete them as
+cleanup.** Tidiness is the only thing deletion buys here, and it is not worth the
+risk against work that has no other home.
+
+| Branch | Tip | State |
+|---|---|---|
+| `codex/d169-production-reconciliation` | `d68796d` | Squash-merged as `7e59410` (PR #299) — content fully in `main` |
+| `codex/d211-d208-b2b` | `7c39a95` | Squash-merged as `4e562d7` (PR #297) |
+| `codex/engineering-night` | `335d705` | Squash-merged as `8e0fa2a` (PR #298) |
+| `codex/queue-call-schema` | `02d26de` | Unmerged. Schema half of queue call-forward. Preserved by PRs #301–#313 |
+| `codex/queue-call-app` | `6d772ef` | Unmerged. Application half. Preserved by **draft PR #314**, opened for this purpose |
+
+**Check merge status by tree, not by commit SHA.** All three merged branches
+report "ahead" of `main` in `git rev-list --count`, because a squash merge mints
+a new SHA and ancestry never matches again. The honest test is
+`git diff origin/main...origin/<branch>` — or, for the merged ones,
+`git diff origin/main origin/<branch>` returning empty.
+
+Two facts that are easy to lose and expensive to rediscover:
+
+1. **`codex/queue-call-app` had no pull request at all.** All thirteen queue PRs
+   (#301–#313) had `codex/queue-call-schema` as their head. The application half
+   was pushed and deployed fifteen-plus times and referenced by nothing, so
+   deleting it would have discarded 25 commits with no *Restore branch* page.
+   **PR #314 exists solely to give it one** — it is an archival record, not a
+   proposal to merge.
+2. **`codex/queue-call-app` carries a live feature-flag flip.**
+   `20260901100100_enable_fast_visit_after_call_forward.sql` sets
+   `app_config.fast_visit_enabled` to `true`. Fast Visit has been dark since it
+   shipped feature-flagged OFF on 2026-08-26, so merging that branch would turn
+   it on for real shoppers. PR #314 is a **draft** for exactly this reason.
+
+The two queue halves are one feature split across two branches: the application
+routes call queue state and an RPC that exist only in the schema migration.
+**Restore both or neither** — either alone is broken.
+
+Neither half was ever verified (no CI run exists for `6d772ef`), and neither
+reached production: the ledger reconciles 107/107.
+
+**Deleting branches is not possible from a Claude Code remote session** — the
+egress proxy returns `HTTP 403` on a delete refspec, which its own documentation
+classes as an organization policy denial to report rather than work around. Any
+future cleanup is a human action, and this section is the argument against it.
