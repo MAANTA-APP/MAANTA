@@ -19,6 +19,7 @@ vi.mock("@/lib/merchant-api", () => ({
 
 let rows: unknown[];
 const eqCalls = vi.fn();
+const inCalls = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
     from: () => {
@@ -26,6 +27,10 @@ vi.mock("@/lib/supabase/service", () => ({
       chain.select = () => chain;
       chain.eq = (...args: unknown[]) => {
         eqCalls(args);
+        return chain;
+      };
+      chain.in = (...args: unknown[]) => {
+        inCalls(args);
         return chain;
       };
       chain.gt = () => chain;
@@ -40,6 +45,8 @@ function entry(overrides: Record<string, unknown> = {}) {
     id: "p-1",
     arrived_at: "2026-08-26T12:08:00.000Z",
     fast_visit_eligible: true,
+    status: "waiting",
+    called_at: null,
     users: { full_name: "Amina Hassan" },
     redemptions: {
       otp_code: "136456",
@@ -60,7 +67,7 @@ describe("GET /api/queue", () => {
   it("scopes the read to the authenticated merchant", async () => {
     await GET();
     expect(eqCalls).toHaveBeenCalledWith(["merchant_id", "merchant-1"]);
-    expect(eqCalls).toHaveBeenCalledWith(["status", "waiting"]);
+    expect(inCalls).toHaveBeenCalledWith(["status", ["waiting", "called"]]);
   });
 
   it("minimises shopper identity to first name + last initial", async () => {
@@ -82,6 +89,8 @@ describe("GET /api/queue", () => {
       dealTitle: "Summer Abaya",
       fastVisitEligible: true,
       code: "136456",
+      status: "waiting",
+      calledAt: null,
     });
     expect(body.count).toBe(1);
   });
