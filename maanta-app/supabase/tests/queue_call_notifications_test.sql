@@ -24,6 +24,7 @@ DECLARE
   v_notification_created_at timestamptz;
   v_function_def text;
   v_verify_def text;
+  v_expire_def text;
   v_reentry_presentation uuid;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_shopper_auth) RETURNING id INTO v_shopper;
@@ -136,6 +137,15 @@ BEGIN
   ASSERT NOT has_function_privilege(
     'authenticated', 'public.expire_live_presentation_slot()', 'EXECUTE'
   ), 'shopper must not invoke the live-slot maintenance function';
+
+  SELECT pg_get_functiondef(
+    'public.expire_live_presentation_slot()'::regprocedure
+  ) INTO v_expire_def;
+  ASSERT strpos(v_expire_def, 'FROM public.redemptions r') > 0
+      AND strpos(v_expire_def, 'UPDATE public.merchant_presentations') > 0
+      AND strpos(v_expire_def, 'FROM public.redemptions r')
+        < strpos(v_expire_def, 'UPDATE public.merchant_presentations'),
+    'replacement trigger must lock redemption before presentation';
 
   UPDATE public.merchant_presentations
   SET expires_at = clock_timestamp() - interval '1 second'
