@@ -61,6 +61,7 @@ export function QrCheckIn({
   merchantFloor,
   claims,
   alreadyCheckedInFor,
+  requiresExplicitRejoinFor = null,
   alreadyCheckedInExpiresAt,
   alreadyCheckedInStatus = null,
   alreadyCalledAt = null,
@@ -71,6 +72,7 @@ export function QrCheckIn({
   merchantFloor: string | null;
   claims: Claim[];
   alreadyCheckedInFor: string | null;
+  requiresExplicitRejoinFor?: string | null;
   alreadyCheckedInExpiresAt: string | null;
   alreadyCheckedInStatus?: "waiting" | "called" | null;
   alreadyCalledAt?: string | null;
@@ -100,6 +102,8 @@ export function QrCheckIn({
           already: true,
           queueExpiresAt: alreadyCheckedInExpiresAt,
         }
+      : requiresExplicitRejoinFor
+        ? { kind: "membership-lapsed", redemptionId: requiresExplicitRejoinFor }
       : { kind: "idle" }
   );
   const autoFired = useRef(false);
@@ -231,10 +235,10 @@ export function QrCheckIn({
   // the auto path exists only because a single claim leaves nothing to ask.
   useEffect(() => {
     if (autoFired.current) return;
-    if (alreadyCheckedInFor || claims.length !== 1) return;
+    if (alreadyCheckedInFor || requiresExplicitRejoinFor || claims.length !== 1) return;
     autoFired.current = true;
     void checkIn(claims[0].redemptionId);
-  }, [alreadyCheckedInFor, claims, checkIn]);
+  }, [alreadyCheckedInFor, claims, checkIn, requiresExplicitRejoinFor]);
 
   // Server-authoritative backstop. The shopper clock deliberately preserves
   // the SSR seed to keep every time-derived label in step, but a slow response
