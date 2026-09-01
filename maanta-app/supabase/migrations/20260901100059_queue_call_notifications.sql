@@ -138,7 +138,3 @@ COMMENT ON FUNCTION public.call_shopper_forward(uuid, uuid, uuid) IS
   'writes exactly one durable shopper notification. Idempotent for an already '
   'called row. Server-only; verifies actor ownership/can_verify and merchant '
   'scope. Does not verify a redemption or award Fast Visit points. 2026-09-01.';
-
--- Founder-authorized pilot enablement. Qualification is still stamped only at
--- arrival and points still move only after successful staff verification.
-UPDATE public.app_config SET value = 'true' WHERE key = 'fast_visit_enabled';
