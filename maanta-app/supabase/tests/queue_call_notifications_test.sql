@@ -74,6 +74,13 @@ BEGIN
   ASSERT has_function_privilege('service_role', 'public.call_shopper_forward(uuid,uuid,uuid)', 'EXECUTE'),
     'service_role route needs execute';
 
+  ASSERT NOT has_table_privilege('authenticated', 'public.notifications', 'UPDATE'),
+    'shopper must not have table-wide notification update';
+  ASSERT has_column_privilege('authenticated', 'public.notifications', 'is_read', 'UPDATE'),
+    'shopper must retain read-receipt updates';
+  ASSERT NOT has_column_privilege('authenticated', 'public.notifications', 'presentation_id', 'UPDATE'),
+    'shopper must not pre-empt a queue-call idempotency key';
+
   DELETE FROM public.notifications WHERE presentation_id = v_presentation;
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   DELETE FROM public.redemptions WHERE id = v_redemption;
