@@ -29,7 +29,8 @@ CREATE UNIQUE INDEX merchant_presentations_live_key
 
 ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS presentation_id uuid
-    REFERENCES public.merchant_presentations(id) ON DELETE CASCADE;
+    REFERENCES public.merchant_presentations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS notifications_queue_call_key
   ON public.notifications (presentation_id)
@@ -62,6 +63,8 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_row public.merchant_presentations%ROWTYPE;
+  v_redemption public.redemptions%ROWTYPE;
+  v_redemption_id uuid;
   v_merchant_name text;
   v_qr_token text;
   v_now timestamptz := clock_timestamp();
@@ -89,16 +92,34 @@ BEGIN
     RAISE EXCEPTION 'queue_call_unauthorized';
   END IF;
 
-  SELECT p.* INTO v_row
+  -- Verification locks the redemption first. Match that order so a call can
+  -- never commit from a stale `pending` observation after verification wins
+  -- the race, and so the two paths cannot deadlock each other.
+  SELECT p.redemption_id INTO v_redemption_id
   FROM public.merchant_presentations p
-  JOIN public.redemptions r ON r.id = p.redemption_id
   WHERE p.id = p_presentation_id
-    AND p.merchant_id = p_merchant_id
-    AND p.status IN ('waiting', 'called')
-    AND p.expires_at > v_now
+    AND p.merchant_id = p_merchant_id;
+
+  SELECT r.* INTO v_redemption
+  FROM public.redemptions r
+  WHERE r.id = v_redemption_id
+    AND r.merchant_id = p_merchant_id
     AND r.status = 'pending'
     AND r.expires_at > v_now
-  FOR UPDATE OF p;
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'queue_call_not_found';
+  END IF;
+
+  SELECT p.* INTO v_row
+  FROM public.merchant_presentations p
+  WHERE p.id = p_presentation_id
+    AND p.merchant_id = p_merchant_id
+    AND p.redemption_id = v_redemption.id
+    AND p.status IN ('waiting', 'called')
+    AND p.expires_at > v_now
+  FOR UPDATE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'queue_call_not_found';
@@ -118,14 +139,15 @@ BEGIN
   END IF;
 
   INSERT INTO public.notifications (
-    user_id, merchant_id, presentation_id, title, message, is_read
+    user_id, merchant_id, presentation_id, title, message, is_read, expires_at
   ) VALUES (
     v_row.shopper_id,
     p_merchant_id,
     v_row.id,
     v_merchant_name,
     'It''s your turn — please go to the counter.',
-    false
+    false,
+    v_row.expires_at
   )
   ON CONFLICT DO NOTHING;
 
