@@ -82,6 +82,16 @@ describe("QrCheckIn states", () => {
     expect(html).not.toContain("Staff will call your name");
   });
 
+  it("an expired called entry requires an explicit rejoin action", () => {
+    const html = render({
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE }],
+      requiresExplicitRejoinFor: "r1",
+    });
+    expect(html).toContain("You’re no longer checked in.");
+    expect(html).toContain("Check in again");
+    expect(html).not.toContain("Checking you in");
+  });
+
   it("the single-claim branch always resolves to a real screen (D196)", () => {
     // The cancel-stranding class of defect: the single-claim auto-check-in
     // effect is one-shot, so any state falling back to `idle` renders
@@ -131,6 +141,10 @@ describe("QrCheckIn states", () => {
       path.resolve(process.cwd(), "src/app/(shopper)/qr/[token]/qr-check-in.tsx"),
       "utf8"
     );
+    const pageSrc = readFileSync(
+      path.resolve(process.cwd(), "src/app/(shopper)/qr/[token]/page.tsx"),
+      "utf8"
+    );
     expect(src).toContain('state.kind !== "checked-in"');
     expect(src).toContain("new Date(state.queueExpiresAt).getTime() > now.getTime()");
     expect(src).toContain('kind: "confirming-membership"');
@@ -141,6 +155,9 @@ describe("QrCheckIn states", () => {
     expect(src).toContain("Confirming your queue status");
     expect(src).toContain("Queue status unavailable");
     expect(src).toContain("You’re no longer checked in");
+    expect(src).toContain("alreadyCheckedInFor || requiresExplicitRejoinFor");
+    expect(pageSrc).toContain('waiting?.status === "called"');
+    expect(pageSrc).toContain("requiresExplicitRejoinFor={requiresExplicitRejoinFor}");
 
     const confirmationEffect = src.slice(
       src.indexOf("// D217: the clock may decide WHEN"),
