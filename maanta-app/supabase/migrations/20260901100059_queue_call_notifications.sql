@@ -127,7 +127,7 @@ BEGIN
     'It''s your turn — please go to the counter.',
     false
   )
-  ON CONFLICT (presentation_id) WHERE presentation_id IS NOT NULL DO NOTHING;
+  ON CONFLICT DO NOTHING;
 
   RETURN QUERY SELECT
     v_row.id, v_row.shopper_id, v_merchant_name, v_qr_token,
