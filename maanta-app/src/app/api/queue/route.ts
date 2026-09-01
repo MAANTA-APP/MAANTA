@@ -32,10 +32,10 @@ export async function GET() {
   const { data, error } = await service
     .from("merchant_presentations")
     .select(
-      "id, arrived_at, fast_visit_eligible, users(full_name), redemptions(otp_code, status, expires_at, deals(title))"
+      "id, arrived_at, fast_visit_eligible, status, called_at, users(full_name), redemptions(otp_code, status, expires_at, deals(title))"
     )
     .eq("merchant_id", merchant.id)
-    .eq("status", "waiting")
+    .in("status", ["waiting", "called"])
     .gt("expires_at", new Date().toISOString())
     .order("arrived_at", { ascending: true });
 
@@ -50,6 +50,8 @@ export async function GET() {
     id: string;
     arrived_at: string;
     fast_visit_eligible: boolean;
+    status: "waiting" | "called";
+    called_at: string | null;
     users: { full_name: string | null } | null;
     redemptions: {
       otp_code: string;
@@ -72,6 +74,8 @@ export async function GET() {
       dealTitle: row.redemptions?.deals?.title ?? "Deal",
       arrivedAt: row.arrived_at,
       fastVisitEligible: row.fast_visit_eligible,
+      status: row.status,
+      calledAt: row.called_at,
       code: row.redemptions?.otp_code ?? "",
     }));
 
