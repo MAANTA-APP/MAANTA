@@ -29,6 +29,8 @@ type CheckedIn = {
   arrivedAt: string;
   fastVisitEligible: boolean;
   claimedAt?: string | null;
+  queueStatus: "waiting" | "called";
+  calledAt: string | null;
 };
 
 /** D217's total bound from the expected queue lapse to a neutral answer. */
@@ -43,7 +45,12 @@ export const QUEUE_MEMBERSHIP_REQUEST_TIMEOUT_MS =
   QUEUE_CONFIRMATION_BOUND_MS - QUEUE_MEMBERSHIP_POLL_MS;
 
 type MembershipResult =
-  | { kind: "live"; expiresAt: string }
+  | {
+      kind: "live";
+      expiresAt: string;
+      queueStatus: "waiting" | "called";
+      calledAt: string | null;
+    }
   | { kind: "lapsed" }
   | { kind: "unknown" };
 
@@ -55,6 +62,8 @@ export function QrCheckIn({
   claims,
   alreadyCheckedInFor,
   alreadyCheckedInExpiresAt,
+  alreadyCheckedInStatus = null,
+  alreadyCalledAt = null,
 }: {
   token: string;
   merchantId: string;
@@ -63,6 +72,8 @@ export function QrCheckIn({
   claims: Claim[];
   alreadyCheckedInFor: string | null;
   alreadyCheckedInExpiresAt: string | null;
+  alreadyCheckedInStatus?: "waiting" | "called" | null;
+  alreadyCalledAt?: string | null;
 }) {
   const [state, setState] = useState<
     | { kind: "idle" }
@@ -78,7 +89,13 @@ export function QrCheckIn({
     alreadyCheckedInFor && alreadyCheckedInExpiresAt
       ? {
           kind: "checked-in",
-          info: { merchantName, arrivedAt: "", fastVisitEligible: false },
+          info: {
+            merchantName,
+            arrivedAt: "",
+            fastVisitEligible: false,
+            queueStatus: alreadyCheckedInStatus ?? "waiting",
+            calledAt: alreadyCalledAt,
+          },
           redemptionId: alreadyCheckedInFor,
           already: true,
           queueExpiresAt: alreadyCheckedInExpiresAt,
@@ -112,7 +129,12 @@ export function QrCheckIn({
         const body = await res.json().catch(() => null);
         if (!res.ok) return { kind: "unknown" };
         if (body?.checkedIn === true && typeof body.expiresAt === "string") {
-          return { kind: "live", expiresAt: body.expiresAt };
+          return {
+            kind: "live",
+            expiresAt: body.expiresAt,
+            queueStatus: body.queueStatus === "called" ? "called" : "waiting",
+            calledAt: typeof body.calledAt === "string" ? body.calledAt : null,
+          };
         }
         return { kind: "lapsed" };
       } catch {
@@ -152,6 +174,8 @@ export function QrCheckIn({
             merchantName: body.merchantName ?? merchantName,
             arrivedAt: body.arrivedAt ?? "",
             fastVisitEligible: body.fastVisitEligible === true,
+            queueStatus: body.queueStatus === "called" ? "called" : "waiting",
+            calledAt: typeof body.calledAt === "string" ? body.calledAt : null,
           },
         });
       } catch {
@@ -175,7 +199,13 @@ export function QrCheckIn({
           redemptionId,
           already: true,
           queueExpiresAt: result.expiresAt,
-          info: { merchantName, arrivedAt: "", fastVisitEligible: false },
+          info: {
+            merchantName,
+            arrivedAt: "",
+            fastVisitEligible: false,
+            queueStatus: result.queueStatus,
+            calledAt: result.calledAt,
+          },
         });
         return;
       }
@@ -236,6 +266,22 @@ export function QrCheckIn({
           redemptionId,
           message: "We couldn’t confirm whether you’re still checked in.",
         });
+      } else {
+        setState((current) =>
+          current.kind === "checked-in" &&
+          (current.info.queueStatus !== result.queueStatus ||
+            current.info.calledAt !== result.calledAt)
+            ? {
+                ...current,
+                queueExpiresAt: result.expiresAt,
+                info: {
+                  ...current.info,
+                  queueStatus: result.queueStatus,
+                  calledAt: result.calledAt,
+                },
+              }
+            : current
+        );
       }
       inFlight = false;
     };
@@ -332,11 +378,17 @@ export function QrCheckIn({
           <IconCheck className="h-7 w-7 text-ink" />
         </span>
         <h1 className="mt-4 text-xl font-bold text-ink">
-          {state.already
-            ? "You're already checked in."
-            : `You're checked in at ${state.info.merchantName}.`}
+          {state.info.queueStatus === "called"
+            ? "It’s your turn."
+            : state.already
+              ? "You're already checked in."
+              : `You're checked in at ${state.info.merchantName}.`}
         </h1>
-        <p className="mt-2 text-sm text-secondary">Staff will call your name.</p>
+        <p className="mt-2 text-sm text-secondary">
+          {state.info.queueStatus === "called"
+            ? "Please go to the counter now."
+            : "You’re in the queue. Stay nearby — staff will call you here."}
+        </p>
         {state.info.fastVisitEligible ? (
           <div className="mt-5 rounded-card bg-white px-4 py-3.5 shadow-card">
             <p className="text-sm font-bold text-ink">You made it</p>
