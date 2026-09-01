@@ -38,6 +38,14 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  -- Match call/verification's canonical redemption -> presentation order.
+  -- The INSERT's FK check also needs this row; taking it here prevents a
+  -- replacement check-in and a concurrent staff call from forming a cycle.
+  PERFORM 1
+  FROM public.redemptions r
+  WHERE r.id = NEW.redemption_id
+  FOR UPDATE;
+
   UPDATE public.merchant_presentations
   SET status = 'expired', called_at = NULL, called_by = NULL
   WHERE redemption_id = NEW.redemption_id
