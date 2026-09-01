@@ -187,10 +187,17 @@ BEGIN
   FROM public.notifications
   WHERE user_id = v_shopper
     AND presentation_id IS NULL
-    AND expires_at = v_notification_expires_at
     AND message = 'It''s your turn — please go to the counter.';
   ASSERT v_count = 2,
     'ephemeral presentation deletion must preserve durable notification evidence';
+  SELECT count(*) INTO v_count
+  FROM public.notifications
+  WHERE user_id = v_shopper
+    AND presentation_id IS NULL
+    AND expires_at = v_notification_expires_at
+    AND call_generation = 1;
+  ASSERT v_count = 1,
+    'presentation deletion must preserve the first call expiry snapshot';
 
   DELETE FROM public.notifications WHERE user_id = v_shopper;
   DELETE FROM public.redemptions WHERE id = v_redemption;
