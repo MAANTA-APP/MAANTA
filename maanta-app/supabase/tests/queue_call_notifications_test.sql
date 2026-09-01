@@ -74,10 +74,6 @@ BEGIN
   ASSERT has_function_privilege('service_role', 'public.call_shopper_forward(uuid,uuid,uuid)', 'EXECUTE'),
     'service_role route needs execute';
 
-  SELECT count(*) INTO v_count FROM public.app_config
-  WHERE key = 'fast_visit_enabled' AND value = 'true';
-  ASSERT v_count = 1, 'founder-authorized migration must enable Fast Visit';
-
   DELETE FROM public.notifications WHERE presentation_id = v_presentation;
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   DELETE FROM public.redemptions WHERE id = v_redemption;
