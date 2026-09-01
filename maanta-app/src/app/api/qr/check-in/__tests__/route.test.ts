@@ -42,7 +42,12 @@ const rpc = vi.fn(() => ({ single: rpcSingle }));
 
 // Service client — arrival RPC + token resolve + queue rows.
 let merchantRow: Record<string, unknown> | null;
-let waitingRow: { id: string; expires_at: string } | null;
+let waitingRow: {
+  id: string;
+  expires_at: string;
+  status?: "waiting" | "called";
+  called_at?: string | null;
+} | null;
 let claimRow: { id: string } | null;
 /** Rows the renew UPDATE matched — empty means it lost a race (D197). */
 let renewMatched: Array<{ id: string }>;
@@ -84,6 +89,10 @@ vi.mock("@/lib/supabase/service", () => ({
         queueUpdateEqs(args);
         return chain;
       };
+      chain.in = (...args: unknown[]) => {
+        queueUpdateEqs(args);
+        return chain;
+      };
       chain.gt = (_column: unknown, value: unknown) => {
         expiresAfter = String(value);
         return chain;
@@ -96,7 +105,7 @@ vi.mock("@/lib/supabase/service", () => ({
           (!expiresAfter ||
             new Date(waitingRow.expires_at).getTime() >
               new Date(expiresAfter).getTime())
-            ? waitingRow
+            ? { status: "waiting", called_at: null, ...waitingRow }
             : null;
         return Promise.resolve({ data: visible, error: null });
       };
@@ -287,6 +296,18 @@ describe("POST /api/qr/check-in", () => {
     ).not.toHaveProperty("arrived_at");
   });
 
+  it("preserves an already-called state when the shopper scans again", async () => {
+    const calledAt = new Date(Date.now() - 30_000).toISOString();
+    waitingRow = { id: "p-1", expires_at: FUTURE, status: "called", called_at: calledAt };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect(await res.json()).toMatchObject({
+      checkedIn: true,
+      queueStatus: "called",
+      calledAt,
+    });
+    expect(queueUpdatePayloads.at(-1)).toEqual(expect.objectContaining({ expires_at: expect.any(String) }));
+  });
+
   it("rejects a non-UUID redemption id with 400, not a 500 (D201)", async () => {
     const res = await POST(req({ token: TOKEN, redemptionId: "abc" }));
     expect(res.status).toBe(400);
@@ -337,18 +358,33 @@ describe("GET /api/qr/check-in", () => {
   it("confirms only a live queue row backed by a live owned claim", async () => {
     const res = await GET(getReq());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ checkedIn: true, expiresAt: FUTURE });
+    expect(await res.json()).toEqual({
+      checkedIn: true,
+      expiresAt: FUTURE,
+      queueStatus: "waiting",
+      calledAt: null,
+    });
   });
 
   it("reports lapsed when either the queue row or claim is no longer live", async () => {
     waitingRow = null;
     const noQueue = await GET(getReq());
-    expect(await noQueue.json()).toEqual({ checkedIn: false, expiresAt: null });
+    expect(await noQueue.json()).toEqual({
+      checkedIn: false,
+      expiresAt: null,
+      queueStatus: null,
+      calledAt: null,
+    });
 
     waitingRow = { id: "p-1", expires_at: FUTURE };
     claimRow = null;
     const noClaim = await GET(getReq());
-    expect(await noClaim.json()).toEqual({ checkedIn: false, expiresAt: null });
+    expect(await noClaim.json()).toEqual({
+      checkedIn: false,
+      expiresAt: null,
+      queueStatus: null,
+      calledAt: null,
+    });
   });
 });
 
