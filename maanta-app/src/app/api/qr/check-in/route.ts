@@ -86,13 +86,13 @@ export async function GET(request: Request) {
     await Promise.all([
       service
         .from("merchant_presentations")
-        .select("expires_at")
+        .select("expires_at, status, called_at")
         .eq("redemption_id", redemptionId)
         .eq("shopper_id", appUser.id)
         .eq("merchant_id", merchant.id)
-        .eq("status", "waiting")
+        .in("status", ["waiting", "called"])
         .gt("expires_at", nowIso)
-        .maybeSingle<{ expires_at: string }>(),
+        .maybeSingle<{ expires_at: string; status: "waiting" | "called"; called_at: string | null }>(),
       service
         .from("redemptions")
         .select("id")
@@ -114,6 +114,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     checkedIn: Boolean(waiting && claim),
     expiresAt: waiting && claim ? waiting.expires_at : null,
+    queueStatus: waiting && claim ? waiting.status : null,
+    calledAt: waiting && claim ? waiting.called_at : null,
   });
 }
 
@@ -260,12 +262,19 @@ export async function POST(request: Request) {
   // (D197). D199.
   const { data: existing } = await service
     .from("merchant_presentations")
-    .select("id, expires_at")
+    .select("id, expires_at, status, called_at")
     .eq("redemption_id", redemptionId)
-    .eq("status", "waiting")
-    .maybeSingle<{ id: string; expires_at: string }>();
+    .in("status", ["waiting", "called"])
+    .maybeSingle<{
+      id: string;
+      expires_at: string;
+      status: "waiting" | "called";
+      called_at: string | null;
+    }>();
 
   let queued = false;
+  let queueStatus: "waiting" | "called" = "waiting";
+  let calledAt: string | null = null;
   if (existing) {
     const lapsed = new Date(existing.expires_at).getTime() <= nowMs;
     const { data: written, error: updateError } = await service
@@ -273,19 +282,26 @@ export async function POST(request: Request) {
       .update(
         lapsed
           ? {
+              status: "waiting",
               expires_at: expiresAt,
               arrived_at: new Date(nowMs).toISOString(),
               fast_visit_eligible: arrival.fast_visit_eligible,
+              called_at: null,
+              called_by: null,
             }
           : { expires_at: expiresAt }
       )
       .eq("id", existing.id)
-      .eq("status", "waiting")
+      .eq("status", existing.status)
       .select("id");
     if (updateError) {
       console.error("queue renew failed:", updateError.code);
     }
     queued = !updateError && (written?.length ?? 0) > 0;
+    if (queued && !lapsed && existing.status === "called") {
+      queueStatus = "called";
+      calledAt = existing.called_at;
+    }
     // Only a still-live entry is a "renew" to the shopper; superseding a
     // lapsed one is a fresh check-in and reads as one.
     renewed = queued && !lapsed;
@@ -312,12 +328,20 @@ export async function POST(request: Request) {
         // still-live row before acknowledging queue membership.
         const { data: racedLive } = await service
           .from("merchant_presentations")
-          .select("id")
+          .select("id, status, called_at")
           .eq("redemption_id", redemptionId)
-          .eq("status", "waiting")
+          .in("status", ["waiting", "called"])
           .gt("expires_at", new Date(nowMs).toISOString())
-          .maybeSingle<{ id: string }>();
+          .maybeSingle<{
+            id: string;
+            status: "waiting" | "called";
+            called_at: string | null;
+          }>();
         queued = Boolean(racedLive);
+        if (racedLive?.status === "called") {
+          queueStatus = "called";
+          calledAt = racedLive.called_at;
+        }
         renewed = queued;
       } else {
         console.error("queue insert failed:", insertError.code);
@@ -363,6 +387,8 @@ export async function POST(request: Request) {
     fastVisitEligible: arrival.fast_visit_eligible,
     firstArrival: arrival.first_arrival,
     queueExpiresAt: expiresAt,
+    queueStatus,
+    calledAt,
   });
 }
 
@@ -395,10 +421,10 @@ export async function DELETE(request: Request) {
   const service = createServiceClient();
   const { data, error } = await service
     .from("merchant_presentations")
-    .update({ status: "cancelled" })
+    .update({ status: "cancelled", called_at: null, called_by: null })
     .eq("redemption_id", redemptionId)
     .eq("shopper_id", appUser.id)
-    .eq("status", "waiting")
+    .in("status", ["waiting", "called"])
     .select("id");
 
   if (error) {
