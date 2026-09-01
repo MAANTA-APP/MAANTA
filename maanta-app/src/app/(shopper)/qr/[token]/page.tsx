@@ -105,12 +105,17 @@ export default async function QrLandingPage({
   // join; this lookup must agree).
   const { data: waiting } = await service
     .from("merchant_presentations")
-    .select("redemption_id, expires_at")
+    .select("redemption_id, expires_at, status, called_at")
     .eq("shopper_id", user.id)
     .eq("merchant_id", merchant.id)
-    .eq("status", "waiting")
+    .in("status", ["waiting", "called"])
     .gt("expires_at", nowIso)
-    .maybeSingle<{ redemption_id: string; expires_at: string }>();
+    .maybeSingle<{
+      redemption_id: string;
+      expires_at: string;
+      status: "waiting" | "called";
+      called_at: string | null;
+    }>();
   const alreadyCheckedInFor = liveWaitingRedemptionId(
     claims,
     waiting?.redemption_id
@@ -127,6 +132,12 @@ export default async function QrLandingPage({
         alreadyCheckedInFor={alreadyCheckedInFor}
         alreadyCheckedInExpiresAt={
           alreadyCheckedInFor === waiting?.redemption_id ? waiting.expires_at : null
+        }
+        alreadyCheckedInStatus={
+          alreadyCheckedInFor === waiting?.redemption_id ? waiting.status : null
+        }
+        alreadyCalledAt={
+          alreadyCheckedInFor === waiting?.redemption_id ? waiting.called_at : null
         }
       />
     </main>
