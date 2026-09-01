@@ -67,7 +67,7 @@ DECLARE
   v_redemption_id uuid;
   v_merchant_name text;
   v_qr_token text;
-  v_now timestamptz := clock_timestamp();
+  v_now timestamptz;
   v_new boolean := false;
 BEGIN
   IF p_presentation_id IS NULL OR p_merchant_id IS NULL OR p_actor_id IS NULL THEN
@@ -105,7 +105,6 @@ BEGIN
   WHERE r.id = v_redemption_id
     AND r.merchant_id = p_merchant_id
     AND r.status = 'pending'
-    AND r.expires_at > v_now
   FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -118,10 +117,16 @@ BEGIN
     AND p.merchant_id = p_merchant_id
     AND p.redemption_id = v_redemption.id
     AND p.status IN ('waiting', 'called')
-    AND p.expires_at > v_now
   FOR UPDATE;
 
   IF NOT FOUND THEN
+    RAISE EXCEPTION 'queue_call_not_found';
+  END IF;
+
+  -- Both locks may have waited. Deadlines are judged from a fresh database
+  -- clock only after the state they protect is ours to change.
+  v_now := clock_timestamp();
+  IF v_redemption.expires_at <= v_now OR v_row.expires_at <= v_now THEN
     RAISE EXCEPTION 'queue_call_not_found';
   END IF;
 
