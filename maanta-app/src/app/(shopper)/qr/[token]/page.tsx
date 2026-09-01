@@ -109,17 +109,25 @@ export default async function QrLandingPage({
     .eq("shopper_id", user.id)
     .eq("merchant_id", merchant.id)
     .in("status", ["waiting", "called"])
-    .gt("expires_at", nowIso)
     .maybeSingle<{
       redemption_id: string;
       expires_at: string;
       status: "waiting" | "called";
       called_at: string | null;
     }>();
+  const presentationIsLive = Boolean(
+    waiting && new Date(waiting.expires_at).getTime() > new Date(nowIso).getTime()
+  );
   const alreadyCheckedInFor = liveWaitingRedemptionId(
     claims,
-    waiting?.redemption_id
+    presentationIsLive ? waiting?.redemption_id : null
   );
+  const requiresExplicitRejoinFor =
+    waiting?.status === "called" &&
+    !presentationIsLive &&
+    claims.some((claim) => claim.redemptionId === waiting.redemption_id)
+      ? waiting.redemption_id
+      : null;
 
   return (
     <main className="px-5 pb-10 pt-8">
@@ -130,6 +138,7 @@ export default async function QrLandingPage({
         merchantFloor={merchant.floor}
         claims={claims}
         alreadyCheckedInFor={alreadyCheckedInFor}
+        requiresExplicitRejoinFor={requiresExplicitRejoinFor}
         alreadyCheckedInExpiresAt={
           alreadyCheckedInFor === waiting?.redemption_id ? waiting.expires_at : null
         }
