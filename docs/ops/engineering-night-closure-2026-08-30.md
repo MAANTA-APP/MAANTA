@@ -6,9 +6,11 @@ All engineering work that is executable under the founder's existing rulings
 is implemented on `codex/engineering-night`. Ten drift rows close with named
 evidence: **D27, D86, D155, D165, D167, D180, D181, D209, D213 and D217**.
 
-**D169 is implemented but deliberately remains open.** The migration and its
-grant ratchet are authored; closure requires the real fresh-database CI job and
-the separately authorized production migration apply.
+**D169 closed 2026-09-01.** The real fresh-database CI job passed and production
+carries the revoke. The hosted apply's minted version `20260831081622` was
+repaired under separate founder authorisation to the repository-owned
+`20260830120000`; independent read-back proved 107/107 agreement by version and
+name and re-confirmed all three write grants absent.
 
 ## Delivered
 
@@ -21,7 +23,7 @@ the separately authorized production migration apply.
 | Nairobi time | `friendlyTime` uses the Nairobi wall clock and Nairobi calendar day | D209 |
 | Shopper inventory | Inventory-advertising routes refresh within 30 seconds and on resume; cached discovery routes use a short-lived, per-shopper cache bypass | D213 criterion 4 |
 | Counter queue | Queue membership is polled from the server on a 15-second cadence with a 15-second response budget; uncertainty is neutral and rejoin is explicit only | D217 |
-| Ledger grants | Fresh deployments revoke authenticated INSERT/UPDATE/DELETE on `merchant_transactions` | D169, pending CI/apply |
+| Ledger grants | Fresh deployments and production revoke authenticated INSERT/UPDATE/DELETE on `merchant_transactions`; ledger reconciled 107/107 | D169, closed |
 | Identity repair | Runbook now supplies the D124 service-role session claim | D155 |
 | Drift governance | The second register is explicitly historical and D86's exercised process control is closed | D27, D86 |
 
@@ -53,16 +55,18 @@ fixed in this tree:
    requesting-shopper window without globally evicting the shared
    node cache.
 
-The disposable PostgreSQL gate could not run in this execution image: Docker
-and the Supabase CLI are both absent, and privilege escalation is unavailable.
-The PR must not merge until its real `db-tests` job passes the complete fresh
+The disposable PostgreSQL gate could not run in the original execution image:
+Docker and the Supabase CLI were both absent, and privilege escalation was
+unavailable. The real `db-tests` job subsequently passed the complete fresh
 migration chain, including
 `20260830120000_revoke_authenticated_ledger_writes.sql` and the three D169
-privilege assertions.
+privilege assertions. Production read-back on 2026-09-01 confirmed the same
+three privileges absent and the repaired migration ledger aligned 107/107 with
+the repository by version and name.
 
 ## Open work is not silently converted into tonight's scope
 
-The canonical register now has 48 open rows. Ten are labelled engineering-owned,
+The canonical register now has 47 open rows. Nine are labelled engineering-owned,
 but none is another executable implementation under the current rulings:
 
 | Row | Why it remains open |
@@ -76,7 +80,6 @@ but none is another executable implementation under the current rulings:
 | D112 | Must reproduce the iOS Safari map race before changing code |
 | D118 | Explicitly deferred until result density approaches the row limits |
 | D168 | Explicitly deferred; restoring broad merchant SELECT is forbidden |
-| D169 | Authored here; awaits fresh-DB CI and separately authorized apply |
 
 Founder-owned product decisions, field proofs and explicit post-Merchant-01
 deferrals remain open as recorded. This branch does not merge itself and does
