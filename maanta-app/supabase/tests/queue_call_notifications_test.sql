@@ -24,8 +24,6 @@ DECLARE
   v_notification_created_at timestamptz;
   v_function_def text;
   v_verify_def text;
-  v_expire_def text;
-  v_reentry_presentation uuid;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_shopper_auth) RETURNING id INTO v_shopper;
   INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth) RETURNING id INTO v_owner;
@@ -134,35 +132,25 @@ BEGIN
     'IF v_redemption.expires_at < NOW() THEN'
   ) = 0, 'transaction-stable verification expiry check must be absent';
 
-  ASSERT NOT has_function_privilege(
-    'authenticated', 'public.expire_live_presentation_slot()', 'EXECUTE'
-  ), 'shopper must not invoke the live-slot maintenance function';
-
-  SELECT pg_get_functiondef(
-    'public.expire_live_presentation_slot()'::regprocedure
-  ) INTO v_expire_def;
-  ASSERT strpos(v_expire_def, 'FROM public.redemptions r') > 0
-      AND strpos(v_expire_def, 'UPDATE public.merchant_presentations') > 0
-      AND strpos(v_expire_def, 'FROM public.redemptions r')
-        < strpos(v_expire_def, 'UPDATE public.merchant_presentations'),
-    'replacement trigger must lock redemption before presentation';
-
   UPDATE public.merchant_presentations
   SET expires_at = clock_timestamp() - interval '1 second'
   WHERE id = v_presentation;
 
-  INSERT INTO public.merchant_presentations (
-    merchant_id, redemption_id, shopper_id, expires_at
-  ) VALUES (
-    v_merchant, v_redemption, v_shopper, clock_timestamp() + interval '10 minutes'
-  ) RETURNING id INTO v_reentry_presentation;
+  BEGIN
+    INSERT INTO public.merchant_presentations (
+      merchant_id, redemption_id, shopper_id, expires_at
+    ) VALUES (
+      v_merchant, v_redemption, v_shopper, clock_timestamp() + interval '10 minutes'
+    );
+    RAISE EXCEPTION 'expired call allowed an automatic replacement insert';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
 
   SELECT status, called_at, called_by INTO v_status, v_called_at, v_called_by
   FROM public.merchant_presentations WHERE id = v_presentation;
-  ASSERT v_status = 'expired' AND v_called_at IS NULL AND v_called_by IS NULL,
-    'insert must retire an expired called row before checking the live-slot key';
-  ASSERT v_reentry_presentation IS NOT NULL,
-    'expired called rows must not block a fresh queue entry during schema-first rollout';
+  ASSERT v_status = 'called' AND v_called_at IS NOT NULL AND v_called_by = v_staff,
+    'legacy automatic insert must not rejoin an already-called shopper';
 
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   SELECT count(*) INTO v_count
@@ -175,7 +163,6 @@ BEGIN
     'ephemeral presentation deletion must preserve durable notification evidence';
 
   DELETE FROM public.notifications WHERE user_id = v_shopper;
-  DELETE FROM public.merchant_presentations WHERE id = v_reentry_presentation;
   DELETE FROM public.redemptions WHERE id = v_redemption;
   DELETE FROM public.deals WHERE id = v_deal;
   DELETE FROM public.merchant_staff WHERE merchant_id = v_merchant;
