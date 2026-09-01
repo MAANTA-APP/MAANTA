@@ -65,9 +65,21 @@ describe("QrCheckIn states", () => {
       alreadyCheckedInFor: "r1",
     });
     expect(html).toContain("already checked in");
-    expect(html).toContain("Staff will call your name.");
+    expect(html).toContain("staff will call you here");
     expect(html).toContain("Cancel check-in");
     expect(html).toContain("your claim stays valid");
+  });
+
+  it("a server-confirmed call tells the shopper to go to the counter", () => {
+    const html = render({
+      claims: [{ redemptionId: "r1", dealTitle: "Summer Abaya", expiresAt: LIVE }],
+      alreadyCheckedInFor: "r1",
+      alreadyCheckedInStatus: "called",
+      alreadyCalledAt: new Date().toISOString(),
+    });
+    expect(html).toContain("It’s your turn.");
+    expect(html).toContain("Please go to the counter now.");
+    expect(html).not.toContain("Staff will call your name");
   });
 
   it("the single-claim branch always resolves to a real screen (D196)", () => {
