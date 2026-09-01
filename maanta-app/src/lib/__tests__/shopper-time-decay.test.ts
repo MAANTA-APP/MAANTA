@@ -1349,7 +1349,9 @@ describe("criterion 3 — surfaces the first discovery audit missed", () => {
     // a display change; silently checking them into the survivor is an ACTION
     // taken while they were mid-decision at a counter.
     const src = read("app/(shopper)/qr/[token]/qr-check-in.tsx");
-    expect(src).toContain("if (alreadyCheckedInFor || claims.length !== 1) return;");
+    expect(src).toContain(
+      "if (alreadyCheckedInFor || requiresExplicitRejoinFor || claims.length !== 1) return;"
+    );
     expect(src).not.toContain("liveClaims.length !== 1) return;");
     // Selection and the empty state read the live set; the auto path does not.
     expect(src).toContain("{liveClaims.map((c) => (");
