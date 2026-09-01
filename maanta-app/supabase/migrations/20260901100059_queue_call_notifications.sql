@@ -44,6 +44,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS notifications_queue_call_key
 REVOKE UPDATE ON TABLE public.notifications FROM authenticated;
 GRANT UPDATE (is_read) ON TABLE public.notifications TO authenticated;
 
+-- `verify_redemption` locks the pending row and historically compared expiry
+-- with transaction-stable NOW(). Any new locker can make that transaction wait
+-- across the real deadline while its old snapshot still says the code is live.
+-- Patch the one frozen check in place so verification judges expiry from a
+-- fresh clock after acquiring its row lock. Fail closed if the upstream body
+-- no longer has exactly the definition this migration was reviewed against.
+DO $migration$
+DECLARE
+  v_definition text;
+  v_old text := 'IF v_redemption.expires_at < NOW() THEN';
+  v_new text := 'IF v_redemption.expires_at < clock_timestamp() THEN';
+BEGIN
+  SELECT pg_get_functiondef(
+    'public.verify_redemption(uuid,text,text,boolean,text)'::regprocedure
+  ) INTO v_definition;
+
+  IF (length(v_definition) - length(replace(v_definition, v_old, '')))
+       / length(v_old) <> 1 THEN
+    RAISE EXCEPTION 'verify_redemption expiry check shape changed';
+  END IF;
+
+  EXECUTE replace(v_definition, v_old, v_new);
+END;
+$migration$;
+
 CREATE OR REPLACE FUNCTION public.call_shopper_forward(
   p_presentation_id uuid,
   p_merchant_id uuid,
@@ -92,9 +117,10 @@ BEGIN
     RAISE EXCEPTION 'queue_call_unauthorized';
   END IF;
 
-  -- Verification locks the redemption first. Match that order so a call can
-  -- never commit from a stale `pending` observation after verification wins
-  -- the race, and so the two paths cannot deadlock each other.
+  -- Verification locks the redemption first. Match that canonical order so
+  -- the pending decision is serialized and future multi-row paths have one
+  -- order to follow. The verification function above now refreshes its own
+  -- expiry clock after any wait on this lock.
   SELECT p.redemption_id INTO v_redemption_id
   FROM public.merchant_presentations p
   WHERE p.id = p_presentation_id
@@ -144,7 +170,8 @@ BEGIN
   END IF;
 
   INSERT INTO public.notifications (
-    user_id, merchant_id, presentation_id, title, message, is_read, expires_at
+    user_id, merchant_id, presentation_id, title, message, is_read,
+    created_at, expires_at
   ) VALUES (
     v_row.shopper_id,
     p_merchant_id,
@@ -152,6 +179,7 @@ BEGIN
     v_merchant_name,
     'It''s your turn — please go to the counter.',
     false,
+    v_now,
     v_row.expires_at
   )
   ON CONFLICT DO NOTHING;
