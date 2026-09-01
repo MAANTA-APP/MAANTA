@@ -14,6 +14,7 @@ vi.mock("@/lib/merchant-api", () => ({
 
 let updated: Array<{ id: string }>;
 const eqCalls = vi.fn();
+const inCalls = vi.fn();
 const fromCalls = vi.fn();
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
@@ -23,6 +24,10 @@ vi.mock("@/lib/supabase/service", () => ({
       chain.update = () => chain;
       chain.eq = (...args: unknown[]) => {
         eqCalls(args);
+        return chain;
+      };
+      chain.in = (...args: unknown[]) => {
+        inCalls(args);
         return chain;
       };
       chain.select = () => Promise.resolve({ data: updated, error: null });
@@ -49,7 +54,7 @@ describe("POST /api/queue/dismiss", () => {
     expect(res.status).toBe(200);
     expect(eqCalls).toHaveBeenCalledWith(["id", "p-1"]);
     expect(eqCalls).toHaveBeenCalledWith(["merchant_id", "merchant-1"]);
-    expect(eqCalls).toHaveBeenCalledWith(["status", "waiting"]);
+    expect(inCalls).toHaveBeenCalledWith(["status", ["waiting", "called"]]);
   });
 
   it("touches only the queue table — never the redemption", async () => {
