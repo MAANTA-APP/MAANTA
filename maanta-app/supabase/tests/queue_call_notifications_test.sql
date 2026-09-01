@@ -175,10 +175,12 @@ BEGIN
     NULL;
   END;
 
-  SELECT status, called_at, called_by INTO v_status, v_called_at, v_called_by
+  SELECT status, called_at, called_by, call_generation
+    INTO v_status, v_called_at, v_called_by, v_call_generation
   FROM public.merchant_presentations WHERE id = v_presentation;
-  ASSERT v_status = 'called' AND v_called_at IS NOT NULL AND v_called_by = v_staff,
-    'legacy automatic insert must not rejoin an already-called shopper';
+  ASSERT v_status = 'called' AND v_called_at IS NOT NULL
+      AND v_called_by = v_owner AND v_call_generation = 2,
+    'legacy automatic insert must not alter the latest called generation';
 
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   SELECT count(*) INTO v_count
