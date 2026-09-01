@@ -31,6 +31,8 @@ import { IconBolt } from "@/components/ui/icons";
 export function QueuePanel() {
   const [entries, setEntries] = useState<QueueEntry[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [callingId, setCallingId] = useState<string | null>(null);
 
   // Polls are serialized. A slow mall-Wi-Fi response must be allowed to
   // finish even if it takes longer than QUEUE_POLL_MS; otherwise a timer can
@@ -123,6 +125,38 @@ export function QueuePanel() {
     [load]
   );
 
+  const callForward = useCallback(
+    async (entry: QueueEntry) => {
+      setCallingId(entry.id);
+      setActionError(null);
+      try {
+        const res = await fetch("/api/queue/call", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ presentationId: entry.id }),
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok || body?.called !== true) {
+          setActionError(body?.error ?? "Could not call the shopper.");
+          return;
+        }
+        setEntries((current) =>
+          current?.map((item) =>
+            item.id === entry.id
+              ? { ...item, status: "called", calledAt: body.calledAt ?? item.calledAt }
+              : item
+          ) ?? current
+        );
+      } catch {
+        setActionError("Could not call the shopper.");
+      } finally {
+        setCallingId(null);
+        void load(true);
+      }
+    },
+    [load]
+  );
+
   // Four distinct states, deliberately (G6). Before this, a first load in
   // progress rendered exactly like "nobody is waiting" — so staff glancing
   // down mid-fetch were told the queue was empty by a screen that simply did
@@ -164,20 +198,21 @@ export function QueuePanel() {
           Shopper queue
         </h2>
         <span className="tnum text-xs text-secondary">
-          {entries.length} waiting
+          {entries.filter((entry) => entry.status === "waiting").length} waiting
         </span>
       </div>
       <div className="mt-2 space-y-2">
+        {actionError ? (
+          <p role="alert" className="text-xs font-medium text-ink">
+            {actionError} Try again.
+          </p>
+        ) : null}
         {entries.map((e) => (
           <div
             key={e.id}
             className="flex items-center gap-2 rounded-card bg-white px-3 py-2.5 shadow-card"
           >
-            <button
-              type="button"
-              className="min-w-0 flex-1 text-left"
-              onClick={() => publishQueueCode(e.code)}
-            >
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink">
                 {e.name}
               </p>
@@ -190,6 +225,26 @@ export function QueuePanel() {
                   Fast Visit
                 </span>
               ) : null}
+              {e.status === "called" ? (
+                <p className="mt-1 text-xs font-semibold text-verified">Called to counter</p>
+              ) : null}
+            </div>
+            {e.status === "waiting" ? (
+              <button
+                type="button"
+                className="shrink-0 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                disabled={callingId === e.id}
+                onClick={() => void callForward(e)}
+              >
+                {callingId === e.id ? "Calling…" : "Call"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="shrink-0 rounded-full border border-line px-2 py-1 text-xs font-semibold text-ink"
+              onClick={() => publishQueueCode(e.code)}
+            >
+              Verify
             </button>
             <button
               type="button"
