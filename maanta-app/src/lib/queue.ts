@@ -56,6 +56,8 @@ export type QueueEntry = {
   dealTitle: string;
   arrivedAt: string;
   fastVisitEligible: boolean;
+  status: "waiting" | "called";
+  calledAt: string | null;
   /** The claim code, so tapping a row feeds the existing keypad flow. */
   code: string;
 };
