@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getAppUser, withPublicMerchant } from "@/lib/data";
 import { isDemoModeEnabled } from "@/lib/demo-mode";
 import { VERIFICATION_BLOCKING_MERCHANT_STATUSES } from "@/lib/merchant-visibility";
+import { isActionableQueueCallNotification } from "@/lib/queue-call-notification";
 import { NotificationList } from "@/components/shopper/notification-list";
 import {
   BackToYouLink,
@@ -60,6 +61,47 @@ export default async function NotificationsPage() {
   const service = createServiceClient();
   const includeDemo = await isDemoModeEnabled();
   const items: Item[] = [];
+
+  // Durable operational alerts. Queue call-forward writes this row in the
+  // same transaction as the authoritative `waiting -> called` transition, so
+  // the inbox does not depend on web push delivery or an open QR page.
+  const { data: recordedNotifications } = await service
+    .from("notifications")
+    .select(
+      "id, title, message, is_read, created_at, expires_at, presentation_id, merchant_presentations(status, expires_at, redemptions(status))"
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  for (const n of (recordedNotifications ?? []) as unknown as Array<{
+    id: string;
+    title: string;
+    message: string;
+    is_read: boolean;
+    created_at: string;
+    expires_at: string | null;
+    presentation_id: string | null;
+    merchant_presentations: {
+      status: string;
+      expires_at: string;
+      redemptions: { status: string } | null;
+    } | null;
+  }>) {
+    const presentation = n.merchant_presentations;
+    if (!isActionableQueueCallNotification({
+      presentationId: n.presentation_id,
+      expiresAt: n.expires_at,
+      presentationStatus: presentation?.status ?? null,
+      redemptionStatus: presentation?.redemptions?.status ?? null,
+    })) continue;
+    items.push({
+      title: n.title,
+      body: n.message,
+      at: n.created_at,
+      unread: !n.is_read,
+      expiresAt: n.expires_at ?? presentation?.expires_at ?? null,
+    });
+  }
 
   // D215/D216 — these two reads are the shopper's OWN commitments, not
   // discovery, so they carry the demo exclusion but NOT the discovery
