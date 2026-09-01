@@ -111,6 +111,9 @@ BEGIN
       AND strpos(v_function_def, 'FROM public.redemptions r')
         < strpos(v_function_def, 'SELECT p.* INTO v_row'),
     'call path must lock redemption before presentation, matching verification';
+  ASSERT strpos(v_function_def, 'v_now := clock_timestamp();')
+      > strpos(v_function_def, 'SELECT p.* INTO v_row'),
+    'queue deadlines must use a fresh clock after both lock waits';
 
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
   SELECT count(*) INTO v_count
