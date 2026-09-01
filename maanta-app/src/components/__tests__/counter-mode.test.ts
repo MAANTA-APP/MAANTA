@@ -275,6 +275,13 @@ describe("the queue panel", () => {
     expect(panel).not.toMatch(/\?code=/);
   });
 
+  it("separates calling the shopper from verifying their code", () => {
+    expect(panel).toContain('fetch("/api/queue/call"');
+    expect(panel).toContain('"Calling…" : "Call"');
+    expect(panel).toMatch(/>\s*Verify\s*</);
+    expect(panel).toContain('status: "called"');
+  });
+
   it("truncates long shopper and deal names rather than breaking the row", () => {
     expect(panel).toMatch(/truncate/);
     expect(panel).toContain("min-w-0");
