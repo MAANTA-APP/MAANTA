@@ -20,6 +20,8 @@ DECLARE
   v_status text;
   v_called_at timestamptz;
   v_called_by uuid;
+  v_notification_expires_at timestamptz;
+  v_function_def text;
 BEGIN
   INSERT INTO public.users (role, auth_uid) VALUES ('customer', v_shopper_auth) RETURNING id INTO v_shopper;
   INSERT INTO public.users (role, auth_uid) VALUES ('merchant_admin', v_owner_auth) RETURNING id INTO v_owner;
@@ -56,11 +58,14 @@ BEGIN
   ASSERT v_status = 'called' AND v_called_at IS NOT NULL AND v_called_by = v_staff,
     'staff call must persist called state, timestamp, and actor';
 
-  SELECT count(*) INTO v_count FROM public.notifications
+  SELECT count(*), max(expires_at) INTO v_count, v_notification_expires_at
+  FROM public.notifications
   WHERE presentation_id = v_presentation
     AND user_id = v_shopper
     AND message = 'It''s your turn — please go to the counter.';
   ASSERT v_count = 1, 'call and durable shopper notification must commit together';
+  ASSERT v_notification_expires_at IS NOT NULL,
+    'durable call alert must retain its queue-expiry snapshot';
 
   SELECT * INTO v_result FROM public.call_shopper_forward(v_presentation, v_merchant, v_owner);
   ASSERT NOT v_result.newly_called, 'retry must be idempotent';
@@ -98,8 +103,26 @@ BEGIN
   ASSERT NOT has_column_privilege('authenticated', 'public.notifications', 'presentation_id', 'UPDATE'),
     'shopper must not pre-empt a queue-call idempotency key';
 
-  DELETE FROM public.notifications WHERE presentation_id = v_presentation;
+  SELECT pg_get_functiondef(
+    'public.call_shopper_forward(uuid,uuid,uuid)'::regprocedure
+  ) INTO v_function_def;
+  ASSERT strpos(v_function_def, 'FROM public.redemptions r') > 0
+      AND strpos(v_function_def, 'SELECT p.* INTO v_row') > 0
+      AND strpos(v_function_def, 'FROM public.redemptions r')
+        < strpos(v_function_def, 'SELECT p.* INTO v_row'),
+    'call path must lock redemption before presentation, matching verification';
+
   DELETE FROM public.merchant_presentations WHERE id = v_presentation;
+  SELECT count(*) INTO v_count
+  FROM public.notifications
+  WHERE user_id = v_shopper
+    AND presentation_id IS NULL
+    AND expires_at = v_notification_expires_at
+    AND message = 'It''s your turn — please go to the counter.';
+  ASSERT v_count = 1,
+    'ephemeral presentation deletion must preserve durable notification evidence';
+
+  DELETE FROM public.notifications WHERE user_id = v_shopper;
   DELETE FROM public.redemptions WHERE id = v_redemption;
   DELETE FROM public.deals WHERE id = v_deal;
   DELETE FROM public.merchant_staff WHERE merchant_id = v_merchant;
