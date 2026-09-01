@@ -10,7 +10,7 @@ ALTER TABLE public.merchant_presentations
 
 ALTER TABLE public.merchant_presentations
   ADD CONSTRAINT merchant_presentations_status_check
-  CHECK (status IN ('waiting', 'called', 'expired', 'cancelled', 'dismissed')),
+  CHECK (status IN ('waiting', 'called', 'cancelled', 'dismissed')),
   ADD COLUMN IF NOT EXISTS called_at timestamptz,
   ADD COLUMN IF NOT EXISTS called_by uuid REFERENCES public.users(id) ON DELETE SET NULL;
 
@@ -27,45 +27,10 @@ CREATE UNIQUE INDEX merchant_presentations_live_key
   ON public.merchant_presentations (redemption_id)
   WHERE status IN ('waiting', 'called');
 
--- The application normally retires an expired live row before inserting its
--- replacement. Keep that invariant at the database boundary too: during the
--- schema-first rollout, an older build must not be blocked forever by an
--- expired called row which still occupies the partial unique-index slot.
-CREATE OR REPLACE FUNCTION public.expire_live_presentation_slot()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-  -- Match call/verification's canonical redemption -> presentation order.
-  -- The INSERT's FK check also needs this row; taking it here prevents a
-  -- replacement check-in and a concurrent staff call from forming a cycle.
-  PERFORM 1
-  FROM public.redemptions r
-  WHERE r.id = NEW.redemption_id
-  FOR UPDATE;
-
-  UPDATE public.merchant_presentations
-  SET status = 'expired', called_at = NULL, called_by = NULL
-  WHERE redemption_id = NEW.redemption_id
-    AND status IN ('waiting', 'called')
-    AND expires_at <= clock_timestamp();
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS expire_live_presentation_slot_before_insert
-  ON public.merchant_presentations;
-CREATE TRIGGER expire_live_presentation_slot_before_insert
-BEFORE INSERT ON public.merchant_presentations
-FOR EACH ROW
-EXECUTE FUNCTION public.expire_live_presentation_slot();
-
-REVOKE ALL ON FUNCTION public.expire_live_presentation_slot() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.expire_live_presentation_slot() FROM anon;
-REVOKE ALL ON FUNCTION public.expire_live_presentation_slot() FROM authenticated;
+-- An expired called row deliberately retains this slot until the application
+-- processes an explicit shopper rejoin. The schema cannot infer consent from
+-- a legacy automatic INSERT: allowing that write would silently put a shopper
+-- back in the queue after staff had already called them.
 
 ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS presentation_id uuid
