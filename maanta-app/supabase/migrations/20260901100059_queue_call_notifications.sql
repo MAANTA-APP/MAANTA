@@ -35,6 +35,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS notifications_queue_call_key
   ON public.notifications (presentation_id)
   WHERE presentation_id IS NOT NULL;
 
+-- The existing notifications_update policy scopes rows, but the table-level
+-- UPDATE grant also let a shopper rewrite title/message and, after this
+-- migration, presentation_id. That would let the shopper pre-empt the unique
+-- idempotency key and suppress the durable call alert. Keep only the intended
+-- read-receipt mutation client-writable.
+REVOKE UPDATE ON TABLE public.notifications FROM authenticated;
+GRANT UPDATE (is_read) ON TABLE public.notifications TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.call_shopper_forward(
   p_presentation_id uuid,
   p_merchant_id uuid,
