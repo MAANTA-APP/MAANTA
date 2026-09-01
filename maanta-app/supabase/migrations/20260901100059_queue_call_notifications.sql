@@ -12,14 +12,18 @@ ALTER TABLE public.merchant_presentations
   ADD CONSTRAINT merchant_presentations_status_check
   CHECK (status IN ('waiting', 'called', 'cancelled', 'dismissed')),
   ADD COLUMN IF NOT EXISTS called_at timestamptz,
-  ADD COLUMN IF NOT EXISTS called_by uuid REFERENCES public.users(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS called_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS call_generation bigint NOT NULL DEFAULT 0;
 
 ALTER TABLE public.merchant_presentations
   DROP CONSTRAINT IF EXISTS merchant_presentations_called_shape_check;
 ALTER TABLE public.merchant_presentations
   ADD CONSTRAINT merchant_presentations_called_shape_check CHECK (
-    (status = 'called' AND called_at IS NOT NULL)
-    OR (status <> 'called' AND called_at IS NULL AND called_by IS NULL)
+    call_generation >= 0
+    AND (
+      (status = 'called' AND called_at IS NOT NULL AND call_generation > 0)
+      OR (status <> 'called' AND called_at IS NULL AND called_by IS NULL)
+    )
   );
 
 DROP INDEX IF EXISTS public.merchant_presentations_waiting_key;
@@ -35,10 +39,19 @@ CREATE UNIQUE INDEX merchant_presentations_live_key
 ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS presentation_id uuid
     REFERENCES public.merchant_presentations(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+  ADD COLUMN IF NOT EXISTS expires_at timestamptz,
+  ADD COLUMN IF NOT EXISTS call_generation bigint;
+
+ALTER TABLE public.notifications
+  DROP CONSTRAINT IF EXISTS notifications_queue_call_shape_check;
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_queue_call_shape_check CHECK (
+    presentation_id IS NULL
+    OR (call_generation IS NOT NULL AND call_generation > 0)
+  );
 
 CREATE UNIQUE INDEX IF NOT EXISTS notifications_queue_call_key
-  ON public.notifications (presentation_id)
+  ON public.notifications (presentation_id, call_generation)
   WHERE presentation_id IS NOT NULL;
 
 -- The existing notifications_update policy scopes rows, but the table-level
@@ -168,23 +181,28 @@ BEGIN
 
   IF v_row.status = 'waiting' THEN
     UPDATE public.merchant_presentations
-    SET status = 'called', called_at = v_now, called_by = p_actor_id
+    SET status = 'called',
+        called_at = v_now,
+        called_by = p_actor_id,
+        call_generation = call_generation + 1
     WHERE id = v_row.id;
     v_row.called_at := v_now;
+    v_row.call_generation := v_row.call_generation + 1;
     v_new := true;
   END IF;
 
   INSERT INTO public.notifications (
-    user_id, merchant_id, presentation_id, title, message, is_read,
-    created_at, expires_at
+    user_id, merchant_id, presentation_id, call_generation,
+    title, message, is_read, created_at, expires_at
   ) VALUES (
     v_row.shopper_id,
     p_merchant_id,
     v_row.id,
+    v_row.call_generation,
     v_merchant_name,
     'It''s your turn — please go to the counter.',
     false,
-    v_now,
+    v_row.called_at,
     v_row.expires_at
   )
   ON CONFLICT DO NOTHING;
