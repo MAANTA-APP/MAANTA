@@ -308,6 +308,32 @@ describe("POST /api/qr/check-in", () => {
     expect(queueUpdatePayloads.at(-1)).toEqual(expect.objectContaining({ expires_at: expect.any(String) }));
   });
 
+  it("rejoins a LAPSED called row in place after the explicit shopper request", async () => {
+    waitingRow = {
+      id: "p-1",
+      expires_at: PAST,
+      status: "called",
+      called_at: new Date(Date.now() - 60_000).toISOString(),
+    };
+    const res = await POST(req({ token: TOKEN, redemptionId: RID }));
+    expect(await res.json()).toMatchObject({
+      checkedIn: true,
+      renewed: false,
+      queueStatus: "waiting",
+      calledAt: null,
+    });
+    expect(queueUpdatePayloads.at(-1)).toEqual(
+      expect.objectContaining({
+        status: "waiting",
+        arrived_at: expect.any(String),
+        expires_at: expect.any(String),
+        called_at: null,
+        called_by: null,
+      })
+    );
+    expect(queueInsert).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-UUID redemption id with 400, not a 500 (D201)", async () => {
     const res = await POST(req({ token: TOKEN, redemptionId: "abc" }));
     expect(res.status).toBe(400);
