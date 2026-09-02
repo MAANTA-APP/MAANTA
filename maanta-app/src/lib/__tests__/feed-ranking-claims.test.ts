@@ -4,8 +4,9 @@ import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
 
 /**
- * Founder ruling R3 — shopper feed ordering and disclosure (2026-09-02).
- * Closes drift **D223**, **D224**, **D225** and **D226**.
+ * Founder rulings **R3** and **R4** — shopper feed ordering, disclosure, and
+ * what a redemption count is allowed to claim (both 2026-09-02).
+ * Closes drift **D223**, **D224**, **D225**, **D226** and **D227**.
  *
  * ## What went wrong
  *
@@ -40,6 +41,15 @@ import { stripComments } from "./helpers/comment-stripping";
  * renames the rail — "Featured near you" was raised as the longer-term option
  * — this guard still holds, because it asserts the presence of disclosure
  * rather than one exact sentence.
+ *
+ * ## R4, added the same day
+ *
+ * R4 upheld **D77** rather than superseding it — rail 3 stays redemption-ranked
+ * with the subtitle "Standard deals at your mall" until there is a real
+ * shopper-location signal — and ruled on what a redemption count may claim: a
+ * merchant's all-time total must never be presented as a deal-level count, and
+ * deal-level counts are not shown at all until a correct aggregation backs them
+ * (D231). The last three describes below carry that.
  *
  * Comments are stripped first (shared D38 lexer), so explaining any of this in
  * a comment stays legal. Only copy a build could ship trips these tests.
@@ -177,6 +187,89 @@ describe("R3 — the home page does not describe a sort the feed does not use", 
     expect(
       /Deals sorted by what is nearest/i.test(flat(HOME())),
       "the home page describes Browse's default sort as the feed's."
+    ).toBe(false);
+  });
+});
+
+describe("R4 — a redemption count says whose it is", () => {
+  const KPIS = () => read("components", "ui", "claude", "deal-kpis.tsx");
+
+  it("scopes the count to the shop on the shopper deal card", () => {
+    // `verifiedCount` is fed from `verified_counts_by_merchant` — a MERCHANT
+    // all-time total. Rendered bare beside a deal title it read as this deal's
+    // count, which is a different and much smaller number (D227).
+    const text = flat(KPIS());
+    expect(
+      /verified at this shop/.test(text),
+      "DealKpis renders the verified count without saying it is the shop's.\n" +
+        "R4: a merchant all-time total must not be presented as a deal-level count."
+    ).toBe(true);
+    expect(
+      /\{verifiedCount\} verified<|verifiedCount\} verified\s*<\/span>/.test(text),
+      "DealKpis is back to a bare '{verifiedCount} verified' beside a deal."
+    ).toBe(false);
+  });
+
+  it("does not claim a deal-level count anywhere on a shopper surface", () => {
+    // Until D231 lands there is no per-deal aggregation for shopper surfaces,
+    // so no shopper surface may word one.
+    for (const [name, src] of [
+      ["DealKpis", KPIS()],
+      ["/deals/[id]", DEAL_DETAIL()],
+      ["feed", FEED()],
+    ] as const) {
+      expect(
+        /verified redemptions for this deal|redeemed during this offer|verified for this deal/i.test(
+          flat(src)
+        ),
+        `${name} claims a deal-level verified count. None exists yet — D231.`
+      ).toBe(false);
+    }
+  });
+});
+
+describe("R4 — D77 stands: rail 3 is not described as proximity-ranked", () => {
+  it("keeps the subtitle the D77 ruling leaned on", () => {
+    expect(
+      /Standard deals at your mall/.test(flat(FEED())),
+      "rail 3's subtitle changed. The 2026-08-09 D77 ruling relied on it to make\n" +
+        "'Deals near me' honest at RAIL scope while the order is verified\n" +
+        "redemptions. Changing it without changing the order recreates D77."
+    ).toBe(true);
+  });
+
+  it("does not promise closest-first ordering the app cannot compute", () => {
+    // The feed's distance origin is `nodeCoords(node)` — an approximate mall
+    // centroid — and `navigator.geolocation` is never called here. D228.
+    expect(
+      /Closest live deals|closest live offers|nearest deals first|sorted by distance/i.test(
+        flat(FEED())
+      ),
+      "the feed promises proximity ordering. There is no shopper location: the\n" +
+        "origin is the mall centroid, and rail 3 is ordered by verified\n" +
+        "redemptions under D77."
+    ).toBe(false);
+  });
+
+  it("keeps the feed off navigator.geolocation until a ruling says otherwise", () => {
+    expect(
+      /navigator\.geolocation/.test(FEED()),
+      "the feed now reads device location. D228 holds this pending a ruling that\n" +
+        "knowingly supersedes D77 and settles where a usable indoor position\n" +
+        "would come from."
+    ).toBe(false);
+  });
+});
+
+describe("R4 — search does not claim a sort it does not implement", () => {
+  it("offers no ranking language on a route that only filters", () => {
+    // `/search` applies `deal_type` / `boost_active` and nothing else — there is
+    // no server-side sort to describe (D229).
+    const src = flat(read("app", "(shopper)", "search", "page.tsx"));
+    expect(
+      /sorted by|most redeemed|ranked by|top rated/i.test(src),
+      "/search claims a sort. It is a filter with no order clause — say nothing\n" +
+        "about ranking until D229 builds one."
     ).toBe(false);
   });
 });

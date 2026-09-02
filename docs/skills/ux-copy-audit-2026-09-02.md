@@ -326,3 +326,84 @@ work that pays now.
 
 The disclosure half, by contrast, had to ship before any Node 0 merchant buys a
 boost — which is why it did.
+
+---
+
+## 9. Outcome — founder ruling R4, same day
+
+R4 answered the D228 question this audit raised and **upheld D77 rather than
+superseding it**. Rail 3 stays redemption-ranked, keeps the subtitle "Standard
+deals at your mall", and the feed does not read device location. The founder's
+reasoning matched the code evidence: within one mall, centroid-derived distance
+is pseudo-precision that would make the rail appear to shuffle, and "Deals near
+me" is honest at **node** scope, which the subtitle states.
+
+R4 also ruled on what a redemption count may claim, which turned one held row
+into work that shipped.
+
+### Shipped
+
+`DealKpis` read `{verifiedCount} verified` beside a deal title while being fed
+`verified_counts_by_merchant` — a merchant's all-time total across every deal
+they have ever run. It now reads **"N verified at this shop"**. The number did
+not change; what it claims did. The same string was corrected in
+`DealCardHorizontal` and `ShopRow`, which have no call sites today, so a revival
+cannot reintroduce it. **D227 closed.**
+
+The guard grew from 9 tests to 15. It now also fails if the shop scope is
+dropped, if any shopper surface words a deal-level count before one exists, if
+rail 3's subtitle changes, if the feed promises closest-first ordering, if the
+feed starts calling `navigator.geolocation`, or if `/search` claims a sort it
+does not implement.
+
+### Two corrections to R4's own assumptions
+
+**1. The deal-level metric is cheaper than R4's build sequence assumes.** R4
+step 1 asks to "confirm the source-of-truth redemption record". It already
+exists and is already used: the **merchant** deals page derives per-deal counts
+by grouping `redemptions` rows on `deal_id`
+(`maanta-app/src/app/merchant/(app)/deals/page.tsx`). So the record is settled —
+`redemptions.deal_id` plus success status. What is missing is only the
+shopper-side aggregation, a sibling to `verified_counts_by_merchant`. Recorded
+as **D231**.
+
+**2. Fast Visit is already built, and one of its rules differs from R4's
+example.** R4's table asks nine questions "before you build it". Seven already
+have answers in shipped, feature-flagged-OFF code from the founder brief of
+2026-08-26 (`20260826120000_fast_visit_and_points.sql`,
+`src/lib/fast-visit-window.ts`):
+
+| R4's question | Already decided in code |
+|---|---|
+| What starts the clock? | `claimed_at` — the claim |
+| What completes the reward? | Staff verification, not arrival |
+| Time window? | **15 minutes** — R4 floats 60 as an example |
+| What does the shopper receive? | Promotional MAANTA Points, explicitly non-cash |
+| Abuse prevention? | Verdict immutable (D191); first arrival wins; the arrival RPC refuses any non-pending claim |
+| Bad connectivity? | Server-stamped; the client is presentation-only |
+| Applies to all deals? | Any eligible claim — **not** restricted to favourite-merchant notifications, which R4 raises as an option |
+
+Genuinely open against R4's list, and not verified in this session: **who funds
+the reward**, and **whether staff or test accounts are excluded**. Recorded as
+**D233**.
+
+The practical warning: answering R4's table afresh risks re-deciding settled
+rules and stranding the code. **If the founder rules 60 minutes, the TypeScript
+constant and the RPC must change together**, and because the arrival verdict is
+immutable, the change applies forward only — historical qualifications cannot be
+recomputed.
+
+### Where the held work now stands
+
+| Row | Status |
+|---|---|
+| D227 | **Closed** — label corrected, guarded |
+| D228 | Open **by design** — proximity ranking considered and declined; reopening conditions named by R4 |
+| D229 | Open — See-all destinations are filters; blocked behind D231 |
+| D230 | Open — R4/R3 analytics events not emitted |
+| D231 | Open — shopper-side deal-level aggregation; migration is a human apply |
+| D232 | Open — storefront deep link and favourite notifications |
+| D233 | Open — Fast Visit funding and staff exclusion, the only genuinely undecided parts |
+
+R4's operational order stands: disclosure landed before any merchant can buy a
+Boost; everything else waits on field evidence.

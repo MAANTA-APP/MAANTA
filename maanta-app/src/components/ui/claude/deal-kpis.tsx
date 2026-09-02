@@ -55,13 +55,26 @@ export function DealKpis({
     );
   }
 
-  // Social proof — verified redemptions at this shop, the one number MAANTA
-  // ranks on. Zero is stated plainly rather than hidden.
+  // Social proof — and it is the SHOP's, not this deal's.
+  //
+  // `verifiedCount` is fed from `getVerifiedCounts`, which is
+  // `verified_counts_by_merchant`: a merchant's all-time successful
+  // redemptions across every deal they have ever run. That is the right input
+  // to rail 3's order (`lockedStandardOrder`, D1), where it is explicitly a
+  // MERCHANT ranking. Rendered as a bare "12 verified" beside a deal title it
+  // read as this deal's count, which is a materially different and much
+  // smaller number — drift D227.
+  //
+  // Founder ruling R4 (2026-09-02) settles the labels: a merchant all-time
+  // total must never be presented as a deal-level count, and deal-level counts
+  // are not shown at all until a correct deal-level aggregation backs them
+  // (D231). So the scope goes in the string. The number did not change; what
+  // it claims did.
   if (verifiedCount != null) {
     facts.push(
       <span key="verified" className="inline-flex items-center gap-1">
         <IconCheck className="h-3 w-3 text-verified" aria-hidden="true" />
-        <span className="tnum">{verifiedCount} verified</span>
+        <span className="tnum">{verifiedCount} verified at this shop</span>
       </span>
     );
   }
