@@ -159,7 +159,7 @@ does not pre-authorize acquisition.
 | `docs/maanta-{shopper,merchant,mall-operator}-email-sequence.md` | agency | founder | DRAFT | the claims register | — | Not activated (gate M3). Check every claim against the register first | CONFIDENTIAL |
 | `docs/maanta-email-segmentation-plan.md`, `maanta-waitlist-data-schema.md` | agency, eng | founder | KEEP | Resend + the waitlist route | 2026-08-02 | Segmentation or the waitlist backend changes | INTERNAL |
 | `docs/ops/copy/*.md` | agency, eng | eng | KEEP | the rendered pages | — | Page copy changes | INTERNAL |
-| **Content release / photography consent form** | operator | founder + counsel | **MISSING — P0 (legal)** | — | — | **Needed before the Merchant 01 visit.** Consent cannot be obtained retroactively | PUBLIC (a form) |
+| `docs/legal/content-release-form-DRAFT.md` | merchant owner, staff, shoppers | founder + counsel | **DRAFT** (new 2026-09-01) | counsel, when engaged | 2026-09-01 | **Blocked on the incorporation decision** — the form has no legal counterparty until MAANTA is an entity (§1 of the form). Also on counsel review of the consent standard | PUBLIC (a form) |
 
 ---
 
@@ -204,7 +204,7 @@ does not pre-authorize acquisition.
 | Evidence classification, in one place with the queries | **CLOSED** 2026-09-01 — `docs/ops/evidence-classification-guide.md` |
 | Known limitations / what must not be promised | **CLOSED** 2026-09-01 — `docs/ops/node0-known-limitations.md` |
 | QR placement in the operator's onboarding steps | **CLOSED** 2026-09-01 — day sheet updated |
-| **Content release / photography consent form** | **OPEN — founder + counsel.** Cannot be obtained retroactively |
+| **Content release / photography consent form** | **DRAFTED 2026-09-01** — `docs/legal/content-release-form-DRAFT.md`. **Still OPEN**, and not usable as it stands: it has no legal counterparty until incorporation is settled, which is a founder decision, not a drafting one. If the pilot runs before it is resolved, the honest fallback is to take no photographs and record no quotes |
 | **Named merchant-support owner** (gate O2) | **OPEN — founder.** Accepted "good for now"; not blocking |
 | **Demo-mode decision for the run** | **OPEN — founder.** CLAUDE.md says demo mode must be off for Merchant 01's onboarding and Shopper 01's claim; it is currently on. A production configuration change, so founder-only |
 

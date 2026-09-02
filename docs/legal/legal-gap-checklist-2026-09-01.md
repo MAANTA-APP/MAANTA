@@ -196,16 +196,21 @@ The product's frozen commercial rules, stated as the drafting brief:
 |---|---|---|
 | **MAANTA Points terms** | §2.3 — required before the gate is switched on | Before `fast_visit_enabled = true` |
 | **Merchant staff / authorised-user terms** | §4 — nothing binds the person who verifies redemptions | Before scaled staff enrolment |
-| **Photography / content release (Merchant 01)** | Any photo, quote or case study from the pilot needs written permission **taken at the time**. Retroactive consent is often unobtainable | **Before the Merchant 01 visit** |
+| **Photography / content release (Merchant 01)** | Any photo, quote or case study from the pilot needs written permission **taken at the time**. **Drafted 2026-09-01** — `docs/legal/content-release-form-DRAFT.md` — but **not usable until the party question is answered**: there is no incorporated entity to hold the granted rights | **Before the Merchant 01 visit** |
 | **Marketing consent record** | Separate from the product's `segment_type`; direct-marketing consent needs its own basis and audit trail | Before any campaign |
 | **Data-processing inventory / RoPA** | §5; the backbone of gate O7 | Public launch |
 | **Breach and incident notification procedure** | Promised in substance by the privacy policy; does not exist | Public launch |
 | **DSR (access / export / erasure) procedure** | D144 — the machinery `/privacy` already promises | Public launch |
 
 **The photography/content release is the only one on this list with a Merchant
-01 deadline.** It is cheap, it is a one-page form, and it cannot be obtained
-later. If nothing else on this checklist is actioned before the pilot, action
-that one.
+01 deadline.** It cannot be obtained later. A draft now exists at
+`docs/legal/content-release-form-DRAFT.md`, and drafting turned out to be the
+easy half: the form needs a legal counterparty and MAANTA is not yet
+incorporated, so granting rights to "MAANTA" may grant them to nobody or to the
+founder personally. That is a founder-and-counsel decision, set out in §1 of the
+form. **Until it is answered, the safe pilot posture is to take no photographs
+and record no quotes** — a run with no content is recoverable; a run with content
+taken without valid permission is not.
 
 ---
 
