@@ -603,11 +603,20 @@ send-pack: unexpected disconnect while reading sideband packet
 
 A push to this session's own `claude/*` branch had succeeded minutes earlier over
 the same remote, so connectivity and credentials are fine; the 403 is a
-write-scope denial specific to deleting a ref this session does not own. Per
-`/root/.ccr/README.md` (§"403 / 407 from the proxy"), such a denial is to be
-reported, not retried or routed around — so it was not. The GitHub MCP server
-exposes no delete-branch or delete-ref tool, so no sanctioned tool path exists
-from here.
+write-scope denial specific to deleting a ref this session does not own.
+
+**Confirmed non-transient.** GitHub returns 403 both for insufficient ref
+write-scope and for secondary rate limiting, so the founder explicitly authorised
+a second attempt the same day to tell the two apart. It failed identically, with
+the branch still at `6d772ef` before and after — a stable scope denial, not a
+transient one. No further attempt was made: `/root/.ccr/README.md` (§"403 / 407
+from the proxy") says such a denial is reported, not retried or routed around.
+The GitHub MCP server exposes no delete-branch or delete-ref tool, so no
+sanctioned tool path exists from this session.
+
+**The founder's authorisation was never the missing piece** — it is a credential
+scope, not an approval, so this specific step needs a human at a machine with
+push rights rather than a further instruction here.
 
 **The branch is therefore still present at `6d772ef`, and finding 7 stands
 open.** A human with push rights closes it with one command:
