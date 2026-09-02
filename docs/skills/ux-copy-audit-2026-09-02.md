@@ -407,3 +407,61 @@ recomputed.
 
 R4's operational order stands: disclosure landed before any merchant can buy a
 Boost; everything else waits on field evidence.
+
+---
+
+## 10. Deployment truth, and the two D233 answers (2026-09-02)
+
+### Production is not stale — the work is unmerged
+
+The founder observed that `maanta.app` still serves the old claims. That is the
+**correct** state, and it is not caching:
+
+- The three commits carrying this work exist only on
+  `claude/maanta-ux-copy-audit-f65nrz`.
+- `origin/main` is at `c3b2fd3`, which predates all of them —
+  `git rev-list --count origin/main..HEAD` returns **3**, and
+  `git branch -r --contains` lists the feature branch only.
+- Production serves `main` (D37, closed 2026-08-01).
+
+So production cannot contain the new disclosures, and no deployment
+investigation is warranted: **merge is the missing step, not a deploy.**
+
+Stated plainly because it matters for how this document is read: **this session
+could not fetch `maanta.app` itself** — outbound egress to that host is blocked
+by the environment's proxy. The conclusion above rests on the git evidence,
+which is stronger than a fetch for this question, plus the founder's own
+observation of the live page. The post-merge check the founder listed — homepage,
+shopper feed, boosted deal detail, `/merchants`, `/pricing`, `/about`, `/faq`,
+signed in and out — still has to be run by a human against production, and no
+part of it has been run here.
+
+### D233 — both open questions answered, and both answers are "nothing exists"
+
+Read from `supabase/migrations/20260826120000_fast_visit_points.sql`:
+
+**Staff and test-account exclusion: none.** `award_fast_visit_points` gates on
+`points > 0`, `status = 'success'`, a persisted `fast_visit_qualified_at`,
+non-null claim and arrival times, and arrival within 15 minutes — and nothing
+else. `record_shopper_arrival`'s only identity check is that the caller is the
+shopper. There is no role check, no exclusion of merchant staff, MAANTA staff or
+on-ground agents, and **no `is_demo` filter**. A merchant's own staff member
+arriving at their own counter would earn points; so would an agent, and so would
+a claim against a demo merchant.
+
+That is the reward-ledger form of **D188** — an internal actor incrementing a
+counter nobody filtered. It should be treated as a **pre-enable blocker**: the
+flag is OFF today, and turning it on before exclusion exists would let internal
+accounts earn a promotional reward during the exact window Node 0 is measuring.
+
+**Funding cap: none.** `app_config.fast_visit_points` sets the per-visit amount
+(default 50, parsed defensively) and `'0'` is the operator kill switch for *new*
+awards. Total issuance is unbounded. The only other limit is one award per
+redemption, enforced by a UNIQUE reference — not per shopper, not per day, not
+per campaign.
+
+So the proposed default ruling's "subject to a defined campaign cap" and its
+exclusion list are **unimplemented, not merely undocumented**. Both need building
+before the flag is turned on, and both are server-side work — the exclusion in
+particular must sit before the immutable verdict is written, because once
+`fast_visit_qualified_at` is stamped it cannot be revised.
