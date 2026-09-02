@@ -5,6 +5,26 @@ doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
 
+> **STALENESS WARNING, added 2026-09-01.** The gate tables below have not been
+> revised since 2026-08-08 and predate most of what has since become true:
+> Node 0 Field Validation Mode (2026-08-22), the Node 0 GO ruling (2026-08-23),
+> the ratified evidence protocol and kill criterion (2026-08-24), the Elite
+> price de-anchoring (2026-08-24), the demo-mode ruling (2026-08-26), and the
+> Fast Visit / counter-QR packages (2026-08-26/27). Individual rows below
+> (notably E10, E14, E17, O2, O5–O9) carry their own later updates and are
+> reliable; the **header narrative and the gate set as a whole are not a current
+> view.** For the current operating position read `CLAUDE.md`'s "Operating
+> state: Node 0 Field Validation Mode" section and
+> `docs/ops/node0-known-limitations.md`; for what is decided read
+> `docs/maanta-decisions-log.md`; for what is broken read
+> `docs/maanta-drift-register.md`.
+>
+> **This tracker is still the gate-status source of truth** — that has not
+> changed, and no second tracker has been created. It needs a founder-owned
+> revision pass, which is a decision, not a documentation edit: several gates
+> (M2–M7 in particular) may no longer be the right gates for a controlled
+> field-validation run. Recorded as drift **D219**.
+
 > **2026-08-01 — production is live and serving, but it was NOT a clean mirror
 > of `main`** (superseding the "live and schema-aligned" wording in the
 > 2026-07-29 block below and in E10). **Updated 2026-08-05: the schema side is

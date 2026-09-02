@@ -1,6 +1,9 @@
 # First merchant loop test
 
-**Status:** DRAFT — written 2026-08-22, not yet run against a real merchant.
+**Status:** DRAFT — written 2026-08-22, **updated 2026-09-01** (counter QR and
+arrival check-in, which shipped after this protocol was written). Not yet run
+against a real merchant.
+
 **Owner:** field operator (node manager or agent) running the visit.
 **Run:** once per newly activated merchant, at their shop, before they are
 told they are live.
@@ -8,6 +11,11 @@ told they are live.
 merchant), `docs/ops/field-operator-day-sheet.md` (the day around this visit),
 `docs/ops/live-pilot-3-person-2026-07-30.md` (the founder-run day-one
 narrative this protocol generalises).
+
+> **For a full Merchant 01 run, use `docs/ops/merchant-01-pilot-runsheet.md`.**
+> It sequences onboarding, QR placement, staff setup, arrival, the counter and
+> evidence classification end to end. This file remains the authority on the
+> **seven money proofs** below, and the runsheet defers to it for those.
 
 ---
 
@@ -28,6 +36,16 @@ proven when money has actually moved at a counter:
 
 If any one of these cannot be shown, the loop is **not** proven. Record which
 one failed and stop — do not tell the merchant they are live.
+
+Three further **observations** were added 2026-09-01. They are not proofs and the
+loop is proven without them — record them, do not gate on them:
+
+| # | Observation | Where you see it |
+|---|---|---|
+| 8 | The counter QR is printed and placed at entrance and till | `/merchant/qr/print`, then the wall |
+| 9 | A shopper's scan recorded an arrival | the Shopper queue on `/merchant/redeem` |
+| 10 | The result is classified as genuine **external** evidence | `docs/ops/evidence-classification-guide.md` |
+
 
 ---
 
@@ -92,11 +110,27 @@ see a **6-digit code** in `/my-deals`, with the time it stays valid.
 
 Note the claim is held until the deal expires **plus a 15-minute grace period**.
 
+### 2b — Arrival check-in (optional, and never a gate)
+
+If the shop's counter QR is up, the shopper can scan it with their phone camera
+on arrival and will appear in the **Shopper queue** on the till screen.
+
+- **The QR records arrival. It never redeems**, never charges, and never
+  completes anything.
+- **The queue is not redemption state.** Dismissing a row does nothing to the
+  claim, and rows lapse on their own after about 10 minutes without affecting it.
+- With `fast_visit_enabled = false` (its value on production as of 2026-09-01)
+  **no points are awarded and no reward eligibility is stamped.** Do not tell
+  anyone a reward is available.
+- If the scan fails for any reason, **carry straight on to step 3**. The 6-digit
+  path is complete on its own. A failed scan is a finding, not a blocked test.
+
 ### 3 — Counter verification (the real proof)
 
 At the till, on the merchant's device, `/merchant/redeem`:
 
-1. Staff type the 6 digits. **Typing a code never charges anything.**
+1. Staff type the 6 digits — or tap the shopper's queue row, which fills the same
+   keypad and charges nothing either. **Neither action charges anything.**
 2. The screen resolves and shows the deal, what the shopper pays, the **KES 30
    success fee**, and the wallet balance — *before* anything is charged.
 3. Staff press **Confirm redemption**. That is the only action that charges.

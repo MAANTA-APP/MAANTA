@@ -1,7 +1,8 @@
 # Merchant welcome pack
 
-**Status:** DRAFT — written 2026-08-22, not yet reviewed by the founder and not
-lawyer-reviewed. The binding terms are the live **Merchant terms** at
+**Status:** DRAFT — written 2026-08-22, **updated 2026-09-01** to cover the
+counter QR, which shipped after this pack was first written. Not yet reviewed by
+the founder and not lawyer-reviewed. The binding terms are the live **Merchant terms** at
 `/merchant-terms`; where this pack and those terms differ, the terms win.
 **Audience:** a shop owner at BBS Mall on the day they are activated.
 **Left behind by:** the field operator, at the end of the loop-test visit
@@ -47,6 +48,33 @@ ten redemptions before you spend anything of your own.
 6. The customer pays you at your till, in full, the way they always do.
 
 MAANTA never handles your customer's money.
+
+---
+
+## Your counter QR
+
+You can print a MAANTA code for your shop from the app: **QR → Print**. Put the
+same sheet at your **entrance** and at your **till** — one code works in both
+places.
+
+**What it does:** a shopper scans it when they arrive, and they appear on your
+Redeem screen as waiting, so your staff know who is in the shop.
+
+**What it does not do:**
+
+- **It does not redeem anything and it does not charge you.** A shopper who has
+  scanned has not been served yet.
+- **Your staff still ask for the 6-digit code.** That has not changed, and it is
+  still the only thing that completes a sale.
+- **It is optional for shoppers.** Many will simply walk up and show a code.
+  That is normal and nothing is lost.
+
+Print it at A5 or larger, and test it with your own phone before you put it up.
+
+*Rewards:* the sheet promises nothing, deliberately — a sticker on a wall cannot
+be updated later. There are **no MAANTA Points available at the moment**; the
+feature exists in the app and is switched off. Please do not tell customers they
+will earn anything.
 
 ---
 
@@ -118,6 +146,8 @@ Anything about money or your account: contact us rather than working around it.
 ## The short version
 
 - You pay KES 30 only when a code is verified at your counter.
+- The QR at your door just tells you a customer has arrived — the 6-digit code
+  is still what completes the sale.
 - No listing fee, no cut of your sale, nothing for a failed code.
 - Your first ten redemptions are covered by your opening credit.
 - Customers pay you in person, in full.

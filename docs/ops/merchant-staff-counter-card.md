@@ -1,8 +1,9 @@
 # MAANTA — counter card for shop staff
 
-**Status:** DRAFT — written 2026-08-23, not founder-reviewed and not
-lawyer-reviewed. Where this card and the live **Merchant terms**
-(`/merchant-terms`) differ, the terms win.
+**Status:** DRAFT — written 2026-08-23, **updated 2026-09-01** to cover the
+counter QR and the shopper queue, which shipped after this card was first
+written. Not founder-reviewed and not lawyer-reviewed. Where this card and the
+live **Merchant terms** (`/merchant-terms`) differ, the terms win.
 **Audience:** the person at the counter who types in customers' codes.
 **Left behind by:** the field operator, when the staff seat is set up
 (`docs/ops/first-merchant-loop-test.md`).
@@ -54,6 +55,43 @@ problem to solve.
 
 ---
 
+## The shopper queue, and the QR at the door
+
+Your shop may have a **MAANTA QR sticker** at the entrance and at the till. It is
+the same code in both places.
+
+**What it does:** a shopper scans it when they arrive, and their name appears on
+your Redeem screen under **Shopper queue** — oldest first, with the deal and the
+time they arrived.
+
+**What it does NOT do — this is the important part:**
+
+- **Scanning does not redeem anything.** A shopper in the queue has **not** been
+  served, has **not** used their code, and the shop has **not** been charged.
+- **The queue is not a payment or a receipt.** Nothing has happened yet.
+- **You still ask for the 6-digit code.** Every time. Seeing someone in the queue
+  is never a reason to skip the code.
+
+**How to use it:**
+
+- Tapping a shopper's row fills in their code for you — it saves typing, nothing
+  more. You still see the deal, the amount to collect and the fee, and you still
+  press **Confirm redemption**. Tapping charges nothing.
+- **Dismiss** removes someone from the list — a shopper who left, or a row you
+  have already served. **It does nothing to their deal.** They can still redeem.
+- Rows drop off the list on their own after about **10 minutes**. That does not
+  cancel anyone's deal either.
+- The keypad always works. If the queue is empty, slow, or shows an error, just
+  **type the six digits** — nothing is lost.
+
+**Scanning is optional for the shopper.** Plenty will just walk up and show you a
+code. That is completely normal. Never turn someone away for not scanning.
+
+**If a shopper asks about points or rewards:** there are none right now. The
+honest answer is *"there's no reward on this yet."* Do not promise one.
+
+---
+
 ## When the code won't go through
 
 | The screen says | What it means | What you do |
@@ -100,8 +138,10 @@ else fixes it.
 
 ## The short version
 
-- Tap **Redeem**, type the 6 digits, check the screen, tap **Confirm redemption**.
+- Tap **Redeem**, type the 6 digits (or tap them from the queue), check the
+  screen, tap **Confirm redemption**.
 - Checking a code costs nothing. Only a confirmed one counts.
 - **"Redeemed"** in green, then collect the cash shown.
 - Won't work? Two tries, then serve the customer and report it.
 - **Only ever confirm with the customer standing in front of you.**
+- A name in the queue is **not** a redemption. Always ask for the code.
