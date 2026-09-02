@@ -567,6 +567,64 @@ are stated here in registrable form for the founder to transcribe if wanted.
 **Open decisions for the founder.** (a) Whether Fast Visit is worth the ordering
 change and the field-documentation work at all, given Node 0's actual question is
 claim → walk-in, which the counter's own verification already measures without
-any of this. (b) Whether to delete `codex/queue-call-app` now that #314 preserves
-it, removing the flag-flip migration from the working set. (c) Whether findings 1
-and 2 warrant drift rows before Merchant 01 goes live.
+any of this. (b) ~~Whether to delete `codex/queue-call-app`~~ — **decided
+2026-09-02: delete it.** See the addendum below. (c) Whether findings 1 and 2
+warrant drift rows before Merchant 01 goes live.
+
+---
+
+## Addendum — 2026-09-02: deletion of `codex/queue-call-app`
+
+**Founder decision:** delete the branch, now that PR #314 preserves it, removing
+the `fast_visit_enabled = 'true'` migration from the working set (finding 7).
+
+**Preservation verified before attempting anything.** Deleting an unmerged branch
+is only as safe as the ref that outlives it, so the archival claim was checked at
+the ref level rather than taken from #314's prose:
+
+```
+$ git ls-remote origin 'refs/pull/314/*'
+6d772ef85240a18f6803dda8617ea74d3f3f236d  refs/pull/314/head
+2313c7a1c7a57ad55b01ae844f3f70d511d5ffeb  refs/pull/314/merge
+```
+
+`refs/pull/314/head` equals the branch head `6d772ef` exactly, and that ref
+survives branch deletion. PR #314 was re-read the same day and is still
+`open` / `draft: true` / `merged: false`, head `6d772ef`, base `main`. **The work
+is genuinely recoverable from #314 after the branch is gone.**
+
+**The deletion did NOT happen — this session lacks the permission.**
+`git push origin --delete codex/queue-call-app` returned:
+
+```
+error: RPC failed; HTTP 403
+send-pack: unexpected disconnect while reading sideband packet
+```
+
+A push to this session's own `claude/*` branch had succeeded minutes earlier over
+the same remote, so connectivity and credentials are fine; the 403 is a
+write-scope denial specific to deleting a ref this session does not own. Per
+`/root/.ccr/README.md` (§"403 / 407 from the proxy"), such a denial is to be
+reported, not retried or routed around — so it was not. The GitHub MCP server
+exposes no delete-branch or delete-ref tool, so no sanctioned tool path exists
+from here.
+
+**The branch is therefore still present at `6d772ef`, and finding 7 stands
+open.** A human with push rights closes it with one command:
+
+```
+git push origin --delete codex/queue-call-app
+```
+
+or **Delete branch** on the #314 page / the repository's branches list.
+
+**One side effect to expect, and it is benign.** GitHub closes a pull request when
+its head branch is deleted, so #314 will move from *open draft* to *closed*. That
+does not weaken the archive — `refs/pull/314/head` persists, the diff and all 25
+commits stay viewable, and the page gains a **Restore branch** button. It is
+arguably the better end state: #314 is titled "not for merge", and a closed PR
+cannot be merged at all, which retires the flag-flip hazard rather than leaving it
+resting on a draft flag whose `mergeable_state` is `clean`.
+
+**Still true after this addendum:** no code, migration, `app_config` row or branch
+was changed by this session, and `fast_visit_enabled` remains `false`.
