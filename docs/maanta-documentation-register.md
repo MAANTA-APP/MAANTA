@@ -156,6 +156,7 @@ does not pre-authorize acquisition.
 | `docs/marketing/marketing-claims-register.md` | founder, agency, agents | founder | KEEP (new 2026-09-01) | production; the decisions log | 2026-09-01 | **External validation moves off zero**; any frozen rule changes | INTERNAL |
 | `docs/ops/IMPLEMENTATION-REPORT.md` | eng, founder | eng | KEEP | the marketing build | — | Marketing site changes | INTERNAL |
 | `docs/skills/ux-copy-audit-2026-09-02.md` | founder, eng | eng | KEEP (new 2026-09-02) | `lib/deal-list-controls.ts`; the frozen rulings | 2026-09-02 | **D223–D226 ruled on**, or feed rail names/orders change | INTERNAL |
+| `docs/skills/scalability-retention-audit-2026-09-02.md` | founder, eng | eng | KEEP (new 2026-09-02) | the repo; `pg_stat_statements` | 2026-09-02 | **D234 or D235 closed**, the SW gains a `fetch` handler, or a shopper push sender ships | INTERNAL |
 | `docs/maanta-marketing-agency-brief.md` | agency | founder | UPDATE | the claims register | — | Predates the Elite de-anchoring and Field Validation Mode. **Do not hand over until reconciled** | CONFIDENTIAL |
 | `docs/maanta-{shopper,merchant,mall-operator}-email-sequence.md` | agency | founder | DRAFT | the claims register | — | Not activated (gate M3). Check every claim against the register first | CONFIDENTIAL |
 | `docs/maanta-email-segmentation-plan.md`, `maanta-waitlist-data-schema.md` | agency, eng | founder | KEEP | Resend + the waitlist route | 2026-08-02 | Segmentation or the waitlist backend changes | INTERNAL |
