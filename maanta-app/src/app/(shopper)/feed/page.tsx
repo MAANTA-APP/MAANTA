@@ -213,7 +213,7 @@ export default async function FeedPage({
       >
         <LiveDealCollection
           title="Top picks near you"
-          subtitle="Flash deals — grab them while they last"
+          subtitle="Limited-time offers ending soon"
           action={
             <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
               See all ›
@@ -253,7 +253,7 @@ export default async function FeedPage({
 
         <LiveDealCollection
           title="Neighbourhood favourites"
-          subtitle="Boosted deals near you"
+          subtitle="Featured deals promoted by local shops"
           action={
             <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
               See all ›

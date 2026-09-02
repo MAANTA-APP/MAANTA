@@ -8,11 +8,15 @@ the rendered public site only, with no access to this repository.
 against `maanta-app/` source. Verdicts are `CONFIRMED`, `ALREADY SHIPPED`,
 `CONTRADICTED` or `FOUNDER CALL`, each with a `path:line`.
 
-**No product code changed in this session.** Four confirmed defects are recorded
-as drift rows **D223–D226** and the corrections proposed below are written but
-not applied, because each is a change to a **public claim** and the operating
-state freezes discretionary product and copy work. Section 7 is the approval
-list.
+**Superseded in part, same day, by founder ruling R3** (`docs/maanta-decisions-log.md`,
+2026-09-02). This document's four findings were put to the founder, who ruled on
+them and issued a fuller feed model. **D223–D226 are now closed and shipped**;
+the disclosure wording below was replaced by the founder's own. Sections 2 and 3
+are kept as the diagnosis and the record of what the code actually did — read
+section 8 for what shipped and what was held.
+
+The audit's own verdicts on the external review (sections 4, 5, 6) stand
+unchanged and are the reason to keep this file.
 
 ---
 
@@ -260,3 +264,65 @@ Nothing here is a launch blocker and nothing here is field evidence. It is a
 claims-accuracy backlog, and the reason to clear it before the ladder runs is
 that the ranking paragraph is what a merchant is told when they ask why anyone
 would see their deal.
+
+
+---
+
+## 8. Outcome — founder ruling R3, 2026-09-02
+
+The founder ruled the same day, going further than this audit proposed: the feed
+is formalised as **purpose-specific rails, not one global ranking**, and paid
+placement is disclosed to shoppers. Full text in `docs/maanta-decisions-log.md`.
+
+### Shipped
+
+| Surface | Change |
+|---|---|
+| `(shopper)/feed/page.tsx` | Rail subtitles: "Limited-time offers ending soon" and **"Featured deals promoted by local shops"** |
+| `(shopper)/deals/[id]/page.tsx` | On a boosted deal: "This shop paid to feature this deal for 24 hours", reading `BOOST_WINDOW_HOURS` from `src/lib/data.ts` |
+| `src/lib/data.ts` | New `BOOST_WINDOW_HOURS`, so the disclosure cannot disagree with the window `purchase_boost` actually writes |
+| `(marketing)/page.tsx`, `shoppers/page.tsx` | Rail descriptions corrected; ranking claim qualified to *Deals near me*; "under an hour" → "as short as an hour"; Discover step names the three rails |
+| `src/lib/__tests__/feed-ranking-claims.test.ts` | New guard (9 tests) |
+
+Rail **names** (R2) and rail **orders** (D1) were not touched. The guard asserts
+the *presence* of disclosure rather than one exact sentence, so a future rename —
+"Featured near you" was raised as the longer-term option — does not disarm it.
+It also fails on the external reviewer's proposed line: any sentence denying that
+placement can be bought is now a test failure.
+
+### Held, and why — D227 to D230
+
+Four parts of R3 were recorded rather than half-built. Each is a real blocker,
+not a scoping preference:
+
+1. **D228 — proximity ordering for rail 3 is a reversal, and has nothing behind
+   it.** The founder ruled this exact question on 2026-08-09 closing D77: *"keep
+   the name, keep the verified-redemptions order… No distance re-sort, no
+   rename."* Separately, there is no shopper location — the feed's distance
+   origin is `nodeCoords(node)`, the approximate mall centroid, and
+   `navigator.geolocation` is never called in the feed. Inside one mall, every
+   shop sits metres from that centroid, so ordering by it is noise. The rail 3
+   subtitle was deliberately left as "Standard deals at your mall": the D77
+   ruling leaned on it, and changing it to "Closest live deals" while the order
+   is redemption-based would recreate D77's mislabel in a new place.
+2. **D227 — per-deal verified counts do not exist.** `verified_counts_by_merchant`
+   is per merchant. Worse, the card already renders that merchant total as "N
+   verified" beside a deal title, which reads as the deal's count — a live
+   mislabel this audit found while checking R3. Per-deal counts need a new RPC
+   and a migration, which is a human apply step.
+3. **D229 — the "See all" destinations are filters, not ranked lists.**
+   `/search?type=flash|boosted` applies a filter and offers no sort control.
+4. **D230 — the R3 analytics events are not emitted.**
+
+### The sequencing point worth keeping
+
+R3's social-proof half — redemption-ranked See-all lists, "12 verified
+redemptions" on cards — has **nothing to rank on yet**. External field validation
+stands at zero genuine merchants and zero genuine successes. A list "sorted by
+verified redemptions" today orders everything by zero and falls through to
+tie-breakers, and the three-state counter would render "New deal" on every
+genuine deal. That is honest, and it is the right design for later; it is not
+work that pays now.
+
+The disclosure half, by contrast, had to ship before any Node 0 merchant buys a
+boost — which is why it did.

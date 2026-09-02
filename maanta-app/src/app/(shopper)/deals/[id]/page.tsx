@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
+import { BOOST_WINDOW_HOURS, getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
@@ -154,6 +154,24 @@ export default async function DealDetailPage({
         <h1 className="text-2xl font-bold leading-tight text-ink">{deal.title}</h1>
         {deal.description ? (
           <p className="mt-2 text-sm text-muted">{deal.description}</p>
+        ) : null}
+
+        {/*
+          R3 disclosure. The BOOSTED chip above names the mechanism; this names
+          the commercial fact behind it. A chip alone reads as an editorial
+          badge, and the rail it belongs to is titled "Neighbourhood
+          favourites" (frozen by R2), which carries an implied popularity claim
+          a paid placement has not earned. Drift D223.
+
+          Detail, not the tile: a tile has no room for a sentence and the
+          shopper meets this before claiming. Muted, adjacent to the deal it
+          describes, never dressed as a warning — a boost is a legitimate
+          product, and the point is disclosure, not discouragement.
+        */}
+        {deal.boost_active ? (
+          <p className="mt-3 text-xs leading-relaxed text-muted">
+            This shop paid to feature this deal for {BOOST_WINDOW_HOURS} hours.
+          </p>
         ) : null}
 
         <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">

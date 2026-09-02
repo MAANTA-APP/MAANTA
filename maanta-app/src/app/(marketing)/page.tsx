@@ -165,7 +165,7 @@ export default function LandingPage() {
           steps={[
             {
               title: "Discover",
-              body: "Open the feed for your mall. Deals sorted by what is nearest and what ends soonest.",
+              body: "Open the feed for your mall. Three rails: what ends soonest, what shops have boosted, and what other shoppers have redeemed.",
             },
             {
               title: "Claim",
@@ -221,12 +221,14 @@ export default function LandingPage() {
       </Section>
 
       <Section id="verified" tone="ink">
-        <SectionHeading tone="light">Ranked by who actually walked in.</SectionHeading>
+        <SectionHeading tone="light">Deals near me is ranked by who actually walked in.</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-white/70 sm:text-lg">
           <p>
-            Nothing on MAANTA is ranked by stars or reviews. A deal rises because shoppers
-            claimed it and staff verified the code at a counter — a real person, in a real
-            shop, at a real time.
+            Nothing on MAANTA is ranked by stars or reviews. In <em>Deals near me</em>, a
+            deal rises because shoppers claimed it and staff verified the code at a counter
+            — a real person, in a real shop, at a real time. <em>Top picks near you</em> is
+            ordered by what expires soonest, and <em>Neighbourhood favourites</em> holds
+            deals a shop has paid to feature.
           </p>
           <p className="text-white">
             That single rule is why merchants trust the ranking, why shoppers trust the feed,
@@ -242,9 +244,12 @@ export default function LandingPage() {
           points={[
             {
               title: "Flash",
-              body: "Short-window top picks, often under an hour. Worth walking to now.",
+              body: "Short-window top picks, as short as an hour. Worth walking to now.",
             },
-            { title: "Boosted", body: "Neighbourhood favourites, pushed to the top." },
+            {
+              title: "Boosted",
+              body: "Featured deals promoted by local shops — a shop pays to put a deal at the top of the feed for a day.",
+            },
             {
               title: "Map",
               body: "Pins with precise pickup spots, so you find the right shop the first time.",

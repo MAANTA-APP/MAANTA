@@ -108,6 +108,20 @@ export async function getSuccessFee(): Promise<number> {
   return isNaN(n) ? SUCCESS_FEE_KES : n;
 }
 
+/**
+ * The length of one boost window, in hours.
+ *
+ * `purchase_boost` owns this: it writes `NOW() + INTERVAL '24 hours'`
+ * (`supabase/migrations/20260709175532_deal_pause_boosts_staff.sql`). The
+ * number was typed as the literal "24h" in three merchant surfaces and, from
+ * R3, is stated to shoppers in the boost disclosure on `/deals/[id]`. A
+ * disclosure that disagreed with the window it discloses would be worse than
+ * none, so the shopper-facing sentence reads it from here rather than typing
+ * it a fourth time. Unlike the fee, it is not in `app_config` — changing it
+ * means changing the RPC, and this constant must move with it.
+ */
+export const BOOST_WINDOW_HOURS = 24;
+
 /** Boost price from app_config, falling back to the wireframe default KES 500 / 24h. */
 export async function getBoostFee(): Promise<number> {
   const service = createServiceClient();
