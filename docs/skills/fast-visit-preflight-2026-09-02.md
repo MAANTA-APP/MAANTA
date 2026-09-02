@@ -635,5 +635,29 @@ arguably the better end state: #314 is titled "not for merge", and a closed PR
 cannot be merged at all, which retires the flag-flip hazard rather than leaving it
 resting on a draft flag whose `mergeable_state` is `clean`.
 
+**Interim step taken instead — #314 closed, 2026-09-02.** On founder instruction,
+PR #314 was moved from *open draft* to **closed** via the GitHub API
+(`state: closed`, `merged: false`, head still `6d772ef`, `closed_at`
+2026-09-02T08:21:43Z). This retires the merge half of finding 7 without touching
+the branch: a closed PR cannot be merged at all, whereas the open draft's
+`mergeable_state` was `clean`, leaving the draft flag as the only thing between
+the repository and a merge that would have flipped `fast_visit_enabled` to
+`true`.
+
+The archive was re-verified **after** the close — `refs/pull/314/head` still
+equals `6d772ef` — so the 25 commits and the diff remain viewable and the work
+remains recoverable from that page. One comment was left on #314 recording the
+closure, because the PR body states its open-draft status is what keeps the
+branch restorable, and that sentence is now out of date.
+
+**What is still outstanding.** The branch `codex/queue-call-app` itself remains at
+`6d772ef`, so finding 7 is reduced, not closed: the flag-flip migration is still
+in the working set and still reachable by a direct merge or a new PR. **Delete
+branch** on the #314 page is now the shortest route, and deletion stays safe for
+the reason verified above.
+
 **Still true after this addendum:** no code, migration, `app_config` row or branch
-was changed by this session, and `fast_visit_enabled` remains `false`.
+was changed by this session, and `fast_visit_enabled` remains `false`. The only
+mutations this session made anywhere are documentation commits on
+`claude/fast-visit-investigation-6lve1f`, the closure of #314, and its one
+explanatory comment.
