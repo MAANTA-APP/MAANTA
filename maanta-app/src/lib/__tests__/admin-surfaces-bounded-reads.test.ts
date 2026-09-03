@@ -123,6 +123,30 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src).not.toMatch(/from\("merchant_transactions"\)/);
   });
 
+  it("the founder's 'Right now' queues agree with the Action Queue about what is human work (Codex P2, PR #319)", () => {
+    const src = read("src/app/founder/page.tsx");
+    // Held claims: the D188 three-parent predicate, not a raw status count.
+    expect(src).toMatch(/genuineCount\(\(q\) => q\.eq\("status", "flagged"\)\)/);
+    expect(src).not.toMatch(/from\("redemptions"\)\s*\.select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("status", "flagged"\)/);
+    // Pending shops: synthetic shops are never awaiting a human.
+    expect(src).toMatch(/\.eq\("status", "pending"\)\s*\.eq\("is_demo", false\)/);
+  });
+
+  it("the deals directory fails closed when the fraud-signal read hits its cap (Codex P2, PR #319)", () => {
+    const src = read("src/app/admin/deals/page.tsx");
+    expect(src).toMatch(/from\("fraud_events"\)\s*\.select\("merchant_id", \{ count: "exact" \}\)/);
+    expect(src).toMatch(/fraudTruncated = eventsRes\.count !== null && eventsRes\.count > fraudRows\.length/);
+    expect(src).toMatch(/Review markers unavailable/);
+    // A truncated read draws no marker at all rather than a partial set.
+    expect(src).toMatch(/flaggedMerchants === null\s*\?\s*null/);
+  });
+
+  it("the platform report names the population of each money card beside the all-rows verified count (Codex P2, PR #319)", () => {
+    const src = read("src/components/admin/platform-report.tsx");
+    expect(src).toMatch(/label="Verified redemptions"[\s\S]*?hint="Every success row — internal and synthetic included"/);
+    expect(src.match(/hint="Genuine-tagged rows only \(ledger contract\)"/g)?.length ?? 0).toBe(3);
+  });
+
   it("merchant 360 reads money from the ledger, not from the claim's fee column", () => {
     const src = read("src/app/admin/merchants/[id]/page.tsx");
     expect(src).toContain("readLedgerFeeTotals(service, { merchantIds: [m.id]");
@@ -193,6 +217,16 @@ describe("visits & redemptions — the funnel is derived, never inferred", () =>
 
   it("embeds the queue rows so in-queue is read from evidence, not assumed", () => {
     expect(src).toContain("merchant_presentations(status, expires_at)");
+  });
+
+  it("reports a capped staff-queue snapshot as incomplete, never as the whole queue (Codex P2, PR #319)", () => {
+    // The presentations read is bounded; without a count a page that hit the
+    // cap rendered the survivors — or "Nobody is waiting" after the in-memory
+    // redemption filter — as a complete snapshot.
+    expect(src).toMatch(/from\("merchant_presentations"\)[\s\S]*?count: "exact"[\s\S]*?\.limit\(QUEUE_CAP\)/);
+    expect(src).toMatch(/queueRes\.count !== null && queueRes\.count > queueRows\.length/);
+    expect(src).toMatch(/queueTruncated \?/);
+    expect(src).toMatch(/Incomplete, not empty/);
   });
 
   it("windows by claimed_at and says pre-tracking rows are excluded", () => {

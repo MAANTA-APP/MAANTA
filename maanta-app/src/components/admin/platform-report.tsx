@@ -133,10 +133,31 @@ export async function PlatformReport({
       </p>
 
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Verified redemptions" value={(verified ?? 0).toLocaleString()} />
-        <KpiCard label={FEE_FIGURE_LABELS.net} value={feeFigure(feeTotals.netKes)} />
-        <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(feeTotals.grossKes)} />
-        <KpiCard label={FEE_FIGURE_LABELS.reversals} value={feeFigure(feeTotals.reversalsKes)} />
+        {/* Two populations sit side by side here and the labels have to say so
+            (Codex P2 on PR #319): the verified count is every `success` row,
+            synthetic included, while the ledger reader's contract (D188 / D211)
+            is genuine-tagged rows only. Neither number is changed — the scope
+            each one covers is stated on the card. */}
+        <KpiCard
+          label="Verified redemptions"
+          value={(verified ?? 0).toLocaleString()}
+          hint="Every success row — internal and synthetic included"
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.net}
+          value={feeFigure(feeTotals.netKes)}
+          hint="Genuine-tagged rows only (ledger contract)"
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.gross}
+          value={feeFigure(feeTotals.grossKes)}
+          hint="Genuine-tagged rows only (ledger contract)"
+        />
+        <KpiCard
+          label={FEE_FIGURE_LABELS.reversals}
+          value={feeFigure(feeTotals.reversalsKes)}
+          hint="Genuine-tagged rows only (ledger contract)"
+        />
         <KpiCard label="Active shops" value={activeShops ?? 0} />
         <KpiCard label="Live deals" value={liveDeals ?? 0} />
       </div>

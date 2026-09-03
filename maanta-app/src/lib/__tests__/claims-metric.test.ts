@@ -83,15 +83,23 @@ const REDEMPTION_COLUMNS = [
  */
 function redemptionFilters(source: string): string[] {
   const found: string[] = [];
-  const anchor = /from\("redemptions"\)/g;
+  // Two shapes filter `redemptions` in this codebase: a literal
+  // `from("redemptions")` chain, and the founder page's `genuineCount((q) =>
+  // q.<filter>(...))`, which applies its filters to a `from("redemptions")`
+  // built once in `baseCount`. The second shape is where every founder
+  // redemption filter now lives (D243 moved the last direct read there), so
+  // reading only the first left this guard with nothing to check — which its
+  // own non-empty assertion caught.
+  const anchor = /from\("redemptions"\)|genuineCount\(\(q\) =>/g;
   let m: RegExpExecArray | null;
   while ((m = anchor.exec(source))) {
     const rest = source.slice(m.index + m[0].length);
-    // Stop at the next table so one query's window cannot bleed into another.
-    // 900 chars, not 400: this repo puts long explanatory comments between
-    // chained calls, and a tighter window dropped the shopper page's .order().
-    const nextTable = rest.search(/from\("[a-z_]+"\)/);
-    const window = rest.slice(0, nextTable === -1 ? 900 : Math.min(nextTable, 900));
+    // Stop at the next table or the next genuineCount so one query's window
+    // cannot bleed into another. 900 chars, not 400: this repo puts long
+    // explanatory comments between chained calls, and a tighter window dropped
+    // the shopper page's .order().
+    const next = rest.search(/from\("[a-z_]+"\)|genuineCount\(\(q\) =>/);
+    const window = rest.slice(0, next === -1 ? 900 : Math.min(next, 900));
     const f = /\.(?:gte|lte|gt|lt|eq|order)\("([a-z_]+)"/g;
     let g: RegExpExecArray | null;
     while ((g = f.exec(window))) found.push(g[1]);

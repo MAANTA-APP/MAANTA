@@ -117,8 +117,17 @@ export default async function FounderDashboardPage() {
         .gt("expires_at", nowIso),
       { includeDemo: demoMode.enabled }
     ),
-    service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    service.from("redemptions").select("id", { count: "exact", head: true }).eq("status", "flagged"),
+    // The three "Right now" queues must agree with the Action Queue about
+    // whether human work is waiting (Codex P2 on PR #319): a synthetic shop
+    // awaiting approval or a demo-parented held claim is not work. Pending
+    // shops exclude demo rows outright; the held count goes through the same
+    // D188 three-parent predicate the Action Queue uses.
+    service
+      .from("merchants")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .eq("is_demo", false),
+    genuineCount((q) => q.eq("status", "flagged")),
     service.from("agent_tasks").select("id", { count: "exact", head: true }).eq("is_complete", false),
     genuineCount((q) => q.gte("claimed_at", since7d)),
     genuineCount((q) => q.gte("arrived_at", since7d)),

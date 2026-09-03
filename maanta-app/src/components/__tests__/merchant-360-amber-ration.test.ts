@@ -21,7 +21,7 @@ import { OverrideButton } from "@/app/admin/support/override-button";
 import { PlanActions } from "@/app/admin/billing/plan-actions";
 
 /**
- * Frozen UI rule 1 — "≤1 amber action per screen" — on Merchant 360 (D235).
+ * Frozen UI rule 1 — "≤1 amber action per screen" — on Merchant 360 (D241).
  *
  * ## Why this test renders instead of scanning source
  *
@@ -105,7 +105,7 @@ function merchant360Controls(status: string, opts: { openTask: boolean; tier: "s
 
 const total = (els: ReactElement[]) => els.reduce((n, el) => n + amberCount(el), 0);
 
-describe("Merchant 360 rations the amber accent (frozen rule 1, D235)", () => {
+describe("Merchant 360 rations the amber accent (frozen rule 1, D241)", () => {
   it("shows exactly one amber on a pending shop, and it is Approve", () => {
     const els = merchant360Controls("pending", { openTask: true, tier: "standard" });
     expect(total(els)).toBe(1);

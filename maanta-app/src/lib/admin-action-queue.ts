@@ -346,6 +346,27 @@ export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
             href: `/admin/merchants/${m.id}#deals`,
             action: "Check with the merchant",
           });
+        } else if (m.visibleDeals === null && input.demoModeEnabled !== null) {
+          // The supply count for this shop failed to read. A null used to fall
+          // through silently, which is the one thing this queue must never do:
+          // an unreadable count is indistinguishable from "no supply" until it
+          // reads, so the no-supply alert cannot be evaluated and the operator
+          // has to be told that, per shop. (When the demo-mode flag itself is
+          // unreadable no count is attempted for any shop, and the single
+          // "Demo mode flag" item below already says so — one item, not one
+          // per merchant.)
+          items.push({
+            id: `supply-unread:${m.id}`,
+            category: "deal",
+            severity: "attention",
+            title: `${m.merchant_name}: live-deal count could not be read`,
+            entity: { kind: "merchant", id: m.id, name: m.merchant_name },
+            reason: "The shopper-visible supply read for this shop failed. This is a read error, not zero — whether the shop has a live deal is unknown until it reads, and the no-supply alert is withheld, not cleared.",
+            since: null,
+            href: `/admin/merchants/${m.id}#deals`,
+            action: "Reload",
+            unavailable: true,
+          });
         }
 
         if (m.outstanding_arrears > 0) {

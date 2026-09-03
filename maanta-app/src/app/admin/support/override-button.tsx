@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Complete a support task with an audit line.
  *
- * `variant` exists only to ration the amber accent (frozen UI rule 1, D235).
+ * `variant` exists only to ration the amber accent (frozen UI rule 1, D241).
  * On `/admin/support` this IS the page's action, so it stays amber by default.
  * Composed onto Merchant 360 it sits beside Suspend, Reject and Downgrade on a
  * record page whose one amber belongs to Approve, so that caller passes

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 /**
  * 11f actions — Mark paid / Downgrade / Grant trial.
  *
- * `variant` rations the amber accent (frozen UI rule 1, D235) and applies only
+ * `variant` rations the amber accent (frozen UI rule 1, D241) and applies only
  * to Grant trial, the one emphasised button here. On `/admin/billing` granting
  * a trial is the page's action, so it stays amber by default; composed onto
  * Merchant 360 it passes `"ghost"`, because that record page's single amber

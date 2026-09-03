@@ -206,7 +206,7 @@ test.describe("founder command centre", () => {
     await expect(page.locator("a[href^='/admin']")).toHaveCount(0);
     await expect(page.getByText(/which this role cannot open|admin console, which this role does not open/).first()).toBeVisible();
 
-    // /founder/reports must NOT bounce them (D225).
+    // /founder/reports must NOT bounce them (D231).
     await page.goto(`${BASE_URL}/founder/reports`, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/founder\/reports/);
 

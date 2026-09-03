@@ -136,12 +136,12 @@ Record the run number and its conclusion in
 
 ---
 
-## Interim — the Admin/Founder acceptance suite on a PR preview (D234)
+## Interim — the Admin/Founder acceptance suite on a PR preview (D240)
 
 `e2e/admin-founder-redesign.spec.ts` differs from the golden path in the one
 way that matters here: **it is read-only** — it presses no button that writes
 — so it may run against a preview deployment that shares production's Supabase
-project and Clerk instance. That is exactly what closes **D234**: the identity
+project and Clerk instance. That is exactly what closes **D240**: the identity
 branch production actually takes (`clerkMiddleware()`, `ensureAppUserFromClerk`)
 exercised in a browser at iPhone size. Founder ruling 2026-09-03: this
 automated run is the canonical evidence; a manual iPhone walk supplements it and
@@ -178,7 +178,7 @@ be minted there — a Clerk session is a human signing in.
    E2E_BASE_URL=https://<preview> E2E_ADMIN_STORAGE=admin.json E2E_COFOUNDER_STORAGE=cofounder.json \
      npx playwright test e2e/admin-founder-redesign.spec.ts
    ```
-4. **Read it honestly.** 12 passed closes D234 — record the preview URL, the
+4. **Read it honestly.** 12 passed closes D240 — record the preview URL, the
    commit and the count in the register row. Skipped is not a pass. A failure
    is a defect or a setup problem; name which before re-running. (If the Action
    Queue is empty on the preview the drill-down test annotates that and passes;
@@ -207,7 +207,7 @@ chain on native PostgreSQL, PostgREST with live RLS, this branch on the
 development server, and the **Supabase** auth strategy with two
 offline-minted sessions. The record is
 `docs/skills/admin-founder-command-centre-2026-09-03.md` §11; the open row is
-**D234**.
+**D240**.
 
 That run is evidence about the pages, the role guards and the data reads. It
 is **not** the run this document provisions: production takes the Clerk
@@ -215,7 +215,7 @@ identity branch, and no Vercel build was involved. Steps 1–6 above still
 apply to the redesign spec exactly as they do to the golden path — the same
 non-production target, the same storage-state capture (an `admin` state, and a
 `cofounder` state for the boundary test), the same protected environment.
-D234 closes on that run, or on the founder's own iPhone walk of the deployed
+D240 closes on that run, or on the founder's own iPhone walk of the deployed
 console against the same list.
 
 ---

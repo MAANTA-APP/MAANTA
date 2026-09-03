@@ -22,6 +22,8 @@ export const dynamic = "force-dynamic";
  * truncated cohort must never read as the whole window (pilot-bounded-reads).
  */
 const MAX_ROWS = 200;
+/** The live staff-queue snapshot is bounded too; a page that hits it is reported as incomplete. */
+const QUEUE_CAP = 50;
 
 /**
  * Visits & redemptions — the physical funnel, made legible.
@@ -71,13 +73,17 @@ export default async function AdminVisitsPage({
     .limit(MAX_ROWS);
   if (merchantFilter) claimsQuery = claimsQuery.eq("merchant_id", merchantFilter);
 
+  // `count: "exact"` so a snapshot that hit the cap is reported as incomplete
+  // instead of presented as the whole queue (Codex P2 on PR #319).
   let queueQuery = service
     .from("merchant_presentations")
-    .select("id, arrived_at, expires_at, merchant_id, merchants(merchant_name), redemptions(id, status, expires_at)")
+    .select("id, arrived_at, expires_at, merchant_id, merchants(merchant_name), redemptions(id, status, expires_at)", {
+      count: "exact",
+    })
     .eq("status", "waiting")
     .gt("expires_at", nowIso)
     .order("arrived_at", { ascending: true })
-    .limit(50);
+    .limit(QUEUE_CAP);
   if (merchantFilter) queueQuery = queueQuery.eq("merchant_id", merchantFilter);
 
   const [claimsRes, queueRes, heldRes, merchantRes] = await Promise.all([
@@ -154,6 +160,9 @@ export default async function AdminVisitsPage({
   const liveQueue = queueRows.filter(
     (q) => q.redemptions?.status === "pending" && new Date(q.redemptions.expires_at) > now
   );
+  // More waiting rows exist than were read: the list below, and especially an
+  // empty list after the in-memory redemption filter, is not the queue.
+  const queueTruncated = queueRes.count !== null && queueRes.count > queueRows.length;
 
   return (
     <main className="max-w-5xl">
@@ -270,6 +279,13 @@ export default async function AdminVisitsPage({
       {queueRes.error ? (
         <div className="mt-2">
           <AdminReadError what="the live staff queues" sub="Unknown, not empty." />
+        </div>
+      ) : queueTruncated ? (
+        <div className="mt-2">
+          <AdminReadError
+            what="the live staff queues"
+            sub={`Incomplete, not empty: ${queueRes.count} waiting rows exceed the ${QUEUE_CAP} this page reads in one pass, so the queue cannot be shown as a whole. Narrow to one merchant, or reload once the queue drains.`}
+          />
         </div>
       ) : liveQueue.length === 0 ? (
         <p className="mt-2 rounded-card bg-white px-4 py-4 text-sm text-muted shadow-card">

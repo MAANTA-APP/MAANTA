@@ -55,7 +55,15 @@ export default async function AdminDealsPage({
 
   const service = createServiceClient();
   const [eventsRes, dealsRes] = await Promise.all([
-    service.from("fraud_events").select("merchant_id").eq("resolved", false).limit(MAX_DEALS),
+    // `count: "exact"` so a page that hit the cap is detectable: a capped read
+    // with no count would silently drop the merchants in the omitted events,
+    // and a deal whose merchant lives only there would lose its review marker
+    // and its moderation control (Codex P2 on PR #319).
+    service
+      .from("fraud_events")
+      .select("merchant_id", { count: "exact" })
+      .eq("resolved", false)
+      .limit(MAX_DEALS),
     (() => {
       let query = service
         .from("deals")
@@ -93,9 +101,15 @@ export default async function AdminDealsPage({
     );
   }
 
-  const flaggedMerchants = new Set(
-    (eventsRes.data ?? []).map((e) => e.merchant_id).filter(Boolean) as string[]
-  );
+  // Fail closed on a capped fraud read: if unresolved signals exceed what one
+  // read carries, the set of merchants under review is unknown, so no marker
+  // is drawn and the moderation section says why, rather than drawing a
+  // partial set that reads as "everything else is clean".
+  const fraudRows = eventsRes.data ?? [];
+  const fraudTruncated = eventsRes.count !== null && eventsRes.count > fraudRows.length;
+  const flaggedMerchants: Set<string> | null = fraudTruncated
+    ? null
+    : new Set(fraudRows.map((e) => e.merchant_id).filter(Boolean) as string[]);
 
   type Row = {
     id: string;
@@ -124,7 +138,10 @@ export default async function AdminDealsPage({
     ADMIN_DEAL_STATE_FILTERS.map((f) => [f, withState.filter((x) => matchesDealStateFilter(x.state, f)).length])
   ) as Record<AdminDealStateFilter, number>;
   const shown = withState.filter((x) => matchesDealStateFilter(x.state, filter));
-  const flagged = withState.filter((x) => x.d.is_active && flaggedMerchants.has(x.d.merchant_id));
+  const flagged =
+    flaggedMerchants === null
+      ? null
+      : withState.filter((x) => x.d.is_active && flaggedMerchants.has(x.d.merchant_id));
 
   const href = (over: { state?: AdminDealStateFilter; demo?: boolean }) => {
     const p = new URLSearchParams();
@@ -153,7 +170,20 @@ export default async function AdminDealsPage({
 
       {/* Moderation queue — unchanged in substance, first because it is the
           only part of this page that carries an action. */}
-      {flagged.length > 0 ? (
+      {flagged === null ? (
+        <section className="mt-5 rounded-card border border-flame/50 bg-white p-4 shadow-card">
+          <h2 className="text-sm font-bold text-ink">Review markers unavailable</h2>
+          <p className="mt-0.5 text-xs text-muted">
+            {eventsRes.count} unresolved fraud signals exceed the {MAX_DEALS} this page
+            reads in one pass, so which deals are under review is unknown — none is
+            marked rather than some. Resolve signals on{" "}
+            <Link href="/admin/redemptions" className="underline">
+              Guardian &amp; fraud review
+            </Link>{" "}
+            first; the markers return once the unresolved count fits.
+          </p>
+        </section>
+      ) : flagged.length > 0 ? (
         <section className="mt-5 rounded-card border border-flame/50 bg-white p-4 shadow-card">
           <h2 className="text-sm font-bold text-ink">
             Flagged for review ({flagged.length})

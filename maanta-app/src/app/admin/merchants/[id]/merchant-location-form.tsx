@@ -146,7 +146,7 @@ export function MerchantLocationForm({
 
       <div className="mt-4">
         {/*
-         * Outline, not amber (D235). This form only ever renders inside
+         * Outline, not amber (D241). This form only ever renders inside
          * Merchant 360, and that record page's single amber action belongs to
          * Approve — the decision an admin arrives from the Action Queue to
          * make. Saving a pick-up location is a correction, not the page's

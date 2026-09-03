@@ -29,13 +29,13 @@ drove the redesign. "Authoritative" names the table or RPC the screen reads.
 | `/admin/pilot` | admin (founder reading it) | Node 0 cohort, ladder, evidence classes | none | `merchants` + manifest, genuine-tagged counts, fee RPC | **Keep intact.** Heavily ratcheted; it is Founder content living under an admin guard. Reached from Operations and the Founder command centre |
 | `/admin/approvals` | admin | approve merchants | none (links to detail) | `merchants.status = pending` | **Demote from nav.** Reached from Home, the Action Queue and Merchants |
 | `/admin/merchants` | admin | find a shop | onboard (link) | `merchants` | Keep; nav label unchanged |
-| `/admin/merchants/[id]` | admin | "verify" a merchant | approve/reject, suspend/reinstate, feature, shadow-ban, location, trial | `merchants`, `elite_trial_cap_status` | **Rebuild as Merchant 360.** No staff, deals, claims, ledger, support or audit — six routes to answer one phone call (**D229**) |
+| `/admin/merchants/[id]` | admin | "verify" a merchant | approve/reject, suspend/reinstate, feature, shadow-ban, location, trial | `merchants`, `elite_trial_cap_status` | **Rebuild as Merchant 360.** No staff, deals, claims, ledger, support or audit — six routes to answer one phone call (**D235**) |
 | `/admin/customers` | admin | find an account | none (read-only) | `users` | Keep; nav label **Shoppers** |
 | `/admin/customers/[id]` | admin | one account's claims | none | `users`, `redemptions` | Keep |
-| `/admin/deals` | admin | "Deals" | remove deal | `fraud_events` → `deals` | **Rebuild.** Listed only fraud-flagged deals; no directory, no state, no allocation (**D226**) |
+| `/admin/deals` | admin | "Deals" | remove deal | `fraud_events` → `deals` | **Rebuild.** Listed only fraud-flagged deals; no directory, no state, no allocation (**D232**) |
 | `/admin/redemptions` | admin | Guardian holds, fraud events, last 15 | release/reject via detail; approve/reject fraud event | `redemptions.status = flagged`, `fraud_events` | Keep as the Guardian/fraud review; reached from Visits |
 | `/admin/redemptions/[id]` | admin | one ticket | release/reject, appeal, reverse fee | `redemptions`, `admin_redemption_detail`, ledger, `fee_reversals` | Keep unchanged |
-| `/admin/reports` | admin | KPIs + chart | none | counts, fee RPC, `admin_redemptions_per_day` | Keep; body extracted to one shared component so `/founder/reports` can render it under its own guard (**D225**) |
+| `/admin/reports` | admin | KPIs + chart | none | counts, fee RPC, `admin_redemptions_per_day` | Keep; body extracted to one shared component so `/founder/reports` can render it under its own guard (**D231**) |
 | `/admin/audit` | admin | read `admin_ops_log` | none | `admin_ops_log` | Keep |
 | `/admin/agents`, `/[id]` | admin | field reps and leads | none | `agents`, `leads` | Demote from nav; reached from Operations. Acquisition is on hold (D159) |
 | `/admin/support`, `/new` | admin | `agent_tasks` queue | override (complete + audit line), create ticket | `agent_tasks` | Keep; merchant name now opens Merchant 360, overdue read from `due_at`, ticket form accepts `?merchant=` |
@@ -43,7 +43,7 @@ drove the redesign. "Authoritative" names the table or RPC the screen reads.
 | `/admin/resources` | admin | resource centre | none | `lib/admin-resources.ts` | Keep as a system tool |
 | `/founder` | admin, cofounder | "executive dashboard" | none | user counts, deal count, fee RPC | **Rebuild.** Was a smaller Admin overview: user totals, live deals by node, links. Answered nothing about whether the pilot works |
 | `/founder/yesterday` | admin, cofounder | daily brief | none | genuine-tagged day counts, manifest | Keep intact (heavily ratcheted) |
-| `/founder/reports` | admin, cofounder | reports | — | — | **Was a redirect into `/admin/reports`**, bouncing a co-founder to `/` (**D225**) |
+| `/founder/reports` | admin, cofounder | reports | — | — | **Was a redirect into `/admin/reports`**, bouncing a co-founder to `/` (**D231**) |
 
 What did not exist anywhere in the console: a merchant's staff seats, a
 merchant's ledger, a deal directory, any distinction between a claim, an
@@ -111,7 +111,7 @@ the live product.
 6. **No control the backend does not enforce.** Merchant 360 states plainly
    what the console cannot do — pause or re-allocate a deal (merchant-only
    `PATCH /api/deals/[id]`), lift a trust-metric hide (database-owned),
-   blacklist a shopper (no route) — rather than drawing a button (**D230**).
+   blacklist a shopper (no route) — rather than drawing a button (**D236**).
 7. **Doctrine travels with the item.** The zero-balance item carries the
    2026-08-24 ruling that nobody raises the credit wall with the merchant; the
    demo-mode item carries D189. An alert without its consequence invites the
@@ -126,7 +126,7 @@ the live product.
 ## 4. Claim allocation — the D236 vocabulary
 
 Founder ruling 2026-09-03 (numbered **D236** in the brief; recorded in the
-register as **D227** because the repo is canonical for drift IDs and D227 was
+register as **D233** because the repo is canonical for drift IDs and D233 was
 the next free number — the same reconciliation as D172/D168):
 
 > `max_claims` means the maximum number of shopper claims that may be issued
@@ -224,9 +224,9 @@ form's textarea to its new line.
 ## 8. Not built, and why
 
 - **Controls the backend does not enforce** — decided by capability (founder
-  ruling, second 2026-09-03 entry): **D231** pause is satisfied by the
-  merchant's own control and nothing was built; **D232** blacklist was
-  integrated from the audit branch (see §10); **D233** trust-metric hide is
+  ruling, second 2026-09-03 entry): **D237** pause is satisfied by the
+  merchant's own control and nothing was built; **D238** blacklist was
+  integrated from the audit branch (see §10); **D239** trust-metric hide is
   not built because no rule requires a manual override, and Merchant 360 says
   so.
 - **Node scoping on the Action Queue.** An exception at another node is still
@@ -272,7 +272,7 @@ caught it.)
 | Migration | Row | What it does |
 |---|---|---|
 | `20260903120000_claim_allocation_cap.sql` | D223 | `claims_reserved` computed column, `claim_occupies_allocation()`, a `BEFORE INSERT` trigger on `redemptions` that enforces the allocation for any writer, `claim_deal` re-tested against occupancy |
-| `20260903130000_enforce_user_blacklist.sql` | D171 → **D232** | `claim_deal` refuses a blacklisted shopper before any slot is reserved; `verify_redemption` untouched (verify-anyway); a shopper cannot clear their own flag; `admin_ops_log` accepts a `user` target |
+| `20260903130000_enforce_user_blacklist.sql` | D171 → **D238** | `claim_deal` refuses a blacklisted shopper before any slot is reserved; `verify_redemption` untouched (verify-anyway); a shopper cannot clear their own flag; `admin_ops_log` accepts a `user` target |
 | `20260903140000_repair_merchant_tenant_policies.sql` | D168 | tenant RLS policies filter instead of erroring |
 
 **Deployment order was migrations first, and that half is done.** The
@@ -284,18 +284,25 @@ and read back on 2026-09-03 under their repo versions — the ledger needed no
 repair this time — so the application may now deploy against a database that
 already carries the contract. **Do not reapply them.**
 
-**Drift IDs.** This branch's rows are D225–D230 behind the completion branch's
-D223–D224; D230 is closed by decomposition into D231–D233. PR #317 still
-carries D223–D235 on its own branch and must renumber on merge — the register
-in `main` is canonical, and whichever lands second renumbers.
+**Drift IDs.** This branch's eleven rows are **D231–D241**, behind `main`'s
+D223–D230: D223/D224 from the Merchant 01 completion, and D225–D230 the six
+PR #317 truthfulness rows that #318 triaged into `main`. They were D225–D235
+on this branch until #318 landed; the first reconciliation with `main`
+dropped `main`'s six rows, and the renumbering that restored them is why
+every ID in this document moved by six. D236 is the decomposition row (into
+D237 pause, D238 blacklist, D239 trust-metric hide); D240 is the browser
+proof; D241 the amber ration. The brief's own "D236" label for the
+claim-allocation ruling is not a register ID. The register in `main` is
+canonical, and whichever branch lands second renumbers; PR #317's remaining
+rows start at D246.
 
 ### The three capabilities, decided
 
 | Capability | Decision | Evidence |
 |---|---|---|
-| Pause deal | **Satisfied — nothing built.** Merchants hold Pause / Resume on the deal page; `claim_deal` refuses `deal_paused`; `verify_redemption` ignores `is_paused`. Lowering the allocation is accepted by the same route (refused below what is held) but the edit sheet does not yet expose the field — an observation, not a blocker | `supabase/tests/claim_deal_pause_gate_test.sql`, `claim_allocation_cap_test.sql` INVARIANT F (**D231**) |
-| Blacklist shopper | **Integrated.** Control on the shopper's account page beside the chip; Action Queue item for a blacklisted account holding a live claim states the verify-anyway boundary and points at the lever | `user_blacklist_enforcement_test.sql`, `user-blacklist.test.ts`, the route test (**D232**, pending-deploy) |
-| Lift trust-metric hide | **Not built.** `recalculate_trust_metric` applies the 0.50 threshold unconditionally on every recalculation; no doctrine names a manual override; a toggle would be overwritten. Merchant 360 states the absence | `docs/skills/redemption-disputes.md` §"The trust metric, as it actually runs" (**D233**) |
+| Pause deal | **Satisfied — nothing built.** Merchants hold Pause / Resume on the deal page; `claim_deal` refuses `deal_paused`; `verify_redemption` ignores `is_paused`. Lowering the allocation is accepted by the same route (refused below what is held) but the edit sheet does not yet expose the field — an observation, not a blocker | `supabase/tests/claim_deal_pause_gate_test.sql`, `claim_allocation_cap_test.sql` INVARIANT F (**D237**) |
+| Blacklist shopper | **Integrated.** Control on the shopper's account page beside the chip; Action Queue item for a blacklisted account holding a live claim states the verify-anyway boundary and points at the lever | `user_blacklist_enforcement_test.sql`, `user-blacklist.test.ts`, the route test (**D238**, pending-deploy) |
+| Lift trust-metric hide | **Not built.** `recalculate_trust_metric` applies the 0.50 threshold unconditionally on every recalculation; no doctrine names a manual override; a toggle would be overwritten. Merchant 360 states the absence | `docs/skills/redemption-disputes.md` §"The trust metric, as it actually runs" (**D239**) |
 
 ### The restored review criteria, as ratchets
 
@@ -327,7 +334,7 @@ what could and could not be executed from an engineering session.
 ## 11. Browser proof — what ran, what it showed, what it does not prove (2026-09-03)
 
 **Result: 12 of 12 passing at iPhone 13 size (390 × 844), on a local stack
-built from this branch. Not yet run against a deployment — see D234.**
+built from this branch. Not yet run against a deployment — see D240.**
 
 ### What ran
 
@@ -368,10 +375,10 @@ built from this branch. Not yet run against a deployment — see D234.**
 | iPhone-sized admin navigation | drawer order | Home · Action queue · Merchants · Shoppers · Deals · Visits & redemptions · Support · Operations · Audit, a divider, SYSTEM (Billing · Reports · Resources), Founder; no "Approvals", no "Customers"; body overflow 0 px |
 | Home | attention first | "Needs attention right now" above everything, "Full action queue · 3 urgent · 8 need attention", money and evidence below |
 | Action Queue → record | first item click | Lands on a merchant 360 (`/admin/merchants/<uuid>`), never a list; the card states the rule that fired and how long it has stood |
-| Merchant 360 | eight headings | Identity · Staff seats · Deals · Shopper activity · Economics · Support · Admin actions · Audit; "Claims issued 5 of 10 · 5 remaining · redeemed 1"; "Fully claimed · 1 of 1 issued"; "Not available from the console, by design" naming D231 / D233 / D232 |
+| Merchant 360 | eight headings | Identity · Staff seats · Deals · Shopper activity · Economics · Support · Admin actions · Audit; "Claims issued 5 of 10 · 5 remaining · redeemed 1"; "Fully claimed · 1 of 1 issued"; "Not available from the console, by design" naming D237 / D239 / D238 |
 | Visits & redemptions | five columns | 1. Claim 6 · 2. Arrival / check-in 3 · 3. Queue 1 · 4. Verification 2 · 5. Redemption 1, and "The only column where the success fee is charged" |
 | Founder command centre | verdict, clocks, next move | "External field validation is 0"; ladder rung "none"; kill criterion "Not started"; tripwire "Not computable yet" (below the sample floor); Next move = Merchant 01 with the demo-mode warning; "Admin console" in the header for an admin |
-| `/founder/reports` | stays under the founder shell | Renders "Platform reporting" at `/founder/reports`, no bounce (D225) |
+| `/founder/reports` | stays under the founder shell | Renders "Platform reporting" at `/founder/reports`, no bounce (D231) |
 | Co-founder access | same page, no wall | Same numbers; "Worked in the admin console, which this role cannot open" on each queue; zero `a[href^='/admin']`; `/founder/reports` renders; `/admin` → `/` |
 
 Full-page captures of `/founder` (both roles), the shop-one 360, Operations,
@@ -387,7 +394,7 @@ renders its eight sections": the spec's own selector took the first
 360 page had rendered all eight headings (checked in the served HTML). The
 spec now selects a UUID record link. No product change.
 
-### What it does not prove — why D234 stays open
+### What it does not prove — why D240 stays open
 
 - **Production runs the Clerk strategy.** `clerkMiddleware()` and
   `ensureAppUserFromClerk` — the identity branch production actually takes —
@@ -397,7 +404,7 @@ spec now selects a UUID record link. No product change.
   behaviour and production data are untested by this run.
 - **Development server, not `next build` output.**
 
-The closure event for **D234**, by founder ruling on 2026-09-03, is the same
+The closure event for **D240**, by founder ruling on 2026-09-03, is the same
 12 tests run against a **Clerk-backed preview deployment**
 (`docs/ops/browser-e2e-provisioning-2026-09-03.md`). Automation is the
 canonical evidence; the founder's own iPhone walk of the deployed console
@@ -424,7 +431,25 @@ a storage-state file; run the spec with `E2E_BASE_URL`, `E2E_ADMIN_STORAGE`
 and `E2E_COFOUNDER_STORAGE` pointing at those files. Every step is read-only
 against the product; the proof presses no button that writes.
 
-## 12. D235 — the amber ration on Merchant 360, fixed the same day
+## 13. The Codex review round on the reconciled head (2026-09-03)
+
+The PR head after reconciliation with `main` (#318) was reviewed by Codex at
+the founder's request. Five findings, all verified against the tree and fixed
+in the PR's own code, each with a guard and a register row (D242–D245):
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P1 — supply read | A failed per-shop deal count became `null` and the no-supply rule fired only on `0`, so a read failure was silence | A per-shop `supply-unread` attention item, flagged unavailable; one "Demo mode flag" item stands in when the flag itself is unreadable (D242) |
+| P2 — founder held count | Raw `flagged` and `pending` counts, demo rows included, beside an Action Queue that excludes them | `genuineCount` for held claims; `is_demo = false` for pending shops (D243) |
+| P2 — fraud read cap | The deals directory's fraud read had a cap and no count, so a full page marked some merchants and not others | `count: "exact"`; past the cap, no marker and "Review markers unavailable" (D244) |
+| P2 — queue cap | The live staff-queue read had a cap and no count, so a full page — or "Nobody is waiting" after the in-memory filter — passed as the whole queue | `count: "exact"`; past the cap, "Incomplete, not empty" (D244) |
+| P2 — report populations | "All evidence classes" beside fee cards whose reader is genuine-tagged only | Each card names its population; numbers unchanged (D245) |
+
+The head that carried the fixes was rebuilt from `main`'s register (the first
+reconciliation had dropped `main`'s six PR #317 rows) with this branch's rows
+renumbered to D231–D241 — see the **Drift IDs** paragraph in §10.
+
+## 12. D241 — the amber ration on Merchant 360, fixed the same day
 
 The §11 captures showed three amber primaries on Merchant 360 — "Save
 location", "Override (audit-trailed)" and "Grant trial" — and a pending

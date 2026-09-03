@@ -134,7 +134,35 @@ describe("merchant rules", () => {
     const [item] = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: 0 })] });
     expect(item.id).toBe("no-supply:m1");
     expect(item.severity).toBe("urgent");
-    expect(buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: null })] })).toEqual([]);
+    const [unread] = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: null })] });
+    expect(unread.id).not.toBe("no-supply:m1");
+  });
+
+  it("fails closed when a shop's supply count could not be read (Codex P1 on PR #319)", () => {
+    // A null count used to fall through to nothing — the failed read looked
+    // exactly like a shop with supply. It is now its own attention item, per
+    // shop, flagged unavailable so it sorts with the other read failures.
+    const items = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: null })] });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("supply-unread:m1");
+    expect(items[0].category).toBe("deal");
+    expect(items[0].severity).toBe("attention");
+    expect(items[0].unavailable).toBe(true);
+    expect(items[0].reason).toMatch(/read error, not zero/);
+    expect(items[0].href).toBe("/admin/merchants/m1#deals");
+  });
+
+  it("does not repeat the supply failure per shop when the demo-mode flag itself is unreadable", () => {
+    // With the flag unreadable the loader attempts no count at all, so every
+    // shop is null for the same single reason. One "Demo mode flag" item says
+    // it; a hundred per-shop items would bury the queue.
+    const items = buildActionQueue({
+      ...empty(),
+      demoModeEnabled: null,
+      merchants: [merchant({ visibleDeals: null }), merchant({ id: "m2", merchant_name: "Shop Two", visibleDeals: null })],
+    });
+    expect(items.filter((i) => i.id.startsWith("supply-unread:"))).toEqual([]);
+    expect(items.some((i) => i.unavailable && /Demo mode flag/.test(i.title))).toBe(true);
   });
 
   it("carries the credit-wall doctrine on the zero-balance item", () => {

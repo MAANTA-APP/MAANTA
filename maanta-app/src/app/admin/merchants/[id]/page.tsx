@@ -699,8 +699,8 @@ export default async function AdminMerchantDetailPage({
         </div>
         <p className="mt-3 text-xs text-muted">
           Not available from the console, by design: pausing or re-allocating a deal (merchant-only,
-          D231) and lifting a trust-metric hide (database-owned, D233). Blocking a shopper from new
-          claims is done from the shopper&apos;s own account page (D232), never from here.
+          D237) and lifting a trust-metric hide (database-owned, D239). Blocking a shopper from new
+          claims is done from the shopper&apos;s own account page (D238), never from here.
         </p>
       </section>
 
