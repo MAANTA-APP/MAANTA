@@ -82,6 +82,24 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src).toContain("classifyMerchant(");
   });
 
+  it("keeps every action-queue category free of synthetic marketplace rows", () => {
+    const src = read("src/lib/admin-action-queue-data.ts");
+    // Redemption-backed conditions use the full D188 chain: the redemption,
+    // merchant and deal must all be non-demo. Direct merchant-backed reads use
+    // their own is_demo predicate, while nullable merchant relations (fraud
+    // events and tasks) retain merchantless records and reject only known demo.
+    expect(src.match(/genuineTagged\(/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(src).toContain("genuineJoinSelect(");
+    expect(src).toMatch(/\.eq\("status", "pending"\)\s*\.eq\("is_demo", false\)/);
+    expect(
+      src.match(/merchants!inner\(merchant_name,is_demo\)/g)?.length ?? 0
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      src.match(/\.eq\("merchants\.is_demo", false\)/g)?.length ?? 0
+    ).toBeGreaterThanOrEqual(3);
+    expect(src.match(/\.is_demo !== true/g)).toHaveLength(2);
+  });
+
   it("the founder command centre takes external evidence from the manifest, never from a demo flag", () => {
     const src = read("src/app/founder/page.tsx");
     expect(src).toContain("externalCohort()");

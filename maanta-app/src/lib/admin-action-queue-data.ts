@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { readDemoModeEnabled } from "@/lib/demo-mode";
 import { withPublicMerchant } from "@/lib/data";
+import { genuineJoinSelect, genuineTagged } from "@/lib/evidence-scope";
 import { classifyMerchant } from "@/lib/pilot-cohort";
 import {
   buildActionQueue,
@@ -66,34 +67,39 @@ export async function loadActionQueue(service: Service = createServiceClient()):
       .from("merchants")
       .select("id, merchant_name, created_at")
       .eq("status", "pending")
+      .eq("is_demo", false)
       .order("created_at", { ascending: true })
       .limit(ROW_CAP),
-    service
-      .from("redemptions")
-      .select("id, redeemed_at, merchants(merchant_name)")
-      .eq("status", "flagged")
-      .order("redeemed_at", { ascending: true })
-      .limit(ROW_CAP),
+    genuineTagged(
+      service
+        .from("redemptions")
+        .select(genuineJoinSelect("id, redeemed_at", ["merchant_name"]))
+        .eq("status", "flagged")
+        .order("redeemed_at", { ascending: true })
+        .limit(ROW_CAP)
+    ),
     // Guardian hard-blocks carry `guardian_hard_block`; an upheld appeal adds
     // `guardian_appeal_rejected`. The filter for "not yet upheld" is applied
     // in memory because PostgREST's array operators cannot express "contains
     // A and not B" in one predicate.
-    service
-      .from("redemptions")
-      .select("id, redeemed_at, fraud_flags, merchants(merchant_name)")
-      .eq("status", "failed")
-      .contains("fraud_flags", ["guardian_hard_block"])
-      .order("redeemed_at", { ascending: false })
-      .limit(ROW_CAP),
+    genuineTagged(
+      service
+        .from("redemptions")
+        .select(genuineJoinSelect("id, redeemed_at, fraud_flags", ["merchant_name"]))
+        .eq("status", "failed")
+        .contains("fraud_flags", ["guardian_hard_block"])
+        .order("redeemed_at", { ascending: false })
+        .limit(ROW_CAP)
+    ),
     service
       .from("fraud_events")
-      .select("id, event_type, severity, created_at, merchant_id, merchants(merchant_name)")
+      .select("id, event_type, severity, created_at, merchant_id, merchants(merchant_name,is_demo)")
       .eq("resolved", false)
       .order("created_at", { ascending: true })
       .limit(ROW_CAP),
     service
       .from("agent_tasks")
-      .select("id, task_type, priority, created_at, due_at, merchant_id, merchants(merchant_name)")
+      .select("id, task_type, priority, created_at, due_at, merchant_id, merchants(merchant_name,is_demo)")
       .eq("is_complete", false)
       .order("created_at", { ascending: true })
       .limit(ROW_CAP),
@@ -110,10 +116,13 @@ export async function loadActionQueue(service: Service = createServiceClient()):
     // and the TypeScript cannot disagree about `>=`.
     service
       .from("deals")
-      .select("id, title, merchant_id, max_claims, claims_reserved, updated_at, merchants(merchant_name)")
+      .select(
+        "id, title, merchant_id, max_claims, claims_reserved, updated_at, merchants!inner(merchant_name,is_demo)"
+      )
       .eq("is_active", true)
       .eq("is_paused", false)
       .eq("is_demo", false)
+      .eq("merchants.is_demo", false)
       .gt("expires_at", nowIso)
       .not("max_claims", "is", null)
       .order("updated_at", { ascending: true })
@@ -125,28 +134,40 @@ export async function loadActionQueue(service: Service = createServiceClient()):
       .eq("merchants.is_demo", false)
       .order("invited_at", { ascending: true })
       .limit(ROW_CAP),
-    service
-      .from("redemptions")
-      .select("id, user_id, claimed_at, users!inner(full_name, is_blacklisted), merchants(merchant_name)")
-      .eq("status", "pending")
-      .gt("expires_at", nowIso)
-      .eq("users.is_blacklisted", true)
-      .order("claimed_at", { ascending: true })
-      .limit(ROW_CAP),
-    service
-      .from("redemptions")
-      .select(
-        "id, status, expires_at, arrived_at, merchants(merchant_name), merchant_presentations(status, expires_at)"
-      )
-      .eq("status", "pending")
-      .gt("expires_at", nowIso)
-      .not("arrived_at", "is", null)
-      .order("arrived_at", { ascending: true })
-      .limit(ROW_CAP),
+    genuineTagged(
+      service
+        .from("redemptions")
+        .select(
+          genuineJoinSelect("id, user_id, claimed_at, users!inner(full_name,is_blacklisted)", [
+            "merchant_name",
+          ])
+        )
+        .eq("status", "pending")
+        .gt("expires_at", nowIso)
+        .eq("users.is_blacklisted", true)
+        .order("claimed_at", { ascending: true })
+        .limit(ROW_CAP)
+    ),
+    genuineTagged(
+      service
+        .from("redemptions")
+        .select(
+          genuineJoinSelect(
+            "id, status, expires_at, arrived_at, merchant_presentations(status,expires_at)",
+            ["merchant_name"]
+          )
+        )
+        .eq("status", "pending")
+        .gt("expires_at", nowIso)
+        .not("arrived_at", "is", null)
+        .order("arrived_at", { ascending: true })
+        .limit(ROW_CAP)
+    ),
     service
       .from("pending_topups")
-      .select("api_ref, merchant_id, amount, currency, created_at, merchants(merchant_name)")
+      .select("api_ref, merchant_id, amount, currency, created_at, merchants!inner(merchant_name,is_demo)")
       .eq("status", "initiated")
+      .eq("merchants.is_demo", false)
       .order("created_at", { ascending: true })
       .limit(ROW_CAP),
   ]);
@@ -206,24 +227,34 @@ export async function loadActionQueue(service: Service = createServiceClient()):
         ?.filter((r) => !((r.fraud_flags ?? []) as string[]).includes("guardian_appeal_rejected"))
         .map((r) => ({ id: r.id, redeemed_at: r.redeemed_at, merchant_name: name(r.merchants) })) ?? null,
     fraudEvents:
-      rowsOrNull(fraudRes)?.map((e) => ({
-        id: e.id,
-        event_type: e.event_type,
-        severity: e.severity,
-        created_at: e.created_at,
-        merchant_id: e.merchant_id,
-        merchant_name: name(e.merchants),
-      })) ?? null,
+      rowsOrNull(fraudRes)
+        ?.filter(
+          (e) =>
+            (e.merchants as unknown as { is_demo?: boolean } | null)?.is_demo !== true
+        )
+        .map((e) => ({
+          id: e.id,
+          event_type: e.event_type,
+          severity: e.severity,
+          created_at: e.created_at,
+          merchant_id: e.merchant_id,
+          merchant_name: name(e.merchants),
+        })) ?? null,
     openTasks:
-      rowsOrNull(tasksRes)?.map((t) => ({
-        id: t.id,
-        task_type: t.task_type,
-        priority: t.priority,
-        created_at: t.created_at,
-        due_at: t.due_at,
-        merchant_id: t.merchant_id,
-        merchant_name: name(t.merchants),
-      })) ?? null,
+      rowsOrNull(tasksRes)
+        ?.filter(
+          (t) =>
+            (t.merchants as unknown as { is_demo?: boolean } | null)?.is_demo !== true
+        )
+        .map((t) => ({
+          id: t.id,
+          task_type: t.task_type,
+          priority: t.priority,
+          created_at: t.created_at,
+          due_at: t.due_at,
+          merchant_id: t.merchant_id,
+          merchant_name: name(t.merchants),
+        })) ?? null,
     merchants,
     cappedLiveDeals:
       rowsOrNull(cappedDealsRes)?.map((d) => ({
