@@ -138,6 +138,28 @@ relationship goes to the **founder, same day**.
   production (verified 2026-09-01), so nothing is awarded and no eligibility is
   stamped. Never tell a shopper or merchant a reward is available.
 
+### A fully claimed deal can reopen by itself — say this before it happens
+
+A shopper holding an unredeemed claim is occupying one of the merchant's claim
+places. When that claim **expires unused**, the place is released and the deal
+can accept claims again.
+
+Tell the merchant this **during onboarding**, not the first time they notice it.
+A merchant who sees a full deal reopen and has not been told will reasonably
+conclude MAANTA added stock to their offer, changed their limit, or is
+double-selling them. It is none of those: it is a place somebody did not use
+being handed back.
+
+Two sentences that work at a counter:
+
+> "If someone claims and never turns up, their claim runs out and their place
+> goes back into your limit, so the deal can open up again on its own."
+>
+> "A code that was actually redeemed never frees a place — that one was a sale."
+
+Never say MAANTA "added" claims or "topped up" the deal. The limit is theirs and
+it has not moved.
+
 ## Things you never do
 
 - Never approve a shop yourself — approval is an admin action.

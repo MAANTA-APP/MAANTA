@@ -23,6 +23,76 @@ easier.
 
 ---
 
+## What the suite proves — and what it does not
+
+Read this before provisioning. A green run is only worth what it covers, and
+the coverage was audited on 2026-09-03 against the five roles the founder named.
+
+| Role the founder named | Covered? | By what |
+|---|---|---|
+| **Shopper claim / ticket flow** | **YES** | `golden-path.spec.ts` — claims a deal from the feed, asserts a formatted 6-digit code |
+| **Staff verification / redemption** | **PARTIAL** | The verify test drives `/merchant/redeem`, asserts the KES 30 fee disclosure, the *Collect from shopper* amount and *Redeemed*. But it authenticates from `E2E_MERCHANT_STORAGE`, and **whether that session is the owner or a staff seat is a property of the storage state, not of the spec.** It proves *a verifier*, not specifically a staff seat. Capture that state from a **staff** login if you want the staff path proven |
+| **Admin access** | **YES** | `dashboards.spec.ts` — `/admin` renders real operations KPIs |
+| **Founder surface** | **YES** | `dashboards.spec.ts` — `/founder` renders real KPIs, plus the honest "cannot cover 7 days" case |
+| **Merchant deal state / allocation** | **NO — NOT COVERED** | No spec creates a deal, reads *Claims left*, pauses or resumes, or meets the claim-limit refusal. **This is the D236 surface deployed today, and the browser suite does not touch it.** A green run says nothing about it |
+
+**So a fully green run means:** a shopper can claim and get a code, someone
+authorised can verify it and the fee is disclosed and charged, an invalid code
+is refused with no fee, and the admin and founder dashboards render real
+numbers. **It does not mean the merchant allocation UI works.**
+
+That gap is recorded here rather than closed, because the founder's instruction
+was to provision and run rather than write more tests first. It is the obvious
+first candidate if a second E2E scenario is ever authorised.
+
+---
+
+## D236 changes what "a seeded deal" has to mean
+
+Two consequences of today's deploy that the suite has never had to satisfy.
+Get these wrong and the run fails for reasons that have nothing to do with the
+product.
+
+**1. Every successful run permanently consumes one allocation slot.** A
+redeemed claim holds its slot forever — that is the point, the unit was sold.
+So a seeded deal with `max_claims = N` supports exactly **N golden-path runs**,
+and run N+1 fails with `deal_claim_limit_reached`. That failure will look like
+a product defect and will not be one.
+
+> Seed the E2E deal with `max_claims` in the **hundreds**, or raise it before
+> each campaign of runs. "Comfortably above 1" is not enough guidance; the
+> number you need is *how many times you intend to run this suite*.
+
+**2. Pin the deal, or the suite picks one at random.** With `E2E_DEAL_PATH`
+unset, `claimFirstDeal` opens `/deals` and clicks the **first** "You pay" link.
+With demo mode on that is an arbitrary synthetic deal whose allocation nobody
+controls. **Set `E2E_DEAL_PATH` to the seeded deal's path** so the headroom you
+provisioned is the headroom the suite actually consumes.
+
+---
+
+## A failure to expect on the first run, and what it is
+
+`golden-path.spec.ts` has two tests that each claim as the **same** shopper.
+The first test claims and leaves its ticket **pending** — it never redeems it.
+The second test then claims again. If both land on the same deal (which they
+will, unless `E2E_DEAL_PATH` points them apart), `claim_deal` raises
+`active_claim_already_exists`, the code never renders, and the second test
+fails.
+
+This is a **suite** defect, not a product defect, and it predates D236 — it has
+simply never been observable because the suite has never run. It is called out
+here so the first red run is diagnosed in a minute instead of an afternoon.
+
+The minimal fixes, in preference order: give the two tests different seeded
+deals via distinct paths; or run the file serially (`workers: 1`) and have the
+first test redeem or expire its claim; or use two shopper storage states.
+
+**No code was changed for this.** Fixing it is bounded engineering, and the
+founder's instruction was to provision and run first.
+
+---
+
 ## Step 1 — a non-production target
 
 Create a deployment that is **not** production and **not** pointed at the
@@ -120,21 +190,35 @@ It also runs automatically on every push to `main` once configured.
 
 ---
 
-## Step 7 — read the result honestly
+## Step 7 — record the result as PASS / FAIL / BLOCKED
 
-The job asserts, from the Playwright JSON report, that **no spec silently
-skipped** and that at least one dashboard spec ran. So:
+Founder instruction, 2026-09-03: record three states rather than trying to get
+everything green. Fill this in verbatim, per role, and do not average them.
 
-- **Green** = the golden path executed in a browser. This is the first time.
-- **Red** = either a real defect or a setup problem. Read the failure; do not
-  re-run it until you know which.
-- **Skipped** = the configuration is incomplete. **This is not a pass.** It is
-  the state MAANTA has been in for 200 runs.
+| Role | State | Evidence |
+|---|---|---|
+| Shopper claim → ticket | PASS / FAIL / BLOCKED | run #, spec, screenshot on failure |
+| Staff verification → redemption → KES 30 | PASS / FAIL / BLOCKED | note whether the storage state was an **owner** or a **staff seat** |
+| Admin access | PASS / FAIL / BLOCKED | |
+| Founder surface | PASS / FAIL / BLOCKED | |
+| Merchant deal state / allocation | **BLOCKED — not covered by any spec** | see the coverage matrix above |
 
-Record the run number and its conclusion in
-`docs/maanta-launch-readiness-tracker.md`, and close **D172** with it.
+Definitions, so the three states stay honest:
 
----
+- **PASS** — the spec ran in a browser against the deployed app and asserted
+  its subject. Not "the job was green".
+- **FAIL** — it ran and the assertion failed. **This is valuable.** It is
+  something 1,819 unit and integration tests and 42 SQL suites could not tell
+  us. Diagnose it before re-running; check the predicted collision above first.
+- **BLOCKED** — it did not run: missing configuration, missing credential, or
+  no spec exists for that role. **A skipped spec is BLOCKED, never PASS.**
+
+The job already asserts from the Playwright JSON report that no spec silently
+skipped, so a partially-configured run fails loudly rather than reporting green.
+
+Record the run number and its per-role states in
+`docs/maanta-launch-readiness-tracker.md`, and close **D172** only if the four
+covered roles are PASS.
 
 ## What this unblocks
 

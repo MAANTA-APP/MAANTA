@@ -97,6 +97,25 @@ founder's action, not the operator's and not Claude's.
 
 ---
 
+## 2b. One thing to brief the merchant on before it happens
+
+**A fully claimed deal can reopen on its own.** An unredeemed claim occupies one
+of the merchant's claim places while it is valid; when it expires unused, that
+place is released and the deal accepts claims again. A redeemed claim never
+frees its place — that one was a sale.
+
+This went live on 2026-09-03 (D223/D236 with the D224 ruling). It is correct
+behaviour, and it is also the single most misreadable thing about the new
+allocation model: a merchant who has not been told will conclude MAANTA added
+stock, moved their limit, or is overselling them.
+
+**Brief it during onboarding, in the merchant's own terms**, alongside the claim
+limit itself. Wording that works is in `merchant-welcome-pack.md` §"Your claim
+limit, and why a full deal can reopen" and `field-operator-day-sheet.md`.
+
+Never describe it as MAANTA adding or topping up claims. The limit is the
+merchant's and it has not changed.
+
 ## 3. Before you travel
 
 - [ ] Re-read `app_config` (§0) — or ask the founder to. Do not assume yesterday's values.

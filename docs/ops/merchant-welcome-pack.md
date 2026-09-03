@@ -51,6 +51,26 @@ MAANTA never handles your customer's money.
 
 ---
 
+## Your claim limit, and why a full deal can reopen
+
+When you post a deal you set a **claim limit** — the most shoppers who can hold
+a claim on it at once.
+
+A shopper who claims is **holding one of those places** while their code is
+valid. When the deal ends up fully claimed, no one else can claim it.
+
+**If a shopper claims and never comes, their claim expires and their place
+becomes free again.** So a deal that showed as fully claimed can start
+accepting claims again on its own, without you doing anything.
+
+That is the system releasing a place somebody did not use. **MAANTA is not
+adding stock to your deal, and your limit has not changed.** If you want more
+people to be able to claim, raise the limit yourself; if you want to stop new
+claims while keeping the codes already out there valid, pause the deal.
+
+A claim that has already been **redeemed** never frees its place — that one was
+a real sale.
+
 ## Your counter QR
 
 You can print a MAANTA code for your shop from the app: **QR → Print**. Put the
