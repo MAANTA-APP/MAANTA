@@ -360,12 +360,21 @@ purge really empties the cache. Three regressions were induced to confirm the
 guards bite: caching the feed, dropping the `/api/` passthrough, and removing
 the cache fallback.
 
-**What that does not prove, stated plainly:** these run in Node, not Chrome.
-There is no real worker lifecycle, no real navigation, and no proof that the
-cached document renders a usable code on a phone. That needs a Playwright run
-with the network cut (`docs/ops/e2e-golden-path.md`) and **it has not been
-done.** Until it has, the correct claim is "the strategy is implemented and
-unit-proven", not "verified offline at a counter".
+**Browser proof added the same day.** `e2e-sw/service-worker-offline.spec.ts`
+runs the shipped `public/sw.js` in real Chromium — real worker lifecycle, real
+navigation, real Cache Storage, real offline condition — against a
+credential-free static harness. Five tests, all passing, and each confirmed to
+bite by inducing the regression it guards. It is a separate config from the
+golden path (which self-skips without a deployed app), so it never skips and
+cannot be mistaken for golden-path coverage. See
+`docs/ops/e2e-golden-path.md`.
+
+**What is still not proven, stated plainly:** that the real Next.js `/my-deals`
+document renders a usable code offline for a signed-in shopper. The harness
+serves stand-in HTML. Only the golden-path suite against a deployed app with a
+session closes that, and it remains gated on the same ops task. So the correct
+claim today is "the worker is browser-proven; the page is not", not "verified
+offline at a counter".
 
 **Known limit, by design:** only navigation requests are served from cache. An
 in-app tab switch while already offline can still fail; a reload recovers it.

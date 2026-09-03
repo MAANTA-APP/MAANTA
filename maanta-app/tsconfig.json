@@ -22,5 +22,16 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
+  "exclude": [
+    "node_modules",
+    // Playwright suites and their configs. `@playwright/test` is deliberately
+    // NOT a package.json dependency (see playwright.config.ts), so CI runs
+    // `npm ci` without it and typechecking these would fail on the import.
+    // `e2e-sw` is the service-worker offline suite (D235) and needs the same
+    // exemption for the same reason.
+    "e2e",
+    "e2e-sw",
+    "playwright.config.ts",
+    "playwright.sw.config.ts"
+  ]
 }

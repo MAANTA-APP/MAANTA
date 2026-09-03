@@ -87,3 +87,52 @@ npm run test:e2e
 Selectors match the current frozen UI (redeem keypad "Confirm redemption —
 KES 30 fee", success "Verified" + "Collect from shopper", failure "Code not
 valid" / "No fee was charged"); update them here if that copy changes.
+
+---
+
+## The service-worker offline suite (D235) — a second, credential-free config
+
+`playwright.sw.config.ts` + `e2e-sw/` is a **separate** Playwright config from
+the golden path above, and the separation is the point.
+
+The golden-path suite needs a deployed app, Clerk storage states and a live
+Supabase, and **self-skips without them** — correctly, so it is never a false
+green. That means it could not prove D235, the offline claimed-code screen,
+which is a browser-only behaviour: worker install/activate/claim, real
+navigation requests, real Cache Storage, a real offline condition.
+
+So the offline suite brings its own origin. `e2e-sw/harness/server.mjs` is a
+short static server that serves the **real `public/sw.js`** with stand-in
+pages. No credentials, no database, nothing to provision — it runs anywhere,
+and it never skips.
+
+```bash
+cd maanta-app
+npm i --no-save @playwright/test          # deliberately not a dependency
+PW_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e:sw
+```
+
+`PW_CHROMIUM_PATH` is optional and exists for images that ship one Chromium
+whose build number will not match whatever `@playwright/test` version the
+on-demand install resolves. Omit it on a machine where
+`npx playwright install chromium` has run.
+
+**What it proves** (5 tests, all passing 2026-09-03 in Chromium 1194):
+
+| Test | Guards |
+|---|---|
+| Cached code screen after the network drops | The counter scenario itself — D235 |
+| Feed shows the offline page, not a stale one | The D92 promise, one layer down |
+| Live page still wins when the network is up | Cache-first would strand a shopper who *has* signal |
+| `/api/` never served from cache | A stale wallet balance is worse than an error |
+| Sign-out purge empties the page cache | Cache Storage is origin-scoped, not user-scoped |
+
+Each was confirmed to bite by inducing the regression it guards: removing the
+cache fallback failed 3 of the 5; adding `/feed` to `CACHEABLE_PAGES` failed
+exactly the feed test.
+
+**What it does NOT prove, and must not be cited as proving:** that the real
+Next.js `/my-deals` document renders a usable code offline for a signed-in
+shopper. The harness serves stand-in HTML. Only the golden-path suite, against
+a deployed app with a session, can close that — and it is still gated on the
+same ops task as everything else in this document.

@@ -44,3 +44,7 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 supabase/.temp/
+
+# Playwright run artefacts (screenshots, traces, error contexts)
+test-results/
+playwright-report/

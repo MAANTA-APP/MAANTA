@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:clerk-smoke": "vitest run src/__smoke__/clerk",
     "test:e2e": "playwright test",
+    "test:e2e:sw": "playwright test --config=playwright.sw.config.ts",
     "check:canonicals": "node scripts/check-canonicals.mjs",
     "check:forms": "node scripts/check-server-forms.mjs",
     "brand:icons": "node scripts/write-brand-icons.mjs"
