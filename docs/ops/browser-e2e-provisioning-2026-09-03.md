@@ -136,6 +136,55 @@ Record the run number and its conclusion in
 
 ---
 
+## Interim — the Admin/Founder acceptance suite on a PR preview (D234)
+
+`e2e/admin-founder-redesign.spec.ts` differs from the golden path in the one
+way that matters here: **it is read-only** — it presses no button that writes
+— so it may run against a preview deployment that shares production's Supabase
+project and Clerk instance. That is exactly what closes **D234**: the identity
+branch production actually takes (`clerkMiddleware()`, `ensureAppUserFromClerk`)
+exercised in a browser at iPhone size. Founder ruling 2026-09-03: this
+automated run is the canonical evidence; a manual iPhone walk supplements it and
+replaces it only if preview execution is genuinely blocked.
+
+**What ran and what could not, 2026-09-03.** Locally, 12 of 12 on the Supabase
+strategy (skills doc §11). From the engineering session the preview run was
+blocked twice over: the sandbox's egress policy refuses connections to
+`*.vercel.app`, and Clerk storage states for an admin and a co-founder cannot
+be minted there — a Clerk session is a human signing in.
+
+**Steps** — a machine with a browser and network access; the founder or ops:
+
+1. **Find the preview.** Vercel project `maanta-nuia` builds a preview on every
+   push of the PR branch; take the URL of the deployment whose commit is the PR
+   head (`vercel ls` or the PR's Vercel check). Never `maanta.app`.
+2. **Capture two storage states**, signing in as an **admin** and as a
+   **co-founder**. Without the second the co-founder test skips and says so; no
+   production user currently holds `cofounder`, and assigning it is founder-held
+   (Q14). If the preview first asks for Vercel authentication, sign in once in
+   the window — that cookie lands in the storage state and the headless run
+   reuses it.
+   ```bash
+   cd maanta-app && npm i -D --no-save @playwright/test && npx playwright install chromium
+   npx playwright open --save-storage=admin.json     https://<preview>/login
+   npx playwright open --save-storage=cofounder.json https://<preview>/login
+   ```
+3. **Run it.** The spec applies the iPhone 13 device itself.
+   ```bash
+   E2E_BASE_URL=https://<preview> E2E_ADMIN_STORAGE=admin.json E2E_COFOUNDER_STORAGE=cofounder.json \
+     npx playwright test e2e/admin-founder-redesign.spec.ts
+   ```
+4. **Read it honestly.** 12 passed closes D234 — record the preview URL, the
+   commit and the count in the register row. Skipped is not a pass. A failure
+   is a defect or a setup problem; name which before re-running. (If the Action
+   Queue is empty on the preview the drill-down test annotates that and passes;
+   Merchant 360 needs one merchant record in the directory, which production
+   has.)
+5. **Delete `admin.json` and `cofounder.json`.** They are live sessions on
+   production identities.
+
+---
+
 ## What this unblocks
 
 | Row | Closes on |
