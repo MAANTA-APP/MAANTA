@@ -161,9 +161,13 @@ be minted there — a Clerk session is a human signing in.
 2. **Capture two storage states**, signing in as an **admin** and as a
    **co-founder**. Without the second the co-founder test skips and says so; no
    production user currently holds `cofounder`, and assigning it is founder-held
-   (Q14). If the preview first asks for Vercel authentication, sign in once in
-   the window — that cookie lands in the storage state and the headless run
-   reuses it.
+   (Q14). The project has Vercel Authentication (SSO) enabled on every preview
+   (`all_except_custom_domains`, read 2026-09-03), so the window opens on
+   Vercel's sign-in first: sign in with the MAANTA Vercel account — that cookie
+   lands in the storage state and the headless run reuses it. A person without
+   Vercel access can be handed a 23-hour share link instead (Vercel's
+   "share" on the deployment, or the MCP `get_access_to_vercel_url`), which
+   sets the same cookie.
    ```bash
    cd maanta-app && npm i -D --no-save @playwright/test && npx playwright install chromium
    npx playwright open --save-storage=admin.json     https://<preview>/login
