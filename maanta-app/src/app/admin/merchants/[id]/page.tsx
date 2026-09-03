@@ -30,8 +30,11 @@ import {
   formatMerchantLedgerLabel,
   isOpeningCredit,
   openingCreditAmount,
+  OPENING_CREDIT_CONFIG_KEY,
+  OPENING_CREDIT_REFERENCE_PREFIX,
 } from "@/lib/merchant-ledger-copy";
 import { nodeLabel } from "@/lib/nodes";
+import { quoteFilterValue } from "@/lib/postgrest-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +106,15 @@ export default async function AdminMerchantDetailPage({
   });
   const tier = normaliseTier(m.tier);
 
+  // The opening-credit row, by the reference the activation RPC writes, with
+  // the description fallback `isOpeningCredit` accepts. Values go through
+  // quoteFilterValue because PostgREST parses an `or=` string as grammar, so
+  // an interpolated value is syntax unless quoted (postgrest-filter guard).
+  const openingCreditFilter = [
+    `provider_reference.like.${quoteFilterValue(`${OPENING_CREDIT_REFERENCE_PREFIX}*`)}`,
+    `description.ilike.${quoteFilterValue(`*${OPENING_CREDIT_CONFIG_KEY}*`)}`,
+  ].join(",");
+
   // Every section reads on its own so one failure blanks one section.
   const [
     staffRes,
@@ -116,6 +128,7 @@ export default async function AdminMerchantDetailPage({
     auditRes,
     fraudRes,
     topupsRes,
+    openingRes,
   ] = await Promise.all([
     service
       .from("merchant_staff")
@@ -164,8 +177,11 @@ export default async function AdminMerchantDetailPage({
       .order("created_at", { ascending: false })
       .limit(LIMITS.audit),
     service
+      // `count: "exact"` so the activity note can state the shop's true
+      // unresolved total rather than the length of this newest-10 page
+      // (Codex P2 on PR #319, D248).
       .from("fraud_events")
-      .select("id, event_type, severity, created_at")
+      .select("id, event_type, severity, created_at", { count: "exact" })
       .eq("merchant_id", m.id)
       .eq("resolved", false)
       .order("created_at", { ascending: false })
@@ -176,6 +192,18 @@ export default async function AdminMerchantDetailPage({
       .eq("merchant_id", m.id)
       .order("created_at", { ascending: false })
       .limit(LIMITS.topups),
+    // The opening credit is an all-time fact and must not be derived from the
+    // newest-40 ledger page (Codex P2 on PR #319, D248): a shop with more than
+    // 40 later movements would have read "None". One row, by the reference the
+    // activation RPC writes, with the description fallback `isOpeningCredit`
+    // accepts.
+    service
+      .from("merchant_transactions")
+      .select("amount, transaction_type, description, provider_reference")
+      .eq("merchant_id", m.id)
+      .or(openingCreditFilter)
+      .order("created_at", { ascending: true })
+      .limit(1),
   ]);
 
   // ---- Derived facts ------------------------------------------------------
@@ -233,7 +261,18 @@ export default async function AdminMerchantDetailPage({
     created_at: string;
   };
   const ledger = (ledgerRes.data ?? []) as unknown as LedgerRow[];
-  const openingCredit = ledgerRes.error ? null : openingCreditAmount(ledger.map((r) => ({ ...r, amount: r.amount })));
+  const openingCredit = openingRes.error
+    ? null
+    : openingCreditAmount(
+        ((openingRes.data ?? []) as unknown as Pick<
+          LedgerRow,
+          "amount" | "transaction_type" | "description" | "provider_reference"
+        >[]).map((r) => ({ ...r, amount: r.amount }))
+      );
+  // The fraud note states the true total; the rows are the newest ten.
+  const fraudRows = fraudRes.data ?? [];
+  const fraudTotal = fraudRes.error ? 0 : fraudRes.count ?? fraudRows.length;
+  const fraudTruncated = fraudTotal > fraudRows.length;
 
   const tasks = tasksRes.data ?? [];
   const openTasks = tasks.filter((t) => !t.is_complete);
@@ -550,10 +589,11 @@ export default async function AdminMerchantDetailPage({
         )}
         {fraudRes.error ? (
           <div className="mt-2"><AdminReadError what="fraud signals for this merchant" /></div>
-        ) : (fraudRes.data ?? []).length > 0 ? (
+        ) : fraudTotal > 0 ? (
           <p className="mt-2 rounded-card border border-flame/50 bg-white px-4 py-3 text-sm text-ink shadow-card">
-            <strong className="font-semibold">{(fraudRes.data ?? []).length} unresolved fraud {(fraudRes.data ?? []).length === 1 ? "signal" : "signals"}</strong>{" "}
-            ({(fraudRes.data ?? []).map((e) => `${e.event_type} · ${e.severity}`).join(", ")}). Resolve on{" "}
+            <strong className="font-semibold">{fraudTotal} unresolved fraud {fraudTotal === 1 ? "signal" : "signals"}</strong>{" "}
+            ({fraudRows.map((e) => `${e.event_type} · ${e.severity}`).join(", ")}
+            {fraudTruncated ? ` — the ${fraudRows.length} most recent shown` : ""}). Resolve on{" "}
             <Link href="/admin/redemptions" className="underline">Guardian &amp; fraud review</Link>.
           </p>
         ) : null}
@@ -575,8 +615,12 @@ export default async function AdminMerchantDetailPage({
           />
           <KpiCard
             label="Opening credit"
-            value={ledgerRes.error ? "—" : openingCredit === null ? "None" : formatKes(openingCredit)}
-            hint="Credited once on activation at the launch node. Nobody raises the wall with the merchant."
+            value={openingRes.error ? "—" : openingCredit === null ? "None" : formatKes(openingCredit)}
+            hint={
+              openingRes.error
+                ? "Read error, not none."
+                : "Credited once on activation at the launch node. Nobody raises the wall with the merchant."
+            }
           />
           <KpiCard label={`${FEE_FIGURE_LABELS.net} (all time)`} value={feeFigure(feesAllTime.netKes)} />
           <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(feesAllTime.grossKes)} />

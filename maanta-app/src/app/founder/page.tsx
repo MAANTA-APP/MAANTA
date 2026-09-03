@@ -90,7 +90,8 @@ export default async function FounderDashboardPage() {
     visibleDealsRes,
     pendingRes,
     heldRes,
-    openTasksRes,
+    openTasksNoShopRes,
+    openTasksShopRes,
     allClaims7dRes,
     allArrivals7dRes,
     allVerified7dRes,
@@ -128,7 +129,20 @@ export default async function FounderDashboardPage() {
       .eq("status", "pending")
       .eq("is_demo", false),
     genuineCount((q) => q.eq("status", "flagged")),
-    service.from("agent_tasks").select("id", { count: "exact", head: true }).eq("is_complete", false),
+    // Open tasks, the way loadActionQueue counts them (Codex P2 on PR #319,
+    // D247): a task with no shop is kept, a task at a synthetic shop is not.
+    // Two head counts because a nullable relation cannot express "no shop OR a
+    // non-demo shop" in one inner-joined filter.
+    service
+      .from("agent_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("is_complete", false)
+      .is("merchant_id", null),
+    service
+      .from("agent_tasks")
+      .select("id, merchants!inner(is_demo)", { count: "exact", head: true })
+      .eq("is_complete", false)
+      .eq("merchants.is_demo", false),
     genuineCount((q) => q.gte("claimed_at", since7d)),
     genuineCount((q) => q.gte("arrived_at", since7d)),
     genuineCount((q) => q.eq("status", "success").gte("redeemed_at", since7d)),
@@ -188,7 +202,8 @@ export default async function FounderDashboardPage() {
     visibleDealsRes,
     pendingRes,
     heldRes,
-    openTasksRes,
+    openTasksNoShopRes,
+    openTasksShopRes,
     allClaims7dRes,
     allArrivals7dRes,
     allVerified7dRes,
@@ -224,7 +239,10 @@ export default async function FounderDashboardPage() {
   const nextMove = pilotNextMove({ enrolled, ladder: external.ladder });
   const pendingCount = n(pendingRes);
   const heldCount = n(heldRes);
-  const tasksCount = n(openTasksRes);
+  const openTasksNoShop = n(openTasksNoShopRes);
+  const openTasksShop = n(openTasksShopRes);
+  const tasksCount =
+    openTasksNoShop === null || openTasksShop === null ? null : openTasksNoShop + openTasksShop;
 
   return (
     <Page className="min-h-dvh bg-stone px-4 pb-16 pt-8">
@@ -246,10 +264,25 @@ export default async function FounderDashboardPage() {
             value={fmt(external.ladder)}
             hint="Cumulative, all time, by enrolled merchants. This is the 1 → 5 → 10 ladder. Enrolling a merchant does not move it."
           />
+          {/* An unreadable ladder is not rung zero (Codex P2 on PR #319, D246):
+              the total beside this card is a dash and the next move calls it
+              unreadable, so this card must not say "none · next rung 1". */}
           <KpiCard
             label="Rung reached"
-            value={rung.reached === null ? "none" : rung.reached.toLocaleString()}
-            hint={rung.next === null ? "The ladder is complete." : `Next rung: ${rung.next}.`}
+            value={
+              external.ladder === null
+                ? "—"
+                : rung.reached === null
+                  ? "none"
+                  : rung.reached.toLocaleString()
+            }
+            hint={
+              external.ladder === null
+                ? "Ladder unreadable — a read error, not rung zero. Reload before acting on the next move."
+                : rung.next === null
+                  ? "The ladder is complete."
+                  : `Next rung: ${rung.next}.`
+            }
           />
           <KpiCard
             label="Internal / E2E merchants"
@@ -317,7 +350,17 @@ export default async function FounderDashboardPage() {
         <div className="rounded-card border border-ink bg-white p-4 shadow-card">
           <p className="text-sm font-bold text-ink">{nextMove.title}</p>
           <p className="mt-1 text-sm text-secondary">{nextMove.detail}</p>
-          {demoMode.ok && demoMode.enabled && nextMove.requiresDemoOff ? (
+          {nextMove.requiresDemoOff && !demoMode.ok ? (
+            // The flag is unknown, not OFF (Codex P1 on PR #319, D246): running
+            // an evidence step against an unknown flag can contaminate the
+            // pilot exactly as ON would, so the instruction above is withheld.
+            <p className="mt-2 text-sm text-ink">
+              <strong className="font-semibold">Demo mode could not be read — do not run this step yet.</strong>{" "}
+              This step must run with demo mode OFF, and the flag is unknown, not OFF: a read
+              error, not a clearance. Reload until the Demo mode card below reads ON or OFF;
+              if it keeps failing, tell the Maanta team before proceeding (D189).
+            </p>
+          ) : demoMode.ok && demoMode.enabled && nextMove.requiresDemoOff ? (
             <p className="mt-2 text-sm text-ink">
               <strong className="font-semibold">Demo mode is ON.</strong> This step must run with it
               OFF or the evidence is contaminated (D189). Prospect demos and the measured pilot are

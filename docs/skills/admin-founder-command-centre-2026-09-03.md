@@ -294,7 +294,7 @@ D237 pause, D238 blacklist, D239 trust-metric hide); D240 is the browser
 proof; D241 the amber ration. The brief's own "D236" label for the
 claim-allocation ruling is not a register ID. The register in `main` is
 canonical, and whichever branch lands second renumbers; PR #317's remaining
-rows start at D246.
+rows start at D249.
 
 ### The three capabilities, decided
 
@@ -444,6 +444,17 @@ in the PR's own code, each with a guard and a register row (D242–D245):
 | P2 — fraud read cap | The deals directory's fraud read had a cap and no count, so a full page marked some merchants and not others | `count: "exact"`; past the cap, no marker and "Review markers unavailable" (D244) |
 | P2 — queue cap | The live staff-queue read had a cap and no count, so a full page — or "Nobody is waiting" after the in-memory filter — passed as the whole queue | `count: "exact"`; past the cap, "Incomplete, not empty" (D244) |
 | P2 — report populations | "All evidence classes" beside fee cards whose reader is genuine-tagged only | Each card names its population; numbers unchanged (D245) |
+
+A second round on the corrected head `ac74a55` found three more, fixed the same
+way (D246–D248):
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P1 — demo flag unreadable | The next move told the founder to run an evidence step with no warning when the demo-mode read had failed | "Demo mode could not be read — do not run this step yet", ahead of the ON warning (D246) |
+| P2 — ladder unreadable | The rung card said "none · next rung 1" for a failed ladder read | A dash and "a read error, not rung zero" (D246) |
+| P2 — open tasks | The third Right-now queue counted demo-shop tasks | Merchantless plus non-demo-shop tasks, two head counts, as the Action Queue counts (D247) |
+| P2 — fraud total | The newest-10 array length was shown as the shop's unresolved total | `count: "exact"`, the true total, "the N most recent shown" when capped (D248) |
+| P2 — opening credit | Derived from the newest-40 ledger page; "None" past 40 movements | Its own one-row read by reference; a dash on failure (D248) |
 
 The head that carried the fixes was rebuilt from `main`'s register (the first
 reconciliation had dropped `main`'s six PR #317 rows) with this branch's rows

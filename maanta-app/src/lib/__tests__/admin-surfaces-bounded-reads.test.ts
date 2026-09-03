@@ -147,6 +147,46 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src.match(/hint="Genuine-tagged rows only \(ledger contract\)"/g)?.length ?? 0).toBe(3);
   });
 
+  it("an unreadable ladder is not rung zero on the founder page (Codex P2, PR #319, D246)", () => {
+    const src = read("src/app/founder/page.tsx");
+    // The rung card branches on the ladder being null before it reads the rung.
+    expect(src).toMatch(/label="Rung reached"[\s\S]*?external\.ladder === null[\s\S]*?"—"/);
+    expect(src).toMatch(/Ladder unreadable — a read error, not rung zero/);
+  });
+
+  it("an unreadable demo flag blocks an evidence step on the founder page (Codex P1, PR #319, D246)", () => {
+    const src = read("src/app/founder/page.tsx");
+    expect(src).toMatch(/nextMove\.requiresDemoOff && !demoMode\.ok/);
+    expect(src).toMatch(/Demo mode could not be read — do not run this step yet/);
+    // The unreadable branch comes first, so it cannot be shadowed by the ON branch.
+    expect(src.indexOf("nextMove.requiresDemoOff && !demoMode.ok")).toBeLessThan(
+      src.indexOf("demoMode.ok && demoMode.enabled && nextMove.requiresDemoOff")
+    );
+  });
+
+  it("open tasks are counted the way the Action Queue counts them (Codex P2, PR #319, D247)", () => {
+    const src = read("src/app/founder/page.tsx");
+    // No shop: kept. A shop: only when it is not demo.
+    expect(src).toMatch(/from\("agent_tasks"\)[\s\S]*?\.eq\("is_complete", false\)\s*\.is\("merchant_id", null\)/);
+    expect(src).toMatch(/from\("agent_tasks"\)\s*\.select\("id, merchants!inner\(is_demo\)"[\s\S]*?\.eq\("merchants\.is_demo", false\)/);
+    expect(src).not.toMatch(/from\("agent_tasks"\)\.select\("id", \{ count: "exact", head: true \}\)\.eq\("is_complete", false\),/);
+    // Either read failing makes the figure unknown, never a partial sum.
+    expect(src).toMatch(/openTasksNoShop === null \|\| openTasksShop === null \? null/);
+  });
+
+  it("Merchant 360 derives no all-time fact from a capped page (Codex P2 ×2, PR #319, D248)", () => {
+    const src = read("src/app/admin/merchants/[id]/page.tsx");
+    // The fraud read carries a count and the note shows the true total.
+    expect(src).toMatch(/from\("fraud_events"\)\s*\.select\("id, event_type, severity, created_at", \{ count: "exact" \}\)/);
+    expect(src).toMatch(/fraudTotal/);
+    expect(src).toMatch(/most recent shown/);
+    // The opening credit has its own read, keyed on the reference prefix, and
+    // is no longer derived from the newest-N ledger page.
+    expect(src).toMatch(/OPENING_CREDIT_REFERENCE_PREFIX/);
+    expect(src).not.toMatch(/openingCreditAmount\(ledger\b/);
+    expect(src).toMatch(/openingRes\.error \? "—"/);
+  });
+
   it("merchant 360 reads money from the ledger, not from the claim's fee column", () => {
     const src = read("src/app/admin/merchants/[id]/page.tsx");
     expect(src).toContain("readLedgerFeeTotals(service, { merchantIds: [m.id]");
