@@ -136,11 +136,11 @@ export default function ShoppersPage() {
           points={[
             {
               title: "Top picks near you.",
-              body: "Flash deals — short windows, often under an hour. These are the ones worth walking to now.",
+              body: "Flash deals — short windows, as short as an hour. These are the ones worth walking to now.",
             },
             {
               title: "Neighbourhood favourites.",
-              body: "Deals other shoppers have actually redeemed, pushed to the top.",
+              body: "Featured deals promoted by local shops. A shop pays to put a deal here for a day, and every one of them is marked Boosted.",
             },
             {
               title: "Deals near me.",
@@ -157,9 +157,12 @@ export default function ShoppersPage() {
           <em>Today</em>, and sort by what is nearest.
         </p>
         <p className="mt-6 max-w-3xl rounded-card bg-white shadow-card p-5 text-base leading-relaxed text-ink">
-          Nothing here is ranked by stars or reviews. A deal moves up because people claimed
-          it and actually redeemed it at the counter. You are seeing what other shoppers
-          walked in for, not what someone rated five stars.
+          Nothing here is ranked by stars or reviews. In <em>Deals near me</em>, a deal moves
+          up because people claimed it and actually redeemed it at the counter — you are
+          seeing what other shoppers walked in for, not what someone rated five stars.
+          <em>Top picks near you</em> is ordered by what ends soonest, and{" "}
+          <em>Neighbourhood favourites</em> holds deals a shop paid to feature, each marked
+          Boosted.
         </p>
       </Section>
 

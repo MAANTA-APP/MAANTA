@@ -88,7 +88,7 @@ export function DealCardHorizontal({
         ) : null}
         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
           <IconCheck className="h-3 w-3 text-verified" />
-          {verifiedCount} verified
+          {verifiedCount} verified at this shop
         </p>
       </div>
     </Link>
@@ -357,7 +357,7 @@ export function ShopCard({
         <div className="min-w-0">
           <h4 className="truncate text-sm font-bold text-ink">{name}</h4>
           <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
-            {meta} · <IconCheck className="h-3 w-3 text-verified" /> {verifiedCount} verified
+            {meta} · <IconCheck className="h-3 w-3 text-verified" /> {verifiedCount} verified at this shop
           </p>
         </div>
       </Link>
