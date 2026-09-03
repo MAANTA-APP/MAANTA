@@ -198,10 +198,26 @@ is the sign-in — once, as secrets — instead of a run per PR.
 
 **One-time setup**
 
-1. **Capture the storage states** on a machine with a browser, exactly as in
-   steps 2–3 below, against the PR preview. You need `admin.json`; add
-   `cofounder.json` when an identity holds the role (no production user does
-   yet — Q14 is founder-held).
+1. **Capture the storage states** on a machine with a browser, against the PR
+   preview. One command per role, from `maanta-app/`:
+
+   ```bash
+   npm i -D --no-save @playwright/test && npx playwright install chromium   # once per machine
+   npm run e2e:capture -- admin https://<preview>.vercel.app
+   npm run e2e:capture -- cofounder https://<preview>.vercel.app             # when an identity holds the role
+   ```
+
+   A browser window opens on the preview's sign-in (Vercel's own sign-in
+   first — previews are protected — then MAANTA's). Sign in, wait for the
+   dashboard, close the window. The script writes the session to a
+   permission-restricted temporary file *outside* the repository, puts it on
+   the clipboard, and prints exactly which GitHub secret to paste it into;
+   when you press Enter it wipes the file and the clipboard. It refuses a
+   `maanta.app` host and refuses to save a state that contains no Clerk
+   session. Nothing needs to be pasted into any chat, and the file names are
+   git-ignored so a stray `--save-storage` run cannot be committed either. No
+   production user holds `cofounder` yet — Q14 is founder-held — so the
+   second command waits on that decision.
 2. **Settings → Environments → new environment `e2e-readonly`**, and add
    **required reviewers**. This is not optional. The repository is public and
    these states are live Clerk sessions on production identities; the reviewer
@@ -211,7 +227,9 @@ is the sign-in — once, as secrets — instead of a run per PR.
    when you have one. Optionally set repository variable
    `E2E_ADMIN_FOUNDER_ALLOWED_HOST` (e.g. `.vercel.app`) to turn the production
    refusal into a positive allowlist.
-4. **Delete the local JSON files.** They are live sessions.
+4. The capture command has already wiped its file. If you captured by hand
+   with `playwright open --save-storage` instead, **delete the JSON files
+   now** — they are live sessions.
 
 **Per run:** Actions → *E2E (admin + founder acceptance, read-only)* → **Run
 workflow**, selecting the **PR's branch** and pasting the preview origin.
@@ -234,7 +252,21 @@ pins each of these properties, and the money suite's, so removing one fails CI.
 than letting the suite self-skip to a green job that tested nothing. It fails if
 any spec skipped, with one exception: the co-founder boundary may skip when its
 secret is absent, and the job then prints an explicit warning. **That is an
-11 of 12 and must be recorded as such** — D240 closes on 12.
+11 of 12 and must be recorded as such** — D240 closes on 12. Since **D256** the
+drill-down test also *fails* on an empty Action Queue rather than annotating and
+passing, so a recorded 12 means all twelve were exercised.
+
+**Screenshots.** The always-on artifact is the JSON report only. Failure
+screenshots are behind the `upload_failure_screenshots` input (default off):
+the preview shares production's Supabase project and this repository is public,
+so a capture of an admin page is a real shop's record in a downloadable
+artifact. Turn it on only to diagnose a failure, and delete the artifact after.
+
+**Why sign-out is not in this suite.** The browser run proves the way in and
+the shells. Pressing *Sign out* would revoke the stored Clerk session and kill
+the secret after a single run, so the explicit exit (D258) and its honest
+failure state (D260) are proved in the DOM under both auth strategies by
+`maanta-app/src/components/__tests__/session-entry-and-exit.test.ts` instead.
 
 ---
 
@@ -272,7 +304,8 @@ by hand when CI is not set up:
    Merchant 360 needs one merchant record in the directory, which production
    has.)
 5. **Delete `admin.json` and `cofounder.json`.** They are live sessions on
-   production identities.
+   production identities. (Prefer `npm run e2e:capture` above, which does
+   this for you.)
 
 ---
 

@@ -9,7 +9,12 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...rest }, children as never),
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin" }));
+// `useRouter` too: both shells now render the shared sign-out button (D258),
+// whose Supabase branch reads the router at render time.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin",
+  useRouter: () => ({ push() {}, refresh() {} }),
+}));
 
 import { LIVE_PRODUCT_LINKS } from "../live-product-links";
 import { FounderHeader } from "../founder-header";

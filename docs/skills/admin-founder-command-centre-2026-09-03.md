@@ -538,6 +538,10 @@ the same day, product design is frozen under Node 0 field validation, and each
 fix is a small change to a surface this PR does not touch. They are register
 rows awaiting a ruling, not silence.
 
+**Superseded the same evening.** The founder ruled both are engineering
+omissions, not product questions; both are closed in §15 (D258, D259), with the
+silent-failure fix that audit found alongside them (D260).
+
 ## 14. Exact-head CI verdict
 
 `085653d` is green: `ci` (lint · typecheck · vitest · build with the three
@@ -554,3 +558,92 @@ acceptance suite has run through Clerk. The mechanism for it is
 create the `e2e-readonly` environment, put an admin storage state in its
 secrets, and dispatch it at a preview URL. Merge and deploy remain the
 founder's, after that run and a review of the final diff.
+
+## 15. The session journey, closed at both ends (D258, D259, D260)
+
+The fourth Codex round's two P1s were first recorded as open rows pending a
+founder disposition (§13). The founder ruled the same evening: both are
+verified engineering omissions, not product questions, and the privileged
+session journey is to be completed on this PR —
+
+**Landing page → shared Sign in → role-routed shell → explicit Sign out → `/login`.**
+
+- **Way in (D259).** `HEADER_SIGN_IN` in `lib/marketing/nav.ts`, rendered by
+  `SiteHeader` as an outline beside *Browse deals* in the bar and pinned
+  directly under it in the mobile sheet. One label for every role — never
+  "Admin sign in" — because `/app-bootstrap` already routes by role
+  (`lib/pwa/app-bootstrap.ts`), which is untouched and pinned by the same
+  suite. Browse deals keeps the bar's one amber element. The open question in
+  the first recording (show it to everyone, or hide it while signed in) is
+  settled the simple way: a public header does not know who is signed in, and
+  a visible way in costs a signed-in visitor nothing.
+- **Way out (D258).** The existing strategy-aware `app/sign-out-button.tsx`,
+  in both shells, never a second implementation. In the admin console it is
+  the last row of `nav`, so it is in the desktop `<aside>` and the phone drawer
+  alike, styled white/80 on ink through the button's new `className` prop
+  (12:1 — the default ink label would have been black on black). In the founder
+  header it is one more quiet link in the second nav, wrapping with the header
+  on a phone: that shell has no drawer, so anything hidden below `lg` would be
+  the only exit gone on the device founders use.
+- **Honest failure (D260).** The audit the task required found the button
+  navigated to `/login` whatever Supabase answered — `signOut()` resolves
+  `{ error }`, it does not throw — and let a Clerk rejection escape unhandled.
+  `lib/auth/sign-out.ts` now returns a result per provider; the button leaves
+  only on `ok`, and otherwise stays, re-enables and says *"Sign out did not
+  complete. You are still signed in — try again."* in body ink with
+  `role="alert"` (on the ink sidebar, in the same white token as the button).
+  This corrected the shopper and merchant surfaces too.
+
+### The guards, and the mutation proof
+
+`src/components/__tests__/session-entry-and-exit.test.ts` runs under jsdom
+(new dev dependency, per-file `@vitest-environment`): it mounts the real
+components with `react-dom/client`, clicks the hamburger and the drawer toggle,
+and clicks Sign out with the provider faked under each strategy. The
+legibility check composites the sidebar's white token at its alpha over
+`ink.DEFAULT` from `tailwind.config.ts` and asserts ≥ 4.5:1 for the button and
+for its failure line — an invariant, not a class name. `src/lib/__tests__/sign-out.test.ts`
+pins the four provider × outcome cells and that the session is gone before
+anything navigates.
+
+Nine mutations, each applied to the source, run, and reverted on 2026-09-03;
+every one went red:
+
+| # | Mutation | Failing tests |
+|---|---|---|
+| M1 | Sign in removed from the desktop bar | 1 |
+| M2 | Sign in removed from the mobile sheet | 1 |
+| M3 | Sign out removed from the admin sidebar | 3 |
+| M4 | Sign out removed from the founder header | 3 |
+| M5 | Admin Sign out given the default ink label | 1 |
+| M6 | Admin Sign out at white/30 (3.1:1) | 1 |
+| M7 | Supabase path navigates despite a provider error (the old code) | 2 |
+| M8 | Clerk path redirects anywhere but `/login` | 2 |
+| M9 | Founder Sign out hidden below `lg` | 2 |
+
+### D240 — what changed around it, what did not
+
+Still open, and still closes only on the workflow run: current PR preview,
+production Clerk, iPhone size, all twelve including the co-founder boundary.
+Three things changed around it:
+
+1. **One command for the one human step.** `npm run e2e:capture -- admin
+   <preview>` (`scripts/e2e-capture-session.mjs`) opens the browser for the
+   sign-in, writes the state to a 0600 temp file outside the repository, puts it
+   on the clipboard for the secret field, and wipes both on Enter. It refuses a
+   production host and refuses to save a state with no Clerk session in it.
+   Storage-state names are ignored by name and by suffix, so a hand-run
+   `playwright open --save-storage` cannot be committed either.
+2. **Screenshots are opt-in.** The preview shares production's Supabase
+   project and the repository is public, so `test-results/` is a separate
+   artifact behind `upload_failure_screenshots` (default off); the always-on
+   artifact is the JSON report alone. Pinned in `e2e-workflow-guards.test.ts`.
+3. **Sign-out is deliberately not in the browser suite.** Pressing it would
+   revoke the stored Clerk session and kill the secret after one run — the
+   suite is read-only for exactly this reason. The way in and the shells are
+   what the browser proves; the way out is proved in the DOM under both
+   strategies (above). The count stays twelve.
+
+Without a co-founder identity the run is **11 of 12 with the co-founder
+boundary explicitly skipped** — useful, recorded as such, and not a close
+unless the founder changes the criterion (Q14 remains founder-held).

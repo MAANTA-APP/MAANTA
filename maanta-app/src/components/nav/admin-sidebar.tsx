@@ -6,6 +6,19 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui";
 import { IconMenu, IconX } from "@/components/ui/icons";
 import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-links";
+import SignOutButton from "@/app/sign-out-button";
+
+/**
+ * The sign-out control's look on ink. `SignOutButton`'s default is an ink
+ * label for white shells; on this sidebar that would be black on black, so
+ * the same tokens as every other row here are passed in — white/80, the
+ * hover wash, the same padding — and the button reads as the last row of
+ * the list rather than a control of a different species (D258).
+ */
+const SIGN_OUT_ON_INK =
+  "block w-full rounded-lg px-4 py-2.5 text-left text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white";
+/** The "still signed in" line, on the same ground. */
+const SIGN_OUT_MESSAGE_ON_INK = "px-4 text-white/80";
 
 /**
  * Admin left sidebar (black, amber active item) — collapses to ☰ on mobile.
@@ -143,6 +156,17 @@ export function AdminSidebar() {
             <span className="sr-only">{NEW_TAB_HINT}</span>
           </a>
         ))}
+      </div>
+
+      {/* Ending the session is the last thing in the list and the only thing
+          past this rule. Until 2026-09-03 neither privileged shell had it: an
+          admin on a shared device ended a session by navigating out to a
+          shopper or merchant surface and finding the control there (D258).
+          The same strategy-aware button as `/you` and merchant settings —
+          never a second logout implementation. It is inside `nav`, so it is
+          in the desktop sidebar and the phone drawer alike. */}
+      <div className="mt-3 border-t border-white/15 pt-3">
+        <SignOutButton className={SIGN_OUT_ON_INK} messageClassName={SIGN_OUT_MESSAGE_ON_INK} />
       </div>
     </nav>
   );

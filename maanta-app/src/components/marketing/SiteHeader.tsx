@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "@/components/marketing/BrandLockup";
-import { HEADER_CTA, HEADER_LINKS } from "@/lib/marketing/nav";
+import { HEADER_CTA, HEADER_LINKS, HEADER_SIGN_IN } from "@/lib/marketing/nav";
 
 /**
  * Marketing header — audience nav plus a mobile sheet.
@@ -21,6 +21,14 @@ import { HEADER_CTA, HEADER_LINKS } from "@/lib/marketing/nav";
  * `Browse deals` is the one amber element here — #FDBF2D on CTAs and live-status
  * only. A second amber element in the same bar would spend the accent and leave
  * the actual call to action competing with decoration.
+ *
+ * `Sign in` sits beside it as a quiet outline (D259). Until 2026-09-03 the
+ * public site had no way in at all: a returning merchant, agent or admin on
+ * any marketing page had to know `/login` by heart. It is one link for every
+ * role, because `/app-bootstrap` routes by role after sign-in — so it is
+ * labelled "Sign in", never "Admin sign in", and it is rendered in both the
+ * desktop bar and the mobile sheet, since a header entry the phone audience
+ * cannot see is not an entry.
  */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -101,6 +109,14 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Secondary: outline, ink label. The amber budget is spent on
+              Browse deals, and sign-in is the way in, not the point. */}
+          <Link
+            href={HEADER_SIGN_IN.href}
+            className="hidden rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink sm:inline-flex"
+          >
+            {HEADER_SIGN_IN.label}
+          </Link>
           <Link
             href={HEADER_CTA.href}
             className="hidden rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink-soft transition hover:brightness-95 sm:inline-flex"
@@ -137,6 +153,15 @@ export function SiteHeader() {
               className="mb-3 block rounded-full bg-brand px-4 py-3 text-center text-sm font-bold text-ink-soft"
             >
               {HEADER_CTA.label}
+            </Link>
+            {/* Directly under the primary action, above the audience list:
+                the sheet is the whole navigation on a phone, so the way in
+                cannot be at the bottom of it. */}
+            <Link
+              href={HEADER_SIGN_IN.href}
+              className="mb-3 block rounded-full border border-line px-4 py-3 text-center text-sm font-semibold text-ink"
+            >
+              {HEADER_SIGN_IN.label}
             </Link>
             <ul className="divide-y divide-line">
               {HEADER_LINKS.map((l) => (

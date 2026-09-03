@@ -104,6 +104,19 @@ describe("the admin/founder acceptance workflow is dispatch-only and fails close
     expect(wf).toMatch(/never as a full pass/);
   });
 
+  it("uploads no screenshots unless a person opts in — the preview carries production data", () => {
+    // Artifacts on a public repository are downloadable. A failure capture of
+    // an admin page is a real shop's record, so `test-results/` is a separate,
+    // opt-in artifact and the always-on one is the JSON report alone.
+    expect(code).toMatch(/upload_failure_screenshots:\s*\n\s*description:/);
+    expect(code).toMatch(/default: false/);
+    const reportStep = code.slice(code.indexOf("name: Upload the JSON report"), code.indexOf("name: Upload failure screenshots"));
+    expect(reportStep).toContain("playwright-report.json");
+    expect(reportStep).not.toContain("test-results");
+    const shotsStep = code.slice(code.indexOf("name: Upload failure screenshots"));
+    expect(shotsStep).toMatch(/if: always\(\) && inputs\.upload_failure_screenshots/);
+  });
+
   it("exposes the storage states to the steps that need them, not job-wide", () => {
     // A job-level `env:` carrying a secret would expose it to checkout and the
     // installs as well. Only the target URL is job-level here.
@@ -165,5 +178,28 @@ describe("the admin/founder acceptance spec proves what its count claims", () =>
     expect("/admin/merchants").not.toMatch(destination);
     expect("/admin/deals").not.toMatch(destination);
     expect("/admin/queue").not.toMatch(destination);
+  });
+});
+
+describe("the session-capture helper keeps live sessions out of the repository and the chat", () => {
+  const script = read("maanta-app/scripts/e2e-capture-session.mjs");
+  const pkg = JSON.parse(read("maanta-app/package.json")) as { scripts: Record<string, string> };
+
+  it("is wired as `npm run e2e:capture`, so the founder runs one command, not a Playwright incantation", () => {
+    expect(pkg.scripts["e2e:capture"]).toBe("node scripts/e2e-capture-session.mjs");
+  });
+
+  it("writes the state to a 0600 temp file outside the checkout and wipes it afterwards", () => {
+    expect(script).toMatch(/mkdtempSync\(join\(tmpdir\(\)/);
+    expect(script).toMatch(/mode: 0o600/);
+    expect(script).toMatch(/rmSync\(dir, \{ recursive: true, force: true \}\)/);
+    // Never a path under the repository, and never printed to the terminal.
+    expect(script).not.toMatch(/process\.cwd\(\)/);
+    expect(script).not.toMatch(/console\.log\([^)]*JSON\.stringify\(latest/);
+  });
+
+  it("refuses a production host and refuses to save a state with no Clerk session in it", () => {
+    expect(script).toMatch(/maanta\\\.app/);
+    expect(script).toMatch(/__session\|\^__client/);
   });
 });

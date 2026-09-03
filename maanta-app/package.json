@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:clerk-smoke": "vitest run src/__smoke__/clerk",
     "test:e2e": "playwright test",
+    "e2e:capture": "node scripts/e2e-capture-session.mjs",
     "check:canonicals": "node scripts/check-canonicals.mjs",
     "check:forms": "node scripts/check-server-forms.mjs",
     "brand:icons": "node scripts/write-brand-icons.mjs"
@@ -39,6 +40,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
+    "jsdom": "^25.0.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",

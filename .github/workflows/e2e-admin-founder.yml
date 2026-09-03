@@ -54,6 +54,12 @@ name: E2E (admin + founder acceptance, read-only)
 #   4. Actions → this workflow → Run workflow, on the PR's branch, pasting the
 #      preview URL. Approve the environment when prompted.
 #
+#   The states are captured with `npm run e2e:capture -- admin <preview>`
+#   (maanta-app/scripts/e2e-capture-session.mjs): it opens a browser for the
+#   sign-in, writes the state to a 0600 temp file outside the repository,
+#   puts it on the clipboard for the secret field, and wipes both once the
+#   secret is saved. Nothing is committed and nothing is pasted into a chat.
+#
 # Full procedure and how to read the result: docs/ops/browser-e2e-provisioning-2026-09-03.md
 
 on:
@@ -63,6 +69,11 @@ on:
         description: "Preview origin to test (e.g. https://maanta-nuia-git-<branch>-maanta.vercel.app). NEVER a maanta.app host."
         required: true
         type: string
+      upload_failure_screenshots:
+        description: "Also upload failure screenshots (test-results/). OFF by default: the preview shares production's data and this repository is public, so a screenshot of an admin page is production merchant and shopper data in a downloadable artifact. Turn on only to diagnose a failure, and delete the artifact afterwards."
+        required: false
+        type: boolean
+        default: false
 
 # One run per target. Read-only, so a queued run is harmless — but two runs
 # against one origin make the report ambiguous about which one is being read.
@@ -201,13 +212,26 @@ jobs:
             }
           '
 
-      - name: Upload the report and any failure screenshots
+      # The JSON report is titles, statuses and assertion messages — enough to
+      # read the run. Screenshots are a separate, opt-in artifact: the suite
+      # runs against a preview that shares production's Supabase project, and
+      # workflow artifacts on a public repository are downloadable, so a
+      # failure capture of `/admin/merchants/<id>` would publish a real shop's
+      # record. Default to not producing that.
+      - name: Upload the JSON report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: admin-founder-e2e-report
-          path: |
-            maanta-app/playwright-report.json
-            maanta-app/test-results/
+          path: maanta-app/playwright-report.json
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Upload failure screenshots (opt-in — contains preview data)
+        if: always() && inputs.upload_failure_screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-founder-e2e-screenshots
+          path: maanta-app/test-results/
+          if-no-files-found: ignore
+          retention-days: 3

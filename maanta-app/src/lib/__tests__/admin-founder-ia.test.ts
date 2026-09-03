@@ -9,7 +9,12 @@ vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: unknown }) =>
     createElement("a", { href, ...rest }, children as never),
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin/approvals" }));
+// `useRouter` too: the sidebar now renders the shared sign-out button (D258),
+// whose Supabase branch reads the router at render time.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/approvals",
+  useRouter: () => ({ push() {}, refresh() {} }),
+}));
 
 import { AdminSidebar } from "@/components/nav/admin-sidebar";
 import { FounderHeader } from "@/components/nav/founder-header";

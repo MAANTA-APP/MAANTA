@@ -44,3 +44,15 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 supabase/.temp/
+
+# Playwright storage states are live sessions on production identities — never
+# tracked, whatever they are called. The capture script writes outside the repo
+# (os.tmpdir()) but a hand-run `playwright open --save-storage` lands here.
+admin.json
+cofounder.json
+shopper.json
+merchant.json
+*.storage-state.json
+/playwright-report.json
+/playwright-report/
+/test-results/
