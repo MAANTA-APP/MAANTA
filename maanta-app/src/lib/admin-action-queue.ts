@@ -129,7 +129,8 @@ export type ActionQueueInput = {
     merchant_id: string;
     merchant_name: string | null;
     max_claims: number | null;
-    claims_count: number;
+    /** `claims_reserved` — the derived occupancy the cap is tested against (D236/D224). */
+    claims_reserved: number;
     updated_at: string | null;
   }[] | null;
   unlinkedStaffSeats: {
@@ -394,7 +395,7 @@ export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
   if (input.cappedLiveDeals === null) items.push(unavailable("deal", "Live deal allocations"));
   else {
     for (const d of input.cappedLiveDeals) {
-      const a = claimAllocation({ maxClaims: d.max_claims, claimsCount: d.claims_count });
+      const a = claimAllocation({ maxClaims: d.max_claims, claimsReserved: d.claims_reserved });
       if (!a.fullyClaimed) continue;
       items.push({
         id: `fully-claimed:${d.id}`,
@@ -402,7 +403,7 @@ export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
         severity: "attention",
         title: `"${d.title}" is fully claimed`,
         entity: { kind: "deal", id: d.id, name: d.title },
-        reason: `Claim allocation ${a.allocation} reached — ${a.issued} issued, none remaining. Still discoverable; no new claim can be issued until the merchant raises the allocation or reposts.`,
+        reason: `Claim allocation ${a.allocation} reached — ${a.issued} claims holding a slot, none remaining. Still discoverable; no new claim can be issued until a held claim expires unused, or the merchant raises the allocation.`,
         since: d.updated_at,
         href: `/admin/merchants/${d.merchant_id}#deals`,
         action: "Tell the merchant if asked",
@@ -439,7 +440,7 @@ export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
         severity: "urgent",
         title: `Blacklisted account holds a live claim at ${c.merchant_name ?? "a shop"}`,
         entity: { kind: "user", id: c.user_id, name: c.full_name ?? "Blacklisted account" },
-        reason: "The account is blacklisted and still holds an unexpired pending claim. Verification at the counter will proceed unless Guardian blocks it.",
+        reason: "Blacklisted after this claim was issued. By design the code still works at the counter (verify-anyway, D171) — the block stops NEW claims only. Review the claim; unblock from the shopper's account if the block was wrong.",
         since: c.claimed_at,
         href: `/admin/redemptions/${c.id}`,
         action: "Review the claim",

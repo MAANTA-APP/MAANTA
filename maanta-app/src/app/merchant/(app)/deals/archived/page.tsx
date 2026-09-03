@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { claimAllocation, claimAllocationLine } from "@/lib/claim-allocation";
+import { CLAIM_ALLOCATION_LABELS } from "@/lib/claim-allocation";
 import { getMerchantContext } from "@/lib/merchant";
 import { CoverImage } from "@/components/ui/cards";
 import { StatusChip } from "@/components/ui/chips";
@@ -51,12 +51,12 @@ export default async function ArchivedDealsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-ink">{r.snap.title}</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    {claimAllocationLine(
-                      claimAllocation({
-                        maxClaims: r.snap.max_claims ?? null,
-                        claimsCount: r.snap.claims_count ?? 0,
-                      })
-                    )}
+                    {/* An archived snapshot carries no live occupancy (the deal
+                        is over), so it states the allocation and what was
+                        redeemed — never a bare fraction that reads as issued. */}
+                    {CLAIM_ALLOCATION_LABELS.allocation}{" "}
+                    {r.snap.max_claims ?? CLAIM_ALLOCATION_LABELS.uncapped} · Redeemed{" "}
+                    {r.snap.claims_count ?? 0}
                   </p>
                 </div>
                 <StatusChip status="ended" label={r.reposted ? "Reposted" : "Ended"} />

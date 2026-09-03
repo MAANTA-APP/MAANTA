@@ -1,38 +1,47 @@
 /**
  * Claim allocation — the one place that says what `deals.max_claims` means.
  *
- * ## The ruling (founder, 2026-09-03, recorded in the decisions log as D236)
+ * ## The ruling (founder, 2026-09-03; register row D223, cited in code as D236)
  *
  * `max_claims` is **the maximum number of shopper claims that may be issued
  * for the deal**. It is not a redemption limit, not a stock count, and not an
  * inventory system. The three words every surface uses are:
  *
  *   - **Claim allocation** — `max_claims`, or "no cap" when NULL;
- *   - **Claims issued**    — `claims_count`;
+ *   - **Claims issued**    — `claims_reserved`: claims holding a slot right now;
  *   - **Claims remaining** — allocation minus issued, never below zero.
  *
- * ## What the code actually enforces, so the words match it
+ * ## Why `claims_reserved` and never `claims_count`
  *
- * `claim_deal` refuses a NEW claim when `max_claims IS NOT NULL AND
- * claims_count >= max_claims` (`>=`, and NULL means unlimited). Nothing else
- * reads `max_claims`: `verify_redemption` ignores it, so a claim that was
- * already issued stays redeemable however the allocation moves afterwards.
- * Lowering the allocation below the issued count therefore stops further
- * claims and touches no existing ticket — which is the behaviour the ruling
- * requires ("existing valid claims must not silently disappear"). A merchant
- * protects walk-in stock by pausing the deal or lowering its allocation; that
- * is the whole mechanism, and this module renders it rather than extending it.
+ * `deals.claims_count` is incremented only inside `verify_redemption` — it
+ * counts REDEMPTIONS. Reading it as "claims issued" was the defect D223
+ * closed: a deal with every code handed out still advertised itself as
+ * claimable until someone redeemed. `claims_reserved` is a PostgREST computed
+ * column (`claims_reserved(deals)`, migration `20260903120000`) backed by the
+ * same `claim_occupies_allocation()` the `redemptions_reserve_claim_slot`
+ * trigger and `claim_deal` enforce with, so the number a surface prints and
+ * the number the database refuses on cannot disagree.
  *
- * `fullyClaimed` mirrors the RPC's own predicate exactly. A fully claimed deal
- * is still discoverable (founder doctrine 2026-08-28, "discoverable is not
- * claimable"); the surfaces that advertise an available claim filter it out
- * themselves, and this module never decides visibility.
+ * Occupancy is DERIVED (founder ruling D224): `success` and `flagged` hold a
+ * slot, a `pending` claim holds one only while unexpired, `failed` never does.
+ * An unused claim that expires frees its place with nothing written anywhere,
+ * so "Claims remaining" can rise on its own. Lowering the allocation below
+ * what is held is refused by `/api/deals/[id]` with a pointer to pause; the
+ * database still refuses to over-issue at any allocation. No existing claim
+ * is ever cancelled by an edit ("existing valid claims must not silently
+ * disappear").
+ *
+ * `fullyClaimed` mirrors the RPC's own predicate exactly (`>=`, NULL means
+ * unlimited). A fully claimed deal is still discoverable (founder doctrine
+ * 2026-08-28, "discoverable is not claimable"); the surfaces that advertise an
+ * available claim filter it out themselves, and this module never decides
+ * visibility.
  */
 
 export type ClaimAllocation = {
   /** `max_claims`. `null` is "no cap", not zero. */
   allocation: number | null;
-  /** `claims_count` — claims issued so far. */
+  /** `claims_reserved` — claims holding a slot right now. */
   issued: number;
   /** `allocation - issued`, floored at zero; `null` when there is no cap. */
   remaining: number | null;
@@ -50,9 +59,10 @@ export const CLAIM_ALLOCATION_LABELS = {
 
 export function claimAllocation(input: {
   maxClaims: number | null | undefined;
-  claimsCount: number | null | undefined;
+  /** `deals.claims_reserved`. Never pass `claims_count` — that counts redemptions. */
+  claimsReserved: number | null | undefined;
 }): ClaimAllocation {
-  const issued = Math.max(0, Math.floor(Number(input.claimsCount ?? 0)) || 0);
+  const issued = Math.max(0, Math.floor(Number(input.claimsReserved ?? 0)) || 0);
   const raw = input.maxClaims;
   const allocation =
     raw === null || raw === undefined || !Number.isFinite(Number(raw))

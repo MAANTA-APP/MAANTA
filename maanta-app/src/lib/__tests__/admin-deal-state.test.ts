@@ -14,34 +14,34 @@ const longExpired = "2026-09-02T10:00:00Z";
 describe("adminDealState — ordered, derived, never stored", () => {
   it("reads a live deal as live", () => {
     expect(
-      adminDealState({ is_active: true, is_paused: false, expires_at: inFuture, max_claims: 10, claims_count: 3 }, now)
+      adminDealState({ is_active: true, is_paused: false, expires_at: inFuture, max_claims: 10, claims_reserved: 3 }, now)
     ).toBe("live");
   });
 
   it("ended wins over everything", () => {
     expect(
-      adminDealState({ is_active: false, is_paused: true, expires_at: longExpired, max_claims: 1, claims_count: 5 }, now)
+      adminDealState({ is_active: false, is_paused: true, expires_at: longExpired, max_claims: 1, claims_reserved: 5 }, now)
     ).toBe("ended");
   });
 
   it("paused wins over fully claimed and expiry", () => {
     expect(
-      adminDealState({ is_active: true, is_paused: true, expires_at: inFuture, max_claims: 1, claims_count: 1 }, now)
+      adminDealState({ is_active: true, is_paused: true, expires_at: inFuture, max_claims: 1, claims_reserved: 1 }, now)
     ).toBe("paused");
   });
 
   it("distinguishes grace from expired", () => {
     expect(
-      adminDealState({ is_active: true, is_paused: false, expires_at: justExpired, max_claims: null, claims_count: 0 }, now)
+      adminDealState({ is_active: true, is_paused: false, expires_at: justExpired, max_claims: null, claims_reserved: 0 }, now)
     ).toBe("in_grace");
     expect(
-      adminDealState({ is_active: true, is_paused: false, expires_at: longExpired, max_claims: null, claims_count: 0 }, now)
+      adminDealState({ is_active: true, is_paused: false, expires_at: longExpired, max_claims: null, claims_reserved: 0 }, now)
     ).toBe("expired");
   });
 
   it("reads an exhausted allocation as fully claimed while still live", () => {
     expect(
-      adminDealState({ is_active: true, is_paused: false, expires_at: inFuture, max_claims: 4, claims_count: 4 }, now)
+      adminDealState({ is_active: true, is_paused: false, expires_at: inFuture, max_claims: 4, claims_reserved: 4 }, now)
     ).toBe("fully_claimed");
   });
 

@@ -25,14 +25,14 @@ import { cn } from "@/lib/ui";
 export function DealKpis({
   pay,
   was,
-  claimsCount,
+  claimsReserved,
   maxClaims,
   verifiedCount,
   className,
 }: {
   pay?: number | null;
   was?: number | null;
-  claimsCount?: number | null;
+  claimsReserved?: number | null;
   maxClaims?: number | null;
   verifiedCount?: number | null;
   className?: string;
@@ -46,8 +46,14 @@ export function DealKpis({
   }
 
   // Scarcity — only when the merchant actually capped the deal.
-  if (maxClaims != null && claimsCount != null) {
-    const left = maxClaims - claimsCount;
+  //
+  // D236: `claimsReserved` is claims HANDED OUT, not redemptions. Fed from
+  // `deals.claims_count` until 2026-09-03, this line told a shopper "9 left"
+  // on a deal whose ten codes were all already issued — the counter only moved
+  // when someone redeemed. `left` is now the number of codes the database will
+  // actually still hand out, so the card and `claim_deal` agree.
+  if (maxClaims != null && claimsReserved != null) {
+    const left = Math.max(maxClaims - claimsReserved, 0);
     facts.push(
       <span key="left" className="tnum">
         {left > 0 ? `${left} left` : "Fully claimed"}

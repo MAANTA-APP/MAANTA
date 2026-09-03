@@ -32,7 +32,7 @@ export default async function MerchantDealDetailPage({
 
   const service = createServiceClient();
   const DEAL_COLUMNS =
-    "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, max_claims, success_fee, expires_at";
+    "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, claims_reserved, max_claims, success_fee, expires_at";
   // Degrades rather than 500s while `deals.category` is unapplied on the remote
   // (see @/lib/deal-category-column). A merchant losing the category row in the
   // edit sheet for a few days is survivable; losing the whole deal page is not.
@@ -46,6 +46,7 @@ export default async function MerchantDealDetailPage({
     is_paused: boolean;
     boost_active: boolean;
     claims_count: number;
+    claims_reserved: number;
     max_claims: number | null;
     success_fee: number;
     expires_at: string | null;
@@ -90,11 +91,15 @@ export default async function MerchantDealDetailPage({
   const verified = verifiedCount ?? 0;
   const feesPaid = verified * Number(deal.success_fee);
   const ended = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
+
   const status = !deal.is_active || ended ? "ended" : deal.is_paused ? "paused" : "active";
+  // D236: the allocation is tested against claims_reserved (claims holding a
+  // slot right now), never claims_count, which only moves at the counter.
   const allocation = claimAllocation({
     maxClaims: deal.max_claims,
-    claimsCount: deal.claims_count,
+    claimsReserved: deal.claims_reserved,
   });
+  const claimsLeftNum = allocation.remaining;
 
   return (
     <main className="px-4 pb-10 pt-5">
@@ -139,19 +144,34 @@ export default async function MerchantDealDetailPage({
       ) : null}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <KpiCard label="Verified" value={verified} />
         {/* D236 — max_claims is the number of shopper claims that may be
-            ISSUED, never a redemption limit. Issued and remaining are stated
-            separately; lowering the allocation stops new claims and touches no
-            claim already issued. */}
+            ISSUED, never a redemption limit. "Claims issued" is the allocation
+            currently taken (claims_reserved: codes shoppers still hold plus
+            codes redeemed); under the D224 ruling it FALLS on its own as
+            unused claims expire, so "Claims remaining" can go back up with no
+            action. "Redeemed" (claims_count) is what the KES 30 fee follows.
+            Lowering the allocation stops new claims and touches no claim
+            already issued. */}
         <KpiCard label={CLAIM_ALLOCATION_LABELS.issued} value={allocation.issued} />
         <KpiCard
           label={CLAIM_ALLOCATION_LABELS.remaining}
           value={formatRemaining(allocation)}
           hint={`${CLAIM_ALLOCATION_LABELS.allocation}: ${formatAllocation(allocation)}`}
         />
+        <KpiCard label="Redeemed" value={deal.claims_count} />
+        <KpiCard label="Verified at shop" value={verified} />
         <KpiCard label="Fees paid" value={formatKes(feesPaid)} className="col-span-2" />
       </div>
+      <p className="mt-2 text-xs text-muted">
+        {deal.max_claims == null
+          ? "This deal has no claim allocation cap."
+          : claimsLeftNum === 0
+            ? "Every claim in the allocation is taken right now. A claim that expires unused frees its place automatically — or raise the allocation to offer more."
+            : `${claimsLeftNum} more ${claimsLeftNum === 1 ? "shopper" : "shoppers"} can claim this deal.`}{" "}
+        {deal.is_paused
+          ? "It is paused, so no new claims are being issued. Codes already claimed stay valid."
+          : "Pausing stops new claims without cancelling codes already claimed."}
+      </p>
 
       <DealActions
         dealId={deal.id}

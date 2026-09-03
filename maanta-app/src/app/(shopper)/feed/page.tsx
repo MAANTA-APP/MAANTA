@@ -72,7 +72,7 @@ function cardProps(
     merchantId: d.merchant_id,
     isFavourite: opts.favourites.has(d.merchant_id),
     // Decision KPIs — rendered by the tall variants only (DealKpis).
-    claimsCount: d.claims_count,
+    claimsReserved: d.claims_reserved,
     maxClaims: d.max_claims,
     verifiedCount: opts.verified?.get(d.merchant_id) ?? null,
   };
@@ -236,7 +236,7 @@ export default async function FeedPage({
               id: d.id,
               expires_at: d.expires_at,
               max_claims: d.max_claims,
-              claims_count: d.claims_count,
+              claims_reserved: d.claims_reserved,
             },
             card: cardProps(d, {
               origin,

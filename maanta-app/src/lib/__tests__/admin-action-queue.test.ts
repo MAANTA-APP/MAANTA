@@ -167,9 +167,9 @@ describe("deal, seat, shopper, visit and top-up rules", () => {
     const items = buildActionQueue({
       ...empty(),
       cappedLiveDeals: [
-        { id: "d1", title: "Half price", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_count: 10, updated_at: ago(1) },
-        { id: "d2", title: "Not yet", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_count: 9, updated_at: ago(1) },
-        { id: "d3", title: "No cap", merchant_id: "m1", merchant_name: "Shop One", max_claims: null, claims_count: 99, updated_at: ago(1) },
+        { id: "d1", title: "Half price", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_reserved: 10, updated_at: ago(1) },
+        { id: "d2", title: "Not yet", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_reserved: 9, updated_at: ago(1) },
+        { id: "d3", title: "No cap", merchant_id: "m1", merchant_name: "Shop One", max_claims: null, claims_reserved: 99, updated_at: ago(1) },
       ],
     });
     expect(items.map((i) => i.id)).toEqual(["fully-claimed:d1"]);

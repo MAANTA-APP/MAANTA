@@ -26,7 +26,8 @@ export type AdminDealFacts = {
   is_paused: boolean | null | undefined;
   expires_at: string | null | undefined;
   max_claims: number | null | undefined;
-  claims_count: number | null | undefined;
+  /** `deals.claims_reserved` — claims holding a slot now (D236/D224), never `claims_count`. */
+  claims_reserved: number | null | undefined;
 };
 
 export function adminDealState(d: AdminDealFacts, now: Date = new Date()): AdminDealState {
@@ -35,7 +36,7 @@ export function adminDealState(d: AdminDealFacts, now: Date = new Date()): Admin
   const expiry = d.expires_at ? getDealExpiryState(d.expires_at, now).status : "live";
   if (expiry === "expired") return "expired";
   if (expiry === "in_grace") return "in_grace";
-  if (claimAllocation({ maxClaims: d.max_claims, claimsCount: d.claims_count }).fullyClaimed) {
+  if (claimAllocation({ maxClaims: d.max_claims, claimsReserved: d.claims_reserved }).fullyClaimed) {
     return "fully_claimed";
   }
   return "live";

@@ -110,7 +110,7 @@ export async function loadActionQueue(service: Service = createServiceClient()):
     // and the TypeScript cannot disagree about `>=`.
     service
       .from("deals")
-      .select("id, title, merchant_id, max_claims, claims_count, updated_at, merchants(merchant_name)")
+      .select("id, title, merchant_id, max_claims, claims_reserved, updated_at, merchants(merchant_name)")
       .eq("is_active", true)
       .eq("is_paused", false)
       .eq("is_demo", false)
@@ -232,7 +232,7 @@ export async function loadActionQueue(service: Service = createServiceClient()):
         merchant_id: d.merchant_id,
         merchant_name: name(d.merchants),
         max_claims: d.max_claims,
-        claims_count: d.claims_count,
+        claims_reserved: Number(d.claims_reserved ?? 0),
         updated_at: d.updated_at,
       })) ?? null,
     unlinkedStaffSeats:

@@ -60,7 +60,7 @@ export default async function AdminDealsPage({
       let query = service
         .from("deals")
         .select(
-          "id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, expires_at, created_at, node, merchant_id, merchants(merchant_name, status, is_demo)",
+          "id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, claims_reserved, expires_at, created_at, node, merchant_id, merchants(merchant_name, status, is_demo)",
           { count: "exact" }
         )
         .order("created_at", { ascending: false })
@@ -102,6 +102,7 @@ export default async function AdminDealsPage({
     boost_active: boolean;
     max_claims: number | null;
     claims_count: number;
+    claims_reserved: number;
     expires_at: string | null;
     created_at: string;
     node: string;
@@ -229,7 +230,7 @@ export default async function AdminDealsPage({
           </p>
         ) : (
           shown.map(({ d, state }) => {
-            const alloc = claimAllocation({ maxClaims: d.max_claims, claimsCount: d.claims_count });
+            const alloc = claimAllocation({ maxClaims: d.max_claims, claimsReserved: d.claims_reserved });
             return (
               <div
                 key={d.id}
@@ -259,7 +260,9 @@ export default async function AdminDealsPage({
                     {d.deal_type === "flash" ? "Flash" : "Standard"}
                     {d.boost_active ? " · Boosted" : ""}
                   </p>
-                  <p className="tnum mt-0.5 text-xs text-ink">{claimAllocationLine(alloc)}</p>
+                  <p className="tnum mt-0.5 text-xs text-ink">
+                    {claimAllocationLine(alloc)} · redeemed {d.claims_count}
+                  </p>
                 </div>
                 <span className="text-xs text-muted">
                   {d.expires_at

@@ -209,9 +209,22 @@ export async function POST(request: Request) {
     } else if (message.includes("deal_expired")) {
       status = 410;
       userMessage = "This deal has expired.";
+      return NextResponse.json(
+        { error: userMessage, code: "deal_expired" },
+        { status }
+      );
     } else if (message.includes("deal_claim_limit_reached")) {
+      // D236. Nine of ten simultaneous claimants for a final slot land here,
+      // and so does anyone whose page was rendered before the allocation ran
+      // out. The code lets the client re-render the deal in its real
+      // sold-out state instead of leaving a live Claim button and a stale
+      // "N left" under an error message that contradicts them.
       status = 410;
       userMessage = "This deal is fully claimed.";
+      return NextResponse.json(
+        { error: userMessage, code: "deal_claim_limit_reached" },
+        { status }
+      );
     } else if (message.includes("active_claim_already_exists")) {
       status = 409;
       userMessage = "You already have an active claim on this deal.";

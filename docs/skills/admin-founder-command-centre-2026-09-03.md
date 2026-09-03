@@ -29,13 +29,13 @@ drove the redesign. "Authoritative" names the table or RPC the screen reads.
 | `/admin/pilot` | admin (founder reading it) | Node 0 cohort, ladder, evidence classes | none | `merchants` + manifest, genuine-tagged counts, fee RPC | **Keep intact.** Heavily ratcheted; it is Founder content living under an admin guard. Reached from Operations and the Founder command centre |
 | `/admin/approvals` | admin | approve merchants | none (links to detail) | `merchants.status = pending` | **Demote from nav.** Reached from Home, the Action Queue and Merchants |
 | `/admin/merchants` | admin | find a shop | onboard (link) | `merchants` | Keep; nav label unchanged |
-| `/admin/merchants/[id]` | admin | "verify" a merchant | approve/reject, suspend/reinstate, feature, shadow-ban, location, trial | `merchants`, `elite_trial_cap_status` | **Rebuild as Merchant 360.** No staff, deals, claims, ledger, support or audit — six routes to answer one phone call (**D227**) |
+| `/admin/merchants/[id]` | admin | "verify" a merchant | approve/reject, suspend/reinstate, feature, shadow-ban, location, trial | `merchants`, `elite_trial_cap_status` | **Rebuild as Merchant 360.** No staff, deals, claims, ledger, support or audit — six routes to answer one phone call (**D229**) |
 | `/admin/customers` | admin | find an account | none (read-only) | `users` | Keep; nav label **Shoppers** |
 | `/admin/customers/[id]` | admin | one account's claims | none | `users`, `redemptions` | Keep |
-| `/admin/deals` | admin | "Deals" | remove deal | `fraud_events` → `deals` | **Rebuild.** Listed only fraud-flagged deals; no directory, no state, no allocation (**D224**) |
+| `/admin/deals` | admin | "Deals" | remove deal | `fraud_events` → `deals` | **Rebuild.** Listed only fraud-flagged deals; no directory, no state, no allocation (**D226**) |
 | `/admin/redemptions` | admin | Guardian holds, fraud events, last 15 | release/reject via detail; approve/reject fraud event | `redemptions.status = flagged`, `fraud_events` | Keep as the Guardian/fraud review; reached from Visits |
 | `/admin/redemptions/[id]` | admin | one ticket | release/reject, appeal, reverse fee | `redemptions`, `admin_redemption_detail`, ledger, `fee_reversals` | Keep unchanged |
-| `/admin/reports` | admin | KPIs + chart | none | counts, fee RPC, `admin_redemptions_per_day` | Keep; body extracted to one shared component so `/founder/reports` can render it under its own guard (**D223**) |
+| `/admin/reports` | admin | KPIs + chart | none | counts, fee RPC, `admin_redemptions_per_day` | Keep; body extracted to one shared component so `/founder/reports` can render it under its own guard (**D225**) |
 | `/admin/audit` | admin | read `admin_ops_log` | none | `admin_ops_log` | Keep |
 | `/admin/agents`, `/[id]` | admin | field reps and leads | none | `agents`, `leads` | Demote from nav; reached from Operations. Acquisition is on hold (D159) |
 | `/admin/support`, `/new` | admin | `agent_tasks` queue | override (complete + audit line), create ticket | `agent_tasks` | Keep; merchant name now opens Merchant 360, overdue read from `due_at`, ticket form accepts `?merchant=` |
@@ -43,7 +43,7 @@ drove the redesign. "Authoritative" names the table or RPC the screen reads.
 | `/admin/resources` | admin | resource centre | none | `lib/admin-resources.ts` | Keep as a system tool |
 | `/founder` | admin, cofounder | "executive dashboard" | none | user counts, deal count, fee RPC | **Rebuild.** Was a smaller Admin overview: user totals, live deals by node, links. Answered nothing about whether the pilot works |
 | `/founder/yesterday` | admin, cofounder | daily brief | none | genuine-tagged day counts, manifest | Keep intact (heavily ratcheted) |
-| `/founder/reports` | admin, cofounder | reports | — | — | **Was a redirect into `/admin/reports`**, bouncing a co-founder to `/` (**D223**) |
+| `/founder/reports` | admin, cofounder | reports | — | — | **Was a redirect into `/admin/reports`**, bouncing a co-founder to `/` (**D225**) |
 
 What did not exist anywhere in the console: a merchant's staff seats, a
 merchant's ledger, a deal directory, any distinction between a claim, an
@@ -111,7 +111,7 @@ the live product.
 6. **No control the backend does not enforce.** Merchant 360 states plainly
    what the console cannot do — pause or re-allocate a deal (merchant-only
    `PATCH /api/deals/[id]`), lift a trust-metric hide (database-owned),
-   blacklist a shopper (no route) — rather than drawing a button (**D228**).
+   blacklist a shopper (no route) — rather than drawing a button (**D230**).
 7. **Doctrine travels with the item.** The zero-balance item carries the
    2026-08-24 ruling that nobody raises the credit wall with the merchant; the
    demo-mode item carries D189. An alert without its consequence invites the
@@ -126,7 +126,7 @@ the live product.
 ## 4. Claim allocation — the D236 vocabulary
 
 Founder ruling 2026-09-03 (numbered **D236** in the brief; recorded in the
-register as **D225** because the repo is canonical for drift IDs and D225 was
+register as **D227** because the repo is canonical for drift IDs and D227 was
 the next free number — the same reconciliation as D172/D168):
 
 > `max_claims` means the maximum number of shopper claims that may be issued
@@ -208,7 +208,7 @@ form's textarea to its new line.
 
 ## 8. Not built, and why
 
-- **Controls the backend does not enforce** — see **D228**. Pause/re-allocate
+- **Controls the backend does not enforce** — see **D230**. Pause/re-allocate
   a deal, lift a hide, blacklist a shopper. Each needs a route, an audit
   action and a founder decision that admin should own it.
 - **Node scoping on the Action Queue.** An exception at another node is still

@@ -125,7 +125,7 @@ export default async function AdminMerchantDetailPage({
       .limit(LIMITS.staff),
     service
       .from("deals")
-      .select("id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, expires_at, created_at")
+      .select("id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, claims_reserved, expires_at, created_at")
       .eq("merchant_id", m.id)
       .order("created_at", { ascending: false })
       .limit(LIMITS.deals),
@@ -197,6 +197,7 @@ export default async function AdminMerchantDetailPage({
     boost_active: boolean;
     max_claims: number | null;
     claims_count: number;
+    claims_reserved: number;
     expires_at: string | null;
     created_at: string;
   };
@@ -270,7 +271,10 @@ export default async function AdminMerchantDetailPage({
           <p className="text-sm text-ink">
             <IconCheck aria-hidden className="mr-1.5 inline h-4 w-4 text-verified" />
             Reachable by shoppers — active, visible, not shadow-banned.{" "}
-            {liveDeals === 0 ? (
+            {/* A failed deals read is unknown, never "no live deal" (D164 / D185). */}
+            {dealsRes.error ? (
+              <>Live-deal count could not be read — unknown, not zero.</>
+            ) : liveDeals === 0 ? (
               <strong className="font-semibold">No live deal, so nothing can be claimed right now.</strong>
             ) : (
               <>{liveDeals} live {liveDeals === 1 ? "deal" : "deals"} claimable.</>
@@ -420,7 +424,9 @@ export default async function AdminMerchantDetailPage({
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className={h2}>Deals</h2>
           <span className="text-xs text-muted">
-            {activeDeals}/{dealCap} active slots · {liveDeals} live · {pausedDeals} paused
+            {dealsRes.error
+              ? "deal counts unavailable"
+              : `${activeDeals}/${dealCap} active slots · ${liveDeals} live · ${pausedDeals} paused`}
           </span>
         </div>
         <p className="mt-1 text-xs text-muted">
@@ -437,7 +443,7 @@ export default async function AdminMerchantDetailPage({
         ) : (
           <div className="mt-2 space-y-2">
             {dealStates.map(({ d, state }) => {
-              const alloc = claimAllocation({ maxClaims: d.max_claims, claimsCount: d.claims_count });
+              const alloc = claimAllocation({ maxClaims: d.max_claims, claimsReserved: d.claims_reserved });
               return (
                 <div key={d.id} className="flex flex-wrap items-center gap-3 rounded-card bg-white px-4 py-3 shadow-card">
                   <DealStateChip state={state} />
@@ -454,7 +460,7 @@ export default async function AdminMerchantDetailPage({
                   </div>
                   <div className="tnum text-right text-xs text-ink">
                     <span className="block">{CLAIM_ALLOCATION_LABELS.allocation}: {alloc.allocation === null ? CLAIM_ALLOCATION_LABELS.uncapped : alloc.allocation}</span>
-                    <span className="block text-muted">{claimAllocationLine(alloc)}</span>
+                    <span className="block text-muted">{claimAllocationLine(alloc)} · redeemed {d.claims_count}</span>
                   </div>
                 </div>
               );
@@ -477,8 +483,16 @@ export default async function AdminMerchantDetailPage({
         <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <KpiCard label="Claims (all time)" value={fmt(n(claimsAllRes))} hint="Every code ever issued at this shop." />
           <KpiCard label="Redeemed (all time)" value={fmt(n(successAllRes))} hint="Verified by staff — the only money event." />
-          <KpiCard label="Held now" value={stages.held.toLocaleString()} hint="Of the recent claims below." />
-          <KpiCard label="In queue now" value={stages.in_queue.toLocaleString()} hint="On the staff queue at this moment." />
+          <KpiCard
+            label="Held now"
+            value={redemptionsRes.error ? "—" : stages.held.toLocaleString()}
+            hint="Of the recent claims below. A dash is a failed read, never zero."
+          />
+          <KpiCard
+            label="In queue now"
+            value={redemptionsRes.error ? "—" : stages.in_queue.toLocaleString()}
+            hint="On the staff queue at this moment."
+          />
         </div>
         <p className="mt-2 text-xs text-muted">
           A claim is not an arrival, an arrival is not a redemption, and a queue entry is not a
@@ -684,9 +698,9 @@ export default async function AdminMerchantDetailPage({
           <PlanActions merchantId={m.id} tier={tier} onTrial={m.elite_trial_active === true} />
         </div>
         <p className="mt-3 text-xs text-muted">
-          Not available from the console, by design: pausing or re-allocating a deal (merchant-only),
-          lifting a trust-metric hide (database-owned), and blacklisting or un-blacklisting a shopper
-          (no admin route exists).
+          Not available from the console, by design: pausing or re-allocating a deal (merchant-only,
+          D231) and lifting a trust-metric hide (database-owned, D233). Blocking a shopper from new
+          claims is done from the shopper&apos;s own account page (D232), never from here.
         </p>
       </section>
 
