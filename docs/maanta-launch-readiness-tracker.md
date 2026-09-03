@@ -21,10 +21,18 @@ to `maanta-decisions-log.md`, not this file.
 > `docs/ops/migration-deployment-plan-2026-09-03.md`.
 >
 > **The next gate is operational, not engineering: E14 / D172 — browser E2E has
-> still never executed.** 200 workflow runs, every sampled one skipped. The
-> exact provisioning procedure is
-> `docs/ops/browser-e2e-provisioning-2026-09-03.md`. Merchant 01 follows a
-> genuinely green browser run.
+> still never executed.** 200 workflow runs, every sampled one skipped.
+> Provisioning is blocked to Claude (the agent proxy returns 403 on GitHub
+> Actions variables, environments and secrets), so it is a human/ops task:
+> `docs/ops/browser-e2e-provisioning-2026-09-03.md`.
+>
+> **Founder ruling 2026-09-03 — the browser gate is FIVE separately reported
+> proofs, and a composite "E2E PASS" is prohibited:** shopper claim/ticket ·
+> merchant deal/allocation · staff verification/redemption · admin · founder.
+> Four are pending ops; **merchant deal/allocation is BLOCKED because no spec
+> covers it** — that is the D223/D236 surface deployed the same day. One narrow
+> addition is authorised to close it, activating only once the operational
+> environment exists. Merchant 01 follows all five being genuinely PASS.
 
 > **STALENESS WARNING, added 2026-09-01.** The gate tables below have not been
 > revised since 2026-08-08 and predate most of what has since become true:

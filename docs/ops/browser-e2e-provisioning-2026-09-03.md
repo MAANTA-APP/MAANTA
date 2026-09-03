@@ -23,6 +23,48 @@ easier.
 
 ---
 
+## The gate, as the founder defined it (2026-09-03)
+
+**The browser gate is FIVE separately reported proofs. A composite "E2E PASS"
+is prohibited until all five are genuinely proven.**
+
+| # | Proof | Status today |
+|---|---|---|
+| 1 | Shopper claim / ticket | **pending ops** |
+| 2 | Merchant deal / allocation | **BLOCKED — coverage does not yet exist** |
+| 3 | Staff verification / redemption | **pending ops**, and only counts as *staff* proof if the verifier state is captured from a genuine **merchant staff-seat** login |
+| 4 | Admin access | **pending ops** |
+| 5 | Founder surface | **pending ops** |
+
+Report them separately. Never average them, never roll them into one line, and
+never let four greens and one blank read as a pass.
+
+### Two standing prohibitions
+
+**1. Never weaken a product invariant to make E2E green.** In particular, the
+predicted `active_claim_already_exists` collision (see below) must **not** be
+"fixed" by changing that rule. It is a real product invariant — one shopper may
+not hold two live claims on the same deal. If the suite trips over it, that is
+the suite's isolation to repair, not the product's rule to relax.
+
+**2. A skipped spec is BLOCKED, never PASS.** This is the failure mode that
+produced 200 green-looking workflow runs proving nothing.
+
+### The one authorised addition, and when it activates
+
+The founder has authorised **one** small addition — browser coverage for the
+merchant D236 surface, proving the merchant sees correct
+allocation / issued / remaining values and that those values reflect
+authoritative occupancy semantics.
+
+**It is authorised for once the operational environment exists, not before**
+("do not spend another engineering cycle before the operational environment
+exists"). Keep it narrow when the time comes: this is **missing acceptance
+coverage, not permission for more product work.** No new merchant features, no
+redesign of the allocation UI, no second scenario smuggled in alongside it.
+
+---
+
 ## What the suite proves — and what it does not
 
 Read this before provisioning. A green run is only worth what it covers, and
@@ -88,8 +130,14 @@ The minimal fixes, in preference order: give the two tests different seeded
 deals via distinct paths; or run the file serially (`workers: 1`) and have the
 first test redeem or expire its claim; or use two shopper storage states.
 
-**No code was changed for this.** Fixing it is bounded engineering, and the
-founder's instruction was to provision and run first.
+**No code was changed for this, and none should be until the real run trips
+over it.** Founder ruling: run the real environment first; if it fails exactly
+here, that is a bounded test-harness defect — repair the isolation or setup,
+rerun, and record both the failure and the repair.
+
+**Whatever the repair is, it is not touching `active_claim_already_exists.`**
+That rule is a product invariant, not an obstacle. See the standing
+prohibitions above.
 
 ---
 
@@ -163,21 +211,32 @@ Repo → **Settings → Secrets and variables → Actions**.
 
 | Name | Value |
 |---|---|
-| `E2E_BASE_URL` | the test origin from step 1 |
-| `E2E_ALLOWED_HOST` | that host. Optional but recommended: it turns the production guard from a denylist into an allowlist |
+| `E2E_BASE_URL` | the non-production origin from step 1 |
+| `E2E_DEAL_PATH` | **explicitly set** to the provisioned test deal's path. Do not leave this unset — see the D236 section. Unset means the suite claims whatever happens to be first on the feed, and the allocation headroom you provisioned is not the headroom it consumes |
+| `E2E_ALLOWED_HOST` | that host. Optional but recommended: turns the production guard from a denylist into an allowlist |
 
 **Environment secrets, on the `e2e` environment:**
 
-| Name | Value |
+| Name | Captured from |
 |---|---|
-| `E2E_SHOPPER_STORAGE` | contents of `shopper.json` |
-| `E2E_MERCHANT_STORAGE` | contents of `merchant.json` |
-| `E2E_ADMIN_STORAGE` | contents of `admin.json` |
+| `E2E_SHOPPER_STORAGE` | an authenticated shopper |
+| `E2E_MERCHANT_STORAGE` | **a genuine merchant STAFF-SEAT login** if proof 3 is to count as staff proof. An owner session proves "a verifier" and nothing more — record which one you captured |
+| `E2E_ADMIN_STORAGE` | an admin (covers `/admin` **and** `/founder`) |
 
 **All three are required.** The workflow fails with an explicit error if
 `E2E_BASE_URL` is set and any storage state is missing, rather than letting the
-suite self-skip to a green zero-coverage run. That is deliberate — do not set
-the variable until you have all three secrets ready.
+suite self-skip to a green zero-coverage run. Do not set the variable until you
+have all three secrets ready.
+
+> **Storage states are live session credentials.** They are secrets. They go
+> into GitHub environment secrets and **never into Git** — not the repo, not a
+> gist, not a commit message, not a chat. Delete the local `.json` files after
+> uploading them.
+
+**Allocation sizing, restated because it is the easiest thing to get wrong:**
+seed the test deal with `max_claims` at least as large as **the number of
+successful executions you plan**, not merely greater than 1. Each successful
+run permanently consumes a slot.
 
 ---
 
@@ -217,14 +276,18 @@ The job already asserts from the Playwright JSON report that no spec silently
 skipped, so a partially-configured run fails loudly rather than reporting green.
 
 Record the run number and its per-role states in
-`docs/maanta-launch-readiness-tracker.md`, and close **D172** only if the four
-covered roles are PASS.
+`docs/maanta-launch-readiness-tracker.md`.
+
+**D172 does not close on this run.** It closes only when **all five** proofs are
+PASS — which requires the merchant deal/allocation coverage to be written first
+(the one authorised addition above). Four greens and one BLOCKED is four
+greens and one BLOCKED.
 
 ## What this unblocks
 
 | Row | Closes on |
 |---|---|
-| **D172** | One green golden-path run |
+| **D172** | **All five** proofs PASS — not one green golden-path run. See the gate definition above |
 | **D235** | A green `npm run test:e2e -- offline-ticket` with `E2E_SHOPPER_STORAGE` **and a shopper holding a real active claim** — only meaningful once PR #317 is merged. A service-worker harness run does **not** close it |
 
 ---
