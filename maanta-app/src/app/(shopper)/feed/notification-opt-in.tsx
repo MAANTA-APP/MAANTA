@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/overlays";
 import { Button } from "@/components/ui/button";
 import { IconBell } from "@/components/ui/icons";
+import { SHOPPER_PUSH_SENDER_EXISTS } from "@/lib/shopper-push";
 
 const DISMISS_KEY = "maanta_notif_optin_dismissed";
 
@@ -14,12 +15,29 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from(rawData.split("").map((c) => c.charCodeAt(0)));
 }
 
-/** 8p Notification opt-in (sheet) — shown once per device to signed-in shoppers. */
+/**
+ * 8p Notification opt-in (sheet) — shown once per device to signed-in shoppers,
+ * and **only once something can actually send them a push**.
+ *
+ * `SHOPPER_PUSH_SENDER_EXISTS` is false today: the sole caller of
+ * `sendPushNotification` is `notify-merchant`, and all of its call sites are
+ * payment webhooks addressed to merchants. Asking anyway spends a permission
+ * that is close to non-renewable — a browser-level block cannot be re-prompted
+ * — in exchange for a promise ("new deals near you") that nothing keeps. Drift
+ * **D234**; see `@/lib/shopper-push` for why this is a codebase fact rather
+ * than an operator toggle.
+ *
+ * The gate is on BOTH the effect and the render, deliberately. The render guard
+ * alone would leave the effect scheduling a sheet that never paints; the effect
+ * guard alone would leave a future edit able to open it. Neither is placed
+ * before the hooks, because a component may not return early above them.
+ */
 export function NotificationOptIn() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!SHOPPER_PUSH_SENDER_EXISTS) return;
     if (localStorage.getItem(DISMISS_KEY)) return;
     if (!("Notification" in window) || Notification.permission !== "default") return;
     const t = setTimeout(() => setOpen(true), 1200);
@@ -57,6 +75,8 @@ export function NotificationOptIn() {
       dismiss();
     }
   }
+
+  if (!SHOPPER_PUSH_SENDER_EXISTS) return null;
 
   return (
     <BottomSheet open={open} onClose={dismiss}>
