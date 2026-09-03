@@ -431,35 +431,6 @@ a storage-state file; run the spec with `E2E_BASE_URL`, `E2E_ADMIN_STORAGE`
 and `E2E_COFOUNDER_STORAGE` pointing at those files. Every step is read-only
 against the product; the proof presses no button that writes.
 
-## 13. The Codex review round on the reconciled head (2026-09-03)
-
-The PR head after reconciliation with `main` (#318) was reviewed by Codex at
-the founder's request. Five findings, all verified against the tree and fixed
-in the PR's own code, each with a guard and a register row (D242–D245):
-
-| Finding | What was true | What is true now |
-|---|---|---|
-| P1 — supply read | A failed per-shop deal count became `null` and the no-supply rule fired only on `0`, so a read failure was silence | A per-shop `supply-unread` attention item, flagged unavailable; one "Demo mode flag" item stands in when the flag itself is unreadable (D242) |
-| P2 — founder held count | Raw `flagged` and `pending` counts, demo rows included, beside an Action Queue that excludes them | `genuineCount` for held claims; `is_demo = false` for pending shops (D243) |
-| P2 — fraud read cap | The deals directory's fraud read had a cap and no count, so a full page marked some merchants and not others | `count: "exact"`; past the cap, no marker and "Review markers unavailable" (D244) |
-| P2 — queue cap | The live staff-queue read had a cap and no count, so a full page — or "Nobody is waiting" after the in-memory filter — passed as the whole queue | `count: "exact"`; past the cap, "Incomplete, not empty" (D244) |
-| P2 — report populations | "All evidence classes" beside fee cards whose reader is genuine-tagged only | Each card names its population; numbers unchanged (D245) |
-
-A second round on the corrected head `ac74a55` found three more, fixed the same
-way (D246–D248):
-
-| Finding | What was true | What is true now |
-|---|---|---|
-| P1 — demo flag unreadable | The next move told the founder to run an evidence step with no warning when the demo-mode read had failed | "Demo mode could not be read — do not run this step yet", ahead of the ON warning (D246) |
-| P2 — ladder unreadable | The rung card said "none · next rung 1" for a failed ladder read | A dash and "a read error, not rung zero" (D246) |
-| P2 — open tasks | The third Right-now queue counted demo-shop tasks | Merchantless plus non-demo-shop tasks, two head counts, as the Action Queue counts (D247) |
-| P2 — fraud total | The newest-10 array length was shown as the shop's unresolved total | `count: "exact"`, the true total, "the N most recent shown" when capped (D248) |
-| P2 — opening credit | Derived from the newest-40 ledger page; "None" past 40 movements | Its own one-row read by reference; a dash on failure (D248) |
-
-The head that carried the fixes was rebuilt from `main`'s register (the first
-reconciliation had dropped `main`'s six PR #317 rows) with this branch's rows
-renumbered to D231–D241 — see the **Drift IDs** paragraph in §10.
-
 ## 12. D241 — the amber ration on Merchant 360, fixed the same day
 
 The §11 captures showed three amber primaries on Merchant 360 — "Save
@@ -498,3 +469,66 @@ pending shop's holds **1**, the Approve button. The 12-test proof re-ran green.
 Full-page captures at iPhone size read as intended: the outline buttons sit in
 their sections without competing, and on the pending shop the eye lands on
 Approve.
+
+## 13. The Codex review round on the reconciled head (2026-09-03)
+
+The PR head after reconciliation with `main` (#318) was reviewed by Codex at
+the founder's request. Five findings, all verified against the tree and fixed
+in the PR's own code, each with a guard and a register row (D242–D245):
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P1 — supply read | A failed per-shop deal count became `null` and the no-supply rule fired only on `0`, so a read failure was silence | A per-shop `supply-unread` attention item, flagged unavailable; one "Demo mode flag" item stands in when the flag itself is unreadable (D242) |
+| P2 — founder held count | Raw `flagged` and `pending` counts, demo rows included, beside an Action Queue that excludes them | `genuineCount` for held claims; `is_demo = false` for pending shops (D243) |
+| P2 — fraud read cap | The deals directory's fraud read had a cap and no count, so a full page marked some merchants and not others | `count: "exact"`; past the cap, no marker and "Review markers unavailable" (D244) |
+| P2 — queue cap | The live staff-queue read had a cap and no count, so a full page — or "Nobody is waiting" after the in-memory filter — passed as the whole queue | `count: "exact"`; past the cap, "Incomplete, not empty" (D244) |
+| P2 — report populations | "All evidence classes" beside fee cards whose reader is genuine-tagged only | Each card names its population; numbers unchanged (D245) |
+
+A second round on the corrected head `ac74a55` found three more, fixed the same
+way (D246–D248):
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P1 — demo flag unreadable | The next move told the founder to run an evidence step with no warning when the demo-mode read had failed | "Demo mode could not be read — do not run this step yet", ahead of the ON warning (D246) |
+| P2 — ladder unreadable | The rung card said "none · next rung 1" for a failed ladder read | A dash and "a read error, not rung zero" (D246) |
+| P2 — open tasks | The third Right-now queue counted demo-shop tasks | Merchantless plus non-demo-shop tasks, two head counts, as the Action Queue counts (D247) |
+| P2 — fraud total | The newest-10 array length was shown as the shop's unresolved total | `count: "exact"`, the true total, "the N most recent shown" when capped (D248) |
+| P2 — opening credit | Derived from the newest-40 ledger page; "None" past 40 movements | Its own one-row read by reference; a dash on failure (D248) |
+
+The head that carried the fixes was rebuilt from `main`'s register (the first
+reconciliation had dropped `main`'s six PR #317 rows) with this branch's rows
+renumbered to D231–D241 — see the **Drift IDs** paragraph in §10.
+
+A third round on `2955cd5` found four more, fixed in `085653d` (D249–D252).
+Two of the four reports named one instance; the tree carried more, and the fix
+covers what the tree carried, not what the report listed:
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P2 — read-failure identity | `unavailable()` keyed its item id on the category, so when both reads in a category failed the second overwrote the first. **Four** categories carry two reads each — redemption, merchant, balance, evidence — not the one reported | The id is per failed read (`unavailable:<category>:<what>`), so both survive, and `summariseQueue` counts unreadable **reads**, not categories (D249) |
+| P2 — fraud link | The queue's fraud item linked `/admin/redemptions?reason=<event_type>`, and the page implements three reasons; any other type landed on a filter it silently ignored | `fraudReviewHref()` sends `reason` only for a type the page implements and otherwise links the unfiltered list; the guard asserts `FRAUD_REVIEW_FILTERS` **equals** the page's own parsed `REASONS`, so adding one to either side without the other fails (D250) |
+| P2 — reachable cell | `/admin/operations` printed a reachable-deal count computed from a demo-mode flag it may have failed to read | The cell dashes unless the flag read succeeded, and the caption says the exposure is unknown, not false (D251) |
+| P2 — fee populations | Merchant 360's three fee cards sat under counts of a wider population | Each names its own: "Genuine-tagged rows only (ledger contract)" (D252) |
+
+Two alternatives in those threads were declined, on the record: widening
+`/admin/redemptions`'s reason filter to accept every event type is a product
+change outside this PR, and computing a per-record fee total from redemption
+rows would be a second definition of the success fee — `readLedgerFeeTotals`
+is the one.
+
+## 14. Exact-head CI verdict
+
+`085653d` is green: `ci` (lint · typecheck · vitest · build with the three
+post-build gates) and `db-tests` (42 SQL suites over the fresh 110-migration
+chain) both succeeded at 19:13 UTC on 2026-09-03, run 33794881529, and the PR
+is mergeable with no conflict. Locally on the same head, keyed on real exit
+codes: 188 test files / 1928 tests, typecheck, lint and a production build with
+CI's env, all clean.
+
+That is the whole of what CI proves. **D240 is still open**: no part of the
+acceptance suite has run through Clerk. The mechanism for it is
+`.github/workflows/e2e-admin-founder.yml` (§10's D240 paragraph and
+`docs/ops/browser-e2e-provisioning-2026-09-03.md`), and it needs a founder to
+create the `e2e-readonly` environment, put an admin storage state in its
+secrets, and dispatch it at a preview URL. Merge and deploy remain the
+founder's, after that run and a review of the final diff.
