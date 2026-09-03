@@ -31,6 +31,33 @@ const REPO = path.resolve(__dirname, "..", "..", "..", "..");
 const REGISTER = path.join(REPO, "docs", "maanta-drift-register.md");
 const SELF = path.join("maanta-app", "src", "lib", "__tests__", "d235-claim-discipline.test.ts");
 
+/**
+ * The closure rule, founder wording 2026-09-03, canonical.
+ *
+ * Kept verbatim here for the same reason as `BANNED` below: one file owns the
+ * exact text, and the register must match it. The row carried this sentence
+ * once and lost it before — the row's headline was still the 2026-09-02
+ * finding while the state had moved on, which is how a reader takes a stale
+ * claim as live.
+ *
+ * What it protects is one specific collapse: **"the service worker works" and
+ * "a shopper can present a code offline" are different claims**, and treating
+ * the first as the second is the mistake that closed this row prematurely. The
+ * sentence names the layer that is proven, the layer that is not, and the exact
+ * run that separates them.
+ *
+ * Changing the wording is a founder decision, not a copyedit — which is what
+ * an exact match makes true in practice, since any rewrite fails here and has
+ * to be made deliberately.
+ *
+ * The path is written repo-root-relative because `drift-register.test.ts`
+ * resolves cited paths and rejects any that do not exist.
+ */
+const CLOSURE_RULE =
+  "worker layer browser-proven; authenticated `/my-deals` offline ticket " +
+  "behaviour not yet proven. Closure requires a credentialed deployed run of " +
+  "`maanta-app/e2e/offline-ticket.spec.ts` with an active claim.";
+
 /** The banned claims. This array is the single verbatim home for these strings. */
 const BANNED = [
   "offline redemption verified",
@@ -94,6 +121,28 @@ describe("D235 claim discipline", () => {
         "deployed app with E2E_SHOPPER_STORAGE, close the row on that evidence, and\n" +
         "this ban lifts by itself."
     ).toEqual([]);
+  });
+
+  it("keeps the closure rule on the row, in the founder's words", () => {
+    const row = readFileSync(REGISTER, "utf8")
+      .split("\n")
+      .find((l) => l.startsWith("| D235 |"))!;
+    if (!/^\|\s*D235\s*\|\s*open\s*\|/.test(row)) return;
+
+    // Whitespace-normalised so a reflow of the register is not a failure, but
+    // the words themselves are exact.
+    const flat = (t: string) => t.replace(/\s+/g, " ").trim();
+
+    expect(
+      flat(row).includes(flat(CLOSURE_RULE)),
+      "the D235 row no longer carries the closure rule verbatim.\n\n" +
+        "It must read:\n  " +
+        CLOSURE_RULE +
+        "\n\nThis is the sentence that stops the next reviewer collapsing\n" +
+        '"the service worker works" into "a shopper can present a code\n' +
+        'offline" — the exact mistake that closed this row prematurely on\n' +
+        "2026-09-03. Rewording it is a founder decision, not a copyedit."
+    ).toBe(true);
   });
 
   it("makes closing the row confront the condition, not just flip a word", () => {
