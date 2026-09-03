@@ -647,3 +647,40 @@ Three things changed around it:
 Without a co-founder identity the run is **11 of 12 with the co-founder
 boundary explicitly skipped** — useful, recorded as such, and not a close
 unless the founder changes the criterion (Q14 remains founder-held).
+
+## 16. Shipped — merged, deployed, and walked (2026-09-03)
+
+PR #319 was merged on the founder's authorisation as **`4a3d2d6`** (squash,
+67 files, +9,153 / −627) at 22:55 UTC, on a head whose `ci` and `db-tests`
+were both green. Vercel deployment `dpl_DHmCoCvnVQAUy8r2HzeNej8bLw58` (target
+production, `main`) reached **READY at 22:59 UTC** with `aliasError: null` and
+`maanta.app`, `www.maanta.app` and `maanta-nuia-git-main` aliased to it.
+**No migration was applied**: production remains at 110/110, and the console
+reads `claims_reserved`, a computed field production already served.
+
+**The founder then walked the deployed console on an iPhone and reported it
+all clear.** That is the first browser evidence of this redesign on a
+deployment, through production Clerk — the substance D240 has been asking
+for. Three limits belong beside it, and they are why D240 is not closed here:
+
+1. It is **founder-reported**, not a machine-recorded run. No per-assertion
+   result, no artifact. The evidence-classification guide treats that as
+   operator observation, which is real evidence and a different kind from a
+   recorded suite.
+2. It is **production**, not the non-production deployment the ruling named.
+   The two differ in what a failure would have cost, not in what passing shows.
+3. It **cannot have covered the co-founder boundary**: no user holds the role
+   (Q14, founder-held), so at most eleven of the twelve assertions were
+   walkable at all.
+
+**The disposition is the founder's, in one line:** either D240 closes on this
+walk — in which case say so and the row records a manual close under the
+"unless preview execution is genuinely blocked" clause of the 2026-09-03
+ruling — or it stays open for the automated 12/12 through
+`e2e-admin-founder.yml`, which now needs a branch preview rather than the
+merged PR's. Nothing else in this document waits on that answer.
+
+**Console engineering stops here** (founder instruction, 2026-09-03). The
+next change to these surfaces should come from what the BBS Mall operator or
+Merchant 01 actually hits, not from reading this document and finding
+something to improve.
