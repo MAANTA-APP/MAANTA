@@ -39,8 +39,9 @@ Two findings are exceptions, because they are **wrong at N = 1**, not at N =
    a denial is sticky and expensive to recover — so this spends the grant before
    there is any payload, on the exact cohort Node 0 is measuring.
 
-Recorded as **D235** and **D234**. Everything below section 2 is genuine but
-sequenced behind field evidence.
+Recorded as **D235** and **D234**. **D234 was fixed on 2026-09-03** — see the
+addendum at the end of this document. **D235 remains open.** Everything below
+section 2 is genuine but sequenced behind field evidence.
 
 ---
 
@@ -270,3 +271,34 @@ Nothing in `maanta-app/`. This document, drift rows **D234** and **D235**, and a
 documentation-register entry. The two quick wins above are the only items that
 would be worth putting to the founder for authorisation before field validation
 completes; the rest is sequenced behind it deliberately.
+
+
+---
+
+## 6. Addendum — D234 fixed (2026-09-03)
+
+The push prompt is now gated on `SHOPPER_PUSH_SENDER_EXISTS`
+(`src/lib/shopper-push.ts`), which is `false` because nothing outside
+`notify-merchant.ts` sends a push. The gate is checked on **both** the effect
+and the render in `notification-opt-in.tsx`: the render guard alone would leave
+the effect scheduling a sheet that never paints, the effect guard alone would
+let a later edit open it, and neither can sit above the hooks.
+
+**The subscribe machinery is kept, not deleted.** `/api/push/subscribe` writes
+`users.push_subscription`, which `notify-merchant` already reads — so the D232
+sender inherits working plumbing rather than rebuilding it. Only the *asking* is
+held.
+
+The guard (`src/lib/__tests__/shopper-push-gate.test.ts`) asserts a
+**relationship rather than a value**, which is what stops it from decaying into
+a comment. The flag may be `true` only when some module outside `lib/webpush.ts`
+and `lib/notify-merchant.ts` calls `sendPushNotification` — and it *must* be
+`true` once one does. It therefore fails in four directions: flipping the flag
+early, shipping a sender without flipping it, removing either gate, and
+requesting permission from any other surface. It also fails if the subscribe
+path is deleted rather than gated. Each failure mode was verified by inducing
+it.
+
+Quick win 1 of section 3 is done. **Quick win 2 (D235, the offline code screen)
+is now the highest-value engineering item in this document**, and remains
+unauthorised.
