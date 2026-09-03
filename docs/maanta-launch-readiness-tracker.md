@@ -1,9 +1,30 @@
 # MAANTA launch readiness tracker
 
-Last updated: 2026-08-08 · Review weekly (Product track, Step 5). Update this
+Last updated: 2026-09-03 (header only — see the 2026-09-03 block below; the gate tables themselves still need the founder-owned revision pass recorded as **D219**) · Review weekly (Product track, Step 5). Update this
 doc (and its Notion counterpart) whenever an item changes state; anything
 marked **GATE** must be done before launch day. Behavior-changing decisions go
 to `maanta-decisions-log.md`, not this file.
+
+> **2026-09-03 — three migrations applied to production; ledger 110/110.**
+> Under founder authorisation the claim-allocation (D223/D236), blacklist
+> enforcement (D171) and tenant-policy repair (D168) migrations were applied in
+> order, each with its own read-back, and the complete ledger was diffed against
+> `supabase/migrations/`: **110 files, 110 rows, zero differences.**
+> `verify_redemption`'s definition md5 is unchanged, so the money path is
+> provably untouched. Post-apply read-only smoke: 247 live deals, 0
+> over-subscribed, an independent hand-count across all 198 deals holding
+> claims returns zero mismatches against the new derived allocation, and the
+> ten previously-stale claims now release their slots without any row being
+> mutated. Evidence integrity unchanged — **external field validation is still
+> 0**. Fast Visit remains **OFF**. Full record:
+> `docs/ops/merchant-01-engineering-completion-2026-09-03.md` and
+> `docs/ops/migration-deployment-plan-2026-09-03.md`.
+>
+> **The next gate is operational, not engineering: E14 / D172 — browser E2E has
+> still never executed.** 200 workflow runs, every sampled one skipped. The
+> exact provisioning procedure is
+> `docs/ops/browser-e2e-provisioning-2026-09-03.md`. Merchant 01 follows a
+> genuinely green browser run.
 
 > **STALENESS WARNING, added 2026-09-01.** The gate tables below have not been
 > revised since 2026-08-08 and predate most of what has since become true:
