@@ -167,10 +167,12 @@ BEGIN
     RAISE EXCEPTION 'queue_call_not_found';
   END IF;
 
-  -- Both locks may have waited. Deadlines are judged from a fresh database
-  -- clock only after the state they protect is ours to change.
+  -- Both locks may have waited. A new waiting -> called transition must still
+  -- be live at a fresh database clock. An already-called generation is a
+  -- committed result: a retry returns it even if its deadline has since passed.
   v_now := clock_timestamp();
-  IF v_redemption.expires_at <= v_now OR v_row.expires_at <= v_now THEN
+  IF v_row.status = 'waiting'
+     AND (v_redemption.expires_at <= v_now OR v_row.expires_at <= v_now) THEN
     RAISE EXCEPTION 'queue_call_not_found';
   END IF;
 
