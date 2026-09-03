@@ -25,14 +25,14 @@ import { cn } from "@/lib/ui";
 export function DealKpis({
   pay,
   was,
-  claimsCount,
+  claimsReserved,
   maxClaims,
   verifiedCount,
   className,
 }: {
   pay?: number | null;
   was?: number | null;
-  claimsCount?: number | null;
+  claimsReserved?: number | null;
   maxClaims?: number | null;
   verifiedCount?: number | null;
   className?: string;
@@ -46,8 +46,14 @@ export function DealKpis({
   }
 
   // Scarcity — only when the merchant actually capped the deal.
-  if (maxClaims != null && claimsCount != null) {
-    const left = maxClaims - claimsCount;
+  //
+  // D236: `claimsReserved` is claims HANDED OUT, not redemptions. Fed from
+  // `deals.claims_count` until 2026-09-03, this line told a shopper "9 left"
+  // on a deal whose ten codes were all already issued — the counter only moved
+  // when someone redeemed. `left` is now the number of codes the database will
+  // actually still hand out, so the card and `claim_deal` agree.
+  if (maxClaims != null && claimsReserved != null) {
+    const left = Math.max(maxClaims - claimsReserved, 0);
     facts.push(
       <span key="left" className="tnum">
         {left > 0 ? `${left} left` : "Fully claimed"}
@@ -55,13 +61,26 @@ export function DealKpis({
     );
   }
 
-  // Social proof — verified redemptions at this shop, the one number MAANTA
-  // ranks on. Zero is stated plainly rather than hidden.
+  // Social proof — and it is the SHOP's, not this deal's.
+  //
+  // `verifiedCount` is fed from `getVerifiedCounts`, which is
+  // `verified_counts_by_merchant`: a merchant's all-time successful redemptions
+  // across every deal they have ever run. That is the right input to rail 3's
+  // order (`lockedStandardOrder`, D1), where it is explicitly a MERCHANT
+  // ranking. Rendered as a bare "12 verified" beside a deal title it read as
+  // this deal's count, which is a materially different and much smaller number
+  // — drift D227 (PR #317), renumbered D229 on integration.
+  //
+  // Founder ruling R4 (2026-09-02) settles the labels: a merchant all-time
+  // total must never be presented as a deal-level count, and deal-level counts
+  // are not shown at all until a correct deal-level aggregation backs them.
+  // So the scope goes in the string. The number did not change; what it claims
+  // did.
   if (verifiedCount != null) {
     facts.push(
       <span key="verified" className="inline-flex items-center gap-1">
         <IconCheck className="h-3 w-3 text-verified" aria-hidden="true" />
-        <span className="tnum">{verifiedCount} verified</span>
+        <span className="tnum">{verifiedCount} verified at this shop</span>
       </span>
     );
   }

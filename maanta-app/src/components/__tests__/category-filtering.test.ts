@@ -57,6 +57,7 @@ function deal(id: string, category: string | null, title: string): DealRow {
     is_paused: false,
     max_claims: null,
     claims_count: 0,
+    claims_reserved: 0,
     success_fee: 30,
     boost_active: false,
     price_kes: 500,

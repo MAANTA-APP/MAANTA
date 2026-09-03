@@ -9,7 +9,7 @@ type Membership = {
   id: string;
   expires_at: string | null;
   max_claims: number | null;
-  claims_count: number;
+  claims_reserved: number;
 };
 
 export type EndingSoonItem = {
@@ -28,7 +28,7 @@ export type EndingSoonItem = {
  * directions.
  *
  * **This fetches nothing and the claim cap is deliberately NOT re-derived.**
- * `claims_count` only changes server-side, so the values here are the ones the
+ * `claims_reserved` only changes server-side, so the values here are the ones the
  * page was rendered with; `endingSoonDeals` still applies the cap exclusion to
  * them exactly as it did on the server. Reflecting exhaustion that happens
  * while the page is open is criterion 4 and needs fresh data — separate work.

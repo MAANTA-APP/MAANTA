@@ -24,10 +24,17 @@ export async function PATCH(
   const service = createServiceClient();
   const { data: deal } = await service
     .from("deals")
-    .select("id, merchant_id, is_active, is_paused")
+    .select("id, merchant_id, is_active, is_paused, claims_reserved, max_claims")
     .eq("id", params.id)
     .eq("merchant_id", merchant.id)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      merchant_id: string;
+      is_active: boolean;
+      is_paused: boolean;
+      claims_reserved: number;
+      max_claims: number | null;
+    }>();
 
   if (!deal) {
     return NextResponse.json({ error: "Deal not found." }, { status: 404 });
@@ -48,7 +55,35 @@ export async function PATCH(
     if (typeof body.description === "string") update.description = body.description.trim() || null;
     if (body.maxClaims !== undefined) {
       const n = parseInt(String(body.maxClaims), 10);
-      update.max_claims = isNaN(n) || n <= 0 ? null : Math.min(n, 10000);
+      const nextMax = isNaN(n) || n <= 0 ? null : Math.min(n, 10000);
+      // D236 INVARIANT D: the allocation may be lowered to stop further
+      // claiming, but never below the number of claims currently holding a
+      // slot — that would retroactively un-promise a code a shopper is
+      // holding right now.
+      //
+      // This route is the ONLY guard on that, deliberately. The count is
+      // derived from live expiry (D224 ruling), so it falls by itself as
+      // unredeemed claims lapse; a database CHECK on a value that changes with
+      // the clock would either have to be re-evaluated by a sweep — which the
+      // ruling forbids — or would start rejecting unrelated writes to an
+      // untouched row. The database still refuses to over-ISSUE at any
+      // allocation, which is the invariant that protects shoppers; this
+      // refusal protects the merchant from setting a number that contradicts
+      // what is already out.
+      if (nextMax !== null && nextMax < deal.claims_reserved) {
+        return NextResponse.json(
+          {
+            error:
+              deal.claims_reserved === 1
+                ? "1 shopper is currently holding a claim on this deal, so the limit can't go below 1. Pause the deal to stop new claims without affecting it."
+                : `${deal.claims_reserved} shoppers are currently holding claims on this deal, so the limit can't go below ${deal.claims_reserved}. Pause the deal to stop new claims without affecting them.`,
+            code: "below_claims_reserved",
+            claimsReserved: deal.claims_reserved,
+          },
+          { status: 409 }
+        );
+      }
+      update.max_claims = nextMax;
     }
     // Correcting a category is an edit like any other. An unrecognised key does
     // not fail the rest of the edit — a stale client must not be able to sink

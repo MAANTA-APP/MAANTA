@@ -57,8 +57,18 @@ export type ClaimOutcome =
   | { kind: "success"; redemptionId: string }
   /** Server asked for a gate to be satisfied first; route the shopper there. */
   | { kind: "redirect"; to: "phone" | "login" }
-  /** Show `message` verbatim. Already shopper-safe — never a raw server error. */
-  | { kind: "error"; message: string };
+  /**
+   * Show `message` verbatim. Already shopper-safe — never a raw server error.
+   *
+   * `stale` means the server refused because the DEAL moved on, not because
+   * anything about this shopper or this request was wrong: it sold out, was
+   * paused, expired, or was switched off while the page sat open. The caller
+   * should re-render the deal so its buttons and counts stop contradicting the
+   * message. It is deliberately NOT set for a transport failure or an unknown
+   * outcome — refreshing there would replace an honest "go and check" with a
+   * page that may look claimable and invite a second attempt.
+   */
+  | { kind: "error"; message: string; stale?: true };
 
 /** JSON body shapes the route can return. Anything else is treated as absent. */
 type ClaimResponseBody = {
@@ -106,8 +116,20 @@ export async function interpretClaimResponse(
     if (code === "phone_required") return { kind: "redirect", to: "phone" };
     if (code === "sign_in_required") return { kind: "redirect", to: "login" };
 
+    // The deal itself changed under the shopper. Same message, plus a signal
+    // that what is on screen is out of date.
+    const STALE_DEAL_CODES = new Set([
+      "deal_claim_limit_reached",
+      "deal_paused",
+      "deal_expired",
+    ]);
+
     const message = asString(body?.error);
-    if (message) return { kind: "error", message };
+    if (message) {
+      return code && STALE_DEAL_CODES.has(code)
+        ? { kind: "error", message, stale: true }
+        : { kind: "error", message };
+    }
 
     // Non-OK with no readable JSON error: a platform 5xx or a timed-out
     // function. The claim may already exist — say so instead of guessing.

@@ -72,7 +72,7 @@ function cardProps(
     merchantId: d.merchant_id,
     isFavourite: opts.favourites.has(d.merchant_id),
     // Decision KPIs — rendered by the tall variants only (DealKpis).
-    claimsCount: d.claims_count,
+    claimsReserved: d.claims_reserved,
     maxClaims: d.max_claims,
     verifiedCount: opts.verified?.get(d.merchant_id) ?? null,
   };
@@ -213,7 +213,7 @@ export default async function FeedPage({
       >
         <LiveDealCollection
           title="Top picks near you"
-          subtitle="Flash deals — grab them while they last"
+          subtitle="Limited-time offers ending soon"
           action={
             <Link href="/search?type=flash" className="text-xs font-semibold text-muted">
               See all ›
@@ -236,7 +236,7 @@ export default async function FeedPage({
               id: d.id,
               expires_at: d.expires_at,
               max_claims: d.max_claims,
-              claims_count: d.claims_count,
+              claims_reserved: d.claims_reserved,
             },
             card: cardProps(d, {
               origin,
@@ -253,7 +253,7 @@ export default async function FeedPage({
 
         <LiveDealCollection
           title="Neighbourhood favourites"
-          subtitle="Boosted deals near you"
+          subtitle="Featured deals promoted by local shops"
           action={
             <Link href="/search?type=boosted" className="text-xs font-semibold text-muted">
               See all ›

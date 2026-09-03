@@ -108,6 +108,20 @@ export async function getSuccessFee(): Promise<number> {
   return isNaN(n) ? SUCCESS_FEE_KES : n;
 }
 
+/**
+ * The length of one boost window, in hours.
+ *
+ * `purchase_boost` owns this: it writes `NOW() + INTERVAL '24 hours'`
+ * (`supabase/migrations/20260709175532_deal_pause_boosts_staff.sql`). The number
+ * was typed as the literal "24h" in three merchant surfaces and is now also
+ * stated to shoppers in the paid-placement disclosure on `/deals/[id]`. A
+ * disclosure that disagreed with the window it discloses would be worse than
+ * none, so the shopper-facing sentence reads it from here rather than typing it
+ * a fourth time. Unlike the fee, it is not in `app_config` — changing it means
+ * changing the RPC, and this constant must move with it.
+ */
+export const BOOST_WINDOW_HOURS = 24;
+
 /** Boost price from app_config, falling back to the wireframe default KES 500 / 24h. */
 export async function getBoostFee(): Promise<number> {
   const service = createServiceClient();
@@ -143,6 +157,8 @@ export type DealRow = {
   is_paused: boolean;
   max_claims: number | null;
   claims_count: number;
+  /** D236: claims ISSUED — what `max_claims` caps. Distinct from claims_count. */
+  claims_reserved: number;
   success_fee: number;
   boost_active: boolean;
   price_kes: number | null;
@@ -165,10 +181,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;

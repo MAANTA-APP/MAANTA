@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
+import { BOOST_WINDOW_HOURS, getAppUser, getDeal, getVerifiedCounts } from "@/lib/data";
 import { dealPricing } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { isDealClaimable } from "@/lib/deal-expiry";
+import { isFullyClaimed, claimsRemaining } from "@/lib/ending-soon";
 import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
@@ -95,9 +96,13 @@ export default async function DealDetailPage({
     deal.is_active &&
     !paused &&
     isDealClaimable(deal.expires_at) &&
-    !(deal.max_claims != null && deal.claims_count >= deal.max_claims);
-  const fullyClaimed =
-    deal.max_claims != null && deal.claims_count >= deal.max_claims;
+    !isFullyClaimed(deal);
+  // D236: "fully claimed" means the ALLOCATION is spent — every code has been
+  // handed out — not that every code has been redeemed. Before 2026-09-03 this
+  // read claims_count (redemptions), so a deal with all its codes issued still
+  // offered a Claim button and the shopper met the refusal at the RPC.
+  const fullyClaimed = isFullyClaimed(deal);
+  const remaining = claimsRemaining(deal);
   const m = deal.merchants;
   const { pay, was, extras, charges } = dealPricing(deal);
 
@@ -154,6 +159,18 @@ export default async function DealDetailPage({
         <h1 className="text-2xl font-bold leading-tight text-ink">{deal.title}</h1>
         {deal.description ? (
           <p className="mt-2 text-sm text-muted">{deal.description}</p>
+        ) : null}
+
+        {/* Paid-placement disclosure (PR #317 D223, renumbered D225 on
+            integration). The BOOSTED chip above names the mechanism; this names
+            the commercial fact, so the shopper meets it before claiming. Muted,
+            adjacent to the deal it describes, never dressed as a warning — a
+            boost is a legitimate product and the point is disclosure, not
+            discouragement. */}
+        {deal.boost_active ? (
+          <p className="mt-3 text-xs leading-relaxed text-muted">
+            This shop paid to feature this deal for {BOOST_WINDOW_HOURS} hours.
+          </p>
         ) : null}
 
         <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
@@ -223,8 +240,8 @@ export default async function DealDetailPage({
             <span className="text-muted">
               ·{" "}
               {fullyClaimed
-                ? `${deal.claims_count} of ${deal.max_claims} claimed — no codes left`
-                : `${deal.claims_count} of ${deal.max_claims} claimed`}
+                ? `${deal.claims_reserved} of ${deal.max_claims} claimed — no codes left`
+                : `${deal.claims_reserved} of ${deal.max_claims} claimed · ${remaining} left`}
             </span>
           ) : null}
         </p>
