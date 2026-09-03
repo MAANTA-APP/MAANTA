@@ -39,8 +39,9 @@ Two findings are exceptions, because they are **wrong at N = 1**, not at N =
    a denial is sticky and expensive to recover — so this spends the grant before
    there is any payload, on the exact cohort Node 0 is measuring.
 
-Recorded as **D235** and **D234**. **D234 was fixed on 2026-09-03** — see the
-addendum at the end of this document. **D235 remains open.** Everything below
+Recorded as **D235** and **D234**. **D234 was fixed on 2026-09-03.** **D235's
+implementation shipped the same day and the row is still open** — the worker is
+proven, the real page is not; see the addenda at the end. Everything below
 section 2 is genuine but sequenced behind field evidence.
 
 ---
@@ -305,7 +306,7 @@ unauthorised.
 
 ---
 
-## 7. Addendum — D235 fixed (2026-09-03)
+## 7. Addendum — D235 implementation shipped; the row is NOT closed (2026-09-03)
 
 The claimed-code screen now works without a network.
 
@@ -369,12 +370,43 @@ golden path (which self-skips without a deployed app), so it never skips and
 cannot be mistaken for golden-path coverage. See
 `docs/ops/e2e-golden-path.md`.
 
-**What is still not proven, stated plainly:** that the real Next.js `/my-deals`
-document renders a usable code offline for a signed-in shopper. The harness
-serves stand-in HTML. Only the golden-path suite against a deployed app with a
-session closes that, and it remains gated on the same ops task. So the correct
-claim today is "the worker is browser-proven; the page is not", not "verified
-offline at a counter".
+### The row is open, and the closing condition is fixed
+
+**D235 was closed on 2026-09-03 and reopened the same day.** Closing it on the
+worker suites was the wrong call, and the founder rejected it. The condition,
+as set:
+
+> Against a real deployed Next.js build, an authenticated shopper session and a
+> genuine established claim, `/my-deals` must render enough persisted ticket
+> information after connectivity loss to allow the shopper to present the
+> six-digit code at the counter.
+
+Nothing short of that closes it. Two risks make the distinction real rather than
+procedural, and neither is visible to a harness that never authenticates:
+
+1. **Hydration.** The cached document is a Next.js SSR payload. If anything the
+   ticket row needs is filled in by a client fetch rather than carried in the
+   HTML, the offline reload renders an empty row while every existing suite
+   stays green.
+2. **The redirect.** `/my-deals` redirects to `/login?next=/my-deals` when
+   `getAppUser()` returns null. If a redirect response is ever what lands in the
+   cache, the shopper reloads at the till into a login page instead of their
+   code — worse than having no cache at all.
+
+`e2e/offline-ticket.spec.ts` is written and committed. It self-skips without
+`E2E_BASE_URL` and `E2E_SHOPPER_STORAGE`, and — deliberately — **fails rather
+than skips** if the credentials are present but the account holds no active
+claim, because a silent pass on an empty account is the one way this proof could
+be faked.
+
+Until it runs green, the three claims named by the **D235 claim discipline**
+(`src/lib/__tests__/d235-claim-discipline.test.ts`, the sole verbatim home for
+those strings) may not appear in any document or surface. The ban reads the
+register, so it lifts by itself when the row is genuinely closed; and closing
+the row requires its evidence to name the spec and the authenticated session,
+so a one-word status flip fails.
+
+The correct claim today: **the worker is browser-proven; the page is not.**
 
 **Known limit, by design:** only navigation requests are served from cache. An
 in-app tab switch while already offline can still fail; a reload recovers it.

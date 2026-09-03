@@ -136,3 +136,30 @@ Next.js `/my-deals` document renders a usable code offline for a signed-in
 shopper. The harness serves stand-in HTML. Only the golden-path suite, against
 a deployed app with a session, can close that — and it is still gated on the
 same ops task as everything else in this document.
+
+---
+
+## `offline-ticket.spec.ts` — D235's closing proof (credentialed)
+
+Lives in `e2e/` with the golden path, not in `e2e-sw/`, because it needs exactly
+what the golden path needs: a deployed build and a signed-in shopper.
+
+```bash
+E2E_BASE_URL=https://<app> \
+E2E_SHOPPER_STORAGE=./shopper.json \
+npm run test:e2e -- offline-ticket
+```
+
+**The shopper in `E2E_SHOPPER_STORAGE` must hold at least one ACTIVE claim.**
+With no ticket the spec **fails rather than skips** — a silent pass on an empty
+account is the one way this proof could be faked. It claims nothing and charges
+nothing, only reading a ticket that already exists, so unlike the golden path it
+is safe to re-run and cannot incur a KES 30 fee.
+
+It asserts, in order: a six-digit code is present online; the worker has taken
+control; after `setOffline(true)` and a reload the page is **not** the login
+page; the same code is still rendered; there is enough around it to present at a
+counter; and `TicketOfflineNotice` says it is a saved copy.
+
+Until this runs green, D235 stays open and the claim discipline in
+`src/lib/__tests__/d235-claim-discipline.test.ts` applies.
