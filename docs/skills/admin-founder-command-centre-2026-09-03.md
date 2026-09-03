@@ -516,6 +516,28 @@ change outside this PR, and computing a per-record fee total from redemption
 rows would be a second definition of the success fee — `readLedgerFeeTotals`
 is the one.
 
+A fourth round on `a99003d` found five more, fixed in the same way (D253–D257),
+and raised the two gaps the founder had already observed:
+
+| Finding | What was true | What is true now |
+|---|---|---|
+| P2 — banner wording | The Action Queue's read-failure banner counted items and called them categories — the overstatement D249 had just corrected one function away, left standing above it | "N of the queue's reads", matching `summariseQueue` (D253) |
+| P2 — live queue card | "In queue now" said "at this moment" while `countStages` runs over the newest-60 claims; its sibling card already disclosed the same limit | The hint names the page it reads and adds "not the whole queue" (D254) |
+| P2 — Support counts | Overdue was filtered in memory from 50 tasks ordered by *creation* time, so an overdue task outside the page vanished and, with none inside it, the warning vanished too; the heading showed the page length as the open total | Overdue is its own exact head count, the heading reads the exact total, a capped page says so, and a failed read says "unknown, not none" (D255) |
+| P2 — the suite's own honesty | An empty queue let the drill-down test annotate itself and pass, inside the 12-of-12 D240 closes on | An empty queue fails, with the remedy in the message: a proof that did not run is not a pass (D256) |
+| P2 — the suite vs D250 | The destination assertion rejected the bare `/admin/redemptions` that D250 deliberately produces — two fixes on one head disagreeing | The assertion accepts it and still rejects a bare directory; the guard extracts the spec's own regex and runs `fraudReviewHref()` through it, so they cannot drift apart (D257) |
+
+**Two P1s were verified and deliberately not fixed here** (D258, D259): neither
+privileged shell offers a sign-out control, and the public site offers no
+discoverable `/login`. Both are real — `SignOutButton` is mounted only on
+`(shopper)/you` and `merchant/(app)/settings`, and `nav.ts` carries no sign-in
+entry in header or footer. Both are also **pre-existing and outside this PR**:
+`main`'s versions of both shells contain no `SignOut` either, and neither
+marketing file is in the diff. The founder recorded them as under disposition
+the same day, product design is frozen under Node 0 field validation, and each
+fix is a small change to a surface this PR does not touch. They are register
+rows awaiting a ruling, not silence.
+
 ## 14. Exact-head CI verdict
 
 `085653d` is green: `ci` (lint · typecheck · vitest · build with the three

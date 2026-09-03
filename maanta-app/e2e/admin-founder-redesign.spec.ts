@@ -118,17 +118,26 @@ test.describe("admin console at iPhone size", () => {
 
     const items = page.locator("main a[href^='/admin/']").filter({ hasText: /Urgent|Attention/ });
     const count = await items.count();
-    if (count === 0) {
-      await expect(page.getByText(/Nothing needs a human right now/)).toBeVisible();
-      test.info().annotations.push({ type: "note", description: "queue empty on this env — drill-down not exercised" });
-    } else {
-      const href = await items.first().getAttribute("href");
-      await items.first().click();
-      await page.waitForLoadState("domcontentloaded");
-      // A record, never a bare list: merchant 360, a redemption, or a filtered surface.
-      expect(href).toMatch(/^\/admin\/(merchants\/[0-9a-f-]+|redemptions\/[0-9a-f-]+|redemptions\?reason=|operations)/);
-      await assertNoReadError(page, href ?? "record");
-    }
+    // An empty queue is not a pass. D240 reads this suite's 12-of-12 as evidence
+    // that the drill-down was exercised, so a run that could not exercise it must
+    // say so in red rather than annotate itself green (D256). The environment is
+    // read-only, so the fix is on the environment: give the preview one action
+    // item — a pending shop is enough — and re-dispatch.
+    expect(
+      count,
+      "Action queue is empty on this environment, so the drill-down could not be exercised. Seed one action item (a pending merchant will do) on the target and re-run; do not count this suite as 12/12 without it."
+    ).toBeGreaterThan(0);
+    const href = await items.first().getAttribute("href");
+    await items.first().click();
+    await page.waitForLoadState("domcontentloaded");
+    // A record, or the review surface the item names — never an unrelated list.
+    // Bare `/admin/redemptions` is a deliberate destination, not a miss: D250
+    // sends a fraud type the page has no filter for to the unfiltered list on
+    // purpose, so the assertion accepts it (D257).
+    expect(href).toMatch(
+      /^\/admin\/(merchants\/[0-9a-f-]+|redemptions\/[0-9a-f-]+|redemptions(\?reason=[a-z_]+)?$|operations)/
+    );
+    await assertNoReadError(page, href ?? "record");
     await ctx.close();
   });
 

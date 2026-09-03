@@ -7,6 +7,9 @@ import { AdminReadError } from "@/components/admin/read-error";
 
 export const dynamic = "force-dynamic";
 
+/** One display page. The counts beside it come from exact head counts, not from this. */
+const TASK_CAP = 50;
+
 /**
  * Support — the `agent_tasks` queue, with an audit-trailed override.
  *
@@ -24,12 +27,33 @@ export default async function AdminSupportPage({
 
   const view = searchParams.view === "resolved" ? "resolved" : "open";
   const service = createServiceClient();
-  const { data: tasks, error } = await service
+  const {
+    data: tasks,
+    error,
+    count: totalCount,
+  } = await service
     .from("agent_tasks")
-    .select("id, task_type, priority, description, is_complete, created_at, due_at, merchant_id, merchants(merchant_name)")
+    .select(
+      "id, task_type, priority, description, is_complete, created_at, due_at, merchant_id, merchants(merchant_name)",
+      { count: "exact" }
+    )
     .eq("is_complete", view === "resolved")
     .order("created_at", { ascending: view !== "open" })
-    .limit(50);
+    .limit(TASK_CAP);
+
+  // Overdue is a fact about the whole open queue, so it gets its own head count.
+  // Deriving it from the display page understated it twice over: the page is
+  // capped, and it is ordered by creation time rather than due time, so an
+  // overdue task outside the newest 50 vanished — and if none of those 50 was
+  // overdue the warning disappeared entirely (D255).
+  const overdueRes =
+    view === "open"
+      ? await service
+          .from("agent_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("is_complete", false)
+          .lt("due_at", new Date().toISOString())
+      : null;
 
   if (error) {
     return (
@@ -41,15 +65,17 @@ export default async function AdminSupportPage({
   }
 
   const now = new Date();
-  const overdueCount = (tasks ?? []).filter(
-    (t) => !t.is_complete && t.due_at && new Date(t.due_at) < now
-  ).length;
+  const overdueCount = overdueRes && !overdueRes.error ? overdueRes.count ?? 0 : null;
+  const rows = tasks ?? [];
+  const truncated = totalCount !== null && totalCount !== undefined && totalCount > rows.length;
 
   return (
     <main className="max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink">
-          {view === "open" ? `Open issues (${(tasks ?? []).length})` : "Resolved issues"}
+          {view === "open"
+            ? `Open issues (${totalCount === null || totalCount === undefined ? "—" : totalCount.toLocaleString()})`
+            : "Resolved issues"}
         </h1>
         {/* Quiet, not amber: the queue's override buttons carry the amber budget. */}
         <Link
@@ -59,9 +85,18 @@ export default async function AdminSupportPage({
           Log an issue
         </Link>
       </div>
-      {view === "open" && overdueCount > 0 ? (
+      {view === "open" && overdueCount === null ? (
+        <p className="mt-1 text-sm text-ink">
+          Overdue count could not be read — unknown, not none.
+        </p>
+      ) : view === "open" && overdueCount !== null && overdueCount > 0 ? (
         <p className="mt-1 text-sm text-ink">
           <strong className="font-semibold">{overdueCount} overdue</strong> — open past the due time.
+        </p>
+      ) : null}
+      {truncated ? (
+        <p className="mt-1 text-xs text-muted">
+          The {rows.length} most recent shown of {totalCount?.toLocaleString()} — this list is a page, not the queue.
         </p>
       ) : null}
 
@@ -81,12 +116,12 @@ export default async function AdminSupportPage({
       </div>
 
       <div className="mt-5 space-y-3">
-        {(tasks ?? []).length === 0 ? (
+        {rows.length === 0 ? (
           <p className="rounded-card bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
             {view === "open" ? "No open issues" : "Nothing resolved yet"}
           </p>
         ) : (
-          (tasks ?? []).map((t) => {
+          rows.map((t) => {
             const overdue = !t.is_complete && t.due_at && new Date(t.due_at) < now;
             const merchantName =
               (t.merchants as unknown as { merchant_name: string } | null)?.merchant_name ?? "Platform";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { FRAUD_REVIEW_FILTERS, fraudReviewHref } from "@/lib/admin-action-queue";
 
 /**
  * The two browser-suite workflows carry safety properties that are invisible
@@ -109,5 +110,60 @@ describe("the admin/founder acceptance workflow is dispatch-only and fails close
     const jobEnv = wf.slice(wf.indexOf("environment: e2e-readonly"), wf.indexOf("steps:"));
     expect(jobEnv).not.toMatch(/E2E_ADMIN_STORAGE/);
     expect(jobEnv).not.toMatch(/E2E_COFOUNDER_STORAGE/);
+  });
+});
+
+/**
+ * The acceptance spec the workflow above runs.
+ *
+ * Its 12-of-12 result is what closes D240, so two of its properties are
+ * load-bearing rather than stylistic: a test that could not exercise its
+ * subject must fail rather than annotate itself green (D256), and its
+ * destination assertion must accept every destination the queue can actually
+ * produce — including the bare `/admin/redemptions` that D250 sends an
+ * unfilterable fraud type to on purpose (D257). Both drift silently: nothing
+ * in a browser run tells you the spec has stopped agreeing with the product.
+ */
+describe("the admin/founder acceptance spec proves what its count claims", () => {
+  const spec = read("maanta-app/e2e/admin-founder-redesign.spec.ts");
+
+  it("fails the drill-down when the queue is empty, rather than annotating a pass", () => {
+    // The old shape recorded a note and passed. If it comes back, a 12/12 can
+    // again mean eleven proofs and one skipped subject.
+    expect(spec).not.toMatch(/drill-down not exercised/);
+    expect(spec).toMatch(/toBeGreaterThan\(0\)/);
+    expect(spec).toMatch(/do not count this suite as 12\/12 without it/);
+  });
+
+  it("accepts every destination the Action Queue can emit for a fraud item", () => {
+    // Extract the spec's own regex rather than restating it, so the assertion
+    // under test is the one that ships.
+    // No /s flag: the repo's tsc target rejects it (the same trap the D241
+    // guard hit), so the class does the work instead.
+    const m = spec.match(/expect\(href\)\.toMatch\(\s*\/([\s\S]+?)\/\s*\)/);
+    expect(m, "the drill-down destination assertion was not found").toBeTruthy();
+    const destination = new RegExp(m![1]);
+
+    // Every filter the destination implements, plus types it does not — the
+    // four `fraud_events` allows that `/admin/redemptions` has no pill for.
+    const types = [
+      ...FRAUD_REVIEW_FILTERS,
+      "otp_abuse",
+      "device_blacklist",
+      "merchant_override",
+      "code_rejected",
+    ];
+    for (const t of types) {
+      expect(fraudReviewHref(t), `destination for ${t}`).toMatch(destination);
+    }
+    // And the record destinations the other rules emit.
+    expect("/admin/merchants/0f7d2c11-1111-4444-8888-aaaaaaaaaaaa").toMatch(destination);
+    expect("/admin/operations").toMatch(destination);
+
+    // Still a real assertion: a bare directory is the "list, not a record"
+    // failure the test is named for, and widening for D250 must not admit it.
+    expect("/admin/merchants").not.toMatch(destination);
+    expect("/admin/deals").not.toMatch(destination);
+    expect("/admin/queue").not.toMatch(destination);
   });
 });

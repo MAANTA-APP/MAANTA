@@ -56,8 +56,11 @@ export default async function AdminActionQueuePage({
       {unavailable.length > 0 ? (
         <div className="mt-4">
           <AdminReadError
-            what={`${unavailable.length} of the queue's categories`}
-            sub="Those categories show an alert row below instead of items. Unreadable is not clear — do not treat the rest of the list as the whole list."
+            // Reads, not categories: a category carries up to two reads and both
+            // can fail together, so an item count is a count of failed reads —
+            // the same correction D249 made inside `summariseQueue` (D253).
+            what={`${unavailable.length} of the queue's reads`}
+            sub="Each failed read shows an alert row below instead of items. Unreadable is not clear — do not treat the rest of the list as the whole list."
           />
         </div>
       ) : null}

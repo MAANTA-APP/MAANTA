@@ -18,6 +18,7 @@ const PAGES = [
   "src/lib/admin-action-queue-data.ts",
   "src/app/admin/visits/page.tsx",
   "src/app/admin/deals/page.tsx",
+  "src/app/admin/support/page.tsx",
   "src/app/admin/operations/page.tsx",
   "src/app/admin/merchants/[id]/page.tsx",
   "src/app/founder/page.tsx",
@@ -206,6 +207,41 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src).toMatch(/OPENING_CREDIT_REFERENCE_PREFIX/);
     expect(src).not.toMatch(/openingCreditAmount\(ledger\b/);
     expect(src).toMatch(/openingRes\.error \? "—"/);
+  });
+
+  it("the Action Queue banner counts unreadable reads, not categories (Codex P2, PR #319, D253)", () => {
+    const src = read("src/app/admin/queue/page.tsx");
+    // D249 gave every failed read its own item, so the banner's item count is a
+    // count of reads. Four categories carry two reads each, and calling two
+    // failed redemption reads "2 categories" overstates the outage — the exact
+    // wording `summariseQueue` was corrected away from.
+    expect(src).toMatch(/queue's reads/);
+    expect(src).not.toMatch(/queue's categories/);
+  });
+
+  it("Merchant 360's queue card names the page it is derived from (Codex P2, PR #319, D254)", () => {
+    const src = read("src/app/admin/merchants/[id]/page.tsx");
+    // `stages` comes from the newest-N claims page, so "at this moment" claimed
+    // a completeness the read does not have — a waiting presentation on an
+    // older claim is invisible to it. Its sibling card already said so.
+    expect(src).not.toMatch(/On the staff queue at this moment\./);
+    expect(src.match(/Of the recent claims below/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/not the whole queue/);
+  });
+
+  it("Support counts overdue and open tasks off the page (Codex P2, PR #319, D255)", () => {
+    const src = read("src/app/admin/support/page.tsx");
+    // Overdue gets its own head count: the display page is capped AND ordered
+    // by creation time, so an overdue task outside it vanished — and with none
+    // overdue inside it, the warning disappeared entirely.
+    expect(src).toMatch(/from\("agent_tasks"\)\s*\.select\("id", \{ count: "exact", head: true \}\)/);
+    expect(src).toMatch(/\.lt\("due_at"/);
+    // A failed overdue read is unknown, never none.
+    expect(src).toMatch(/unknown, not none/);
+    // The heading reads the exact count, and a capped page says so.
+    expect(src).toMatch(/count: totalCount/);
+    expect(src).toMatch(/this list is a page, not the queue/);
+    expect(src).not.toMatch(/Open issues \(\$\{\(tasks \?\? \[\]\)\.length\}\)/);
   });
 
   it("merchant 360 reads money from the ledger, not from the claim's fee column", () => {

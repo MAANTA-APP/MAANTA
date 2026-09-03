@@ -530,7 +530,7 @@ export default async function AdminMerchantDetailPage({
           <KpiCard
             label="In queue now"
             value={redemptionsRes.error ? "—" : stages.in_queue.toLocaleString()}
-            hint="On the staff queue at this moment."
+            hint="Of the recent claims below — the staff queue among them, not the whole queue."
           />
         </div>
         <p className="mt-2 text-xs text-muted">
