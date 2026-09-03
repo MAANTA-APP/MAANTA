@@ -496,6 +496,23 @@ diffed against `ls supabase/migrations/`:
 | Admin access | 4 admins · 54 `admin_ops_log` rows |
 | Frozen config | fee `30.00` · **`fast_visit_enabled` `false`** · demo mode `true` |
 
+### Deploy (step 7) and post-deploy verification (step 8)
+
+| Item | Evidence |
+|---|---|
+| CI on the integrated head | run **#951** (`f818dd3`) and run **#953** (`b8a1a10`) — **both jobs success**, including `db-tests` over the fresh 110-migration chain |
+| Merge | PR **#318** squash-merged to `main` as **`87310e9`** |
+| Deploy | Vercel `dpl_7fvDgU218jzw47KSjP9E6WatPbom`, target **production**, state **READY**, aliased to `maanta.app` / `www.maanta.app`, `aliasError: null`, commit `87310e9` on `main` |
+| Runtime errors since deploy | **none** reported for the project in the window covering it |
+| Ordering | Migrations landed **before** the app, as the plan required. The reverse order would have taken the shopper feed down |
+
+**One limitation, stated rather than glossed:** this session's egress proxy
+blocks `maanta.app`, so **no HTTP probe of the live site was performed from
+here.** The deploy evidence above is Vercel's own build/alias state plus the
+runtime-error feed, and the semantic verification is the read-only production
+database smoke in the table above. A human opening `/feed` and one capped deal
+is still worth doing, and is step 1 of the browser-E2E provisioning anyway.
+
 ### Fast Visit
 
 **Untouched and still OFF.** No migration in this session references
