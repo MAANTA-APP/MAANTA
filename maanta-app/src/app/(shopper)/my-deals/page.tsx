@@ -27,6 +27,7 @@ import {
   SegmentedLinks,
 } from "@/components/ui/claude";
 import { MyDealsControls } from "./my-deals-controls";
+import { TicketOfflineNotice } from "@/components/shopper/ticket-offline-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -189,6 +190,11 @@ export default async function MyDealsPage({
           </div>
         </div>
       </div>
+
+      {/* D235 — the worker serves this page from cache with no network, so the
+          codes below are real and usable but the PAGE may be stale. Says so
+          rather than letting a saved view pass as a live one. */}
+      <TicketOfflineNotice />
 
       <Section className="mt-5">
         {ticketsState === "failed" ? (

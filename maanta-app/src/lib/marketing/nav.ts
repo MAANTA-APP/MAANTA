@@ -140,6 +140,10 @@ export const NON_INDEXABLE_PREFIXES = [
   "/notifications",
   "/profile",
   "/you",
+  // The service worker's offline fallback document (D235). Precached and
+  // served in place of a page when the network is gone — a dead end to a
+  // crawler, which by definition always has one.
+  "/offline",
   // Counter-QR landing (/qr/<token>) — a physical-scan destination, never
   // content a crawler should index or a search result should surface.
   "/qr",

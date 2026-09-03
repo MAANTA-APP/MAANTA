@@ -92,18 +92,35 @@ export type OfflineContext = "shopper" | "merchant" | "generic";
  * The only offline copy in the product.
  *
  * Every string here states a blocked state and the next step, and none of them
- * claims anything MAANTA cannot do. MAANTA has **no offline capability**:
- * `public/sw.js` handles `push` and `notificationclick` and has no `fetch`
- * handler or Cache Storage, so nothing is stored for offline use, and a claim
- * or a redemption cannot complete without the network in any case —
- * `claim_deal` and `verify_redemption` are RPCs. The banner previously read
- * "showing saved deals", which promised exactly the thing that does not exist,
- * on the merchant shell as well as the shopper one (drift D92).
+ * claims anything MAANTA cannot do.
  *
- * So: no wording here may imply deals are saved, previously loaded deals
- * survive, a claim or redemption works offline, or that anything will be
- * retried later. Any future offline caching work changes the service worker
- * first and this map second, never the other way round.
+ * ## What changed on 2026-09-03, and what did not
+ *
+ * This docblock used to say MAANTA had **no offline capability** at all, and
+ * that was true: `public/sw.js` handled `push` and `notificationclick` and had
+ * no `fetch` handler. D235 added one. Exactly **one** document is now cached —
+ * `/my-deals`, so a claimed 6-digit code survives a dead network at the
+ * counter — plus immutable build assets and an offline fallback page.
+ *
+ * Everything the old wording forbade is still forbidden, because none of it
+ * became true:
+ *
+ *  - **Deals are not saved.** The feed is deliberately not cached: a stale feed
+ *    advertises deals that may be gone, which is the promise D92 removed from
+ *    this banner in the first place. So the shopper line still says live deals
+ *    need a connection.
+ *  - **A claim and a redemption still cannot happen offline**, and nothing is
+ *    queued for retry. `claim_deal` decrements a cap and mints an OTP;
+ *    `verify_redemption` moves money. Both are RPCs.
+ *
+ * The rule that follows is unchanged and now has a worked example: offline
+ * caching work changes the service worker first and this map second, never the
+ * other way round.
+ *
+ * The one thing MAANTA *can* now do offline is show a code already claimed, and
+ * that is said where it is relevant — on the code screen itself, by
+ * `TicketOfflineNotice` — rather than in a shell banner that also renders over
+ * the feed, where it would be false.
  */
 export const OFFLINE_MESSAGE: Record<OfflineContext, string> = {
   shopper: "You're offline. Reconnect to load live deals.",

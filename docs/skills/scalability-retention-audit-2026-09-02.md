@@ -302,3 +302,75 @@ it.
 Quick win 1 of section 3 is done. **Quick win 2 (D235, the offline code screen)
 is now the highest-value engineering item in this document**, and remains
 unauthorised.
+
+---
+
+## 7. Addendum — D235 fixed (2026-09-03)
+
+The claimed-code screen now works without a network.
+
+### What the worker does
+
+| Request | Strategy | Why |
+|---|---|---|
+| `/my-deals` navigation | Network first, cache fallback, then `/offline` | Fresh whenever it can be; present when it cannot. Cache-first would show a stale ticket to a shopper who *has* signal — worse than before |
+| `/_next/static/*` | Cache first | Hashed and immutable. The biggest latency win on mall wifi |
+| Any other navigation | Network, then `/offline` | A cached feed would advertise deals that may be gone — the promise D92 removed from the offline banner |
+| `/api/*`, any non-GET, cross-origin | Not intercepted | A stale wallet balance or queue position is worse than an error, and no claim or redemption may ever be intercepted |
+
+### The prerequisite nobody had noticed
+
+The worker was registered in exactly two places: `/download`'s install panel — a
+marketing route most shoppers never open — and the push opt-in sheet, which
+**D234 had just gated off the day before**. So in the common case a shopper had
+no service worker at all, and any cache strategy would have been dead code.
+`ServiceWorkerRegistrar` now registers it on the shopper shell. Fixing D234
+first made this visible; it would otherwise have shipped as an offline feature
+that silently never armed.
+
+### Honesty and privacy
+
+`TicketOfflineNotice` marks the screen as a saved copy when offline, because a
+cached page passing as a live one is its own defect. Two things already stop a
+stale ticket being dangerous: the row derives its state from a live clock
+(D213), so an expired ticket reads EXPIRED even from cache, and staff
+verification is authoritative, so a stale code is refused rather than honoured.
+
+The `states.tsx` docblock asserted "MAANTA has **no offline capability**". That
+was true until this change and is now false, so it was rewritten — a docblock
+contradicting the worker is how the next author reintroduces the gap believing
+it is still true. Everything the old wording forbade is still forbidden: deals
+are not saved, and claiming and redeeming still cannot happen offline.
+
+The cached document holds someone's codes, and **Cache Storage is scoped to the
+origin, not the signed-in user**. Sign-out therefore purges it, in **both** auth
+branches — purging in only one would make the protection depend on which auth
+mode happens to be running. The page and the worker agree on the
+`maanta-pages-` *prefix* rather than an exact name, so the worker can bump its
+cache version without orphaning the purge.
+
+### How far the verification actually goes
+
+Two suites, 21 tests. `offline-code-screen.test.ts` asserts the strategy is
+written; `service-worker-behaviour.test.ts` **executes** `sw.js` in a fake
+worker global with a fake Cache Storage and a switchable network, and proves the
+cached code page is served with the network down, that the live page still wins
+when it is up, that nothing under `/api/` is intercepted, and that sign-out's
+purge really empties the cache. Three regressions were induced to confirm the
+guards bite: caching the feed, dropping the `/api/` passthrough, and removing
+the cache fallback.
+
+**What that does not prove, stated plainly:** these run in Node, not Chrome.
+There is no real worker lifecycle, no real navigation, and no proof that the
+cached document renders a usable code on a phone. That needs a Playwright run
+with the network cut (`docs/ops/e2e-golden-path.md`) and **it has not been
+done.** Until it has, the correct claim is "the strategy is implemented and
+unit-proven", not "verified offline at a counter".
+
+**Known limit, by design:** only navigation requests are served from cache. An
+in-app tab switch while already offline can still fail; a reload recovers it.
+Caching RSC payloads by URL would risk serving one that does not match the
+running build.
+
+Both quick wins from section 3 are now done. The remaining items — D229, D230,
+D231, D232, D233 — stay sequenced behind field validation.
