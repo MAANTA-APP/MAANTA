@@ -145,6 +145,28 @@ Record the run number and its conclusion in
 
 ---
 
+## Interim — what was run locally on 2026-09-03, and what it is worth
+
+`e2e/admin-founder-redesign.spec.ts` (the admin / founder redesign's
+acceptance list) has been executed once, **12 of 12 passing at iPhone 13
+size, against a local stack** rather than a deployment: the fresh migration
+chain on native PostgreSQL, PostgREST with live RLS, this branch on the
+development server, and the **Supabase** auth strategy with two
+offline-minted sessions. The record is
+`docs/skills/admin-founder-command-centre-2026-09-03.md` §11; the open row is
+**D234**.
+
+That run is evidence about the pages, the role guards and the data reads. It
+is **not** the run this document provisions: production takes the Clerk
+identity branch, and no Vercel build was involved. Steps 1–6 above still
+apply to the redesign spec exactly as they do to the golden path — the same
+non-production target, the same storage-state capture (an `admin` state, and a
+`cofounder` state for the boundary test), the same protected environment.
+D234 closes on that run, or on the founder's own iPhone walk of the deployed
+console against the same list.
+
+---
+
 ## What it does not unblock
 
 Nothing about Merchant 01's own evidence. This proves the software works in a

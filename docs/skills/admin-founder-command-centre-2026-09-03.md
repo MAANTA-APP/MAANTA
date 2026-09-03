@@ -133,18 +133,31 @@ the next free number — the same reconciliation as D172/D168):
 > for the deal.
 
 Three words, everywhere: **Claim allocation** (`max_claims`, or "No cap"),
-**Claims issued** (`claims_count`), **Claims remaining** (allocation − issued,
-floored at zero). Never "redemption limit", never "stock".
+**Claims issued** (`claims_reserved`: claims holding a slot right now),
+**Claims remaining** (allocation − issued, floored at zero). Never "redemption
+limit", never "stock".
 
-The code already agreed: `claim_deal` refuses a new claim when
-`claims_count >= max_claims` (NULL = unlimited) and nothing else reads the
-column — `verify_redemption` ignores it, so lowering the allocation stops new
-claims and touches no ticket already issued. `lib/claim-allocation.ts` mirrors
-that `>=` exactly and `claim-allocation.test.ts` asserts every surface that
-prints the cap imports it: admin deals, Merchant 360, merchant deal detail,
-the archived list and the wizard ("Claim allocation" field, "claim allocation
-N" in the summary). Shopper surfaces already said "N left" / "Fully claimed"
-and were left alone.
+**Not `claims_count`.** That column is incremented only inside
+`verify_redemption` — it counts redemptions — and reading it as "issued" was
+the production defect the audit branch measured (191 of 198 claim-holding
+deals disagreed with their own counter; register **D223**). The first draft of
+this redesign's helper made the same mistake in TypeScript and was corrected
+on integration. `claims_reserved` is a PostgREST computed column
+(`20260903120000_claim_allocation_cap.sql`) backed by the same
+`claim_occupies_allocation()` the `redemptions_reserve_claim_slot` trigger and
+`claim_deal` enforce with; occupancy is **derived** (founder ruling D224):
+`success` and `flagged` hold a slot, a `pending` claim holds one only while
+unexpired, `failed` never does, so "Claims remaining" rises on its own as
+unused claims lapse.
+
+`lib/claim-allocation.ts` is the one helper (`claimsReserved` by name, so
+`claims_count` cannot be passed by accident); the shopper helpers in
+`lib/ending-soon.ts` delegate to it. `claim-allocation.test.ts` asserts every
+surface that prints the cap imports it and selects `claims_reserved`: admin
+deals, Merchant 360, merchant deal detail (Claims issued / Claims remaining /
+Redeemed / Verified at shop), the wizard ("Claim allocation" field and note),
+and the archived list, which states allocation and redeemed rather than a
+fraction because a snapshot carries no live occupancy.
 
 ---
 
@@ -208,9 +221,12 @@ form's textarea to its new line.
 
 ## 8. Not built, and why
 
-- **Controls the backend does not enforce** — see **D230**. Pause/re-allocate
-  a deal, lift a hide, blacklist a shopper. Each needs a route, an audit
-  action and a founder decision that admin should own it.
+- **Controls the backend does not enforce** — decided by capability (founder
+  ruling, second 2026-09-03 entry): **D231** pause is satisfied by the
+  merchant's own control and nothing was built; **D232** blacklist was
+  integrated from the audit branch (see §10); **D233** trust-metric hide is
+  not built because no rule requires a manual override, and Merchant 360 says
+  so.
 - **Node scoping on the Action Queue.** An exception at another node is still
   an exception; the queue is platform-wide and says so. Home's KPIs keep the
   node switcher.
@@ -231,3 +247,163 @@ form's textarea to its new line.
   page list, or the bounded-read guard is vacuous for it.
 - A new founder reading: a pure function in `lib/founder-command-centre.ts`
   with a test, then the page. Never a rate below the minimum sample.
+
+---
+
+## 10. Integration with the Merchant 01 engineering completion (2026-09-03)
+
+`origin/claude/maanta-audit-merchant-01-a67nk2` (three commits, no PR) was
+merged into this branch rather than ported piece by piece, on the founder's
+instruction to integrate the authorised D171 blacklist instead of writing a
+second implementation. Its blacklist migration is written on top of its
+allocation migration (same `claim_deal` body), so the two come together, and
+its allocation semantic is what makes "Claims issued" truthful (§4).
+
+What arrived with it, none of it applied to production:
+
+| Migration | Row | What it does |
+|---|---|---|
+| `20260903120000_claim_allocation_cap.sql` | D223 | `claims_reserved` computed column, `claim_occupies_allocation()`, a `BEFORE INSERT` trigger on `redemptions` that enforces the allocation for any writer, `claim_deal` re-tested against occupancy |
+| `20260903130000_enforce_user_blacklist.sql` | D171 → **D232** | `claim_deal` refuses a blacklisted shopper before any slot is reserved; `verify_redemption` untouched (verify-anyway); a shopper cannot clear their own flag; `admin_ops_log` accepts a `user` target |
+| `20260903140000_repair_merchant_tenant_policies.sql` | D168 | tenant RLS policies filter instead of erroring |
+
+**Deployment order is not optional.** The redesigned shopper, merchant and
+admin surfaces select `claims_reserved`; if the application deploys before the
+migrations apply, every deal read fails and the feed renders its read-failure
+state (`docs/ops/migration-deployment-plan-2026-09-03.md` §0). Apply all three,
+read back, repair the ledger to the repo filenames (every MCP apply has minted
+its own version — twelve for twelve), then deploy.
+
+**Drift IDs.** This branch's rows are D225–D230 behind the completion branch's
+D223–D224; D230 is closed by decomposition into D231–D233. PR #317 still
+carries D223–D235 on its own branch and must renumber on merge — the register
+in `main` is canonical, and whichever lands second renumbers.
+
+### The three capabilities, decided
+
+| Capability | Decision | Evidence |
+|---|---|---|
+| Pause deal | **Satisfied — nothing built.** Merchants hold Pause / Resume on the deal page; `claim_deal` refuses `deal_paused`; `verify_redemption` ignores `is_paused`. Lowering the allocation is accepted by the same route (refused below what is held) but the edit sheet does not yet expose the field — an observation, not a blocker | `supabase/tests/claim_deal_pause_gate_test.sql`, `claim_allocation_cap_test.sql` INVARIANT F (**D231**) |
+| Blacklist shopper | **Integrated.** Control on the shopper's account page beside the chip; Action Queue item for a blacklisted account holding a live claim states the verify-anyway boundary and points at the lever | `user_blacklist_enforcement_test.sql`, `user-blacklist.test.ts`, the route test (**D232**, pending-deploy) |
+| Lift trust-metric hide | **Not built.** `recalculate_trust_metric` applies the 0.50 threshold unconditionally on every recalculation; no doctrine names a manual override; a toggle would be overwritten. Merchant 360 states the absence | `docs/skills/redemption-disputes.md` §"The trust metric, as it actually runs" (**D233**) |
+
+### The restored review criteria, as ratchets
+
+`lib/__tests__/redemption-doctrine.test.ts` pins: exactly one money stage in
+the funnel and it is the verified redemption; every "verified" KPI on the
+founder and Merchant 360 surfaces is a `status = success` read; the visits and
+merchant surfaces say in words what is not a redemption; no redesigned surface
+renders a Fast Visit KPI card (the Operations flag row states the switch and
+its OFF meaning); the founder page computes no ratio below the minimum sample
+and uses no trend word; Merchant 360 renders a failed deals or claims read as
+unknown, never "no live deal" or 0; every table sits in an `overflow-x-auto`
+container and every KPI grid starts at one to three columns.
+
+### Browser proof
+
+`e2e/admin-founder-redesign.spec.ts` encodes the founder's acceptance list —
+signed-out boundaries, the iPhone-sized drawer order, Home → full queue, Action
+Queue → record drill-down, Merchant 360's eight sections, the five funnel
+columns, the founder verdict/clocks/next move, `/founder/reports` under the
+founder shell, and the co-founder boundary (no `/admin` link, `/admin` refuses).
+It runs against a **non-production** target with `E2E_BASE_URL`,
+`E2E_ADMIN_STORAGE` and optionally `E2E_COFOUNDER_STORAGE`
+(`docs/ops/browser-e2e-provisioning-2026-09-03.md` is the provisioning
+procedure), and skips — never a false green — without them.
+
+The status of the proof itself is recorded in §11 below, honestly, including
+what could and could not be executed from an engineering session.
+
+## 11. Browser proof — what ran, what it showed, what it does not prove (2026-09-03)
+
+**Result: 12 of 12 passing at iPhone 13 size (390 × 844), on a local stack
+built from this branch. Not yet run against a deployment — see D234.**
+
+### What ran
+
+- **The database is the real one, fresh.** All 110 files in
+  `supabase/migrations/` applied in order to native PostgreSQL 16 with PostGIS,
+  the same chain the CI `db-tests` job runs. The 42 SQL suites under
+  `supabase/tests/` passed on that chain first (42/42, including the three new
+  suites from §10). The Supabase CLI could not start its Docker images from
+  this session (image pulls blocked), so the platform was reproduced natively:
+  the `anon` / `authenticated` / `service_role` / `authenticator` roles, the
+  `extensions` schema, and `auth.uid()` / `auth.role()` / `auth.jwt()` reading
+  `request.jwt.claims` exactly as Supabase's do.
+- **The API is PostgREST 12.2.8** serving that database with HS256 JWTs minted
+  under a local secret, so RLS and the tenant policies were live, not mocked.
+- **Auth is the Supabase strategy** — the code default and what CI uses. A
+  40-line GoTrue stand-in answered only the three calls `@supabase/ssr` makes
+  to keep a session alive (`/user`, refresh, logout) and issues nothing: the
+  two proof sessions (one `admin`, one `cofounder`) were minted offline and
+  turned into Playwright storage states by `createServerClient` itself, so
+  the cookie the app read is the cookie the app writes.
+- **The app is this branch on the development server**, not a production
+  build; the production build is gated separately by `npm run build`.
+- **The seed** was small and deliberate: one active shop holding the KES 300
+  opening credit and one `success` with its KES 30 ledger line; one pending
+  shop; an invited seat never linked; three deals — live with allocation 10,
+  paused, fully claimed at allocation 1; six claims sitting in six funnel
+  states (claimed, arrived-and-stale, in queue, held, redeemed, the fully
+  claimed deal's one); an overdue support task; an unresolved velocity signal;
+  demo mode ON. The Standard-tier active-deal cap (D206) was disarmed for the
+  three seed rows only — it is a product rule, not part of this proof — and
+  re-armed in the same transaction; the claim-slot trigger stayed armed.
+
+### What it showed
+
+| Founder's item | Test | Seen |
+|---|---|---|
+| Authorization boundaries | 5 signed-out routes → `/login?next=…` | `/admin`, `/admin/queue`, `/admin/merchants`, `/founder`, `/founder/reports` all redirect; the login page renders |
+| iPhone-sized admin navigation | drawer order | Home · Action queue · Merchants · Shoppers · Deals · Visits & redemptions · Support · Operations · Audit, a divider, SYSTEM (Billing · Reports · Resources), Founder; no "Approvals", no "Customers"; body overflow 0 px |
+| Home | attention first | "Needs attention right now" above everything, "Full action queue · 3 urgent · 8 need attention", money and evidence below |
+| Action Queue → record | first item click | Lands on a merchant 360 (`/admin/merchants/<uuid>`), never a list; the card states the rule that fired and how long it has stood |
+| Merchant 360 | eight headings | Identity · Staff seats · Deals · Shopper activity · Economics · Support · Admin actions · Audit; "Claims issued 5 of 10 · 5 remaining · redeemed 1"; "Fully claimed · 1 of 1 issued"; "Not available from the console, by design" naming D231 / D233 / D232 |
+| Visits & redemptions | five columns | 1. Claim 6 · 2. Arrival / check-in 3 · 3. Queue 1 · 4. Verification 2 · 5. Redemption 1, and "The only column where the success fee is charged" |
+| Founder command centre | verdict, clocks, next move | "External field validation is 0"; ladder rung "none"; kill criterion "Not started"; tripwire "Not computable yet" (below the sample floor); Next move = Merchant 01 with the demo-mode warning; "Admin console" in the header for an admin |
+| `/founder/reports` | stays under the founder shell | Renders "Platform reporting" at `/founder/reports`, no bounce (D225) |
+| Co-founder access | same page, no wall | Same numbers; "Worked in the admin console, which this role cannot open" on each queue; zero `a[href^='/admin']`; `/founder/reports` renders; `/admin` → `/` |
+
+Full-page captures of `/founder` (both roles), the shop-one 360, Operations,
+Deals and Shoppers were also taken and read: every page measured 0 px of
+horizontal overflow, the Operations flag row reads "Fast Visit · false · OFF —
+check-in and the counter queue work, but no points are awarded", and no
+surface rendered a read-failure state.
+
+**The one failure, and what it was.** The first run failed "Merchant 360
+renders its eight sections": the spec's own selector took the first
+`/admin/merchants/…` link in the directory, which is "Onboard a shop"
+(`/admin/merchants/new`), and asserted headings on the onboarding form. The
+360 page had rendered all eight headings (checked in the served HTML). The
+spec now selects a UUID record link. No product change.
+
+### What it does not prove — why D234 stays open
+
+- **Production runs the Clerk strategy.** `clerkMiddleware()` and
+  `ensureAppUserFromClerk` — the identity branch production actually takes —
+  were not exercised. The role guards, the pages and the data reads are
+  strategy-independent; the sign-in and provisioning path is not.
+- **No deployment was involved.** Vercel build output, edge middleware
+  behaviour and production data are untested by this run.
+- **Development server, not `next build` output.**
+
+The closure event for **D234** is one run of the same spec against a
+non-production deployment with Clerk (`docs/ops/browser-e2e-provisioning-2026-09-03.md`),
+or the founder walking the deployed console on an iPhone against the same
+list. Until then the redesign is **browser-proven locally, not deployed-ready**.
+
+### Repeating it
+
+The seed, the session minting and the Playwright config for the local run are
+not in the repository — they carry a local JWT secret and minted sessions, and
+belong to a throwaway stack. The procedure in words: apply the chain to a
+fresh database; create the three platform roles and the `auth.*` helper
+functions; run PostgREST against it with `db-anon-role = anon` and the JWT
+secret; insert two `auth.users` rows (the platform trigger creates their
+`public.users` rows) and promote them to `admin` and `cofounder` as the
+service role would (the role-change guard checks `auth.role()`); write
+`NEXT_PUBLIC_SUPABASE_URL` / keys / `MAANTA_AUTH_STRATEGY=supabase` to
+`.env.local`; mint each session and let `@supabase/ssr` write the cookie into
+a storage-state file; run the spec with `E2E_BASE_URL`, `E2E_ADMIN_STORAGE`
+and `E2E_COFOUNDER_STORAGE` pointing at those files. Every step is read-only
+against the product; the proof presses no button that writes.
