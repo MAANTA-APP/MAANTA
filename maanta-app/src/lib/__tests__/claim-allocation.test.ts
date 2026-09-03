@@ -26,61 +26,61 @@ const read = (rel: string) =>
 
 describe("D236 — the allocation predicate", () => {
   it("is exhausted when issued reaches the limit, matching claim_deal's >=", () => {
-    expect(isFullyClaimed({ max_claims: 10, claims_issued: 9 })).toBe(false);
-    expect(isFullyClaimed({ max_claims: 10, claims_issued: 10 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 10, claims_reserved: 9 })).toBe(false);
+    expect(isFullyClaimed({ max_claims: 10, claims_reserved: 10 })).toBe(true);
     // Over-issue cannot occur (the DB CHECK forbids it) but must never read
     // as "still claimable" if it somehow did.
-    expect(isFullyClaimed({ max_claims: 10, claims_issued: 11 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 10, claims_reserved: 11 })).toBe(true);
   });
 
   it("treats a null limit as unlimited, exactly as the RPC does", () => {
-    expect(isFullyClaimed({ max_claims: null, claims_issued: 9999 })).toBe(false);
-    expect(claimsRemaining({ max_claims: null, claims_issued: 3 })).toBeNull();
+    expect(isFullyClaimed({ max_claims: null, claims_reserved: 9999 })).toBe(false);
+    expect(claimsRemaining({ max_claims: null, claims_reserved: 3 })).toBeNull();
   });
 
   it("reports claims left, clamped at zero", () => {
-    expect(claimsRemaining({ max_claims: 10, claims_issued: 4 })).toBe(6);
-    expect(claimsRemaining({ max_claims: 10, claims_issued: 10 })).toBe(0);
-    expect(claimsRemaining({ max_claims: 10, claims_issued: 12 })).toBe(0);
+    expect(claimsRemaining({ max_claims: 10, claims_reserved: 4 })).toBe(6);
+    expect(claimsRemaining({ max_claims: 10, claims_reserved: 10 })).toBe(0);
+    expect(claimsRemaining({ max_claims: 10, claims_reserved: 12 })).toBe(0);
   });
 });
 
 describe("D236 — shopper surfaces read the issued counter, not redemptions", () => {
-  it("deal detail decides claimability and 'fully claimed' from claims_issued", () => {
+  it("deal detail decides claimability and 'fully claimed' from claims_reserved", () => {
     const page = read("app/(shopper)/deals/[id]/page.tsx");
     expect(page).toContain("isFullyClaimed(deal)");
     // The pre-D236 inline predicate must not come back.
     expect(page).not.toContain("deal.claims_count >= deal.max_claims");
   });
 
-  it("the feed and search cards carry claims_issued into the scarcity KPI", () => {
+  it("the feed and search cards carry claims_reserved into the scarcity KPI", () => {
     for (const rel of ["app/(shopper)/feed/page.tsx", "app/(shopper)/search/page.tsx"]) {
       const src = read(rel);
-      expect(src).toContain("claimsIssued: d.claims_issued");
-      expect(src).not.toContain("claimsIssued: d.claims_count");
+      expect(src).toContain("claimsReserved: d.claims_reserved");
+      expect(src).not.toContain("claimsReserved: d.claims_count");
     }
   });
 
   it("the ending-soon rail's membership carries the issued counter", () => {
     const rail = read("components/shopper/ending-soon-rail.tsx");
-    expect(rail).toContain("claims_issued: number");
+    expect(rail).toContain("claims_reserved: number");
     expect(rail).not.toContain("claims_count: number");
   });
 
-  it("every deal read selects claims_issued, or the surfaces get undefined", () => {
+  it("every deal read selects claims_reserved, or the surfaces get undefined", () => {
     const data = read("lib/data.ts");
     const selects = data
       .split("\n")
       .filter((l) => l.includes("max_claims, claims_count"));
     expect(selects.length).toBeGreaterThan(0);
-    for (const line of selects) expect(line).toContain("claims_issued");
+    for (const line of selects) expect(line).toContain("claims_reserved");
   });
 });
 
 describe("D236 — the merchant can see and steer the allocation", () => {
   it("the deal page separates claims issued from redemptions", () => {
     const page = read("app/merchant/(app)/deals/[id]/page.tsx");
-    expect(page).toContain("claims_issued");
+    expect(page).toContain("claims_reserved");
     expect(page).toContain('label="Claims left"');
     expect(page).toContain('label="Redeemed"');
     // The old single KPI conflated the two under one word.
@@ -90,19 +90,24 @@ describe("D236 — the merchant can see and steer the allocation", () => {
   it("the wizard explains what the limit does, and names both stock levers", () => {
     const wiz = read("app/merchant/(app)/deals/new/new-deal-wizard.tsx");
     expect(wiz).toContain('label="Claim limit"');
-    expect(wiz).toMatch(/most shoppers who can claim/i);
+    expect(wiz).toMatch(/most shoppers who can hold a claim/i);
     expect(wiz).toMatch(/pause the deal/i);
+    // D224: a merchant who is not told that an unused claim comes back will
+    // read a few no-shows as a permanently sold-out deal.
+    expect(wiz).toMatch(/expires and frees its place/i);
     // "Max claims" was the misleading label the ruling replaced.
     expect(wiz).not.toContain('label="Max claims"');
   });
 
-  it("lowering the limit below claims already issued is refused with the real number", () => {
+  it("lowering the limit below claims currently held is refused with the real number", () => {
     const route = read("app/api/deals/[id]/route.ts");
-    expect(route).toContain("nextMax < deal.claims_issued");
-    expect(route).toContain("below_claims_issued");
-    // And the database constraint's own error is translated, not swallowed as
-    // a generic 500 — a claim can land between the read and the write.
-    expect(route).toContain("claims_issued_within_allocation");
+    expect(route).toContain("nextMax < deal.claims_reserved");
+    expect(route).toContain("below_claims_reserved");
+    // This route is the only guard on the merchant-facing rule, because
+    // occupancy changes with the clock and cannot be a CHECK constraint
+    // (D224). The database still refuses to over-ISSUE at any allocation,
+    // which is the invariant that protects shoppers.
+    expect(route).toContain("claimsReserved: deal.claims_reserved");
   });
 });
 

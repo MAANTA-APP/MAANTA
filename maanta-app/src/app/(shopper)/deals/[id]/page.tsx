@@ -228,8 +228,8 @@ export default async function DealDetailPage({
             <span className="text-muted">
               ·{" "}
               {fullyClaimed
-                ? `${deal.claims_issued} of ${deal.max_claims} claimed — no codes left`
-                : `${deal.claims_issued} of ${deal.max_claims} claimed · ${remaining} left`}
+                ? `${deal.claims_reserved} of ${deal.max_claims} claimed — no codes left`
+                : `${deal.claims_reserved} of ${deal.max_claims} claimed · ${remaining} left`}
             </span>
           ) : null}
         </p>

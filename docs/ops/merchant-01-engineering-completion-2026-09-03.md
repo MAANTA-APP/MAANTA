@@ -32,115 +32,118 @@ STOP ENGINEERING verdict.
 
 ## D236 — the claim allocation
 
+> **Revised 2026-09-03 after founder ruling 2 (D134/D224).** The first
+> implementation used a stored monotonic counter. That is now gone: allocation
+> is **derived**, and an expired claim releases its slot.
+
 ### Exact semantics implemented
 
-`max_claims` is **the maximum number of shopper claims that may be ISSUED**.
-It is not a redemption cap and is never re-tested at redemption.
+`max_claims` is **the maximum number of shopper claims that may be reserving a
+deal at once**. It is not a redemption cap and is never re-tested at redemption.
 
-`deals.claims_issued` is the new counter and is backfilled from the rows
-themselves. `claims_count` keeps its old meaning — verified redemptions — and
-both are now labelled for what they are on every surface. The invariant is
-exact and asserted globally:
+Occupancy is computed, never stored. `claim_occupies_allocation(status, expires_at)`
+is the one definition:
 
-```
-deals.claims_issued = (SELECT count(*) FROM redemptions WHERE deal_id = d.id)
-```
+| Status | Holds a slot? | Why |
+|---|---|---|
+| `success` | **yes, permanently** | The unit was sold |
+| `flagged` | **yes** | `admin_release_redemption` can still turn it into a success; releasing it would let the deal over-issue the moment an admin approves |
+| `pending`, unexpired | **yes** | A live claim |
+| `pending`, expired | **no** | The D224 ruling |
+| `failed` | **no** | No money moved and no code can be honoured |
 
-**The cap lives on a `BEFORE INSERT` trigger on `redemptions`, not only inside
-`claim_deal`.** `claim_deal` is today's only issuance path, but a seed, an admin
-script or a future RPC would otherwise break the merchant's promise. `claim_deal`
-keeps a fast pre-check so the shopper gets `deal_claim_limit_reached` before any
-OTP work, and so the same error comes back whichever layer refuses.
+A stored counter was rejected deliberately: keeping one true as the clock moves
+would require exactly the periodic sweep the ruling forbids, and would rewrite
+historical evidence to do it. **Nothing is mutated; an expired claim row is left
+exactly as it was and simply stops counting.**
+
+The count reaches the application as `claims_reserved`, a PostgREST computed
+column backed by the *same* function the trigger enforces with — so the UI's
+"claims left" and the database's refusal cannot disagree. That was the original
+defect in a different costume, and this closes it structurally.
+
+**Enforcement is a `BEFORE INSERT` trigger on `redemptions`**, so the allocation
+binds for any writer, not only `claim_deal`.
 
 ### Concurrency proof (founder INVARIANT B)
 
-The check and the increment are **one statement**, so no read-then-write window
-exists:
+A derived count cannot use the single-statement `UPDATE ... WHERE` trick, so the
+trigger **takes the deal row lock first and counts second**. Under READ
+COMMITTED each statement takes a fresh snapshot, so a claimant that waited on
+the lock counts a state that already includes the winner. `claim_deal` already
+holds the same lock, so the ordering is identical on both paths — no inversion,
+no deadlock.
 
-```sql
-UPDATE public.deals SET claims_issued = claims_issued + 1
- WHERE id = NEW.deal_id AND (max_claims IS NULL OR claims_issued < max_claims);
-IF NOT FOUND THEN RAISE EXCEPTION 'deal_claim_limit_reached'; END IF;
-```
+Measured on real PostgreSQL 16 with genuinely parallel sessions:
 
-Measured on real PostgreSQL 16 with genuinely parallel sessions, all firing at
-one wall-clock instant:
+| Allocation | Simultaneous claimants | Granted | Path |
+|---|---|---|---|
+| 1 | 10 / 12 / 20 | **1** | `claim_deal` |
+| 3 | 30 | **3** | `claim_deal` |
+| 5 | 40 | **5** | `claim_deal` |
+| 1 | 15 | **1** | raw concurrent INSERT |
+| 3 | 30 | **3** | raw concurrent INSERT |
 
-| Allocation | Simultaneous claimants | Granted | Denied | `claims_issued` | Rows |
-|---|---|---|---|---|---|
-| 1 | 10 | **1** | 9 | 1 | 1 |
-| 1 | 12 | **1** | 11 | 1 | 1 |
-| 2 | 25 | **2** | 23 | 2 | 2 |
-| 3 | 30 | **3** | 27 | 3 | 3 |
-| 4 | 40 | **4** | 36 | 4 | 4 |
-| 5 | 40 | **5** | 35 | 5 | 5 |
-
-The founder's exact scenario — one claim left, ten shoppers tap Claim — issues
-**exactly one** code. Nine get `deal_claim_limit_reached` and a stated sold-out
-screen, not a shortage discovered at the counter.
-
-**Mutation-tested twice, because a passing concurrency test proves nothing until
-you have seen it fail:**
+**Mutation-tested three times**, because the atomicity argument changed with the
+design and had to be re-earned:
 
 | Mutant | Result |
 |---|---|
-| Trigger removed (leaving only `claim_deal`'s pre-check) | **10 codes issued for 1 slot** — the original defect, reproduced |
-| Trigger present but non-atomic (read-then-write) | Passed via `claim_deal` (its row lock masks it), then **issued 15 codes for 1 slot** under direct concurrent INSERTs |
-
-That second mutant is the important one: it shows the `claim_deal` race test
-alone would have been a false green, which is why the direct-insert race exists.
+| Trigger removed | **10 codes for 1 slot** — the original defect |
+| Trigger present, non-atomic read-then-write | Passed via `claim_deal`; **15 codes for 1 slot** under direct inserts |
+| **`FOR UPDATE` serialisation removed** (the new design's load-bearing part) | **8 codes for 1 slot** |
 
 ### Editing proof (INVARIANT D)
 
-Lowering the allocation **to** the issued count is allowed — that is the
-merchant's stock lever. Lowering it **below** is refused in two places:
-`deals_claims_issued_within_allocation` at the database, and
-`/api/deals/[id]` in the API so the merchant reads a sentence naming the real
-number rather than a 500. The API also translates the constraint's own error,
-because a claim can land between the read and the write.
+Lowering the allocation **to** what is currently held is allowed — the merchant's
+stock lever. Lowering it **below** is refused by `/api/deals/[id]` with the real
+number and a pointer to pause instead.
 
-No claim is ever cancelled by an edit (INVARIANT C, scenario D).
+The database CHECK from the first implementation is **gone, deliberately**: a
+constraint on a value that changes with the clock would either need a sweep to
+re-evaluate, or would start rejecting unrelated writes to an untouched row. The
+database still refuses to over-*issue* at any allocation, which is the invariant
+that protects shoppers; the API refusal protects the merchant from setting a
+number that contradicts what is already out. No claim is ever cancelled by an
+edit.
 
 ### Pause proof (INVARIANT F)
 
-Pause blocks new claims, cancels nothing, and a claim refused by pause does
-**not** consume a slot. An already-issued ticket still verifies (scenario F).
+Pause blocks new claims, cancels nothing, and a claim refused by pause does not
+reserve a slot. An already-issued ticket still verifies.
 
 ### Shopper exhausted-state proof
 
-`/deals/[id]` computes claimability and "fully claimed" from `isFullyClaimed`,
-which reads `claims_issued`. The card KPI's "N left" reads the same counter —
-it previously read `claims_count` and so said "12 left" on a deal whose forty
-codes were all already issued. An exhausted allocation returns HTTP 410 with
-`code: "deal_claim_limit_reached"` and the sentence *"This deal is fully
-claimed."* — a stated state, never a server error, and it never says "try again".
+`/deals/[id]` computes claimability from `isFullyClaimed`, which reads
+`claims_reserved`. The card KPI's "N left" reads the same value. An exhausted
+allocation returns HTTP 410 with `code: "deal_claim_limit_reached"` and *"This
+deal is fully claimed."* — a stated state, never a server error, and it never
+says "try again". Race losers additionally get the page corrected under them via
+a `stale` flag, so the sold-out state, the count and the button stop
+contradicting the message.
 
-Race losers additionally get the page corrected under them: the response is
-marked `stale`, and the claim flow calls `router.refresh()` so the sold-out
-state, the claim count and the button stop contradicting the message. `stale`
-is deliberately **not** set for a transport failure or an unknown outcome —
-refreshing there would replace an honest *"check My Deals before trying again"*
-with a page that looks claimable and invites a double claim.
+**And a sold-out deal can become claimable again with no write anywhere** as
+unredeemed claims lapse — which is the shopper-visible half of the D224 ruling.
 
 ### Existing-claim preservation proof
 
-Scenario C: with the allocation exhausted, an already-issued claim still
-verifies `success`, still charges KES 30 exactly once, and still lands in the
-ledger (balance 500 → 470). **There is no second stock rejection at the counter**
-(INVARIANT G) and fee economics are untouched (INVARIANT H).
+With the allocation exhausted, an already-issued claim still verifies `success`,
+still charges KES 30 exactly once, and still lands in the ledger (500 → 470).
+No second stock rejection at the counter; fee economics untouched.
 
-### The one question deliberately left open (INVARIANT J)
+### Performance, re-measured
 
-**Does an expired or rejected claim release its slot?** Today it does **not** —
-allocation is consumed at issuance. The rows still exist, so they still count.
-The only decrement is on hard `DELETE`, which is bookkeeping for the demo wipe,
-not a lifecycle rule.
+The change from a counter read to a subquery had to be re-justified. At ~11x
+production volume (668 deals / 4,631 redemptions):
 
-The ruling does not settle this and the audit method forbids inventing it, so
-scenario G is the *written record* of today's behaviour: if the founder later
-rules that no-shows hand capacity back, that test is the one place to start.
+| Query | Result |
+|---|---|
+| Feed-shaped, 30 deals, **with** `claims_reserved` | **1.8 ms** |
+| Same query without it | 0.6 ms |
+| The trigger's own occupancy count | **0.063 ms**, index-backed |
 
----
+~40 µs per rendered deal, against a production feed query already measured at
+43.8 ms. **No performance work is justified.**
 
 ## D171 — the blacklist
 
@@ -291,114 +294,89 @@ canonical and correct the protocol's wording.
 
 ---
 
-## PR #317 — D223–D235 classification
+## PR #317 — the five honesty fixes, evaluated individually
 
-Reviewed from the actual diff. Merge-base is `c3b2fd3`; the true net difference
-is **37 files**, and it contains **no migration, no `app_config` change, no fee
-change and no authorization change** — verified: `git diff HEAD <branch> --
-maanta-app/supabase/` is empty.
+Founder ruling 2: *"Anything that prevents Merchant 01/Shopper 01 being misled
+should normally land; unrelated retention or post-validation work should remain
+deferred."*
 
-| Row | Subject | Classification |
+Reviewed from the actual diff, one at a time, with the size of each fix
+measured so cherry-picking is a real option rather than an aspiration.
+
+### The two that mislead **Shopper 01 inside the product** — land these
+
+| Row | What the shopper sees today | The fix | Size | Verdict |
+|---|---|---|---|---|
+| **D227** | A deal card reads "**12 verified**" beside a deal title. That number is `verified_counts_by_merchant` — the *shop's* all-time redemptions across every deal it has ever run. A shopper reads it as this deal's, which is a materially different and much smaller number | Two strings become "**12 verified at this shop**" | **2 lines**, `cards.tsx` + `deal-kpis.tsx` | **LAND BEFORE MERCHANT 01.** The smallest possible change, and it stops a shopper being misled about the one number MAANTA asks them to trust |
+| **D234** | The feed asks for browser push permission with *"Don't miss flash deals — Turn on notifications for new deals near you"*. **Nothing in the codebase sends a shopper a push.** The only sender is `notify-merchant`, whose five call sites are payment webhooks addressed to merchants | Gates the sheet on `SHOPPER_PUSH_SENDER_EXISTS`, a constant that documents this as a codebase fact rather than an operator toggle | 21 lines + a 52-line constant module | **LAND BEFORE MERCHANT 01.** A browser push block is close to non-renewable — you cannot re-prompt. Spending Shopper 01's one permission on a promise nothing keeps is a trust cost you cannot buy back |
+
+### The three that mislead **prospects and Merchant 01 on the marketing site**
+
+D223, D224, D225 and D226 all live in the same two files
+(`(marketing)/page.tsx`, `(marketing)/shoppers/page.tsx`) and are entangled with
+each other — they rewrite the same paragraphs. **Take them as one set or not at
+all;** splitting them would leave a page contradicting itself.
+
+| Row | The claim | Why it matters for Merchant 01 |
 |---|---|---|
-| D223 | Boosted rail described as earned to shoppers, bought to merchants | **MERGE BEFORE MERCHANT 01** — a paid-placement disclosure defect on a live surface |
-| D224 | "Ranked by who actually walked in" stated site-wide, true of one rail in three | **MERGE BEFORE MERCHANT 01** — the load-bearing trust claim |
-| D225 | Flash windows advertised "often under an hour"; slider minimum is 1h | **MERGE BEFORE MERCHANT 01** — unachievable promise |
-| D226 | Homepage gives three accounts of feed ranking in one scroll | **USEFUL DURING CONTROLLED PILOT** |
-| D227 | Deal card shows the SHOP's all-time verified count labelled as the deal's | **MERGE BEFORE MERCHANT 01** — a shopper-visible trust defect |
-| D228 | Rail 3 reordering by proximity | **DO NOT MERGE** — reverses the standing D77 ruling and rests on a location the app does not collect. Correctly left open |
-| D229 | "See all" destinations with sort controls | **DEFER** — spec only, no code |
-| D230 | Ten feed analytics events | **DEFER** — spec only, no code |
-| D231 | Deal-level verified redemption metric | **DEFER** — precondition for D227's long-term fix, not for Merchant 01 |
-| D232 | Storefront deep link + favourite notifications | **DEFER** — spec only |
-| D233 | Fast Visit has no staff/test exclusion and no funding cap | **DEFER as work; HARD GATE as a rule.** Must be satisfied before `fast_visit_enabled` is ever set true. Not touched here |
-| D234 | Push permission requested for a stream nothing sends | **MERGE BEFORE MERCHANT 01** — asking for a permission MAANTA cannot honour costs trust once |
-| D235 | PWA offline resilience | **USEFUL DURING CONTROLLED PILOT** — see below |
+| **D223** | The boosted rail is described to shoppers as earned and to merchants as bought | This is a **paid-placement disclosure**. Merchant 01 is being asked to trust MAANTA's ranking story, and a prospective merchant reading both pages sees two different products |
+| **D224** | *"Ranked by who actually walked in"* is stated site-wide; it is true of **one rail in three** | The load-bearing trust claim of the whole product, overstated. This is the sentence Merchant 01 will repeat back |
+| **D225** | Flash windows are *"often under an hour"*; the merchant's slider minimum is 1 hour | A promise the product cannot produce, in a surface Merchant 01 will read before signing up |
+| **D226** | The homepage gives three different accounts of feed ranking in one scroll | Lower stakes — confusing rather than false — but it is in the same paragraphs |
 
-### D235 specifically
+**Verdict: LAND THE SET BEFORE MERCHANT 01.** Total 20 added / 12 removed lines
+across two files, no logic. Merchant 01 is a real person deciding whether to
+trust MAANTA, and three of these four are things they would be entitled to feel
+misled about later.
 
-The implementation is sound on inspection. `public/sw.js` intercepts **GET
+### What must NOT land yet
+
+| Row | Verdict | Reason |
+|---|---|---|
+| **D228** rail-3 reordering by proximity | **DO NOT MERGE** | Reverses the standing 2026-08-09 **D77** ruling and rests on a location the app does not collect. Correctly left open on the branch |
+| **D229** see-all destinations · **D230** feed analytics · **D231** deal-level metric · **D232** storefront deep link | **DEFER** | Specified, not built. Post-validation work by the founder's own test |
+| **D233** Fast Visit exclusions and funding cap | **DEFER as work; HARD GATE as a rule** | Must be satisfied before `fast_visit_enabled` is ever set true. Untouched here |
+| **D235** offline ticket | **USEFUL DURING CONTROLLED PILOT** — see below | Valuable at a mall counter, but evidence-sensitive |
+
+### D235 — the evidence line, restated
+
+The implementation is sound on inspection: `public/sw.js` intercepts **GET
 only**, **same-origin only**, never touches `/api/`, caches exactly one document
-(`/my-deals`) network-first, falls back to an honest `/offline` page, and posts
-a purge on sign-out so a shared handset cannot reload its way to the previous
-shopper's codes. It explicitly declines to fake offline claiming or redeeming.
+(`/my-deals`) network-first, falls back to an honest `/offline` page, posts a
+purge on sign-out so a shared handset cannot reload its way to the previous
+shopper's codes, and explicitly declines to fake offline claiming or redeeming.
 
-**Two caveats to carry, not to resolve here.** The sign-out purge is
-client-initiated, so a session abandoned without signing out leaves a cached
-document containing codes on that device. And the evidence distinction stands
-exactly as the founder stated it:
+**No claim is made that authenticated offline ticket presentation works.**
+Nothing in this session ran the credentialed deployed test, and the founder's
+distinction holds exactly as written:
 
-> **service-worker harness proof ≠ authenticated `/my-deals` offline proof.**
+> service-worker harness proof ≠ authenticated `/my-deals` offline proof.
 
-Nothing in this session ran the credentialed deployed test, so **no claim of
-authenticated offline ticket presentation is made.**
+One caveat to carry: the sign-out purge is client-initiated, so a session
+abandoned without signing out leaves a cached document containing codes on that
+device.
 
-### The D-number collision — needs a decision
+### The D-number collision — still needs resolving before integration
 
 PR #317 assigns **D223–D235** on its branch. This session assigned **D223** and
 **D224** on `main`'s line, because `drift-register.test.ts` enforces strict
-contiguity and D222 is the last row at HEAD — D236 would have left a
+contiguity and D222 is the last row at HEAD — using D236 would have left a
 thirteen-row hole and failed CI.
 
-The code and migrations here cite **D236**, the identifier the founder's ruling
-uses; the register row is **D223** and records the alias explicitly. This is the
-precedent **D172** already set for a Notion collision ("the repo is canonical for
-drift IDs").
+Code and migrations cite **D236**, the identifier the founder's ruling uses; the
+register row is **D223** and records the alias. This is the precedent **D172**
+already set ("the repo is canonical for drift IDs").
 
-**Whoever merges PR #317 must renumber its thirteen rows.** This is mechanical,
-but it will not resolve itself and it is not safe to leave ambiguous.
+**PR #317's thirteen rows must be renumbered on merge.** Mechanical, but it will
+not resolve itself.
 
 ### Merge conflicts to expect (textual, not semantic)
 
-PR #317 and this branch both touch `src/lib/data.ts`,
-`src/components/ui/claude/deal-kpis.tsx`, `src/app/(shopper)/deals/[id]/page.tsx`
-and `src/app/(shopper)/feed/page.tsx`. The changes are **independent**: PR #317
-edits the `verifiedCount` label and adds `BOOST_WINDOW_HOURS`; this branch edits
-the scarcity KPI and adds `claims_issued`. Both should survive; neither
-overwrites the other's intent.
-
----
-
-## Browser E2E — what has ACTUALLY executed
-
-| Suite | Status | Why |
-|---|---|---|
-| `e2e/golden-path.spec.ts` | **BLOCKED ON OPS** | Needs a deployed non-prod `E2E_BASE_URL` + shopper/merchant storage states |
-| `e2e/dashboards.spec.ts` | **BLOCKED ON OPS** | Needs `E2E_ADMIN_STORAGE` |
-| `e2e-sw/service-worker-offline.spec.ts` (PR #317) | **NOT RUN** | On an unmerged branch; not merged, so not run |
-| `e2e/offline-ticket.spec.ts` (PR #317) | **BLOCKED ON CREDENTIAL** | Needs a deployed app AND a shopper holding a real active claim |
-| Vitest (177 files) | **PASSING** | Ran here, this SHA |
-| SQL suites (42) | **PASSING** | Ran here on a fresh 110-migration chain |
-
-**Nothing skipped has been converted into green.** The `e2e.yml` workflow has
-now recorded 200 runs, every sampled one `skipped`; that number is unchanged by
-this session because no browser test was run.
-
-### What could NOT be done from this environment, and honestly why
-
-The golden path drives a **real** claim and a **real** KES 30 redemption. It
-needs a deployed app with a live Supabase and Clerk — which this container does
-not have, and which cannot be substituted without fabricating credentials or
-weakening authentication. Both are forbidden and neither was attempted.
-
-### Exact minimal ops steps to unblock (one person, ~1 hour)
-
-1. Deploy a **non-production** MAANTA instance (Vercel preview against a
-   non-prod Supabase). It must not be `maanta.app` — `e2e.yml` refuses that host
-   before checkout, because the suite charges real fees.
-2. Repo → Settings → Environments → create `e2e`, add required reviewers.
-3. Repo → Settings → Secrets and variables → Actions:
-   - Variable `E2E_BASE_URL` = the deployed non-prod origin
-   - Variable `E2E_ALLOWED_HOST` (optional but recommended) = that host
-   - Environment secrets on `e2e`: `E2E_SHOPPER_STORAGE`, `E2E_MERCHANT_STORAGE`,
-     `E2E_ADMIN_STORAGE` — Playwright `storageState` JSON for each signed-in role
-4. Seed one claimable deal on that instance and let the suite run on `main`, or
-   dispatch it manually.
-
-The workflow already **fails closed** on a partial configuration and asserts
-from the Playwright JSON report that no spec silently skipped, so this cannot
-turn into a false green once switched on.
-
----
+Both branches touch `src/lib/data.ts`, `src/components/ui/claude/deal-kpis.tsx`,
+`src/app/(shopper)/deals/[id]/page.tsx` and `src/app/(shopper)/feed/page.tsx`.
+The changes are **independent**: PR #317 edits the `verifiedCount` label and
+adds `BOOST_WINDOW_HOURS`; this branch edits the scarcity KPI and adds
+`claims_reserved`. Both should survive; neither overwrites the other's intent.
 
 ## Merchant 01 experience
 

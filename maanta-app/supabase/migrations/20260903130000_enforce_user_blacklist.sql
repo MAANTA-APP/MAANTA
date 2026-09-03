@@ -85,6 +85,7 @@ DECLARE
   v_existing_pending UUID;
   v_amount_kes NUMERIC;
   v_blacklisted BOOLEAN;
+  v_occupied INTEGER;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     IF v_caller_id IS NULL THEN
@@ -106,7 +107,7 @@ BEGIN
   END IF;
 
   SELECT d.id, d.merchant_id, d.title, d.image_url, d.is_active, d.is_paused, d.expires_at,
-         d.max_claims, d.claims_issued, d.success_fee,
+         d.max_claims, d.success_fee,
          d.price_kes, d.charges,
          m.status AS merchant_status, m.is_visible, m.is_shadow_banned,
          m.merchant_name, m.what3words_address, m.floor, m.unit_number
@@ -138,9 +139,17 @@ BEGIN
     RAISE EXCEPTION 'merchant_not_available';
   END IF;
 
-  -- D236: the allocation, tested against claims ISSUED.
-  IF v_deal.max_claims IS NOT NULL AND v_deal.claims_issued >= v_deal.max_claims THEN
-    RAISE EXCEPTION 'deal_claim_limit_reached';
+  -- D236: the allocation, tested against claims reserving RIGHT NOW. The deal
+  -- row is already locked above, so this count is serialised exactly as the
+  -- reserve trigger's is. An expired claim no longer reserves (D224 ruling).
+  IF v_deal.max_claims IS NOT NULL THEN
+    SELECT count(*) INTO v_occupied
+      FROM public.redemptions r
+     WHERE r.deal_id = p_deal_id
+       AND public.claim_occupies_allocation(r.status, r.expires_at);
+    IF v_occupied >= v_deal.max_claims THEN
+      RAISE EXCEPTION 'deal_claim_limit_reached';
+    END IF;
   END IF;
 
   SELECT r.id INTO v_existing_pending
@@ -199,7 +208,7 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) IS
-  'Claim a live deal: CSPRNG OTP + 15-minute grace after deal expiry. Refuses a blacklisted shopper (user_blacklisted, D171), a paused deal (deal_paused) and an exhausted allocation (deal_claim_limit_reached, D236). service_role or matching authenticated caller only.';
+  'Claim a live deal: CSPRNG OTP + 15-minute grace after deal expiry. Refuses a blacklisted shopper (user_blacklisted, D171), a paused deal (deal_paused) and a full live allocation (deal_claim_limit_reached, D236 — counted via claim_occupies_allocation and enforced independently by redemptions_reserve_claim_slot). service_role or matching authenticated caller only.';
 
 REVOKE ALL ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) FROM anon;

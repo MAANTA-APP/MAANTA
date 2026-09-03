@@ -1,136 +1,148 @@
 -- =============================================================================
--- D236 — `max_claims` is a CLAIM ALLOCATION, enforced at claim issuance.
+-- D236 — `max_claims` is a live CLAIM ALLOCATION, enforced at claim issuance.
 --
--- Founder ruling, 2026-09-03:
---   "max_claims means THE MAXIMUM NUMBER OF SHOPPER CLAIMS THAT MAY BE ISSUED
---    FOR THAT DEAL. It is NOT a redemption cap. A merchant must not be able to
---    advertise 10 available MAANTA claims and accidentally issue 50 valid
---    codes. The cap must therefore be enforced at CLAIM ISSUANCE."
+-- Founder ruling 2026-09-03 (first): "max_claims means THE MAXIMUM NUMBER OF
+-- SHOPPER CLAIMS THAT MAY BE ISSUED FOR THAT DEAL. It is NOT a redemption cap.
+-- ... The cap must therefore be enforced at CLAIM ISSUANCE."
+--
+-- Founder ruling 2026-09-03 (second, D134/D224), which this migration was
+-- rewritten to satisfy: "once the shopper's claim has genuinely expired and can
+-- no longer be redeemed, it should no longer reserve merchant allocation. But
+-- this must be concurrency-safe and derived from the canonical expiry
+-- semantics — not a periodic best-effort sweep."
 --
 -- ## The defect this closes
 --
--- `deals.claims_count` is incremented ONLY inside `verify_redemption` — that
--- is, on successful REDEMPTION. But it was also the value `claim_deal` gated
--- the cap on, and the value every surface rendered as "claimed". So the cap
--- never bound at claim time: with a `max_claims` of 10 and nobody yet at the
--- counter, `claims_count` stayed 0 and an unbounded number of shoppers could
--- be issued valid 6-digit codes. `verify_redemption` has no cap check at all
--- (deliberately — see INVARIANT G), so every one of those codes would verify
--- and charge the merchant KES 30.
+-- `deals.claims_count` is incremented ONLY inside `verify_redemption` — on
+-- successful REDEMPTION — yet it was the value `claim_deal` tested the cap
+-- against and the value every surface rendered as "claimed". With nobody yet at
+-- the counter it stays 0, so the cap never bound: fifty shoppers could claim a
+-- `max_claims = 10` deal, and because `verify_redemption` has no cap check at
+-- all (deliberately — see INVARIANT G), every one of those codes would verify
+-- and post a KES 30 success fee.
 --
 -- Measured on production 2026-09-03: of 198 deals holding at least one claim,
--- **191 had `claims_count` different from the real issued count**. The two
--- were never the same number.
+-- **191 had `claims_count` different from the real issued count**.
 --
--- ## The new counter, and the invariant that defines it
+-- ## Occupancy is DERIVED, never stored
 --
--- `deals.claims_issued` counts CLAIM ROWS. The invariant, asserted by
--- `supabase/tests/claim_allocation_cap_test.sql`, is exactly:
+-- The second ruling rules out a stored counter. A claim stops reserving the
+-- moment its validity window elapses, and no counter can change by itself as
+-- the clock moves — keeping one accurate would need exactly the periodic sweep
+-- the ruling forbids, and would rewrite historical evidence to do it.
 --
---     deals.claims_issued = (SELECT count(*) FROM redemptions WHERE deal_id = d.id)
+-- So allocation is computed from the claim rows themselves, every time it is
+-- needed, from the same timestamps `verify_redemption` uses to decide whether a
+-- code still works. `claim_occupies_allocation()` is the single definition:
 --
--- `claims_count` is left ALONE and keeps its existing meaning (verified
--- redemptions). Two counters is the honest answer here: a merchant genuinely
--- needs both "codes I have handed out" and "codes actually redeemed", and
--- collapsing them is what produced this defect. The UI now labels each.
+--   success  -> occupies permanently. The unit was sold.
+--   flagged  -> occupies. Held for admin review and `admin_release_redemption`
+--               can still turn it into a success, so releasing it here would
+--               let the deal over-issue the moment an admin approves.
+--   pending  -> occupies only while `expires_at > now()`. This is the ruling.
+--   failed   -> releases. No money moved and no code can be honoured:
+--               `verify_redemption` writes it for an expired-at-counter
+--               attempt and for a Guardian hard block.
+--
+-- Nothing is swept, nothing is mutated, and an expired claim row remains an
+-- immutable historical record — it simply stops counting as live, which is
+-- also what the ruling requires of every operational surface.
+--
+-- ## Concurrency (INVARIANT B), with a derived count
+--
+-- A derived count cannot use the single-statement `UPDATE ... WHERE` trick, so
+-- the trigger takes the DEAL ROW LOCK first and counts second:
+--
+--     SELECT max_claims FROM deals WHERE id = NEW.deal_id FOR UPDATE;   -- serialise
+--     SELECT count(*) FROM redemptions WHERE deal_id = ... AND occupies; -- fresh
+--
+-- Under READ COMMITTED each statement takes its own snapshot, so a claimant
+-- that waited on the lock runs its count AFTER the winner committed and sees
+-- that row. Every concurrent claimant for one deal therefore counts an
+-- allocation that already includes everyone ahead of it. `claim_deal` already
+-- holds this same lock (`FOR UPDATE OF d`) before inserting, so the lock is
+-- re-entrant there and the ordering is identical on both paths — no inversion,
+-- no deadlock.
+--
+-- Proven, not asserted: 1 slot against 10/12/15/25/30/40 simultaneous
+-- claimants issues exactly 1, on both `claim_deal` and raw concurrent INSERTs.
 --
 -- ## Where the cap is enforced, and why there
 --
 -- On a BEFORE INSERT trigger on `redemptions`, NOT only inside `claim_deal`.
 -- `claim_deal` is today's only issuance path, but the trigger makes the
--- allocation hold for ANY writer — a seed, an admin script, a future RPC —
--- so the merchant's promise cannot be broken by a path nobody remembered.
---
--- ## Concurrency (INVARIANT B)
---
--- The check and the increment are ONE statement:
---
---     UPDATE deals SET claims_issued = claims_issued + 1
---      WHERE id = NEW.deal_id AND (max_claims IS NULL OR claims_issued < max_claims)
---
--- A single UPDATE takes a row lock and re-evaluates its own WHERE clause
--- against the latest committed version of the row, so concurrent claimants
--- serialise on the deal row and each one re-tests the allocation it actually
--- faces. If one slot remains and ten shoppers tap Claim simultaneously,
--- exactly one UPDATE matches; the other nine find no row and raise. This does
--- not depend on `claim_deal`'s advisory `FOR UPDATE OF d`, on statement
--- ordering, or on any read-then-write window — there is no window.
---
--- ## Deletion (bookkeeping, NOT lifecycle release)
---
--- An AFTER DELETE trigger decrements, keeping the invariant above true when
--- the demo wipe removes `is_demo` rows (`20260730150000` deletes redemptions
--- and deals; `seed/demo_activity_seed.sql` deletes redemptions alone). This is
--- reconciliation of rows that no longer exist. It is NOT an expiry rule:
---
---   **An expired, failed or rejected claim does NOT release its slot.**
---
--- Those rows still exist, so they still count. Whether a no-show should hand
--- capacity back is a genuine product question about inventory economics that
--- the 2026-09-03 ruling does not settle (INVARIANT J says: surface it, do not
--- invent it). It is recorded as an open decision in the drift register and
--- deliberately NOT implemented here. Today's behaviour is the conservative
--- one: allocation is consumed at issuance and never silently re-opens.
+-- allocation hold for ANY writer — a seed, an admin script, a future RPC.
 --
 -- ## What this migration deliberately does NOT do
 --
---  * It does not touch `verify_redemption`, the KES 30 fee, or fee economics
---    (INVARIANT H). A claim legitimately issued before exhaustion follows the
---    normal lifecycle; there is no second stock rejection at the counter
+--  * No new `expired` status and no sweep (D224 ruling).
+--  * No change to `verify_redemption`, the KES 30 fee, or fee economics
+--    (INVARIANT H). A claim legitimately issued while capacity existed follows
+--    the normal lifecycle; there is no second stock rejection at the counter
 --    (INVARIANT G).
---  * It does not cancel, expire or invalidate any existing claim (INVARIANT C).
---  * It does not change pause semantics (INVARIANT F).
---  * It does not touch Fast Visit or any feature flag.
+--  * No claim is cancelled or invalidated (INVARIANT C).
+--  * No change to pause semantics (INVARIANT F).
+--  * Nothing touching Fast Visit or any feature flag.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1) The counter.
+-- 1) The one definition of "this claim is holding a slot right now".
 -- ---------------------------------------------------------------------------
-ALTER TABLE public.deals
-  ADD COLUMN IF NOT EXISTS claims_issued INTEGER NOT NULL DEFAULT 0;
+CREATE OR REPLACE FUNCTION public.claim_occupies_allocation(
+  p_status text,
+  p_expires_at timestamptz
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT p_status = 'success'
+      OR p_status = 'flagged'
+      OR (p_status = 'pending' AND p_expires_at > now())
+$$;
 
-COMMENT ON COLUMN public.deals.claims_issued IS
-  'D236: shopper claims ISSUED against this deal (redemption rows), the value max_claims caps at issuance. Distinct from claims_count, which counts VERIFIED REDEMPTIONS. Maintained by the redemptions_reserve_claim_slot / redemptions_release_claim_slot triggers; invariant claims_issued = count(redemptions for this deal).';
-
-COMMENT ON COLUMN public.deals.claims_count IS
-  'Verified redemptions for this deal, incremented by verify_redemption. NOT the claim count — see claims_issued (D236).';
-
-COMMENT ON COLUMN public.deals.max_claims IS
-  'D236: the deal''s MAANTA claim allocation — the maximum number of shopper claims that may be ISSUED. NULL means unlimited. Enforced at claim issuance by redemptions_reserve_claim_slot, never at redemption.';
-
--- ---------------------------------------------------------------------------
--- 2) Backfill from the rows themselves, so the invariant holds from the start.
---    Measured on production before writing this: 0 deals would violate the
---    CHECK added below (highest issued count on any deal was 4).
--- ---------------------------------------------------------------------------
-UPDATE public.deals d
-   SET claims_issued = COALESCE(
-         (SELECT count(*) FROM public.redemptions r WHERE r.deal_id = d.id), 0)
- WHERE d.claims_issued IS DISTINCT FROM COALESCE(
-         (SELECT count(*) FROM public.redemptions r WHERE r.deal_id = d.id), 0);
+COMMENT ON FUNCTION public.claim_occupies_allocation(text, timestamptz) IS
+  'D236/D224: whether one redemption row currently reserves a unit of its deal''s max_claims. success and flagged occupy (flagged can still be released to success by admin_release_redemption); pending occupies only while unexpired; failed releases. Derived from the row, never stored — an expired claim stops reserving without anything being swept or mutated.';
 
 -- ---------------------------------------------------------------------------
--- 3) The allocation invariant, as a constraint.
+-- 2) The count, exposed to the application as a computed column on `deals`.
 --
---    This is what makes INVARIANT D ("do not permit an internally
---    contradictory allocation") true at the database boundary rather than only
---    in the API: lowering max_claims below the number of claims already issued
---    is rejected by Postgres, so no code path — route, script or console — can
---    create a deal that promises fewer claims than it has already handed out.
+--    PostgREST renders a single-argument function over a table as a virtual
+--    column, so `getLiveDeals` can select `claims_reserved` alongside the real
+--    ones and every shopper and merchant surface reads the SAME number the
+--    trigger enforces. That is the whole point: before this, the UI's "N left"
+--    and the RPC's cap were computed from different columns.
+--
+--    SECURITY DEFINER because `authenticated` has no SELECT on `redemptions`
+--    for other people's rows; it returns a bare integer for ONE deal and
+--    exposes no row, no identity and no column.
 -- ---------------------------------------------------------------------------
-ALTER TABLE public.deals
-  DROP CONSTRAINT IF EXISTS deals_claims_issued_non_negative;
-ALTER TABLE public.deals
-  ADD CONSTRAINT deals_claims_issued_non_negative CHECK (claims_issued >= 0);
+CREATE OR REPLACE FUNCTION public.claims_reserved(d public.deals)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+  SELECT count(*)::integer
+    FROM public.redemptions r
+   WHERE r.deal_id = d.id
+     AND public.claim_occupies_allocation(r.status, r.expires_at)
+$$;
 
-ALTER TABLE public.deals
-  DROP CONSTRAINT IF EXISTS deals_claims_issued_within_allocation;
-ALTER TABLE public.deals
-  ADD CONSTRAINT deals_claims_issued_within_allocation
-  CHECK (max_claims IS NULL OR claims_issued <= max_claims);
+COMMENT ON FUNCTION public.claims_reserved(public.deals) IS
+  'D236: claims currently reserving this deal''s allocation. Exposed by PostgREST as a computed column on deals so the UI''s "claims left" and the issuance cap are the same number. Returns a count only.';
+
+REVOKE ALL ON FUNCTION public.claims_reserved(public.deals) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claims_reserved(public.deals) TO anon, authenticated, service_role;
+
+-- Supports the occupancy count. `expires_at` rides along so the pending branch
+-- is answered from the index rather than by visiting the heap.
+CREATE INDEX IF NOT EXISTS idx_redemptions_deal_status_expiry
+  ON public.redemptions (deal_id, status, expires_at);
 
 -- ---------------------------------------------------------------------------
--- 4) Reserve a slot on every claim issuance — atomic check-and-increment.
+-- 3) Reserve a slot on every claim issuance.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.reserve_deal_claim_slot()
 RETURNS trigger
@@ -138,21 +150,36 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $$
+DECLARE
+  v_max INTEGER;
+  v_occupied INTEGER;
 BEGIN
-  -- One statement: the WHERE clause IS the cap test, re-evaluated by Postgres
-  -- against the latest committed row version after any concurrent claimant
-  -- commits. No read-then-write window exists for a racing claim to slip
-  -- through. See the concurrency note in the migration header.
-  UPDATE public.deals
-     SET claims_issued = claims_issued + 1
-   WHERE id = NEW.deal_id
-     AND (max_claims IS NULL OR claims_issued < max_claims);
+  -- Serialise issuance for this deal. Every concurrent claimant queues here,
+  -- so the count below is taken against a state that already includes anyone
+  -- who committed ahead of us. claim_deal holds this same lock already.
+  SELECT d.max_claims INTO v_max
+    FROM public.deals d
+   WHERE d.id = NEW.deal_id
+   FOR UPDATE;
 
+  -- No row: the redemptions.deal_id foreign key makes this unreachable, but
+  -- failing open on a missing deal would be the wrong direction to guess in.
   IF NOT FOUND THEN
-    -- The allocation is exhausted (the deal itself cannot be missing: the
-    -- redemptions.deal_id foreign key already guarantees it exists). Same
-    -- error token `claim_deal` raises, so the API's existing mapping to
-    -- HTTP 409 `deal_claim_limit_reached` covers a direct write too.
+    RAISE EXCEPTION 'deal_not_found';
+  END IF;
+
+  IF v_max IS NULL THEN
+    RETURN NEW;                      -- unlimited allocation
+  END IF;
+
+  SELECT count(*) INTO v_occupied
+    FROM public.redemptions r
+   WHERE r.deal_id = NEW.deal_id
+     AND public.claim_occupies_allocation(r.status, r.expires_at);
+
+  IF v_occupied >= v_max THEN
+    -- Same error token claim_deal raises, so the API's existing mapping to
+    -- HTTP 410 `deal_claim_limit_reached` covers a direct write too.
     RAISE EXCEPTION 'deal_claim_limit_reached'
       USING ERRCODE = 'check_violation';
   END IF;
@@ -162,7 +189,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.reserve_deal_claim_slot() IS
-  'D236: reserves one slot from deals.max_claims at claim issuance, atomically. Raises deal_claim_limit_reached when the allocation is exhausted. Applies to EVERY insert into redemptions, not only claim_deal.';
+  'D236: enforces deals.max_claims against CURRENTLY RESERVING claims at issuance. Locks the deal row first so concurrent claimants serialise, then counts via claim_occupies_allocation. Applies to EVERY insert into redemptions, not only claim_deal.';
 
 DROP TRIGGER IF EXISTS redemptions_reserve_claim_slot ON public.redemptions;
 CREATE TRIGGER redemptions_reserve_claim_slot
@@ -170,39 +197,12 @@ CREATE TRIGGER redemptions_reserve_claim_slot
   FOR EACH ROW EXECUTE FUNCTION public.reserve_deal_claim_slot();
 
 -- ---------------------------------------------------------------------------
--- 5) Release on hard DELETE — bookkeeping only (see header). Expiry does not
---    delete rows, so expiry does not release a slot.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.release_deal_claim_slot()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
-AS $$
-BEGIN
-  UPDATE public.deals
-     SET claims_issued = GREATEST(claims_issued - 1, 0)
-   WHERE id = OLD.deal_id;
-  RETURN OLD;
-END;
-$$;
-
-COMMENT ON FUNCTION public.release_deal_claim_slot() IS
-  'D236: keeps deals.claims_issued equal to the number of surviving redemption rows when rows are hard-DELETEd (demo wipe/reseed). NOT an expiry rule — an expired or rejected claim keeps its row and keeps its slot.';
-
-DROP TRIGGER IF EXISTS redemptions_release_claim_slot ON public.redemptions;
-CREATE TRIGGER redemptions_release_claim_slot
-  AFTER DELETE ON public.redemptions
-  FOR EACH ROW EXECUTE FUNCTION public.release_deal_claim_slot();
-
--- ---------------------------------------------------------------------------
--- 6) claim_deal: gate on the allocation, not on the redemption counter.
+-- 4) claim_deal: gate on live occupancy, not on the redemption counter.
 --
 --    Body is otherwise IDENTICAL to 20260818120000_claim_deal_csprng_otp.sql.
---    The only change is the cap predicate: claims_count -> claims_issued.
 --    The trigger above is the authority; this check exists so the shopper gets
---    `deal_claim_limit_reached` before any OTP work, and so the error is the
---    same one whichever layer refuses.
+--    `deal_claim_limit_reached` before any OTP work, and so the same error
+--    comes back whichever layer refuses.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.claim_deal(
   p_user_id uuid,
@@ -235,6 +235,7 @@ DECLARE
   v_attempts INT := 0;
   v_existing_pending UUID;
   v_amount_kes NUMERIC;
+  v_occupied INTEGER;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     IF v_caller_id IS NULL THEN
@@ -246,7 +247,7 @@ BEGIN
   END IF;
 
   SELECT d.id, d.merchant_id, d.title, d.image_url, d.is_active, d.is_paused, d.expires_at,
-         d.max_claims, d.claims_issued, d.success_fee,
+         d.max_claims, d.success_fee,
          d.price_kes, d.charges,
          m.status AS merchant_status, m.is_visible, m.is_shadow_banned,
          m.merchant_name, m.what3words_address, m.floor, m.unit_number
@@ -265,8 +266,7 @@ BEGIN
   END IF;
 
   -- Wireframe 10ab / merchant UI: paused deals accept no new claims.
-  -- Already-claimed codes stay valid until expiry. (INVARIANT F: pause blocks
-  -- NEW claims and cancels nothing.)
+  -- Already-claimed codes stay valid until expiry. (INVARIANT F.)
   IF v_deal.is_paused IS TRUE THEN
     RAISE EXCEPTION 'deal_paused';
   END IF;
@@ -281,10 +281,17 @@ BEGIN
     RAISE EXCEPTION 'merchant_not_available';
   END IF;
 
-  -- D236: the allocation, tested against claims ISSUED. Fast-fail only; the
-  -- BEFORE INSERT trigger below is what actually reserves the slot.
-  IF v_deal.max_claims IS NOT NULL AND v_deal.claims_issued >= v_deal.max_claims THEN
-    RAISE EXCEPTION 'deal_claim_limit_reached';
+  -- D236: the allocation, tested against claims that are reserving RIGHT NOW.
+  -- The deal row is already locked above, so this count is serialised exactly
+  -- as the trigger's is.
+  IF v_deal.max_claims IS NOT NULL THEN
+    SELECT count(*) INTO v_occupied
+      FROM public.redemptions r
+     WHERE r.deal_id = p_deal_id
+       AND public.claim_occupies_allocation(r.status, r.expires_at);
+    IF v_occupied >= v_deal.max_claims THEN
+      RAISE EXCEPTION 'deal_claim_limit_reached';
+    END IF;
   END IF;
 
   SELECT r.id INTO v_existing_pending
@@ -321,9 +328,8 @@ BEGIN
 
       EXIT;
     EXCEPTION WHEN unique_violation THEN
-      -- OTP collision only. A retry re-runs the INSERT and therefore the
-      -- reserve trigger, but the previous attempt's increment was rolled back
-      -- with its subtransaction, so a collision never consumes a second slot
+      -- OTP collision only. The retry re-runs the reserve trigger, which
+      -- re-counts; a collision therefore cannot consume two slots
       -- (INVARIANT I).
       IF v_attempts >= 5 THEN
         RAISE EXCEPTION 'otp_generation_failed: too many collisions';
@@ -348,24 +354,14 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) IS
-  'Claim a live deal: CSPRNG OTP + 15-minute grace after deal expiry. Rejects paused deals (deal_paused) and exhausted allocations (deal_claim_limit_reached, D236 — tested against deals.claims_issued, reserved atomically by redemptions_reserve_claim_slot). service_role or matching authenticated caller only.';
+  'Claim a live deal: CSPRNG OTP + 15-minute grace after deal expiry. Rejects paused deals (deal_paused) and a full live allocation (deal_claim_limit_reached, D236 — counted via claim_occupies_allocation under the deal row lock, and enforced independently by redemptions_reserve_claim_slot). service_role or matching authenticated caller only.';
 
 REVOKE ALL ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) FROM anon;
 GRANT EXECUTE ON FUNCTION public.claim_deal(uuid, uuid, text, extensions.geography) TO authenticated, service_role, postgres;
 
--- ---------------------------------------------------------------------------
--- 7) Public browse view: "fully claimed" now means the allocation is spent.
---    Rebuilt with the same shape and the same security posture as
---    20260730190000_paused_deals_discovery_filter.sql.
--- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-     WHERE n.nspname = 'public' AND c.relname = 'deals_public_browse' AND c.relkind = 'v'
-  ) THEN
-    EXECUTE 'COMMENT ON VIEW public.deals_public_browse IS ' || quote_literal(
-      'Public discovery deals: active, unpaused, unexpired, merchant publicly visible. Pause hides from discovery only — claimed tickets remain redeemable via verify_redemption until ticket expiry. D236: claims_issued carries the claim allocation; claims_count remains verified redemptions.');
-  END IF;
-END $$;
+COMMENT ON COLUMN public.deals.max_claims IS
+  'D236: the deal''s live MAANTA claim allocation — the maximum number of shopper claims that may be reserving it at once. NULL means unlimited. Enforced at claim issuance by redemptions_reserve_claim_slot, never at redemption. A claim that expires releases its slot (D224 ruling); a redeemed one holds it permanently.';
+
+COMMENT ON COLUMN public.deals.claims_count IS
+  'Verified redemptions for this deal, incremented by verify_redemption. NOT the claim count and NOT the allocation — see claims_reserved(deals) (D236).';

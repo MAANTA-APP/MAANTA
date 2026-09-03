@@ -53,8 +53,18 @@
 --
 -- Every policy below keeps its EXACT prior semantics: same command, same admin
 -- and role clauses, same shape. The only change is where the id list comes
--- from. Recreated with USING only, exactly as before, so ALL-policies keep
--- deriving WITH CHECK from USING.
+-- from.
+--
+-- ## ALTER POLICY, not DROP + CREATE
+--
+-- `ALTER POLICY ... USING (...)` replaces the expression **in place**. A
+-- DROP+CREATE pair would leave a window — however short — in which a
+-- tenant-isolation policy does not exist on a live table, and whether that
+-- window is visible to another session depends on the migration runner
+-- wrapping the file in a transaction. That is not a property this repository
+-- controls or can verify from here, so the safer statement is used instead and
+-- the question does not arise. It also cannot silently change a policy's
+-- command or its WITH CHECK derivation, because it does not touch them.
 --
 -- Guard: supabase/tests/merchant_tenant_policy_repair_test.sql
 -- =============================================================================
@@ -78,74 +88,70 @@ REVOKE ALL ON FUNCTION public.current_user_merchant_ids() FROM anon;
 GRANT EXECUTE ON FUNCTION public.current_user_merchant_ids() TO authenticated, service_role, postgres;
 
 -- --- The three LIVE policies ------------------------------------------------
+-- `authenticated` holds a privilege on these three, so these are the ones that
+-- actually raise 42501 today.
 
-DROP POLICY IF EXISTS transactions_merchant ON public.merchant_transactions;
-CREATE POLICY transactions_merchant ON public.merchant_transactions
-  FOR SELECT USING (
+ALTER POLICY transactions_merchant ON public.merchant_transactions
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     OR public.current_user_role() = 'admin'
   );
 
-DROP POLICY IF EXISTS pending_topups_merchant_read ON public.pending_topups;
-CREATE POLICY pending_topups_merchant_read ON public.pending_topups
-  FOR SELECT USING (
+ALTER POLICY pending_topups_merchant_read ON public.pending_topups
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
   );
 
-DROP POLICY IF EXISTS redemptions_merchant ON public.redemptions;
-CREATE POLICY redemptions_merchant ON public.redemptions
-  FOR ALL USING (
+ALTER POLICY redemptions_merchant ON public.redemptions
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     AND public.current_user_role() = ANY (ARRAY['merchant_admin', 'merchant_staff'])
   );
 
 -- --- The seven dormant policies, repaired before they are ever granted ------
+-- `authenticated` holds nothing on these tables, so their policies are never
+-- reached today. Dormant is not safe: the trap re-arms the moment a grant is
+-- added, and a future grant is exactly the kind of change nobody would think
+-- to re-test these against.
 
-DROP POLICY IF EXISTS archive_merchant ON public.archive_history;
-CREATE POLICY archive_merchant ON public.archive_history
-  FOR ALL USING (
+ALTER POLICY archive_merchant ON public.archive_history
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
   );
 
-DROP POLICY IF EXISTS boost_flags_merchant ON public.boost_flags;
-CREATE POLICY boost_flags_merchant ON public.boost_flags
-  FOR ALL USING (
+ALTER POLICY boost_flags_merchant ON public.boost_flags
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     OR public.current_user_role() = 'admin'
   );
 
-DROP POLICY IF EXISTS deals_merchant ON public.deals;
-CREATE POLICY deals_merchant ON public.deals
-  FOR ALL USING (
+ALTER POLICY deals_merchant ON public.deals
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     AND public.current_user_role() = ANY (ARRAY['merchant_admin', 'merchant_staff'])
   );
 
-DROP POLICY IF EXISTS kpi_merchant ON public.kpi_counters;
-CREATE POLICY kpi_merchant ON public.kpi_counters
-  FOR SELECT USING (
+ALTER POLICY kpi_merchant ON public.kpi_counters
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     OR public.current_user_role() = 'admin'
   );
 
-DROP POLICY IF EXISTS staff_owner_manage ON public.merchant_staff;
-CREATE POLICY staff_owner_manage ON public.merchant_staff
-  FOR ALL USING (
+ALTER POLICY staff_owner_manage ON public.merchant_staff
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     OR public.current_user_role() = 'admin'
   );
 
-DROP POLICY IF EXISTS reporting_merchant ON public.reporting_aggregates;
-CREATE POLICY reporting_merchant ON public.reporting_aggregates
-  FOR SELECT USING (
+ALTER POLICY reporting_merchant ON public.reporting_aggregates
+  USING (
     (entity_type = 'merchant'
      AND entity_id IN (SELECT public.current_user_merchant_ids()))
     OR public.current_user_role() = 'admin'
   );
 
-DROP POLICY IF EXISTS tier_flags_merchant ON public.tier_flags;
-CREATE POLICY tier_flags_merchant ON public.tier_flags
-  FOR ALL USING (
+ALTER POLICY tier_flags_merchant ON public.tier_flags
+  USING (
     merchant_id IN (SELECT public.current_user_merchant_ids())
     OR public.current_user_role() = 'admin'
   );

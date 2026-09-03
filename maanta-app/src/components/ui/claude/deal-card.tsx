@@ -53,7 +53,7 @@ export function DealCard({
   expiresAt,
   merchantId,
   isFavourite = false,
-  claimsIssued,
+  claimsReserved,
   maxClaims,
   verifiedCount,
   variant = "horizontal",
@@ -75,7 +75,7 @@ export function DealCard({
   isFavourite?: boolean;
   /** Decision KPIs. Rendered on the tall variants only — the rail card stays
    *  glanceable, and a KPI row would crowd 17.5rem. */
-  claimsIssued?: number | null;
+  claimsReserved?: number | null;
   maxClaims?: number | null;
   verifiedCount?: number | null;
   variant?: "horizontal" | "vertical" | "lead" | "row";
@@ -154,7 +154,7 @@ export function DealCard({
             <DealKpis
               pay={pay}
               was={wasKes}
-              claimsIssued={claimsIssued}
+              claimsReserved={claimsReserved}
               maxClaims={maxClaims}
               verifiedCount={verifiedCount}
               className="mt-2.5"
@@ -215,7 +215,7 @@ export function DealCard({
             <DealKpis
               pay={pay}
               was={wasKes}
-              claimsIssued={claimsIssued}
+              claimsReserved={claimsReserved}
               maxClaims={maxClaims}
               verifiedCount={verifiedCount}
               className="mt-1.5"
@@ -286,7 +286,7 @@ export function DealCard({
             <DealKpis
               pay={pay}
               was={wasKes}
-              claimsIssued={claimsIssued}
+              claimsReserved={claimsReserved}
               maxClaims={maxClaims}
               verifiedCount={verifiedCount}
               className="pt-0.5"

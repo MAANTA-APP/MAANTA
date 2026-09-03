@@ -119,7 +119,7 @@ export default async function SearchPage({
                 pay: priced.pay,
                 wasKes: priced.was,
                 extras: priced.extras,
-                claimsIssued: d.claims_issued,
+                claimsReserved: d.claims_reserved,
                 maxClaims: d.max_claims,
                 verifiedCount: verified.get(d.merchant_id) ?? 0,
               },

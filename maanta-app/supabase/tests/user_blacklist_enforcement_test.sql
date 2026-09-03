@@ -46,8 +46,8 @@ BEGIN
   ASSERT NOT EXISTS (SELECT 1 FROM public.redemptions WHERE user_id = v_u),
     'A: no redemption row may exist for a refused claim';
   -- The refusal must not have eaten one of the merchant's claim slots (D236).
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 0,
-    'A: a blacklisted refusal must not consume the merchant allocation';
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 0,
+    'A: a blacklisted refusal must not reserve any of the merchant allocation';
 
   UPDATE public.users SET is_blacklisted = false WHERE id = v_u;
   PERFORM public.claim_deal(v_u, v_d);

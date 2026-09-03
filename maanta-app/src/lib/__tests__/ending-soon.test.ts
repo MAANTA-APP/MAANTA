@@ -14,9 +14,9 @@ const at = (msFromNow: number) => new Date(NOW.getTime() + msFromNow).toISOStrin
 const deal = (
   id: string,
   msFromNow: number,
-  cap: { max_claims: number | null; claims_issued: number } = {
+  cap: { max_claims: number | null; claims_reserved: number } = {
     max_claims: null,
-    claims_issued: 0,
+    claims_reserved: 0,
   }
 ) => ({ id, expires_at: at(msFromNow), ...cap });
 
@@ -76,8 +76,8 @@ describe("Ending soon selects on real expiry and nothing else", () => {
     expect(
       endingSoonDeals(
         [
-          { id: "null-expiry", expires_at: null, max_claims: null, claims_issued: 0 },
-          { id: "unparseable", expires_at: "not a date", max_claims: null, claims_issued: 0 },
+          { id: "null-expiry", expires_at: null, max_claims: null, claims_reserved: 0 },
+          { id: "unparseable", expires_at: "not a date", max_claims: null, claims_reserved: 0 },
         ],
         NOW
       )
@@ -96,8 +96,8 @@ describe("one definition of urgency, not two", () => {
     const outside = new Date(Date.now() + 90 * 60_000).toISOString();
     expect(isNearExpiry(inside)).toBe(true);
     expect(isNearExpiry(outside)).toBe(false);
-    expect(endingSoonDeals([{ id: "x", expires_at: inside, max_claims: null, claims_issued: 0 }]).length).toBe(1);
-    expect(endingSoonDeals([{ id: "x", expires_at: outside, max_claims: null, claims_issued: 0 }]).length).toBe(0);
+    expect(endingSoonDeals([{ id: "x", expires_at: inside, max_claims: null, claims_reserved: 0 }]).length).toBe(1);
+    expect(endingSoonDeals([{ id: "x", expires_at: outside, max_claims: null, claims_reserved: 0 }]).length).toBe(0);
   });
 
   it("uses the same 60-minute threshold the frozen rust state uses", () => {
@@ -122,7 +122,7 @@ describe("Ending soon means the claim window is open, not merely expiring", () =
    * `claim_deal`, read from production, refuses a capped deal outright:
    *
    *   IF v_deal.max_claims IS NOT NULL
-   *      AND v_deal.claims_issued >= v_deal.max_claims THEN
+   *      AND v_deal.claims_reserved >= v_deal.max_claims THEN
    *     RAISE EXCEPTION 'deal_claim_limit_reached';
    *
    * The section subtitle promises "claim windows closing within the hour",
@@ -138,30 +138,30 @@ describe("Ending soon means the claim window is open, not merely expiring", () =
   const soon = 10 * 60_000;
 
   it("includes a deal under its cap", () => {
-    const picked = endingSoonDeals([deal("has-room", soon, { max_claims: 10, claims_issued: 9 })], NOW);
+    const picked = endingSoonDeals([deal("has-room", soon, { max_claims: 10, claims_reserved: 9 })], NOW);
     expect(picked.map((d) => d.id)).toEqual(["has-room"]);
   });
 
   it("excludes a deal exactly at its cap", () => {
     // The boundary the RPC uses is `>=`, so equality is already refused.
-    expect(endingSoonDeals([deal("at-cap", soon, { max_claims: 10, claims_issued: 10 })], NOW)).toEqual([]);
+    expect(endingSoonDeals([deal("at-cap", soon, { max_claims: 10, claims_reserved: 10 })], NOW)).toEqual([]);
   });
 
   it("excludes a deal over its cap", () => {
     // Defensive: a concurrent claim can overshoot a stale read.
-    expect(endingSoonDeals([deal("over-cap", soon, { max_claims: 10, claims_issued: 11 })], NOW)).toEqual([]);
+    expect(endingSoonDeals([deal("over-cap", soon, { max_claims: 10, claims_reserved: 11 })], NOW)).toEqual([]);
   });
 
   it("includes a deal with no cap at all", () => {
     // NULL max_claims is unlimited, never "zero allowed".
-    const picked = endingSoonDeals([deal("uncapped", soon, { max_claims: null, claims_issued: 999 })], NOW);
+    const picked = endingSoonDeals([deal("uncapped", soon, { max_claims: null, claims_reserved: 999 })], NOW);
     expect(picked.map((d) => d.id)).toEqual(["uncapped"]);
   });
 
   it("still excludes an under-cap deal outside the threshold", () => {
     // Room to claim is not urgency. The 60-minute rule is unchanged.
     expect(
-      endingSoonDeals([deal("far-off", 3 * 3600_000, { max_claims: 10, claims_issued: 1 })], NOW)
+      endingSoonDeals([deal("far-off", 3 * 3600_000, { max_claims: 10, claims_reserved: 1 })], NOW)
     ).toEqual([]);
   });
 
@@ -169,8 +169,8 @@ describe("Ending soon means the claim window is open, not merely expiring", () =
     expect(
       endingSoonDeals(
         [
-          deal("gone-uncapped", -60_000, { max_claims: null, claims_issued: 0 }),
-          deal("gone-capped", -60_000, { max_claims: 10, claims_issued: 10 }),
+          deal("gone-uncapped", -60_000, { max_claims: null, claims_reserved: 0 }),
+          deal("gone-capped", -60_000, { max_claims: 10, claims_reserved: 10 }),
         ],
         NOW
       )
@@ -181,10 +181,10 @@ describe("Ending soon means the claim window is open, not merely expiring", () =
     // The cap filter must not disturb the locked ordering of what remains.
     const picked = endingSoonDeals(
       [
-        deal("third", 30 * 60_000, { max_claims: 5, claims_issued: 1 }),
-        deal("capped", 1 * 60_000, { max_claims: 5, claims_issued: 5 }),
-        deal("first", 5 * 60_000, { max_claims: null, claims_issued: 0 }),
-        deal("second", 20 * 60_000, { max_claims: 5, claims_issued: 4 }),
+        deal("third", 30 * 60_000, { max_claims: 5, claims_reserved: 1 }),
+        deal("capped", 1 * 60_000, { max_claims: 5, claims_reserved: 5 }),
+        deal("first", 5 * 60_000, { max_claims: null, claims_reserved: 0 }),
+        deal("second", 20 * 60_000, { max_claims: 5, claims_reserved: 4 }),
       ],
       NOW
     );
@@ -194,16 +194,16 @@ describe("Ending soon means the claim window is open, not merely expiring", () =
 
 describe("the cap predicate matches claim_deal exactly", () => {
   it("treats a null cap as unlimited", () => {
-    expect(isFullyClaimed({ max_claims: null, claims_issued: 10_000 })).toBe(false);
+    expect(isFullyClaimed({ max_claims: null, claims_reserved: 10_000 })).toBe(false);
   });
 
   it("is >= and not >, so the cap itself is full", () => {
-    expect(isFullyClaimed({ max_claims: 3, claims_issued: 2 })).toBe(false);
-    expect(isFullyClaimed({ max_claims: 3, claims_issued: 3 })).toBe(true);
-    expect(isFullyClaimed({ max_claims: 3, claims_issued: 4 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 3, claims_reserved: 2 })).toBe(false);
+    expect(isFullyClaimed({ max_claims: 3, claims_reserved: 3 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 3, claims_reserved: 4 })).toBe(true);
   });
 
   it("treats a zero cap as full rather than unlimited", () => {
-    expect(isFullyClaimed({ max_claims: 0, claims_issued: 0 })).toBe(true);
+    expect(isFullyClaimed({ max_claims: 0, claims_reserved: 0 })).toBe(true);
   });
 });

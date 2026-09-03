@@ -46,45 +46,51 @@ type ExpiringDeal = {
   expires_at: string | null;
   /** NULL means unlimited, exactly as `claim_deal` reads it. */
   max_claims: number | null;
-  /** D236: claims ISSUED — the counter the allocation is tested against. */
-  claims_issued: number;
+  /** D236: claims RESERVING the allocation right now. */
+  claims_reserved: number;
 };
 
 /**
  * The claim allocation, as the claim path actually enforces it.
  *
- * D236: the cap is tested against `claims_issued` — claims HANDED OUT — not
- * `claims_count`, which counts verified redemptions. Before 2026-09-03 this
- * read `claims_count`, which only moves at the counter, so a deal whose codes
- * were all issued still advertised itself as claimable right up until someone
- * redeemed. `claim_deal` and the `redemptions_reserve_claim_slot` trigger both
- * raise `deal_claim_limit_reached` on
- * `max_claims IS NOT NULL AND claims_issued >= max_claims`, so NULL is
- * unlimited and the comparison is `>=`, not `>`. Read from the deployed
- * function rather than inferred: an off-by-one here would either advertise a
- * claim the database refuses, or hide a deal a shopper could still claim.
+ * D236: the cap is tested against `claims_reserved` — claims holding a slot
+ * RIGHT NOW — not `claims_count`, which counts verified redemptions. Before
+ * 2026-09-03 this read `claims_count`, which only moves at the counter, so a
+ * deal whose codes were all issued still advertised itself as claimable until
+ * someone redeemed.
+ *
+ * `claims_reserved` is a computed column backed by `claims_reserved(deals)`,
+ * the same function the `redemptions_reserve_claim_slot` trigger counts with,
+ * so this predicate and the database's refusal cannot disagree. Both raise
+ * `deal_claim_limit_reached` on
+ * `max_claims IS NOT NULL AND claims_reserved >= max_claims`: NULL is
+ * unlimited and the comparison is `>=`, not `>`.
+ *
+ * Because occupancy is derived from live expiry (D224 ruling), this value
+ * FALLS on its own as unredeemed claims lapse — a sold-out deal can become
+ * claimable again with no write anywhere.
  */
 export function isFullyClaimed(deal: {
   max_claims: number | null;
-  claims_issued: number;
+  claims_reserved: number;
 }): boolean {
-  return deal.max_claims !== null && deal.claims_issued >= deal.max_claims;
+  return deal.max_claims !== null && deal.claims_reserved >= deal.max_claims;
 }
 
 /**
  * Claims still available on a deal, or `null` when the allocation is unlimited.
  *
- * The single place this arithmetic lives. `Math.max(…, 0)` because a deal whose
- * allocation was lowered to exactly its issued count reads zero rather than a
- * negative — the database CHECK forbids lowering below it, so this clamps a
- * boundary rather than hiding a contradiction.
+ * The single place this arithmetic lives. `Math.max(…, 0)` because a merchant
+ * may lower `max_claims` below what is already reserved — the API refuses that
+ * edit, but the database permits the state, and a negative "claims left" would
+ * be worse than a clamped zero.
  */
 export function claimsRemaining(deal: {
   max_claims: number | null;
-  claims_issued: number;
+  claims_reserved: number;
 }): number | null {
   if (deal.max_claims === null) return null;
-  return Math.max(deal.max_claims - deal.claims_issued, 0);
+  return Math.max(deal.max_claims - deal.claims_reserved, 0);
 }
 
 /**

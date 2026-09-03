@@ -9,9 +9,9 @@
 --   D  INVARIANT D  max_claims cannot be lowered below claims already issued
 --   E  INVARIANT E  raising the allocation re-opens claiming
 --   F  INVARIANT F  pause blocks new claims and cancels none
---   G  INVARIANT J  an EXPIRED claim does not release its slot
---   H              claims_issued = count(redemptions) — the counter invariant
---   I              claims_count stays REDEMPTIONS, claims_issued stays CLAIMS
+--   G  D224 ruling  an EXPIRED claim RELEASES its slot, with the row untouched
+--   H  D224 ruling  a FAILED claim releases; success and flagged keep holding
+--   I              a NULL allocation is unlimited
 --
 -- Migration: 20260903120000_claim_allocation_cap.sql
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/claim_allocation_cap_test.sql
@@ -43,8 +43,8 @@ BEGIN
   PERFORM public.claim_deal(v_u1, v_d);
   PERFORM public.claim_deal(v_u2, v_d);
 
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 2,
-    'A: two claims must consume two slots';
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 2,
+    'A: two live claims must reserve two slots';
   -- Nobody has redeemed, so the OLD counter is still zero. That is exactly the
   -- condition under which the pre-D236 cap failed open.
   ASSERT (SELECT claims_count FROM public.deals WHERE id = v_d) = 0,
@@ -126,7 +126,8 @@ BEGIN
 
   SELECT * INTO v_claim FROM public.claim_deal(v_u, v_d);
   -- The allocation is now exhausted. The already-issued claim must not care.
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 1, 'C: slot consumed';
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 1,
+    'C: slot reserved';
 
   SELECT * INTO v_verify FROM public.verify_redemption(v_m, v_claim.otp_code, NULL, false, NULL);
   ASSERT v_verify.redemption_status = 'success',
@@ -138,8 +139,11 @@ BEGIN
   SELECT account_balance INTO v_bal FROM public.merchants WHERE id = v_m;
   ASSERT v_bal = 470, format('C: balance must be 500-30=470, got %s', v_bal);
   -- Both counters now moved, for different reasons.
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 1, 'C: claims_issued unchanged by redemption';
-  ASSERT (SELECT claims_count  FROM public.deals WHERE id = v_d) = 1, 'C: claims_count incremented by redemption';
+  -- A redeemed claim keeps its slot permanently: the unit was sold.
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 1,
+    'C: a successful redemption must keep holding its slot';
+  ASSERT (SELECT claims_count FROM public.deals WHERE id = v_d) = 1,
+    'C: claims_count incremented by redemption';
 
   DELETE FROM public.merchant_transactions WHERE merchant_id = v_m;
   DELETE FROM public.redemptions WHERE deal_id = v_d;
@@ -149,14 +153,26 @@ BEGIN
   RAISE NOTICE 'C passed: issued claim redeems normally, fee once (INVARIANTS G, H)';
 END $$;
 
--- Scenario D: an internally contradictory allocation is impossible.
+-- Scenario D: lowering the allocation stops further claiming and cancels nothing.
+--
+-- NOTE the deliberate change from this test's first version. The allocation is
+-- now DERIVED, so `claims_issued <= max_claims` is no longer a database CHECK —
+-- occupancy falls on its own as claims expire, and a stored constraint would
+-- have to be re-evaluated by the clock, which is exactly the sweep the D224
+-- ruling forbids. The invariant that matters survives and is asserted here:
+-- lowering NEVER touches an issued claim, and an over-subscribed deal simply
+-- issues nothing more until occupancy falls below the new number. The API
+-- (`/api/deals/[id]`) still refuses the edit outright and explains why, so a
+-- merchant cannot create the contradiction in the first place.
 DO $$
 DECLARE
-  v_m UUID; v_d UUID; v_u1 UUID; v_u2 UUID; v_lowered BOOLEAN := false; v_err TEXT;
+  v_m UUID; v_d UUID; v_u1 UUID; v_u2 UUID; v_u3 UUID;
+  v_claimed BOOLEAN := false; v_err TEXT;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u1;
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u2;
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u3;
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance, floor, unit_number, is_visible)
     VALUES ('__test_alloc_d', 'test.alloc.d', '+254700000904', 'BBS Mall', 'active', 500, '1st Floor', 'D-1', TRUE)
     RETURNING id INTO v_m;
@@ -167,30 +183,28 @@ BEGIN
   PERFORM public.claim_deal(v_u1, v_d);
   PERFORM public.claim_deal(v_u2, v_d);
 
-  -- Lowering to 2 is legal: it equals what has been issued and simply stops
-  -- further claiming. This is the merchant's stock-protection lever.
+  -- The merchant pulls the allocation back to what is already out.
   UPDATE public.deals SET max_claims = 2 WHERE id = v_d;
-  ASSERT (SELECT max_claims FROM public.deals WHERE id = v_d) = 2, 'D: lowering to the issued count must be allowed';
 
-  -- Lowering BELOW the issued count would retroactively un-promise a code that
-  -- a shopper is already holding. The database refuses.
+  ASSERT (SELECT count(*) FROM public.redemptions
+           WHERE deal_id = v_d AND status = 'pending') = 2,
+    'D: lowering the allocation must not cancel an issued claim (INVARIANT C)';
+
   BEGIN
-    UPDATE public.deals SET max_claims = 1 WHERE id = v_d;
-    v_lowered := true;
-  EXCEPTION WHEN check_violation THEN
+    PERFORM public.claim_deal(v_u3, v_d);
+    v_claimed := true;
+  EXCEPTION WHEN OTHERS THEN
     v_err := SQLERRM;
   END;
-
-  ASSERT NOT v_lowered,
-    'D: max_claims was lowered below claims already issued — existing claims can be silently over-promised';
-  ASSERT (SELECT count(*) FROM public.redemptions WHERE deal_id = v_d AND status = 'pending') = 2,
-    'D: both issued claims must survive the rejected edit (INVARIANT C)';
+  ASSERT NOT v_claimed, 'D: no further claim may be issued at the lowered allocation';
+  ASSERT v_err = 'deal_claim_limit_reached',
+    format('D: expected deal_claim_limit_reached, got %s', COALESCE(v_err,'<none>'));
 
   DELETE FROM public.redemptions WHERE deal_id = v_d;
   DELETE FROM public.deals WHERE id = v_d;
   DELETE FROM public.merchants WHERE id = v_m;
-  DELETE FROM public.users WHERE id IN (v_u1, v_u2);
-  RAISE NOTICE 'D passed: contradictory allocation refused, existing claims preserved (INVARIANTS C, D)';
+  DELETE FROM public.users WHERE id IN (v_u1, v_u2, v_u3);
+  RAISE NOTICE 'D passed: lowering stops issuance, cancels nothing (INVARIANTS C, D)';
 END $$;
 
 -- Scenario E: raising the allocation re-opens claiming.
@@ -212,7 +226,7 @@ BEGIN
   UPDATE public.deals SET max_claims = 2 WHERE id = v_d;
   PERFORM public.claim_deal(v_u2, v_d);
 
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 2,
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 2,
     'E: raising the allocation must let another shopper claim';
 
   DELETE FROM public.redemptions WHERE deal_id = v_d;
@@ -250,8 +264,8 @@ BEGIN
   ASSERT v_blocked, format('F: pause must block a new claim, got: %s', COALESCE(v_err,'<none>'));
 
   -- Capacity was NOT consumed by the refused claim.
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 1,
-    'F: a claim refused by pause must not consume a slot';
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 1,
+    'F: a claim refused by pause must not reserve a slot';
 
   SELECT * INTO v_verify FROM public.verify_redemption(v_m, v_claim.otp_code, NULL, false, NULL);
   ASSERT v_verify.redemption_status = 'success',
@@ -265,14 +279,17 @@ BEGIN
   RAISE NOTICE 'F passed: pause blocks new claims, preserves issued ones (INVARIANT F)';
 END $$;
 
--- Scenario G: an EXPIRED claim keeps its slot. This is the conservative reading
--- of the 2026-09-03 ruling: allocation is consumed at issuance. Whether a
--- no-show should hand capacity back is an OPEN founder decision (INVARIANT J),
--- deliberately not implemented. If that ruling changes, THIS test is the one
--- that must be updated first — it is the written record of today's semantics.
+-- Scenario G: an EXPIRED claim RELEASES its slot — founder ruling D224,
+-- 2026-09-03: "once the shopper's claim has genuinely expired and can no longer
+-- be redeemed, it should no longer reserve merchant allocation."
+--
+-- The released slot is computed, never swept: the expired row is left exactly
+-- as it was, and this test asserts that too. If it were mutated or deleted to
+-- free the slot, the historical evidence the ruling protects would be gone.
 DO $$
 DECLARE
-  v_m UUID; v_d UUID; v_u1 UUID; v_u2 UUID; v_claimed BOOLEAN := false; v_err TEXT;
+  v_m UUID; v_d UUID; v_u1 UUID; v_u2 UUID;
+  v_before INT; v_after INT; v_status TEXT; v_expires TIMESTAMPTZ; v_rid UUID;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
   INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u1;
@@ -285,66 +302,85 @@ BEGIN
     RETURNING id INTO v_d;
 
   PERFORM public.claim_deal(v_u1, v_d);
-  -- Force the claim past its expiry without deleting it.
-  UPDATE public.redemptions SET expires_at = NOW() - INTERVAL '1 hour' WHERE deal_id = v_d;
+  SELECT id INTO v_rid FROM public.redemptions WHERE deal_id = v_d;
+  SELECT public.claims_reserved(d) INTO v_before FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_before = 1, 'G: the live claim must reserve the only slot';
 
-  BEGIN
-    PERFORM public.claim_deal(v_u2, v_d);
-    v_claimed := true;
-  EXCEPTION WHEN OTHERS THEN
-    v_err := SQLERRM;
-  END;
+  -- The shopper never came. Push the ticket past its validity window; the row
+  -- itself is otherwise untouched and stays `pending`.
+  UPDATE public.redemptions SET expires_at = NOW() - INTERVAL '1 hour' WHERE id = v_rid;
 
-  ASSERT NOT v_claimed,
-    'G: an expired claim released its slot — that is an inventory rule nobody authorised';
-  ASSERT v_err = 'deal_claim_limit_reached',
-    format('G: expected deal_claim_limit_reached, got %s', COALESCE(v_err,'<none>'));
+  SELECT public.claims_reserved(d) INTO v_after FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_after = 0,
+    format('G: an expired claim must release its slot (D224 ruling), still reserving %s', v_after);
+
+  -- And the slot is genuinely re-issuable, not merely reported free.
+  PERFORM public.claim_deal(v_u2, v_d);
+  ASSERT (SELECT count(*) FROM public.redemptions WHERE deal_id = v_d) = 2,
+    'G: the released slot must be claimable by the next shopper';
+
+  -- The historical row is intact: same status, same expiry, still there.
+  SELECT status, expires_at INTO v_status, v_expires
+    FROM public.redemptions WHERE id = v_rid;
+  ASSERT v_status = 'pending',
+    format('G: the expired claim was MUTATED to %s — evidence must not be rewritten to free a slot', v_status);
+  ASSERT v_expires < NOW(), 'G: the expired claim row must be left as it was';
 
   DELETE FROM public.redemptions WHERE deal_id = v_d;
   DELETE FROM public.deals WHERE id = v_d;
   DELETE FROM public.merchants WHERE id = v_m;
   DELETE FROM public.users WHERE id IN (v_u1, v_u2);
-  RAISE NOTICE 'G passed: expiry does NOT release a slot — today''s documented semantics (INVARIANT J)';
+  RAISE NOTICE 'G passed: expiry releases the slot, computed not swept (D224)';
 END $$;
 
--- Scenario H: the counter invariant, including the DELETE bookkeeping path the
--- demo wipe relies on.
+-- Scenario H: which statuses hold a slot, one at a time. This is the table the
+-- D224 ruling implies, asserted rather than described.
 DO $$
 DECLARE
-  v_m UUID; v_d UUID; v_u1 UUID; v_u2 UUID; v_drift INT;
+  v_m UUID; v_d UUID; v_u UUID; v_rid UUID; v_res INT;
 BEGIN
   PERFORM set_config('request.jwt.claims', '{"role":"service_role"}', true);
-  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u1;
-  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u2;
+  INSERT INTO public.users (role) VALUES ('customer') RETURNING id INTO v_u;
   INSERT INTO public.merchants (merchant_name, what3words_address, phone, node, status, account_balance, floor, unit_number, is_visible)
     VALUES ('__test_alloc_h', 'test.alloc.h', '+254700000908', 'BBS Mall', 'active', 500, '1st Floor', 'H-1', TRUE)
     RETURNING id INTO v_m;
   INSERT INTO public.deals (merchant_id, title, image_url, is_active, is_paused, expires_at, max_claims, claims_count, success_fee, price_kes)
-    VALUES (v_m, 'Counted', 'https://img/x', true, false, NOW() + INTERVAL '6 hours', 4, 0, 30, 500)
+    VALUES (v_m, 'Statuses', 'https://img/x', true, false, NOW() + INTERVAL '6 hours', 4, 0, 30, 500)
     RETURNING id INTO v_d;
 
-  PERFORM public.claim_deal(v_u1, v_d);
-  PERFORM public.claim_deal(v_u2, v_d);
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 2, 'H: two issued';
+  PERFORM public.claim_deal(v_u, v_d);
+  SELECT id INTO v_rid FROM public.redemptions WHERE deal_id = v_d;
 
-  -- A hard DELETE (what the demo wipe does) must give the slot back, or demo
-  -- deals would become permanently unclaimable after a reseed.
-  DELETE FROM public.redemptions WHERE deal_id = v_d AND user_id = v_u1;
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 1,
-    'H: deleting a claim row must decrement claims_issued';
+  -- pending + live -> holds
+  SELECT public.claims_reserved(d) INTO v_res FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_res = 1, 'H: a live pending claim must hold a slot';
 
-  -- The global invariant, over every deal in the database.
-  SELECT count(*) INTO v_drift
-    FROM public.deals d
-   WHERE d.claims_issued <> (SELECT count(*) FROM public.redemptions r WHERE r.deal_id = d.id);
-  ASSERT v_drift = 0,
-    format('H: %s deal(s) have claims_issued out of step with their redemption rows', v_drift);
+  -- success -> holds permanently, even long after any expiry
+  UPDATE public.redemptions SET status = 'success', expires_at = NOW() - INTERVAL '10 days' WHERE id = v_rid;
+  SELECT public.claims_reserved(d) INTO v_res FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_res = 1, 'H: a redeemed claim must keep its slot — the unit was sold';
+
+  -- flagged -> holds; admin_release_redemption can still turn it into a success,
+  -- so releasing it would let the deal over-issue the moment an admin approves.
+  UPDATE public.redemptions SET status = 'flagged' WHERE id = v_rid;
+  SELECT public.claims_reserved(d) INTO v_res FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_res = 1, 'H: a held/flagged claim must keep its slot pending review';
+
+  -- failed -> releases. No money moved and no code can be honoured.
+  UPDATE public.redemptions SET status = 'failed' WHERE id = v_rid;
+  SELECT public.claims_reserved(d) INTO v_res FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_res = 0, 'H: a failed claim must release its slot';
+
+  -- pending + expired -> releases (the D224 ruling, restated at status level)
+  UPDATE public.redemptions SET status = 'pending', expires_at = NOW() - INTERVAL '1 hour' WHERE id = v_rid;
+  SELECT public.claims_reserved(d) INTO v_res FROM public.deals d WHERE d.id = v_d;
+  ASSERT v_res = 0, 'H: an expired pending claim must release its slot';
 
   DELETE FROM public.redemptions WHERE deal_id = v_d;
   DELETE FROM public.deals WHERE id = v_d;
   DELETE FROM public.merchants WHERE id = v_m;
-  DELETE FROM public.users WHERE id IN (v_u1, v_u2);
-  RAISE NOTICE 'H passed: claims_issued = count(redemptions), globally';
+  DELETE FROM public.users WHERE id = v_u;
+  RAISE NOTICE 'H passed: success/flagged hold, failed and expired-pending release';
 END $$;
 
 -- Scenario I: an unlimited allocation stays unlimited.
@@ -365,7 +401,7 @@ BEGIN
     PERFORM public.claim_deal(v_u, v_d);
   END LOOP;
 
-  ASSERT (SELECT claims_issued FROM public.deals WHERE id = v_d) = 12,
+  ASSERT (SELECT public.claims_reserved(d) FROM public.deals d WHERE d.id = v_d) = 12,
     'I: a NULL max_claims must not cap anything';
 
   DELETE FROM public.redemptions WHERE deal_id = v_d;

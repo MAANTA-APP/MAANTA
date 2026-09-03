@@ -18,22 +18,25 @@ type ExtrasChoice = "none" | "extras" | null;
 
 /** 9n type select (plan compare) → 9o details (cover REQUIRED) → 9p/9q schedule → 9s review. */
 /**
- * What the claim limit actually does (D236, founder ruling 2026-09-03).
+ * What the claim limit actually does (D236, founder rulings 2026-09-03).
  *
  * The field was labelled "Max claims" and capped REDEMPTIONS, so a merchant who
  * typed 10 could have any number of shoppers arrive holding valid codes. It now
  * caps claims at issuance, and this note says so in the merchant's own terms —
  * a number they set on a phone at a counter needs to mean one obvious thing.
  *
- * It also names the two levers they have afterwards, because "what do I do when
- * stock runs low" is the question this number raises.
+ * Three things a merchant needs from this sentence, in the order they need
+ * them: what the number does, that an unused claim comes back (the D224
+ * ruling — otherwise a deal looks permanently sold out after a few no-shows),
+ * and the two levers for low stock.
  */
 function ClaimLimitNote() {
   return (
     <p className="mt-2 text-xs text-muted">
-      The most shoppers who can claim this deal. Once they have, no one else can
-      claim it. You can raise the limit later, or pause the deal to stop new
-      claims — codes already claimed stay valid either way.
+      The most shoppers who can hold a claim on this deal at once. If a shopper
+      claims and never comes, their claim expires and frees its place
+      automatically. You can raise the limit later, or pause the deal to stop
+      new claims — codes already claimed stay valid either way.
     </p>
   );
 }

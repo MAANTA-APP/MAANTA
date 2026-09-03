@@ -24,7 +24,7 @@ export async function PATCH(
   const service = createServiceClient();
   const { data: deal } = await service
     .from("deals")
-    .select("id, merchant_id, is_active, is_paused, claims_issued, max_claims")
+    .select("id, merchant_id, is_active, is_paused, claims_reserved, max_claims")
     .eq("id", params.id)
     .eq("merchant_id", merchant.id)
     .maybeSingle<{
@@ -32,7 +32,7 @@ export async function PATCH(
       merchant_id: string;
       is_active: boolean;
       is_paused: boolean;
-      claims_issued: number;
+      claims_reserved: number;
       max_claims: number | null;
     }>();
 
@@ -57,20 +57,28 @@ export async function PATCH(
       const n = parseInt(String(body.maxClaims), 10);
       const nextMax = isNaN(n) || n <= 0 ? null : Math.min(n, 10000);
       // D236 INVARIANT D: the allocation may be lowered to stop further
-      // claiming, but never below the number of codes already handed out —
-      // that would retroactively un-promise a code a shopper is holding.
-      // `deals_claims_issued_within_allocation` refuses it at the database
-      // too; this branch exists so the merchant reads a sentence about their
-      // own deal instead of a 500, and so the reason names the real number.
-      if (nextMax !== null && nextMax < deal.claims_issued) {
+      // claiming, but never below the number of claims currently holding a
+      // slot — that would retroactively un-promise a code a shopper is
+      // holding right now.
+      //
+      // This route is the ONLY guard on that, deliberately. The count is
+      // derived from live expiry (D224 ruling), so it falls by itself as
+      // unredeemed claims lapse; a database CHECK on a value that changes with
+      // the clock would either have to be re-evaluated by a sweep — which the
+      // ruling forbids — or would start rejecting unrelated writes to an
+      // untouched row. The database still refuses to over-ISSUE at any
+      // allocation, which is the invariant that protects shoppers; this
+      // refusal protects the merchant from setting a number that contradicts
+      // what is already out.
+      if (nextMax !== null && nextMax < deal.claims_reserved) {
         return NextResponse.json(
           {
             error:
-              deal.claims_issued === 1
-                ? "1 shopper has already claimed this deal, so the limit can't go below 1. Pause the deal to stop new claims without affecting it."
-                : `${deal.claims_issued} shoppers have already claimed this deal, so the limit can't go below ${deal.claims_issued}. Pause the deal to stop new claims without affecting them.`,
-            code: "below_claims_issued",
-            claimsIssued: deal.claims_issued,
+              deal.claims_reserved === 1
+                ? "1 shopper is currently holding a claim on this deal, so the limit can't go below 1. Pause the deal to stop new claims without affecting it."
+                : `${deal.claims_reserved} shoppers are currently holding claims on this deal, so the limit can't go below ${deal.claims_reserved}. Pause the deal to stop new claims without affecting them.`,
+            code: "below_claims_reserved",
+            claimsReserved: deal.claims_reserved,
           },
           { status: 409 }
         );
@@ -144,20 +152,6 @@ export async function PATCH(
   }
 
   if (error) {
-    // The database constraint is the authority on the allocation, and it can
-    // still fire when a claim lands between the read above and this write.
-    // Reporting that race as "Could not update the deal" would hide the one
-    // fact the merchant needs.
-    if (error.code === "23514" && String(error.message).includes("claims_issued_within_allocation")) {
-      return NextResponse.json(
-        {
-          error:
-            "A shopper claimed this deal while you were editing, so that limit is now below the number already claimed. Reopen the deal to see the current count.",
-          code: "below_claims_issued",
-        },
-        { status: 409 }
-      );
-    }
     console.error("deal update failed:", error);
     return NextResponse.json({ error: "Could not update the deal." }, { status: 500 });
   }
