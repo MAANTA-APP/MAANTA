@@ -172,8 +172,14 @@ export const STUCK_TOPUP_MINUTES = 60;
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
 function unavailable(category: ActionCategory, what: string): ActionItem {
+  // The id keys the React list AND distinguishes one failure from another, so
+  // it is per failed READ, not per category (Codex P2 on PR #319, D249).
+  // Four categories carry two reads each — redemption (held, declined),
+  // merchant (states, staff seats), balance (balances, top-ups) and evidence
+  // (classification, demo flag) — so a correlated outage, exactly when this
+  // state matters most, produced two items with the same key.
   return {
-    id: `unavailable:${category}`,
+    id: `unavailable:${category}:${what.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
     category,
     severity: "urgent",
     title: `${what} could not be read`,
@@ -185,6 +191,29 @@ function unavailable(category: ActionCategory, what: string): ActionItem {
     action: "Reload",
     unavailable: true,
   };
+}
+
+/**
+ * Link to the fraud review, filtered to this event type when the destination
+ * can filter by it.
+ *
+ * `/admin/redemptions` offers a fixed pill row, and `fraud_events.event_type`
+ * allows more values than that row lists. An unsupported value used to be
+ * passed anyway: the page fell back to `all` and the operator was handed a
+ * newest-50 list that need not contain the event the item was about. Sending
+ * no `reason` for those types is the honest version of the same link — the
+ * unfiltered list, arrived at deliberately rather than by a silent rejection.
+ *
+ * `FRAUD_REVIEW_FILTERS` is asserted against the page's own `REASONS` in
+ * `admin-action-queue.test.ts`, so adding a pill there without widening this
+ * (or the reverse) fails rather than quietly dropping filters again.
+ */
+export const FRAUD_REVIEW_FILTERS = ["geofence", "velocity", "collusion"] as const;
+
+export function fraudReviewHref(eventType: string): string {
+  return (FRAUD_REVIEW_FILTERS as readonly string[]).includes(eventType)
+    ? `/admin/redemptions?reason=${encodeURIComponent(eventType)}`
+    : "/admin/redemptions";
 }
 
 export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
@@ -256,7 +285,10 @@ export function buildActionQueue(input: ActionQueueInput): ActionItem[] {
         entity: { kind: "fraud_event", id: e.id, name: e.merchant_name ?? "Fraud event" },
         reason: `Unresolved ${e.event_type} event, severity ${e.severity}. Deals from this merchant show as flagged until it is approved or rejected.`,
         since: e.created_at,
-        href: `/admin/redemptions?reason=${encodeURIComponent(e.event_type)}`,
+        // Only a reason the destination actually offers; anything else would
+        // land on the unfiltered newest-50 list, which may not contain this
+        // event at all (Codex P2 on PR #319, D250).
+        href: fraudReviewHref(e.event_type),
         action: "Approve or reject the event",
       });
     }
@@ -561,7 +593,9 @@ export function summariseQueue(items: ActionItem[]): string {
   const urgent = items.filter((i) => !i.unavailable && i.severity === "urgent").length;
   const attention = items.filter((i) => !i.unavailable && i.severity === "attention").length;
   const parts: string[] = [];
-  if (unavailableCount > 0) parts.push(`${unavailableCount} ${plural(unavailableCount, "category")} unreadable`);
+  // "read", not "category": two reads in one category can fail together, and
+  // calling that two unreadable categories overstated the outage (D249).
+  if (unavailableCount > 0) parts.push(`${unavailableCount} ${plural(unavailableCount, "read")} unreadable`);
   parts.push(`${urgent} urgent`);
   parts.push(`${attention} ${attention === 1 ? "needs" : "need"} attention`);
   return parts.join(" · ");

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildActionQueue,
   countByCategory,
   summariseQueue,
   sortActionItems,
+  fraudReviewHref,
+  FRAUD_REVIEW_FILTERS,
   STALE_ARRIVAL_MINUTES,
   STUCK_TOPUP_MINUTES,
   type ActionQueueInput,
@@ -64,12 +68,47 @@ describe("a failed read is never an all-clear", () => {
 
   it("names the failure in the summary before any count", () => {
     const items = buildActionQueue({ ...empty(), fraudEvents: null });
-    expect(summariseQueue(items)).toMatch(/^1 category unreadable/);
+    expect(summariseQueue(items)).toMatch(/^1 read unreadable/);
   });
 
   it("reports an unreadable demo flag rather than assuming OFF", () => {
     const items = buildActionQueue({ ...empty(), demoModeEnabled: null });
     expect(items.some((i) => i.unavailable && i.category === "evidence")).toBe(true);
+  });
+
+  it("gives every failed read its own id, so a correlated outage is not one item (Codex P2, PR #319, D249)", () => {
+    // Four categories carry two reads each. A per-category id collided exactly
+    // when both failed together — duplicate React keys, and a summary that
+    // counted one outage twice.
+    const items = buildActionQueue({
+      ...empty(),
+      heldRedemptions: null,
+      appealableRedemptions: null,
+      merchants: null,
+      unlinkedStaffSeats: null,
+      stuckTopups: null,
+      demoModeEnabled: null,
+    });
+    const ids = items.filter((i) => i.unavailable).map((i) => i.id);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size, `duplicate ids: ${ids.join(", ")}`).toBe(ids.length);
+    // Both redemption reads are present and distinguishable by name.
+    const redemption = items.filter((i) => i.unavailable && i.category === "redemption");
+    expect(redemption).toHaveLength(2);
+    expect(redemption.map((i) => i.title).sort()).toEqual([
+      "Declined redemptions could not be read",
+      "Held redemptions could not be read",
+    ]);
+  });
+
+  it("counts unreadable reads rather than categories (D249)", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      heldRedemptions: null,
+      appealableRedemptions: null,
+    });
+    // Two reads in one category is "2 reads unreadable", not "2 categories".
+    expect(summariseQueue(items)).toMatch(/^2 reads unreadable/);
   });
 });
 
@@ -285,5 +324,51 @@ describe("ordering and summaries", () => {
     expect(c.evidence).toBe(1);
     expect(c.support).toBe(0);
     expect(summariseQueue(items)).toBe("0 urgent · 2 need attention");
+  });
+});
+
+describe("a fraud item's link lands somewhere that can show the event (Codex P2, PR #319, D250)", () => {
+  // `/admin/redemptions` filters by a fixed pill row, and `fraud_events.event_type`
+  // allows more values than that row lists. Passing an unsupported one was
+  // silently rejected: the page fell back to `all` and handed the operator a
+  // newest-50 list that need not contain the event the item was about.
+  const REASONS_ON_PAGE = (() => {
+    const src = readFileSync(join(process.cwd(), "src/app/admin/redemptions/page.tsx"), "utf8");
+    const m = src.match(/const REASONS = \[([^\]]+)\]/);
+    if (!m) throw new Error("could not read REASONS from /admin/redemptions");
+    return m[1]
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter((s) => s && s !== "all");
+  })();
+
+  it("offers exactly the filters the destination page implements", () => {
+    // Drift in either direction is a defect: a pill added there and not here
+    // loses a filter; one removed there and left here resurrects the bug.
+    expect([...FRAUD_REVIEW_FILTERS].sort()).toEqual([...REASONS_ON_PAGE].sort());
+  });
+
+  it("filters when the destination can, and links unfiltered when it cannot", () => {
+    for (const supported of FRAUD_REVIEW_FILTERS) {
+      expect(fraudReviewHref(supported)).toBe(`/admin/redemptions?reason=${supported}`);
+    }
+    // Every other type the CHECK constraint allows.
+    for (const unsupported of ["otp_abuse", "device_blacklist", "merchant_override", "code_rejected"]) {
+      expect(fraudReviewHref(unsupported)).toBe("/admin/redemptions");
+    }
+  });
+
+  it("never emits a reason the page would reject", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      fraudEvents: [
+        { id: "f1", event_type: "merchant_override", severity: "high", created_at: ago(10), merchant_id: "m1", merchant_name: "Shop One" },
+        { id: "f2", event_type: "geofence", severity: "low", created_at: ago(10), merchant_id: "m1", merchant_name: "Shop One" },
+      ],
+    });
+    for (const item of items.filter((i) => i.category === "security" && !i.unavailable)) {
+      const reason = new URL(item.href, "https://x").searchParams.get("reason");
+      if (reason !== null) expect(REASONS_ON_PAGE).toContain(reason);
+    }
   });
 });

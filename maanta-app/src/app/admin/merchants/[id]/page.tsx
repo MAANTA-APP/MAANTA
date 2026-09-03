@@ -622,9 +622,28 @@ export default async function AdminMerchantDetailPage({
                 : "Credited once on activation at the launch node. Nobody raises the wall with the merchant."
             }
           />
-          <KpiCard label={`${FEE_FIGURE_LABELS.net} (all time)`} value={feeFigure(feesAllTime.netKes)} />
-          <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(feesAllTime.grossKes)} />
-          <KpiCard label={FEE_FIGURE_LABELS.reversals} value={feeFigure(feesAllTime.reversalsKes)} />
+          {/* The counts and ledger above are every row for this shop; the fee
+              reader's contract (D188 / D211) excludes demo-tagged rows. On a
+              synthetic shop, or one with demo-tagged activity, that shows KES 0
+              beside a non-zero redeemed count — so each card names its own
+              population rather than reading as a contradiction (Codex P2 on
+              PR #319, D252; the same disclosure D245 put on the platform
+              report). */}
+          <KpiCard
+            label={`${FEE_FIGURE_LABELS.net} (all time)`}
+            value={feeFigure(feesAllTime.netKes)}
+            hint="Genuine-tagged rows only (ledger contract) — narrower than the counts above"
+          />
+          <KpiCard
+            label={FEE_FIGURE_LABELS.gross}
+            value={feeFigure(feesAllTime.grossKes)}
+            hint="Genuine-tagged rows only (ledger contract)"
+          />
+          <KpiCard
+            label={FEE_FIGURE_LABELS.reversals}
+            value={feeFigure(feesAllTime.reversalsKes)}
+            hint="Genuine-tagged rows only (ledger contract)"
+          />
         </div>
         {Number(m.account_balance) <= 0 && m.status === "active" ? (
           <p className="mt-2 rounded-card bg-white px-4 py-3 text-xs text-ink shadow-card">

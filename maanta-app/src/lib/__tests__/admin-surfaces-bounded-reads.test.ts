@@ -174,6 +174,27 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src).toMatch(/openTasksNoShop === null \|\| openTasksShop === null \? null/);
   });
 
+  it("Operations leaves reachable counts unknown when the demo flag is unreadable (Codex P2, PR #319, D251)", () => {
+    const src = read("src/app/admin/operations/page.tsx");
+    // Reachability includes synthetic shops only when demo mode is ON, and an
+    // unreadable flag defaults that to false — so the count is a guess, and a
+    // guess rendered as a number is a false operational statement.
+    expect(src).toMatch(/demoMode\.ok \? fmt\(n\(reachableRes\)\) : "—"/);
+    // The caption must not call them "genuine shops only" on a failed read.
+    expect(src).toMatch(/demo-mode flag could not be read/);
+    expect(src).toMatch(/unknown, not false/);
+  });
+
+  it("Merchant 360's fee cards name their narrower population (Codex P2, PR #319, D252)", () => {
+    const src = read("src/app/admin/merchants/[id]/page.tsx");
+    // The counts and ledger on this page are every row for the shop; the fee
+    // reader excludes demo-tagged rows, so on a synthetic shop the cards can
+    // read KES 0 beside a non-zero redeemed count. Same disclosure D245 put on
+    // the platform report.
+    expect(src.match(/hint="Genuine-tagged rows only \(ledger contract\)/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(src).toMatch(/narrower than the counts above/);
+  });
+
   it("Merchant 360 derives no all-time fact from a capped page (Codex P2 ×2, PR #319, D248)", () => {
     const src = read("src/app/admin/merchants/[id]/page.tsx");
     // The fraud read carries a count and the note shows the true total.

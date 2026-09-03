@@ -134,7 +134,13 @@ export default async function AdminOperationsPage() {
                     ) : null}
                   </td>
                   <td className="tnum px-3 py-2">{fmt(n(activeRes))}</td>
-                  <td className="tnum px-3 py-2">{fmt(n(reachableRes))}</td>
+                  {/* Reachability depends on the demo flag: the query includes
+                      synthetic shops only when demo mode is ON, and an
+                      unreadable flag defaults that to false. Rendering the
+                      partial count would assert "this many shops are reachable"
+                      on a guess (Codex P2 on PR #319, D251) — so it is a dash,
+                      exactly as the shopper-visible-deals cell beside it. */}
+                  <td className="tnum px-3 py-2">{demoMode.ok ? fmt(n(reachableRes)) : "—"}</td>
                   <td className="tnum px-3 py-2">{demoMode.ok ? fmt(n(dealsRes)) : "—"}</td>
                   <td className="tnum px-3 py-2">{fmt(n(pendingRes))}</td>
                   <td className="tnum px-3 py-2">{fmt(n(suspendedRes))}</td>
@@ -146,7 +152,12 @@ export default async function AdminOperationsPage() {
       </div>
       <p className="mt-1.5 max-w-3xl text-xs text-muted">
         &ldquo;Reachable&rdquo; is the canonical public rule — active, visible and not
-        shadow-banned{demoMode.enabled ? ", synthetic shops included while demo mode is ON" : ", genuine shops only"}.
+        shadow-banned
+        {demoMode.ok
+          ? demoMode.enabled
+            ? ", synthetic shops included while demo mode is ON"
+            : ", genuine shops only"
+          : ". The demo-mode flag could not be read, so reachable counts are a dash: whether synthetic shops are reachable is unknown, not false"}.
         A dash is a read failure, never zero. Non-live nodes in the registry are not listed.
       </p>
 
