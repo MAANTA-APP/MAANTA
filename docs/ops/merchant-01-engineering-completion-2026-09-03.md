@@ -446,7 +446,66 @@ CI remains the authority; this is a faster local mirror of it, not a replacement
 
 ---
 
-## Production
+## Production — the sequence, executed
+
+> **Superseded the earlier "nothing applied" section below.** The founder
+> authorised the three migrations on 2026-09-03 and the plan was followed
+> exactly, with a read-back after each and a hard stop available at every
+> boundary. No stop was needed.
+
+### Pre-apply baseline
+
+405 redemptions · 2,932 deals · 215 merchants · 353 users · 9 ledger rows ·
+107 migrations (high-water `20260830120000`) · 0 blacklisted ·
+`fast_visit_enabled = false` · `success_fee_kes = 30.00` ·
+`verify_redemption` md5 `faf4770acef192f3d6ed1d254647930c`.
+
+### Applied, in order, each with its read-back before the next
+
+| # | Migration | Read-back |
+|---|---|---|
+| 1 | `20260903120000_claim_allocation_cap` | 3 new functions present · trigger enabled · **exactly one** `claim_deal` with the unchanged 11-column contract · **`verify_redemption` md5 unchanged** · 0 deals over-subscribed · index created · counts unchanged |
+| 2 | `20260903130000_enforce_user_blacklist` | blacklist gate present **and checked before the allocation** · D236 gate still present (migration 2 did not regress migration 1) · still one overload · `users` trigger enabled alongside the two pre-existing identity guards · audit CHECK accepts `user` · 0 blacklisted · md5 still unchanged |
+| 3 | `20260903140000_repair_merchant_tenant_policies` | **0** policies still reading `merchants` · **10** now using the helper · helper is 0-arg, definer, uuid-returning · **D147 re-verified: `authenticated` and `anon` still have no SELECT on `merchants` or `deals`, and `anon` no EXECUTE on the helper** · counts unchanged |
+
+**Behavioural proof of D168 on production:** the three tables that raised
+`42501 permission denied for table merchants` — `redemptions`,
+`merchant_transactions`, `pending_topups` — now all return
+*"OK — policy filtered without error"* under `SET LOCAL ROLE authenticated`.
+
+### Ledger
+
+All three applies minted their own versions — **fifteen for fifteen**
+(`20260903104929`, `20260903105026`, `20260903105108`). Each was repaired to
+its repository filename before anything else, then the **complete** ledger was
+diffed against `ls supabase/migrations/`:
+
+**110 files · 110 rows · ZERO differences.** Not "probably applied".
+
+### Post-apply smoke (read-only — no KES 30 transaction was manufactured)
+
+| Check | Result |
+|---|---|
+| Claim availability semantics | 247 live deals · **0 fully claimed** · **0 over-subscribed** · minimum 8 claims left. Nobody is locked out by the new cap |
+| The defect, quantified in the wild | **146 of 247** live deals had `claims_reserved` different from the old `claims_count` — the number the UI used to show |
+| Computed column correctness | An independent hand-count across all **198** deals holding claims: **0 mismatches** |
+| The D224 ruling, working | Of 405 claim rows, **394 reserve** and **10 slots are released by expiry** — precisely the ten stale rows D134/D224 was about, freed without a single row being mutated |
+| Normal browsing | `deals_public_browse` returns 247 rows · 211 visible merchants |
+| Evidence integrity | genuine-tagged successes still **1** (the internal E2E survivor) · non-demo merchants still **2**, both internal (D184) · **external field validation still 0** |
+| Ledger integrity | 9 rows · success-fee total −90.00 · unchanged |
+| Admin access | 4 admins · 54 `admin_ops_log` rows |
+| Frozen config | fee `30.00` · **`fast_visit_enabled` `false`** · demo mode `true` |
+
+### Fast Visit
+
+**Untouched and still OFF.** No migration in this session references
+`fast_visit_enabled`, `fast_visit_points`, `award_fast_visit_points` or
+`record_shopper_arrival`; no reward code was modified; D233 was not
+implemented; the flag was read and never written.
+
+---
+
+## Production — pre-apply statement (historical)
 
 Explicitly confirmed, for this entire session:
 
