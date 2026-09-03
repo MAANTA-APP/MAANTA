@@ -4,15 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-/** 11f actions — Mark paid / Downgrade / Grant trial. */
+/**
+ * 11f actions — Mark paid / Downgrade / Grant trial.
+ *
+ * `variant` rations the amber accent (frozen UI rule 1, D235) and applies only
+ * to Grant trial, the one emphasised button here. On `/admin/billing` granting
+ * a trial is the page's action, so it stays amber by default; composed onto
+ * Merchant 360 it passes `"ghost"`, because that record page's single amber
+ * belongs to Approve. Mark paid and Downgrade were already outline.
+ */
 export function PlanActions({
   merchantId,
   tier,
   onTrial,
+  variant = "primary",
 }: {
   merchantId: string;
   tier: "standard" | "elite";
   onTrial: boolean;
+  variant?: "primary" | "ghost";
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,7 +62,7 @@ export function PlanActions({
           Downgrade
         </Button>
       ) : (
-        <Button size="sm" loading={busy === "grant-trial"} onClick={() => act("grant-trial")}>
+        <Button size="sm" variant={variant} loading={busy === "grant-trial"} onClick={() => act("grant-trial")}>
           Grant trial
         </Button>
       )}

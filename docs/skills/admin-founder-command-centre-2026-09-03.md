@@ -209,6 +209,8 @@ co-founder sees every number and no link into a wall.
 | `lib/__tests__/founder-command-centre.test.ts` | ladder, clock, tripwire floor, next move never says "raise the wall" |
 | `lib/__tests__/admin-founder-ia.test.ts` | sidebar order, demoted routes, owning-section highlight, founder header, `/founder/reports` under the founder guard |
 | `lib/__tests__/admin-surfaces-bounded-reads.test.ts` | bounded reads on every new surface, shared predicates, gated founder links, Merchant 360 anchors and honest controls, funnel derivation |
+| `lib/__tests__/redemption-doctrine.test.ts` | the restored doctrine: one money stage and it is the verified redemption; every "verified" KPI is a `success` read; no Fast Visit KPI card; no ratio below the sample floor |
+| `components/__tests__/merchant-360-amber-ration.test.ts` | frozen rule 1 on Merchant 360, counted from **rendered** HTML: one amber (Approve) when pending, zero otherwise; the two source pages keep their default (§12) |
 
 Existing ratchets re-pointed rather than weakened: `claims-metric.test.ts` and
 `ledger-fee-semantics.test.ts` now read `components/admin/platform-report.tsx`
@@ -259,7 +261,13 @@ second implementation. Its blacklist migration is written on top of its
 allocation migration (same `claim_deal` body), so the two come together, and
 its allocation semantic is what makes "Claims issued" truthful (§4).
 
-What arrived with it, none of it applied to production:
+What arrived with it — **all three applied to production and read back on
+2026-09-03**: ledger 110/110, every version equal to its repo filename,
+`claim_occupies_allocation` and the reserve-slot trigger present, `claim_deal`
+refusing `user_blacklisted`, `verify_redemption` untouched, `admin_ops_log`
+accepting a `user` target. (An earlier draft of this section said none was
+applied; the founder's instruction to read the ledger before acting is what
+caught it.)
 
 | Migration | Row | What it does |
 |---|---|---|
@@ -267,12 +275,14 @@ What arrived with it, none of it applied to production:
 | `20260903130000_enforce_user_blacklist.sql` | D171 → **D232** | `claim_deal` refuses a blacklisted shopper before any slot is reserved; `verify_redemption` untouched (verify-anyway); a shopper cannot clear their own flag; `admin_ops_log` accepts a `user` target |
 | `20260903140000_repair_merchant_tenant_policies.sql` | D168 | tenant RLS policies filter instead of erroring |
 
-**Deployment order is not optional.** The redesigned shopper, merchant and
-admin surfaces select `claims_reserved`; if the application deploys before the
-migrations apply, every deal read fails and the feed renders its read-failure
-state (`docs/ops/migration-deployment-plan-2026-09-03.md` §0). Apply all three,
-read back, repair the ledger to the repo filenames (every MCP apply has minted
-its own version — twelve for twelve), then deploy.
+**Deployment order was migrations first, and that half is done.** The
+redesigned shopper, merchant and admin surfaces select `claims_reserved`; had
+the application deployed before the migrations applied, every deal read would
+have failed and the feed would have rendered its read-failure state
+(`docs/ops/migration-deployment-plan-2026-09-03.md` §0). The three were applied
+and read back on 2026-09-03 under their repo versions — the ledger needed no
+repair this time — so the application may now deploy against a database that
+already carries the contract. **Do not reapply them.**
 
 **Drift IDs.** This branch's rows are D225–D230 behind the completion branch's
 D223–D224; D230 is closed by decomposition into D231–D233. PR #317 still
@@ -387,10 +397,16 @@ spec now selects a UUID record link. No product change.
   behaviour and production data are untested by this run.
 - **Development server, not `next build` output.**
 
-The closure event for **D234** is one run of the same spec against a
-non-production deployment with Clerk (`docs/ops/browser-e2e-provisioning-2026-09-03.md`),
-or the founder walking the deployed console on an iPhone against the same
-list. Until then the redesign is **browser-proven locally, not deployed-ready**.
+The closure event for **D234**, by founder ruling on 2026-09-03, is the same
+12 tests run against a **Clerk-backed preview deployment**
+(`docs/ops/browser-e2e-provisioning-2026-09-03.md`). Automation is the
+canonical evidence; the founder's own iPhone walk of the deployed console
+supplements it, and stands in for it only if preview execution is genuinely
+blocked. Until then the redesign is **browser-proven locally, not
+deployed-ready**. After deployment a short production iPhone smoke of Admin and
+Founder is still owed — navigation, Action Queue drill-down, Merchant 360,
+Visits & redemptions, the founder evidence state and co-founder isolation —
+as smoke evidence, not a design review.
 
 ### Repeating it
 
@@ -407,3 +423,42 @@ service role would (the role-change guard checks `auth.role()`); write
 a storage-state file; run the spec with `E2E_BASE_URL`, `E2E_ADMIN_STORAGE`
 and `E2E_COFOUNDER_STORAGE` pointing at those files. Every step is read-only
 against the product; the proof presses no button that writes.
+
+## 12. D235 — the amber ration on Merchant 360, fixed the same day
+
+The §11 captures showed three amber primaries on Merchant 360 — "Save
+location", "Override (audit-trailed)" and "Grant trial" — and a pending
+Standard shop with an open task would have shown four, because Approve is
+amber too. Frozen UI rule 1 allows one. The founder ruled "fix now", bounded to
+emphasis: no authorization, behaviour, route or product semantics may change.
+
+**Which action is primary.** Approve, and only while the shop is pending. That
+is the decision an admin arrives from the Action Queue to make; every other
+control on the page is a correction or an ops lever. So the page carries one
+amber on a pending shop and none on an active, suspended, rejected or churned
+one — a record page in those states has no single primary action, and rule 1
+permits zero.
+
+**What changed.** `merchant-location-form.tsx` (used only here) renders its
+submit as the design system's outline variant. `OverrideButton` and
+`PlanActions` gained an optional `variant` prop, default `"primary"`, so
+`/admin/support` and `/admin/billing` — where each IS the page's action — are
+untouched; Merchant 360 passes `"ghost"` at both call sites. Suspend, Feature,
+Shadow-ban, Reject, Mark paid and Downgrade were already outline.
+
+**The guard rule 1 never had.** `components/__tests__/merchant-360-amber-ration.test.ts`
+renders the four composed controls with `react-dom/server` for every merchant
+status and counts `bg-brand` in the output — the accent fill and the only way a
+button becomes amber. It asserts exactly one amber, labelled Approve, on a
+pending shop; zero on every other status; that each demoted control renders
+none on its own; that the two source pages still get their amber default; and
+that a disabled control is never amber (L9b), which the count relies on. The
+frozen-rules audit recorded rule 1 as "not statically checkable" because it
+needs render-time state; this is render-time.
+
+**Read back in a browser.** On the local stack after the fix, the rendered DOM
+of the active shop's 360 holds **0** elements with the accent class and the
+pending shop's holds **1**, the Approve button. The 12-test proof re-ran green.
+Full-page captures at iPhone size read as intended: the outline buttons sit in
+their sections without competing, and on the pending shop the eye lands on
+Approve.

@@ -145,7 +145,15 @@ export function MerchantLocationForm({
       ) : null}
 
       <div className="mt-4">
-        <Button size="md" onClick={save} disabled={busy}>
+        {/*
+         * Outline, not amber (D235). This form only ever renders inside
+         * Merchant 360, and that record page's single amber action belongs to
+         * Approve — the decision an admin arrives from the Action Queue to
+         * make. Saving a pick-up location is a correction, not the page's
+         * primary action, and four competing ambers made the console's most
+         * operationally important screen harder to scan.
+         */}
+        <Button size="md" variant="ghost" onClick={save} disabled={busy}>
           {busy ? "Saving…" : "Save location"}
         </Button>
       </div>

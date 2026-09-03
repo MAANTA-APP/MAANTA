@@ -665,7 +665,7 @@ export default async function AdminMerchantDetailPage({
                       {t.due_at ? ` · due ${friendlyTime(t.due_at, now)}` : ""}
                     </p>
                   </div>
-                  {t.is_complete ? <StatusChip status="ended" label="Resolved" /> : <OverrideButton taskId={t.id} />}
+                  {t.is_complete ? <StatusChip status="ended" label="Resolved" /> : <OverrideButton taskId={t.id} variant="ghost" />}
                 </div>
               );
             })}
@@ -695,7 +695,7 @@ export default async function AdminMerchantDetailPage({
         />
         <div className="mt-4 flex flex-wrap items-center gap-2.5">
           <span className="text-xs font-semibold text-muted">Plan:</span>
-          <PlanActions merchantId={m.id} tier={tier} onTrial={m.elite_trial_active === true} />
+          <PlanActions merchantId={m.id} tier={tier} onTrial={m.elite_trial_active === true} variant="ghost" />
         </div>
         <p className="mt-3 text-xs text-muted">
           Not available from the console, by design: pausing or re-allocating a deal (merchant-only,
