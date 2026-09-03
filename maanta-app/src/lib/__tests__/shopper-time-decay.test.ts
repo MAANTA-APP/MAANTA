@@ -80,6 +80,7 @@ const browseRow = (id: string, expiresInMs: number) => ({
   is_paused: false,
   max_claims: null,
   claims_count: 0,
+  claims_issued: 0,
   success_fee: 30,
   boost_active: false,
   price_kes: 500,
@@ -104,9 +105,9 @@ const browseRow = (id: string, expiresInMs: number) => ({
 const deal = (
   id: string,
   expiresInMs: number,
-  cap: { max_claims: number | null; claims_count: number } = {
+  cap: { max_claims: number | null; claims_issued: number } = {
     max_claims: null,
-    claims_count: 0,
+    claims_issued: 0,
   }
 ) => ({ id, expires_at: iso(expiresInMs), ...cap });
 
@@ -182,7 +183,7 @@ describe("criterion 2 — expired deals leave the Ending soon collection", () =>
   });
 
   it("still applies the render-time claim cap (c52133e), which the clock does not touch", () => {
-    const capped = [deal("full", 10 * MIN, { max_claims: 5, claims_count: 5 })];
+    const capped = [deal("full", 10 * MIN, { max_claims: 5, claims_issued: 5 })];
     expect(endingSoonDeals(capped, at(0))).toEqual([]);
   });
 });
@@ -439,6 +440,7 @@ describe("criterion 3 — the first client render agrees with the server render"
       expires_at: iso(expiresInMs),
       max_claims: null,
       claims_count: 0,
+      claims_issued: 0,
     },
     card: {
       href: `/deals/${id}`,

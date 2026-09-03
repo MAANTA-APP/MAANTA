@@ -7,7 +7,9 @@ export type AdminOpTargetType =
   | "deal"
   | "redemption"
   | "fraud_event"
-  | "agent_task";
+  | "agent_task"
+  /** D171: blacklisting is the first admin action whose target is a shopper. */
+  | "user";
 
 export type AdminOpLogInput = {
   adminUserId: string;

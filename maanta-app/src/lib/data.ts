@@ -143,6 +143,8 @@ export type DealRow = {
   is_paused: boolean;
   max_claims: number | null;
   claims_count: number;
+  /** D236: claims ISSUED — what `max_claims` caps. Distinct from claims_count. */
+  claims_issued: number;
   success_fee: number;
   boost_active: boolean;
   price_kes: number | null;
@@ -165,10 +167,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_issued, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_issued, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;

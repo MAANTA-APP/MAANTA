@@ -116,6 +116,13 @@ export function ClaimFlow({
     }
 
     setError(outcome.message);
+
+    // The deal sold out, paused or expired while this page was open — most
+    // often because another shopper took the last claim a moment earlier.
+    // Re-render so the sold-out state, the claim count and the button agree
+    // with the sentence above them. The message stays on screen; only the
+    // stale server-rendered parts are replaced.
+    if (outcome.stale) router.refresh();
   }
 
   if (checking) {

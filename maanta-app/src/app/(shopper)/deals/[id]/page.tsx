@@ -5,6 +5,7 @@ import { dealPricing } from "@/lib/pricing";
 import { currentClerkUserId } from "@/lib/auth";
 import { captureDealViewed } from "@/lib/analytics";
 import { isDealClaimable } from "@/lib/deal-expiry";
+import { isFullyClaimed, claimsRemaining } from "@/lib/ending-soon";
 import { createServiceClient } from "@/lib/supabase/service";
 import { CoverImage } from "@/components/ui/cards";
 import { CountdownChip, FlashTag, BoostedTag, W3wChip } from "@/components/ui/chips";
@@ -95,9 +96,13 @@ export default async function DealDetailPage({
     deal.is_active &&
     !paused &&
     isDealClaimable(deal.expires_at) &&
-    !(deal.max_claims != null && deal.claims_count >= deal.max_claims);
-  const fullyClaimed =
-    deal.max_claims != null && deal.claims_count >= deal.max_claims;
+    !isFullyClaimed(deal);
+  // D236: "fully claimed" means the ALLOCATION is spent — every code has been
+  // handed out — not that every code has been redeemed. Before 2026-09-03 this
+  // read claims_count (redemptions), so a deal with all its codes issued still
+  // offered a Claim button and the shopper met the refusal at the RPC.
+  const fullyClaimed = isFullyClaimed(deal);
+  const remaining = claimsRemaining(deal);
   const m = deal.merchants;
   const { pay, was, extras, charges } = dealPricing(deal);
 
@@ -223,8 +228,8 @@ export default async function DealDetailPage({
             <span className="text-muted">
               ·{" "}
               {fullyClaimed
-                ? `${deal.claims_count} of ${deal.max_claims} claimed — no codes left`
-                : `${deal.claims_count} of ${deal.max_claims} claimed`}
+                ? `${deal.claims_issued} of ${deal.max_claims} claimed — no codes left`
+                : `${deal.claims_issued} of ${deal.max_claims} claimed · ${remaining} left`}
             </span>
           ) : null}
         </p>

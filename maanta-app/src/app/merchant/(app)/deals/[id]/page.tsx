@@ -26,7 +26,7 @@ export default async function MerchantDealDetailPage({
 
   const service = createServiceClient();
   const DEAL_COLUMNS =
-    "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, max_claims, success_fee, expires_at";
+    "id, title, description, image_url, deal_type, is_active, is_paused, boost_active, claims_count, claims_issued, max_claims, success_fee, expires_at";
   // Degrades rather than 500s while `deals.category` is unapplied on the remote
   // (see @/lib/deal-category-column). A merchant losing the category row in the
   // edit sheet for a few days is survivable; losing the whole deal page is not.
@@ -40,6 +40,7 @@ export default async function MerchantDealDetailPage({
     is_paused: boolean;
     boost_active: boolean;
     claims_count: number;
+    claims_issued: number;
     max_claims: number | null;
     success_fee: number;
     expires_at: string | null;
@@ -84,6 +85,11 @@ export default async function MerchantDealDetailPage({
   const verified = verifiedCount ?? 0;
   const feesPaid = verified * Number(deal.success_fee);
   const ended = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
+  // D236: claims still available, or null when the allocation is unlimited.
+  const claimsLeftNum =
+    deal.max_claims == null ? null : Math.max(deal.max_claims - deal.claims_issued, 0);
+  const claimsLeft = claimsLeftNum == null ? "Unlimited" : claimsLeftNum;
+
   const status = !deal.is_active || ended ? "ended" : deal.is_paused ? "paused" : "active";
 
   return (
@@ -128,18 +134,36 @@ export default async function MerchantDealDetailPage({
         </div>
       ) : null}
 
+      {/* D236: the merchant's three numbers, each meaning one thing.
+          "Claimed" is codes HANDED OUT against the allocation — the number
+          `max_claims` caps. "Redeemed" is codes actually presented and
+          verified at the counter, and it is what the KES 30 fee follows.
+          These were one KPI reading `claims_count`, which is the second
+          number wearing the first one's label. */}
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <KpiCard label="Verified" value={verified} />
         <KpiCard
           label="Claimed"
           value={
             deal.max_claims != null
-              ? `${deal.claims_count}/${deal.max_claims}`
-              : deal.claims_count
+              ? `${deal.claims_issued}/${deal.max_claims}`
+              : deal.claims_issued
           }
         />
+        <KpiCard label="Claims left" value={claimsLeft} />
+        <KpiCard label="Redeemed" value={deal.claims_count} />
+        <KpiCard label="Verified at shop" value={verified} />
         <KpiCard label="Fees paid" value={formatKes(feesPaid)} className="col-span-2" />
       </div>
+      <p className="mt-2 text-xs text-muted">
+        {deal.max_claims == null
+          ? "This deal has no claim limit."
+          : claimsLeftNum === 0
+            ? "Every claim has been handed out. Raise the limit to offer more, or leave it as is."
+            : `${claimsLeftNum} more ${claimsLeftNum === 1 ? "shopper" : "shoppers"} can claim this deal.`}{" "}
+        {deal.is_paused
+          ? "It is paused, so no new claims are being issued. Codes already claimed stay valid."
+          : "Pausing stops new claims without cancelling codes already claimed."}
+      </p>
 
       <DealActions
         dealId={deal.id}

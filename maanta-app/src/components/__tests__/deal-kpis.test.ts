@@ -40,17 +40,17 @@ describe("deal KPIs", () => {
   });
 
   it("counts down what is left, not up what is taken", () => {
-    expect(render({ claimsCount: 28, maxClaims: 40 })).toContain("12 left");
+    expect(render({ claimsIssued: 28, maxClaims: 40 })).toContain("12 left");
   });
 
   it("says fully claimed rather than '0 left'", () => {
-    const html = render({ claimsCount: 40, maxClaims: 40 });
+    const html = render({ claimsIssued: 40, maxClaims: 40 });
     expect(html).toContain("Fully claimed");
     expect(html).not.toContain("0 left");
   });
 
   it("shows no scarcity when the merchant set no cap", () => {
-    const html = render({ claimsCount: 28, maxClaims: null });
+    const html = render({ claimsIssued: 28, maxClaims: null });
     expect(html).not.toContain("left");
     expect(html).not.toContain("Fully claimed");
   });
@@ -64,7 +64,7 @@ describe("deal KPIs", () => {
   });
 
   it("frozen rules: no coloured numbers, and the check icon carries the state", () => {
-    const html = render({ pay: 1200, was: 2000, claimsCount: 28, maxClaims: 40, verifiedCount: 7 });
+    const html = render({ pay: 1200, was: 2000, claimsIssued: 28, maxClaims: 40, verifiedCount: 7 });
     for (const banned of ["text-brand", "bg-brand", "text-rust", "bg-rust", "text-flame"]) {
       expect(html, `KPIs must not carry ${banned}`).not.toContain(banned);
     }
@@ -93,7 +93,11 @@ describe("deal KPIs", () => {
       "utf8"
     );
     expect(search).toContain('variant: "row" as const');
-    expect(search).toContain("claimsCount: d.claims_count");
+    // D236: the scarcity KPI must read the ISSUED counter. Pinning the exact
+    // source here is the point of the assertion — wired to `claims_count` it
+    // rendered "12 left" on a deal whose 40 codes were all already handed out.
+    expect(search).toContain("claimsIssued: d.claims_issued");
+    expect(search).not.toContain("claimsIssued: d.claims_count");
     expect(search).toContain("maxClaims: d.max_claims");
     expect(search).toContain("wasKes: priced.was");
     // The thin legacy card must not come back to this surface.

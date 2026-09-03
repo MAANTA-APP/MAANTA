@@ -24,10 +24,17 @@ export async function PATCH(
   const service = createServiceClient();
   const { data: deal } = await service
     .from("deals")
-    .select("id, merchant_id, is_active, is_paused")
+    .select("id, merchant_id, is_active, is_paused, claims_issued, max_claims")
     .eq("id", params.id)
     .eq("merchant_id", merchant.id)
-    .maybeSingle();
+    .maybeSingle<{
+      id: string;
+      merchant_id: string;
+      is_active: boolean;
+      is_paused: boolean;
+      claims_issued: number;
+      max_claims: number | null;
+    }>();
 
   if (!deal) {
     return NextResponse.json({ error: "Deal not found." }, { status: 404 });
@@ -48,7 +55,27 @@ export async function PATCH(
     if (typeof body.description === "string") update.description = body.description.trim() || null;
     if (body.maxClaims !== undefined) {
       const n = parseInt(String(body.maxClaims), 10);
-      update.max_claims = isNaN(n) || n <= 0 ? null : Math.min(n, 10000);
+      const nextMax = isNaN(n) || n <= 0 ? null : Math.min(n, 10000);
+      // D236 INVARIANT D: the allocation may be lowered to stop further
+      // claiming, but never below the number of codes already handed out —
+      // that would retroactively un-promise a code a shopper is holding.
+      // `deals_claims_issued_within_allocation` refuses it at the database
+      // too; this branch exists so the merchant reads a sentence about their
+      // own deal instead of a 500, and so the reason names the real number.
+      if (nextMax !== null && nextMax < deal.claims_issued) {
+        return NextResponse.json(
+          {
+            error:
+              deal.claims_issued === 1
+                ? "1 shopper has already claimed this deal, so the limit can't go below 1. Pause the deal to stop new claims without affecting it."
+                : `${deal.claims_issued} shoppers have already claimed this deal, so the limit can't go below ${deal.claims_issued}. Pause the deal to stop new claims without affecting them.`,
+            code: "below_claims_issued",
+            claimsIssued: deal.claims_issued,
+          },
+          { status: 409 }
+        );
+      }
+      update.max_claims = nextMax;
     }
     // Correcting a category is an edit like any other. An unrecognised key does
     // not fail the rest of the edit — a stale client must not be able to sink
@@ -117,6 +144,20 @@ export async function PATCH(
   }
 
   if (error) {
+    // The database constraint is the authority on the allocation, and it can
+    // still fire when a claim lands between the read above and this write.
+    // Reporting that race as "Could not update the deal" would hide the one
+    // fact the merchant needs.
+    if (error.code === "23514" && String(error.message).includes("claims_issued_within_allocation")) {
+      return NextResponse.json(
+        {
+          error:
+            "A shopper claimed this deal while you were editing, so that limit is now below the number already claimed. Reopen the deal to see the current count.",
+          code: "below_claims_issued",
+        },
+        { status: 409 }
+      );
+    }
     console.error("deal update failed:", error);
     return NextResponse.json({ error: "Could not update the deal." }, { status: 500 });
   }

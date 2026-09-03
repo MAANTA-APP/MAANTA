@@ -9,6 +9,7 @@ import { IconArrowLeft } from "@/components/ui/icons";
 import { friendlyTime, maskPhone, formatKes } from "@/lib/ui";
 import { summariseCustomerRedemptions } from "@/lib/customer-summary";
 import { AdminReadError } from "@/components/admin/read-error";
+import { CustomerAdminActions } from "./customer-admin-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -127,6 +128,15 @@ export default async function AdminCustomerDetailPage({
           value={s.lastActivityAt ? friendlyTime(s.lastActivityAt) : "No claims yet"}
         />
       </div>
+
+      {/* D171: the block control lives next to the status chip that reports it,
+          so an admin never sees the label without the lever that moves it. */}
+      {user.role === "customer" ? (
+        <CustomerAdminActions
+          userId={user.id}
+          isBlacklisted={user.is_blacklisted === true}
+        />
+      ) : null}
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard label="Claims (all time)" value={s.claims.toLocaleString()} />
