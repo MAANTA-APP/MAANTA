@@ -4,6 +4,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
 import { getBoostFee } from "@/lib/data";
 import { CoverImage, KpiCard } from "@/components/ui/cards";
+import {
+  claimAllocation,
+  formatAllocation,
+  formatRemaining,
+  CLAIM_ALLOCATION_LABELS,
+} from "@/lib/claim-allocation";
 import { CountdownChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
@@ -85,6 +91,10 @@ export default async function MerchantDealDetailPage({
   const feesPaid = verified * Number(deal.success_fee);
   const ended = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
   const status = !deal.is_active || ended ? "ended" : deal.is_paused ? "paused" : "active";
+  const allocation = claimAllocation({
+    maxClaims: deal.max_claims,
+    claimsCount: deal.claims_count,
+  });
 
   return (
     <main className="px-4 pb-10 pt-5">
@@ -130,13 +140,15 @@ export default async function MerchantDealDetailPage({
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <KpiCard label="Verified" value={verified} />
+        {/* D236 — max_claims is the number of shopper claims that may be
+            ISSUED, never a redemption limit. Issued and remaining are stated
+            separately; lowering the allocation stops new claims and touches no
+            claim already issued. */}
+        <KpiCard label={CLAIM_ALLOCATION_LABELS.issued} value={allocation.issued} />
         <KpiCard
-          label="Claimed"
-          value={
-            deal.max_claims != null
-              ? `${deal.claims_count}/${deal.max_claims}`
-              : deal.claims_count
-          }
+          label={CLAIM_ALLOCATION_LABELS.remaining}
+          value={formatRemaining(allocation)}
+          hint={`${CLAIM_ALLOCATION_LABELS.allocation}: ${formatAllocation(allocation)}`}
         />
         <KpiCard label="Fees paid" value={formatKes(feesPaid)} className="col-span-2" />
       </div>

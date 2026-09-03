@@ -23,9 +23,16 @@ const PRIORITIES = ["low", "normal", "high", "critical"];
 
 const selectClass = inputClass;
 
-export function NewTicketForm({ merchants }: { merchants: MerchantOption[] }) {
+export function NewTicketForm({
+  merchants,
+  initialMerchantId = "",
+}: {
+  merchants: MerchantOption[];
+  /** Pre-selected merchant when the form is opened from a Merchant 360 view. */
+  initialMerchantId?: string;
+}) {
   const router = useRouter();
-  const [merchantId, setMerchantId] = useState("");
+  const [merchantId, setMerchantId] = useState(initialMerchantId);
   const [taskType, setTaskType] = useState("");
   const [priority, setPriority] = useState("normal");
   const [channel, setChannel] = useState("");

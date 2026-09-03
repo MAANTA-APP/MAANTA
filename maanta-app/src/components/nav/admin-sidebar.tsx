@@ -8,56 +8,98 @@ import { IconMenu, IconX } from "@/components/ui/icons";
 import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-links";
 
 /**
- * 5e Admin left sidebar (black, yellow active item) — collapses to ☰ on mobile (11k).
+ * Admin left sidebar (black, amber active item) — collapses to ☰ on mobile.
  *
- * The list is only the admin console's own sections. Everything below the rule
- * is somewhere else: `/founder` is a different shell, and the live-product links
- * are the public product. `/founder` used to sit between Reports and Agents,
- * styled identically to eleven routes that stay inside this shell, which read as
- * if the founder dashboard were a section of the console.
+ * ## Task-oriented, not resource-oriented (founder brief 2026-09-03)
+ *
+ * The previous list was thirteen database objects in a column. An operator
+ * had to decide which table their task lived in before they could start it.
+ * The list now follows the work: what needs attention, then the four things
+ * an operator actually handles — merchants, shoppers, deals, and the physical
+ * visit — then support, how the node is running, and the audit trail.
+ *
+ * Nothing was deleted. `/admin/approvals`, `/admin/pilot`, `/admin/agents`
+ * and `/admin/redemptions` still exist and are reached from the surfaces that
+ * own them (the Action Queue and Home link straight to an approval; Operations
+ * carries the pilot and field-agent views; Visits carries the Guardian and
+ * fraud review). They are simply not top-level decisions any more.
+ *
+ * Below the first rule sit the low-frequency system tools. Below the second
+ * rule, everything that leaves the console: `/founder` is a different shell,
+ * and the live-product links are the public product.
  */
 const ITEMS = [
-  { href: "/admin", label: "Overview" },
-  { href: "/admin/pilot", label: "Pilot" },
-  { href: "/admin/approvals", label: "Approvals" },
+  { href: "/admin", label: "Home" },
+  { href: "/admin/queue", label: "Action queue" },
   { href: "/admin/merchants", label: "Merchants" },
-  { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/customers", label: "Shoppers" },
   { href: "/admin/deals", label: "Deals" },
-  { href: "/admin/redemptions", label: "Redemptions" },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/audit", label: "Audit" },
-  { href: "/admin/agents", label: "Agents" },
+  { href: "/admin/visits", label: "Visits & redemptions" },
   { href: "/admin/support", label: "Support" },
+  { href: "/admin/operations", label: "Operations" },
+  { href: "/admin/audit", label: "Audit" },
+];
+
+/** Lower-frequency system tools, below a visual divider. */
+const SYSTEM_ITEMS = [
   { href: "/admin/billing", label: "Billing" },
+  { href: "/admin/reports", label: "Reports" },
   { href: "/admin/resources", label: "Resources" },
 ];
 
+/**
+ * Routes that are reached from a section rather than listed. Each is
+ * highlighted under its owning section so an operator on `/admin/approvals`
+ * sees "Merchants" lit, not nothing.
+ */
+const OWNED_BY: Record<string, string> = {
+  "/admin/approvals": "/admin/merchants",
+  "/admin/redemptions": "/admin/visits",
+  "/admin/pilot": "/admin/operations",
+  "/admin/agents": "/admin/operations",
+};
+
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+  return Object.entries(OWNED_BY).some(
+    ([owned, owner]) =>
+      owner === href && (pathname === owned || pathname.startsWith(`${owned}/`))
+  );
 }
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  const item = (i: { href: string; label: string }) => (
+    <Link
+      key={i.href}
+      href={i.href}
+      onClick={() => setOpen(false)}
+      aria-current={isActive(pathname, i.href) ? "page" : undefined}
+      className={cn(
+        "rounded-lg px-4 py-2.5 text-sm font-semibold",
+        isActive(pathname, i.href)
+          ? "text-brand"
+          : "text-white/80 hover:bg-white/10 hover:text-white"
+      )}
+    >
+      {i.label}
+    </Link>
+  );
+
   const nav = (
     <nav className="flex flex-col gap-1 p-4">
-      {ITEMS.map((i) => (
-        <Link
-          key={i.href}
-          href={i.href}
-          onClick={() => setOpen(false)}
-          className={cn(
-            "rounded-lg px-4 py-2.5 text-sm font-semibold",
-            isActive(pathname, i.href)
-              ? "text-brand"
-              : "text-white/80 hover:bg-white/10 hover:text-white"
-          )}
-        >
-          {i.label}
-        </Link>
-      ))}
+      {ITEMS.map(item)}
+
+      {/* System tools — legitimate, low-frequency, and not where the work is. */}
+      <div className="mt-3 flex flex-col gap-1 border-t border-white/15 pt-3">
+        <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
+          System
+        </p>
+        {SYSTEM_ITEMS.map(item)}
+      </div>
 
       {/* Everything past this rule leaves the admin console.
 
@@ -108,7 +150,7 @@ export function AdminSidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 rounded-r-2xl bg-ink lg:block">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 overflow-y-auto rounded-r-2xl bg-ink lg:block">
         <div className="px-6 pb-2 pt-6 text-lg font-black tracking-tight text-white">
           MAANTA
         </div>
@@ -131,7 +173,7 @@ export function AdminSidebar() {
             className="absolute inset-0 bg-ink/50"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-64 bg-ink">
+          <div className="absolute inset-y-0 left-0 w-64 overflow-y-auto bg-ink">
             <div className="flex items-center justify-between px-6 pt-5 text-white">
               <span className="text-lg font-black tracking-tight">MAANTA</span>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close">

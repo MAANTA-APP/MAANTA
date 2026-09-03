@@ -536,7 +536,7 @@ export function NewDealWizard({
               </div>
               <div className="mt-4">
                 <TextField
-                  label="Max claims"
+                  label="Claim allocation"
                   inputMode="numeric"
                   value={maxClaims}
                   onChange={(e) => setMaxClaims(e.target.value.replace(/\D/g, ""))}
@@ -548,7 +548,7 @@ export function NewDealWizard({
               <FlashSlider hours={flashHours} onChange={setFlashHours} />
               <div className="mt-4">
                 <TextField
-                  label="Max claims"
+                  label="Claim allocation"
                   inputMode="numeric"
                   value={maxClaims}
                   onChange={(e) => setMaxClaims(e.target.value.replace(/\D/g, ""))}
@@ -584,8 +584,8 @@ export function NewDealWizard({
                   : ""}
                 {dealType === "flash" ? `Flash · ${flashHours}h` : "Standard · 24h"}
                 {maxClaims
-                  ? ` · max ${maxClaims} ${maxClaims === "1" ? "claim" : "claims"}`
-                  : ""}
+                  ? ` · claim allocation ${maxClaims}`
+                  : " · no claim allocation cap"}
               </p>
             </div>
             <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />

@@ -6,7 +6,9 @@ import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-
  *
  * The founder dashboard shipped with no navigation of any kind — the layout was a
  * guard plus providers, so the only way off `/founder` was the four `/admin/*`
- * cards inside the page, or the browser. This is the shell's nav.
+ * cards inside the page, or the browser. This is the shell's nav: the three
+ * founder-scoped pages first (command centre, the daily brief, reports), then
+ * the console for a role that can open it, then the live product.
  *
  * `canOpenAdminConsole` is passed rather than assumed, because the two roles that
  * reach this shell do not have the same reach beyond it: `canAccessFounderDashboard`
@@ -18,6 +20,12 @@ import { LIVE_PRODUCT_LINKS, NEW_TAB_HINT } from "@/components/nav/live-product-
  * line, never amber. Amber is the one primary action per screen, and looking at
  * the live product is not it.
  */
+const FOUNDER_PAGES = [
+  { href: "/founder", label: "Command centre" },
+  { href: "/founder/yesterday", label: "Yesterday" },
+  { href: "/founder/reports", label: "Reports" },
+] as const;
+
 export function FounderHeader({ canOpenAdminConsole }: { canOpenAdminConsole: boolean }) {
   const link =
     "flex items-center gap-1.5 text-sm font-semibold text-secondary hover:text-ink";
@@ -30,7 +38,15 @@ export function FounderHeader({ canOpenAdminConsole }: { canOpenAdminConsole: bo
           Founder
         </span>
 
-        <nav aria-label="Founder navigation" className="ml-auto flex items-center gap-5">
+        <nav aria-label="Founder navigation" className="flex flex-wrap items-center gap-5 sm:ml-6">
+          {FOUNDER_PAGES.map((p) => (
+            <Link key={p.href} href={p.href} className={link}>
+              {p.label}
+            </Link>
+          ))}
+        </nav>
+
+        <nav aria-label="Beyond the founder shell" className="ml-auto flex items-center gap-5">
           {canOpenAdminConsole ? (
             <Link href="/admin" className={link}>
               Admin console

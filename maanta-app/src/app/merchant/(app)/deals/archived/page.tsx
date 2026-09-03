@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { claimAllocation, claimAllocationLine } from "@/lib/claim-allocation";
 import { getMerchantContext } from "@/lib/merchant";
 import { CoverImage } from "@/components/ui/cards";
 import { StatusChip } from "@/components/ui/chips";
@@ -50,8 +51,12 @@ export default async function ArchivedDealsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-ink">{r.snap.title}</p>
                   <p className="mt-0.5 text-xs text-muted">
-                    Claimed: {r.snap.claims_count ?? 0}
-                    {r.snap.max_claims ? `/${r.snap.max_claims}` : ""}
+                    {claimAllocationLine(
+                      claimAllocation({
+                        maxClaims: r.snap.max_claims ?? null,
+                        claimsCount: r.snap.claims_count ?? 0,
+                      })
+                    )}
                   </p>
                 </div>
                 <StatusChip status="ended" label={r.reposted ? "Reposted" : "Ended"} />

@@ -103,10 +103,14 @@ describe("D158 — owner phone optional with a verified email", () => {
     // suffix below it appends the email as a SECOND channel. Unconditional, it
     // printed "Contact: shop@x.com · shop@x.com" for exactly the merchants D158
     // enables. The suffix must depend on the phone actually being present.
+    // 2026-09-03: Merchant 360 renders the two channels as two labelled rows,
+    // so each prints exactly once and a NULL phone reads "none on file" rather
+    // than silently borrowing the email as the primary contact.
     const src = read("src/app/admin/merchants/[id]/page.tsx");
-    expect(src).toContain("Contact: {m.phone ?? m.email ?? \"No contact on file\"}");
-    expect(src).toContain("{m.phone && m.email ?");
+    expect(src).toContain('<Row label="Phone" value={m.phone ?? "none on file"} />');
+    expect(src).toContain('<Row label="Email" value={m.email ?? "none on file"} />');
     expect(src).not.toMatch(/\{m\.email \? ` · \$\{m\.email\}` : ""\}/);
+    expect(src).not.toMatch(/Contact: \{m\.phone \?\? m\.email/);
   });
 
   it("the route derives the gate from the session, never from the request body", () => {

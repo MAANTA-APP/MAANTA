@@ -54,7 +54,13 @@ const shopperDeal = readFileSync(
  * D149 fixed this shape on /founder and D164 on /admin; this is the surface
  * that puts the zero next to money.
  */
-const adminReports = readFileSync(join(root, "app/admin/reports/page.tsx"), "utf8");
+// The report moved into one shared component on 2026-09-03 so /admin/reports
+// and /founder/reports render the same money the same way; the guard follows
+// the reads, which is where the defect lived.
+const adminReports = readFileSync(
+  join(root, "components/admin/platform-report.tsx"),
+  "utf8"
+);
 
 /** The columns `public.redemptions` actually has, per the migration chain. */
 const REDEMPTION_COLUMNS = [
