@@ -189,7 +189,58 @@ not shift D240, which needs the suite in a browser; it is recorded because it is
 the only Clerk-branch evidence that exists, and because the next session should
 not re-derive the transport dead end.
 
-**Steps** — a machine with a browser and network access; the founder or ops:
+### The CI path (preferred) — `E2E (admin + founder acceptance, read-only)`
+
+Founder ruling 2026-09-03: wire the spec into CI rather than depend on a laptop.
+`.github/workflows/e2e-admin-founder.yml` runs the suite on a GitHub runner,
+where the egress block above does not apply, so the only thing a human supplies
+is the sign-in — once, as secrets — instead of a run per PR.
+
+**One-time setup**
+
+1. **Capture the storage states** on a machine with a browser, exactly as in
+   steps 2–3 below, against the PR preview. You need `admin.json`; add
+   `cofounder.json` when an identity holds the role (no production user does
+   yet — Q14 is founder-held).
+2. **Settings → Environments → new environment `e2e-readonly`**, and add
+   **required reviewers**. This is not optional. The repository is public and
+   these states are live Clerk sessions on production identities; the reviewer
+   prompt, which names the ref being run, is what stands between a branch and
+   those secrets.
+3. On that environment add secret `E2E_ADMIN_STORAGE`, and `E2E_COFOUNDER_STORAGE`
+   when you have one. Optionally set repository variable
+   `E2E_ADMIN_FOUNDER_ALLOWED_HOST` (e.g. `.vercel.app`) to turn the production
+   refusal into a positive allowlist.
+4. **Delete the local JSON files.** They are live sessions.
+
+**Per run:** Actions → *E2E (admin + founder acceptance, read-only)* → **Run
+workflow**, selecting the **PR's branch** and pasting the preview origin.
+Approve the environment when prompted.
+
+**Why this workflow is separate from `e2e.yml`, and what that costs.** The
+golden path is pinned to `main` precisely so a dispatch cannot run branch code
+with its secrets; that gate is untouched. This suite is read-only and its whole
+purpose is to test a PR's preview *before* merge, so it must run on the PR's
+ref — the spec under test is often not on `main` yet. Four things carry that
+trade: dispatch-only (never `pull_request`, so a fork cannot start it), the
+separate `e2e-readonly` environment (a run here cannot read the money-path
+secrets), the production refusal before checkout, and secrets scoped to the two
+steps that need them. The residual risk is the approver's: **read the ref before
+approving**, and treat the states as rotatable — sign those sessions out and
+recapture if a run is ever approved by mistake. `e2e-workflow-guards.test.ts`
+pins each of these properties, and the money suite's, so removing one fails CI.
+
+**Reading the result.** The job fails if `E2E_ADMIN_STORAGE` is missing, rather
+than letting the suite self-skip to a green job that tested nothing. It fails if
+any spec skipped, with one exception: the co-founder boundary may skip when its
+secret is absent, and the job then prints an explicit warning. **That is an
+11 of 12 and must be recorded as such** — D240 closes on 12.
+
+---
+
+**Steps for a manual run** — a machine with a browser and network access; the
+founder or ops. Use these to capture the states above, or to run the suite
+by hand when CI is not set up:
 
 1. **Find the preview.** Vercel project `maanta-nuia` builds a preview on every
    push of the PR branch; take the URL of the deployment whose commit is the PR
