@@ -68,6 +68,10 @@ const REDEMPTION_COLUMNS = [
   "consumer_device_id", "merchant_device_id", "distance_from_shop", "status",
   "fraud_flags", "review_required", "expires_at", "redeemed_at", "consumer_gps",
   "amount_kes", "is_demo", "demo_batch_id", "demo_source", "claimed_at",
+  // Added after this list was written and missed until the extractor below
+  // learned the founder page's `genuineCount` shape and found `arrived_at`:
+  // `20260826120000_fast_visit_points.sql` and `20260826130000_merchant_qr_queue.sql`.
+  "fast_visit_qualified_at", "arrived_at",
 ];
 
 /**
