@@ -153,6 +153,42 @@ blocked twice over: the sandbox's egress policy refuses connections to
 `*.vercel.app`, and Clerk storage states for an admin and a co-founder cannot
 be minted there — a Clerk session is a human signing in.
 
+**Re-tested and confirmed, 2026-09-03, so nobody spends another session on it.**
+The block is the environment's network policy, not a transient failure: the
+agent proxy's own log records `connect_rejected — gateway answered 403 to
+CONNECT` for the preview host, reproduced on every attempt, with `curl` exiting
+56 each time. **No Playwright run against any `*.vercel.app` origin is possible
+from an engineering session under any credential**, so the share links and
+protection-bypass tokens Vercel offers do not help — there is no transport to
+use them on. There is also no browser shared between the founder and the
+session: an agent cannot be handed a signed-in window, and a Clerk session
+cannot be transferred by describing it.
+
+**One partial observation worth keeping.** The Vercel MCP fetches a URL
+server-side, and one such fetch of `/founder` on the branch preview returned the
+application rather than Vercel's SSO redirect. Its headers are real evidence
+about the identity branch:
+
+```
+x-clerk-auth-status: signed-out
+x-clerk-auth-reason: session-token-and-uat-missing
+x-matched-path:      /login/[[...sign-in]]
+```
+
+with the RSC payload carrying `login?next=%2Ffounder` and the page loading
+`clerk.maanta.app` under a `pk_live_…` key. So on the real deployment, under
+**production Clerk**, a signed-out visitor to `/founder` is sent to the sign-in
+page with the return path preserved — one of the five boundary assertions,
+confirmed through the Clerk middleware the local proof could not reach.
+
+Its limits are the point: it is **one route of five**, at **HTTP level rather
+than in a browser**, and it was **not reproducible** — `/admin`, `/admin/queue`
+and a repeat of the same URL all returned Vercel's SSO redirect, so the one
+success was a race with a protection-bypass creation, not a channel. It does
+not shift D240, which needs the suite in a browser; it is recorded because it is
+the only Clerk-branch evidence that exists, and because the next session should
+not re-derive the transport dead end.
+
 **Steps** — a machine with a browser and network access; the founder or ops:
 
 1. **Find the preview.** Vercel project `maanta-nuia` builds a preview on every
