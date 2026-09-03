@@ -213,17 +213,47 @@ export async function loadActionQueue(service: Service = createServiceClient()):
   }
 
   const declinedRows = rowsOrNull(declinedRes);
+  // Supabase's select parser deliberately gives up when the projection comes
+  // from `genuineJoinSelect()` rather than a string literal. Keep the dynamic
+  // projection (so D188 has one owner), and contain the generated-type escape
+  // at this boundary instead of letting `GenericStringError` leak downstream.
+  const heldRows = rowsOrNull(heldRes) as unknown as {
+    id: string;
+    redeemed_at: string;
+    merchants: unknown;
+  }[] | null;
+  const appealableRows = declinedRows as unknown as {
+    id: string;
+    redeemed_at: string;
+    fraud_flags: string[] | null;
+    merchants: unknown;
+  }[] | null;
+  const blacklistedRows = rowsOrNull(blacklistedRes) as unknown as {
+    id: string;
+    user_id: string;
+    users: unknown;
+    claimed_at: string | null;
+    merchants: unknown;
+  }[] | null;
+  const arrivalRows = rowsOrNull(arrivalsRes) as unknown as {
+    id: string;
+    status: string;
+    expires_at: string | null;
+    arrived_at: string | null;
+    merchant_presentations: { status: string; expires_at: string }[] | null;
+    merchants: unknown;
+  }[] | null;
   const input: ActionQueueInput = {
     now,
     pendingMerchants: rowsOrNull(pendingRes),
     heldRedemptions:
-      rowsOrNull(heldRes)?.map((r) => ({
+      heldRows?.map((r) => ({
         id: r.id,
         redeemed_at: r.redeemed_at,
         merchant_name: name(r.merchants),
       })) ?? null,
     appealableRedemptions:
-      declinedRows
+      appealableRows
         ?.filter((r) => !((r.fraud_flags ?? []) as string[]).includes("guardian_appeal_rejected"))
         .map((r) => ({ id: r.id, redeemed_at: r.redeemed_at, merchant_name: name(r.merchants) })) ?? null,
     fraudEvents:
@@ -279,7 +309,7 @@ export async function loadActionQueue(service: Service = createServiceClient()):
         };
       }) ?? null,
     blacklistedLiveClaims:
-      rowsOrNull(blacklistedRes)?.map((r) => ({
+      blacklistedRows?.map((r) => ({
         id: r.id,
         user_id: r.user_id,
         full_name: (r.users as unknown as { full_name: string | null } | null)?.full_name ?? null,
@@ -287,7 +317,7 @@ export async function loadActionQueue(service: Service = createServiceClient()):
         merchant_name: name(r.merchants),
       })) ?? null,
     staleArrivals:
-      rowsOrNull(arrivalsRes)?.map((r) => ({
+      arrivalRows?.map((r) => ({
         id: r.id,
         status: r.status,
         expires_at: r.expires_at,

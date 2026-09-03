@@ -100,6 +100,14 @@ describe("evidence and visibility rules are the shared ones", () => {
     expect(src.match(/\.is_demo !== true/g)).toHaveLength(2);
   });
 
+  it("defines a genuine admin deal as a non-demo deal under a non-demo merchant", () => {
+    const src = read("src/app/admin/deals/page.tsx");
+    expect(src).toContain("merchants!inner(merchant_name, status, is_demo)");
+    expect(src).toMatch(
+      /query = query\.eq\("is_demo", false\)\.eq\("merchants\.is_demo", false\)/
+    );
+  });
+
   it("the founder command centre takes external evidence from the manifest, never from a demo flag", () => {
     const src = read("src/app/founder/page.tsx");
     expect(src).toContain("externalCohort()");

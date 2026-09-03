@@ -60,12 +60,17 @@ export default async function AdminDealsPage({
       let query = service
         .from("deals")
         .select(
-          "id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, claims_reserved, expires_at, created_at, node, merchant_id, merchants(merchant_name, status, is_demo)",
+          "id, title, deal_type, is_active, is_paused, is_demo, boost_active, max_claims, claims_count, claims_reserved, expires_at, created_at, node, merchant_id, merchants!inner(merchant_name, status, is_demo)",
           { count: "exact" }
         )
         .order("created_at", { ascending: false })
         .limit(MAX_DEALS);
-      if (!includeDemo) query = query.eq("is_demo", false);
+      if (!includeDemo) {
+        // A deal belongs to the synthetic marketplace when either it or its
+        // merchant is demo-tagged. Filtering only the deal repeats D188's
+        // false-genuine shape on a directory labelled "Genuine deals only".
+        query = query.eq("is_demo", false).eq("merchants.is_demo", false);
+      }
       if (q) query = query.ilike("title", `%${q}%`);
       return query;
     })(),
