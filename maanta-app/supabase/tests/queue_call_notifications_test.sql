@@ -164,6 +164,15 @@ BEGIN
   SET expires_at = clock_timestamp() - interval '1 second'
   WHERE id = v_presentation;
 
+  SELECT * INTO v_result
+  FROM public.call_shopper_forward(v_presentation, v_merchant, v_owner);
+  ASSERT NOT v_result.newly_called AND v_result.called_at = v_called_at,
+    'retry after expiry must return the already-committed call generation';
+  SELECT count(*) INTO v_count
+  FROM public.notifications WHERE presentation_id = v_presentation;
+  ASSERT v_count = 2,
+    'expired retry must not duplicate or suppress a call generation';
+
   BEGIN
     INSERT INTO public.merchant_presentations (
       merchant_id, redemption_id, shopper_id, expires_at
