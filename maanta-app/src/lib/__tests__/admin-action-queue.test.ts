@@ -1,0 +1,374 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  buildActionQueue,
+  countByCategory,
+  summariseQueue,
+  sortActionItems,
+  fraudReviewHref,
+  FRAUD_REVIEW_FILTERS,
+  STALE_ARRIVAL_MINUTES,
+  STUCK_TOPUP_MINUTES,
+  type ActionQueueInput,
+} from "@/lib/admin-action-queue";
+
+const now = new Date("2026-09-03T12:00:00Z");
+const ago = (mins: number) => new Date(now.getTime() - mins * 60_000).toISOString();
+
+/** Every category readable and empty — the honest all-clear. */
+function empty(): ActionQueueInput {
+  return {
+    now,
+    pendingMerchants: [],
+    heldRedemptions: [],
+    appealableRedemptions: [],
+    fraudEvents: [],
+    openTasks: [],
+    merchants: [],
+    cappedLiveDeals: [],
+    unlinkedStaffSeats: [],
+    blacklistedLiveClaims: [],
+    staleArrivals: [],
+    stuckTopups: [],
+    demoModeEnabled: false,
+  };
+}
+
+const merchant = (over: Partial<ActionQueueInput["merchants"] extends (infer T)[] | null ? T : never> = {}) => ({
+  id: "m1",
+  merchant_name: "Shop One",
+  status: "active",
+  is_visible: true,
+  is_shadow_banned: false,
+  is_demo: false,
+  account_balance: 300,
+  outstanding_arrears: 0,
+  updated_at: ago(60),
+  evidence: "internal" as const,
+  visibleDeals: 2,
+  ...over,
+});
+
+describe("buildActionQueue — an empty, readable queue is genuinely empty", () => {
+  it("returns nothing when every category is readable and clear", () => {
+    expect(buildActionQueue(empty())).toEqual([]);
+    expect(summariseQueue([])).toBe("0 urgent · 0 need attention");
+  });
+});
+
+describe("a failed read is never an all-clear", () => {
+  it("emits one unavailable item per unreadable category, sorted first", () => {
+    const items = buildActionQueue({ ...empty(), heldRedemptions: null, pendingMerchants: [] });
+    expect(items).toHaveLength(1);
+    expect(items[0].unavailable).toBe(true);
+    expect(items[0].category).toBe("redemption");
+    expect(items[0].reason).toMatch(/read failure, not an empty queue/);
+  });
+
+  it("names the failure in the summary before any count", () => {
+    const items = buildActionQueue({ ...empty(), fraudEvents: null });
+    expect(summariseQueue(items)).toMatch(/^1 read unreadable/);
+  });
+
+  it("reports an unreadable demo flag rather than assuming OFF", () => {
+    const items = buildActionQueue({ ...empty(), demoModeEnabled: null });
+    expect(items.some((i) => i.unavailable && i.category === "evidence")).toBe(true);
+  });
+
+  it("gives every failed read its own id, so a correlated outage is not one item (Codex P2, PR #319, D249)", () => {
+    // Four categories carry two reads each. A per-category id collided exactly
+    // when both failed together — duplicate React keys, and a summary that
+    // counted one outage twice.
+    const items = buildActionQueue({
+      ...empty(),
+      heldRedemptions: null,
+      appealableRedemptions: null,
+      merchants: null,
+      unlinkedStaffSeats: null,
+      stuckTopups: null,
+      demoModeEnabled: null,
+    });
+    const ids = items.filter((i) => i.unavailable).map((i) => i.id);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size, `duplicate ids: ${ids.join(", ")}`).toBe(ids.length);
+    // Both redemption reads are present and distinguishable by name.
+    const redemption = items.filter((i) => i.unavailable && i.category === "redemption");
+    expect(redemption).toHaveLength(2);
+    expect(redemption.map((i) => i.title).sort()).toEqual([
+      "Declined redemptions could not be read",
+      "Held redemptions could not be read",
+    ]);
+  });
+
+  it("counts unreadable reads rather than categories (D249)", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      heldRedemptions: null,
+      appealableRedemptions: null,
+    });
+    // Two reads in one category is "2 reads unreadable", not "2 categories".
+    expect(summariseQueue(items)).toMatch(/^2 reads unreadable/);
+  });
+});
+
+describe("every item points at the record and states its condition", () => {
+  it("approval → the merchant's actions anchor", () => {
+    const [item] = buildActionQueue({
+      ...empty(),
+      pendingMerchants: [{ id: "m9", merchant_name: "New Shop", created_at: ago(30) }],
+    });
+    expect(item.href).toBe("/admin/merchants/m9#actions");
+    expect(item.since).toBe(ago(30));
+    expect(item.reason).toMatch(/pending/);
+  });
+
+  it("held redemption → the redemption page, urgent", () => {
+    const [item] = buildActionQueue({
+      ...empty(),
+      heldRedemptions: [{ id: "r1", redeemed_at: ago(5), merchant_name: "Shop One" }],
+    });
+    expect(item.href).toBe("/admin/redemptions/r1");
+    expect(item.severity).toBe("urgent");
+    expect(item.reason).toMatch(/no fee has moved/i);
+  });
+
+  it("support task → the merchant's support anchor, urgent when overdue", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      openTasks: [
+        { id: "t1", task_type: "fraud_review", priority: "normal", created_at: ago(120), due_at: ago(10), merchant_id: "m1", merchant_name: "Shop One" },
+        { id: "t2", task_type: "audit", priority: "normal", created_at: ago(5), due_at: null, merchant_id: "m1", merchant_name: "Shop One" },
+      ],
+    });
+    expect(items[0].id).toBe("task:t1");
+    expect(items[0].severity).toBe("urgent");
+    expect(items[0].title).toMatch(/overdue/);
+    expect(items[0].href).toBe("/admin/merchants/m1#support");
+    expect(items[1].severity).toBe("attention");
+  });
+});
+
+describe("merchant rules", () => {
+  it("skips synthetic merchants entirely", () => {
+    expect(
+      buildActionQueue({ ...empty(), merchants: [merchant({ is_demo: true, status: "suspended", account_balance: 0 })] })
+    ).toEqual([]);
+  });
+
+  it("diagnoses visibility before supply, using the canonical blocker", () => {
+    const [shadow] = buildActionQueue({
+      ...empty(),
+      merchants: [merchant({ is_shadow_banned: true, visibleDeals: 0 })],
+    });
+    expect(shadow.id).toBe("shadow:m1");
+    const [hidden] = buildActionQueue({
+      ...empty(),
+      merchants: [merchant({ is_visible: false, visibleDeals: 0 })],
+    });
+    expect(hidden.id).toBe("hidden:m1");
+  });
+
+  it("raises no-supply only for a public merchant with a real zero, never a null", () => {
+    const [item] = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: 0 })] });
+    expect(item.id).toBe("no-supply:m1");
+    expect(item.severity).toBe("urgent");
+    const [unread] = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: null })] });
+    expect(unread.id).not.toBe("no-supply:m1");
+  });
+
+  it("fails closed when a shop's supply count could not be read (Codex P1 on PR #319)", () => {
+    // A null count used to fall through to nothing — the failed read looked
+    // exactly like a shop with supply. It is now its own attention item, per
+    // shop, flagged unavailable so it sorts with the other read failures.
+    const items = buildActionQueue({ ...empty(), merchants: [merchant({ visibleDeals: null })] });
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe("supply-unread:m1");
+    expect(items[0].category).toBe("deal");
+    expect(items[0].severity).toBe("attention");
+    expect(items[0].unavailable).toBe(true);
+    expect(items[0].reason).toMatch(/read error, not zero/);
+    expect(items[0].href).toBe("/admin/merchants/m1#deals");
+  });
+
+  it("does not repeat the supply failure per shop when the demo-mode flag itself is unreadable", () => {
+    // With the flag unreadable the loader attempts no count at all, so every
+    // shop is null for the same single reason. One "Demo mode flag" item says
+    // it; a hundred per-shop items would bury the queue.
+    const items = buildActionQueue({
+      ...empty(),
+      demoModeEnabled: null,
+      merchants: [merchant({ visibleDeals: null }), merchant({ id: "m2", merchant_name: "Shop Two", visibleDeals: null })],
+    });
+    expect(items.filter((i) => i.id.startsWith("supply-unread:"))).toEqual([]);
+    expect(items.some((i) => i.unavailable && /Demo mode flag/.test(i.title))).toBe(true);
+  });
+
+  it("carries the credit-wall doctrine on the zero-balance item", () => {
+    const [item] = buildActionQueue({ ...empty(), merchants: [merchant({ account_balance: 0 })] });
+    expect(item.category).toBe("balance");
+    expect(item.reason).toMatch(/Do NOT raise this with the merchant/);
+    expect(item.action).toBe("Observe only");
+  });
+
+  it("prefers arrears over zero balance when both hold", () => {
+    const items = buildActionQueue({ ...empty(), merchants: [merchant({ account_balance: 0, outstanding_arrears: 60 })] });
+    expect(items.map((i) => i.id)).toEqual(["arrears:m1"]);
+  });
+
+  it("flags an unclassified non-demo merchant as an evidence gap", () => {
+    const items = buildActionQueue({ ...empty(), merchants: [merchant({ evidence: "unclassified" })] });
+    expect(items.map((i) => i.id)).toEqual(["unclassified:m1"]);
+    expect(items[0].category).toBe("evidence");
+  });
+
+  it("treats a suspended merchant as attention with the counter consequence stated", () => {
+    const [item] = buildActionQueue({ ...empty(), merchants: [merchant({ status: "suspended" })] });
+    expect(item.id).toBe("suspended:m1");
+    expect(item.reason).toMatch(/Verification is blocked/);
+  });
+});
+
+describe("deal, seat, shopper, visit and top-up rules", () => {
+  it("raises fully-claimed only at the D236 boundary", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      cappedLiveDeals: [
+        { id: "d1", title: "Half price", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_reserved: 10, updated_at: ago(1) },
+        { id: "d2", title: "Not yet", merchant_id: "m1", merchant_name: "Shop One", max_claims: 10, claims_reserved: 9, updated_at: ago(1) },
+        { id: "d3", title: "No cap", merchant_id: "m1", merchant_name: "Shop One", max_claims: null, claims_reserved: 99, updated_at: ago(1) },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["fully-claimed:d1"]);
+    expect(items[0].reason).toMatch(/Claim allocation 10 reached/);
+    expect(items[0].reason).not.toMatch(/redemption limit/i);
+  });
+
+  it("raises an unlinked seat only for an active merchant", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      unlinkedStaffSeats: [
+        { id: "s1", staff_name: "Amina", merchant_id: "m1", merchant_name: "Shop One", merchant_status: "active", invited_at: ago(1440) },
+        { id: "s2", staff_name: "Ben", merchant_id: "m2", merchant_name: "Pending Shop", merchant_status: "pending", invited_at: ago(1440) },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["seat:s1"]);
+    expect(items[0].href).toBe("/admin/merchants/m1#staff");
+  });
+
+  it("raises a blacklisted account holding a live claim as urgent", () => {
+    const [item] = buildActionQueue({
+      ...empty(),
+      blacklistedLiveClaims: [{ id: "r7", user_id: "u1", full_name: null, claimed_at: ago(3), merchant_name: "Shop One" }],
+    });
+    expect(item.severity).toBe("urgent");
+    expect(item.category).toBe("shopper");
+    expect(item.href).toBe("/admin/redemptions/r7");
+  });
+
+  it("raises a stale arrival only past the threshold, and never for a redeemed row", () => {
+    const later = new Date(now.getTime() + 3_600_000).toISOString();
+    const items = buildActionQueue({
+      ...empty(),
+      staleArrivals: [
+        { id: "a1", status: "pending", expires_at: later, arrived_at: ago(STALE_ARRIVAL_MINUTES + 1), merchant_name: "Shop One" },
+        { id: "a2", status: "pending", expires_at: later, arrived_at: ago(STALE_ARRIVAL_MINUTES - 1), merchant_name: "Shop One" },
+        { id: "a3", status: "success", expires_at: later, arrived_at: ago(500), merchant_name: "Shop One" },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["stale-arrival:a1"]);
+    expect(items[0].category).toBe("visit");
+    expect(items[0].reason).toMatch(/An arrival is not a redemption/);
+  });
+
+  it("raises a stuck top-up only past the threshold", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      stuckTopups: [
+        { api_ref: "topup:1", merchant_id: "m1", merchant_name: "Shop One", amount: 500, currency: "KES", created_at: ago(STUCK_TOPUP_MINUTES + 5) },
+        { api_ref: "topup:2", merchant_id: "m1", merchant_name: "Shop One", amount: 500, currency: "KES", created_at: ago(5) },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["topup:topup:1"]);
+    expect(items[0].reason).toMatch(/No money has been credited/);
+  });
+
+  it("raises demo mode ON as an evidence item that names the founder as owner", () => {
+    const [item] = buildActionQueue({ ...empty(), demoModeEnabled: true });
+    expect(item.id).toBe("demo-mode");
+    expect(item.reason).toMatch(/D189/);
+    expect(item.href).toBe("/admin/operations");
+  });
+});
+
+describe("ordering and summaries", () => {
+  it("sorts unavailable, then urgent, then attention, oldest first within a band", () => {
+    const items = sortActionItems([
+      { id: "b", category: "support", severity: "attention", title: "", entity: { kind: "task", id: "b", name: "" }, reason: "", since: ago(10), href: "/x", action: "" },
+      { id: "a", category: "support", severity: "attention", title: "", entity: { kind: "task", id: "a", name: "" }, reason: "", since: ago(100), href: "/x", action: "" },
+      { id: "u", category: "redemption", severity: "urgent", title: "", entity: { kind: "redemption", id: "u", name: "" }, reason: "", since: ago(1), href: "/x", action: "" },
+      { id: "n", category: "deal", severity: "attention", title: "", entity: { kind: "deal", id: "n", name: "" }, reason: "", since: null, href: "/x", action: "" },
+      { id: "x", category: "visit", severity: "urgent", title: "", entity: { kind: "config", id: "x", name: "" }, reason: "", since: null, href: "/x", action: "", unavailable: true },
+    ]);
+    expect(items.map((i) => i.id)).toEqual(["x", "u", "a", "b", "n"]);
+  });
+
+  it("counts by category", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      pendingMerchants: [{ id: "m9", merchant_name: "New", created_at: ago(1) }],
+      demoModeEnabled: true,
+    });
+    const c = countByCategory(items);
+    expect(c.approval).toBe(1);
+    expect(c.evidence).toBe(1);
+    expect(c.support).toBe(0);
+    expect(summariseQueue(items)).toBe("0 urgent · 2 need attention");
+  });
+});
+
+describe("a fraud item's link lands somewhere that can show the event (Codex P2, PR #319, D250)", () => {
+  // `/admin/redemptions` filters by a fixed pill row, and `fraud_events.event_type`
+  // allows more values than that row lists. Passing an unsupported one was
+  // silently rejected: the page fell back to `all` and handed the operator a
+  // newest-50 list that need not contain the event the item was about.
+  const REASONS_ON_PAGE = (() => {
+    const src = readFileSync(join(process.cwd(), "src/app/admin/redemptions/page.tsx"), "utf8");
+    const m = src.match(/const REASONS = \[([^\]]+)\]/);
+    if (!m) throw new Error("could not read REASONS from /admin/redemptions");
+    return m[1]
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter((s) => s && s !== "all");
+  })();
+
+  it("offers exactly the filters the destination page implements", () => {
+    // Drift in either direction is a defect: a pill added there and not here
+    // loses a filter; one removed there and left here resurrects the bug.
+    expect([...FRAUD_REVIEW_FILTERS].sort()).toEqual([...REASONS_ON_PAGE].sort());
+  });
+
+  it("filters when the destination can, and links unfiltered when it cannot", () => {
+    for (const supported of FRAUD_REVIEW_FILTERS) {
+      expect(fraudReviewHref(supported)).toBe(`/admin/redemptions?reason=${supported}`);
+    }
+    // Every other type the CHECK constraint allows.
+    for (const unsupported of ["otp_abuse", "device_blacklist", "merchant_override", "code_rejected"]) {
+      expect(fraudReviewHref(unsupported)).toBe("/admin/redemptions");
+    }
+  });
+
+  it("never emits a reason the page would reject", () => {
+    const items = buildActionQueue({
+      ...empty(),
+      fraudEvents: [
+        { id: "f1", event_type: "merchant_override", severity: "high", created_at: ago(10), merchant_id: "m1", merchant_name: "Shop One" },
+        { id: "f2", event_type: "geofence", severity: "low", created_at: ago(10), merchant_id: "m1", merchant_name: "Shop One" },
+      ],
+    });
+    for (const item of items.filter((i) => i.category === "security" && !i.unavailable)) {
+      const reason = new URL(item.href, "https://x").searchParams.get("reason");
+      if (reason !== null) expect(REASONS_ON_PAGE).toContain(reason);
+    }
+  });
+});

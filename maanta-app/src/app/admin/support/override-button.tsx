@@ -4,7 +4,23 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export function OverrideButton({ taskId }: { taskId: string }) {
+/**
+ * Complete a support task with an audit line.
+ *
+ * `variant` exists only to ration the amber accent (frozen UI rule 1, D241).
+ * On `/admin/support` this IS the page's action, so it stays amber by default.
+ * Composed onto Merchant 360 it sits beside Suspend, Reject and Downgrade on a
+ * record page whose one amber belongs to Approve, so that caller passes
+ * `"ghost"`. Behaviour, authorization and the route called are identical
+ * either way — this is emphasis, nothing else.
+ */
+export function OverrideButton({
+  taskId,
+  variant = "primary",
+}: {
+  taskId: string;
+  variant?: "primary" | "ghost";
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +46,7 @@ export function OverrideButton({ taskId }: { taskId: string }) {
 
   return (
     <div className="space-y-1.5">
-      <Button size="sm" loading={busy} onClick={override}>
+      <Button size="sm" variant={variant} loading={busy} onClick={override}>
         Override (audit-trailed)
       </Button>
       {error ? (

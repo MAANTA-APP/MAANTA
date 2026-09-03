@@ -101,7 +101,7 @@ describe("the application reader delegates to the one SQL contract", () => {
   it("keeps all five executive surfaces on the shared reader and off legacy/direct sums", () => {
     for (const rel of [
       "src/app/admin/page.tsx",
-      "src/app/admin/reports/page.tsx",
+      "src/components/admin/platform-report.tsx",
       "src/app/admin/pilot/page.tsx",
       "src/app/founder/page.tsx",
       "src/app/founder/yesterday/page.tsx",

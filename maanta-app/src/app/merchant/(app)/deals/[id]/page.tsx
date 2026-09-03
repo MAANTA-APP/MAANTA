@@ -4,6 +4,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getMerchantContext, expireStaleBoosts } from "@/lib/merchant";
 import { getBoostFee } from "@/lib/data";
 import { CoverImage, KpiCard } from "@/components/ui/cards";
+import {
+  claimAllocation,
+  formatAllocation,
+  formatRemaining,
+  CLAIM_ALLOCATION_LABELS,
+} from "@/lib/claim-allocation";
 import { CountdownChip, StatusChip } from "@/components/ui/chips";
 import { IconArrowLeft, IconPause } from "@/components/ui/icons";
 import { formatKes, timeLeftLabel } from "@/lib/ui";
@@ -85,12 +91,15 @@ export default async function MerchantDealDetailPage({
   const verified = verifiedCount ?? 0;
   const feesPaid = verified * Number(deal.success_fee);
   const ended = deal.expires_at ? new Date(deal.expires_at) <= new Date() : false;
-  // D236: claims still available, or null when the allocation is unlimited.
-  const claimsLeftNum =
-    deal.max_claims == null ? null : Math.max(deal.max_claims - deal.claims_reserved, 0);
-  const claimsLeft = claimsLeftNum == null ? "Unlimited" : claimsLeftNum;
 
   const status = !deal.is_active || ended ? "ended" : deal.is_paused ? "paused" : "active";
+  // D236: the allocation is tested against claims_reserved (claims holding a
+  // slot right now), never claims_count, which only moves at the counter.
+  const allocation = claimAllocation({
+    maxClaims: deal.max_claims,
+    claimsReserved: deal.claims_reserved,
+  });
+  const claimsLeftNum = allocation.remaining;
 
   return (
     <main className="px-4 pb-10 pt-5">
@@ -134,35 +143,30 @@ export default async function MerchantDealDetailPage({
         </div>
       ) : null}
 
-      {/* D236: each number means one thing.
-          "Claims used" is the allocation currently taken — codes a shopper is
-          still holding, plus codes already redeemed. It is the number
-          `max_claims` caps. "Redeemed" is codes presented and verified at the
-          counter, and it is what the KES 30 fee follows. These were one KPI
-          reading `claims_count`, which is the second number wearing the
-          first one's label.
-          Under the D224 ruling "Claims used" FALLS on its own as unredeemed
-          claims expire, so "Claims left" can go back up without the merchant
-          doing anything. */}
       <div className="mt-4 grid grid-cols-2 gap-3">
+        {/* D236 — max_claims is the number of shopper claims that may be
+            ISSUED, never a redemption limit. "Claims issued" is the allocation
+            currently taken (claims_reserved: codes shoppers still hold plus
+            codes redeemed); under the D224 ruling it FALLS on its own as
+            unused claims expire, so "Claims remaining" can go back up with no
+            action. "Redeemed" (claims_count) is what the KES 30 fee follows.
+            Lowering the allocation stops new claims and touches no claim
+            already issued. */}
+        <KpiCard label={CLAIM_ALLOCATION_LABELS.issued} value={allocation.issued} />
         <KpiCard
-          label="Claims used"
-          value={
-            deal.max_claims != null
-              ? `${deal.claims_reserved}/${deal.max_claims}`
-              : deal.claims_reserved
-          }
+          label={CLAIM_ALLOCATION_LABELS.remaining}
+          value={formatRemaining(allocation)}
+          hint={`${CLAIM_ALLOCATION_LABELS.allocation}: ${formatAllocation(allocation)}`}
         />
-        <KpiCard label="Claims left" value={claimsLeft} />
         <KpiCard label="Redeemed" value={deal.claims_count} />
         <KpiCard label="Verified at shop" value={verified} />
         <KpiCard label="Fees paid" value={formatKes(feesPaid)} className="col-span-2" />
       </div>
       <p className="mt-2 text-xs text-muted">
         {deal.max_claims == null
-          ? "This deal has no claim limit."
+          ? "This deal has no claim allocation cap."
           : claimsLeftNum === 0
-            ? "Every claim is taken right now. A claim that expires unused frees its place automatically — or raise the limit to offer more."
+            ? "Every claim in the allocation is taken right now. A claim that expires unused frees its place automatically — or raise the allocation to offer more."
             : `${claimsLeftNum} more ${claimsLeftNum === 1 ? "shopper" : "shoppers"} can claim this deal.`}{" "}
         {deal.is_paused
           ? "It is paused, so no new claims are being issued. Codes already claimed stay valid."

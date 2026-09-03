@@ -1,7 +1,14 @@
 # Migration deployment plan — three migrations, 2026-09-03
 
-**Requested by founder ruling 3, 2026-09-03.** Nothing here has been applied.
-This document is the pre-authorisation proof, not a record of a deployment.
+**Requested by founder ruling 3, 2026-09-03.** Written before the apply as the
+pre-authorisation proof.
+
+> **Status, later on 2026-09-03: all three migrations ARE applied to production.**
+> Ledger read back at **110/110** with every version equal to its repo filename;
+> `claims_reserved` (the computed field), the reserve-slot trigger, the blacklist
+> gate in `claim_deal` and the repaired tenant policies are live. **Do not re-run
+> §§1–3.** The application half — the redesign branch — deploys after its PR is
+> green; §0's ordering requirement is satisfied by that order.
 
 **Currently deployed application:** `origin/main` = `c3b2fd3` (Vercel serves
 `main`). Every compatibility claim below is verified against **that commit's

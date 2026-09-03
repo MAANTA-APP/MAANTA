@@ -68,9 +68,10 @@ export default async function AdminCustomersPage({
 
   return (
     <main className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-ink">Customers</h1>
+      <h1 className="text-2xl font-bold text-ink">Shoppers &amp; accounts</h1>
       <p className="mt-1 text-sm text-muted">
-        Everyone with a Maanta account — shoppers, merchants, staff and agents.
+        Everyone with a Maanta account — shoppers first, then merchants, staff and agents.
+        Each name opens the account&apos;s record with every claim it has made.
       </p>
 
       <form className="mt-5 max-w-md" action="/admin/customers">

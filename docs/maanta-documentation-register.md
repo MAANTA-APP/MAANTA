@@ -143,6 +143,7 @@ does not pre-authorize acquisition.
 | `docs/skills/money-trust-engineering-guardrails.md` | eng | eng | KEEP | the RPCs | — | Money path changes | INTERNAL |
 | `docs/skills/fast-visit-and-counter-qr.md` | eng | eng | KEEP | the migrations | 2026-08-27 | Arrival, points, QR or queue change. **Engineering doc — not usable at a counter** | INTERNAL |
 | `docs/skills/role-permissions.md` | eng, admin | eng | KEEP | RLS policies | — | Roles or policies change | INTERNAL |
+| `docs/skills/admin-founder-command-centre-2026-09-03.md` | eng, admin, founder | eng | KEEP | the pure rule modules and their tests | 2026-09-03 | Admin navigation, an Action Queue rule, the visit funnel, the founder verdict readings, or the `max_claims` vocabulary (D233) changes | INTERNAL |
 | **Admin runbook** (role boundaries, sanctions, audit trail, prohibited production actions, failure-vs-zero) | admin | founder | **MISSING — P1** | — | — | Admin is the founder today, so the risk is low. Required before a second admin exists | CONFIDENTIAL |
 | **Incident and escalation guide** | admin, operator | founder | **MISSING — P1** | — | — | Escalation ladder exists in the day sheet; a standalone incident procedure does not | INTERNAL |
 | **Support FAQ / macros** | support | founder | **MISSING — P2** | — | — | Needed when support volume exists | INTERNAL |

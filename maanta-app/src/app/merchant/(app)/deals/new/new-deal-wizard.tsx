@@ -18,7 +18,7 @@ type ExtrasChoice = "none" | "extras" | null;
 
 /** 9n type select (plan compare) → 9o details (cover REQUIRED) → 9p/9q schedule → 9s review. */
 /**
- * What the claim limit actually does (D236, founder rulings 2026-09-03).
+ * What the claim allocation actually does (D236, founder rulings 2026-09-03).
  *
  * The field was labelled "Max claims" and capped REDEMPTIONS, so a merchant who
  * typed 10 could have any number of shoppers arrive holding valid codes. It now
@@ -33,10 +33,11 @@ type ExtrasChoice = "none" | "extras" | null;
 function ClaimLimitNote() {
   return (
     <p className="mt-2 text-xs text-muted">
-      The most shoppers who can hold a claim on this deal at once. If a shopper
-      claims and never comes, their claim expires and frees its place
-      automatically. You can raise the limit later, or pause the deal to stop
-      new claims — codes already claimed stay valid either way.
+      The claim allocation is the most shoppers who can hold a claim on this
+      deal at once. If a shopper claims and never comes, their claim
+      expires and frees its place automatically. You can raise the allocation
+      later, or pause the deal to stop new claims — codes already claimed stay
+      valid either way.
     </p>
   );
 }
@@ -560,7 +561,7 @@ export function NewDealWizard({
               </div>
               <div className="mt-4">
                 <TextField
-                  label="Claim limit"
+                  label="Claim allocation"
                   inputMode="numeric"
                   value={maxClaims}
                   onChange={(e) => setMaxClaims(e.target.value.replace(/\D/g, ""))}
@@ -573,7 +574,7 @@ export function NewDealWizard({
               <FlashSlider hours={flashHours} onChange={setFlashHours} />
               <div className="mt-4">
                 <TextField
-                  label="Claim limit"
+                  label="Claim allocation"
                   inputMode="numeric"
                   value={maxClaims}
                   onChange={(e) => setMaxClaims(e.target.value.replace(/\D/g, ""))}
@@ -610,8 +611,8 @@ export function NewDealWizard({
                   : ""}
                 {dealType === "flash" ? `Flash · ${flashHours}h` : "Standard · 24h"}
                 {maxClaims
-                  ? ` · up to ${maxClaims} ${maxClaims === "1" ? "claim" : "claims"}`
-                  : ""}
+                  ? ` · claim allocation ${maxClaims}`
+                  : " · no claim allocation cap"}
               </p>
             </div>
             <PlanChip plan={dealType === "flash" ? "elite" : "standard"} />

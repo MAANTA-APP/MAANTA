@@ -1,0 +1,237 @@
+name: E2E (admin + founder acceptance, read-only)
+
+# The Admin/Founder acceptance suite (e2e/admin-founder-redesign.spec.ts) run
+# in a browser against a Clerk-backed deployment. This is the evidence D240
+# needs: the identity branch production actually takes (`clerkMiddleware()`,
+# `ensureAppUserFromClerk`) exercised at iPhone size, which the local
+# Supabase-strategy proof explicitly could not reach.
+#
+# ## Why this is a separate workflow from the golden path
+#
+# `e2e.yml` runs the money loop — a real claim and a real verified redemption,
+# charging the KES 30 success fee — so it is pinned to `main` and refuses every
+# other ref, deliberately, so a manual dispatch can never run arbitrary branch
+# code with its secrets. That gate is correct and is left untouched.
+#
+# This suite has the opposite shape. It is **read-only**: it presses no button
+# that writes, spends nothing, and asserts only what is on screen. Its whole
+# purpose is to verify a PR's own preview *before* merge, so unlike the golden
+# path it must be dispatchable on the PR's ref — the spec under test often does
+# not exist on `main` yet.
+#
+# ## What protects it, given that
+#
+# The repository is PUBLIC and the storage states are live Clerk sessions on
+# production identities, so "runs branch code with secrets" is a real exposure
+# and is mitigated deliberately, not waved away:
+#
+#   1. `workflow_dispatch` ONLY. Never `pull_request`, never `push` — a fork or
+#      a branch push can never start this on its own.
+#   2. A dedicated `e2e-readonly` environment, separate from `e2e`. Add required
+#      reviewers to it: every run then needs a human to approve, and the
+#      approval screen names the ref being run. Splitting the environment also
+#      caps the blast radius — a run started from this workflow cannot read the
+#      money-path secrets (`E2E_SHOPPER_STORAGE`, `E2E_MERCHANT_STORAGE`).
+#   3. The production host is refused before checkout, before install, before
+#      any repository code executes.
+#   4. Secrets are exposed to the two steps that need them, not job-wide.
+#
+# The residual risk is the one the approver holds: approving a run on a branch
+# whose workflow file has been edited to exfiltrate the states. Read the ref
+# before approving, and treat these secrets as rotatable — sign the sessions
+# out and recapture if a run is ever approved by mistake.
+#
+# ## To enable (human/ops task)
+#
+#   1. Settings → Environments → new environment `e2e-readonly`, WITH required
+#      reviewers.
+#   2. On that environment add secret `E2E_ADMIN_STORAGE` (Playwright
+#      storageState JSON for a signed-in admin) and, when a co-founder identity
+#      exists, `E2E_COFOUNDER_STORAGE`. Without the second, 11 of 12 run and
+#      the job says so rather than passing quietly.
+#   3. Optional repository variable `E2E_ADMIN_FOUNDER_ALLOWED_HOST` (e.g.
+#      `.vercel.app`) turns the production refusal into a positive allowlist.
+#   4. Actions → this workflow → Run workflow, on the PR's branch, pasting the
+#      preview URL. Approve the environment when prompted.
+#
+#   The states are captured with `npm run e2e:capture -- admin <preview>`
+#   (maanta-app/scripts/e2e-capture-session.mjs): it opens a browser for the
+#   sign-in, writes the state to a 0600 temp file outside the repository,
+#   puts it on the clipboard for the secret field, and wipes both once the
+#   secret is saved. Nothing is committed and nothing is pasted into a chat.
+#
+# Full procedure and how to read the result: docs/ops/browser-e2e-provisioning-2026-09-03.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Preview origin to test (e.g. https://maanta-nuia-git-<branch>-maanta.vercel.app). NEVER a maanta.app host."
+        required: true
+        type: string
+      upload_failure_screenshots:
+        description: "Also upload failure screenshots (test-results/). OFF by default: the preview shares production's data and this repository is public, so a screenshot of an admin page is production merchant and shopper data in a downloadable artifact. Turn on only to diagnose a failure, and delete the artifact afterwards."
+        required: false
+        type: boolean
+        default: false
+
+# One run per target. Read-only, so a queued run is harmless — but two runs
+# against one origin make the report ambiguous about which one is being read.
+concurrency:
+  group: e2e-admin-founder-${{ inputs.target_url }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: maanta-app
+
+jobs:
+  admin-founder:
+    runs-on: ubuntu-latest
+    environment: e2e-readonly
+    env:
+      E2E_BASE_URL: ${{ inputs.target_url }}
+    steps:
+      # Fail closed on a production or unknown target BEFORE any checkout or
+      # install. This suite writes nothing, so the stake is not money — it is
+      # that a "proof" taken against production would prove the wrong thing,
+      # and that production data would be pulled into a CI log and screenshots.
+      - name: Guard the target (non-production only)
+        env:
+          TARGET: ${{ inputs.target_url }}
+          ALLOWED_HOST: ${{ vars.E2E_ADMIN_FOUNDER_ALLOWED_HOST }}
+        run: |
+          set -euo pipefail
+          case "$TARGET" in
+            https://*) : ;;
+            *)
+              echo "::error::target_url must be an https origin — got '$TARGET'."
+              exit 1 ;;
+          esac
+          case "$TARGET" in
+            *maanta.app*)
+              echo "::error::target_url points at a production host (maanta.app) — refusing. A proof taken against production is not the proof this suite claims to be, and it would pull live data into the run log."
+              exit 1 ;;
+          esac
+          if [ -n "${ALLOWED_HOST:-}" ] && [ "${TARGET#*"$ALLOWED_HOST"}" = "$TARGET" ]; then
+            echo "::error::target_url ($TARGET) is not in the approved allowlist (E2E_ADMIN_FOUNDER_ALLOWED_HOST=$ALLOWED_HOST)."
+            exit 1
+          fi
+          echo "Target OK: $TARGET"
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: maanta-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      # Playwright is intentionally not a package.json dependency (it keeps
+      # `npm ci` lockfile-valid for the main build); install it for this job.
+      - name: Install Playwright + Chromium
+        run: |
+          npm i -D --no-save @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Require the admin storage state (a self-skip is not a pass)
+        env:
+          E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
+        run: |
+          if [ -z "$E2E_ADMIN_STORAGE" ]; then
+            echo "::error::E2E_ADMIN_STORAGE is missing. The suite self-skips without it, which would leave this job green having tested nothing — the exact false green D240 exists to prevent. Add it to the e2e-readonly environment."
+            exit 1
+          fi
+
+      - name: Run the admin + founder acceptance suite
+        env:
+          E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
+          E2E_COFOUNDER_STORAGE: ${{ secrets.E2E_COFOUNDER_STORAGE }}
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report.json
+        run: npx playwright test e2e/admin-founder-redesign.spec.ts --reporter=github,json
+
+      # A skipped test and a passing test both leave a job green. The whole
+      # point of this run is the difference between "the console was verified
+      # through Clerk" and "the console was not looked at", so it is asserted
+      # rather than assumed.
+      - name: Assert the suite actually ran
+        if: always()
+        env:
+          E2E_COFOUNDER_STORAGE: ${{ secrets.E2E_COFOUNDER_STORAGE }}
+        run: |
+          set -euo pipefail
+          if [ ! -f playwright-report.json ]; then
+            echo "::error::No Playwright JSON report produced — cannot prove anything ran."
+            exit 1
+          fi
+          HAVE_COFOUNDER=$([ -n "${E2E_COFOUNDER_STORAGE:-}" ] && echo 1 || echo 0) \
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("playwright-report.json", "utf8"));
+            const specs = [];
+            const walk = (s) => {
+              for (const spec of s.specs ?? []) specs.push(spec);
+              for (const child of s.suites ?? []) walk(child);
+            };
+            for (const s of r.suites ?? []) walk(s);
+
+            const skipped = specs.filter((s) =>
+              (s.tests ?? []).some((t) => t.status === "skipped" || (t.results ?? []).some((x) => x.status === "skipped"))
+            );
+            if (!specs.length) {
+              console.error("::error::No specs ran at all.");
+              process.exit(1);
+            }
+
+            // The co-founder boundary is the one test allowed to skip, and only
+            // because no production identity holds the role yet (Q14 is
+            // founder-held). When its state IS supplied, a skip is a failure
+            // like any other.
+            const COFOUNDER = /co-founder/i;
+            const haveCofounder = process.env.HAVE_COFOUNDER === "1";
+            const unexpected = skipped.filter((s) => haveCofounder || !COFOUNDER.test(s.title));
+            if (unexpected.length) {
+              console.error("::error::" + unexpected.length + " spec(s) skipped that must not skip: " +
+                unexpected.map((s) => s.title).join(" | "));
+              process.exit(1);
+            }
+
+            const ran = specs.length - skipped.length;
+            if (skipped.length) {
+              console.log("::warning::" + ran + " of " + specs.length +
+                " specs ran. The co-founder boundary did NOT run (no E2E_COFOUNDER_STORAGE) — record that as an 11 of 12, never as a full pass.");
+            } else {
+              console.log("OK — all " + ran + " specs ran through Clerk, none skipped.");
+            }
+          '
+
+      # The JSON report is titles, statuses and assertion messages — enough to
+      # read the run. Screenshots are a separate, opt-in artifact: the suite
+      # runs against a preview that shares production's Supabase project, and
+      # workflow artifacts on a public repository are downloadable, so a
+      # failure capture of `/admin/merchants/<id>` would publish a real shop's
+      # record. Default to not producing that.
+      - name: Upload the JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-founder-e2e-report
+          path: maanta-app/playwright-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload failure screenshots (opt-in — contains preview data)
+        if: always() && inputs.upload_failure_screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-founder-e2e-screenshots
+          path: maanta-app/test-results/
+          if-no-files-found: ignore
+          retention-days: 3

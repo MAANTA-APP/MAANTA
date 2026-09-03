@@ -19,23 +19,32 @@ import {
   readLedgerFeeTotals,
 } from "@/lib/evidence-scope";
 import { FEE_FIGURE_LABELS, feeFigure } from "@/components/admin/fee-figures";
+import { loadActionQueue } from "@/lib/admin-action-queue-data";
+import { summariseQueue } from "@/lib/admin-action-queue";
+import { ActionItemCard } from "@/components/admin/action-item-card";
 
 export const dynamic = "force-dynamic";
 
+/** How many queue items Home shows before handing over to the full queue. */
+const HOME_QUEUE_ITEMS = 8;
+
 /**
- * 11-series admin home — the whole operation at a glance, filterable by node.
+ * Admin Home — "what needs my attention right now, and what can I do about it?"
  *
- * Replaces the approvals queue as the console's front door; the queue moved to
- * `/admin/approvals` unchanged.
+ * The top of the page is the Action Queue: per-record items, each opening the
+ * record where the action is (founder brief 2026-09-03: dashboard → record,
+ * never dashboard → list → filter → record). Beneath it, the fleet-level
+ * signals and the node snapshot an operator glances at, then the evidence
+ * split, money totals, runtime flags and the audit tail — the read-only
+ * context that was the whole page before and is still true.
  *
  * **How node scoping actually works, because the schema decides it.** Only
  * `merchants` and `deals` carry a `node` column. Redemptions, the ledger and
  * agent tasks reach a node only through their merchant. So a scoped view
  * resolves the node's merchant ids once and filters everything else by
  * `merchant_id in (…)` — one extra query, and every number on the page then
- * means the same thing. Deriving some numbers per-node and leaving others
- * global would produce a dashboard whose rows silently disagree, which is worse
- * than no filter at all.
+ * means the same thing. The Action Queue is platform-wide and says so: an
+ * exception at another node is still an exception.
  *
  * Every window is stated in its own label. A KPI whose period is a guess is a
  * KPI an operator cannot act on.
@@ -64,7 +73,7 @@ export default async function AdminHomePage({
     if (error) {
       return (
         <main className="min-h-dvh bg-stone px-4 pb-16 pt-6">
-          <h1 className="text-xl font-bold text-ink">Operations</h1>
+          <h1 className="text-xl font-bold text-ink">Home</h1>
           <div className="mt-6">
             <AdminReadError what="the selected node&apos;s merchant scope" />
           </div>
@@ -86,7 +95,7 @@ export default async function AdminHomePage({
   const atNode = <T,>(q: T): T =>
     scoped ? ((q as { eq: (c: string, v: string) => T }).eq("node", node) as T) : q;
 
-  // The attention queue must use the same public-visibility predicate as
+  // The supply signal must use the same public-visibility predicate as
   // shopper browse, not merely "active + unexpired". Paused deals and hidden,
   // shadow-banned or inactive merchants are not supply.
   // Failure-aware on purpose. isDemoModeEnabled() folds an unreachable config
@@ -158,9 +167,9 @@ export default async function AdminHomePage({
   // pointing the other way. `/founder` draws the same line — keep them
   // together, or the two consoles disagree about what counts as broken.
   //
-  // Both arms are handed to one Promise.all, so the reads still run in
-  // parallel; the nesting costs a tick of scheduling, not a round trip.
-  const [results, claimsTrackingRes, runtimeConfigRes, auditRes] = await Promise.all([
+  // The Action Queue loader is its own arm too: it reports its own read
+  // failures item by item and must never blank the KPIs, or vice versa.
+  const [results, claimsTrackingRes, runtimeConfigRes, auditRes, queue] = await Promise.all([
     Promise.all([
       atNode(
         service.from("merchants").select("id", { count: "exact", head: true }).eq("status", "pending")
@@ -197,12 +206,12 @@ export default async function AdminHomePage({
       // attempting to publish past its plan — counting those made the console
       // assert a plan-limit attempt that never happened (Codex P2 on #283).
       //
-      // These two types only exist as rows at all because of this PR's
-      // caller-side audit (lib/tier-refusal-audit, D194): the trigger writes
-      // them immediately before it RAISEs, so its own INSERT is rolled back
-      // with the exception. The count is therefore only as complete as that
-      // audit — a refusal that never reached /api/deals or /api/deals/repost
-      // (a direct DB write, say) is invisible here by construction.
+      // These two types only exist as rows at all because of the caller-side
+      // audit (lib/tier-refusal-audit, D194): the trigger writes them
+      // immediately before it RAISEs, so its own INSERT is rolled back with
+      // the exception. The count is therefore only as complete as that audit —
+      // a refusal that never reached /api/deals or /api/deals/repost (a direct
+      // DB write, say) is invisible here by construction.
       byMerchant(
         service
           .from("tier_flags")
@@ -250,7 +259,8 @@ export default async function AdminHomePage({
       .from("admin_ops_log")
       .select("id, admin_user_id, action, target_type, target_id, created_at")
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(8),
+    loadActionQueue(service),
   ]);
 
   // D164 — a failed metric read must never look like a real number.
@@ -265,7 +275,7 @@ export default async function AdminHomePage({
   if (readFailed) {
     return (
       <main className="min-h-dvh bg-stone px-4 pb-16 pt-6">
-        <h1 className="text-xl font-bold text-ink">Operations</h1>
+        <h1 className="text-xl font-bold text-ink">Home</h1>
         <div className="mt-6">
           <LeadsReadError
             what="the operations dashboard"
@@ -320,11 +330,14 @@ export default async function AdminHomePage({
   const runtimeConfig = new Map(
     (runtimeConfigRes.data ?? []).map((row) => [String(row.key), String(row.value)])
   );
+  const nowDate = new Date();
+  const queueTop = queue.items.slice(0, HOME_QUEUE_ITEMS);
+  const queueRest = queue.items.length - queueTop.length;
 
   return (
     <main className="max-w-4xl">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-bold text-ink">Operations</h1>
+        <h1 className="text-2xl font-bold text-ink">Home</h1>
         <p className="text-xs text-muted">
           {scoped ? nodeLabel(node) : "All nodes"} · live now, 7-day windows where labelled
         </p>
@@ -350,33 +363,120 @@ export default async function AdminHomePage({
         })}
       </nav>
 
-      <h2 className="mt-7 text-base font-bold text-ink">Needs attention</h2>
+      {/* ---- What needs attention right now ------------------------------ */}
+      <div className="mt-7 flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="text-base font-bold text-ink">Needs attention right now</h2>
+        <Link href="/admin/queue" className="text-sm font-semibold text-secondary hover:text-ink">
+          Full action queue · {summariseQueue(queue.items)}
+        </Link>
+      </div>
       <p className="mt-1 text-xs text-muted">
-        Deterministic rules only — every alert states why it fired.
+        Platform-wide, one item per record, each opening where the action is.
+        Deterministic rules only — every item states the condition that fired.
       </p>
       <div className="mt-2 space-y-2">
-        {attentionItems.length === 0 ? (
+        {queueTop.length === 0 ? (
           <p className="rounded-card bg-white px-4 py-5 text-sm text-muted shadow-card">
-            No deterministic operational alerts right now.
+            Nothing needs a human right now. Every category was read and came back clear.
+          </p>
+        ) : (
+          queueTop.map((item) => <ActionItemCard key={item.id} item={item} now={nowDate} />)
+        )}
+        {queueRest > 0 ? (
+          <Link
+            href="/admin/queue"
+            className="block rounded-card bg-white px-4 py-3 text-center text-sm font-semibold text-ink shadow-card hover:bg-stone-soft"
+          >
+            {queueRest} more in the action queue
+          </Link>
+        ) : null}
+      </div>
+
+      {/* ---- Fleet signals: the roll-up, per queue ------------------------ */}
+      <h2 className="mt-7 text-base font-bold text-ink">
+        Queues{scoped ? ` — ${nodeLabel(node)}` : ""}
+      </h2>
+      <p className="mt-1 text-xs text-muted">
+        Counts per queue{scoped ? ", scoped to this node" : ""}. Each opens the list; the
+        items above open the records.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {attentionItems.length === 0 ? (
+          <p className="rounded-card bg-white px-4 py-3 text-sm text-muted shadow-card">
+            No queue has anything in it{scoped ? " at this node" : ""}.
           </p>
         ) : (
           attentionItems.map((item) => (
             <Link
               key={item.id}
               href={item.href}
+              title={item.reason}
               className={cn(
-                "block rounded-card border bg-white px-4 py-3.5 shadow-card hover:bg-stone-soft",
-                item.severity === "urgent" ? "border-flame/40" : "border-line"
+                "rounded-full border bg-white px-3.5 py-1.5 text-xs font-semibold text-ink shadow-card hover:bg-stone-soft",
+                item.severity === "urgent" ? "border-flame/60" : "border-line"
               )}
             >
-              <p className="text-sm font-bold text-ink">{item.label}</p>
-              <p className="mt-1 text-xs text-muted">{item.reason}</p>
+              {item.severity === "urgent" ? "! " : ""}
+              {item.label}
             </Link>
           ))
         )}
       </div>
 
-      <h2 className="mt-7 text-base font-bold text-ink">Evidence split</h2>
+      {/* ---- Node snapshot ------------------------------------------------- */}
+      <h2 className="mt-7 text-base font-bold text-ink">Supply right now</h2>
+      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Active merchants" value={(activeMerchants ?? 0).toLocaleString()} />
+        <KpiCard
+          label="Shopper-visible deals"
+          value={
+            demoMode.ok && liveDeals != null ? liveDeals.toLocaleString() : "—"
+          }
+          hint={
+            demoMode.ok
+              ? demoMode.enabled
+                ? "Demo mode is ON: synthetic deals are shopper-visible and counted."
+                : undefined
+              : "Demo-mode flag unreadable, so visible supply cannot be established."
+          }
+        />
+        <KpiCard label="Awaiting approval" value={(pendingMerchants ?? 0).toLocaleString()} />
+        <KpiCard label="Held redemptions" value={(heldRedemptions ?? 0).toLocaleString()} />
+      </div>
+
+      <div className="mt-7 flex items-baseline justify-between gap-3">
+        <h2 className="text-base font-bold text-ink">Latest approvals waiting</h2>
+        <Link href="/admin/approvals" className="text-sm font-semibold text-secondary hover:text-ink">
+          Full queue
+        </Link>
+      </div>
+      <div className="mt-2 space-y-2">
+        {(recentPending ?? []).length === 0 ? (
+          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
+            {scoped
+              ? `No shops waiting at ${nodeLabel(node)}`
+              : "No shops waiting for approval"}
+          </p>
+        ) : (
+          (recentPending ?? []).map((m) => (
+            <Link
+              key={m.id}
+              href={`/admin/merchants/${m.id}#actions`}
+              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3 hover:bg-stone-soft"
+            >
+              <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
+                {m.merchant_name}
+                {m.floor ? ` — ${m.floor}` : ""}
+              </span>
+              <span className="text-xs text-muted">{relativeAgo(m.created_at)}</span>
+              <StatusChip status="pending" />
+            </Link>
+          ))
+        )}
+      </div>
+
+      {/* ---- Evidence and money: the read-only context --------------------- */}
+      <h2 className="mt-7 text-base font-bold text-ink">Evidence split (7 days)</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label={`Genuine-tagged ${claims.label.toLowerCase()}`}
@@ -400,56 +500,19 @@ export default async function AdminHomePage({
       <p className="mt-2 text-xs text-muted">
         D188 rule: genuine-tagged means redemption, merchant and deal are all non-demo.
         Internal E2E activity can still be included, so this is not external field validation.
+        The pilot ladder itself is read on the{" "}
+        <Link href="/founder" className="underline">
+          founder command centre
+        </Link>
+        .
       </p>
 
-      <h2 className="mt-7 text-base font-bold text-ink">Operational totals (7 days)</h2>
+      <h2 className="mt-7 text-base font-bold text-ink">Money (7 days)</h2>
       <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={FEE_FIGURE_LABELS.net} value={feeFigure(fees7d.netKes)} />
         <KpiCard label={FEE_FIGURE_LABELS.gross} value={feeFigure(fees7d.grossKes)} />
         <KpiCard label={FEE_FIGURE_LABELS.reversals} value={feeFigure(fees7d.reversalsKes)} />
         <KpiCard label="Arrears outstanding" value={formatKes(arrearsTotal)} />
-      </div>
-
-      <h2 className="mt-7 text-base font-bold text-ink">Supply</h2>
-      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Active merchants" value={(activeMerchants ?? 0).toLocaleString()} />
-        <KpiCard
-          label="Shopper-visible deals"
-          value={
-            demoMode.ok && liveDeals != null ? liveDeals.toLocaleString() : "—"
-          }
-        />
-      </div>
-
-      <div className="mt-7 flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-bold text-ink">Latest approvals waiting</h2>
-        <Link href="/admin/approvals" className="text-sm font-semibold text-secondary hover:text-ink">
-          Full queue
-        </Link>
-      </div>
-      <div className="mt-2 space-y-2">
-        {(recentPending ?? []).length === 0 ? (
-          <p className="rounded-card bg-white shadow-card px-4 py-6 text-center text-sm text-muted">
-            {scoped
-              ? `No shops waiting at ${nodeLabel(node)}`
-              : "No shops waiting for approval"}
-          </p>
-        ) : (
-          (recentPending ?? []).map((m) => (
-            <Link
-              key={m.id}
-              href={`/admin/merchants/${m.id}`}
-              className="flex flex-wrap items-center gap-3 rounded-card bg-white shadow-card px-4 py-3 hover:bg-stone-soft"
-            >
-              <span className="min-w-0 flex-1 text-sm font-semibold text-ink">
-                {m.merchant_name}
-                {m.floor ? ` — ${m.floor}` : ""}
-              </span>
-              <span className="text-xs text-muted">{relativeAgo(m.created_at)}</span>
-              <StatusChip status="pending" />
-            </Link>
-          ))
-        )}
       </div>
 
       <h2 className="mt-7 text-base font-bold text-ink">Runtime flags</h2>
@@ -474,7 +537,14 @@ export default async function AdminHomePage({
           ))}
         </div>
       )}
-      <p className="mt-2 text-xs text-muted">Read-only visibility. No config write controls exist here.</p>
+      <p className="mt-2 text-xs text-muted">
+        Read-only visibility. No config write controls exist here. What each flag means
+        operationally is on{" "}
+        <Link href="/admin/operations" className="underline">
+          Operations
+        </Link>
+        .
+      </p>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">
         <h2 className="text-base font-bold text-ink">
@@ -515,8 +585,9 @@ export default async function AdminHomePage({
       {scoped ? (
         <p className="mt-6 text-xs text-muted">
           Operational metrics are scoped to {nodeLabel(node)}. Redemptions, fees and tasks have
-          no node of their own, so they are counted through that node&apos;s merchants. Runtime
-          flags and the audit trail are platform-wide and are labelled separately.
+          no node of their own, so they are counted through that node&apos;s merchants. The
+          action queue, runtime flags and the audit trail are platform-wide and are labelled
+          separately.
         </p>
       ) : null}
     </main>

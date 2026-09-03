@@ -74,7 +74,9 @@ function insideOpenLabel(before: string): boolean {
  * keep in step and the visible one losing.
  */
 const WRAPPED_BY_A_HELPER = new Set([
-  "app/admin/support/new/new-ticket-form.tsx:153",
+  // Line moved 153 → 160 on 2026-09-03 when the form gained an
+  // `initialMerchantId` prop for the Merchant 360 "Log an issue" link.
+  "app/admin/support/new/new-ticket-form.tsx:160",
 ]);
 
 describe("form fields carry an accessible name", () => {

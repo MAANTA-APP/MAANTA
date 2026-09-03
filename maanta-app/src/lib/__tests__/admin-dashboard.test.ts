@@ -109,9 +109,14 @@ describe("the approvals queue moved intact", () => {
     expect(approvals).toContain("Pending approvals");
   });
 
-  it("is reachable from the sidebar alongside the new overview", () => {
-    expect(sidebar).toContain('{ href: "/admin", label: "Overview" }');
-    expect(sidebar).toContain('{ href: "/admin/approvals", label: "Approvals" }');
+  it("is reachable from the sidebar through the section that owns it", () => {
+    // 2026-09-03 IA: the console's front door is Home, and approvals is no
+    // longer a top-level item — it is owned by Merchants, which lights up when
+    // an operator is on the approvals route, and it is reached from Home and
+    // the Action Queue directly.
+    expect(sidebar).toContain('{ href: "/admin", label: "Home" }');
+    expect(sidebar).toContain('"/admin/approvals": "/admin/merchants"');
+    expect(sidebar).not.toContain('label: "Approvals"');
   });
 
   it("is where the dashboard sends an admin who wants the full queue", () => {

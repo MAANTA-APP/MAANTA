@@ -30,6 +30,8 @@
  * selection is empty.
  */
 
+import { claimAllocation } from "@/lib/claim-allocation";
+
 /**
  * The single near-expiry threshold, shared with the countdown chip.
  *
@@ -74,23 +76,25 @@ export function isFullyClaimed(deal: {
   max_claims: number | null;
   claims_reserved: number;
 }): boolean {
-  return deal.max_claims !== null && deal.claims_reserved >= deal.max_claims;
+  // One implementation: lib/claim-allocation.ts mirrors claim_deal's `>=`.
+  return claimAllocation({ maxClaims: deal.max_claims, claimsReserved: deal.claims_reserved })
+    .fullyClaimed;
 }
 
 /**
  * Claims still available on a deal, or `null` when the allocation is unlimited.
  *
- * The single place this arithmetic lives. `Math.max(…, 0)` because a merchant
- * may lower `max_claims` below what is already reserved — the API refuses that
- * edit, but the database permits the state, and a negative "claims left" would
- * be worse than a clamped zero.
+ * Delegates to the one helper so the arithmetic lives in a single place;
+ * clamped at zero there, because a merchant may lower `max_claims` below what
+ * is already reserved — the API refuses that edit, but the database permits
+ * the state, and a negative "claims left" would be worse than a clamped zero.
  */
 export function claimsRemaining(deal: {
   max_claims: number | null;
   claims_reserved: number;
 }): number | null {
-  if (deal.max_claims === null) return null;
-  return Math.max(deal.max_claims - deal.claims_reserved, 0);
+  return claimAllocation({ maxClaims: deal.max_claims, claimsReserved: deal.claims_reserved })
+    .remaining;
 }
 
 /**

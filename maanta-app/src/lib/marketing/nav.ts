@@ -21,6 +21,17 @@ export const HEADER_LINKS = [
 export const HEADER_CTA = { label: "Browse deals", href: "/feed" } as const;
 
 /**
+ * The shared sign-in entry. One `/login` for every role: after sign-in,
+ * `/app-bootstrap` reads `public.users.role` and routes the person to their
+ * own shell (`lib/pwa/app-bootstrap.ts`), so the header needs no
+ * "Merchant sign in" / "Admin sign in" variants — and must not grow them,
+ * because a role-named link on the public site would advertise a privileged
+ * route as navigation. It is a secondary action: `Browse deals` keeps the one
+ * amber element in the bar (D259).
+ */
+export const HEADER_SIGN_IN = { label: "Sign in", href: "/login" } as const;
+
+/**
  * Footer columns 2–4. Column 1 (brand) and column 5 (contact) are structural
  * rather than link lists, so `SiteFooter` composes them directly.
  *

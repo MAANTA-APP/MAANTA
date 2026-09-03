@@ -17,7 +17,11 @@ export const dynamic = "force-dynamic";
  * A shopper- or platform-shaped issue with no merchant needs a schema decision
  * first — that gap is stated in lib/support-intake.ts, not papered over here.
  */
-export default async function NewSupportTicketPage() {
+export default async function NewSupportTicketPage({
+  searchParams,
+}: {
+  searchParams: { merchant?: string };
+}) {
   await requireAdminPage();
 
   const service = createServiceClient();
@@ -53,6 +57,9 @@ export default async function NewSupportTicketPage() {
 
       <NewTicketForm
         merchants={(merchants ?? []).map((m) => ({ id: m.id, name: m.merchant_name }))}
+        initialMerchantId={
+          (merchants ?? []).some((m) => m.id === searchParams.merchant) ? searchParams.merchant : ""
+        }
       />
     </main>
   );

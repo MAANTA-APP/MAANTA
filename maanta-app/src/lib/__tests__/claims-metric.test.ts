@@ -54,7 +54,13 @@ const shopperDeal = readFileSync(
  * D149 fixed this shape on /founder and D164 on /admin; this is the surface
  * that puts the zero next to money.
  */
-const adminReports = readFileSync(join(root, "app/admin/reports/page.tsx"), "utf8");
+// The report moved into one shared component on 2026-09-03 so /admin/reports
+// and /founder/reports render the same money the same way; the guard follows
+// the reads, which is where the defect lived.
+const adminReports = readFileSync(
+  join(root, "components/admin/platform-report.tsx"),
+  "utf8"
+);
 
 /** The columns `public.redemptions` actually has, per the migration chain. */
 const REDEMPTION_COLUMNS = [
@@ -62,6 +68,10 @@ const REDEMPTION_COLUMNS = [
   "consumer_device_id", "merchant_device_id", "distance_from_shop", "status",
   "fraud_flags", "review_required", "expires_at", "redeemed_at", "consumer_gps",
   "amount_kes", "is_demo", "demo_batch_id", "demo_source", "claimed_at",
+  // Added after this list was written and missed until the extractor below
+  // learned the founder page's `genuineCount` shape and found `arrived_at`:
+  // `20260826120000_fast_visit_points.sql` and `20260826130000_merchant_qr_queue.sql`.
+  "fast_visit_qualified_at", "arrived_at",
 ];
 
 /**
@@ -77,15 +87,23 @@ const REDEMPTION_COLUMNS = [
  */
 function redemptionFilters(source: string): string[] {
   const found: string[] = [];
-  const anchor = /from\("redemptions"\)/g;
+  // Two shapes filter `redemptions` in this codebase: a literal
+  // `from("redemptions")` chain, and the founder page's `genuineCount((q) =>
+  // q.<filter>(...))`, which applies its filters to a `from("redemptions")`
+  // built once in `baseCount`. The second shape is where every founder
+  // redemption filter now lives (D243 moved the last direct read there), so
+  // reading only the first left this guard with nothing to check — which its
+  // own non-empty assertion caught.
+  const anchor = /from\("redemptions"\)|genuineCount\(\(q\) =>/g;
   let m: RegExpExecArray | null;
   while ((m = anchor.exec(source))) {
     const rest = source.slice(m.index + m[0].length);
-    // Stop at the next table so one query's window cannot bleed into another.
-    // 900 chars, not 400: this repo puts long explanatory comments between
-    // chained calls, and a tighter window dropped the shopper page's .order().
-    const nextTable = rest.search(/from\("[a-z_]+"\)/);
-    const window = rest.slice(0, nextTable === -1 ? 900 : Math.min(nextTable, 900));
+    // Stop at the next table or the next genuineCount so one query's window
+    // cannot bleed into another. 900 chars, not 400: this repo puts long
+    // explanatory comments between chained calls, and a tighter window dropped
+    // the shopper page's .order().
+    const next = rest.search(/from\("[a-z_]+"\)|genuineCount\(\(q\) =>/);
+    const window = rest.slice(0, next === -1 ? 900 : Math.min(next, 900));
     const f = /\.(?:gte|lte|gt|lt|eq|order)\("([a-z_]+)"/g;
     let g: RegExpExecArray | null;
     while ((g = f.exec(window))) found.push(g[1]);
