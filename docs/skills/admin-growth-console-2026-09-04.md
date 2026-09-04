@@ -357,3 +357,63 @@ has no `source_*` properties and would correctly land as `unattributed`.
   audience-scoped, while the route reads `/audiences/{id}/contacts`. With two
   contacts on the account the distinction did not bite, but the confirmed run is
   the first thing that would surface a difference.
+
+---
+
+# Addendum 3 — the confirmed backfill (same day)
+
+**Ran. `scanned: 2, imported: 2, updated: 0, unreadable: 0, failed: 0`** — exactly
+what the dry run predicted.
+
+Executed through the Resend connector plus direct SQL, because the build
+container has no `RESEND_API_KEY` and `/api/admin/growth/waitlist/sync` could not
+run. The route's contract was followed rather than bypassed: the `admin_ops_log`
+entry (`growth.waitlist.sync`, id `313451c9`) was written **before** any row, so
+an unwritable audit would have meant no backfill; the write was
+insert-then-targeted-update; and `note` was not mirrored.
+
+Read back: both rows carry `joined_at` (so both appear in the chart rather than in
+the unknown-join-date count), `resend_synced_at` is set on both, `unsynced` is 0,
+`properties_unreadable` is 0, and `consent_at` is present on both — so the
+typed-property fix from addendum 2 is confirmed working against real data. One row
+is legitimately `unattributed` (that contact carried no `source_*`).
+
+With one confirmed sync in `admin_ops_log` and zero unsynced rows,
+`loadWaitlistDirectory` now reports **`complete: true`**, and CSV export unlocks.
+
+## The finding this run produces, and it is the important one
+
+**Both imported rows are internal, and the console now counts them as real.**
+
+- One is the founder's own address, carrying `source_channel = e2e` and a Resend
+  note that read "End-to-end test signup".
+- The other is a `+47` number — not a Nairobi shopper.
+
+`Waitlist total: 2` under *Real only · TEST excluded* is therefore the same false
+reading D174 and D184 exist to prevent: an internal row incrementing a counter
+that is supposed to mean external demand. The backfill is not at fault — Resend
+does not carry the TEST marker, so `is_test: false` is the only honest default for
+a backfilled contact, and deviating would have made this run unrepresentative of
+what the route does.
+
+**External waitlist signups remain 0.** Marking these two rows TEST is a founder
+classification, not an engineering fix, and is deliberately left undone:
+
+```sql
+UPDATE public.waitlist_signups
+   SET is_test = TRUE, test_label = 'internal', updated_at = now()
+ WHERE email IN ('aragagency@gmail.com', 'maj.jam@gmail.com');
+```
+
+That is the whole change; the console's Real/Test/All filter does the rest.
+
+## Still owed after this run
+
+- `make db-verify` has never run — no Docker here, so both SQL suites are
+  unexecuted and CI's `db-tests` job remains the gate.
+- The sync ROUTE itself has still never executed. Its logic has now been exercised
+  against real data, but the HTTP path, its admin guard and its dry-run branch
+  have not.
+- The connector's `list-contacts` is not audience-scoped while the route reads
+  `/audiences/{id}/contacts`. With two contacts that could not bite; on a larger
+  audience it would be the first thing to check.
