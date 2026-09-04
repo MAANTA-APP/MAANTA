@@ -227,7 +227,19 @@ is the sign-in — once, as secrets — instead of a run per PR.
    when you have one. Optionally set repository variable
    `E2E_ADMIN_FOUNDER_ALLOWED_HOST` (e.g. `.vercel.app`) to turn the production
    refusal into a positive allowlist.
-4. The capture command has already wiped its file. If you captured by hand
+4. **Add `VERCEL_AUTOMATION_BYPASS_SECRET` to the same environment.** Every
+   preview of `maanta-nuia` is behind Vercel Authentication
+   (`all_except_custom_domains`, read again 2026-09-04), so a browser with no
+   session lands on Vercel's sign-in wall rather than MAANTA's `/login`, and the
+   five signed-out boundary tests would fail for the wrong reason. Vercel's
+   standard answer is the project's *Protection Bypass for Automation* secret:
+   Vercel → `maanta-nuia` → Settings → Deployment Protection → Protection Bypass
+   for Automation → generate, copy, paste into the secret. The spec then sends
+   it as the `x-vercel-protection-bypass` header on every request, for the
+   signed-out and signed-in contexts alike. This does not weaken the
+   protection — the wall stays up for anyone without the secret — and it is
+   rotatable from the same page.
+5. The capture command has already wiped its file. If you captured by hand
    with `playwright open --save-storage` instead, **delete the JSON files
    now** — they are live sessions.
 

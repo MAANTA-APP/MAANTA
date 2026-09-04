@@ -117,12 +117,25 @@ describe("the admin/founder acceptance workflow is dispatch-only and fails close
     expect(shotsStep).toMatch(/if: always\(\) && inputs\.upload_failure_screenshots/);
   });
 
+  it("gets past Vercel's preview wall with the automation-bypass header, scoped to the run step", () => {
+    // Every preview of this project sits behind Vercel Authentication, so a
+    // signed-out context lands on Vercel's page, not MAANTA's /login, and the
+    // five boundary tests fail for the wrong reason. The spec sends the
+    // bypass header on every context when the secret is present.
+    const spec = read("maanta-app/e2e/admin-founder-redesign.spec.ts");
+    expect(spec).toMatch(/"x-vercel-protection-bypass": VERCEL_BYPASS/);
+    expect(spec).toMatch(/process\.env\.VERCEL_AUTOMATION_BYPASS_SECRET/);
+    const runStep = code.slice(code.indexOf("name: Run the admin + founder acceptance suite"), code.indexOf("name: Assert the suite actually ran"));
+    expect(runStep).toMatch(/VERCEL_AUTOMATION_BYPASS_SECRET: \$\{\{ secrets\.VERCEL_AUTOMATION_BYPASS_SECRET \}\}/);
+  });
+
   it("exposes the storage states to the steps that need them, not job-wide", () => {
     // A job-level `env:` carrying a secret would expose it to checkout and the
     // installs as well. Only the target URL is job-level here.
     const jobEnv = wf.slice(wf.indexOf("environment: e2e-readonly"), wf.indexOf("steps:"));
     expect(jobEnv).not.toMatch(/E2E_ADMIN_STORAGE/);
     expect(jobEnv).not.toMatch(/E2E_COFOUNDER_STORAGE/);
+    expect(jobEnv).not.toMatch(/VERCEL_AUTOMATION_BYPASS_SECRET/);
   });
 });
 

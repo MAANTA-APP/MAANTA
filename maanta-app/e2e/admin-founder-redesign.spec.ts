@@ -32,10 +32,25 @@ function parseStorage(raw: string) {
 const READ_ERROR = /read error, not zeroed metrics|Could not load/i;
 const IPHONE = devices["iPhone 13"];
 
+/**
+ * Vercel's "Protection Bypass for Automation" secret. The `maanta-nuia`
+ * project has Vercel Authentication on every preview (`all_except_custom_domains`,
+ * read 2026-09-04), so without it a signed-out context never reaches MAANTA:
+ * the five boundary tests would land on Vercel's sign-in wall and fail for
+ * the wrong reason, and a signed-in context passes only because the captured
+ * storage state happens to carry the Vercel cookie. Optional — unset for a
+ * local stack or an unprotected target — and applied to every context so the
+ * two halves of the suite are tested through the same door.
+ */
+const VERCEL_BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
 async function iphone(browser: Browser, storage?: string) {
   return browser.newContext({
     ...IPHONE,
     ...(storage ? { storageState: parseStorage(storage) } : {}),
+    ...(VERCEL_BYPASS
+      ? { extraHTTPHeaders: { "x-vercel-protection-bypass": VERCEL_BYPASS } }
+      : {}),
   });
 }
 

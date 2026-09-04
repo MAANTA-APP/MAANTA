@@ -684,3 +684,23 @@ merged PR's. Nothing else in this document waits on that answer.
 next change to these surfaces should come from what the BBS Mall operator or
 Merchant 01 actually hits, not from reading this document and finding
 something to improve.
+
+## 17. Before the first automated D240 dispatch (2026-09-04)
+
+Read from the project's protection settings: every `maanta-nuia` preview is
+behind Vercel Authentication (`all_except_custom_domains`). A browser with no
+session therefore meets Vercel's sign-in wall, not MAANTA's `/login`, and the
+five signed-out boundary tests would fail for the wrong reason; the signed-in
+tests would pass only because the captured storage state happens to carry the
+Vercel cookie. The spec now sends Vercel's *Protection Bypass for Automation*
+secret as the `x-vercel-protection-bypass` header on every context when
+`VERCEL_AUTOMATION_BYPASS_SECRET` is set, and the workflow passes it to the run
+step only. That is one more secret for the founder to add — generated on the
+Vercel project's Deployment Protection page — and it takes the wall down for
+nobody else. With PR #319 merged, the dispatch target is a branch preview (this
+change's own), which shares production's data exactly as the PR preview did and
+is read-only in the same way.
+
+The Codex verdict on `fbfa080` was requested and refused on the account's
+usage limit; that is recorded rather than glossed, and the merge went ahead on
+the founder's authority with four earlier rounds resolved.

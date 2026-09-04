@@ -48,7 +48,10 @@ name: E2E (admin + founder acceptance, read-only)
 #   2. On that environment add secret `E2E_ADMIN_STORAGE` (Playwright
 #      storageState JSON for a signed-in admin) and, when a co-founder identity
 #      exists, `E2E_COFOUNDER_STORAGE`. Without the second, 11 of 12 run and
-#      the job says so rather than passing quietly.
+#      the job says so rather than passing quietly. Add
+#      `VERCEL_AUTOMATION_BYPASS_SECRET` too (Vercel project → Settings →
+#      Deployment Protection → Protection Bypass for Automation): previews are
+#      behind Vercel Authentication, and the signed-out tests need a way past it.
 #   3. Optional repository variable `E2E_ADMIN_FOUNDER_ALLOWED_HOST` (e.g.
 #      `.vercel.app`) turns the production refusal into a positive allowlist.
 #   4. Actions → this workflow → Run workflow, on the PR's branch, pasting the
@@ -151,10 +154,15 @@ jobs:
             exit 1
           fi
 
+      # `VERCEL_AUTOMATION_BYPASS_SECRET`: the project's "Protection Bypass for
+      # Automation" secret (Vercel → project → Settings → Deployment Protection).
+      # Every preview is behind Vercel Authentication, so without it the
+      # signed-out boundary tests meet Vercel's wall, not MAANTA's /login.
       - name: Run the admin + founder acceptance suite
         env:
           E2E_ADMIN_STORAGE: ${{ secrets.E2E_ADMIN_STORAGE }}
           E2E_COFOUNDER_STORAGE: ${{ secrets.E2E_COFOUNDER_STORAGE }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report.json
         run: npx playwright test e2e/admin-founder-redesign.spec.ts --reporter=github,json
 
