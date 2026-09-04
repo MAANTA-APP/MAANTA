@@ -104,13 +104,13 @@ BEGIN
   ASSERT v_raised, 'E: a non-slug utm_campaign must be rejected';
 
   INSERT INTO public.growth_campaigns (name, slug, channel, destination)
-    VALUES ('__t Node 0 teaser', '__t-node0-teaser', 'instagram', '/waitlist')
+    VALUES ('__t Node 0 teaser', 'zz-t-node0-teaser', 'instagram', '/waitlist')
     RETURNING id INTO v_id;
 
   v_raised := FALSE;
   BEGIN
     INSERT INTO public.growth_campaigns (name, slug, channel, destination)
-      VALUES ('__t Duplicate', '__t-node0-teaser', 'tiktok', '/waitlist');
+      VALUES ('__t Duplicate', 'zz-t-node0-teaser', 'tiktok', '/waitlist');
   EXCEPTION WHEN unique_violation THEN v_raised := TRUE;
   END;
   ASSERT v_raised, 'E: a duplicate utm_campaign slug must be rejected';
