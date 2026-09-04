@@ -22,7 +22,20 @@ export type SignupDay = {
  * role split and the direction in words — not a squeezed chart, and not a
  * horizontally-scrolling one that hides half its own data.
  */
-export function SignupsChart({ days, label }: { days: SignupDay[]; label: string }) {
+export function SignupsChart({
+  days,
+  label,
+  unknownJoinDate = 0,
+}: {
+  days: SignupDay[];
+  label: string;
+  /**
+   * People the mirror holds but whose Resend join date it has not read yet.
+   * Rendered as a stated exclusion rather than dropped: a bare `continue` on a
+   * null date is how a person vanishes from a figure with nothing admitting it.
+   */
+  unknownJoinDate?: number;
+}) {
   const totals = days.reduce(
     (acc, d) => ({
       shopper: acc.shopper + d.shopper,
@@ -69,6 +82,14 @@ export function SignupsChart({ days, label }: { days: SignupDay[]; label: string
           ))}
         </ul>
       </div>
+
+      {unknownJoinDate > 0 ? (
+        <p className="mt-3 rounded-lg border-l-2 border-rust bg-stone px-3 py-2 text-xs leading-relaxed text-ink">
+          {unknownJoinDate} {unknownJoinDate === 1 ? "person is" : "people are"} not
+          in this chart: the mirror has not read their join date from the sending
+          platform yet. Run a sync to place them.
+        </p>
+      ) : null}
 
       {total === 0 ? (
         <p className="mt-5 rounded-xl bg-stone px-3.5 py-3 text-xs leading-relaxed text-secondary">

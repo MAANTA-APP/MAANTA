@@ -95,6 +95,11 @@ export type MerchantLead = {
   staffAdded: boolean;
   walletToppedUp: boolean;
   isTest: boolean;
+  /**
+   * The `public.leads` row for this unit, once a field agent captures it (D265).
+   * Null until the four-agent phase begins — that phase is gated behind D159.
+   */
+  capturedLeadId: string | null;
   createdAt: string;
   firstContactedAt: string | null;
 };
@@ -222,6 +227,7 @@ export function rowToLead(row: Record<string, unknown>): MerchantLead {
     staffAdded: Boolean(row.staff_added),
     walletToppedUp: Boolean(row.wallet_topped_up),
     isTest: Boolean(row.is_test),
+    capturedLeadId: (row.captured_lead_id as string | null) ?? null,
     createdAt: String(row.created_at),
     firstContactedAt: (row.first_contacted_at as string | null) ?? null,
   };

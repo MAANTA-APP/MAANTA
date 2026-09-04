@@ -44,7 +44,40 @@ function resendFetch(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: AbortSignal.timeout(RESEND_TIMEOUT_MS) });
 }
 
-export type WaitlistContactResult = "created" | "already_exists" | "failed";
+export type WaitlistContactOutcome = "created" | "already_exists" | "failed";
+
+/**
+ * What `addWaitlistContact` learned, not just whether it worked.
+ *
+ * `propertiesWritten` is the one that matters downstream: the strip-and-retry
+ * below drops every custom property on ANY 4xx — including a 429 — and retries
+ * with core fields only. That succeeds, so the contact exists, but Resend then
+ * holds no `segment_type`, no consent and no UTM for that person. Without this
+ * flag the admin console cannot tell that apart from a person who declined to
+ * provide them, and renders our own retry as their compliance defect.
+ */
+export type WaitlistContactResult = {
+  outcome: WaitlistContactOutcome;
+  /** Resend's id, when the create response carried one. Opportunistic. */
+  contactId: string | null;
+  propertiesWritten: boolean;
+};
+
+const FAILED: WaitlistContactResult = {
+  outcome: "failed",
+  contactId: null,
+  propertiesWritten: false,
+};
+
+/** Pull an id out of a create response without asserting its shape. */
+async function contactIdFrom(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.clone().json()) as { id?: unknown };
+    return typeof body?.id === "string" && body.id ? body.id : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function addWaitlistContact(
   submission: WaitlistSubmission
@@ -53,7 +86,7 @@ export async function addWaitlistContact(
   const audienceId = process.env.RESEND_AUDIENCE_ID;
   if (!apiKey || !audienceId) {
     console.error("Resend is not configured (RESEND_API_KEY / RESEND_AUDIENCE_ID).");
-    return "failed";
+    return FAILED;
   }
 
   const [first, ...rest] = submission.fullName.split(/\s+/);
@@ -91,31 +124,43 @@ export async function addWaitlistContact(
 
   try {
     let res = await post(payload);
-    if (res.ok) return "created";
+    if (res.ok) {
+      return { outcome: "created", contactId: await contactIdFrom(res), propertiesWritten: true };
+    }
 
     const detail = await res.text();
     if (res.status === 409 || /already exist/i.test(detail)) {
-      return "already_exists";
+      return { outcome: "already_exists", contactId: null, propertiesWritten: false };
     }
 
     // If the audience rejects custom properties (e.g. properties not yet
     // created in Resend), don't lose the lead — retry with core fields only.
+    //
+    // This fires on ANY 4xx, a 429 included, so it is not rare and it is not
+    // always about the properties being invalid. The retry succeeding means the
+    // CONTACT exists while Resend holds none of its metadata — which is why the
+    // result now reports `propertiesWritten: false` rather than a bare
+    // "created" that hides it.
     if (res.status >= 400 && res.status < 500) {
       console.warn("Resend contact create rejected, retrying without properties:", res.status, detail);
       delete payload.properties;
       res = await post(payload);
-      if (res.ok) return "created";
+      if (res.ok) {
+        return { outcome: "created", contactId: await contactIdFrom(res), propertiesWritten: false };
+      }
       const retryDetail = await res.text();
-      if (res.status === 409 || /already exist/i.test(retryDetail)) return "already_exists";
+      if (res.status === 409 || /already exist/i.test(retryDetail)) {
+        return { outcome: "already_exists", contactId: null, propertiesWritten: false };
+      }
       console.error("Resend contact create failed:", res.status, retryDetail);
-      return "failed";
+      return FAILED;
     }
 
     console.error("Resend contact create failed:", res.status, detail);
-    return "failed";
+    return FAILED;
   } catch (err) {
     console.error("Resend contact create threw:", err);
-    return "failed";
+    return FAILED;
   }
 }
 
@@ -225,7 +270,13 @@ export type ResendContactSummary = {
   first_name: string | null;
   last_name: string | null;
   unsubscribed: boolean;
-  created_at: string;
+  /**
+   * Null when Resend did not return one. It used to be substituted with the
+   * Unix epoch, which is a date and therefore a lie: downstream it read as a
+   * 1970 signup, dropped the person out of every chart, and — if a join date is
+   * ever merged monotonically — would have pinned the row there permanently.
+   */
+  created_at: string | null;
 };
 
 /** A contact with whatever custom properties the account actually returns. */
@@ -309,7 +360,7 @@ export async function getAudienceContact(id: string): Promise<ResendContactDetai
       first_name: typeof body.first_name === "string" ? body.first_name : null,
       last_name: typeof body.last_name === "string" ? body.last_name : null,
       unsubscribed: Boolean(body.unsubscribed),
-      created_at: typeof body.created_at === "string" ? body.created_at : new Date(0).toISOString(),
+      created_at: typeof body.created_at === "string" ? body.created_at : null,
       // Guarded rather than asserted: whether this account's API returns custom
       // properties on the single-contact read is an account/API-version fact, not
       // something this repo can prove. If they are absent the console says the

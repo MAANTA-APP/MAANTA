@@ -9,7 +9,6 @@ import {
   loadWaitlistDirectory,
   segmentCounts,
   signupsByDay,
-  MAX_DIRECTORY_CONTACTS,
 } from "@/lib/growth/waitlist-directory";
 import { readLeads } from "@/lib/growth/data";
 import {
@@ -69,6 +68,7 @@ export default async function AdminGrowthPage({
   const waitlist = filterEntries(directory.entries, { population });
   const roles = segmentCounts(waitlist);
   const attribution = attributionRollup(waitlist);
+  const signups = signupsByDay(waitlist, WINDOW_DAYS);
   const content = contentHealthSummary();
 
   const leads = leadRead.rows;
@@ -98,11 +98,12 @@ export default async function AdminGrowthPage({
       </GrowthPageHeader>
 
       {partial && directory.readable ? (
-        <p className="mt-4 rounded-xl border border-rust bg-white px-4 py-3 text-[13px] leading-relaxed text-rust">
-          <strong className="font-bold">Partial read.</strong> The audience is larger
-          than the {MAX_DIRECTORY_CONTACTS}-contact ceiling this console assembles in
-          one request, or a page failed. Every waitlist figure below is a lower
-          bound, not a total — do not quote one.
+        <p className="mt-4 rounded-xl border border-rust bg-white px-4 py-3 text-[13px] leading-relaxed text-ink">
+          <strong className="font-bold text-rust">Not fully synced.</strong>{" "}
+          {directory.lastSyncAt === null
+            ? "No sync has ever run, so nothing here has been compared against the sending platform and anyone who signed up before the mirror existed is missing entirely."
+            : `${directory.unsynced} ${directory.unsynced === 1 ? "row has" : "rows have"} never been confirmed against the sending platform.`}{" "} Every waitlist figure below is a lower bound,
+          not a total — do not quote one until a sync has run.
         </p>
       ) : null}
 
@@ -204,7 +205,8 @@ export default async function AdminGrowthPage({
       <div className="mt-3.5 grid gap-3.5 lg:grid-cols-[1.5fr_1fr]">
         <GrowthCard>
           <SignupsChart
-            days={signupsByDay(waitlist, WINDOW_DAYS)}
+            days={signups.buckets}
+            unknownJoinDate={signups.unknownJoinDate}
             label={`Daily, last ${WINDOW_DAYS} days`}
           />
         </GrowthCard>

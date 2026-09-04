@@ -11,7 +11,6 @@ import {
   filterEntries,
   loadWaitlistDirectory,
   sourcesIn,
-  MAX_DIRECTORY_CONTACTS,
   type WaitlistEntry,
 } from "@/lib/growth/waitlist-directory";
 import {
@@ -122,11 +121,12 @@ export default async function AdminGrowthWaitlistPage({
       </GrowthPageHeader>
 
       {!directory.complete ? (
-        <p className="mt-4 rounded-xl border border-rust bg-white px-4 py-3 text-[13px] leading-relaxed text-rust">
-          <strong className="font-bold">Partial read.</strong> More than{" "}
-          {MAX_DIRECTORY_CONTACTS} contacts, or a page failed. The counts below are
-          lower bounds and export is withheld — a spreadsheet has nowhere to carry
-          this warning.
+        <p className="mt-4 rounded-xl border border-rust bg-white px-4 py-3 text-[13px] leading-relaxed text-ink">
+          <strong className="font-bold text-rust">Not fully synced.</strong>{" "}
+          {directory.lastSyncAt === null
+            ? "No sync has ever run, so nothing here has been compared against the sending platform and anyone who signed up before the mirror existed is missing entirely."
+            : `${directory.unsynced} ${directory.unsynced === 1 ? "row has" : "rows have"} never been confirmed against the sending platform.`}{" "} Counts are lower bounds and
+          export is withheld — a spreadsheet has nowhere to carry this warning.
         </p>
       ) : null}
 
@@ -302,7 +302,15 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
           <GrowthBadge tone="error">Missing</GrowthBadge>
         )}
       </td>
-      <td className="px-4 py-3 text-[13px] text-muted">{entry.joinedAt.slice(0, 10)}</td>
+      <td className="px-4 py-3 text-[13px] text-muted">
+        {entry.joinedAt ? (
+          entry.joinedAt.slice(0, 10)
+        ) : (
+          // Not a fabricated date. The mirror has not read it from the sending
+          // platform yet, and our own row-creation clock is a different fact.
+          <span className="text-rust">not synced</span>
+        )}
+      </td>
       <td className="px-4 py-3">
         <span className="flex flex-wrap gap-1.5">
           {entry.isTest ? <GrowthBadge tone="test">Test</GrowthBadge> : null}
@@ -313,8 +321,8 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
           {entry.flags.includes("no_consent") ? (
             <GrowthBadge tone="error">No consent</GrowthBadge>
           ) : null}
-          {entry.flags.includes("unsubscribed") ? (
-            <GrowthBadge tone="neutral">Unsubscribed</GrowthBadge>
+          {entry.flags.includes("unreadable") ? (
+            <GrowthBadge tone="caution">Metadata unreadable</GrowthBadge>
           ) : null}
         </span>
       </td>

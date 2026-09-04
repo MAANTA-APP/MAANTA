@@ -38,13 +38,13 @@ export async function GET(request: Request) {
 
   const directory = await loadWaitlistDirectory();
   if (!directory.readable) {
-    return NextResponse.json({ error: "Could not read the waitlist audience." }, { status: 502 });
+    return NextResponse.json({ error: "Could not read the waitlist." }, { status: 502 });
   }
   if (!directory.complete) {
     return NextResponse.json(
       {
         error:
-          "The audience could only be read partially, so this export would be silently incomplete. Narrow the filter or retry.",
+          `The mirror is not fully synced (${directory.unsynced} unconfirmed rows), so this export would be silently incomplete. Run a sync first.`,
       },
       { status: 409 }
     );

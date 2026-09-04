@@ -8,86 +8,93 @@ import {
   toCsv,
   toWaitlistEntry,
 } from "@/lib/growth/waitlist-directory";
-import type { ResendContactSummary } from "@/lib/resend";
 
-const summary = (over: Partial<ResendContactSummary> = {}): ResendContactSummary => ({
-  id: "c1",
+/** A `waitlist_signups` row, as PostgREST returns it. */
+const row = (over: Record<string, unknown> = {}) => ({
+  id: "11111111-1111-4111-8111-111111111111",
   email: "a@example.com",
-  first_name: "A",
-  last_name: "M",
-  unsubscribed: false,
-  created_at: "2026-09-04T08:00:00Z",
-  ...over,
-});
-
-const props = (over: Record<string, unknown> = {}) => ({
-  segment_type: "shopper",
-  phone: "0712345678",
+  full_name: "A M",
+  phone: "+254712345678",
+  segment: "shopper",
   node_interest: "BBS Mall",
-  source_channel: "instagram",
-  source_medium: "social",
-  source_campaign: "node0-teaser",
+  utm_source: "instagram",
+  utm_medium: "social",
+  utm_campaign: "node0-teaser",
   consent_at: "2026-09-04T08:00:00Z",
+  is_test: false,
+  test_label: null,
+  properties_unreadable: false,
+  resend_synced_at: "2026-09-04T08:00:05Z",
+  joined_at: "2026-09-04T08:00:00Z",
+  created_at: "2026-09-04T08:00:01Z",
   ...over,
 });
 
 describe("waitlist directory — normalization", () => {
-  it("normalizes a Kenyan number to E.164", () => {
-    expect(toWaitlistEntry(summary(), props(), false).phone).toBe("+254712345678");
+  it("maps a mirror row onto a console row", () => {
+    const e = toWaitlistEntry(row());
+    expect(e.phone).toBe("+254712345678");
+    expect(e.segment).toBe("shopper");
+    expect(e.source).toBe("instagram");
+    expect(e.flags).toEqual([]);
   });
 
   it("reads the segment only when it is a real segment", () => {
-    expect(toWaitlistEntry(summary(), props(), false).segment).toBe("shopper");
-    expect(toWaitlistEntry(summary(), props({ segment_type: "vip" }), false).segment).toBeNull();
+    expect(toWaitlistEntry(row({ segment: "vip" })).segment).toBeNull();
   });
 
   it("flags a missing consent record", () => {
-    const entry = toWaitlistEntry(summary(), props({ consent_at: undefined }), false);
-    expect(entry.flags).toContain("no_consent");
+    expect(toWaitlistEntry(row({ consent_at: null })).flags).toContain("no_consent");
   });
 
-  // The distinction this module exists to preserve: "we could not read it" must
-  // never render as "the field is empty", which would look like a compliance
-  // defect nobody actually has.
-  it("does not accuse an unreadable row of missing consent", () => {
-    const entry = toWaitlistEntry(summary(), null, true);
-    expect(entry.propertiesUnreadable).toBe(true);
-    expect(entry.flags).not.toContain("no_consent");
-    expect(entry.flags).not.toContain("unattributed");
-  });
-
-  it("reads the test marker and its label", () => {
-    const entry = toWaitlistEntry(
-      summary(),
-      props({ is_test: true, test_label: "smoke-test" }),
-      false
+  // The distinction the whole module exists to preserve: "we could not read it"
+  // must never render as "they did not provide it", which would show a
+  // compliance defect nobody actually has.
+  it("does not accuse an unreadable row of missing consent or attribution", () => {
+    const e = toWaitlistEntry(
+      row({ properties_unreadable: true, consent_at: null, utm_source: null })
     );
-    expect(entry.isTest).toBe(true);
-    expect(entry.testLabel).toBe("smoke-test");
-    expect(entry.flags).toContain("test");
+    expect(e.flags).toContain("unreadable");
+    expect(e.flags).not.toContain("no_consent");
+    expect(e.flags).not.toContain("unattributed");
+  });
+
+  it("flags a row the sync has never confirmed", () => {
+    expect(toWaitlistEntry(row({ resend_synced_at: null })).flags).toContain("unsynced");
   });
 
   it("treats an absent test marker as a real signup", () => {
-    expect(toWaitlistEntry(summary(), props(), false).isTest).toBe(false);
+    expect(toWaitlistEntry(row()).isTest).toBe(false);
+    expect(toWaitlistEntry(row({ is_test: true, test_label: "smoke-test" })).testLabel).toBe(
+      "smoke-test"
+    );
+  });
+
+  // Resend's create response carries no created_at, and an already_exists row
+  // may be months old — so an unread join date is null, never our own clock.
+  it("keeps an unread join date null rather than substituting the record date", () => {
+    const e = toWaitlistEntry(row({ joined_at: null }));
+    expect(e.joinedAt).toBeNull();
+    expect(e.recordedAt).toBe("2026-09-04T08:00:01Z");
   });
 });
 
 describe("waitlist directory — duplicates are found by phone", () => {
-  it("flags both rows sharing a number, and leaves a unique one alone", () => {
+  it("flags both rows sharing a number and leaves a unique one alone", () => {
     const entries = markDuplicates([
-      toWaitlistEntry(summary({ id: "a" }), props(), false),
-      toWaitlistEntry(summary({ id: "b", email: "b@example.com" }), props(), false),
-      toWaitlistEntry(summary({ id: "c" }), props({ phone: "0722222222" }), false),
+      toWaitlistEntry(row({ id: "a" })),
+      toWaitlistEntry(row({ id: "b", email: "b@example.com" })),
+      toWaitlistEntry(row({ id: "c", phone: "+254722222222" })),
     ]);
     expect(entries[0].flags).toContain("duplicate");
     expect(entries[1].flags).toContain("duplicate");
     expect(entries[2].flags).not.toContain("duplicate");
   });
 
-  it("does not treat two unreadable numbers as duplicates of each other", () => {
+  it("does not treat two missing numbers as duplicates of each other", () => {
     const entries = markDuplicates([
-      toWaitlistEntry(summary({ id: "a" }), null, true),
-      toWaitlistEntry(summary({ id: "b" }), null, true),
+      toWaitlistEntry(row({ id: "a", phone: null })),
+      toWaitlistEntry(row({ id: "b", phone: null })),
     ]);
     expect(entries.every((e) => !e.flags.includes("duplicate"))).toBe(true);
   });
@@ -95,18 +102,16 @@ describe("waitlist directory — duplicates are found by phone", () => {
 
 describe("waitlist directory — filtering", () => {
   const entries = [
-    toWaitlistEntry(summary({ id: "real" }), props(), false),
-    toWaitlistEntry(summary({ id: "test" }), props({ is_test: true }), false),
-    toWaitlistEntry(
-      summary({ id: "merchant" }),
-      props({ segment_type: "merchant", source_channel: "whatsapp" }),
-      false
-    ),
+    toWaitlistEntry(row({ id: "real" })),
+    toWaitlistEntry(row({ id: "test", is_test: true })),
+    toWaitlistEntry(row({ id: "merchant", segment: "merchant", utm_source: "whatsapp" })),
   ];
 
   it("excludes test rows by default", () => {
-    const ids = filterEntries(entries, { population: "real" }).map((e) => e.id);
-    expect(ids).toEqual(["real", "merchant"]);
+    expect(filterEntries(entries, { population: "real" }).map((e) => e.id)).toEqual([
+      "real",
+      "merchant",
+    ]);
   });
 
   it("returns only test rows under Test", () => {
@@ -125,34 +130,50 @@ describe("waitlist directory — filtering", () => {
 
 describe("waitlist directory — roll-ups", () => {
   it("counts roles, and counts an unreadable role separately", () => {
-    const counts = segmentCounts([
-      toWaitlistEntry(summary({ id: "1" }), props(), false),
-      toWaitlistEntry(summary({ id: "2" }), props({ segment_type: "merchant" }), false),
-      toWaitlistEntry(summary({ id: "3" }), null, true),
-    ]);
-    expect(counts).toEqual({ shopper: 1, merchant: 1, mall_operator: 0, unknown: 1 });
+    expect(
+      segmentCounts([
+        toWaitlistEntry(row({ id: "1" })),
+        toWaitlistEntry(row({ id: "2", segment: "merchant" })),
+        toWaitlistEntry(row({ id: "3", segment: null })),
+      ])
+    ).toEqual({ shopper: 1, merchant: 1, mall_operator: 0, unknown: 1 });
   });
 
-  it("buckets signups into a fixed window, oldest first", () => {
+  it("buckets signups by their Resend join date, oldest first", () => {
     const now = new Date("2026-09-04T12:00:00Z");
-    const days = signupsByDay(
+    const { buckets } = signupsByDay(
       [
-        toWaitlistEntry(summary({ created_at: "2026-09-04T08:00:00Z" }), props(), false),
-        toWaitlistEntry(summary({ created_at: "2026-09-03T08:00:00Z" }), props(), false),
+        toWaitlistEntry(row({ id: "1", joined_at: "2026-09-04T08:00:00Z" })),
+        toWaitlistEntry(row({ id: "2", joined_at: "2026-09-03T08:00:00Z" })),
       ],
       3,
       now
     );
-    expect(days.map((d) => d.day)).toEqual(["2026-09-02", "2026-09-03", "2026-09-04"]);
-    expect(days[2].shopper).toBe(1);
-    expect(days[1].shopper).toBe(1);
+    expect(buckets.map((d) => d.day)).toEqual(["2026-09-02", "2026-09-03", "2026-09-04"]);
+    expect(buckets[2].shopper).toBe(1);
+    expect(buckets[1].shopper).toBe(1);
+  });
+
+  // Dropping these silently is how a person disappears from a figure with
+  // nothing on screen admitting it.
+  it("counts people with no join date instead of silently dropping them", () => {
+    const { buckets, unknownJoinDate } = signupsByDay(
+      [
+        toWaitlistEntry(row({ id: "1", joined_at: null, resend_synced_at: null })),
+        toWaitlistEntry(row({ id: "2", joined_at: "2026-09-04T08:00:00Z" })),
+      ],
+      3,
+      new Date("2026-09-04T12:00:00Z")
+    );
+    expect(unknownJoinDate).toBe(1);
+    expect(buckets.reduce((n, d) => n + d.shopper, 0)).toBe(1);
   });
 
   it("counts unattributed entries apart from attributed ones", () => {
     const rollup = attributionRollup([
-      toWaitlistEntry(summary({ id: "1" }), props(), false),
-      toWaitlistEntry(summary({ id: "2" }), props(), false),
-      toWaitlistEntry(summary({ id: "3" }), props({ source_channel: undefined }), false),
+      toWaitlistEntry(row({ id: "1" })),
+      toWaitlistEntry(row({ id: "2" })),
+      toWaitlistEntry(row({ id: "3", utm_source: null })),
     ]);
     expect(rollup.rows).toHaveLength(1);
     expect(rollup.rows[0].count).toBe(2);
@@ -162,23 +183,25 @@ describe("waitlist directory — roll-ups", () => {
 
 describe("waitlist directory — CSV", () => {
   it("quotes every cell and doubles inner quotes", () => {
-    const csv = toCsv([toWaitlistEntry(summary({ first_name: 'A"B', last_name: null }), props(), false)]);
-    expect(csv).toContain('"A""B"');
+    expect(toCsv([toWaitlistEntry(row({ full_name: 'A"B' }))])).toContain('"A""B"');
   });
 
-  // A waitlist note is attacker-supplied free text, and this file gets opened in
-  // Excel. A leading `=` there is a formula, not a name.
+  // A waitlist name is attacker-supplied free text, and this file gets opened
+  // in Excel. A leading `=` there is a formula, not a name.
   it("neutralises a formula-shaped value so a spreadsheet reads it as text", () => {
-    const csv = toCsv([
-      toWaitlistEntry(summary({ first_name: "=cmd|'/c calc'!A1", last_name: null }), props(), false),
-    ]);
+    const csv = toCsv([toWaitlistEntry(row({ full_name: "=cmd|'/c calc'!A1" }))]);
     expect(csv).toContain("\"'=cmd");
     expect(csv).not.toContain('"=cmd');
   });
 
+  it("leaves an unread join date empty rather than fabricating one", () => {
+    const csv = toCsv([toWaitlistEntry(row({ joined_at: null }))]);
+    expect(csv.split("\r\n")[1].startsWith('"",')).toBe(true);
+  });
+
   it("writes a header row and CRLF line endings", () => {
     const csv = toCsv([]);
-    expect(csv.startsWith("joined_at,segment,name,email,phone")).toBe(true);
+    expect(csv.startsWith("joined_at,recorded_at,segment,name,email,phone")).toBe(true);
     expect(csv.endsWith("\r\n")).toBe(true);
   });
 });

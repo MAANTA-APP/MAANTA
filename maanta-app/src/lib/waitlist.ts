@@ -61,8 +61,11 @@ export type WaitlistSubmission = {
    * from genuine signups — the same defect as `redemptions.is_demo`, which
    * `claim_deal` never set, so every claim silently counted as real (D188).
    *
-   * Defaults to `false`. Nothing a member of the public can send sets it: it is
-   * derived from the `?test=1` entry point, never trusted from the body alone.
+   * Defaults to `false`. **Nothing in the request body sets this.** The caller
+   * of `validateWaitlistSubmission` passes a server-side verdict, derived in
+   * `lib/growth/waitlist-test-token.ts` from a shared secret in the URL. A
+   * public endpoint that took the client's word for it would let anyone file
+   * rows the admin console excludes from its counts.
    */
   isTest: boolean;
   /** What is being tested, e.g. `smoke-test`. Free text, capped. */
@@ -100,7 +103,14 @@ export type WaitlistValidation =
   | { ok: true; data: WaitlistSubmission }
   | { ok: false; error: string };
 
-export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
+/**
+ * `isTest` is a parameter, not a body field: the only way to mark a submission
+ * as internal is for the caller to have already checked the shared secret.
+ */
+export function validateWaitlistSubmission(
+  body: unknown,
+  options: { isTest?: boolean } = {}
+): WaitlistValidation {
   if (typeof body !== "object" || body === null) {
     return { ok: false, error: "Invalid request." };
   }
@@ -140,8 +150,8 @@ export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
       utmSource: optionalText(b.utmSource, 100),
       utmMedium: optionalText(b.utmMedium, 100),
       utmCampaign: optionalText(b.utmCampaign, 100),
-      isTest: b.isTest === true,
-      testLabel: b.isTest === true ? optionalText(b.testLabel, 60) : null,
+      isTest: options.isTest === true,
+      testLabel: options.isTest === true ? optionalText(b.testLabel, 60) : null,
     },
   };
 }

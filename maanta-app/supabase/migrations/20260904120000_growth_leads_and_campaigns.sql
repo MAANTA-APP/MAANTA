@@ -24,6 +24,32 @@
 -- signed anything, and inventing one is the fabrication the pre-launch claims
 -- discipline exists to prevent.
 --
+-- ## This is NOT `public.leads`, and the boundary is deliberate (D265)
+--
+-- `public.leads` already exists and is live in code: the agent console
+-- (`/agent`, `/agent/leads`), the admin agent pages and the Operations locked
+-- count all read it, and `capture_lead` (20260722190000) owns its write path.
+-- The two tables model overlapping reality and must not be confused:
+--
+--   `public.leads`            — the FOUR-AGENT acquisition system. Identity is
+--                               `shop_name` (NOT NULL), serialised by an advisory
+--                               lock on `lower(trim(shop_name))` so two agents
+--                               cannot both approach one shop; every row belongs
+--                               to an `agent_id`; a 48-hour exclusivity lock is
+--                               the whole point. Currently 0 rows and dormant —
+--                               CLAUDE.md gates the agent phase behind D159.
+--   `growth_merchant_leads`   — the PRE-LAUNCH acquisition board worked by the
+--                               founder and node manager before agents exist.
+--                               Identity is `(floor, unit)`, there is no agent
+--                               and deliberately no shop name.
+--
+-- They were not merged because their identity models are incompatible in a way
+-- that matters: `leads` cannot drop `shop_name` without destroying the advisory
+-- lock that is its reason to exist, and this board must not carry an invented
+-- shop name. `captured_lead_id` links a board row to its `leads` row if and when
+-- the agent phase begins, so the two converge rather than silently diverge.
+-- Consolidating them is a founder call once D159 resolves — see D265.
+--
 -- ## `is_test` is a real column, not a convention
 --
 -- The console's population filter (Real / Test / All) has to be answerable in
@@ -65,6 +91,10 @@ CREATE TABLE public.growth_merchant_leads (
   staff_added        BOOLEAN NOT NULL DEFAULT FALSE,
   wallet_topped_up   BOOLEAN NOT NULL DEFAULT FALSE,
   is_test            BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Set when this board row is also captured by a field agent in `public.leads`
+  -- (D265). NULL until the agent phase begins; it exists now so the link is
+  -- recorded at the moment it becomes true rather than reconstructed later.
+  captured_lead_id   UUID UNIQUE REFERENCES public.leads(id),
   -- Stamped on the first move out of `new`. The published 1-business-day reply
   -- promise is about the FIRST reply, so overdue is measured from created_at to
   -- this, and a lead that has been contacted can never be overdue again.

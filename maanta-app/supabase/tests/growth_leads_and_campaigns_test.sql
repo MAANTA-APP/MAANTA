@@ -151,3 +151,52 @@ BEGIN
   PERFORM set_config('request.jwt.claims', NULL, true);
   RAISE NOTICE 'Scenario F passed: growth targets are auditable';
 END $$;
+
+-- Scenario G: the boundary with `public.leads` (D265).
+-- The board links to an agent-captured lead at most once, and the link is a real
+-- foreign key — so a board row can never point at a lead that does not exist,
+-- and two board rows can never claim the same capture.
+DO $$
+DECLARE
+  v_agent UUID;
+  v_user  UUID;
+  v_lead  UUID;
+  v_a     UUID;
+  v_b     UUID;
+  v_raised BOOLEAN := FALSE;
+BEGIN
+  ASSERT EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_schema = 'public' AND table_name = 'leads'),
+    'G: public.leads must still exist — the growth board does not replace it';
+
+  INSERT INTO public.users (role, auth_uid) VALUES ('agent', gen_random_uuid())
+    RETURNING id INTO v_user;
+  INSERT INTO public.agents (user_id, is_active) VALUES (v_user, TRUE)
+    RETURNING id INTO v_agent;
+  INSERT INTO public.leads (agent_id, shop_name) VALUES (v_agent, '__t_boundary_shop')
+    RETURNING id INTO v_lead;
+
+  INSERT INTO public.growth_merchant_leads (floor, unit, captured_lead_id)
+    VALUES ('GF', '__t05', v_lead) RETURNING id INTO v_a;
+
+  BEGIN
+    INSERT INTO public.growth_merchant_leads (floor, unit, captured_lead_id)
+      VALUES ('1F', '__t06', v_lead);
+  EXCEPTION WHEN unique_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'G: two board rows must not claim the same captured lead';
+
+  v_raised := FALSE;
+  BEGIN
+    INSERT INTO public.growth_merchant_leads (floor, unit, captured_lead_id)
+      VALUES ('2F', '__t07', gen_random_uuid());
+  EXCEPTION WHEN foreign_key_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'G: captured_lead_id must reference a real lead';
+
+  DELETE FROM public.growth_merchant_leads WHERE id = v_a;
+  DELETE FROM public.leads WHERE id = v_lead;
+  DELETE FROM public.agents WHERE id = v_agent;
+  DELETE FROM public.users WHERE id = v_user;
+  RAISE NOTICE 'Scenario G passed: the growth board links to public.leads without absorbing it';
+END $$;

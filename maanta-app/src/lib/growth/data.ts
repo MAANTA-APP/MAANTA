@@ -34,7 +34,7 @@ export async function readLeads(population: Population): Promise<GrowthRead<Merc
   let query = service
     .from("growth_merchant_leads")
     .select(
-      "id, floor, unit, category, contact_name, contact_phone, stage, lost_reason, agent_user_id, visit_at, account_created, staff_added, wallet_topped_up, is_test, created_at, first_contacted_at"
+      "id, floor, unit, category, contact_name, contact_phone, stage, lost_reason, agent_user_id, visit_at, account_created, staff_added, wallet_topped_up, is_test, captured_lead_id, created_at, first_contacted_at"
     )
     .order("created_at", { ascending: true });
 
