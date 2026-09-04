@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
-import { ENTITY } from "@/lib/marketing/demo";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 import { stashMerchantJoin } from "@/lib/merchant-join-handoff";
 
@@ -81,11 +80,6 @@ export function MerchantJoinForm() {
           Get started
         </Button>
       </form>
-
-      <p className="mt-4 text-center text-xs text-faint">
-        Prefer to do it in person? Find us at the MAANTA desk in {ENTITY.address},{" "}
-        {ENTITY.city}.
-      </p>
 
       <p className="mt-6 text-center text-xs text-muted">
         By continuing you agree to our{" "}

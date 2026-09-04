@@ -44,10 +44,22 @@ export const PLACEHOLDER_IDS = {
   pin: "PIN-DEMO-0000-NOT-REGISTERED",
 } as const;
 
-/** Entity details, filled in 2026-07-31 (`demo-mode-spec.md` §1). */
+/**
+ * Entity details, filled in 2026-07-31 (`demo-mode-spec.md` §1).
+ *
+ * **There is deliberately no `address` here** (founder ruling 2026-09-04, drift
+ * **D261**). It held `"BBS Mall, Eastleigh"` and was rendered as a postal
+ * address block on `/contact`, in the footer of every page and in the contact
+ * section of all three legal documents — a claim that MAANTA has premises on a
+ * floor whose landlord it has not yet introduced itself to. MAANTA has no desk,
+ * office or address in the mall until BBS authorises the relationship. The
+ * permitted phrasing is *"preparing to open at BBS Mall"*, which lives in
+ * `live-claims.ts` (`ENTITY_LINE`, `NO_DESK_NOTICE`) and claims nothing about
+ * the mall. Do not reintroduce a street, mall or postal address anywhere until
+ * that authorisation exists.
+ */
 export const ENTITY = {
   name: "MAANTA APP",
-  address: "BBS Mall, Eastleigh",
   city: "Nairobi",
   country: "Kenya",
   founder: "Mohamed Elmi",
@@ -55,12 +67,6 @@ export const ENTITY = {
   whatsappLink: "https://wa.me/447746170752",
   email: "admin@maanta.app",
 } as const;
-
-/**
- * Full registered line for the footer base bar and legal documents.
- * "MAANTA APP, BBS Mall, Eastleigh, Nairobi, Kenya"
- */
-export const ENTITY_LINE = `${ENTITY.name}, ${ENTITY.address}, ${ENTITY.city}, ${ENTITY.country}`;
 
 /**
  * Regulatory status — rendered in place of any licence identifier.

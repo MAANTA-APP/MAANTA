@@ -71,7 +71,7 @@ const GUIDANCE: Record<Choice, { hint: React.ReactNode; fastest: React.ReactNode
   },
   merchant: {
     hint: "Deals, your balance, staff accounts, a redemption you want looked at.",
-    fastest: <>Fastest: WhatsApp, or the desk at BBS Mall.</>,
+    fastest: <>Fastest: WhatsApp.</>,
   },
   "list-shop": {
     hint: "Shop name and a phone number, and we will call you.",

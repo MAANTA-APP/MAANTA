@@ -184,5 +184,4 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 ## 18. Contact
 
 MAANTA APP
-BBS Mall, Eastleigh, Nairobi, Kenya
 admin@maanta.app

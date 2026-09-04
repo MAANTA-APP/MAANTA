@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
 import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
 import { SCENARIO } from "@/lib/marketing/scenario";
-import { ENTITY, ENTITY_LINE, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
+import { ENTITY, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
 import { ScenarioStat } from "@/components/marketing/ScenarioStat";
 import { CtaBand, Section, SectionHeading } from "@/components/marketing/sections";
-import { NODE_DURATION_LEAD, NODE_ONLY_MALL_SENTENCE } from "@/lib/marketing/live-claims";
+import {
+  ENTITY_LINE,
+  NODE_DURATION_LEAD,
+  NODE_ONLY_MALL_SENTENCE,
+} from "@/lib/marketing/live-claims";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**

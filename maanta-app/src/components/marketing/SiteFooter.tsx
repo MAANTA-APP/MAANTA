@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/marketing/BrandLockup";
 import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
-import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
+import { ENTITY } from "@/lib/marketing/demo";
 import { PrelaunchNotice } from "./PrelaunchNotice";
 import { RegulatoryStatus } from "./RegulatoryStatus";
-import { NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
+import {
+  ENTITY_LINE,
+  NODE_STATUS_LINE,
+  SHOW_LIVE_INDICATOR,
+} from "@/lib/marketing/live-claims";
 
 /**
  * Five columns plus a legal base bar (`website-footer-legal-docs-plan.md` §2).
@@ -118,11 +122,11 @@ export function SiteFooter() {
                   WhatsApp support
                 </a>
               </li>
-              <li className="leading-relaxed">
-                In-mall desk
-                <br />
-                {ENTITY.address}, {ENTITY.city}
-              </li>
+              {/*
+                No "In-mall desk" entry, and no address. MAANTA has no desk or
+                office in BBS Mall until the mall authorises the relationship
+                (D261). Email and WhatsApp are the only two channels that exist.
+              */}
             </ul>
           </div>
         </div>

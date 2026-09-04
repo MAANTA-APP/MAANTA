@@ -14,10 +14,10 @@ import { publicOrigin } from "@/lib/app-url";
  * In particular there is no `address`, no `LocalBusiness`, no `legalName`, no
  * `taxID`/`vatID`, and no `aggregateRating`:
  *
- *  - `LocalBusiness` and `address` assert a public place of business. MAANTA's
- *    only physical presence is a desk inside BBS Mall, a venue it does not own.
- *    Publishing the mall's address as MAANTA's would be a claim about MAANTA,
- *    not about the mall.
+ *  - `LocalBusiness` and `address` assert a public place of business. MAANTA has
+ *    none: no desk, office or address in BBS Mall until the mall authorises the
+ *    relationship (D261). Publishing the mall's address as MAANTA's would be a
+ *    claim about MAANTA, not about the mall.
  *  - `legalName` and any registration identifier would have to be a placeholder,
  *    and a placeholder inside machine-readable markup is worse than one on a
  *    page: nothing renders it for a human to notice. `check-tokens.mjs` catches

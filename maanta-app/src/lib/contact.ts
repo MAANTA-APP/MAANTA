@@ -138,7 +138,7 @@ export function autoresponderEmail(s: ContactSubmission): {
     "Your message:",
     s.message,
     "",
-    `— ${ENTITY.name}, ${ENTITY.address}, ${ENTITY.city}`,
+    `— ${ENTITY.name}`,
   ].join("\n");
   const html = [
     `<p>Thanks for getting in touch with MAANTA.</p>`,
@@ -148,8 +148,7 @@ export function autoresponderEmail(s: ContactSubmission): {
     `<a href="${ENTITY.whatsappLink}">${escapeHtml(ENTITY.whatsapp)}</a></p>`,
     `<hr /><p style="color:#5C5C5C;font-size:13px">Your message:</p>`,
     `<p style="white-space:pre-wrap;color:#5C5C5C;font-size:13px">${escapeHtml(s.message)}</p>`,
-    `<hr /><p style="color:#5C5C5C;font-size:12px">${escapeHtml(ENTITY.name)}, `,
-    `${escapeHtml(ENTITY.address)}, ${escapeHtml(ENTITY.city)}</p>`,
+    `<hr /><p style="color:#5C5C5C;font-size:12px">${escapeHtml(ENTITY.name)}</p>`,
   ].join("");
   return { subject, text, html };
 }

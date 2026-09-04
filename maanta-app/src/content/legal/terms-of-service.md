@@ -129,5 +129,4 @@ We may suspend or close an account that does any of these.
 ## 14. Contact
 
 MAANTA APP
-BBS Mall, Eastleigh, Nairobi, Kenya
 admin@maanta.app

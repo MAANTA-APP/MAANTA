@@ -226,3 +226,34 @@ export const FIRST_RESULTS_ANSWER_OPERATOR = `${FIRST_RESULTS_ANSWER} A quarter 
 export const NODE_REFERENCE_SENTENCE = DEMO_MODE
   ? `${FACTS.nodeLabel} is our first node and the reference for how a node is deployed: tenants onboarded unit by unit, staff trained at their own counters, and every redemption verified at the till.`
   : `${FACTS.nodeLabel} is our first node and where the product is being run in person: tenants onboarded unit by unit, staff trained at their own counters, and every redemption verified at the till. It is the reference for how a node is deployed and operated.`;
+
+/* ------------------------------------------------------------------ *
+ * D261 — premises. Founder ruling 2026-09-04 (`10 §2 X1`).
+ *
+ * MAANTA has no desk, office or address in BBS Mall, and will not until the
+ * mall authorises the relationship. Until 2026-09-04 the footer of every page,
+ * `/contact` and the contact section of all three legal documents published
+ * "BBS Mall, Eastleigh, Nairobi, Kenya" as MAANTA's address, and `/contact`
+ * described "the desk at BBS Mall" as a way to reach us. A landlord reading
+ * that a company claims premises on its floor before that company has
+ * introduced itself is a first impression that cannot be un-made, so the
+ * address block and every desk claim came out ahead of the first approach.
+ *
+ * The permitted phrasing is intent — "preparing to open at BBS Mall" — which
+ * matches `/malls/bbs-mall` and claims nothing about the mall. `ENTITY` no
+ * longer carries an `address` field at all, so a surface that wants one fails
+ * to type-check rather than quietly reintroducing the claim.
+ * ------------------------------------------------------------------ */
+
+/** The footer base bar and the `/about` closing band — name and intent, never a postal address. */
+export const ENTITY_LINE = DEMO_MODE
+  ? `MAANTA APP · preparing to open at ${FACTS.launchMall}, ${FACTS.city}`
+  : `MAANTA APP · ${FACTS.launchMall}, ${FACTS.city}`;
+
+/**
+ * `/contact` — the sentence that replaces the desk card. The second sentence is
+ * the one that matters and is worded to survive being read by the mall itself.
+ */
+export const NO_DESK_NOTICE = DEMO_MODE
+  ? `MAANTA is preparing to open at ${FACTS.launchMall}, ${FACTS.city}. We do not have a desk or an office in the mall yet. Until we do, email and WhatsApp are the only ways to reach us.`
+  : `MAANTA works at ${FACTS.launchMall}, ${FACTS.city}. Email and WhatsApp are the ways to reach us.`;

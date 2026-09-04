@@ -61,7 +61,8 @@ export const RESOLVED_TOKENS: Record<string, string> = {
   SUCCESS_FEE: `KES ${FACTS.successFeeKes.toLocaleString("en-KE")}`,
   GRACE_MINUTES: String(FACTS.graceMinutes),
   ENTITY_NAME: ENTITY.name,
-  ENTITY_ADDRESS: `${ENTITY.address}, ${ENTITY.city}, ${ENTITY.country}`,
+  // No ENTITY_ADDRESS token: MAANTA has no address to publish (D261). A legal
+  // document that needs one is waiting on incorporation, not on this table.
   SUPPORT_EMAIL: ENTITY.email,
   PRIVACY_EMAIL: ENTITY.email,
   ODPC_REGISTRATION: PLACEHOLDER_IDS.odpc,

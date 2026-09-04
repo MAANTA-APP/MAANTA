@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ENTITY } from "@/lib/marketing/demo";
-import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { NO_DESK_NOTICE } from "@/lib/marketing/live-claims";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -10,9 +11,15 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
  *
  * That order is a deliberate inversion of the usual layout and the right call for
  * this market (`copy/contact.md` §0): a shop owner in Eastleigh will WhatsApp
- * before they fill in a form, and will walk to a desk before either. Most contact
- * pages bury the human channels under a form and lose the people who would
- * actually have got in touch.
+ * before they fill in a form. Most contact pages bury the human channels under a
+ * form and lose the people who would actually have got in touch.
+ *
+ * **There is no desk and no address on this page** (founder ruling 2026-09-04,
+ * drift **D261**). Until then it listed "The desk at BBS Mall" as a contact
+ * channel and closed with a postal address block at the mall. MAANTA has no
+ * premises there and will not until BBS authorises the relationship; the only
+ * permitted phrasing is intent, read from `NO_DESK_NOTICE` so it flips with the
+ * rest of the pre-launch claims.
  *
  * **Response times are published as of 2026-07-31**, by founder ruling, and read
  * from `RESPONSE_TIMES` in `facts.ts` so the page and the autoresponder cannot
@@ -20,9 +27,8 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
  * missed commitment here does more damage than no commitment at all", so these
  * should be tightened only against evidence, never loosened after the fact.
  *
- * WhatsApp hours and the desk location are still omitted: those tokens are
- * unfilled and a stated opening hour that is not staffed is the same failure as
- * a missed response time.
+ * WhatsApp hours are still omitted: a stated opening hour that is not staffed is
+ * the same failure as a missed response time.
  *
  * The form itself lives in `EnquiryRouter`, a client component. It is **not**
  * wrapped in `Suspense`, and that is load-bearing (drift D41).
@@ -45,7 +51,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/contact",
   title: "Contact — MAANTA",
   description:
-    "Talk to MAANTA. WhatsApp support for shoppers and merchants, a desk at BBS Mall, Eastleigh, and direct contacts for mall operators, press and privacy requests.",
+    "Talk to MAANTA. WhatsApp and email for shoppers and merchants, and direct contacts for mall operators, press and privacy requests.",
 });
 
 export default function ContactPage() {
@@ -63,7 +69,7 @@ export default function ContactPage() {
       <Section id="channels" tone="paper" className="!py-0">
         <div className="py-14 sm:py-16">
           <SectionHeading>Ways to reach us</SectionHeading>
-          <div className="mt-8 grid gap-5 sm:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2">
             <div className="rounded-card bg-white shadow-card p-5">
               <h3 className="text-base font-bold text-ink">WhatsApp</h3>
               <a
@@ -80,17 +86,6 @@ export default function ContactPage() {
             </div>
 
             <div className="rounded-card bg-white shadow-card p-5">
-              <h3 className="text-base font-bold text-ink">The desk at BBS Mall</h3>
-              <p className="mt-1 text-sm font-semibold text-ink">
-                {ENTITY.address}, {ENTITY.city}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-secondary">
-                If you run a shop in the mall and would rather do this in person, come and
-                find us. We will set you up at your counter.
-              </p>
-            </div>
-
-            <div className="rounded-card bg-white shadow-card p-5">
               <h3 className="text-base font-bold text-ink">Email</h3>
               <a
                 href={`mailto:${ENTITY.email}`}
@@ -103,6 +98,7 @@ export default function ContactPage() {
               </p>
             </div>
           </div>
+          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-secondary">{NO_DESK_NOTICE}</p>
         </div>
       </Section>
 
@@ -172,26 +168,6 @@ export default function ContactPage() {
         </div>
       </Section>
 
-      <Section id="location">
-        <SectionHeading>Where to find us</SectionHeading>
-        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
-          <p>
-            MAANTA operates at{" "}
-            <strong className="font-semibold text-ink">
-              {FACTS.launchMall}, {FACTS.city}
-            </strong>
-            . That is where the shops are, and where the node team works.
-          </p>
-          <p>There is no other office worth sending you to.</p>
-        </div>
-        <address className="mt-8 not-italic text-sm leading-relaxed text-ink">
-          <strong className="font-bold">{ENTITY.name}</strong>
-          <br />
-          {ENTITY.address}
-          <br />
-          {ENTITY.city}, {ENTITY.country}
-        </address>
-      </Section>
     </>
   );
 }

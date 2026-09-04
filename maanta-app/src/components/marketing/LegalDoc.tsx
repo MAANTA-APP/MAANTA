@@ -338,7 +338,7 @@ export function LegalDoc({ title, markdown }: { title: string; markdown: string 
           >
             {ENTITY.email}
           </a>
-          , or find us at {ENTITY.address}, {ENTITY.city}.
+          .
         </p>
       </div>
     </div>
