@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getAudienceContact, isResendConfigured, listAudienceContacts } from "@/lib/resend";
+import {
+  getAudienceContact,
+  isResendConfigured,
+  listAudienceContacts,
+  resendPropertyValue,
+} from "@/lib/resend";
 import { normalizeWaitlistPhone, isWaitlistSegment } from "@/lib/waitlist";
 import { mirrorPatchFromResend } from "@/lib/growth/waitlist-mirror";
 
@@ -107,12 +112,24 @@ export async function POST(request: Request) {
     const props = detail.properties;
     // Three states: null = unreadable, {} = we stripped it on a 4xx retry and it
     // is ALSO unreadable, populated = provided.
-    const unreadable = props === null || Object.keys(props).length === 0;
+    //
+    // A fourth would be worse than all of them: an object that is not empty but
+    // whose values this code cannot read. That is what a shape mismatch looks
+    // like, and it would import a person with every field null while claiming
+    // their metadata was fine. So a contact carrying NONE of the properties this
+    // audience is configured for is treated as unreadable too — the account has
+    // ten configured, and a real contact has at least `segment_type` or
+    // `consent_at`.
+    const shapeReadable =
+      resendPropertyValue(props, "segment_type") !== null ||
+      resendPropertyValue(props, "consent_at") !== null ||
+      resendPropertyValue(props, "node_interest") !== null;
+    const unreadable = props === null || Object.keys(props).length === 0 || !shapeReadable;
     if (unreadable) result.unreadable += 1;
 
     if (!confirm) continue;
 
-    const segmentValue = typeof props?.segment_type === "string" ? props.segment_type : null;
+    const segmentValue = resendPropertyValue(props, "segment_type");
     const patch = mirrorPatchFromResend({
       contactId: detail.id,
       createdAt: detail.created_at,
@@ -140,20 +157,22 @@ export async function POST(request: Request) {
         email: detail.email.trim().toLowerCase(),
         full_name:
           [detail.first_name, detail.last_name].filter(Boolean).join(" ").trim() || null,
-        phone: normalizeWaitlistPhone(props?.phone),
+        phone: normalizeWaitlistPhone(resendPropertyValue(props, "phone")),
         // A contact whose segment Resend would not return still belongs in the
         // mirror — the column is nullable for backfilled rows precisely so this
         // is recorded as unknown rather than guessed. The console counts it
         // under "Role unreadable".
         segment: isWaitlistSegment(segmentValue) ? segmentValue : null,
-        node_interest: typeof props?.node_interest === "string" ? props.node_interest : null,
-        utm_source: typeof props?.source_channel === "string" ? props.source_channel : null,
-        utm_medium: typeof props?.source_medium === "string" ? props.source_medium : null,
-        utm_campaign: typeof props?.source_campaign === "string" ? props.source_campaign : null,
-        consent_at: typeof props?.consent_at === "string" ? props.consent_at : null,
-        consent_text: typeof props?.consent_text === "string" ? props.consent_text : null,
-        is_test: props?.is_test === true || props?.is_test === "true",
-        test_label: typeof props?.test_label === "string" ? props.test_label : null,
+        node_interest: resendPropertyValue(props, "node_interest"),
+        utm_source: resendPropertyValue(props, "source_channel"),
+        utm_medium: resendPropertyValue(props, "source_medium"),
+        utm_campaign: resendPropertyValue(props, "source_campaign"),
+        consent_at: resendPropertyValue(props, "consent_at"),
+        consent_text: resendPropertyValue(props, "consent_text"),
+        // Resend does not carry the TEST marker (see lib/resend.ts) — a backfilled
+        // contact is a real signup unless the mirror already says otherwise.
+        is_test: false,
+        test_label: null,
         signup_source: "backfill",
         // Resend holds this contact and we did not create it in this call.
         // Required: the column has no default, deliberately.

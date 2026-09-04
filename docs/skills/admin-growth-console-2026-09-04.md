@@ -284,3 +284,76 @@ Procedure, in order, per CLAUDE.md's two hard-earned rules:
   limit, so only one finding got full 3/3 verification and roughly two dozen
   candidate findings were never adjudicated. The unverified list is in the run's
   journal; treat this diff as reviewed-in-part, not reviewed.
+
+
+---
+
+# Addendum 2 — the dry run against the real audience (same day)
+
+Run read-only through the Resend connector, because this container has no
+`RESEND_API_KEY` and the route could not be executed. Nothing was written.
+
+## What the audience actually holds
+
+**2 contacts**, both internal: the founder's own address (an end-to-end test
+signup, 2026-07-10) and one other (a form signup, 2026-07-26). There is no
+genuine external waitlist yet. That is consistent with the D174/D184 split and
+should be read the same way — **external waitlist signups: 0**.
+
+The backfill is therefore a small job. Its value right now is proving the path
+works, not the rows it moves.
+
+## D261's stated unknown is resolved: properties ARE returned
+
+The single-contact endpoint returns custom properties. The mirror can hydrate,
+and the console will not be permanently blind. The account has **ten** configured
+properties, created 2026-07-10: `segment_type`, `phone`, `node_interest`,
+`business_name`, `note`, `source_channel`, `source_medium`, `source_campaign`,
+`consent_at`, `consent_text`.
+
+## Two real bugs the dry run caught, both now fixed
+
+**1. Resend writes flat and reads back TYPED.** `addWaitlistContact` sends
+`{segment_type: "merchant"}`, but the read returns:
+
+```json
+{"segment_type": {"value": "merchant", "type": "string"}}
+```
+
+Every reader in this change did `typeof props.segment_type === "string"`, which is
+`false` for that shape. The backfill would have imported both real people with a
+null segment, null phone and null consent — **and `properties_unreadable: false`**,
+because the object is not empty. So the console would have rendered two genuine
+consenting people as consent defects: precisely the "we could not read it" versus
+"they did not provide it" confusion the mirror was built to keep apart.
+
+Fixed with `resendPropertyValue()`, which accepts both shapes, plus a fourth
+unreadable state: a non-empty properties object carrying **none** of the keys this
+audience is configured for is treated as unreadable rather than empty. Guard:
+`growth-waitlist-mirror.test.ts`, using the exact JSON the live account returned.
+
+**2. The TEST marker was being written to an unconfigured property.** `is_test`
+and `test_label` are not among the ten. Sending an unconfigured property risks the
+4xx that triggers `addWaitlistContact`'s strip-and-retry — which drops **every**
+property from the contact, not just the unknown one. One internal test signup
+could have cost a real signup its segment and consent record.
+
+They are no longer sent to Resend at all. The mirror owns the population split
+now, so Resend has no need of them. (I did not prove Resend rejects unknown
+properties — I did not write to the live audience to find out. The property is
+redundant either way, so removing it is strictly safer and loses nothing.)
+
+## What the dry run would now report
+
+For this audience: `scanned: 2, imported: 2, updated: 0, unreadable: 0, failed: 0`.
+Both contacts carry readable `segment_type` and `consent_at`; the 2026-07-26 one
+has no `source_*` properties and would correctly land as `unattributed`.
+
+## Still owed
+
+- **The confirmed run has not happened.** Only the read side has been exercised.
+- `make db-verify` still has never run — no Docker here.
+- One caveat on the connector path: the MCP's `list-contacts` is not
+  audience-scoped, while the route reads `/audiences/{id}/contacts`. With two
+  contacts on the account the distinction did not bite, but the confirmed run is
+  the first thing that would surface a difference.

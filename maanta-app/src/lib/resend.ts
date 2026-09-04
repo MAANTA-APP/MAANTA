@@ -6,9 +6,22 @@ import {
 import type { WaitlistEmail } from "@/lib/waitlist-emails";
 
 /**
- * Minimal Resend REST client (no SDK dependency). Resend is the email
- * platform per the 2026-07-10 decision — waitlist contacts live in a
- * Resend audience, not in Supabase.
+ * Minimal Resend REST client (no SDK dependency).
+ *
+ * Resend is the email platform per the 2026-07-10 decision. Since the founder's
+ * 2026-09-04 mirror ruling it is the SENDER of record rather than the only
+ * record: it owns deliverability and the join date, while `public.waitlist_signups`
+ * owns counting.
+ *
+ * **The TEST marker is deliberately NOT sent to Resend.** `is_test` and
+ * `test_label` are not among the ten contact properties this account has
+ * configured (verified 2026-09-04: segment_type, phone, node_interest,
+ * business_name, note, source_channel, source_medium, source_campaign,
+ * consent_at, consent_text). Sending an unconfigured property risks the 4xx that
+ * triggers the strip-and-retry below — which would drop EVERY property from the
+ * contact, not just the unknown one, so one internal test signup could silently
+ * cost a real signup its segment and consent record. The mirror owns the
+ * population split now, so Resend has no need of it.
  *
  * Env: RESEND_API_KEY, RESEND_AUDIENCE_ID, RESEND_FROM_EMAIL.
  */
@@ -107,11 +120,6 @@ export async function addWaitlistContact(
       source_campaign: submission.utmCampaign ?? undefined,
       consent_at: new Date().toISOString(),
       consent_text: WAITLIST_CONSENT_TEXT,
-      // Always written, never omitted when false: a missing property and an
-      // explicit `false` read the same to a human and differently to a filter,
-      // and the admin console's Real/Test split depends on the difference.
-      is_test: submission.isTest,
-      test_label: submission.testLabel ?? undefined,
     },
   };
 
@@ -278,6 +286,39 @@ export type ResendContactSummary = {
    */
   created_at: string | null;
 };
+
+/**
+ * Read one custom property, whatever shape the account returns it in.
+ *
+ * Resend is asymmetric here, and it cost a bug: `addWaitlistContact` WRITES
+ * properties flat (`{segment_type: "merchant"}`), but the read endpoints return
+ * them TYPED — verified against this account's live audience on 2026-09-04:
+ *
+ *   {"segment_type":{"value":"merchant","type":"string"}, ...}
+ *
+ * A reader doing `typeof props.segment_type === "string"` therefore sees `false`
+ * for every field, and every backfilled contact lands with a null segment, null
+ * phone and null consent — while `properties_unreadable` stays FALSE, because the
+ * object is not empty. That is the worst of both: the console would render two
+ * real people as consent defects, which is exactly the "we could not read it" vs
+ * "they did not provide it" confusion the mirror exists to keep apart.
+ *
+ * Accepting both shapes is correct whichever one a given endpoint or API version
+ * hands back, and costs nothing.
+ */
+export function resendPropertyValue(
+  properties: Record<string, unknown> | null | undefined,
+  key: string
+): string | null {
+  const raw = properties?.[key];
+  if (typeof raw === "string") return raw.trim() || null;
+  if (raw && typeof raw === "object" && "value" in raw) {
+    const value = (raw as { value?: unknown }).value;
+    if (typeof value === "string") return value.trim() || null;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+  }
+  return null;
+}
 
 /** A contact with whatever custom properties the account actually returns. */
 export type ResendContactDetail = ResendContactSummary & {

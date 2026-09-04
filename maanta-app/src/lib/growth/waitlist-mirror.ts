@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { WAITLIST_CONSENT_TEXT, WAITLIST_NODE_INTEREST, type WaitlistSubmission } from "@/lib/waitlist";
-import type { WaitlistContactResult } from "@/lib/resend";
+import { resendPropertyValue, type WaitlistContactResult } from "@/lib/resend";
 
 /**
  * The Supabase side of a waitlist signup (founder ruling 2026-09-04, D261).
@@ -112,7 +112,16 @@ export function mirrorPatchFromResend(detail: {
   properties: Record<string, unknown> | null;
 }): Record<string, unknown> {
   const unreadable =
-    detail.properties === null || Object.keys(detail.properties).length === 0;
+    detail.properties === null ||
+    Object.keys(detail.properties).length === 0 ||
+    // A non-empty object none of whose expected keys can be read is a shape
+    // mismatch, and importing it as "they provided nothing" is worse than
+    // admitting we could not read it. Resend returns properties TYPED
+    // ({value,type}) while we write them flat, which is exactly how such a
+    // mismatch arises — `resendPropertyValue` tolerates both.
+    (resendPropertyValue(detail.properties, "segment_type") === null &&
+      resendPropertyValue(detail.properties, "consent_at") === null &&
+      resendPropertyValue(detail.properties, "node_interest") === null);
 
   const patch: Record<string, unknown> = {
     resend_contact_id: detail.contactId,

@@ -61,7 +61,8 @@ describe("waitlist sync — the backfill can actually insert", () => {
 
   // A unique violation on this table renders the address verbatim (SEC-011).
   it("never logs an error message from an email-keyed write", () => {
-    for (const m of syncSource.matchAll(/console\.error\(([^;]*)\)/g)) {
+    // Array.from: tsconfig targets ES5, so a bare iterator spread will not compile.
+    for (const m of Array.from(syncSource.matchAll(/console\.error\(([^;]*)\)/g))) {
       expect(m[1]).not.toContain(".message");
     }
   });
