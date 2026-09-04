@@ -60,7 +60,14 @@ jobs:
       # fee, so it must never run against prod even if E2E_BASE_URL is
       # misconfigured. Blocks the production host and, when the optional
       # E2E_ALLOWED_HOST repo variable is set, enforces a positive allowlist.
+      # `working-directory` overridden: the job default is `maanta-app`, which
+      # exists only after checkout, and this guard runs before checkout on
+      # purpose. Without it bash cannot start and the guard fails having
+      # decided nothing — found on the read-only suite's first real dispatch
+      # (2026-09-04) and never seen here only because this job has skipped on
+      # an unset E2E_BASE_URL for every one of its runs (D172).
       - name: Guard the E2E target (non-prod only)
+        working-directory: ${{ github.workspace }}
         env:
           E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
           E2E_ALLOWED_HOST: ${{ vars.E2E_ALLOWED_HOST }}

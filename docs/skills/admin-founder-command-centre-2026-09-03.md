@@ -704,3 +704,21 @@ is read-only in the same way.
 The Codex verdict on `fbfa080` was requested and refused on the account's
 usage limit; that is recorded rather than glossed, and the merge went ahead on
 the founder's authority with four earlier rounds resolved.
+
+### The first real dispatch (run 33823638502), and what it found
+
+Dispatched on `claude/session-a3rqwo` at `446ef69` against that branch's
+preview. It failed **before checkout**, at the target guard: the job defaults
+every `run` step to `maanta-app`, which does not exist until checkout, and the
+guard runs before checkout on purpose. The runner could not start bash, the
+step failed as an infrastructure error, and the guard decided nothing (D261).
+The golden-path money suite carries the identical defect and has never
+executed its guard because its job has always skipped on an unset
+`E2E_BASE_URL` (D262). Both guard steps now override `working-directory` and
+both are pinned. Nothing about the product was tested by that run; it is
+recorded because a fail-closed mechanism that cannot start is not fail-closed.
+
+The run also started without waiting for an environment approval, which means
+`e2e-readonly` has **no required reviewers**. Add them before any secret is
+stored there — the reviewer prompt is what stands between a branch and a live
+admin session.

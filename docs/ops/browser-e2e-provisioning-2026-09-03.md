@@ -218,8 +218,11 @@ is the sign-in — once, as secrets — instead of a run per PR.
    git-ignored so a stray `--save-storage` run cannot be committed either. No
    production user holds `cofounder` yet — Q14 is founder-held — so the
    second command waits on that decision.
-2. **Settings → Environments → new environment `e2e-readonly`**, and add
-   **required reviewers**. This is not optional. The repository is public and
+2. **Settings → Environments → `e2e-readonly`**, and add **required
+   reviewers**. This is not optional. The environment already exists — the
+   first dispatch on 2026-09-04 (run 33823638502) started without an approval
+   prompt, which is how we know it has no reviewers yet. Add them before the
+   secrets in step 3. The repository is public and
    these states are live Clerk sessions on production identities; the reviewer
    prompt, which names the ref being run, is what stands between a branch and
    those secrets.

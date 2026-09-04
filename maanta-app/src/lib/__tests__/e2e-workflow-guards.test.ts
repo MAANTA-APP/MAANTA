@@ -40,6 +40,15 @@ describe("the golden-path E2E workflow keeps its money-path gates", () => {
     expect(wf.indexOf("Guard the E2E target")).toBeLessThan(wf.indexOf("actions/checkout"));
   });
 
+  it("can actually run its pre-checkout guard: the step overrides the job's working-directory", () => {
+    // Same defect as the read-only suite's (D261): the job default is
+    // `maanta-app`, which exists only after checkout. This guard has never
+    // executed — the job skips on an unset E2E_BASE_URL — so the first real
+    // run would have died before deciding anything (D262).
+    const guard = wf.slice(wf.indexOf("name: Guard the E2E target"), wf.indexOf("actions/checkout"));
+    expect(guard).toMatch(/working-directory: \$\{\{ github\.workspace \}\}/);
+  });
+
   it("still runs only on main, so a dispatch cannot run branch code with its secrets", () => {
     expect(wf).toMatch(/github\.ref == 'refs\/heads\/main'/);
   });
@@ -88,6 +97,15 @@ describe("the admin/founder acceptance workflow is dispatch-only and fails close
     expect(wf.indexOf("Guard the target")).toBeLessThan(wf.indexOf("actions/checkout"));
     // https only, so a plaintext or file target cannot slip through.
     expect(wf).toMatch(/must be an https origin/);
+  });
+
+  it("can actually run its pre-checkout guard: the step overrides the job's working-directory", () => {
+    // The job defaults `run` steps to `maanta-app`, which exists only after
+    // checkout. The guard runs before checkout by design, so without its own
+    // working-directory bash cannot start and the step fails having decided
+    // nothing — the first real dispatch died exactly there (run 33823638502).
+    const guard = code.slice(code.indexOf("name: Guard the target"), code.indexOf("actions/checkout"));
+    expect(guard).toMatch(/working-directory: \$\{\{ github\.workspace \}\}/);
   });
 
   it("treats a missing admin storage state as an error, not a quiet skip", () => {

@@ -102,7 +102,15 @@ jobs:
       # install. This suite writes nothing, so the stake is not money — it is
       # that a "proof" taken against production would prove the wrong thing,
       # and that production data would be pulled into a CI log and screenshots.
+      #
+      # `working-directory` is overridden here because the job default is
+      # `maanta-app`, which does not exist until checkout — and this step runs
+      # before checkout on purpose. Without the override bash cannot start,
+      # the step fails as an infrastructure error, and the guard has decided
+      # nothing. That is exactly how the first real dispatch (run 33823638502,
+      # 2026-09-04) failed, so it is pinned in e2e-workflow-guards.test.ts.
       - name: Guard the target (non-production only)
+        working-directory: ${{ github.workspace }}
         env:
           TARGET: ${{ inputs.target_url }}
           ALLOWED_HOST: ${{ vars.E2E_ADMIN_FOUNDER_ALLOWED_HOST }}
