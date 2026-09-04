@@ -99,7 +99,28 @@ jobs:
           for f in supabase/tests/*.sql; do
             ran=1
             echo "::group::$f"
-            psql "$db_url" -v ON_ERROR_STOP=1 -f "$f"
+            # Capture psql's output so a failure can be reported somewhere
+            # readable. Until this existed, a failing suite produced only
+            # "Process completed with exit code 3" in the annotations, and the
+            # actual `ERROR:` line lived solely in the raw log — which is behind
+            # a storage redirect that is not always reachable. Diagnosing a red
+            # board then meant re-running it locally, which is exactly what the
+            # people most likely to break this job cannot do.
+            if ! psql "$db_url" -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee /tmp/psql-out.txt; then
+              echo "::endgroup::"
+              echo "::error file=$f::SQL suite failed — see the job summary for the psql error"
+              {
+                echo "### ❌ \`$f\`"
+                echo
+                echo '```'
+                # The ERROR/CONTEXT/DETAIL lines are what actually name the
+                # defect; the NOTICEs above them say how far the suite got.
+                grep -E '^(psql:|ERROR|DETAIL|HINT|CONTEXT|NOTICE)' /tmp/psql-out.txt | tail -40 \
+                  || tail -40 /tmp/psql-out.txt
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
             echo "::endgroup::"
           done
           if [ "$ran" = "0" ]; then echo "No SQL tests found under supabase/tests/"; fi
