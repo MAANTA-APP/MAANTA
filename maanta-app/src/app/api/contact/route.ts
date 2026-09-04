@@ -8,6 +8,7 @@ import {
 import { sendEmail } from "@/lib/resend";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { ENTITY } from "@/lib/marketing/demo";
+import { CLOSED_FORM_API_MESSAGE, isFormCollecting } from "@/lib/marketing/forms";
 
 /**
  * Contact enquiries → Resend → monitored inbox, plus an autoresponder.
@@ -70,6 +71,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Form safety (founder ruling 2026-09-04, `lib/marketing/forms.ts`): while
+  // the form is closed the route refuses before reading anything, so a cached
+  // page or a direct POST cannot send what the page says it will not collect.
+  // Refused honestly — the message names the alternative — never swallowed.
+  if (!isFormCollecting("contact")) {
+    return NextResponse.json({ error: CLOSED_FORM_API_MESSAGE.contact }, { status: 503 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

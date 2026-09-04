@@ -34,8 +34,12 @@ export const WAITLIST_SEGMENT_OPTIONS: {
  * (Kenya DPA 2019 — consent timestamp + wording required before any
  * email sequence). Align with legal/privacy-policy.md before go-live.
  */
+// "and relaunch marketing emails" is gone: MAANTA has never launched, so there
+// is nothing to relaunch, and this sits inside consent text where wording must
+// be exact (founder ruling 2026-09-04, X-WAITLIST). The text is persisted with
+// each contact as `consent_text`, so this is a new wording version.
 export const WAITLIST_CONSENT_TEXT =
-  "I agree to receive MAANTA launch updates and relaunch marketing emails — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
+  "I agree to receive MAANTA launch updates — including offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
 
 /** Node 0. All pre-launch signups default to this node interest. */
 export const WAITLIST_NODE_INTEREST = "BBS Mall";

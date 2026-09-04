@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PhoneField, TextField } from "@/components/ui/inputs";
+import { ENTITY } from "@/lib/marketing/demo";
+import { CLOSED_FORM_COPY, isFormCollecting } from "@/lib/marketing/forms";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 import { stashMerchantJoin } from "@/lib/merchant-join-handoff";
 
@@ -32,6 +34,16 @@ import { stashMerchantJoin } from "@/lib/merchant-join-handoff";
  * and locks a shop for 48 hours, which is the in-mall field-agent workflow, not
  * public self-serve.
  *
+ * **Nothing is stored by this form.** That is why it stays open under the
+ * 2026-09-04 form-safety ruling while `/contact` and `/waitlist` are closed:
+ * there is no destination to prove, and the data is written only inside
+ * authenticated onboarding, which is Merchant 01's path. `FORM_STATUS` in
+ * `lib/marketing/forms.ts` can still close it with one word (D273).
+ *
+ * **No call or visit is promised.** "We will call you to finish setting up, or
+ * come to your shop if you are at BBS Mall" is removed unconditionally — D5 is
+ * open, so nobody exists to make that call or that visit (ruling `10 §4.1`).
+ *
  * **Split out of `page.tsx` so the route can export `metadata`** (drift D52) — a
  * client component may not. It deliberately does **not** call `useSearchParams`
  * and is not wrapped in `Suspense`, so it still server-renders: that pairing is
@@ -44,12 +56,29 @@ export function MerchantJoinForm() {
   const [cc, setCc] = useState("+254");
   const [phone, setPhone] = useState("");
 
+  if (!isFormCollecting("merchantJoin")) {
+    return (
+      <div className="mx-auto max-w-xl px-5 py-14">
+        <h1 className="text-3xl font-black text-ink">{CLOSED_FORM_COPY.merchantJoin.heading}</h1>
+        <p className="mt-3 text-base leading-relaxed text-secondary">
+          {CLOSED_FORM_COPY.merchantJoin.body}
+        </p>
+        <p className="mt-3 text-base leading-relaxed text-ink">
+          If you have a shop at BBS Mall, Eastleigh and want to hear from us first, email{" "}
+          <a className="font-semibold underline underline-offset-4" href={`mailto:${ENTITY.email}`}>
+            {ENTITY.email}
+          </a>
+          .
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl px-5 py-14">
       <h1 className="text-3xl font-black text-ink">List your shop on MAANTA</h1>
       <p className="mt-3 text-base leading-relaxed text-secondary">
-        Two fields to start. We will call you to finish setting up, or come to your shop
-        if you are at BBS Mall.
+        Two fields to start. We will be in touch before we open at BBS Mall.
       </p>
 
       <form

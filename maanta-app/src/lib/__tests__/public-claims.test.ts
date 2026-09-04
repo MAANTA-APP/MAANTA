@@ -5,6 +5,7 @@ import { walk, relToSrc } from "./helpers/source-files";
 import { stripComments } from "./helpers/comment-stripping";
 import { DEMO_MODE, ENTITY } from "@/lib/marketing/demo";
 import { PAYMENT_AVAILABILITY } from "@/lib/marketing/facts";
+import { WAITLIST_CONSENT_TEXT } from "@/lib/waitlist";
 import {
   DEPLOYMENT_TIMELINE_LEAD,
   FEED_CTA_LABEL,
@@ -134,6 +135,18 @@ const BANNED: Banned[] = [
     ruling: "X2 — NODE_STAFFING_MODEL / DEPLOYMENT_TIMELINE_LEAD / MONTH_OF_DATA_SENTENCE (D262)",
     legal: false,
   },
+  // X-JOIN / D267 — no operator exists to call or visit (D5 is open).
+  {
+    pattern: /\bWe will call you\b|\bcome to your shop\b|\bcome to you at BBS\b/i,
+    claim: "a call or a visit promise",
+    ruling: "§4.1 — removed unconditionally until an operator owns it (D267)",
+  },
+  // X-WAITLIST — MAANTA has never launched, so there is nothing to relaunch.
+  {
+    pattern: /\brelaunch/i,
+    claim: 'the word "relaunch"',
+    ruling: "X-WAITLIST — inside consent text, where wording must be exact (D271)",
+  },
   // Standing check (D2): the dark features are never named publicly.
   {
     pattern: /\bFast Visit\b|\bMAANTA Points\b/,
@@ -222,6 +235,12 @@ describe("public claims (founder ruling 2026-09-04)", () => {
       expect(s).toMatch(/before your first confirmed code/);
       expect(s).not.toMatch(/opening credit|KES 300|invoice|cash|paybill/i);
     }
+  });
+
+  it("keeps \"relaunch\" out of the waitlist consent text, which is persisted per contact", () => {
+    expect(WAITLIST_CONSENT_TEXT).not.toMatch(/relaunch/i);
+    expect(WAITLIST_CONSENT_TEXT).toMatch(/^I agree to receive MAANTA launch updates/);
+    expect(WAITLIST_CONSENT_TEXT).toMatch(/I can unsubscribe at any time\.$/);
   });
 
   it("carries no address in the entity record, so no surface can render one", () => {

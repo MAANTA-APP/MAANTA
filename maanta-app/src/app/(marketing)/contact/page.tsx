@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ENTITY } from "@/lib/marketing/demo";
 import { NO_DESK_NOTICE, SUPPORT_REPLY_LINE } from "@/lib/marketing/live-claims";
+import { isFormCollecting } from "@/lib/marketing/forms";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -28,6 +29,13 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
  *
  * WhatsApp hours are omitted for the same reason: a stated opening hour that is
  * not staffed is the same failure as a missed response time.
+ *
+ * **The form is non-collecting while `FORM_STATUS.contact` is `closed`**
+ * (`lib/marketing/forms.ts`, founder ruling 2026-09-04, form safety / FC1).
+ * `EnquiryRouter` then renders the closed-state block instead of inputs and
+ * `/api/contact` refuses with a 503, so the page never accepts what it cannot
+ * send. `check-server-forms.mjs` knows the closed state and asserts it is
+ * honest — no inputs, the alternative present — rather than asserting a form.
  *
  * The form itself lives in `EnquiryRouter`, a client component. It is **not**
  * wrapped in `Suspense`, and that is load-bearing (drift D41).
@@ -109,6 +117,7 @@ export default function ContactPage() {
           further down. The two channels named here are the ones that work with
           no JavaScript at all: a link and a mailto.
         */}
+        {isFormCollecting("contact") ? (
         <noscript>
           <div className="mb-8 rounded-card border border-line bg-paper p-5">
             <p className="text-sm font-bold text-ink">
@@ -133,6 +142,7 @@ export default function ContactPage() {
             </p>
           </div>
         </noscript>
+        ) : null}
         <EnquiryRouter />
       </Section>
 

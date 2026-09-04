@@ -20,6 +20,19 @@ vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: (...a: unknown[]) => checkRateLimit(...a),
 }));
 
+/**
+ * The form-safety gate (founder ruling 2026-09-04, `lib/marketing/forms.ts`)
+ * closes this route while FC1 is unruled, and `form-safety.test.ts` proves the
+ * 503. The D28 assertions below are about the *open* path — what the route does
+ * when it is allowed to send — so the gate is held open here explicitly. This
+ * mock is the only reason these tests pass while the form is closed; it is not
+ * a way to reopen the form.
+ */
+vi.mock("@/lib/marketing/forms", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/marketing/forms")>();
+  return { ...actual, isFormCollecting: () => true };
+});
+
 import { POST, GET } from "../route";
 
 const post = (body: unknown) =>

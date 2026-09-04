@@ -7,6 +7,7 @@ import {
   WAITLIST_RATE_LIMIT,
   WAITLIST_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
+import { CLOSED_FORM_API_MESSAGE, isFormCollecting } from "@/lib/marketing/forms";
 
 function waitlistClientKey(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -50,6 +51,13 @@ export async function GET(request: Request) {
  * Supabase, per the 2026-07-10 decision in docs/maanta-decisions-log.md.
  */
 export async function POST(request: Request) {
+  // Form safety (founder ruling 2026-09-04, `lib/marketing/forms.ts`): while
+  // the waitlist is closed nothing is written to Resend, whatever posts here.
+  // Refused with the reason and the alternative, never a silent 200.
+  if (!isFormCollecting("waitlist")) {
+    return NextResponse.json({ error: CLOSED_FORM_API_MESSAGE.waitlist }, { status: 503 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

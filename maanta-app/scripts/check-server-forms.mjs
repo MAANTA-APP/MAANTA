@@ -67,6 +67,18 @@ const BUILD_DIR = process.argv[2] ?? ".next/server/app";
  * rather than assumed — on a real build of the pre-fix source these strings are
  * absent from the HTML entirely, RSC flight payload included, because the bailed-out
  * subtree is not serialised.
+ *
+ * ## The closed state (founder ruling 2026-09-04, form safety)
+ *
+ * `lib/marketing/forms.ts` can take a form out of service. A closed form is a
+ * different honest state, not a missing one, so each route also names
+ * `closedNeedle` — the ruling's closed-state heading — and `closedAlternative`,
+ * the working channel that copy must offer. When the heading is in the HTML the
+ * assertion flips: **no** `<form>` may contain `formNeedle` and no input control
+ * may sit beside the heading (a form that renders inputs it will not send is the
+ * silent failure D28 was), and the alternative must be present. When it is not,
+ * the original assertions apply unchanged. Either way the route is inspected —
+ * a page that shows neither a form nor the closed block fails.
  */
 const MUST_PRERENDER_A_FORM = [
   {
@@ -74,12 +86,16 @@ const MUST_PRERENDER_A_FORM = [
     file: "contact.html",
     formNeedle: "Your message",
     alsoOnPage: ["What is this about?", "I am a mall operator"],
+    closedNeedle: "The contact form is temporarily unavailable",
+    closedAlternative: "admin@maanta.app",
   },
   {
     route: "/merchants/join",
     file: "merchants/join.html",
     formNeedle: "Shop name",
     alsoOnPage: ["Get started"],
+    closedNeedle: "Shop sign-up is closed for now",
+    closedAlternative: "admin@maanta.app",
   },
 ];
 
@@ -100,7 +116,14 @@ if (!existsSync(BUILD_DIR)) {
 const problems = [];
 let checked = 0;
 
-for (const { route, file, formNeedle, alsoOnPage } of MUST_PRERENDER_A_FORM) {
+for (const {
+  route,
+  file,
+  formNeedle,
+  alsoOnPage,
+  closedNeedle,
+  closedAlternative,
+} of MUST_PRERENDER_A_FORM) {
   const full = path.join(BUILD_DIR, file);
   if (!existsSync(full)) {
     // Not a skip. This route is declared prerendered; if it no longer is, either
@@ -117,6 +140,33 @@ for (const { route, file, formNeedle, alsoOnPage } of MUST_PRERENDER_A_FORM) {
   // HTML forbids nested forms, so a non-greedy match to the first </form> is a
   // whole form and never a fragment of two.
   const forms = html.match(/<form\b[\s\S]*?<\/form\s*>/g) ?? [];
+
+  if (html.includes(closedNeedle)) {
+    // Closed, and it must be honestly closed: no route form, no stray inputs
+    // next to the notice, and the alternative channel named.
+    if (forms.some((f) => f.includes(formNeedle))) {
+      problems.push(
+        `${route}: says "${closedNeedle}" but still ships its <form> — a closed form must render no inputs`
+      );
+    }
+    if (!html.includes(closedAlternative)) {
+      problems.push(
+        `${route}: closed without naming the alternative "${closedAlternative}"`
+      );
+    }
+    for (const copy of alsoOnPage) {
+      // The surrounding page (the topic router on /contact) must survive the
+      // closure; only the inputs go.
+      if (route === "/contact" && !html.includes(copy)) {
+        problems.push(`${route}: "${copy}" is not in server HTML`);
+      }
+    }
+    if (html.includes("BAILOUT_TO_CLIENT_SIDE_RENDERING")) {
+      problems.push(`${route}: BAILOUT_TO_CLIENT_SIDE_RENDERING while closed`);
+    }
+    continue;
+  }
+
   if (forms.length === 0) {
     problems.push(`${route}: no <form> in server HTML`);
   } else {
@@ -166,5 +216,5 @@ if (problems.length) {
 }
 
 console.log(
-  `check-server-forms: clean — ${checked} route(s) ship a complete form in server HTML.`
+  `check-server-forms: clean — ${checked} route(s) ship a complete form, or an honest closed state, in server HTML.`
 );

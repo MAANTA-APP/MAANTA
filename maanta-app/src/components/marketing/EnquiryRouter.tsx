@@ -12,6 +12,7 @@ import {
   type ContactTopic,
 } from "@/lib/contact";
 import { ENTITY } from "@/lib/marketing/demo";
+import { CLOSED_FORM_COPY, isFormCollecting } from "@/lib/marketing/forms";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 
 /**
@@ -74,7 +75,7 @@ const GUIDANCE: Record<Choice, { hint: React.ReactNode; fastest: React.ReactNode
     fastest: <>Fastest: WhatsApp.</>,
   },
   "list-shop": {
-    hint: "Shop name and a phone number, and we will call you.",
+    hint: "A shop name is enough to start. You finish setting up on your phone.",
     fastest: <>This is not a contact enquiry — go straight to the sign-up.</>,
   },
   "mall-operator": {
@@ -107,6 +108,16 @@ const CHOICES: ReadonlyArray<{ slug: Choice; label: string }> = [
   { slug: "press", label: "Press" },
   { slug: "privacy", label: "Privacy or legal" },
 ];
+
+/**
+ * Whether the message form collects at all — `lib/marketing/forms.ts`
+ * (founder ruling 2026-09-04, form safety). While closed, the topic router
+ * above the form stays (it routes people to WhatsApp and email, which work)
+ * and the form is replaced by the ruling's closed-state block: no inputs, the
+ * real reason, a working alternative. `/api/contact` refuses in step, so a
+ * cached page cannot post into a closed form either.
+ */
+const COLLECTING = isFormCollecting("contact");
 
 export function EnquiryRouter() {
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -220,6 +231,34 @@ export function EnquiryRouter() {
       </div>
 
       <div id="form" className="mt-14">
+        {!COLLECTING ? (
+          <div className="rounded-card border border-line bg-paper p-6">
+            <h2 className="text-xl font-black text-ink sm:text-2xl">
+              {CLOSED_FORM_COPY.contact.heading}
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-secondary">
+              Email{" "}
+              <a
+                className="font-semibold text-ink underline underline-offset-4"
+                href={`mailto:${ENTITY.email}`}
+              >
+                {ENTITY.email}
+              </a>{" "}
+              or message us on{" "}
+              <a
+                className="font-semibold text-ink underline underline-offset-4"
+                href={ENTITY.whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WhatsApp
+              </a>
+              {" "}— both reach us directly.
+            </p>
+          </div>
+        ) : null}
+        {COLLECTING ? (
+          <>
         <h2 className="text-2xl font-black text-ink sm:text-3xl">Send a message</h2>
         <p className="mt-3 text-base leading-relaxed text-secondary">
           If you would rather have it in writing, or your question does not fit any of the
@@ -365,6 +404,8 @@ export function EnquiryRouter() {
             </p>
           </form>
         )}
+          </>
+        ) : null}
       </div>
     </>
   );
