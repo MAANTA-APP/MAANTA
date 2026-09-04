@@ -684,3 +684,28 @@ merged PR's. Nothing else in this document waits on that answer.
 next change to these surfaces should come from what the BBS Mall operator or
 Merchant 01 actually hits, not from reading this document and finding
 something to improve.
+
+### The walk was from Norway, and that bounds it
+
+Recorded because it decides what the evidence covers. The founder's iPhone
+pass was made **from Norway**, and reported the shopper side fine as well as
+the console. Everything it exercised is location-independent, and everything
+location-dependent is therefore still unproven on this build:
+
+- The claim flow sends the browser's coordinates
+  (`(shopper)/deals/[id]/claim-flow.tsx`) and geofence flags are recorded
+  server-side at claim time; `api/redemptions/preflight` surfaces a
+  `geofence` flag to the merchant before they verify. A claim made from
+  Norway against a BBS Mall deal would be flagged, so **the clean-claim path
+  at the shop's own counter is not something this walk could show**.
+- Distance, arrival and the geofence fraud signals in the Action Queue are
+  the same story: they need a device at BBS Mall.
+
+**Nothing was contaminated by it.** Read directly from production at 23:2x
+UTC on 2026-09-03: 405 redemptions in total, **0 claimed in the last twelve
+hours**, **0 fraud events in the last twelve hours**, and the genuine-success
+count — joined through merchant *and* deal per D188 — still **1**, the
+internal E2E survivor. The walk created no rows, so the D174/D184 counters
+are exactly where they were: internal evidence 1, external field validation
+0. That check is worth repeating after any founder or operator walk of the
+live product, and it is cheap: one query, three counts.
