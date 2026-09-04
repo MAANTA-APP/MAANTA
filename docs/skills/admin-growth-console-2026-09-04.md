@@ -172,3 +172,115 @@ audience with no undo, and merging duplicates in particular has no defined
 semantics for which contact's properties survive. They are omitted rather than
 guessed at; the flags that would drive them (`duplicate`, `test`, `no_consent`)
 are computed and shown, so the information is there when the semantics are ruled.
+
+---
+
+# Addendum — the Supabase mirror, and the production apply (same day)
+
+Three founder instructions after the first build: mirror the waitlist to Supabase,
+apply the migrations, and fix what was flagged. All three are done. **Both
+migrations are applied; the ledger reconciles at 112/112.**
+
+## D261 is closed by mirroring, not by working around the cap
+
+`public.waitlist_signups` is now the queryable record. The split is explicit and
+neither store is authoritative for everything:
+
+- **Resend** owns deliverability and the join date. It decides whether an address
+  already exists and it sends the confirmation.
+- **Supabase** owns counting. Everything the console filters, groups or exports
+  reads from here, unbounded, the same shape as `readLeads`.
+
+Every column prefixed `resend_` describes *our knowledge of Resend*, not a fact
+MAANTA owns. The 500-cap machinery is gone.
+
+**`complete` was re-pointed, not deleted.** It used to mean "the read was not
+truncated". It now means "the mirror is known to hold everyone Resend holds", and
+it requires BOTH that no row is unconfirmed AND that a confirmed sync has actually
+run — derived from `admin_ops_log`, because nothing in this repo writes
+`app_config` from a route and `/admin/operations` tells operators exactly that.
+Export still refuses while it is false.
+
+## Three defects that would have shipped, and how each was caught
+
+**1. The mirror upsert could never have worked.** `ON CONFLICT (email)` against a
+`lower(email)` functional index raises *"there is no unique or exclusion
+constraint matching the ON CONFLICT specification"*. I found this by running it on
+the project's own Postgres before applying, not by reasoning. Because the mirror
+write is deliberately non-fatal, **every signup would have failed silently and
+left the console empty**. Identity is now a plain `UNIQUE` column plus
+`CHECK (email = lower(email))` — the invariant is in the database, not in two call
+sites that happen to agree.
+
+**2. The backfill would have imported nobody, forever.** The sync's payload
+omitted `resend_status`, which is `NOT NULL` with no default; every insert died
+23502, was counted as `failed`, and the **dry run reported `failed: 0`** because it
+skips the write. Since the mirror only collects from the cutover, that route is
+the *only* way a pre-cutover signup arrives. Found by the adversarial review,
+upheld 3/3. It is now insert-then-targeted-update, which also fixes a second
+defect in the same code: a blind upsert's `DO UPDATE` would have rewritten a live
+`public_form` row's provenance and reset its `is_test` from whatever Resend held —
+laundering a real signup into the test population, the D188 failure mode.
+
+**3. An empty mirror reported itself complete.** `unsynced === 0` is trivially
+true of a table with no rows, so before any sync the console would have called
+itself fully synced and unlocked CSV export. See `complete` above.
+
+Guard for (2) and its cousins: `growth-waitlist-sync-guard.test.ts` — a source
+ratchet, because the route needs Resend and a database and is not unit-testable.
+
+## Security changes the mirror made load-bearing
+
+Both were cosmetic while the only store was a third party. They are not now.
+
+- **`is_test` is server-derived.** It was `b.isTest === true` — anyone reading the
+  JSON could file rows the console excludes from its counts. It now comes from
+  `/waitlist?test=<token>` checked against `WAITLIST_TEST_TOKEN`, on the page and
+  again in the API; `validateWaitlistSubmission` takes it as a parameter, so the
+  body cannot set it at all. Both operands are SHA-256 hashed before
+  `timingSafeEqual` — that function throws `RangeError` on unequal lengths, and a
+  `String.length` guard does not save it (UTF-16 units vs bytes), so an
+  attacker-chosen length would have been an unauthenticated 500.
+- **The rate-limit bucket carries the normalized email.** `x-forwarded-for`'s
+  first hop is client-supplied and the fallback was a single shared
+  `waitlist:unknown` bucket. Junk contacts in Resend was tolerable; unbounded
+  attacker-controlled rows in the table the console counts as traction is not.
+
+**`WAITLIST_TEST_TOKEN` is a new required env var** for the TEST treatment. Unset,
+it fails closed and no submission can mark itself as a test — which is the safe
+direction: an unmarked test row is visible noise a human notices, while a real
+signup wrongly marked test disappears from every count silently.
+
+## What was applied, and how
+
+Procedure, in order, per CLAUDE.md's two hard-earned rules:
+
+1. Read production `supabase_migrations.schema_migrations` — **not** the directory.
+   110 rows at `20260903140000`, so both versions were genuinely next.
+2. Applied `20260904120000`, then `20260904130000`.
+3. **Each apply minted its own version** (`20260904202546` for the first) —
+   seventeen and eighteen for eighteen — and each was **repaired to the repo
+   filename before anything else**.
+4. Full version+name read-back: **112/112, identical to `ls supabase/migrations/`**.
+5. Schema read back: 3 tables, RLS on, 3 policies, `anon` cannot SELECT,
+   `authenticated` cannot INSERT, `service_role` can, `joined_at` nullable,
+   `resend_status` with no default, the `captured_lead_id` FK present, and
+   `public.leads` untouched at 0 rows.
+6. A live smoke test of the exact statements the application issues, cleaning up
+   after itself (0 rows remaining): signup insert, `ON CONFLICT (email)` upsert, a
+   repeat submission proving it is a no-op, the corrected backfill insert, and both
+   refusals — missing `resend_status`, and a non-lowercase address.
+
+## Still owed
+
+- **`make db-verify` has never run** — no Docker in this container, so both SQL
+  suites are unexecuted. CI's `db-tests` job is the gate.
+- **The backfill has never been run against the real audience.** Do the dry run
+  first (`{confirm:false}` is the default) and read the `unreadable` count before
+  confirming: whether this Resend account returns custom properties on the
+  single-contact endpoint is still unproven, and that count is the proof.
+- **No browser proof.** Nothing here has been rendered or walked at phone width.
+- **The adversarial review was truncated.** 109 of 123 agents died on a session
+  limit, so only one finding got full 3/3 verification and roughly two dozen
+  candidate findings were never adjudicated. The unverified list is in the run's
+  journal; treat this diff as reviewed-in-part, not reviewed.
