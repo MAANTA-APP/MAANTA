@@ -397,15 +397,34 @@ a backfilled contact, and deviating would have made this run unrepresentative of
 what the route does.
 
 **External waitlist signups remain 0.** Marking these two rows TEST is a founder
-classification, not an engineering fix, and is deliberately left undone:
+classification, not an engineering fix.
 
-```sql
-UPDATE public.waitlist_signups
-   SET is_test = TRUE, test_label = 'internal', updated_at = now()
- WHERE email IN ('aragagency@gmail.com', 'maj.jam@gmail.com');
-```
+### Ruled and applied the same day
 
-That is the whole change; the console's Real/Test/All filter does the rest.
+The founder ruled: mark them test. Both rows now carry `is_test = TRUE` and
+`test_label = 'internal'`, applied as an audited admin action — **one
+`admin_ops_log` entry per row**, keyed to that row's id, recording the before and
+after value and the reason, with only the email DOMAIN in the details rather than
+the address (SEC-011). A blanket "tagged some rows" entry would not have said
+which person was reclassified.
+
+The console now reports, under its default *Real only · TEST excluded*:
+
+| Population | Rows |
+|---|---|
+| Real | **0** |
+| Test | 2 (both `internal`) |
+
+**Waitlist total: 0 is the correct reading**, and it is the case the console was
+built to render honestly: the empty state says "nothing yet, and that is
+expected" rather than drawing a flat line that looks like a broken feed. The Data
+quality card shows `TEST rows held back: 2`, so the exclusion is visible rather
+than silent — which is the whole point of the population chip.
+
+This is the waitlist counterpart of the D174/D184 split, and it now holds on all
+three counters: internal redemptions, internal merchant records, and internal
+waitlist signups are each visible, each retained, and none of them increments the
+number that means external demand.
 
 ## Still owed after this run
 
