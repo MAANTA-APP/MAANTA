@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
+import { FACTS } from "@/lib/marketing/facts";
 import { SCENARIO } from "@/lib/marketing/scenario";
 import { ENTITY, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
@@ -10,6 +10,7 @@ import {
   ENTITY_LINE,
   NODE_DURATION_LEAD,
   NODE_ONLY_MALL_SENTENCE,
+  NODE_STAFFING_MODEL,
 } from "@/lib/marketing/live-claims";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 
@@ -114,7 +115,7 @@ export default function AboutPage() {
               b: "A deal rises because people redeemed it, not because people rated it.",
             },
             {
-              t: "We do not take a percentage of any sale.",
+              t: "We never take a share of any sale.",
               b: `${fee} is ${fee} whether the basket is ${formatKes(200)} or ${formatKes(20_000)}.`,
             },
             {
@@ -213,7 +214,7 @@ export default function AboutPage() {
             </li>
             <li>
               <strong className="font-bold text-ink">
-                We take no percentage and sell no data.
+                We take no share of any sale and sell no data.
               </strong>{" "}
               <span className="text-secondary">
                 Our revenue does not rise because a basket was large or because we learned
@@ -282,13 +283,18 @@ export default function AboutPage() {
               {ENTITY.email}
             </a>
           </p>
+          {/*
+            The staffing model reads from NODE_STAFFING_MODEL (composed from
+            NODE_TEAM) — while DEMO_MODE holds it says outright that no node is
+            staffed today (founder ruling 2026-09-04, X2). Activation is stated
+            as the intent, not as something already learned from: there is no
+            operating history to have learned from yet.
+          */}
           <p className="mt-6 text-base leading-relaxed text-secondary">
-            Every node MAANTA opens is staffed. A node manager and up to{" "}
-            {NODE_TEAM.agentsMax} agents work the mall: the agents {NODE_TEAM.agentRole},
-            and the node manager {NODE_TEAM.managerRole}. Activation happens in person
-            rather than by email — sitting with a shop owner while they publish their first
-            deal, and staying at the counter until a real code has been verified. Most of
-            what we have learned came from that, not from analytics.
+            {NODE_STAFFING_MODEL} Activation is meant to happen in person rather than by
+            email — sitting with a shop owner while they publish their first deal, and
+            staying at the counter until a real code has been verified. That is where we
+            expect to learn the most, not from analytics.
           </p>
         </div>
       </Section>

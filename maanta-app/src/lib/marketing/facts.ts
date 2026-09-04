@@ -80,12 +80,35 @@ export const PLAN_AVAILABILITY = {
 } as const;
 
 /**
- * M-Pesa top-up mechanism — STK push via IntaSend (`initiateMpesaStkPush` in
- * `@/lib/intasend`). There is no paybill path. Resolves Phase 0 question 13, and
- * governs the wallet microcopy in `copy/merchants.md` `#wallet`: a merchant gets
- * a prompt on their handset, they do not type a paybill number.
+ * The planned M-Pesa top-up mechanism — STK push via IntaSend
+ * (`initiateMpesaStkPush` in `@/lib/intasend`). There is no paybill path.
+ *
+ * **Planned, not available.** No payment of any kind exists inside MAANTA
+ * today, and no public surface may describe one as working — see
+ * `PAYMENT_AVAILABILITY` below (founder ruling 2026-09-04, `10 §2 X3/X4`).
  */
 export const TOPUP_METHOD = "stk-push" as const;
+
+/**
+ * Whether a merchant can pay MAANTA inside the product — the single source for
+ * every sentence about top-ups, wallets and settlement (`10 §3`,
+ * `paymentAvailability`).
+ *
+ * `inAppPaymentLive` is `false` because it is false: IntaSend and Stripe are
+ * integrated in code but no rail is switched on, and the FAQ told merchants
+ * to expect an M-Pesa prompt and that "card also works". The copy here is
+ * deliberately neutral on how the pilot settles the fee (GD1 is unruled) — it
+ * commits only to *when* that conversation happens, before the first confirmed
+ * code. Flip the flag on the day a rail is live; do not edit the sentences on
+ * the pages, which all read from here.
+ */
+export const PAYMENT_AVAILABILITY = {
+  inAppPaymentLive: false,
+  /** The paragraph shown wherever the merchant payment model is explained. */
+  note: "Paying MAANTA. There is no payment inside MAANTA today. In-app top-up by M-Pesa is planned and is not available yet. During the pilot we agree settlement with you directly before your first confirmed code.",
+  /** `/faq` Q11 — "How do I top up my balance?" */
+  faqAnswer: `You cannot yet. There is no payment of any kind inside MAANTA today — no M-Pesa top-up and no card payment. It is planned, and we will tell you before it becomes available. During the pilot, how the KES ${SUCCESS_FEE_KES} is settled is agreed with you directly, in person, before your first confirmed code.`,
+} as const;
 
 /**
  * Time-bound offers. Rendered conditionally through `isOfferLive`, so an offer
@@ -130,10 +153,13 @@ export const OFFERS = {
  * with a cap and defined roles tells an operator what they are getting, where a
  * vague plural tells them nothing and invites the wrong follow-up question.
  *
- * Stated as how a node runs, never as a headcount standing in BBS Mall today.
- * The distinction matters: the model is true as a design and is what this
- * demonstration site exists to show; a present-tense staffing count would be a
- * measured figure, and measured figures go through `ScenarioStat`.
+ * Stated as how a node is designed to run, never as a headcount standing in BBS
+ * Mall today. The distinction matters: the model is true as a design and is what
+ * this demonstration site exists to show; a present-tense staffing count would
+ * be a measured figure, and measured figures go through `ScenarioStat`. The
+ * sentence the pages render is `NODE_STAFFING_MODEL` in `live-claims.ts`, which
+ * composes these values and — while `DEMO_MODE` holds — says outright that no
+ * node is staffed today (founder ruling 2026-09-04, `10 §2 X2`).
  */
 export const NODE_TEAM = {
   managers: 1,
@@ -148,22 +174,17 @@ export const NODE_TEAM = {
     "work the floor with shoppers and merchants — onboarding shops, setting up staff accounts, and helping at the counter",
 } as const;
 
-/**
- * Published response commitments, set by founder ruling 2026-07-31.
+/*
+ * There is deliberately NO `RESPONSE_TIMES` here any more.
  *
- * These were held until now: `website-handoff.md` §9 holds every stated response
- * time, and `copy/contact.md` is blunt that "a missed commitment here does more
- * damage than no commitment at all". They are published because they can be met,
- * and they are deliberately conservative — tighten them once there is a month of
- * evidence, never the other way round.
- *
- * Business days, not calendar days, so a Saturday enquiry is not a missed promise.
+ * It held "the same day" (WhatsApp), "1 business day" (form and email) and
+ * "2 business days" (operators), published by founder ruling 2026-07-31 on the
+ * argument that they could be met. Founder ruling 2026-09-04 (`10 §2 X9`)
+ * withdrew them: no support team exists, so no response time may be published.
+ * `SUPPORT_REPLY_LINE` in `live-claims.ts` is what `/help` and `/contact` say
+ * instead. Publish a turnaround again only once someone owns meeting it, and
+ * do it there, once.
  */
-export const RESPONSE_TIMES = {
-  whatsapp: "the same day",
-  form: "1 business day",
-  operator: "2 business days",
-} as const;
 
 export const isOfferLive = (o: { expiresOn: string }) =>
   !o.expiresOn.startsWith("{{") && new Date(o.expiresOn) > new Date();

@@ -25,7 +25,7 @@ import {
   TrustBar,
 } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_DOOR_BODY } from "@/lib/marketing/live-claims";
+import { FEED_CTA_LABEL, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_DOOR_BODY } from "@/lib/marketing/live-claims";
 
 /**
  * `/` — Home.
@@ -69,7 +69,7 @@ const DOORS = [
   },
   {
     title: "Merchants",
-    body: "Publish a deal in two minutes. Pay only when a customer's code is verified at your counter — no listing fee, no cut of the sale.",
+    body: "Publish a deal in two minutes. Pay only when a customer's code is verified at your counter — no fee to join, no share of your sale.",
     label: "For merchants",
     href: "/merchants",
   },
@@ -106,7 +106,7 @@ export default function LandingPage() {
             checkout. Shops pay {fee} only when a code is verified at their till.
           </>
         }
-        primary={{ label: "Browse live deals", href: "/feed" }}
+        primary={{ label: FEED_CTA_LABEL, href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
         // Founder decision 2026-08-01: the hero shows the feed with example
         // deals. The shops and prices are invented and the mockup says so on
@@ -137,7 +137,7 @@ export default function LandingPage() {
           },
           {
             title: <>{fee} per verified redemption</>,
-            body: "What a shop pays, and only once staff verify a code. No listing fee, no cut of the sale.",
+            body: "What a shop pays, and only once staff verify a code. No fee to join, no share of your sale.",
           },
           {
             title: "Paid in person",
@@ -264,7 +264,7 @@ export default function LandingPage() {
           <h2 className="text-2xl font-black text-ink sm:text-3xl">Run a shop at BBS Mall?</h2>
           <div className="mt-4 max-w-3xl space-y-3 text-base leading-relaxed text-secondary">
             <p>
-              {fee} per verified redemption. No listing fee, no percentage cut, no monthly
+              {fee} per verified redemption. No fee to join, no share of your sale, no monthly
               minimum. A code that expires or gets rejected costs you nothing.
             </p>
             {/* Time-bound: absent rather than stale once the offer closes. */}

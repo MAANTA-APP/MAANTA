@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
-import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
+import { FACTS, OFFERS, PAYMENT_AVAILABILITY, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
 import { IconCheck } from "@/components/ui/icons";
 import { CtaBand, Section } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -44,7 +44,7 @@ import { MERCHANT_CTA_TITLE } from "@/lib/marketing/live-claims";
 export const metadata: Metadata = pageMetadata({
   path: "/pricing",
   title: "Pricing — MAANTA",
-  description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
+  description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No fee to join, no share of your sale, no monthly minimum.`,
   ogTitle: "You pay when a customer walks in, not before.",
   ogDescription: `Standard and Elite for shops at ${FACTS.launchMall}. The success fee is the same on both plans; the plan decides how many deals you can run.`,
 });
@@ -99,7 +99,7 @@ export default function PricingPage() {
       <Section className="border-b border-line">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">Pricing</p>
         <h1 className="mt-2 max-w-3xl text-3xl font-black leading-[1.1] text-ink sm:text-4xl">
-          One fee. Two plans. No cut of your sale.
+          One fee. Two plans. No share of your sale.
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
           Every plan pays {fee} when a shopper&apos;s code is verified at your counter. The
@@ -120,8 +120,8 @@ export default function PricingPage() {
               {fee} per verified redemption
             </p>
             <p className="mt-1 text-xs leading-relaxed text-faint">
-              Charged from your wallet when staff verify a code. A code that expires or is
-              rejected costs nothing.
+              Recorded against your account when your staff verify a code. A code that
+              expires or is rejected costs nothing.
             </p>
             <ul className="mt-6 space-y-2.5 border-t border-line pt-5">
               <Feature>
@@ -131,8 +131,14 @@ export default function PricingPage() {
                 Staff accounts with their own permissions
                 {PLAN_AVAILABILITY.staff === "all" ? " — on every plan" : null}
               </Feature>
-              <Feature>M-Pesa wallet top-ups</Feature>
-              <Feature>No listing fee, no percentage of the sale, no monthly minimum</Feature>
+              {/*
+                No "M-Pesa wallet top-ups" row. Deleted, not reworded: the
+                capability does not exist (founder ruling 2026-09-04, X4).
+              */}
+              <Feature>
+                You don&apos;t pay to be listed, we never take a share of your sale, and there
+                is no monthly minimum
+              </Feature>
             </ul>
           </div>
 
@@ -166,11 +172,15 @@ export default function PricingPage() {
                 how /pricing and /merchants came to disagree (drift D34).
               */}
               <Feature tone="light">
-                Boosts — {boost} per {FACTS.boostHours}h, charged from your wallet
+                Boosts — {boost} per {FACTS.boostHours}h, recorded against your account
               </Feature>
             </ul>
           </div>
         </div>
+        {/* The payment model, from one source (X4). GD1-neutral by construction. */}
+        <p className="mt-8 max-w-2xl text-sm leading-relaxed text-secondary">
+          {PAYMENT_AVAILABILITY.note}
+        </p>
       </Section>
 
       {/*
@@ -198,7 +208,7 @@ export default function PricingPage() {
 
       <CtaBand
         title={MERCHANT_CTA_TITLE}
-        body="No listing fee to join, and nothing to pay until a shopper's code is verified at your counter."
+        body="No fee to join, and nothing to pay until a shopper's code is verified at your counter."
         primary={{ label: "List your shop", href: "/merchants/join" }}
         secondary={{ label: "How it works at your counter", href: "/merchants#counter" }}
       />

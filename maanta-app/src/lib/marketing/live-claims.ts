@@ -1,5 +1,5 @@
 import { DEMO_MODE } from "./demo";
-import { FACTS } from "./facts";
+import { FACTS, NODE_TEAM } from "./facts";
 
 /**
  * Every sentence on the marketing site that says MAANTA is trading.
@@ -200,9 +200,20 @@ export const MERCHANT_CTA_TITLE = DEMO_MODE
  * There is none — the pilot has not run. The pre-launch wording states the
  * design (a shop can publish immediately) without claiming a track record.
  */
+/**
+ * "A month of data is enough…" — founder ruling 2026-09-04 (`10 §2 X2`).
+ *
+ * Stated as an expectation, and one that has not been tested, because no mall
+ * has run a month on MAANTA. Shared by `/faq`, `/mall-operators` (via the two
+ * answers below) so it flips in one place.
+ */
+export const MONTH_OF_DATA_SENTENCE = DEMO_MODE
+  ? "We expect a month of data to be enough to see patterns by floor and by hour. That expectation has not been tested — no mall has run a month on MAANTA."
+  : "A month of data is enough to see patterns by floor and by hour.";
+
 export const FIRST_RESULTS_ANSWER = DEMO_MODE
-  ? "A shop can publish on the day it joins, so its first redemption can follow the same day. A month of data is enough to see patterns by floor and by hour."
-  : "The first redemption usually happens within a day of a shop going live. A month of data is enough to see patterns by floor and by hour.";
+  ? `A shop can publish on the day it joins, so its first redemption can follow the same day. ${MONTH_OF_DATA_SENTENCE}`
+  : `The first redemption usually happens within a day of a shop going live. ${MONTH_OF_DATA_SENTENCE}`;
 
 /**
  * The `/mall-operators` version of the same answer, which carries one extra
@@ -257,3 +268,64 @@ export const ENTITY_LINE = DEMO_MODE
 export const NO_DESK_NOTICE = DEMO_MODE
   ? `MAANTA is preparing to open at ${FACTS.launchMall}, ${FACTS.city}. We do not have a desk or an office in the mall yet. Until we do, email and WhatsApp are the only ways to reach us.`
   : `MAANTA works at ${FACTS.launchMall}, ${FACTS.city}. Email and WhatsApp are the ways to reach us.`;
+
+/* ------------------------------------------------------------------ *
+ * Founder ruling 2026-09-04 — public claims (`10 §2` and `§3`).
+ *
+ * The four claims below repeated across several pages as separate literals,
+ * which is why the same defect appeared on three pages at once and why a
+ * future edit would have missed one. Each now has exactly one source. When
+ * one of them becomes true it is changed here and nowhere else — several of
+ * them will change on the same day demo mode is resolved.
+ *
+ *   operatingStatus   → OPERATING_STATUS_SENTENCE
+ *   nodeStaffingModel → NODE_STAFFING_MODEL (composed from NODE_TEAM)
+ *   supportContact    → SUPPORT_REPLY_LINE, HELP_DESCRIPTION (no SLA exists)
+ *   paymentAvailability lives in `facts.ts` as PAYMENT_AVAILABILITY, because
+ *   it does not flip with DEMO_MODE — a payment rail goes live on its own day.
+ * ------------------------------------------------------------------ */
+
+/** The one sentence about whether MAANTA is operating. */
+export const OPERATING_STATUS_SENTENCE = DEMO_MODE
+  ? "MAANTA is not yet operating."
+  : `MAANTA is operating at ${FACTS.launchMall}.`;
+
+/**
+ * How a node is staffed — `/about`, `/mall-operators`, `/merchants` (X2).
+ *
+ * Pre-launch it is a design, and says so: no node is staffed today. The cap
+ * and the roles still read from `NODE_TEAM`, which is the frozen decision
+ * (2026-07-31) this sentence must not restate as prose.
+ */
+export const NODE_STAFFING_MODEL = DEMO_MODE
+  ? `A node is designed to run with one node manager and up to ${NODE_TEAM.agentsMax} agents working the floor — onboarding shops, setting up staff accounts and helping at the counter. ${OPERATING_STATUS_SENTENCE} No node is staffed today. This is the model we are building toward at ${FACTS.launchMall}.`
+  : `Each node runs with one node manager and up to ${NODE_TEAM.agentsMax} agents. The agents ${NODE_TEAM.agentRole}. The node manager ${NODE_TEAM.managerRole}.`;
+
+/** `/mall-operators` deployment lead (X2) — a plan, not a track record. */
+export const DEPLOYMENT_TIMELINE_LEAD = DEMO_MODE
+  ? "Four steps. We expect roughly a month from agreement to a live feed — we have not yet done this with a mall, so treat that as a plan, not a track record."
+  : "Four steps, and roughly a month from agreement to live feed.";
+
+/**
+ * The support reply line — `/help`, `/contact` (X9).
+ *
+ * No support team exists, so no response time may be published. The
+ * 2026-07-31 `RESPONSE_TIMES` ("the same day", "1 business day") are gone
+ * with it; publish a turnaround again only once someone owns meeting it.
+ */
+export const SUPPORT_REPLY_LINE = DEMO_MODE
+  ? "MAANTA is not yet operating — we reply as soon as we can, by WhatsApp or email."
+  : "We reply as soon as we can, by WhatsApp or email.";
+
+/** `/help` meta description — the same line, in the snippet Google shows. */
+export const HELP_DESCRIPTION = `How to claim and redeem a MAANTA deal, what the grace period is, and how to reach us. ${SUPPORT_REPLY_LINE}`;
+
+/**
+ * The feed CTA on `/` and `/shoppers` (X10).
+ *
+ * The feed holds demo deals and no real ones while demo mode is on, so
+ * "live" is unsupportable on the primary shopper conversion path. Gated on
+ * `DEMO_MODE` rather than left to a comment: it reverts on the day the demo
+ * data is resolved, and not before.
+ */
+export const FEED_CTA_LABEL = DEMO_MODE ? "See the demo feed" : "Browse live deals";

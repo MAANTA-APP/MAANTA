@@ -37,9 +37,14 @@ export const DEMO_MODE = true;
  * `RegulatoryStatus` block is rendered instead.
  *
  * Every value here must render through `<PlaceholderId>`, never as plain text.
+ *
+ * **`odpc` is intentionally absent** (founder ruling 2026-09-04, `10 §5`).
+ * `ODPC-DEMO-0000-NOT-REGISTERED` rendered on `/privacy` as the registration
+ * number, and a registration-number-shaped string reads as a registration
+ * number at a glance, badge or no badge. The policy now says in plain words
+ * that there is no registered data controller and no ODPC registration.
  */
 export const PLACEHOLDER_IDS = {
-  odpc: "ODPC-DEMO-0000-NOT-REGISTERED",
   company: "CO-DEMO-0000-NOT-INCORPORATED",
   pin: "PIN-DEMO-0000-NOT-REGISTERED",
 } as const;

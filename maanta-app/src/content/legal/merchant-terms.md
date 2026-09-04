@@ -73,7 +73,7 @@ Separate [Terms of Service](/terms) apply to shoppers, and our [Privacy Policy](
 
 **7.1 Success fee.** You pay **KES 30** for each verified redemption. The amount is the same regardless of the value of the sale. We take no percentage of any sale.
 
-**7.2 What is not charged.** There is no listing fee, no monthly minimum on Standard, and no charge for a code that expires or that you reject. Publishing a deal is free.
+**7.2 What is not charged.** You do not pay to be listed, there is no monthly minimum on Standard, and there is no charge for a code that expires or that you reject. Publishing a deal is free.
 
 **7.3** The success fee is deducted from your balance at the moment a code is verified.
 

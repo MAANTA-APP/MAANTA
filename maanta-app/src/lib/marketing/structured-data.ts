@@ -5,11 +5,10 @@ import { publicOrigin } from "@/lib/app-url";
  *
  * ## What is deliberately absent
  *
- * MAANTA is not incorporated and is not registered with the ODPC — the two
- * identifiers on `/privacy` are visible placeholders (`ODPC-DEMO-0000-NOT-
- * REGISTERED`, `CO-DEMO-0000-NOT-INCORPORATED`, `lib/marketing/demo.ts`), and
- * the footer says the company is not yet trading. So the `Organization` block
- * carries **name, url and logo only**.
+ * MAANTA is not incorporated and is not registered with the ODPC — `/privacy`
+ * says so in plain words (no controller, no registration, since 2026-09-04),
+ * and the footer says the company is not yet trading. So the `Organization`
+ * block carries **name, url and logo only**.
  *
  * In particular there is no `address`, no `LocalBusiness`, no `legalName`, no
  * `taxID`/`vatID`, and no `aggregateRating`:

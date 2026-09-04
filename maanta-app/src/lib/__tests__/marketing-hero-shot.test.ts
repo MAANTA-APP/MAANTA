@@ -241,7 +241,7 @@ describe("merchant counter walkthrough (D50, third surface)", () => {
     const src = code(MERCHANT);
     expect(src).toContain("This redemption costs");
     expect(src).toContain("MAANTA success fee");
-    expect(src).toContain("Wallet balance after");
+    expect(src).toContain("Balance after");
     expect(src, "the Confirm must name the fee, as the real button does").toContain(
       "Confirm redemption — {formatKes(fee)} fee"
     );

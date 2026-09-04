@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM, OFFERS, isOfferLive } from "@/lib/marketing/facts";
+import { FACTS, OFFERS, PAYMENT_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
 import { ENTITY } from "@/lib/marketing/demo";
 import {
   AudienceHero,
@@ -16,7 +16,7 @@ import {
 import { MerchantWalkthrough } from "@/components/marketing/MerchantWalkthrough";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
+import { NODE_STAFFING_MODEL, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 
 /**
  * `/merchants` — merchant marketing page. 301 target for `/for-merchants`.
@@ -36,10 +36,14 @@ import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
  *    is **not published** — it is false, and claims-register #4 asked for exactly
  *    this resolution before stating one answer everywhere;
  *  - staff accounts are on all plans (`merchant_staff` has no tier column);
- *  - top-up is M-Pesa STK push, not paybill (`initiateMpesaStkPush`);
- *  - the wallet claim is published as of 2026-07-31, backed by Merchant Terms
- *    7.6. It is worded "credit you topped up yourself", not "anything left in
- *    your balance", because promotional credit is expressly excluded under 7.8.
+ *  - the planned top-up rail is M-Pesa STK push, not paybill
+ *    (`initiateMpesaStkPush`) — **planned, not available**: no payment exists
+ *    inside MAANTA today, so the page describes none. The mechanism copy
+ *    ("top up by M-Pesa", "card also works", "your wallet") and the refund
+ *    claim that depended on it came off by founder ruling 2026-09-04 (X4); the
+ *    payment model now reads from `PAYMENT_AVAILABILITY` and is GD1-neutral.
+ *    The KES 300 opening-credit offer is untouched — that is a separate,
+ *    unruled question (GD1) and must not be edited in the same pass.
  *
  * Every number reads from `facts.ts`. This is the page where a pricing
  * inconsistency does the most damage.
@@ -56,7 +60,7 @@ import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
 export const metadata: Metadata = pageMetadata({
   path: "/merchants",
   title: "For merchants — MAANTA",
-  description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
+  description: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter. No fee to join, no share of your sale, no monthly minimum.`,
   ogTitle: "You only pay when a customer walks in.",
   ogDescription: `List your shop on MAANTA. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter.`,
 });
@@ -107,7 +111,7 @@ export default function MerchantsPage() {
         items={[
           {
             title: <>{fee} per verified redemption</>,
-            body: "No listing fee, no cut of the sale, no monthly minimum.",
+            body: "No fee to join, no share of your sale, no monthly minimum.",
           },
           {
             title: "Nothing for a code that fails",
@@ -128,15 +132,15 @@ export default function MerchantsPage() {
         <PointGrid
           points={[
             {
-              title: "No listing fee.",
+              title: "No fee to join.",
               body: "Putting your shop and your deals on MAANTA costs nothing.",
             },
             {
-              title: "No cut of the sale.",
+              title: "No share of your sale.",
               body: (
                 <>
                   The fee is {fee} whether the customer spends {formatKes(200)} or{" "}
-                  {formatKes(20_000)}. We do not take a percentage.
+                  {formatKes(20_000)}. We never take a share of your sale.
                 </>
               ),
             },
@@ -290,24 +294,33 @@ export default function MerchantsPage() {
         />
       </Section>
 
-      <Section id="wallet">
+      {/*
+        The payment model, from one source. No payment exists inside MAANTA
+        today, so this section says so and describes none — the M-Pesa prompt
+        and "card also works" it used to promise were mechanisms that do not
+        exist (founder ruling 2026-09-04, X4). `PAYMENT_AVAILABILITY.note` is
+        the paragraph that changes on the day a rail goes live.
+      */}
+      <Section id="paying">
         <SectionHeading
           lead={
             <>
-              MAANTA works from a prepaid balance. You top it up by M-Pesa — you get a
-              prompt on your phone and enter your PIN — and each verified redemption takes{" "}
-              {fee} off it. Card also works if you prefer.
+              MAANTA works from a balance. Each verified redemption takes {fee} off it, and
+              a code that fails takes nothing.
             </>
           }
         >
-          Your balance, topped up by M-Pesa
+          Your balance
         </SectionHeading>
+        <p className="mt-6 max-w-3xl text-base leading-relaxed text-ink">
+          {PAYMENT_AVAILABILITY.note}
+        </p>
         <PointGrid
           columns={3}
           points={[
             {
-              title: "Top up what you want, when you want.",
-              body: "There is no minimum to hold and no subscription taken from it.",
+              title: "Nothing to pay up front.",
+              body: "There is no minimum to hold and no subscription taken from your balance.",
             },
             {
               title: "You can see every deduction.",
@@ -347,7 +360,7 @@ export default function MerchantsPage() {
               <li>{FACTS.eliteActiveDeals} active deals</li>
               <li>Flash deals — short-window offers at the top of the feed</li>
               <li>
-                Boosts — {boost} per {FACTS.boostHours}h, from your wallet
+                Boosts — {boost} per {FACTS.boostHours}h, recorded against your balance
               </li>
               <li>{fee} per verified redemption still applies</li>
             </ul>
@@ -366,14 +379,17 @@ export default function MerchantsPage() {
       <Section id="start">
         <SectionHeading>Start at BBS Mall</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
+          {/*
+            No "they will come to your shop" — nobody is on the floor to come
+            (D5 is open), and a visit promised with no operator behind it is the
+            same failure as a response time nobody owns (founder ruling
+            2026-09-04, X-JOIN). The staffing model is stated as the design it
+            is, from NODE_STAFFING_MODEL.
+          */}
+          <p>{NODE_STAFFING_MODEL}</p>
           <p>
-            You do not have to work this out on your own. Every node has a team in the mall
-            — a node manager and up to {NODE_TEAM.agentsMax} agents. They will come to your
-            shop, set you up, publish your first deal with you, and stay until a real code
-            has been verified at your counter.
-          </p>
-          <p>
-            If you would rather do it yourself, shop name and phone number to start.
+            Today you set your shop up yourself, from your phone — a shop name is enough to
+            start — and we are on WhatsApp and email while you do.
           </p>
         </div>
       </Section>
@@ -404,12 +420,13 @@ export default function MerchantsPage() {
               a: "Your staff can reject a code, and you are not charged. If it is going to be a busy day, end the deal early or do not publish one.",
             },
             {
-              // Restored 2026-07-31: Merchant Terms 7.6 now states that unspent
-              // credit you topped up yourself is refundable on request, so the
-              // claim has a clause behind it. Promotional credit is excluded,
-              // which is why the wording says "topped up" rather than "left".
+              // The refund sentence ("credit you topped up yourself … is
+              // refundable on request", released 2026-07-31 against Merchant
+              // Terms 7.6) is withdrawn with the rest of the top-up mechanism
+              // copy: there is no way to top up, so there is nothing it can be
+              // true of yet. Restore it with the rail, not before.
               q: "Can I stop?",
-              a: "Yes. End your deals and stop publishing. There is no notice period, no contract length and no exit fee. Credit you topped up yourself and have not spent is refundable on request.",
+              a: "Yes. End your deals and stop publishing. There is no notice period, no contract length and no exit fee.",
             },
             {
               q: "Who do I call when something goes wrong?",
@@ -435,10 +452,10 @@ export default function MerchantsPage() {
 
       <CtaBand
         title="List your shop."
-        body="Shop name and a phone number to start. If you want us to come to you at BBS Mall, say so and we will."
+        body="A shop name is enough to start. You finish setting up on your phone."
         primary={{ label: "List your shop", href: "/merchants/join" }}
         secondary={{ label: "See pricing", href: "/pricing" }}
-        reassurance={`No listing fee. No contract. ${fee} when a customer's code is verified at your counter.`}
+        reassurance={`No fee to join. No contract. ${fee} when a customer's code is verified at your counter.`}
       />
     </>
   );

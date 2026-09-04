@@ -61,7 +61,8 @@ const MD = walk(path.join(SRC, "content", "legal"), [".md"]);
  *  - the shop-enforcement claim, released against Terms of Service 6.3;
  *  - the wallet-balance claim, released against Merchant Terms 7.6 — and narrowed
  *    to credit the merchant topped up, since promotional credit is excluded by 7.8;
- *  - response times, released against RESPONSE_TIMES in facts.ts.
+ *  - response times, released against RESPONSE_TIMES in facts.ts — and withdrawn
+ *    again on 2026-09-04 (no support team exists; see `public-claims.test.ts`).
  *
  * A claim whose clause is later deleted is a claim with nothing behind it, so the
  * pairing is asserted below rather than left to memory.

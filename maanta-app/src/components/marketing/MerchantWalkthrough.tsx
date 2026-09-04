@@ -48,7 +48,7 @@ import { IconCheck } from "@/components/ui/icons";
 
 const JOURNEY = SAMPLE_DEALS[0];
 
-/** The wallet figure used in the fee panel. Invented, like the shop. */
+/** The balance figure used in the fee panel. Invented, like the shop. */
 const SAMPLE_BALANCE = 500;
 
 function Panel({ children }: { children: React.ReactNode }) {
@@ -176,7 +176,7 @@ function FeePanel() {
           <span className="tnum font-semibold text-ink">−{formatKes(fee)}</span>
         </div>
         <div className="mt-1 flex items-baseline justify-between border-t border-line pt-1 text-[9px]">
-          <span className="text-secondary">Wallet balance after</span>
+          <span className="text-secondary">Balance after</span>
           <span className="tnum font-bold text-ink">{formatKes(SAMPLE_BALANCE - fee)}</span>
         </div>
       </div>

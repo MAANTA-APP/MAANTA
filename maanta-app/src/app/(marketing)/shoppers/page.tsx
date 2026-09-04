@@ -15,7 +15,7 @@ import {
 import { ShopperWalkthrough } from "@/components/marketing/ShopperWalkthrough";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_SHOPS_SENTENCE, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_HERO_SUB } from "@/lib/marketing/live-claims";
+import { FEED_CTA_LABEL, NODE_CTA_TITLE, NODE_PRESENCE_LEAD, NODE_SHOPS_SENTENCE, NODE_STATUS_LINE, SEE_NODE_LINK_LABEL, SHOPPER_HERO_SUB } from "@/lib/marketing/live-claims";
 
 /**
  * `/shoppers` — 308 target for both `/for-shoppers` and `/how-it-works`.
@@ -60,7 +60,7 @@ export default function ShoppersPage() {
         sub={
           SHOPPER_HERO_SUB
         }
-        primary={{ label: "Browse live deals", href: "/feed" }}
+        primary={{ label: FEED_CTA_LABEL, href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
         status={
           <>
@@ -335,7 +335,7 @@ export default function ShoppersPage() {
       <CtaBand
         title={NODE_CTA_TITLE}
         body="No sign-up to look around."
-        primary={{ label: "Browse live deals", href: "/feed" }}
+        primary={{ label: FEED_CTA_LABEL, href: "/feed" }}
         secondary={{ label: "Install the app", href: "/download" }}
       />
     </>

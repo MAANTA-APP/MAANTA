@@ -7,12 +7,11 @@ Last updated: 31 July 2026 (DRAFT)
 
 ## 1. Who we are
 
-MAANTA operates a platform that shows deals published by shops inside shopping malls, lets shoppers claim a deal and receive a one-time code, and lets shop staff verify that code at the counter.
+MAANTA is building a platform that shows deals published by shops inside shopping malls, lets shoppers claim a deal and receive a one-time code, and lets shop staff verify that code at the counter.
 
-MAANTA APP is the data controller for the personal data described in this policy.
+**Who is responsible for your data.** MAANTA is a pre-launch project. A company has not yet been incorporated, so there is no registered data controller and no ODPC registration. Until there is, we are not collecting information for any purpose beyond replying to you. Reach us at **admin@maanta.app**.
 
 **Contact for privacy matters:** admin@maanta.app
-**ODPC registration:** {{ODPC_REGISTRATION}}
 
 ## 2. What this policy covers
 

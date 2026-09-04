@@ -3,7 +3,7 @@ import Link from "next/link";
 import { HelpFaqs, HelpWhatsAppButton } from "@/components/marketing/help-content";
 import { HelpStatePanels } from "@/components/marketing/HelpStatePanels";
 import { Section } from "@/components/marketing/sections";
-import { RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { HELP_DESCRIPTION, SUPPORT_REPLY_LINE } from "@/lib/marketing/live-claims";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 
 /**
@@ -20,10 +20,11 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
 export const metadata: Metadata = pageMetadata({
   path: "/help",
   title: "Help — MAANTA",
-  // Was 90 characters. The support commitment is the part a searcher is
-  // deciding on, so it belongs in the snippet.
-  description:
-    "How to claim and redeem a MAANTA deal, what the grace period is, and how to reach a person. We reply on WhatsApp the same day, and within 1 business day by email.",
+  // This snippet carried "We reply on WhatsApp the same day, and within 1
+  // business day by email" — a support commitment with no support team behind
+  // it. No response time may be published (founder ruling 2026-09-04, X9);
+  // the description reads from the same constant as the page body.
+  description: HELP_DESCRIPTION,
 });
 
 export default function HelpPage() {
@@ -50,20 +51,18 @@ export default function HelpPage() {
         <HelpStatePanels />
         <HelpWhatsAppButton className="mt-8" />
         {/*
-          The same commitment `/contact` publishes, from the same constant.
-          `/help` is the other support door — it is in the footer as "Help
-          centre" — and it stated no turnaround at all, so which promise a
-          visitor got depended on which door they came through. Reading from
-          `RESPONSE_TIMES` rather than restating it means the two cannot drift;
-          the founder ruling that set these numbers is dated 2026-07-31.
+          The same line `/contact` publishes, from the same constant
+          (`SUPPORT_REPLY_LINE`). It used to read the 2026-07-31
+          `RESPONSE_TIMES`; those were withdrawn on 2026-09-04 because no support
+          team exists to meet them. Reading one constant means the two doors
+          cannot promise different things.
         */}
         <p className="mt-6 text-sm leading-relaxed text-secondary">
-          We reply on WhatsApp {RESPONSE_TIMES.whatsapp}, and within{" "}
-          {RESPONSE_TIMES.form} by email or the{" "}
+          {SUPPORT_REPLY_LINE} You can also use the{" "}
           <Link href="/contact" className="underline underline-offset-4 hover:text-ink">
-            contact form
+            contact page
           </Link>
-          . If we are going to be slower than that, we will tell you.
+          .
         </p>
         <p className="mt-4 text-sm text-secondary">
           Running a shop? See{" "}

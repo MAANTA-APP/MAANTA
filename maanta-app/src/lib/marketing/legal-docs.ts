@@ -65,7 +65,9 @@ export const RESOLVED_TOKENS: Record<string, string> = {
   // document that needs one is waiting on incorporation, not on this table.
   SUPPORT_EMAIL: ENTITY.email,
   PRIVACY_EMAIL: ENTITY.email,
-  ODPC_REGISTRATION: PLACEHOLDER_IDS.odpc,
+  // No ODPC_REGISTRATION token: the policy states in words that there is no
+  // registration (founder ruling 2026-09-04) rather than rendering a
+  // registration-number-shaped placeholder.
   COMPANY_REGISTRATION: PLACEHOLDER_IDS.company,
   PIN: PLACEHOLDER_IDS.pin,
   // Verbatim from demo.ts (must not be paraphrased) — rendered as a section in
@@ -83,7 +85,6 @@ export const RESOLVED_TOKENS: Record<string, string> = {
  * from reaching production silently once `DEMO_MODE` flips off.
  */
 export const PLACEHOLDER_ID_TOKENS: ReadonlySet<string> = new Set([
-  "ODPC_REGISTRATION",
   "COMPANY_REGISTRATION",
   "PIN",
 ]);

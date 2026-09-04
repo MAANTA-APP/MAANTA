@@ -18,6 +18,6 @@ export default function Image() {
   return ogImage({
     eyebrow: "For merchants",
     headline: "You only pay when a customer walks in.",
-    subline: `KES ${FACTS.successFeeKes} per verified redemption. No listing fee, no cut of the sale.`,
+    subline: `KES ${FACTS.successFeeKes} per verified redemption. No fee to join, no share of your sale.`,
   });
 }

@@ -35,7 +35,7 @@ import { MerchantJoinForm } from "./join-form";
 export const metadata: Metadata = pageMetadata({
   path: "/merchants/join",
   title: "List your shop — MAANTA",
-  description: `Put your shop on MAANTA in two fields. No listing fee and no cut of the sale — you pay KES ${SUCCESS_FEE_KES} only when a customer's code is verified at your counter.`,
+  description: `Put your shop on MAANTA in two fields. No fee to join and no share of your sale — you pay KES ${SUCCESS_FEE_KES} only when a customer's code is verified at your counter.`,
 });
 
 export default function MerchantJoinPage() {

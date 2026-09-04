@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ENTITY } from "@/lib/marketing/demo";
-import { RESPONSE_TIMES } from "@/lib/marketing/facts";
-import { NO_DESK_NOTICE } from "@/lib/marketing/live-claims";
+import { NO_DESK_NOTICE, SUPPORT_REPLY_LINE } from "@/lib/marketing/live-claims";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -21,14 +20,14 @@ import { pageMetadata } from "@/lib/marketing/page-metadata";
  * permitted phrasing is intent, read from `NO_DESK_NOTICE` so it flips with the
  * rest of the pre-launch claims.
  *
- * **Response times are published as of 2026-07-31**, by founder ruling, and read
- * from `RESPONSE_TIMES` in `facts.ts` so the page and the autoresponder cannot
- * drift apart. They are deliberately conservative — the deck is blunt that "a
- * missed commitment here does more damage than no commitment at all", so these
- * should be tightened only against evidence, never loosened after the fact.
+ * **No response times.** The 2026-07-31 `RESPONSE_TIMES` ("the same day", "1
+ * business day") were withdrawn by founder ruling 2026-09-04 (X9): no support
+ * team exists, so no turnaround may be published. The deck's own line — "a
+ * missed commitment here does more damage than no commitment at all" — is the
+ * reason. `SUPPORT_REPLY_LINE` is what this page and `/help` say instead.
  *
- * WhatsApp hours are still omitted: a stated opening hour that is not staffed is
- * the same failure as a missed response time.
+ * WhatsApp hours are omitted for the same reason: a stated opening hour that is
+ * not staffed is the same failure as a missed response time.
  *
  * The form itself lives in `EnquiryRouter`, a client component. It is **not**
  * wrapped in `Suspense`, and that is load-bearing (drift D41).
@@ -141,29 +140,12 @@ export default function ContactPage() {
         <SectionHeading>What happens next</SectionHeading>
         <div className="mt-6 max-w-2xl">
           <p className="text-base leading-relaxed text-secondary">
-            A person reads every message that arrives here — there is no ticket queue. You
-            will get a confirmation by email as soon as your message lands, so you know it
-            reached us.
+            A person reads every message that arrives here — there is no ticket queue.
           </p>
-          <dl className="mt-6 divide-y divide-line border-y border-line">
-            {[
-              ["WhatsApp", `We reply ${RESPONSE_TIMES.whatsapp}`],
-              ["This form and email", `We reply within ${RESPONSE_TIMES.form}`],
-              ["Mall operator enquiries", `We reply within ${RESPONSE_TIMES.operator}`],
-              [
-                "Privacy and data requests",
-                "Acknowledged within 1 business day, answered within the period required by the Kenya Data Protection Act 2019",
-              ],
-            ].map(([label, value]) => (
-              <div key={label} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-6">
-                <dt className="text-sm font-bold text-ink sm:w-56 sm:shrink-0">{label}</dt>
-                <dd className="text-sm leading-relaxed text-secondary">{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-6 text-base leading-relaxed text-ink">
-            If we are going to be slower than this, we will tell you rather than leave you
-            waiting.
+          <p className="mt-4 text-base leading-relaxed text-ink">{SUPPORT_REPLY_LINE}</p>
+          <p className="mt-4 text-base leading-relaxed text-secondary">
+            Privacy and data requests are answered within the period the Kenya Data
+            Protection Act 2019 requires.
           </p>
         </div>
       </Section>

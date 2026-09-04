@@ -18,7 +18,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/merchant-terms",
   title: "Merchant Terms — MAANTA",
   description:
-    "The commercial terms for shops listing deals on MAANTA — success fee, wallet, disputes and suspension.",
+    "The commercial terms for shops listing deals on MAANTA — success fee, balance, disputes and suspension.",
   robots: DEMO_MODE ? { index: false, follow: false } : undefined,
   // No opengraph-image for this route, and it should not have one — see
   // `twitterCard` in page-metadata.ts.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
+import { FACTS } from "@/lib/marketing/facts";
 import { SCENARIO } from "@/lib/marketing/scenario";
 import { ENTITY } from "@/lib/marketing/demo";
 import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
@@ -19,7 +19,15 @@ import {
 } from "@/components/marketing/sections";
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { FIRST_RESULTS_ANSWER_OPERATOR, NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_REFERENCE_SENTENCE, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
+import {
+  DEPLOYMENT_TIMELINE_LEAD,
+  FIRST_RESULTS_ANSWER_OPERATOR,
+  NODE_DURATION_LEAD,
+  NODE_FIRST_NODE_LEAD,
+  NODE_REFERENCE_SENTENCE,
+  NODE_STAFFING_MODEL,
+  NODE_STATUS_LINE,
+} from "@/lib/marketing/live-claims";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -246,23 +254,19 @@ export default function MallOperatorsPage() {
               body: "Not impressions. Not clicks. A redemption is counted only when a member of your tenant's staff verifies a code at the counter and the shopper is standing there. It is the closest thing to a receipt for footfall.",
             },
             {
-              title: "Tenant activation, done in person",
-              body: `A node runs with a node manager and up to ${NODE_TEAM.agentsMax} agents on the floor, unit by unit. They onboard shops, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion are the ones they spend the most time with.`,
+              title: "Tenant activation, in person",
+              // Stated as the plan. Nobody is on a floor today (X2, 2026-09-04).
+              body: "The plan is for a node team to onboard shops unit by unit, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion are the ones they would spend the most time with.",
             },
             {
               title: "Every offer in one place",
               body: "A shopper deciding where to spend Saturday sees what your mall has before they leave the house. Offers rank by verified redemptions, never by stars or reviews, so the feed reflects what people actually walked in for.",
             },
             {
-              title: "A named team on your floors",
-              body: (
-                <>
-                  Each node runs with one node manager and up to {NODE_TEAM.agentsMax}{" "}
-                  agents. The agents {NODE_TEAM.agentRole}. The node manager{" "}
-                  {NODE_TEAM.managerRole} — so you have one person to call, not a support
-                  address.
-                </>
-              ),
+              title: "How a node is staffed",
+              // From one source, with the "no node is staffed today" sentence
+              // attached while DEMO_MODE holds (X2, 2026-09-04).
+              body: NODE_STAFFING_MODEL,
             },
             {
               title: "Nothing to integrate",
@@ -308,7 +312,7 @@ export default function MallOperatorsPage() {
       </Section>
 
       <Section id="deployment">
-        <SectionHeading lead="Four steps, and roughly a month from agreement to live feed.">
+        <SectionHeading lead={DEPLOYMENT_TIMELINE_LEAD}>
           What deployment actually involves
         </SectionHeading>
         <StepRail
@@ -319,7 +323,7 @@ export default function MallOperatorsPage() {
             },
             {
               title: "Activation",
-              body: "The node team is in the building for this phase. Tenants are onboarded unit by unit, wallets and staff accounts set up, and each shop run through a live redemption before we leave the counter.",
+              body: "The node team is in the building for this phase. Tenants are onboarded unit by unit, staff accounts set up, and each shop run through a live redemption before we leave the counter.",
             },
             {
               title: "Go live",
@@ -369,7 +373,7 @@ export default function MallOperatorsPage() {
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
             MAANTA earns a {fee} success fee, charged to a tenant only when a shopper&apos;s
-            code is verified in store. No listing fee. No percentage of the sale. No monthly
+            code is verified in store. No fee to join. No share of the sale. No monthly
             minimum. An expired or rejected code costs the tenant nothing.
           </p>
           <p className="text-ink">
@@ -458,7 +462,7 @@ export default function MallOperatorsPage() {
             },
             {
               q: "What if our tenants don't take part?",
-              a: "Participation costs a tenant nothing to try — no listing fee, and the success fee only applies when a code is verified at their own counter. In practice the harder problem is not persuasion, it is sitting with a shop owner while they publish their first offer. That is what activation is for.",
+              a: "Participation costs a tenant nothing to try — no fee to join, and the success fee only applies when a code is verified at their own counter. We expect the harder problem is not persuasion but sitting with a shop owner while they publish their first offer. That is what activation is for.",
             },
             {
               q: "Do we need to change our POS or our systems?",
@@ -466,7 +470,7 @@ export default function MallOperatorsPage() {
             },
             {
               q: "Who supports our tenants day to day?",
-              a: "We do. WhatsApp support, plus the node team in the mall during activation and on request afterwards. Tenant support does not land on your team.",
+              a: "We do. WhatsApp and email support, and — once a node is staffed — the node team in the mall during activation and on request afterwards. Tenant support does not land on your team.",
             },
             {
               q: "What happens to the data if we stop?",

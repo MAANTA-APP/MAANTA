@@ -166,9 +166,12 @@ describe("marketing shell", () => {
   });
 
   // D35. The three audience pages each describe the in-mall team. They must all
-  // read it from NODE_TEAM, or they drift into describing different models — which
-  // is exactly what the vague "our team" phrasing allowed. The cap in particular is
-  // a frozen decision (decisions log 2026-07-31), not an estimate to restate.
+  // read it from NODE_TEAM — directly, or through NODE_STAFFING_MODEL, the one
+  // sentence composed from it that also says no node is staffed today while
+  // DEMO_MODE holds (founder ruling 2026-09-04, X2) — or they drift into
+  // describing different models, which is exactly what the vague "our team"
+  // phrasing allowed. The cap in particular is a frozen decision (decisions log
+  // 2026-07-31), not an estimate to restate.
   it("describes the node staffing model from one source", () => {
     const pages = [
       path.join(MARKETING_APP, "mall-operators", "page.tsx"),
@@ -178,8 +181,10 @@ describe("marketing shell", () => {
     const problems: string[] = [];
     for (const f of pages) {
       const code = codeText(f);
-      if (!/NODE_TEAM/.test(code)) {
-        problems.push(`${rel(f)} describes the team without reading NODE_TEAM`);
+      if (!/NODE_TEAM|NODE_STAFFING_MODEL/.test(code)) {
+        problems.push(
+          `${rel(f)} describes the team without reading NODE_TEAM or NODE_STAFFING_MODEL`
+        );
       }
       // A typed agent cap is the drift this guards: "up to four agents" written
       // as prose survives a change to the frozen cap silently.

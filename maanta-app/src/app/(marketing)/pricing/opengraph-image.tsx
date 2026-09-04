@@ -22,6 +22,6 @@ export default function Image() {
   return ogImage({
     eyebrow: "Pricing",
     headline: "You pay when a customer walks in, not before.",
-    subline: `KES ${FACTS.successFeeKes} per verified redemption on every plan. No listing fee, no cut of the sale.`,
+    subline: `KES ${FACTS.successFeeKes} per verified redemption on every plan. No fee to join, no share of your sale.`,
   });
 }

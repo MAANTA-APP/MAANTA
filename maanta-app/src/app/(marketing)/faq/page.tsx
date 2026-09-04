@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatKes } from "@/lib/ui";
-import { FACTS } from "@/lib/marketing/facts";
+import { FACTS, PAYMENT_AVAILABILITY } from "@/lib/marketing/facts";
 import { FaqAccordion, Section, SectionHeading } from "@/components/marketing/sections";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -89,11 +89,11 @@ export default function FaqPage() {
   const merchantFaqs = [
     {
       q: "What is a success fee?",
-      a: `Merchants pay ${fee} only when a customer's code is verified in-store. Expired or rejected codes cost nothing — there are no listing fees or commissions.`,
+      a: `Merchants pay ${fee} only when a customer's code is verified in-store. Expired or rejected codes cost nothing — you don't pay to be listed, and we never take a share of your sale.`,
     },
     {
       q: "What does it cost per sale?",
-      a: `Nothing beyond the ${fee}. The fee is the same whether the customer spends ${formatKes(200)} or ${formatKes(20_000)} — we do not take a percentage, and there is no monthly minimum.`,
+      a: `Nothing beyond the ${fee}. The fee is the same whether the customer spends ${formatKes(200)} or ${formatKes(20_000)} — we never take a share of your sale, and there is no monthly minimum.`,
     },
     {
       q: "What is the difference between Standard and Elite?",
@@ -116,8 +116,13 @@ export default function FaqPage() {
       a: "Yes, on any plan. Add the people who work your counter and they verify codes with their own login — not your phone and not your password.",
     },
     {
+      // X3 — the most serious single defect in the 2026-09-04 ruling. This
+      // answer described an M-Pesa prompt and "card also works" for a payment
+      // that does not exist inside MAANTA. It reads from PAYMENT_AVAILABILITY
+      // and, because the FAQPage JSON-LD below is generated from this same
+      // array, the schema carries the corrected answer byte-for-byte.
       q: "How do I top up my balance?",
-      a: "By M-Pesa — you get a prompt on your phone and enter your PIN. Card also works if you prefer.",
+      a: PAYMENT_AVAILABILITY.faqAnswer,
     },
     {
       q: "Can I stop?",

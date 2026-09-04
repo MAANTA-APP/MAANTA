@@ -25,6 +25,10 @@ import { RegulatoryStatus } from "@/components/marketing/RegulatoryStatus";
  * ODPC string (`DEMO-ODPC-…`) that even defeated the component's `/-DEMO-/`
  * safety net, and the status block rendered nowhere. This file is what makes
  * that class of drift fail CI instead of waiting for an audit.
+ *
+ * Since 2026-09-04 the ODPC identifier is not rendered at all — the policy says
+ * in words that no registration exists — so the placeholder machinery is
+ * exercised through the company identifier instead.
  */
 
 const SRC = path.resolve(__dirname, "..", "..");
@@ -33,9 +37,19 @@ const LEGAL = path.join(SRC, "content", "legal");
 const read = (p: string) => readFileSync(p, "utf8");
 
 describe("pre-launch disclosures (D75)", () => {
-  it("the privacy policy carries the ODPC identifier as a token, not a literal", () => {
+  /**
+   * Founder ruling 2026-09-04 (`10 §5`): the ODPC line is gone altogether. A
+   * registration-number-shaped placeholder reads as a registration number at a
+   * glance, so the policy says in words that there is no registered data
+   * controller and no ODPC registration, and names no address and no entity.
+   */
+  it("the privacy policy states the missing registration in words, not as an identifier", () => {
     const md = read(path.join(LEGAL, "privacy-policy.md"));
-    expect(md).toContain("{{ODPC_REGISTRATION}}");
+    expect(md).not.toContain("{{ODPC_REGISTRATION}}");
+    expect(md).not.toMatch(/ODPC-[A-Z0-9-]+/);
+    expect(md).toContain("no registered data controller and no ODPC registration");
+    expect(md).not.toMatch(/is the data controller/i);
+    expect(md).not.toMatch(/Registered address/i);
   });
 
   it("no legal document hardcodes a DEMO-form identifier as plain text", () => {
@@ -58,9 +72,9 @@ describe("pre-launch disclosures (D75)", () => {
 
   it("the identifier tokens resolve to the canonical values and are routed through PlaceholderId", () => {
     expect(Array.from(PLACEHOLDER_ID_TOKENS).sort()).toEqual(
-      ["COMPANY_REGISTRATION", "ODPC_REGISTRATION", "PIN"].sort()
+      ["COMPANY_REGISTRATION", "PIN"].sort()
     );
-    expect(RESOLVED_TOKENS.ODPC_REGISTRATION).toBe(PLACEHOLDER_IDS.odpc);
+    expect(RESOLVED_TOKENS.ODPC_REGISTRATION).toBeUndefined();
     expect(RESOLVED_TOKENS.COMPANY_REGISTRATION).toBe(PLACEHOLDER_IDS.company);
     expect(RESOLVED_TOKENS.PIN).toBe(PLACEHOLDER_IDS.pin);
 
@@ -74,9 +88,9 @@ describe("pre-launch disclosures (D75)", () => {
 
   it("PlaceholderId renders the crop-surviving badge treatment", () => {
     const html = renderToStaticMarkup(
-      createElement(PlaceholderId, { value: PLACEHOLDER_IDS.odpc })
+      createElement(PlaceholderId, { value: PLACEHOLDER_IDS.company })
     );
-    expect(html).toContain(PLACEHOLDER_IDS.odpc);
+    expect(html).toContain(PLACEHOLDER_IDS.company);
     expect(html).toContain("Placeholder");
     expect(html).toContain("font-mono");
   });
