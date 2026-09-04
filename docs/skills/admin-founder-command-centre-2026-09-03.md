@@ -722,3 +722,23 @@ The run also started without waiting for an environment approval, which means
 `e2e-readonly` has **no required reviewers**. Add them before any secret is
 stored there — the reviewer prompt is what stands between a branch and a live
 admin session.
+
+### The second dispatch (run 33858470259): the mechanism works up to the human step
+
+On `f797341`, same preview. The guard ran and accepted the target; checkout,
+`npm ci` and the Playwright install succeeded; the job failed closed at
+*Require the admin storage state*, with the suite step skipped and the
+assertion step reporting no report. That is the exact behaviour the workflow
+promises when `E2E_ADMIN_STORAGE` is absent, and it is the first definitive
+evidence that the secret is not stored — the GitHub proxy an engineering
+session sits behind refuses the environments API, so the run was the only
+way to know. It again started without an approval prompt: no required
+reviewers yet.
+
+What remains is entirely the founder's, in this order: required reviewers on
+`e2e-readonly`; `VERCEL_AUTOMATION_BYPASS_SECRET` from the Vercel project's
+Deployment Protection page; `E2E_ADMIN_STORAGE` from
+`npm run e2e:capture -- admin https://maanta-nuia-git-claude-session-a3rqwo-maanta.vercel.app`;
+then a dispatch of *E2E (admin + founder acceptance, read-only)* on
+`claude/session-a3rqwo` with that URL, approving the prompt. Any engineering
+session can run the dispatch and read the result once the secrets exist.
