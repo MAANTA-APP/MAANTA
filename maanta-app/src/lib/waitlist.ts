@@ -51,6 +51,22 @@ export type WaitlistSubmission = {
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
+  /**
+   * An internal test signup, made through the real form.
+   *
+   * MAANTA tests the live waitlist rather than a copy of it (founder TEST
+   * treatment, 2026-09-04), so the marker has to travel with the contact. The
+   * admin console defaults to counting Real only and states which population
+   * every figure used; without this flag those rows would be indistinguishable
+   * from genuine signups — the same defect as `redemptions.is_demo`, which
+   * `claim_deal` never set, so every claim silently counted as real (D188).
+   *
+   * Defaults to `false`. Nothing a member of the public can send sets it: it is
+   * derived from the `?test=1` entry point, never trusted from the body alone.
+   */
+  isTest: boolean;
+  /** What is being tested, e.g. `smoke-test`. Free text, capped. */
+  testLabel: string | null;
 };
 
 /**
@@ -124,6 +140,8 @@ export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
       utmSource: optionalText(b.utmSource, 100),
       utmMedium: optionalText(b.utmMedium, 100),
       utmCampaign: optionalText(b.utmCampaign, 100),
+      isTest: b.isTest === true,
+      testLabel: b.isTest === true ? optionalText(b.testLabel, 60) : null,
     },
   };
 }

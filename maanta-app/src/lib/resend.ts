@@ -74,6 +74,11 @@ export async function addWaitlistContact(
       source_campaign: submission.utmCampaign ?? undefined,
       consent_at: new Date().toISOString(),
       consent_text: WAITLIST_CONSENT_TEXT,
+      // Always written, never omitted when false: a missing property and an
+      // explicit `false` read the same to a human and differently to a filter,
+      // and the admin console's Real/Test split depends on the difference.
+      is_test: submission.isTest,
+      test_label: submission.testLabel ?? undefined,
     },
   };
 
@@ -193,5 +198,128 @@ export async function sendWaitlistEmail(
   } catch (err) {
     console.error("Resend email send threw:", err);
     return false;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Read side — the admin Growth console.
+ *
+ * The waitlist record lives in a Resend audience and not in Supabase (founder
+ * decision 2026-07-10, decisions log). `/admin/growth/waitlist` therefore reads
+ * back out of Resend rather than out of a table, which keeps that decision
+ * intact instead of quietly growing a second copy of the same data.
+ *
+ * One constraint shapes everything below: **the audience list endpoint does not
+ * return custom properties.** It returns `id`, `email`, `first_name`,
+ * `last_name`, `unsubscribed` and `created_at` only — while `segment_type`,
+ * `phone`, `node_interest`, the `source_*` trio and the consent fields all live
+ * in `properties`, written by `addWaitlistContact` above. Every column the
+ * console shows besides name and join date therefore needs a second, per-contact
+ * call. That is why the directory is capped and cached rather than streamed.
+ * ------------------------------------------------------------------------- */
+
+/** Core fields, as the list endpoint returns them. */
+export type ResendContactSummary = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  unsubscribed: boolean;
+  created_at: string;
+};
+
+/** A contact with whatever custom properties the account actually returns. */
+export type ResendContactDetail = ResendContactSummary & {
+  properties: Record<string, unknown> | null;
+};
+
+function resendConfig(): { apiKey: string; audienceId: string } | null {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const audienceId = process.env.RESEND_AUDIENCE_ID?.trim();
+  if (!apiKey || !audienceId) return null;
+  return { apiKey, audienceId };
+}
+
+/** `true` when the console can talk to Resend at all. Surfaces as a read error. */
+export function isResendConfigured(): boolean {
+  return resendConfig() !== null;
+}
+
+/**
+ * One page of the audience. `after` is a contact id, per Resend's cursor
+ * pagination. Returns `null` on any failure — the caller renders a read-failure
+ * state rather than an empty list, because "we could not read it" and "there is
+ * nothing there" are different answers and only one of them is safe to quote.
+ */
+export async function listAudienceContacts(params: {
+  limit?: number;
+  after?: string;
+}): Promise<{ contacts: ResendContactSummary[]; hasMore: boolean } | null> {
+  const config = resendConfig();
+  if (!config) return null;
+
+  const url = new URL(`${RESEND_API_URL}/audiences/${config.audienceId}/contacts`);
+  url.searchParams.set("limit", String(Math.min(params.limit ?? 100, 100)));
+  if (params.after) url.searchParams.set("after", params.after);
+
+  try {
+    const res = await resendFetch(url.toString(), {
+      method: "GET",
+      headers: authHeaders(config.apiKey),
+    });
+    if (!res.ok) {
+      console.error("Resend contact list failed:", res.status, await res.text());
+      return null;
+    }
+    const body = (await res.json()) as { data?: unknown; has_more?: boolean };
+    const rows = Array.isArray(body.data) ? body.data : [];
+    return {
+      contacts: rows.filter((r): r is ResendContactSummary => {
+        const c = r as Partial<ResendContactSummary>;
+        return typeof c?.id === "string" && typeof c?.email === "string";
+      }),
+      hasMore: Boolean(body.has_more),
+    };
+  } catch (err) {
+    console.error("Resend contact list threw:", err);
+    return null;
+  }
+}
+
+/**
+ * One contact, with properties. `null` on failure — and a failure here is
+ * per-row, so the directory keeps the summary it already has and renders the
+ * property-backed columns as unreadable rather than dropping the person.
+ */
+export async function getAudienceContact(id: string): Promise<ResendContactDetail | null> {
+  const config = resendConfig();
+  if (!config) return null;
+
+  try {
+    const res = await resendFetch(
+      `${RESEND_API_URL}/audiences/${config.audienceId}/contacts/${encodeURIComponent(id)}`,
+      { method: "GET", headers: authHeaders(config.apiKey) }
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as Partial<ResendContactDetail>;
+    if (typeof body?.id !== "string") return null;
+    return {
+      id: body.id,
+      email: typeof body.email === "string" ? body.email : "",
+      first_name: typeof body.first_name === "string" ? body.first_name : null,
+      last_name: typeof body.last_name === "string" ? body.last_name : null,
+      unsubscribed: Boolean(body.unsubscribed),
+      created_at: typeof body.created_at === "string" ? body.created_at : new Date(0).toISOString(),
+      // Guarded rather than asserted: whether this account's API returns custom
+      // properties on the single-contact read is an account/API-version fact, not
+      // something this repo can prove. If they are absent the console says the
+      // column is unreadable — it never invents a segment or a source.
+      properties:
+        body.properties && typeof body.properties === "object"
+          ? (body.properties as Record<string, unknown>)
+          : null,
+    };
+  } catch {
+    return null;
   }
 }
