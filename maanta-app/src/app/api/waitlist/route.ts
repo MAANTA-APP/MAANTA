@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { validateWaitlistSubmission } from "@/lib/waitlist";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
@@ -13,21 +14,32 @@ import {
 /**
  * The rate-limit bucket.
  *
- * `x-forwarded-for`'s FIRST hop is whatever the client sent, so an IP-only key
- * is defeated by rotating one header — and every miss fell into a single shared
- * `waitlist:unknown` bucket. That was tolerable while a flood only produced junk
- * contacts in Resend. It is not tolerable now that these submissions become rows
- * in the table the admin console counts as traction (D261): unbounded
- * attacker-controlled rows in a traction figure is a different class of problem.
+ * Keyed on the client IP AND a digest of the normalized email, for two reasons
+ * that pull in different directions.
  *
- * So the key also carries the normalized email. Header rotation alone can no
- * longer mint unlimited distinct buckets for the same address, and the IP hint
- * still bounds a single client churning through addresses.
+ * On Vercel the platform overwrites `x-forwarded-for` with the connecting
+ * client's address and does not forward an external value, so on this
+ * deployment the first hop is not client-spoofable. Anywhere else it is, and
+ * every miss used to fall into a single shared `waitlist:unknown` bucket. The
+ * email component makes the key hold either way: header rotation alone cannot
+ * mint unlimited buckets for one address, and the IP still bounds one client
+ * churning through addresses. That matters now that these submissions become
+ * rows in the table the admin console counts as traction (D261).
+ *
+ * The address itself is never the key. `api_rate_limit_buckets` keeps its rows
+ * after the window closes and has no reaper, so a raw-email key would be a
+ * second, unmanaged copy of the waitlist in a table nobody thinks of as holding
+ * personal data (SEC-011). A digest bounds the key's length too, so a 254-byte
+ * address cannot be used to bloat a primary key.
  */
-function waitlistClientKey(request: Request, email: string | null): string {
+function waitlistClientKey(request: Request, email: string): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-  return `waitlist:${ip}:${email ?? "anon"}`;
+  const rawIp =
+    forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip")?.trim() || "unknown";
+  // Bounded and character-restricted: this string becomes a primary key.
+  const ip = rawIp.replace(/[^0-9a-f.:]/gi, "").slice(0, 45) || "unknown";
+  const address = createHash("sha256").update(email, "utf8").digest("hex").slice(0, 32);
+  return `waitlist:${ip}:${address}`;
 }
 
 /**
@@ -118,7 +130,9 @@ export async function POST(request: Request) {
   }
 
   // The mirror. Deliberately not awaited into the failure path: the person IS on
-  // the list at this point, and a 502 here would make them sign up again.
+  // the list at this point, and a 502 here would make them sign up again. Only a
+  // contact Resend just CREATED is written from this body — on already_exists
+  // the lib returns "skipped" and the sync pass imports Resend's own record.
   await mirrorWaitlistSignup(result.data, contact);
 
   // The signup is captured; a confirmation-email failure is logged but

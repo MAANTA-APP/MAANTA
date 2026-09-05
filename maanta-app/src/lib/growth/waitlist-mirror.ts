@@ -24,7 +24,7 @@ function logMirrorFailure(what: string, error: { code?: string } | null) {
   console.error(`waitlist mirror: ${what} failed`, { code: error?.code ?? "unknown" });
 }
 
-export type MirrorOutcome = "inserted" | "existing" | "failed";
+export type MirrorOutcome = "inserted" | "existing" | "skipped" | "failed";
 
 /**
  * Record the signup, then fold in what Resend said.
@@ -34,9 +34,18 @@ export type MirrorOutcome = "inserted" | "existing" | "failed";
  * must see — a mirror row for a person who never got into the sending audience
  * would be a signup that receives nothing.
  *
- * The insert is `ON CONFLICT DO NOTHING` on `lower(email)`: a repeat submission
- * from an unauthenticated caller must be a NO-OP on the row, never an update and
- * never a counter an anonymous prober can drive.
+ * **Only a contact Resend just CREATED is mirrored from the request body.** On
+ * `already_exists` the person is on the list under whatever they said the first
+ * time, and Resend holds that record. Writing this body instead would insert a
+ * name, a phone number, a segment and a fresh consent timestamp for an address
+ * the caller has only shown they *know* — and `/api/waitlist` already tells
+ * any unauthenticated caller whether an address is on the list. A repeat
+ * signup is therefore a no-op here (`skipped`); the sync pass imports such a
+ * contact from Resend, i.e. from the record they actually gave.
+ *
+ * The insert is `ON CONFLICT (email) DO NOTHING`: even for a freshly created
+ * contact, a row that somehow already exists is never updated and never a
+ * counter an anonymous prober can drive.
  *
  * `joined_at` is deliberately not written here. Resend's create response carries
  * no `created_at`, and on the `already_exists` branch the true join date may be
@@ -47,6 +56,8 @@ export async function mirrorWaitlistSignup(
   submission: WaitlistSubmission,
   resend: WaitlistContactResult
 ): Promise<MirrorOutcome> {
+  if (resend.outcome !== "created") return "skipped";
+
   const service = createServiceClient();
   const now = new Date().toISOString();
 
@@ -73,8 +84,8 @@ export async function mirrorWaitlistSignup(
         test_label: submission.testLabel,
         signup_source: "public_form",
         resend_contact_id: resend.contactId,
-        resend_status: resend.outcome === "failed" ? "failed" : resend.outcome,
-        resend_synced_at: resend.outcome === "failed" ? null : now,
+        resend_status: "created",
+        resend_synced_at: now,
         // A live-path row is never unreadable: this route wrote every property
         // itself. The table's CHECK enforces that independently.
         properties_unreadable: false,

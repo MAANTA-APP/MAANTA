@@ -436,3 +436,90 @@ number that means external demand.
 - The connector's `list-contacts` is not audience-scoped while the route reads
   `/audiences/{id}/contacts`. With two contacts that could not bite; on a larger
   audience it would be the first thing to check.
+
+---
+
+# Addendum 4 — security review, 2026-09-05
+
+## Read the automated output correctly first
+
+The adversarial review workflow ran to completion and produced 28 candidate
+findings. **Every one of its 42 verification agents then died on a session
+limit.** Its "refuted" list is therefore a list of findings that received zero
+votes, not findings that were examined and dismissed. Presenting that as a
+verdict would have been the exact failure the register exists to catch. What
+follows is a hand review of those candidates against the code, with the fixes
+made on the branch. It is a hand review; it is not the automated verification
+the PR originally promised, and the PR now says so.
+
+## Seven were real, and are fixed (D268)
+
+1. **A repeat signup planted the caller's data against someone else's address.**
+   `mirrorWaitlistSignup` ran for `already_exists` too, inserting the CURRENT
+   body's name, phone, segment and a fresh `consent_at` for an address the
+   caller had only shown they *know* — and `alreadyJoined` in the public
+   response tells anyone which addresses those are. The mirror now writes only
+   for a contact Resend just CREATED and returns `skipped` otherwise; a
+   pre-cutover contact who signs up again is imported by the sync from Resend's
+   own record of them. Guard: `growth-waitlist-mirror.test.ts`, whose mocked
+   client throws on any table access.
+2. **The rate-limit key was the raw email.** `api_rate_limit_buckets` keeps its
+   rows after the window and has no reaper, so this was a second, unmanaged
+   copy of the waitlist (SEC-011). The key is now the IP plus a 32-hex SHA-256
+   digest of the address, with the IP component character-restricted and
+   bounded — it becomes a primary key. Verified while here: Vercel overwrites
+   `x-forwarded-for` and does not forward an external value, so the "spoofable
+   first hop" candidate is unfounded on this platform; the email component
+   still matters for any other deployment and for SEC-011.
+3. **The sync would have failed a live-path contact forever.** Its update
+   carried `properties_unreadable` into whichever row matched the address, and
+   the table's CHECK forbids that flag on a `public_form` row. One such contact
+   would then fail on every sync, counted under `failed`, until Resend changed
+   shape. Backfilled rows now get the full patch; live rows get the same patch
+   minus the flag. Guard: `growth-waitlist-route-guards.test.ts` plus scenario F
+   of the SQL suite, which is the CHECK itself.
+4. **The TEST token went to PostHog on every event.** `/waitlist?test=<token>`
+   is the page URL, and autocapture records it as `$current_url`, `$referrer`
+   and their `$initial_*` cousins. `before_send` now redacts any `test=`
+   parameter in any string property at any depth, shape-agnostically, and
+   `test` / `test_token` join Sentry's sensitive-key list (the request query
+   string was already scrubbed; the key was not in the list). Guards:
+   `analytics-scrub.test.ts` (including that the hook is actually registered)
+   and `sentry-scrub.test.ts`.
+5. **The CSV export audited after the fact, best-effort.** A single phone reveal
+   audits before it answers and refuses when it cannot; the bulk version of that
+   act — every name, address and number in a population, leaving the system —
+   did not. It now does, with a 503 and no file. The search term is deliberately
+   not recorded: it is usually a name.
+6. **The lead stage route logged `error.message`.** Constraint messages on
+   `growth_merchant_leads` render the row. Code only now, and a malformed id is
+   a 400 rather than a cast error that reads like the database is broken.
+7. **Two small ones.** `WAITLIST_TEST_TOKEN` has a 32-character floor — below
+   it the module fails closed and logs once, never the value (a constant-time
+   comparison protects against a timing oracle, not against enumeration). And
+   the admin Waitlist page coerces a repeated query key instead of throwing on
+   `.trim()`.
+
+## One real gap that needs a migration (D267)
+
+The mirror has no `unsubscribed` column. Resend carries the flag and
+`getAudienceContact` reads it, but nothing stores it, so the counts and the CSV
+include people who have opted out. **Until the column exists, the export is not
+a suppression-checked list.** The fix is a migration and is a founder-authorised
+act; it is recorded, not applied.
+
+## Left as notes
+
+Pre-existing or house pattern, not changed: consent is recorded at signup for
+whatever address was typed (double opt-in is a product decision, not a patch);
+UTMs come from the body (inherent to attribution); `healthz` returns presence
+booleans; `GRANT SELECT` to `authenticated` behind RLS is how every admin table
+here is shaped; stage changes audit best-effort like every other `logAdminOp`
+call; `api_rate_limit_buckets` has no cleanup job.
+
+## Verified after the fixes
+
+`tsc --noEmit` clean · `next lint` clean · **2064 tests across 202 files** ·
+`npm run build` green with `check:tokens`, `check:canonicals`, `check:forms`.
+Still owed from the earlier addenda: `make db-verify` locally, the sync route
+end to end, and browser proof.

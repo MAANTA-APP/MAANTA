@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
-import { logAdminOp } from "@/lib/admin-audit";
 import { exportFilename, parsePopulation } from "@/lib/growth/population";
 import { isWaitlistSegment } from "@/lib/waitlist";
 import {
@@ -24,6 +23,11 @@ export const dynamic = "force-dynamic";
  * A partial read refuses rather than exporting silently truncated data: a CSV
  * has no room for a "this is a lower bound" banner, and a spreadsheet is exactly
  * where a lower bound gets quoted as a total.
+ *
+ * The audit write happens BEFORE the file is returned and is not best-effort,
+ * the same rule as revealing a phone number: this is the bulk version of that
+ * act — every name, address and number in the population, in one download that
+ * leaves the system. If the trail cannot record it, the file is withheld.
  */
 export async function GET(request: Request) {
   const auth = await requireAdminApi();
@@ -54,16 +58,25 @@ export async function GET(request: Request) {
   const filename = exportFilename("waitlist", population);
 
   const service = createServiceClient();
-  await logAdminOp(service, {
-    adminUserId: auth.user.id,
+  const { error: auditError } = await service.from("admin_ops_log").insert({
+    admin_user_id: auth.user.id,
     action: "growth.waitlist.export",
-    targetType: "waitlist_contact",
+    target_type: "waitlist_contact",
     // The export is not about one contact, so the admin's own id stands as the
     // target: `target_id` is NOT NULL and a synthetic all-zero UUID would read
     // like a real row nobody can find.
-    targetId: auth.user.id,
+    target_id: auth.user.id,
+    // `q` is deliberately not recorded: a search term is often a name or an
+    // address fragment, and the audit trail must not accumulate what it guards.
     details: { population, segment, source, rows: rows.length, filename },
   });
+  if (auditError) {
+    console.error("growth: export audit write failed", { code: auditError.code });
+    return NextResponse.json(
+      { error: "Could not record the export, so the file is withheld." },
+      { status: 503 }
+    );
+  }
 
   return new NextResponse(toCsv(rows), {
     headers: {

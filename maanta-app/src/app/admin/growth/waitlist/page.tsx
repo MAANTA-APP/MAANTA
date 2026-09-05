@@ -44,18 +44,29 @@ const SEGMENT_LABEL: Record<WaitlistSegment, string> = {
  * and because a test row that is only distinguishable by colour will eventually
  * be read as a real signup by someone looking at a printout.
  */
+/**
+ * Next hands a repeated query key (`?source=a&source=b`) over as an array. Every
+ * filter here is single-valued, so the first value stands and the rest are
+ * ignored — rather than `.trim()` throwing on an array and turning a mangled
+ * link into a 500 on an admin page.
+ */
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function AdminGrowthWaitlistPage({
   searchParams,
 }: {
-  searchParams: { population?: string; segment?: string; source?: string; q?: string; page?: string };
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   await requireAdminPage();
 
-  const population = parsePopulation(searchParams.population);
-  const segment = isWaitlistSegment(searchParams.segment) ? searchParams.segment : "all";
-  const source = searchParams.source?.trim() || "all";
-  const q = searchParams.q?.trim() || "";
-  const page = Math.max(1, Number(searchParams.page) || 1);
+  const rawSegment = first(searchParams.segment);
+  const population = parsePopulation(first(searchParams.population));
+  const segment = isWaitlistSegment(rawSegment) ? rawSegment : "all";
+  const source = first(searchParams.source)?.trim() || "all";
+  const q = first(searchParams.q)?.trim() || "";
+  const page = Math.max(1, Math.floor(Number(first(searchParams.page))) || 1);
 
   const directory = await loadWaitlistDirectory();
 

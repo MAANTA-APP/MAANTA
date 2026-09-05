@@ -27,30 +27,53 @@ import { createHash, timingSafeEqual } from "node:crypto";
  * Hashing first makes both operands 32 bytes by construction: the comparison
  * cannot throw, stays constant-time, and the length of the offered value leaks
  * nothing.
+ *
+ * ## Why a short token is the same as no token
+ *
+ * The comparison being constant-time protects against a timing oracle, not
+ * against enumeration. A token short enough to guess needs no side channel —
+ * and the endpoint it guards is public, rate-limited per address rather than
+ * per guess, and answers with a visible banner. So a configured value below the
+ * floor is treated exactly like an unset one: nothing can mark itself as a
+ * test, and the server log says why once (never the value).
  */
 
-const NOT_CONFIGURED = Symbol("waitlist-test-token-unset");
+/** Fewest characters `WAITLIST_TEST_TOKEN` may have and still be honoured. */
+export const WAITLIST_TEST_TOKEN_MIN_LENGTH = 32;
+
+let warnedTooShort = false;
 
 function digest(value: string): Buffer {
   return createHash("sha256").update(value, "utf8").digest();
 }
 
+function configuredSecret(): string | null {
+  const secret = process.env.WAITLIST_TEST_TOKEN?.trim();
+  if (!secret) return null;
+  if (secret.length < WAITLIST_TEST_TOKEN_MIN_LENGTH) {
+    if (!warnedTooShort) {
+      warnedTooShort = true;
+      console.error(
+        `waitlist: WAITLIST_TEST_TOKEN is shorter than ${WAITLIST_TEST_TOKEN_MIN_LENGTH} characters and is being ignored — no submission can be marked as a test until it is rotated`
+      );
+    }
+    return null;
+  }
+  return secret;
+}
+
 /**
  * `true` only when a real token is configured AND the offered value matches it.
  *
- * Fails closed: with no `WAITLIST_TEST_TOKEN` set, no submission can mark itself
- * as a test. That is the safe direction — an unmarked test row is visible noise
- * in the real population that a human notices, whereas a real signup wrongly
- * marked test disappears from every count silently.
+ * Fails closed: with no `WAITLIST_TEST_TOKEN` set (or one below the floor), no
+ * submission can mark itself as a test. That is the safe direction — an
+ * unmarked test row is visible noise in the real population that a human
+ * notices, whereas a real signup wrongly marked test disappears from every
+ * count silently.
  */
 export function isWaitlistTestToken(offered: unknown): boolean {
-  const secret = process.env.WAITLIST_TEST_TOKEN?.trim();
-  if (!secret || secret === NOT_CONFIGURED.description) return false;
+  const secret = configuredSecret();
+  if (!secret) return false;
   if (typeof offered !== "string" || !offered) return false;
   return timingSafeEqual(digest(offered), digest(secret));
-}
-
-/** Is the treatment available at all? Drives the page's TEST badge. */
-export function isWaitlistTestModeConfigured(): boolean {
-  return Boolean(process.env.WAITLIST_TEST_TOKEN?.trim());
 }

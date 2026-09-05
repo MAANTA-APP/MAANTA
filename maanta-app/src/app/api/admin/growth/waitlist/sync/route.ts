@@ -195,17 +195,46 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const { error: updateError } = await service
+    // Only what Resend owns. Never signup_source, is_test, segment or consent
+    // — those are the public form's record of what the person actually said.
+    //
+    // `properties_unreadable` is a backfill-only column: the table's CHECK says
+    // so, because a public_form row was written property-by-property by the
+    // form itself and nothing about it is unreadable no matter what Resend
+    // hands back today. Carrying the flag into an update on a live-path row
+    // would trip that constraint — and because this loop counts a failed update
+    // as `failed` and moves on, that one contact would then fail on EVERY sync
+    // for as long as Resend kept returning that shape. So the full patch goes
+    // to backfilled rows, and a live-path row gets the same patch minus the
+    // flag. Exactly one of the two matches; the second runs only if the first
+    // touched nothing.
+    const lowered = detail.email.trim().toLowerCase();
+    const { data: patchedBackfill, error: updateError } = await service
       .from("waitlist_signups")
-      // Only what Resend owns. Never signup_source, is_test, segment or consent
-      // — those are the public form's record of what the person actually said.
       .update(patch)
-      .eq("email", detail.email.trim().toLowerCase());
+      .eq("email", lowered)
+      .eq("signup_source", "backfill")
+      .select("id");
 
     if (updateError) {
       console.error("growth: sync update failed", { code: updateError.code });
       result.failed += 1;
       continue;
+    }
+
+    if (!patchedBackfill || patchedBackfill.length === 0) {
+      const livePatch = { ...patch };
+      delete livePatch.properties_unreadable;
+      const { error: liveError } = await service
+        .from("waitlist_signups")
+        .update(livePatch)
+        .eq("email", lowered)
+        .eq("signup_source", "public_form");
+      if (liveError) {
+        console.error("growth: sync update failed", { code: liveError.code });
+        result.failed += 1;
+        continue;
+      }
     }
     result.updated += 1;
   }

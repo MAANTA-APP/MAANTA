@@ -1,6 +1,51 @@
-import { describe, it, expect } from "vitest";
-import { mirrorPatchFromResend } from "@/lib/growth/waitlist-mirror";
+import { describe, it, expect, vi } from "vitest";
+import { mirrorPatchFromResend, mirrorWaitlistSignup } from "@/lib/growth/waitlist-mirror";
 import { resendPropertyValue } from "@/lib/resend";
+import type { WaitlistSubmission } from "@/lib/waitlist";
+
+// The skip path must never reach the database: a client whose every method
+// throws proves it by construction.
+vi.mock("@/lib/supabase/service", () => ({
+  createServiceClient: () => ({
+    from: () => {
+      throw new Error("mirror must not touch the table for a contact it did not create");
+    },
+  }),
+}));
+
+const submission: WaitlistSubmission = {
+  segment: "shopper",
+  fullName: "A Prober",
+  email: "someone-else@example.com",
+  phone: "+254712345678",
+  businessName: null,
+  note: null,
+  utmSource: null,
+  utmMedium: null,
+  utmCampaign: null,
+  isTest: false,
+  testLabel: null,
+};
+
+describe("waitlist mirror — a repeat signup writes nothing from the body", () => {
+  // `alreadyJoined` in the public response is a membership oracle; the body
+  // of a repeat submission is the caller's data, not the listed person's.
+  it("skips an already_exists contact without a database call", async () => {
+    await expect(
+      mirrorWaitlistSignup(submission, {
+        outcome: "already_exists",
+        contactId: "c-1",
+        propertiesWritten: true,
+      })
+    ).resolves.toBe("skipped");
+  });
+
+  it("skips a failed contact too — the route never reaches here, but the lib does not rely on that", async () => {
+    await expect(
+      mirrorWaitlistSignup(submission, { outcome: "failed", contactId: null, propertiesWritten: false })
+    ).resolves.toBe("skipped");
+  });
+});
 
 describe("waitlist mirror — folding a Resend read into a row", () => {
   it("records the contact id and stamps the sync", () => {

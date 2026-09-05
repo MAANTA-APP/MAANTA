@@ -42,6 +42,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     );
   }
 
+  // `id` is our own UUID primary key. A malformed one names itself here as a
+  // 400 rather than surfacing as a 22P02 cast error one layer down that reads
+  // like the database is broken.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)) {
+    return NextResponse.json({ error: "That lead id is not in the expected format." }, { status: 400 });
+  }
+
   const service = createServiceClient();
   const { data: existing, error: readError } = await service
     .from("growth_merchant_leads")
@@ -50,7 +57,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .maybeSingle();
 
   if (readError) {
-    console.error("growth: lead read failed:", readError.message);
+    // Code only. A constraint message on this table can render the unit or a
+    // contact's number verbatim (SEC-011).
+    console.error("growth: lead read failed", { code: readError.code });
     return NextResponse.json({ error: "Could not read that lead." }, { status: 502 });
   }
   if (!existing) {
@@ -73,7 +82,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     .eq("id", params.id);
 
   if (writeError) {
-    console.error("growth: lead update failed:", writeError.message);
+    console.error("growth: lead update failed", { code: writeError.code });
     return NextResponse.json({ error: "Could not move the lead." }, { status: 502 });
   }
 

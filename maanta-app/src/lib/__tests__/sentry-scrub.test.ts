@@ -60,6 +60,18 @@ describe("scrubEvent", () => {
     expect(qs).not.toContain("xyz");
   });
 
+  it("redacts the waitlist TEST token, which travels as a query param and a body key", () => {
+    const event = scrubbed({
+      request: {
+        query_string: "segment=merchant&test=s3cret-token-with-enough-entropy-0123",
+        data: { testToken: "s3cret-token-with-enough-entropy-0123", segment: "merchant" },
+      },
+    } as Record<string, unknown>);
+
+    expect(JSON.stringify(event)).not.toContain("s3cret-token-with-enough-entropy");
+    expect(JSON.stringify(event)).toContain("segment=merchant");
+  });
+
   it("reaches sensitive keys nested inside extra and contexts", () => {
     const event = scrubbed({
       extra: { ledger: { entry: { phone_number: "+254712345678", amount: 500 } } },
