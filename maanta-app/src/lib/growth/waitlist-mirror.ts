@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { WAITLIST_CONSENT_TEXT, WAITLIST_NODE_INTEREST, type WaitlistSubmission } from "@/lib/waitlist";
+import { WAITLIST_CONSENT_TEXT, type WaitlistSubmission } from "@/lib/waitlist";
 import { resendPropertyValue, type WaitlistContactResult } from "@/lib/resend";
 
 /**
@@ -71,7 +71,10 @@ export async function mirrorWaitlistSignup(
         full_name: submission.fullName,
         phone: submission.phone,
         segment: submission.segment,
-        node_interest: WAITLIST_NODE_INTEREST,
+        node_interest: submission.nodeInterest,
+        // NULL, not an empty array: the column's CHECK spells "none" as NULL so
+        // a count of "rows with interests" is a plain IS NOT NULL.
+        interests: submission.interests.length > 0 ? submission.interests : null,
         business_name: submission.businessName,
         // `note` is deliberately not mirrored — free text the console never
         // renders, and a second copy of it earns nothing. Resend still holds it.

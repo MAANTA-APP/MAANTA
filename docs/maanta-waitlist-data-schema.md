@@ -210,3 +210,25 @@ fields. Three paths, each hard-setting the segment:
 When the waitlist site is built (or rebuilt), give the builder this file plus
 the three-message hierarchy from `maanta-marketing-agency-brief.md`. Field
 names above are canonical.
+
+## Amended 2026-09-05 — the waitlist funnel (design board 2)
+
+Read with the 2026-09-04 mirror amendment (`docs/maanta-decisions-log.md`).
+
+- **Two steps.** `/waitlist` is role selection (three segments, a GET form, no
+  JavaScript needed); `/waitlist?role=<segment>` is the contact form. `?segment=`
+  and the hyphenated `?role=mall-operator` are still read. A merchant is sent to
+  `/merchants/join`.
+- **Shopper / mall-operator fields:** `phone` (first, required), `email`
+  (required — founder ruling; see register D269), `fullName` (**optional** since
+  this date; `full_name` and Resend `first_name` may be empty), `mall`
+  (`bbs` | `other` + `mallOther`, stored as `node_interest`), `interests`
+  (closed list, `waitlist_signups.interests TEXT[]`, mirror-only), `businessName`
+  (mall operator only), `consent` (unchanged wording).
+- **A TEST signup sends no confirmation email.**
+- **Merchant interest is a separate endpoint and table:** `POST /api/merchants/interest`
+  → `growth_merchant_leads` with `source = 'public_form'`. Fields: `shopName`,
+  `contactName`, `phone`, `mall`, `floor`, `unit`, `category`, `counterStaff`,
+  `eliteTrial`, `contactConsent` (wording in `lib/merchant-interest.ts`, stored
+  verbatim). **No email.** Migration `20260905130000_waitlist_funnel_fields.sql`.
+

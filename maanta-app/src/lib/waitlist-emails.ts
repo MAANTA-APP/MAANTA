@@ -9,8 +9,8 @@ import { escapeHtml } from "@/lib/escape-html";
 
 export type WaitlistEmail = { subject: string; html: string; text: string };
 
-function firstName(fullName: string): string {
-  return fullName.trim().split(/\s+/)[0] || "there";
+function firstName(fullName: string | null): string {
+  return (fullName ?? "").trim().split(/\s+/)[0] || "there";
 }
 
 function renderHtml(paragraphs: string[]): string {
@@ -65,7 +65,7 @@ const COPY: Record<
 
 export function waitlistConfirmationEmail(
   segment: WaitlistSegment,
-  fullName: string
+  fullName: string | null
 ): WaitlistEmail {
   const { subject, paragraphs } = COPY[segment];
   const parts = paragraphs(escapeHtml(firstName(fullName)));

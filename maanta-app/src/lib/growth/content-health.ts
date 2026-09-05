@@ -21,7 +21,8 @@ import { LEGAL_TITLES, type LegalSlug } from "@/lib/marketing/legal-docs";
  * Declared rather than discovered: `next/og` routes are build artifacts and a
  * runtime filesystem walk is not available in a deployed Next build. It cannot
  * drift, because `growth-content-health.test.ts` walks `src/app/(marketing)` and
- * fails if this list and the files on disk disagree in either direction.
+ * `src/app/(funnel)` and fails if this list and the files on disk disagree in
+ * either direction.
  *
  * OG images do **not** cascade in the App Router — a child route without its own
  * file gets no large card at all, not its parent's — which is why coverage is

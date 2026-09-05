@@ -15,6 +15,19 @@ export function isWaitlistSegment(value: unknown): value is WaitlistSegment {
 }
 
 /**
+ * Read a segment out of a URL parameter, tolerating the spellings that already
+ * exist in the wild: `?segment=merchant` (the landing form and older links),
+ * `?role=shopper` (board 2), and `?role=mall-operator` (the mall-operators page
+ * has linked that hyphenated form since 2026-07-31). Anything else is "not
+ * chosen yet", which sends the visitor to role selection rather than guessing.
+ */
+export function parseWaitlistSegmentParam(value: unknown): WaitlistSegment | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase().replace(/-/g, "_");
+  return isWaitlistSegment(normalized) ? normalized : null;
+}
+
+/**
  * Segment options in canonical order. Shared by the landing early-access
  * form and the full waitlist form so the two entry points cannot drift —
  * a shopper-labelled option that posts `merchant` would corrupt the
@@ -37,15 +50,58 @@ export const WAITLIST_SEGMENT_OPTIONS: {
 export const WAITLIST_CONSENT_TEXT =
   "I agree to receive MAANTA launch updates and relaunch marketing emails — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
 
-/** Node 0. All pre-launch signups default to this node interest. */
+/** Node 0. The default node interest, and the mall the form offers first. */
 export const WAITLIST_NODE_INTEREST = "BBS Mall";
+
+/**
+ * The mall question on the shopper form. `bbs` is Node 0; `other` asks which,
+ * and the answer becomes `node_interest` — a shopper naming another mall is a
+ * signal for where Node 1 should be, which is why the form bothers to ask.
+ */
+export const WAITLIST_MALL_OPTIONS = [
+  { value: "bbs", label: "BBS Mall, Eastleigh" },
+  { value: "other", label: "Another mall" },
+] as const;
+export type WaitlistMallChoice = (typeof WAITLIST_MALL_OPTIONS)[number]["value"];
+
+/**
+ * "What do you usually shop for?" — optional chips, closed list. Stored on the
+ * mirror only (`waitlist_signups.interests`); Resend has no property for it and
+ * does not need one, because this exists to be counted, not sent to.
+ */
+export const SHOPPER_INTERESTS = [
+  { value: "clothes", label: "Clothes" },
+  { value: "shoes", label: "Shoes" },
+  { value: "kids", label: "Kids" },
+  { value: "phones", label: "Phones" },
+  { value: "household", label: "Household" },
+  { value: "food", label: "Food" },
+] as const;
+export type ShopperInterest = (typeof SHOPPER_INTERESTS)[number]["value"];
+
+export function isShopperInterest(value: unknown): value is ShopperInterest {
+  return (
+    typeof value === "string" &&
+    SHOPPER_INTERESTS.some((i) => i.value === value)
+  );
+}
 
 export type WaitlistSubmission = {
   segment: WaitlistSegment;
-  fullName: string;
+  /**
+   * Optional since board 2 (2026-09-05): the shopper form asks for a first name
+   * "so we can greet you properly" and nothing more. A person is identified by
+   * the address and reached by the number; a name that is not there is a
+   * greeting that says "there" instead.
+   */
+  fullName: string | null;
   email: string;
   /** E.164; Kenyan numbers normalized to +254. */
   phone: string;
+  /** Which mall they shop at. "BBS Mall" for Node 0, else what they typed. */
+  nodeInterest: string;
+  /** Closed list, possibly empty. */
+  interests: ShopperInterest[];
   businessName: string | null;
   note: string | null;
   utmSource: string | null;
@@ -121,8 +177,19 @@ export function validateWaitlistSubmission(
   }
 
   const fullName = typeof b.fullName === "string" ? b.fullName.trim() : "";
-  if (!fullName) return { ok: false, error: "Your name is required." };
   if (fullName.length > 120) return { ok: false, error: "Name is too long." };
+
+  // The mall. Absent (older callers, the landing form) means Node 0.
+  let nodeInterest: string = WAITLIST_NODE_INTEREST;
+  if (b.mall === "other") {
+    const other = optionalText(b.mallOther, 80);
+    if (!other) return { ok: false, error: "Tell us which mall you shop at." };
+    nodeInterest = other;
+  }
+
+  const interests = Array.isArray(b.interests)
+    ? Array.from(new Set(b.interests.filter(isShopperInterest)))
+    : [];
 
   const email = typeof b.email === "string" ? b.email.trim().toLowerCase() : "";
   if (!email || email.length > 254 || !EMAIL_RE.test(email)) {
@@ -142,9 +209,11 @@ export function validateWaitlistSubmission(
     ok: true,
     data: {
       segment: b.segment,
-      fullName,
+      fullName: fullName || null,
       email,
       phone,
+      nodeInterest,
+      interests,
       businessName: optionalText(b.businessName, 160),
       note: optionalText(b.note, 1000),
       utmSource: optionalText(b.utmSource, 100),

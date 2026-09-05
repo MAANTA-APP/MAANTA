@@ -11,6 +11,9 @@ import {
 import { NON_INDEXABLE_PREFIXES, SITEMAP_ROUTES } from "@/lib/marketing/nav";
 
 const MARKETING_DIR = path.resolve(__dirname, "../../app/(marketing)");
+// `/waitlist` and `/merchants/join` render in their own chrome-free shell since
+// board 2 (2026-09-05). Still public routes with OG cards, so still walked.
+const FUNNEL_DIR = path.resolve(__dirname, "../../app/(funnel)");
 
 /** Every marketing route that ships its own `opengraph-image.tsx`, from disk. */
 function ogRoutesOnDisk(dir = MARKETING_DIR, prefix = ""): string[] {
@@ -41,7 +44,9 @@ function ogRoutesOnDisk(dir = MARKETING_DIR, prefix = ""): string[] {
  */
 describe("content health — the OG list cannot drift from the filesystem", () => {
   it("matches every opengraph-image.tsx under (marketing)", () => {
-    expect([...ROUTES_WITH_OG_IMAGE].sort()).toEqual(ogRoutesOnDisk().sort());
+    expect([...ROUTES_WITH_OG_IMAGE].sort()).toEqual(
+      [...ogRoutesOnDisk(MARKETING_DIR), ...ogRoutesOnDisk(FUNNEL_DIR)].sort()
+    );
   });
 
   it("only claims OG coverage for routes that are actually indexable", () => {

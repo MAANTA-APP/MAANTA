@@ -235,3 +235,32 @@ BEGIN
   DELETE FROM public.waitlist_signups WHERE id = v_id;
   RAISE NOTICE 'Scenario I passed: an unmarked row has not opted out';
 END $$;
+
+-- Scenario J: the funnel fields (20260905130000_waitlist_funnel_fields.sql).
+-- Interests are a bounded list or nothing; the mall is bounded free text.
+DO $$
+DECLARE
+  v_id UUID;
+  v_raised BOOLEAN := FALSE;
+BEGIN
+  INSERT INTO public.waitlist_signups (email, segment, resend_status, node_interest, interests)
+    VALUES ('__t_funnel@example.com', 'shopper', 'created', 'Garden City', ARRAY['clothes', 'kids'])
+    RETURNING id INTO v_id;
+
+  BEGIN
+    UPDATE public.waitlist_signups SET interests = ARRAY[]::TEXT[] WHERE id = v_id;
+  EXCEPTION WHEN check_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'J: an empty interests array must be rejected — NULL is how "none" is spelled';
+
+  v_raised := FALSE;
+  BEGIN
+    UPDATE public.waitlist_signups SET node_interest = repeat('x', 81) WHERE id = v_id;
+  EXCEPTION WHEN check_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'J: node_interest must be bounded';
+
+  UPDATE public.waitlist_signups SET interests = NULL WHERE id = v_id;
+  DELETE FROM public.waitlist_signups WHERE id = v_id;
+  RAISE NOTICE 'Scenario J passed: funnel fields are bounded';
+END $$;

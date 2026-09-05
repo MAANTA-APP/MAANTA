@@ -120,6 +120,7 @@ Full detail is in our [Cookie Notice](/cookies).
 | Analytics | for 24 months, after which it is deleted or aggregated so it no longer identifies anyone |
 | Contact and waitlist messages | for 24 months after we last replied to you, so we have the history if you get back in touch |
 | Waitlist signup details | for 24 months from the day you joined, or until you ask us to remove you — whichever comes first. Your signup is held in two places: our email platform, which sends you the launch updates you agreed to, and our own database, which is what lets us count and organise the list. A request to be removed clears both |
+| Merchant interest form (shop name, your name, phone number, mall, floor and unit, what you sell, counter size, the consent wording you ticked) | for 24 months from the day you registered interest, or until you ask us to remove you — whichever comes first. Held in our own database only; nothing from this form goes to our email platform |
 
 ## 9. Your rights
 

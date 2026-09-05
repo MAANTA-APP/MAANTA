@@ -75,8 +75,13 @@ describe("validateWaitlistSubmission", () => {
     }
   });
 
-  it("rejects missing name, invalid email, and invalid phone", () => {
-    expect(validateWaitlistSubmission({ ...validBody, fullName: "  " }).ok).toBe(false);
+  // Board 2 (2026-09-05): the shopper form asks for a first name "so we can
+  // greet you properly" and nothing more. A blank name is a greeting that says
+  // "there", not a rejected signup.
+  it("accepts a missing name as null, and still rejects a bad email or phone", () => {
+    const blank = validateWaitlistSubmission({ ...validBody, fullName: "  " });
+    expect(blank.ok).toBe(true);
+    if (blank.ok) expect(blank.data.fullName).toBeNull();
     expect(validateWaitlistSubmission({ ...validBody, email: "not-an-email" }).ok).toBe(false);
     expect(validateWaitlistSubmission({ ...validBody, phone: "12" }).ok).toBe(false);
   });
@@ -100,7 +105,8 @@ describe("waitlist segment capture", () => {
   const SRC = path.resolve(__dirname, "..", "..");
   const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
   const LANDING = ["app", "(marketing)", "landing-early-access.tsx"];
-  const WAITLIST = ["app", "(marketing)", "waitlist", "waitlist-form.tsx"];
+  // Role selection is step 1 of the funnel (board 2); the cards are the entry point.
+  const WAITLIST = ["app", "(funnel)", "waitlist", "role-select.tsx"];
 
   it("offers every segment, in canonical order", () => {
     expect(WAITLIST_SEGMENT_OPTIONS.map((o) => o.value)).toEqual([
