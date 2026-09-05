@@ -60,7 +60,19 @@ One audience database, three role-based segments. Companion to
   signup lands in the Waitlist segment (the fallback logging in
   `src/lib/resend.ts` will show any mismatch; no lead is lost either way).
 
-### Consent wording (finalized 2026-07-10, first campaign scope)
+### Consent wording (finalized 2026-07-10 · widened 2026-09-05, D269)
+
+> **Current wording (2026-09-05):** I agree to receive MAANTA launch updates and
+> relaunch marketing messages by email, WhatsApp or SMS — including merchant
+> offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any
+> time.
+
+Widened by founder ruling so the channels board 2 wants (WhatsApp, SMS) can be
+activated later without re-consenting early signups. **Consented ≠ activated:**
+email is the only approved launch channel; WhatsApp and SMS are not activated
+and each needs its own ruling and readiness (`WAITLIST_ACTIVATED_CHANNELS`).
+The 2026-07-10 wording below is kept as the record of what earlier rows carry —
+historic consent evidence is never rewritten to the current wording.
 
 > I agree to receive MAANTA launch updates and relaunch marketing emails —
 > including merchant offers at BBS Mall and deal updates across Nairobi.

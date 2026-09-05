@@ -43,12 +43,45 @@ export const WAITLIST_SEGMENT_OPTIONS: {
 ];
 
 /**
- * Exact consent wording shown at signup. Stored with every contact
- * (Kenya DPA 2019 — consent timestamp + wording required before any
- * email sequence). Align with legal/privacy-policy.md before go-live.
+ * The channels a signup may be reached on, as the consent wording names them.
+ * Consent is recorded verbatim with its timestamp on every row; whether that
+ * record satisfies every applicable legal requirement is a compliance matter
+ * rechecked before genuine marketing begins (register D270).
+ */
+export const WAITLIST_CONSENTED_CHANNELS = ["email", "whatsapp", "sms"] as const;
+
+/**
+ * The channels MAANTA may actually use today.
+ *
+ * **Invariant (founder ruling 2026-09-05, D269): CONSENTED CHANNEL ≠ ACTIVATED
+ * CHANNEL.** The consent wording naming a channel future-proofs the record; it
+ * does not switch the channel on. Email is the approved launch channel. WhatsApp
+ * and SMS are not activated, and neither may be used merely because the wording
+ * names them — each needs its own provider, operational and compliance
+ * readiness before it is added here, and this codebase has no sender for
+ * either. `waitlist.test.ts` holds this list to a subset of the consented one
+ * and to email alone until that changes by ruling.
+ */
+export const WAITLIST_ACTIVATED_CHANNELS = ["email"] as const;
+
+/**
+ * Exact consent wording shown at signup. Stored with every contact, verbatim,
+ * with its timestamp. Align with legal/privacy-policy.md before go-live.
+ *
+ * **Widened 2026-09-05 (founder ruling, register D269).** Email is the launch
+ * channel — it is the only sender this codebase has — but design board 2's
+ * "phone first" instinct is right for Nairobi, and a consent that named only
+ * email would mean asking every early signup again the day WhatsApp or SMS is
+ * activated. So the wording names all three channels now, while the waitlist
+ * is empty and the cost of widening is one line. See the invariant above:
+ * naming a channel here activates nothing.
+ *
+ * **Rows already stored keep the text they were shown.** The consent record
+ * must go on representing what the person actually agreed to at the time; it
+ * is never rewritten to the current wording.
  */
 export const WAITLIST_CONSENT_TEXT =
-  "I agree to receive MAANTA launch updates and relaunch marketing emails — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
+  "I agree to receive MAANTA launch updates and relaunch marketing messages by email, WhatsApp or SMS — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
 
 /** Node 0. The default node interest, and the mall the form offers first. */
 export const WAITLIST_NODE_INTEREST = "BBS Mall";
