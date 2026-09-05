@@ -121,7 +121,7 @@ does not pre-authorize acquisition.
 | `docs/ops/field-operator-day-sheet.md` | node manager, agents | founder | **DRAFT** | the decisions log | 2026-09-01 (QR added) | Evidence rules, escalation, or the support owner change | INTERNAL |
 | `docs/ops/first-merchant-loop-test.md` | field operator | founder | **DRAFT** | the seven proofs | 2026-09-01 | Money path changes | INTERNAL |
 | `docs/ops/evidence-classification-guide.md` | founder, admin, operator | founder | KEEP (new 2026-09-01) | production; the decisions log | 2026-09-01 | **A third internal record is created** — the exclusion list must be updated that day | INTERNAL |
-| `docs/ops/node0-known-limitations.md` | all operational | founder | KEEP (new 2026-09-01) | live `app_config` | 2026-09-01 | **Any `app_config` change**; any drift row opening or closing | INTERNAL |
+| `docs/ops/node0-known-limitations.md` | all operational | founder | KEEP (new 2026-09-01; offline limit added 2026-09-05, D276) | live `app_config` | 2026-09-05 | **Any `app_config` change**; any drift row opening or closing | INTERNAL |
 | `docs/ops/node0-evidence-protocol-2026-08-24.md` | founder, operator | founder | KEEP | itself, ratified | 2026-08-24 | Ratified and **not adjustable during the run** | INTERNAL |
 | `docs/ops/d158-self-serve-live-test.md` | field operator | founder | KEEP | the browser | 2026-08-23 | An observation checklist, not a script | INTERNAL |
 | `docs/maanta-node0-field-validation-timeline.md` | founder | founder | UPDATE | the evidence protocol | 2026-08-22 | Its 1→5→20 sequence predates the ratified 1→5→10 ladder — reconcile | INTERNAL |
@@ -144,6 +144,7 @@ does not pre-authorize acquisition.
 | `docs/skills/fast-visit-and-counter-qr.md` | eng | eng | KEEP | the migrations | 2026-08-27 | Arrival, points, QR or queue change. **Engineering doc — not usable at a counter** | INTERNAL |
 | `docs/skills/role-permissions.md` | eng, admin | eng | KEEP | RLS policies | — | Roles or policies change | INTERNAL |
 | `docs/skills/admin-founder-command-centre-2026-09-03.md` | eng, admin, founder | eng | KEEP | the pure rule modules and their tests | 2026-09-03 | Admin navigation, an Action Queue rule, the visit funnel, the founder verdict readings, or the `max_claims` vocabulary (D233) changes | INTERNAL |
+| `docs/ops/d235-offline-ticket-verdict-2026-09-05.md` | founder, eng | eng | KEEP (new 2026-09-05) | `main`, PR #317 at `37abee6`, and the runs it records | 2026-09-05 | A decision on PR #317; the offline work is extracted; the deployed offline-ticket run happens (D277) | INTERNAL |
 | **Admin runbook** (role boundaries, sanctions, audit trail, prohibited production actions, failure-vs-zero) | admin | founder | **MISSING — P1** | — | — | Admin is the founder today, so the risk is low. Required before a second admin exists | CONFIDENTIAL |
 | **Incident and escalation guide** | admin, operator | founder | **MISSING — P1** | — | — | Escalation ladder exists in the day sheet; a standalone incident procedure does not | INTERNAL |
 | **Support FAQ / macros** | support | founder | **MISSING — P2** | — | — | Needed when support volume exists | INTERNAL |

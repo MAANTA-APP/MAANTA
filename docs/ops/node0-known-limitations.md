@@ -1,7 +1,8 @@
 # Node 0 — known limitations and pilot constraints
 
 **Status:** CURRENT — compiled 2026-09-01 from production configuration read the
-same day, the open drift register, and locked founder decisions.
+same day, the open drift register, and locked founder decisions. Amended
+2026-09-05: the no-offline limit and its operator mitigation added (**D276**).
 **Audience:** field operator, admin/founder, agents, and anyone about to promise
 something to a merchant or a shopper.
 **Re-verify:** the configuration table is live database state. Re-read it before
@@ -91,6 +92,18 @@ failure presents as a MAANTA fault when it is not one.
 
 The run works on the KES 300 opening credit. Do not promise M-Pesa top-up unless
 the founder has confirmed the rail is live.
+
+### The claimed code needs a network to load
+
+`/my-deals` is rendered on the server for every request, and the service worker
+on `main` handles push only — it has no `fetch` handler, so nothing is cached.
+A shopper with no signal at the counter cannot open or reload their ticket. The
+shell says "You're offline. Reconnect to load live deals." rather than
+pretending otherwise (D92). **Operator mitigation:** have the shopper open the
+ticket while connected and screenshot the six-digit code before walking to the
+counter. Offline ticket access exists only in unmerged PR #317 and is unproven
+for a signed-in shopper (**D277**). Do not promise it, and do not gate
+Merchant 01 on it.
 
 ---
 
