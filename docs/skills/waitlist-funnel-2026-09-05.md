@@ -85,6 +85,11 @@ dynamic routes for that reason; both forms still avoid `useSearchParams` and
 green with `check:tokens`, `check:canonicals` (both funnel routes now listed as
 per-request), `check:forms`. Migration applied and read back.
 
+**CI's first run caught a real defect** in that migration: `array_length` returns
+NULL for an empty array, so the `interests` CHECK passed `ARRAY[]::TEXT[]`.
+Scenario J was right and the migration was wrong; `20260905140000` swaps the
+constraint for `cardinality`, applied to production the same day (D271).
+
 Not verified: no browser proof — the two-column desktop frame, the `has-[:checked]`
 radio cards and the confirmation panels are reasoned, not observed (same posture
 as boards 3 and D240). Neither endpoint has been exercised end to end against
