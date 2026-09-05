@@ -29,7 +29,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-leaflet": "^4.2.1",
-    "stripe": "^22.3.0",
+    "stripe": "^22.4.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
