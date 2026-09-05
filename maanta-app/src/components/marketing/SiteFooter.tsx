@@ -4,7 +4,7 @@ import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
 import { PrelaunchNotice } from "./PrelaunchNotice";
 import { RegulatoryStatus } from "./RegulatoryStatus";
-import { NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
+import { FOOTER_TAGLINE, NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
 
 /**
  * Five columns plus a legal base bar (`website-footer-legal-docs-plan.md` §2).
@@ -42,7 +42,7 @@ export function SiteFooter() {
               <BrandLockup className="h-8 w-auto" />
             </Link>
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-secondary">
-              Live mall deals, claimed on your phone and verified at the counter.
+              {FOOTER_TAGLINE}
             </p>
             {/*
               The node line. Amber as a live-status indicator is the other

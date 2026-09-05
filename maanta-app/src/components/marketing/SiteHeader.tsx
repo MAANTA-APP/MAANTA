@@ -18,9 +18,11 @@ import { HEADER_CTA, HEADER_LINKS, HEADER_SIGN_IN } from "@/lib/marketing/nav";
  * Links come from `lib/marketing/nav.ts` so header, footer and sitemap cannot
  * drift apart.
  *
- * `Browse deals` is the one amber element here — #FDBF2D on CTAs and live-status
+ * `HEADER_CTA` is the one amber element here — #FDBF2D on CTAs and live-status
  * only. A second amber element in the same bar would spend the accent and leave
- * the actual call to action competing with decoration.
+ * the actual call to action competing with decoration. Pre-launch it is "Join
+ * the waitlist" (board 1, 2026-09-05, amending D259); at launch `DEMO_MODE`
+ * flips it back to "Browse deals".
  *
  * `Sign in` sits beside it as a quiet outline (D259). Until 2026-09-03 the
  * public site had no way in at all: a returning merchant, agent or admin on
@@ -110,7 +112,7 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           {/* Secondary: outline, ink label. The amber budget is spent on
-              Browse deals, and sign-in is the way in, not the point. */}
+              HEADER_CTA, and sign-in is the way in, not the point. */}
           <Link
             href={HEADER_SIGN_IN.href}
             className="hidden rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink sm:inline-flex"
@@ -141,7 +143,7 @@ export function SiteHeader() {
       </div>
 
       {/*
-        Mobile sheet. `Browse deals` is pinned at the top of the sheet rather than
+        Mobile sheet. The CTA is pinned at the top of the sheet rather than
         buried under the audience links — it is the primary action for the
         largest audience, and the shopper audience is almost entirely mobile.
       */}

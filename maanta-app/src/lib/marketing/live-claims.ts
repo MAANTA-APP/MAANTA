@@ -35,6 +35,23 @@ import { FACTS } from "./facts";
 export const NODE_LOCATION = `${FACTS.launchMall} · ${FACTS.city}`;
 
 /**
+ * The line under the lockup in the footer (board 1, 2026-09-05). Pre-launch it
+ * says outright that nothing on the site is redeemable today — the sentence the
+ * board puts where a SaaS footer would put a tagline.
+ */
+export const FOOTER_TAGLINE = DEMO_MODE
+  ? "MAANTA is preparing to open. Nothing on this site is an offer you can redeem today."
+  : "Live mall deals, claimed on your phone and verified at the counter.";
+
+/**
+ * The homepage's honest status block (board 1). It exists only while the
+ * company is pre-launch — every line in it is a statement about what has not
+ * happened yet, and it must vanish the day one of them stops being true rather
+ * than be edited line by line.
+ */
+export const SHOW_PRELAUNCH_STATUS_BLOCK = DEMO_MODE;
+
+/**
  * The one-sentence description of MAANTA — drift **D138**.
  *
  * Two surfaces render it, and both reach a reader *before* any page and its

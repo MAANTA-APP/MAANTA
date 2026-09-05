@@ -164,8 +164,9 @@ export function AudienceHero({
   /** Live-status or scenario line. Rendered under the actions, quietly. */
   status?: React.ReactNode;
   /**
-   * Optional visual beside the copy. Home passes `<HeroShot />`; the audience
-   * pages pass nothing and keep the single-column hero, which is why this is
+   * Optional visual beside the copy. Board 1 (2026-09-05) retired the feed
+   * mockup that used to fill it and the three acquisition pages now draw their
+   * own heroes; other callers pass nothing and keep the single-column hero, which is why this is
    * optional rather than a required slot with an empty default — a hero with a
    * blank column reserved for a picture that never arrives is worse than one
    * that was never two columns.
