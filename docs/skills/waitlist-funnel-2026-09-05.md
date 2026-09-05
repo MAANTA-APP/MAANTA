@@ -121,11 +121,10 @@ production. The two SQL scenarios run only in CI's `db-tests`.
   draws. Reopen on: first genuine campaign in preparation; legal/compliance or
   provider requirement; deliverability or abuse evidence; a material complaint
   or consent issue.
-- **Collection is not gated by code.** As of this branch there is no switch
-  that closes the public waitlist: `/waitlist` renders the form and
-  `POST /api/waitlist` accepts signups whenever Resend is configured. Changing
-  the consent copy neither opens nor closes it. If the founder's sequence —
-  presence → discoverability → tested journey → incorporation/compliance gate
-  → live waitlist — needs a closed gate, that is a separate, small ruling and
-  build.
+- **Collection is gated, and the gate is closed (D274, ruled the same day).**
+  `COLLECTION_GATE` in `lib/marketing/collection-gate.ts` is `"closed"`: both
+  funnel pages render a "not open yet" panel with no form, both endpoints
+  refuse with 403 before any write, and a verified TEST entry still passes so
+  the journey stays testable. Opening it is a recorded decision — see
+  `docs/skills/collection-gate-2026-09-05.md`.
 

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
+import { collectionAllowed } from "@/lib/marketing/collection-gate";
+import { CollectionClosed } from "@/components/funnel/collection-closed";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { FACTS, OFFERS, RESPONSE_TIMES, isOfferLive } from "@/lib/marketing/facts";
 import { FunnelShell, NodeBadge } from "@/components/funnel/funnel-shell";
@@ -47,6 +49,16 @@ export default function MerchantJoinPage({ searchParams }: { searchParams?: Para
   const isTest = isWaitlistTestToken(testToken);
   const creditLive = isOfferLive(OFFERS.openingCredit);
   const trialLive = isOfferLive(OFFERS.eliteTrial);
+
+  // The collection gate (D274). Same rule as /waitlist: closed means no form;
+  // a verified test entry still passes.
+  if (!collectionAllowed(isTest)) {
+    return (
+      <FunnelShell back={{ href: "/merchants", label: "Back to merchants" }}>
+        <CollectionClosed audience="merchant" />
+      </FunnelShell>
+    );
+  }
 
   return (
     <FunnelShell

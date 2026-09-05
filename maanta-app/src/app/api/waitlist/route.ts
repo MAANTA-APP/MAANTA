@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { validateWaitlistSubmission } from "@/lib/waitlist";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
+import { WAITLIST_CLOSED_MESSAGE, collectionAllowed } from "@/lib/marketing/collection-gate";
 import { mirrorWaitlistSignup } from "@/lib/growth/waitlist-mirror";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 import { addWaitlistContact, sendWaitlistEmail } from "@/lib/resend";
@@ -103,6 +104,12 @@ export async function POST(request: Request) {
   // The TEST marker is derived here from a shared secret, never taken from the
   // body — see lib/growth/waitlist-test-token.ts.
   const isTest = isWaitlistTestToken((body as { testToken?: unknown })?.testToken);
+
+  // The collection gate (D274): refused before validation, before the rate
+  // limit, before any write. A verified test entry passes.
+  if (!collectionAllowed(isTest)) {
+    return NextResponse.json({ error: WAITLIST_CLOSED_MESSAGE }, { status: 403 });
+  }
 
   const result = validateWaitlistSubmission(body, { isTest });
   if (!result.ok) {

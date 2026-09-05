@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
+import { collectionAllowed } from "@/lib/marketing/collection-gate";
+import { CollectionClosed } from "@/components/funnel/collection-closed";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
 import { parseWaitlistSegmentParam, type WaitlistSegment } from "@/lib/waitlist";
@@ -56,6 +58,16 @@ export default function WaitlistPage({ searchParams }: { searchParams?: Params }
   for (const key of CARRIED) {
     const v = first(searchParams?.[key]);
     if (v) carry[key] = v;
+  }
+
+  // The collection gate (D274). Closed: no form, nothing asked for. A verified
+  // test entry passes so the journey stays testable while closed.
+  if (!collectionAllowed(isTest)) {
+    return (
+      <FunnelShell back={{ href: "/", label: "Back to site" }}>
+        <CollectionClosed audience="shopper" />
+      </FunnelShell>
+    );
   }
 
   if (!segment) {
