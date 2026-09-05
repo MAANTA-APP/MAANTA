@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
+import { MERCHANT_INTEREST_CLOSED_MESSAGE, collectionAllowed } from "@/lib/marketing/collection-gate";
 import { MERCHANT_CONTACT_CONSENT_TEXT, validateMerchantInterest } from "@/lib/merchant-interest";
 import {
   checkRateLimit,
@@ -56,6 +57,12 @@ export async function POST(request: Request) {
   }
 
   const isTest = isWaitlistTestToken((body as { testToken?: unknown })?.testToken);
+
+  // The collection gate (D274): refused before validation and before any write.
+  if (!collectionAllowed(isTest)) {
+    return NextResponse.json({ error: MERCHANT_INTEREST_CLOSED_MESSAGE }, { status: 403 });
+  }
+
   const result = validateMerchantInterest(body, { isTest });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

@@ -1,4 +1,5 @@
 import { requireAdminPage } from "@/lib/admin";
+import { COLLECTION_OPEN } from "@/lib/marketing/collection-gate";
 import { AdminReadError } from "@/components/admin/read-error";
 import { SearchField } from "@/components/ui/inputs";
 import { maskPhone } from "@/lib/ui";
@@ -114,7 +115,7 @@ export default async function AdminGrowthWaitlistPage({
         title="Waitlist"
         subtitle={`${realCount}${directory.complete ? "" : "+"} real entries · ${testCount} test ${
           testCount === 1 ? "entry" : "entries"
-        } held separately`}
+        } held separately · collection ${COLLECTION_OPEN ? "open" : "closed"}`}
       >
         <PopulationChip population={population} />
         {directory.complete ? (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin";
 import { AdminReadError } from "@/components/admin/read-error";
 import { FACTS } from "@/lib/marketing/facts";
+import { COLLECTION_OPEN } from "@/lib/marketing/collection-gate";
 import { parsePopulation } from "@/lib/growth/population";
 import {
   attributionRollup,
@@ -32,6 +33,7 @@ import {
   GrowthCard,
   GrowthPageHeader,
   StatRow,
+  GrowthBadge,
 } from "@/components/admin/growth/growth-ui";
 import { SignupsChart } from "@/components/admin/growth/signups-chart";
 
@@ -92,8 +94,13 @@ export default async function AdminGrowthPage({
     <main className="max-w-6xl">
       <GrowthPageHeader
         title="Growth"
-        subtitle={`Pre-launch. ${FACTS.nodeLabel} · ${FACTS.launchMall}.`}
+        subtitle={`Pre-launch. ${FACTS.nodeLabel} · ${FACTS.launchMall}. Collection ${
+          COLLECTION_OPEN ? "open" : "closed — test entries only"
+        }.`}
       >
+        <GrowthBadge tone={COLLECTION_OPEN ? "good" : "neutral"}>
+          {COLLECTION_OPEN ? "Collection open" : "Collection closed"}
+        </GrowthBadge>
         <PopulationChip population={population} />
         <PopulationFilter basePath="/admin/growth" population={population} />
       </GrowthPageHeader>
