@@ -227,6 +227,16 @@ function coverLight({ origin }: RenderContext, size: { width: number; height: nu
 
 function coverDark({ origin }: RenderContext, size: { width: number; height: number }, safe: SafeArea | null) {
   const s = size.height / 191;
+  // The headline must wrap inside what is left of the frame after the safe-area
+  // inset, the lockup and the gap — on the 1128×191 company banner that is
+  // about 460px, and an unconstrained line clipped at the right edge
+  // (readiness sweep, 2026-09-05). The column width is derived from the frame
+  // so every size this template renders at gets the same protection.
+  const marginLeft = safe ? safe.x + 24 * s : 48 * s;
+  const marginRight = 48 * s;
+  const lockupWidth = 180 * s;
+  const gap = 36 * s;
+  const textWidth = size.width - marginLeft - lockupWidth - gap - marginRight;
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: INK, fontFamily: "sans-serif" }}>
@@ -234,14 +244,24 @@ function coverDark({ origin }: RenderContext, size: { width: number; height: num
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 36 * s,
-            marginLeft: safe ? safe.x + 24 * s : 48 * s,
-            marginRight: 48 * s,
+            gap,
+            marginLeft,
+            marginRight,
           }}
         >
-          <img src={lockup(origin, true)} height={44 * s} width={180 * s} alt="" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 * s }}>
-            <div style={{ display: "flex", fontSize: 26 * s, fontWeight: 800, color: "#FFFFFF", letterSpacing: -0.5 }}>
+          <img src={lockup(origin, true)} height={44 * s} width={lockupWidth} alt="" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 * s, maxWidth: textWidth }}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                fontSize: 26 * s,
+                lineHeight: 1.15,
+                fontWeight: 800,
+                color: "#FFFFFF",
+                letterSpacing: -0.5,
+              }}
+            >
               Mall deals you claim on your phone and redeem at the counter.
             </div>
             <div style={{ display: "flex", fontSize: 16 * s, color: "rgba(255,255,255,0.7)" }}>{NODE_STATUS_LINE}</div>
