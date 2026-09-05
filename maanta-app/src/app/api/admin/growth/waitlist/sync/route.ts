@@ -133,6 +133,7 @@ export async function POST(request: Request) {
     const patch = mirrorPatchFromResend({
       contactId: detail.id,
       createdAt: detail.created_at,
+      unsubscribed: detail.unsubscribed,
       properties: props,
     });
 

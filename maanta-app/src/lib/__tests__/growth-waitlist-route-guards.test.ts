@@ -36,6 +36,12 @@ describe("waitlist export route", () => {
     expect(src.slice(audit, response)).toMatch(/status:\s*503/);
   });
 
+  // A CSV is a send list the moment it leaves the screen (D267).
+  it("drops unsubscribed people unless asked for by name, and names the file accordingly", () => {
+    expect(src).toMatch(/unsubscribed:\s*includeUnsubscribed \? "include" : "exclude"/);
+    expect(src).toMatch(/"waitlist-incl-unsubscribed"/);
+  });
+
   it("does not record the search term in the audit details", () => {
     const audit = src.indexOf('action: "growth.waitlist.export"');
     expect(src.slice(audit, audit + 600)).not.toMatch(/details:\s*\{[^}]*\bq\b/);

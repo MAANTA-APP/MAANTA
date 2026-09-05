@@ -198,3 +198,40 @@ BEGIN
   ASSERT v_raised, 'H: a non-E.164 number must be rejected';
   RAISE NOTICE 'Scenario H passed: phone is stored E.164 or not at all';
 END $$;
+
+-- Scenario I: the opt-out flag exists, is required, and defaults to FALSE
+-- (20260905120000_waitlist_unsubscribed.sql, D267). A row nobody has said
+-- anything about is a person who has NOT opted out — the public form never
+-- writes the column, and the sync is what turns it on.
+DO $$
+DECLARE
+  v_id UUID;
+  v_unsub BOOLEAN;
+  v_raised BOOLEAN := FALSE;
+BEGIN
+  ASSERT (SELECT is_nullable = 'NO' FROM information_schema.columns
+          WHERE table_schema='public' AND table_name='waitlist_signups' AND column_name='unsubscribed'),
+    'I: unsubscribed must be NOT NULL';
+
+  INSERT INTO public.waitlist_signups (email, segment, resend_status)
+    VALUES ('__t_unsub@example.com', 'shopper', 'created') RETURNING id INTO v_id;
+  SELECT unsubscribed INTO v_unsub FROM public.waitlist_signups WHERE id = v_id;
+  ASSERT v_unsub = FALSE, 'I: unsubscribed must default FALSE, never NULL';
+
+  -- The sync may turn it on and, when the person re-subscribes, off again.
+  UPDATE public.waitlist_signups SET unsubscribed = TRUE WHERE id = v_id;
+  UPDATE public.waitlist_signups SET unsubscribed = FALSE WHERE id = v_id;
+
+  BEGIN
+    UPDATE public.waitlist_signups SET unsubscribed = NULL WHERE id = v_id;
+  EXCEPTION WHEN not_null_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'I: unsubscribed must not be settable to NULL';
+
+  ASSERT EXISTS (SELECT 1 FROM pg_indexes
+                 WHERE schemaname='public' AND indexname='waitlist_signups_unsubscribed'),
+    'I: the partial index the export and data-quality tile read must exist';
+
+  DELETE FROM public.waitlist_signups WHERE id = v_id;
+  RAISE NOTICE 'Scenario I passed: an unmarked row has not opted out';
+END $$;

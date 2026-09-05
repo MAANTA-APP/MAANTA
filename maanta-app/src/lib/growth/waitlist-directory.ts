@@ -32,7 +32,8 @@ export type WaitlistFlag =
   | "no_consent"
   | "unattributed"
   | "unreadable"
-  | "unsynced";
+  | "unsynced"
+  | "unsubscribed";
 
 export type WaitlistEntry = {
   id: string;
@@ -66,6 +67,12 @@ export type WaitlistEntry = {
    * it" are different facts and only one of them is a consent defect.
    */
   propertiesUnreadable: boolean;
+  /**
+   * They have opted out of MAANTA email. Still a signup — they joined, they
+   * count — but not a person to send to, so the export drops them by default
+   * (D267). Written by the sync from Resend, where the unsubscribe link lands.
+   */
+  unsubscribed: boolean;
 };
 
 export type WaitlistDirectory = {
@@ -88,9 +95,11 @@ export function toWaitlistEntry(row: Record<string, unknown>): WaitlistEntry {
   const unreadable = Boolean(row.properties_unreadable);
   const isTest = Boolean(row.is_test);
   const synced = Boolean(row.resend_synced_at);
+  const unsubscribed = Boolean(row.unsubscribed);
 
   const flags: WaitlistFlag[] = [];
   if (isTest) flags.push("test");
+  if (unsubscribed) flags.push("unsubscribed");
   if (unreadable) flags.push("unreadable");
   // Only assert a missing consent or attribution when the row's metadata was
   // actually readable — otherwise our own failed read renders as their defect.
@@ -115,6 +124,7 @@ export function toWaitlistEntry(row: Record<string, unknown>): WaitlistEntry {
     testLabel: (row.test_label as string | null) ?? null,
     flags,
     propertiesUnreadable: unreadable,
+    unsubscribed,
   };
 }
 
@@ -140,6 +150,13 @@ export type WaitlistFilters = {
   segment?: WaitlistSegment | "all";
   source?: string | "all";
   q?: string;
+  /**
+   * Whether people who have opted out of email are in the result. The console
+   * shows them (default `"include"` — they are signups and they are flagged);
+   * the CSV export drops them unless asked, because a CSV is a send list the
+   * moment it leaves this screen (D267).
+   */
+  unsubscribed?: "include" | "exclude";
 };
 
 /** Apply the toolbar. Pure. */
@@ -150,6 +167,7 @@ export function filterEntries(
   const q = filters.q?.trim().toLowerCase();
   return entries.filter((e) => {
     if (!inPopulation(e.isTest, filters.population)) return false;
+    if (filters.unsubscribed === "exclude" && e.unsubscribed) return false;
     if (filters.segment && filters.segment !== "all" && e.segment !== filters.segment) return false;
     if (filters.source && filters.source !== "all" && e.source !== filters.source) return false;
     if (q) {
@@ -251,6 +269,7 @@ const CSV_COLUMNS = [
   "consent_at",
   "is_test",
   "test_label",
+  "unsubscribed",
   "flags",
 ] as const;
 
@@ -287,6 +306,7 @@ export function toCsv(entries: WaitlistEntry[]): string {
         e.consentAt ?? "",
         e.isTest ? "true" : "false",
         e.testLabel ?? "",
+        e.unsubscribed ? "true" : "false",
         e.flags.join(" "),
       ]
         .map(cell)
@@ -309,7 +329,7 @@ export async function loadWaitlistDirectory(): Promise<WaitlistDirectory> {
   const { data, error } = await service
     .from("waitlist_signups")
     .select(
-      "id, email, full_name, phone, segment, node_interest, utm_source, utm_medium, utm_campaign, consent_at, is_test, test_label, properties_unreadable, resend_synced_at, joined_at, created_at"
+      "id, email, full_name, phone, segment, node_interest, utm_source, utm_medium, utm_campaign, consent_at, is_test, test_label, properties_unreadable, unsubscribed, resend_synced_at, joined_at, created_at"
     )
     .order("created_at", { ascending: false });
 

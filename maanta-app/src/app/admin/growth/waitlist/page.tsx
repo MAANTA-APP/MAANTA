@@ -120,6 +120,7 @@ export default async function AdminGrowthWaitlistPage({
         {directory.complete ? (
           <a
             href={exportHref}
+            title="Excludes anyone who has unsubscribed"
             className="inline-flex h-9 items-center justify-center rounded-pill bg-ink px-4 text-[13px] font-semibold text-white hover:bg-ink-900"
           >
             Export CSV
@@ -326,6 +327,7 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
         <span className="flex flex-wrap gap-1.5">
           {entry.isTest ? <GrowthBadge tone="test">Test</GrowthBadge> : null}
           {entry.testLabel ? <GrowthBadge tone="caution">{entry.testLabel}</GrowthBadge> : null}
+          {entry.unsubscribed ? <GrowthBadge tone="caution">Unsubscribed</GrowthBadge> : null}
           {entry.flags.includes("duplicate") ? (
             <GrowthBadge tone="caution">Duplicate</GrowthBadge>
           ) : null}

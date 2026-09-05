@@ -523,3 +523,62 @@ call; `api_rate_limit_buckets` has no cleanup job.
 `npm run build` green with `check:tokens`, `check:canonicals`, `check:forms`.
 Still owed from the earlier addenda: `make db-verify` locally, the sync route
 end to end, and browser proof.
+
+---
+
+# Addendum 5 — the opt-out column, applied (D267)
+
+Founder ruling 2026-09-05: "apply the unsubscribed migration and do the rest."
+
+## What was applied
+
+`20260905120000_waitlist_unsubscribed.sql` — `unsubscribed BOOLEAN NOT NULL
+DEFAULT FALSE` plus a partial index on the TRUE rows. Ledger read before choosing
+the version (112 rows at `20260904130000`), applied through the connector, then
+the minted version repaired to the repo filename before anything else. Ledger
+now **113/113** by version and name.
+
+The column is deliberately **not** `resend_`-prefixed. The mirror's convention
+is that a `resend_` column is our knowledge of Resend; an opt-out is the
+person's withdrawal of consent, and Resend is only where the link in the email
+records it.
+
+## What "the rest" turned out to be
+
+- **Sync writes it, last-read-wins both ways.** `mirrorPatchFromResend` now
+  takes `unsubscribed` and puts it in the patch. A one-way flag would keep
+  excluding a person after they re-subscribed and asked to be included.
+- **The public form leaves it FALSE.** Nobody has opted out at the moment they
+  opt in, and the mirror insert says so explicitly rather than relying on the
+  default.
+- **The console shows them.** An unsubscribed person is still a signup: counted,
+  flagged `Unsubscribed` on the row, and counted on the overview's Data quality
+  card as "kept out of export".
+- **The export drops them unless asked by name.** `filterEntries` gains
+  `unsubscribed: "include" | "exclude"`; the route passes `exclude` unless the
+  link carries `?unsubscribed=include`, in which case the filename becomes
+  `maanta-waitlist-incl-unsubscribed-<population>-<date>.csv` and the audit row
+  records the choice. The CSV also carries an `unsubscribed` column, so an
+  included opt-out is visible inside the file and not only in its name.
+
+## The two existing rows
+
+Both were read back from Resend through the connector on 2026-09-05. Neither
+has unsubscribed, so the column default was already correct for both and no row
+was changed. The confirmation is recorded in `admin_ops_log` as a
+`growth.waitlist.sync` entry scoped to the flag, so the directory's
+completeness evidence reflects that a check happened.
+
+## Guards
+
+Scenario I of `waitlist_signups_test.sql` (NOT NULL, default FALSE, settable in
+both directions, index present); `growth-waitlist-directory.test.ts` (flagged,
+kept in the console, dropped only under `exclude`, absent column reads as
+FALSE, written into the CSV); `growth-waitlist-route-guards.test.ts` (the
+export passes `exclude` unless asked, and names the file).
+
+## Still owed
+
+Unchanged from Addendum 4: `make db-verify` locally (CI's `db-tests` is the
+gate and now runs scenario I), the sync route end to end, browser proof.
+

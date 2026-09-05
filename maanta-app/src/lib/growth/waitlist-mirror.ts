@@ -89,6 +89,9 @@ export async function mirrorWaitlistSignup(
         // A live-path row is never unreadable: this route wrote every property
         // itself. The table's CHECK enforces that independently.
         properties_unreadable: false,
+        // Nobody has opted out at the moment they opt in. The sync is what
+        // turns this on, from Resend, if they later unsubscribe (D267).
+        unsubscribed: false,
         updated_at: now,
       },
       { onConflict: "email", ignoreDuplicates: true }
@@ -116,10 +119,16 @@ export async function mirrorWaitlistSignup(
  *    footprint of `addWaitlistContact`'s strip-and-retry. Treating it as "they
  *    provided nothing" would raise a consent defect against someone who did
  *    consent.
+ * 3. **`unsubscribed` is last-read-wins in BOTH directions.** It is the
+ *    person's opt-out, recorded in Resend because that is where the link in
+ *    the email points. A later read that says FALSE means they came back, and
+ *    a flag that could only ever be turned on would keep excluding them from
+ *    every send after they asked to be included again (D267).
  */
 export function mirrorPatchFromResend(detail: {
   contactId: string;
   createdAt: string | null;
+  unsubscribed: boolean;
   properties: Record<string, unknown> | null;
 }): Record<string, unknown> {
   const unreadable =
@@ -138,6 +147,7 @@ export function mirrorPatchFromResend(detail: {
     resend_contact_id: detail.contactId,
     resend_synced_at: new Date().toISOString(),
     properties_unreadable: unreadable,
+    unsubscribed: detail.unsubscribed,
     updated_at: new Date().toISOString(),
   };
   // Only ever set from a real value. A null read leaves what we already had.

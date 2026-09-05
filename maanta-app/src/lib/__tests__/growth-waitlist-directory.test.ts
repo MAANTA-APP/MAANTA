@@ -24,6 +24,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   is_test: false,
   test_label: null,
   properties_unreadable: false,
+  unsubscribed: false,
   resend_synced_at: "2026-09-04T08:00:05Z",
   joined_at: "2026-09-04T08:00:00Z",
   created_at: "2026-09-04T08:00:01Z",
@@ -76,6 +77,34 @@ describe("waitlist directory — normalization", () => {
     const e = toWaitlistEntry(row({ joined_at: null }));
     expect(e.joinedAt).toBeNull();
     expect(e.recordedAt).toBe("2026-09-04T08:00:01Z");
+  });
+});
+
+describe("waitlist directory — an opt-out is a signup you must not email (D267)", () => {
+  it("flags an unsubscribed row and keeps it in the console", () => {
+    const e = toWaitlistEntry(row({ unsubscribed: true }));
+    expect(e.unsubscribed).toBe(true);
+    expect(e.flags).toContain("unsubscribed");
+    expect(filterEntries([e], { population: "real" })).toHaveLength(1);
+    expect(filterEntries([e], { population: "real", unsubscribed: "include" })).toHaveLength(1);
+  });
+
+  it("drops an unsubscribed row only when asked to, which is what the export does", () => {
+    const entries = [toWaitlistEntry(row({ unsubscribed: true })), toWaitlistEntry(row({ id: "2", email: "b@example.com", phone: null }))];
+    const sendable = filterEntries(entries, { population: "real", unsubscribed: "exclude" });
+    expect(sendable.map((e) => e.email)).toEqual(["b@example.com"]);
+  });
+
+  it("treats an absent flag as not opted out, matching the column default", () => {
+    const legacy: Record<string, unknown> = row();
+    delete legacy.unsubscribed;
+    expect(toWaitlistEntry(legacy).unsubscribed).toBe(false);
+  });
+
+  it("writes the flag into the CSV so an included opt-out is visible in the file", () => {
+    const csv = toCsv([toWaitlistEntry(row({ unsubscribed: true }))]);
+    expect(csv.split("\r\n")[0]).toContain("unsubscribed");
+    expect(csv).toContain('"true","unsubscribed"');
   });
 });
 

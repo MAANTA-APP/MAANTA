@@ -24,6 +24,12 @@ export const dynamic = "force-dynamic";
  * has no room for a "this is a lower bound" banner, and a spreadsheet is exactly
  * where a lower bound gets quoted as a total.
  *
+ * **People who have unsubscribed are not in the file unless asked for by
+ * name** (`?unsubscribed=include`), and the filename says so when they are.
+ * They are still signups and the console still shows them, but a CSV is a send
+ * list the moment it leaves this screen, and mailing someone who opted out is
+ * the one thing this export must never make easy (D267).
+ *
  * The audit write happens BEFORE the file is returned and is not best-effort,
  * the same rule as revealing a phone number: this is the bulk version of that
  * act — every name, address and number in the population, in one download that
@@ -39,6 +45,7 @@ export async function GET(request: Request) {
   const segment = isWaitlistSegment(rawSegment) ? rawSegment : "all";
   const source = url.searchParams.get("source") ?? "all";
   const q = url.searchParams.get("q") ?? undefined;
+  const includeUnsubscribed = url.searchParams.get("unsubscribed") === "include";
 
   const directory = await loadWaitlistDirectory();
   if (!directory.readable) {
@@ -54,8 +61,19 @@ export async function GET(request: Request) {
     );
   }
 
-  const rows = filterEntries(directory.entries, { population, segment, source, q });
-  const filename = exportFilename("waitlist", population);
+  const rows = filterEntries(directory.entries, {
+    population,
+    segment,
+    source,
+    q,
+    unsubscribed: includeUnsubscribed ? "include" : "exclude",
+  });
+  // The filename carries the choice, the same way it carries the population: a
+  // week later nobody remembers which link produced the file.
+  const filename = exportFilename(
+    includeUnsubscribed ? "waitlist-incl-unsubscribed" : "waitlist",
+    population
+  );
 
   const service = createServiceClient();
   const { error: auditError } = await service.from("admin_ops_log").insert({
@@ -68,7 +86,7 @@ export async function GET(request: Request) {
     target_id: auth.user.id,
     // `q` is deliberately not recorded: a search term is often a name or an
     // address fragment, and the audit trail must not accumulate what it guards.
-    details: { population, segment, source, rows: rows.length, filename },
+    details: { population, segment, source, includeUnsubscribed, rows: rows.length, filename },
   });
   if (auditError) {
     console.error("growth: export audit write failed", { code: auditError.code });

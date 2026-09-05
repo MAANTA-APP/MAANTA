@@ -83,6 +83,7 @@ export default async function AdminGrowthPage({
   const duplicates = directory.entries.filter((e) => e.flags.includes("duplicate")).length;
   const noConsent = directory.entries.filter((e) => e.flags.includes("no_consent")).length;
   const unreadable = directory.entries.filter((e) => e.propertiesUnreadable).length;
+  const unsubscribed = directory.entries.filter((e) => e.unsubscribed).length;
 
   const waitlistTotal = waitlist.length;
   const partial = !directory.complete;
@@ -357,6 +358,11 @@ export default async function AdminGrowthPage({
               label="Metadata unreadable"
               value={unreadable}
               tone={unreadable ? "error" : "default"}
+            />
+            <StatRow
+              label="Unsubscribed (kept out of export)"
+              value={unsubscribed}
+              tone={unsubscribed ? "caution" : "default"}
             />
           </div>
           <p className="mt-3.5 text-[11px] leading-relaxed text-faint">

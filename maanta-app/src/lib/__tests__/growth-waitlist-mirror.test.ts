@@ -27,6 +27,21 @@ const submission: WaitlistSubmission = {
   testLabel: null,
 };
 
+describe("waitlist mirror — the opt-out is read from Resend, both ways", () => {
+  const typed = {
+    segment_type: { value: "merchant", type: "string" },
+    consent_at: { value: "2026-08-01T00:00:00Z", type: "string" },
+  };
+  it("carries an unsubscribe into the row", () => {
+    const patch = mirrorPatchFromResend({ contactId: "a", createdAt: null, unsubscribed: true, properties: typed });
+    expect(patch.unsubscribed).toBe(true);
+  });
+  it("carries a re-subscribe back — the flag is not one-way", () => {
+    const patch = mirrorPatchFromResend({ contactId: "a", createdAt: null, unsubscribed: false, properties: typed });
+    expect(patch.unsubscribed).toBe(false);
+  });
+});
+
 describe("waitlist mirror — a repeat signup writes nothing from the body", () => {
   // `alreadyJoined` in the public response is a membership oracle; the body
   // of a repeat submission is the caller's data, not the listed person's.
@@ -52,6 +67,7 @@ describe("waitlist mirror — folding a Resend read into a row", () => {
     const patch = mirrorPatchFromResend({
       contactId: "abc",
       createdAt: "2026-08-01T00:00:00Z",
+      unsubscribed: false,
       properties: { segment_type: "shopper" },
     });
     expect(patch.resend_contact_id).toBe("abc");
@@ -65,9 +81,11 @@ describe("waitlist mirror — folding a Resend read into a row", () => {
   // "they provided nothing" would raise a consent defect against a person who
   // did consent.
   it("treats an empty properties object as unreadable, not as empty", () => {
-    expect(mirrorPatchFromResend({ contactId: "a", createdAt: null, properties: {} })
+    expect(mirrorPatchFromResend({ contactId: "a", createdAt: null,
+      unsubscribed: false, properties: {} })
       .properties_unreadable).toBe(true);
-    expect(mirrorPatchFromResend({ contactId: "a", createdAt: null, properties: null })
+    expect(mirrorPatchFromResend({ contactId: "a", createdAt: null,
+      unsubscribed: false, properties: null })
       .properties_unreadable).toBe(true);
   });
 
@@ -77,6 +95,7 @@ describe("waitlist mirror — folding a Resend read into a row", () => {
     const patch = mirrorPatchFromResend({
       contactId: "a",
       createdAt: null,
+      unsubscribed: false,
       properties: { segment_type: "shopper" },
     });
     expect("joined_at" in patch).toBe(false);
@@ -115,13 +134,15 @@ describe("resend property shape — read what the API actually returns", () => {
     const patch = mirrorPatchFromResend({
       contactId: "a",
       createdAt: null,
+      unsubscribed: false,
       properties: { segment_type: { unexpected: "merchant" } },
     });
     expect(patch.properties_unreadable).toBe(true);
   });
 
   it("accepts a real contact as readable", () => {
-    const patch = mirrorPatchFromResend({ contactId: "a", createdAt: null, properties: typed });
+    const patch = mirrorPatchFromResend({ contactId: "a", createdAt: null,
+      unsubscribed: false, properties: typed });
     expect(patch.properties_unreadable).toBe(false);
   });
 });
