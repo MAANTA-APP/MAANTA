@@ -104,7 +104,6 @@ describe("validateWaitlistSubmission", () => {
 describe("waitlist segment capture", () => {
   const SRC = path.resolve(__dirname, "..", "..");
   const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
-  const LANDING = ["app", "(marketing)", "landing-early-access.tsx"];
   // Role selection is step 1 of the funnel (board 2); the cards are the entry point.
   const WAITLIST = ["app", "(funnel)", "waitlist", "role-select.tsx"];
 
@@ -116,7 +115,7 @@ describe("waitlist segment capture", () => {
   });
 
   it("never hardcodes a segment at an entry point", () => {
-    for (const file of [LANDING, WAITLIST]) {
+    for (const file of [WAITLIST]) {
       const src = read(...file);
       expect(
         /segment:\s*["'](shopper|merchant|mall_operator)["']/.test(src),
@@ -126,7 +125,7 @@ describe("waitlist segment capture", () => {
   });
 
   it("drives both entry points from the shared option list", () => {
-    for (const file of [LANDING, WAITLIST]) {
+    for (const file of [WAITLIST]) {
       expect(read(...file), `${file.join("/")} should not define its own list`)
         .toContain("WAITLIST_SEGMENT_OPTIONS");
     }

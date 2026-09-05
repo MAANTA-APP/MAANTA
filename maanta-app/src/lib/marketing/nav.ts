@@ -1,3 +1,5 @@
+import { DEMO_MODE } from "./demo";
+
 /**
  * Single source of truth for header links, footer columns, legal links and the
  * sitemap. Adding a route here updates all four in one edit — the whole reason
@@ -18,7 +20,19 @@ export const HEADER_LINKS = [
   { label: "About", href: "/about" },
 ] as const;
 
-export const HEADER_CTA = { label: "Browse deals", href: "/feed" } as const;
+/**
+ * The one amber element in the header.
+ *
+ * Founder ruling 2026-09-05 (design board 1, amending D259 of 2026-09-03):
+ * pre-launch the bar carries **the real pre-launch action**. `/feed` serves demo
+ * deals while `DEMO_MODE` holds and is disallowed to crawlers, so pointing the
+ * site's most-linked button at synthetic offers was the exact risk
+ * `live-claims.ts` already flags. Flipping `DEMO_MODE` at launch restores
+ * "Browse deals" in the same commit that restores every other trading claim.
+ */
+export const HEADER_CTA = DEMO_MODE
+  ? ({ label: "Join the waitlist", href: "/waitlist" } as const)
+  : ({ label: "Browse deals", href: "/feed" } as const);
 
 /**
  * The shared sign-in entry. One `/login` for every role: after sign-in,
@@ -49,7 +63,9 @@ export const FOOTER_COLUMNS = [
       { label: "Merchants", href: "/merchants" },
       { label: "Mall operators", href: "/mall-operators" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Browse deals", href: "/feed" },
+      // The feed is demo deals until launch; the footer does not send people
+      // to it either (same ruling as HEADER_CTA).
+      ...(DEMO_MODE ? [] : [{ label: "Browse deals", href: "/feed" }]),
       { label: "Install the app", href: "/download" },
     ],
   },
