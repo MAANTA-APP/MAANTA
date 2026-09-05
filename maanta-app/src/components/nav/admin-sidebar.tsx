@@ -53,6 +53,27 @@ const ITEMS = [
   { href: "/admin/audit", label: "Audit" },
 ];
 
+/**
+ * Growth — pre-launch acquisition (2026-09-04, founder-authorised).
+ *
+ * Its own group rather than five more rows in `ITEMS`, for the same reason
+ * `ITEMS` stopped being thirteen database objects in a column: these five are
+ * one job — filling Node 0 before it opens — and they are done by someone
+ * thinking about acquisition, not by an operator working today's queue. A
+ * grouped heading says "this is a different job" without pushing the daily work
+ * further down the list.
+ *
+ * It sits ABOVE the System divider because it is real recurring work, unlike
+ * Billing and Reports below it.
+ */
+const GROWTH_ITEMS = [
+  { href: "/admin/growth", label: "Overview" },
+  { href: "/admin/growth/waitlist", label: "Waitlist" },
+  { href: "/admin/growth/leads", label: "Merchant leads" },
+  { href: "/admin/growth/campaigns", label: "Campaigns" },
+  { href: "/admin/growth/content", label: "Content & SEO" },
+];
+
 /** Lower-frequency system tools, below a visual divider. */
 const SYSTEM_ITEMS = [
   { href: "/admin/billing", label: "Billing" },
@@ -74,6 +95,10 @@ const OWNED_BY: Record<string, string> = {
 
 function isActive(pathname: string, href: string) {
   if (href === "/admin") return pathname === "/admin";
+  // `/admin/growth` is a real page AND the parent of four others, so the
+  // prefix rule below would light Overview on every Growth screen. Exact match
+  // only, the same exception `/admin` already needs.
+  if (href === "/admin/growth") return pathname === "/admin/growth";
   if (pathname === href || pathname.startsWith(`${href}/`)) return true;
   return Object.entries(OWNED_BY).some(
     ([owned, owner]) =>
@@ -105,6 +130,16 @@ export function AdminSidebar() {
   const nav = (
     <nav className="flex flex-col gap-1 p-4">
       {ITEMS.map(item)}
+
+      {/* Growth — pre-launch acquisition. One amber active item, same as every
+          other row: the group heading is not itself a link and carries no
+          colour of its own. */}
+      <div className="mt-3 flex flex-col gap-1 border-t border-white/15 pt-3">
+        <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
+          Growth
+        </p>
+        {GROWTH_ITEMS.map(item)}
+      </div>
 
       {/* System tools — legitimate, low-frequency, and not where the work is. */}
       <div className="mt-3 flex flex-col gap-1 border-t border-white/15 pt-3">

@@ -119,6 +119,7 @@ Full detail is in our [Cookie Notice](/cookies).
 | Merchant account and wallet records | For the life of the account, then as required by tax and accounting law |
 | Analytics | for 24 months, after which it is deleted or aggregated so it no longer identifies anyone |
 | Contact and waitlist messages | for 24 months after we last replied to you, so we have the history if you get back in touch |
+| Waitlist signup details | for 24 months from the day you joined, or until you ask us to remove you — whichever comes first. Your signup is held in two places: our email platform, which sends you the launch updates you agreed to, and our own database, which is what lets us count and organise the list. A request to be removed clears both |
 
 ## 9. Your rights
 
@@ -128,7 +129,7 @@ Under the Data Protection Act, 2019 you have the right to be informed how your d
 
 - **Access requests — within 7 days.**
 - **Corrections — within 14 days.** If we refuse, we will tell you within 7 days and give our reasons in writing.
-- **Erasure — within 14 days.**
+- **Erasure — within 14 days.** Where the same information is held in more than one place — a waitlist signup, for example, sits both in our email platform and in our own database — erasure means all of them, not whichever one you contacted us about.
 
 To exercise any of these, email admin@maanta.app from the phone number or address on your account, or write to us at the address above. We may ask you to confirm your identity. We do not charge for this.
 

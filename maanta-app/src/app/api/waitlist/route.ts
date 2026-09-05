@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { validateWaitlistSubmission } from "@/lib/waitlist";
+import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
+import { mirrorWaitlistSignup } from "@/lib/growth/waitlist-mirror";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 import { addWaitlistContact, sendWaitlistEmail } from "@/lib/resend";
 import {
@@ -8,10 +11,35 @@ import {
   WAITLIST_RATE_WINDOW_SECONDS,
 } from "@/lib/rate-limit";
 
-function waitlistClientKey(request: Request): string {
+/**
+ * The rate-limit bucket.
+ *
+ * Keyed on the client IP AND a digest of the normalized email, for two reasons
+ * that pull in different directions.
+ *
+ * On Vercel the platform overwrites `x-forwarded-for` with the connecting
+ * client's address and does not forward an external value, so on this
+ * deployment the first hop is not client-spoofable. Anywhere else it is, and
+ * every miss used to fall into a single shared `waitlist:unknown` bucket. The
+ * email component makes the key hold either way: header rotation alone cannot
+ * mint unlimited buckets for one address, and the IP still bounds one client
+ * churning through addresses. That matters now that these submissions become
+ * rows in the table the admin console counts as traction (D261).
+ *
+ * The address itself is never the key. `api_rate_limit_buckets` keeps its rows
+ * after the window closes and has no reaper, so a raw-email key would be a
+ * second, unmanaged copy of the waitlist in a table nobody thinks of as holding
+ * personal data (SEC-011). A digest bounds the key's length too, so a 254-byte
+ * address cannot be used to bloat a primary key.
+ */
+function waitlistClientKey(request: Request, email: string): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-  return `waitlist:${ip}`;
+  const rawIp =
+    forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip")?.trim() || "unknown";
+  // Bounded and character-restricted: this string becomes a primary key.
+  const ip = rawIp.replace(/[^0-9a-f.:]/gi, "").slice(0, 45) || "unknown";
+  const address = createHash("sha256").update(email, "utf8").digest("hex").slice(0, 32);
+  return `waitlist:${ip}:${address}`;
 }
 
 /**
@@ -45,9 +73,19 @@ export async function GET(request: Request) {
 }
 
 /**
- * Public waitlist signup. Stateless proxy to Resend: the contact (with
- * segment_type and consent fields) is the record — nothing is stored in
- * Supabase, per the 2026-07-10 decision in docs/maanta-decisions-log.md.
+ * Public waitlist signup.
+ *
+ * No longer a stateless proxy. Founder ruling 2026-09-04 (amending 2026-07-10,
+ * D261): the signup is written to BOTH Resend and a Supabase mirror, because the
+ * admin Growth console has to count and filter these people and Resend's list
+ * endpoint returns no custom properties.
+ *
+ * **Resend goes first, and its failure is the user-visible one.** It owns
+ * deliverability and duplicate detection; a mirror row for someone who never
+ * reached the sending audience would be a signup that receives nothing. The
+ * mirror is written after, and a mirror failure does NOT fail the request — the
+ * person is on the list, and telling them otherwise would make them sign up
+ * again. It is logged, and the sync pass reconciles it.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -62,13 +100,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const result = validateWaitlistSubmission(body);
+  // The TEST marker is derived here from a shared secret, never taken from the
+  // body — see lib/growth/waitlist-test-token.ts.
+  const isTest = isWaitlistTestToken((body as { testToken?: unknown })?.testToken);
+
+  const result = validateWaitlistSubmission(body, { isTest });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
   const allowed = await checkRateLimit(
-    waitlistClientKey(request),
+    waitlistClientKey(request, result.data.email),
     WAITLIST_RATE_LIMIT,
     WAITLIST_RATE_WINDOW_SECONDS
   );
@@ -80,12 +122,18 @@ export async function POST(request: Request) {
   }
 
   const contact = await addWaitlistContact(result.data);
-  if (contact === "failed") {
+  if (contact.outcome === "failed") {
     return NextResponse.json(
       { error: "Could not join the waitlist right now. Please try again in a minute." },
       { status: 502 }
     );
   }
+
+  // The mirror. Deliberately not awaited into the failure path: the person IS on
+  // the list at this point, and a 502 here would make them sign up again. Only a
+  // contact Resend just CREATED is written from this body — on already_exists
+  // the lib returns "skipped" and the sync pass imports Resend's own record.
+  await mirrorWaitlistSignup(result.data, contact);
 
   // The signup is captured; a confirmation-email failure is logged but
   // must not make the signup look broken to the user.
@@ -103,5 +151,9 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, alreadyJoined: contact === "already_exists" });
+  // `alreadyJoined` stays derived from Resend's inference and is NOT recomputed
+  // from the mirror. It already answers "is this address on MAANTA's waitlist?"
+  // to any unauthenticated caller; making it authoritative from a database fact
+  // would upgrade a fuzzy membership oracle into a reliable one.
+  return NextResponse.json({ ok: true, alreadyJoined: contact.outcome === "already_exists" });
 }

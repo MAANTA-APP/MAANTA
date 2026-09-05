@@ -51,6 +51,25 @@ export type WaitlistSubmission = {
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;
+  /**
+   * An internal test signup, made through the real form.
+   *
+   * MAANTA tests the live waitlist rather than a copy of it (founder TEST
+   * treatment, 2026-09-04), so the marker has to travel with the contact. The
+   * admin console defaults to counting Real only and states which population
+   * every figure used; without this flag those rows would be indistinguishable
+   * from genuine signups — the same defect as `redemptions.is_demo`, which
+   * `claim_deal` never set, so every claim silently counted as real (D188).
+   *
+   * Defaults to `false`. **Nothing in the request body sets this.** The caller
+   * of `validateWaitlistSubmission` passes a server-side verdict, derived in
+   * `lib/growth/waitlist-test-token.ts` from a shared secret in the URL. A
+   * public endpoint that took the client's word for it would let anyone file
+   * rows the admin console excludes from its counts.
+   */
+  isTest: boolean;
+  /** What is being tested, e.g. `smoke-test`. Free text, capped. */
+  testLabel: string | null;
 };
 
 /**
@@ -84,7 +103,14 @@ export type WaitlistValidation =
   | { ok: true; data: WaitlistSubmission }
   | { ok: false; error: string };
 
-export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
+/**
+ * `isTest` is a parameter, not a body field: the only way to mark a submission
+ * as internal is for the caller to have already checked the shared secret.
+ */
+export function validateWaitlistSubmission(
+  body: unknown,
+  options: { isTest?: boolean } = {}
+): WaitlistValidation {
   if (typeof body !== "object" || body === null) {
     return { ok: false, error: "Invalid request." };
   }
@@ -124,6 +150,8 @@ export function validateWaitlistSubmission(body: unknown): WaitlistValidation {
       utmSource: optionalText(b.utmSource, 100),
       utmMedium: optionalText(b.utmMedium, 100),
       utmCampaign: optionalText(b.utmCampaign, 100),
+      isTest: options.isTest === true,
+      testLabel: options.isTest === true ? optionalText(b.testLabel, 60) : null,
     },
   };
 }

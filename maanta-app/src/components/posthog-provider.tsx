@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { isClerkAuthClient } from "@/lib/auth/strategy-client";
 import { createClient } from "@/lib/supabase/client";
+import { scrubAnalyticsEvent } from "@/lib/analytics-scrub";
 
 const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim();
 if (typeof window !== "undefined" && posthogToken) {
@@ -15,6 +16,12 @@ if (typeof window !== "undefined" && posthogToken) {
     defaults: "2026-01-30",
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
+    /**
+     * `/waitlist?test=<token>` carries a shared secret in the URL, and
+     * autocapture would otherwise ship it on every event as `$current_url`.
+     * See lib/analytics-scrub.ts.
+     */
+    before_send: scrubAnalyticsEvent,
     /**
      * Cookieless for anonymous visitors — founder ruling 2026-07-31.
      *

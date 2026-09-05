@@ -9,7 +9,14 @@ export type AdminOpTargetType =
   | "fraud_event"
   | "agent_task"
   /** D171: blacklisting is the first admin action whose target is a shopper. */
-  | "user";
+  | "user"
+  /* Growth console (2026-09-04). A lead stage change, a campaign edit and a
+     revealed waitlist number are admin mutations like any other, and the
+     reveal in particular is why this list grew: reading a person's phone
+     number off a shared screen is an act, not a view. */
+  | "growth_lead"
+  | "growth_campaign"
+  | "waitlist_contact";
 
 export type AdminOpLogInput = {
   adminUserId: string;

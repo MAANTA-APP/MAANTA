@@ -21,7 +21,9 @@
  */
 
 /** Keys whose values must never leave the process, at any nesting depth. */
-const SENSITIVE_KEY = /^(otp|otp_?code|token|access_?token|refresh_?token|authorization|auth|cookie|password|secret|api_?key|challenge|signature|phone|phone_?number|msisdn)$/i;
+// `test` / `test_token`: the waitlist TEST entry point carries a shared secret
+// as `/waitlist?test=<token>` and posts it as `testToken`.
+const SENSITIVE_KEY = /^(otp|otp_?code|token|access_?token|refresh_?token|authorization|auth|cookie|password|secret|api_?key|challenge|signature|phone|phone_?number|msisdn|test|test_?token)$/i;
 
 const REDACTED = "[REDACTED]";
 const MAX_DEPTH = 6;

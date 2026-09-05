@@ -34,9 +34,16 @@ const BUSINESS_LABEL: Record<WaitlistSegment, string | null> = {
 export function WaitlistForm({
   initialSegment,
   initialEmail = "",
+  testToken = "",
 }: {
   initialSegment: WaitlistSegment;
   initialEmail?: string;
+  /**
+   * The internal-test token, already verified server-side by the page. Posted
+   * back so the API can verify it again itself — the API must never take a
+   * boolean's word for which population a signup belongs in.
+   */
+  testToken?: string;
 }) {
   const [segment, setSegment] = useState<WaitlistSegment>(initialSegment);
   const [fullName, setFullName] = useState("");
@@ -76,6 +83,8 @@ export function WaitlistForm({
           utmSource: params.get("utm_source"),
           utmMedium: params.get("utm_medium"),
           utmCampaign: params.get("utm_campaign"),
+          testToken: testToken || undefined,
+          testLabel: testToken ? params.get("test_label") : undefined,
         }),
       });
       const body = await res.json().catch(() => null);
@@ -95,7 +104,7 @@ export function WaitlistForm({
     return (
       <div className="mt-8 rounded-card bg-verified-tint px-5 py-4">
         <p className="text-sm font-semibold text-verified">
-          ✓ You&apos;re on the list
+          ✓ {testToken ? "Test signup recorded" : "You're on the list"}
         </p>
         <p className="mt-1 text-sm text-ink">
           {done.alreadyJoined
