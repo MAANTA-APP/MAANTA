@@ -104,11 +104,28 @@ production. The two SQL scenarios run only in CI's `db-tests`.
 
 # Addendum — D269 and D270 ruled (2026-09-05)
 
-- **D269, closed.** Email is the launch channel. `WAITLIST_CONSENT_TEXT` now
-  names email, WhatsApp and SMS, so the channels the board wants can be added
-  without re-consenting early signups; guarded in `waitlist.test.ts`. The
-  privacy policy says the same in "Your rights". Revisit the channel before the
-  first send.
-- **D270, deferred.** A signup counts when the form accepts it. Re-examined
-  when the first campaign is drafted, or on the first complaint.
+- **D269, closed (founder product/marketing ruling).** Email is the approved
+  launch channel. `WAITLIST_CONSENT_TEXT` now names email, WhatsApp and SMS,
+  which future-proofs the consent record — and **consented ≠ activated**:
+  `WAITLIST_ACTIVATED_CHANNELS` is `["email"]`, WhatsApp and SMS are not yet
+  activated, and neither may be used merely because the wording names it.
+  Each needs its own provider, operational and compliance readiness, as its
+  own ruling. Guarded in `waitlist.test.ts` (wording, activated ⊆ consented,
+  email only, no sender in the codebase). Historic rows keep the wording they
+  were shown; consent evidence is never rewritten. Re-examine the channel
+  posture immediately before the first genuine send.
+- **D270, engineering deferred.** MAANTA initially relies on the recorded form
+  consent rather than building confirmation-by-link before launch. Whether
+  that satisfies every applicable Kenyan requirement is a compliance matter to
+  be rechecked before genuine marketing begins — not a conclusion this record
+  draws. Reopen on: first genuine campaign in preparation; legal/compliance or
+  provider requirement; deliverability or abuse evidence; a material complaint
+  or consent issue.
+- **Collection is not gated by code.** As of this branch there is no switch
+  that closes the public waitlist: `/waitlist` renders the form and
+  `POST /api/waitlist` accepts signups whenever Resend is configured. Changing
+  the consent copy neither opens nor closes it. If the founder's sequence —
+  presence → discoverability → tested journey → incorporation/compliance gate
+  → live waitlist — needs a closed gate, that is a separate, small ruling and
+  build.
 

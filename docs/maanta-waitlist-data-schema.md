@@ -68,8 +68,11 @@ One audience database, three role-based segments. Companion to
 > time.
 
 Widened by founder ruling so the channels board 2 wants (WhatsApp, SMS) can be
-added without re-consenting early signups. Email remains the only sender today.
-The 2026-07-10 wording below is kept as the record of what earlier rows carry.
+activated later without re-consenting early signups. **Consented ≠ activated:**
+email is the only approved launch channel; WhatsApp and SMS are not activated
+and each needs its own ruling and readiness (`WAITLIST_ACTIVATED_CHANNELS`).
+The 2026-07-10 wording below is kept as the record of what earlier rows carry —
+historic consent evidence is never rewritten to the current wording.
 
 > I agree to receive MAANTA launch updates and relaunch marketing emails —
 > including merchant offers at BBS Mall and deal updates across Nairobi.

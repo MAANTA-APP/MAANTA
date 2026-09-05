@@ -7,7 +7,12 @@ import {
   WAITLIST_SEGMENTS,
   WAITLIST_SEGMENT_OPTIONS,
 } from "@/lib/waitlist";
-import { WAITLIST_CONSENT_TEXT } from "@/lib/waitlist";
+import {
+  WAITLIST_ACTIVATED_CHANNELS,
+  WAITLIST_CONSENTED_CHANNELS,
+  WAITLIST_CONSENT_TEXT,
+} from "@/lib/waitlist";
+import { readdirSync, statSync } from "node:fs";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 
 const validBody = {
@@ -136,11 +141,46 @@ describe("waitlist segment capture", () => {
 // D269 (founder ruling 2026-09-05): email is the launch channel, and the consent
 // a person ticks already covers the two channels the board wants next, so adding
 // WhatsApp or SMS later never means asking early signups again.
+//
+// The invariant that goes with it: CONSENTED CHANNEL ≠ ACTIVATED CHANNEL. The
+// wording naming a channel activates nothing; activation is a separate ruling
+// with its own provider, operational and compliance readiness.
 describe("waitlist consent names every channel it may one day use", () => {
   it("covers email, WhatsApp and SMS, and the right to leave", () => {
     for (const word of ["email", "WhatsApp", "SMS", "unsubscribe"]) {
       expect(WAITLIST_CONSENT_TEXT).toContain(word);
     }
+    expect([...WAITLIST_CONSENTED_CHANNELS]).toEqual(["email", "whatsapp", "sms"]);
+  });
+
+  it("activates email only, and every activated channel is a consented one", () => {
+    expect([...WAITLIST_ACTIVATED_CHANNELS]).toEqual(["email"]);
+    for (const c of WAITLIST_ACTIVATED_CHANNELS) {
+      expect(WAITLIST_CONSENTED_CHANNELS).toContain(c);
+    }
+  });
+
+  // Activation is a ruling, not a dependency install. Until D269's channel
+  // posture is re-examined, no WhatsApp or SMS sender exists in the codebase.
+  it("has no WhatsApp or SMS sender in lib/ or app/api", () => {
+    const SRC = path.resolve(__dirname, "..", "..");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = path.join(dir, name);
+        if (statSync(full).isDirectory()) {
+          if (name !== "__tests__") walk(full);
+        } else if (/\.tsx?$/.test(name)) files.push(full);
+      }
+    };
+    walk(path.join(SRC, "lib"));
+    walk(path.join(SRC, "app", "api"));
+    const senders = files.filter((f) =>
+      /twilio|africastalking|africa's talking|graph\.facebook\.com|sendSms\(|sendWhatsApp\(/i.test(
+        readFileSync(f, "utf8")
+      )
+    );
+    expect(senders.map((f) => path.relative(SRC, f))).toEqual([]);
   });
 });
 
