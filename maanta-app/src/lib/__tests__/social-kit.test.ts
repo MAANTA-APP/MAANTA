@@ -85,6 +85,17 @@ describe("social kit — nothing invented without saying so, nothing free-text",
     expect(findKitAsset("nope")).toBeNull();
   });
 
+  it("wraps the dark cover headline inside the width the lockup leaves, so the company banner cannot clip", () => {
+    // Readiness sweep 2026-09-05: on the 1128×191 LinkedIn company cover the
+    // proposition rendered as one unconstrained line and clipped at the right
+    // edge. The text column's width must be derived from the frame, and the
+    // headline must be allowed to wrap into it.
+    const coverDark = KIT.slice(KIT.indexOf("function coverDark("), KIT.indexOf("function youtubeChannelArt("));
+    expect(coverDark).toMatch(/const textWidth = size\.width - marginLeft - lockupWidth - gap - marginRight/);
+    expect(coverDark).toMatch(/maxWidth: textWidth/);
+    expect(coverDark).toMatch(/flexWrap: "wrap"/);
+  });
+
   it("renders the profile image on the amber badge and every price in ink", () => {
     expect(KIT).toContain("background: BRAND");
     // Prices in the deal card are INK; the only amber besides the badge is the
