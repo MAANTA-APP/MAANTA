@@ -71,6 +71,8 @@ Name, role, organisation and contact details you give us, plus records of our co
 
 You can withdraw consent at any time. Withdrawing consent for marketing does not affect service messages about a deal you have claimed.
 
+If you joined our waitlist, the launch updates you agreed to may reach you by email, WhatsApp or SMS, using the address and number you gave us. Today we send them by email only; if we add WhatsApp or SMS, every message will still carry a way to stop.
+
 ## 5. Ranking and automated processing
 
 Deals are ordered using verified redemptions, distance, and how soon a deal expires. This affects what you see in the feed. It does not produce legal or similarly significant effects about you, and we do not use it to profile you for any decision about you personally.

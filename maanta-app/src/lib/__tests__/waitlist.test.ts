@@ -7,6 +7,7 @@ import {
   WAITLIST_SEGMENTS,
   WAITLIST_SEGMENT_OPTIONS,
 } from "@/lib/waitlist";
+import { WAITLIST_CONSENT_TEXT } from "@/lib/waitlist";
 import { waitlistConfirmationEmail } from "@/lib/waitlist-emails";
 
 const validBody = {
@@ -128,6 +129,17 @@ describe("waitlist segment capture", () => {
     for (const file of [WAITLIST]) {
       expect(read(...file), `${file.join("/")} should not define its own list`)
         .toContain("WAITLIST_SEGMENT_OPTIONS");
+    }
+  });
+});
+
+// D269 (founder ruling 2026-09-05): email is the launch channel, and the consent
+// a person ticks already covers the two channels the board wants next, so adding
+// WhatsApp or SMS later never means asking early signups again.
+describe("waitlist consent names every channel it may one day use", () => {
+  it("covers email, WhatsApp and SMS, and the right to leave", () => {
+    for (const word of ["email", "WhatsApp", "SMS", "unsubscribe"]) {
+      expect(WAITLIST_CONSENT_TEXT).toContain(word);
     }
   });
 });

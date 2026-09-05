@@ -99,3 +99,16 @@ production. The two SQL scenarios run only in CI's `db-tests`.
 
 **D269** (channel) and **D270** (double opt-in), both founder decisions. Board 4
 — the social and OG image kit — was never exported; the bundle ends at board 3.
+
+---
+
+# Addendum — D269 and D270 ruled (2026-09-05)
+
+- **D269, closed.** Email is the launch channel. `WAITLIST_CONSENT_TEXT` now
+  names email, WhatsApp and SMS, so the channels the board wants can be added
+  without re-consenting early signups; guarded in `waitlist.test.ts`. The
+  privacy policy says the same in "Your rights". Revisit the channel before the
+  first send.
+- **D270, deferred.** A signup counts when the form accepts it. Re-examined
+  when the first campaign is drafted, or on the first complaint.
+

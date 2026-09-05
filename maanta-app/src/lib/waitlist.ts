@@ -45,10 +45,18 @@ export const WAITLIST_SEGMENT_OPTIONS: {
 /**
  * Exact consent wording shown at signup. Stored with every contact
  * (Kenya DPA 2019 — consent timestamp + wording required before any
- * email sequence). Align with legal/privacy-policy.md before go-live.
+ * message sequence). Align with legal/privacy-policy.md before go-live.
+ *
+ * **Widened 2026-09-05 (founder ruling, register D269).** Email is the launch
+ * channel — it is the only sender this codebase has — but design board 2's
+ * "phone first" instinct is right for Nairobi, and a consent that named only
+ * email would mean asking every early signup again the day WhatsApp or SMS is
+ * added. So the wording names all three channels now, while the waitlist is
+ * empty and the cost of widening is one line. Rows already stored keep the
+ * text they were shown; the two that exist are internal test rows.
  */
 export const WAITLIST_CONSENT_TEXT =
-  "I agree to receive MAANTA launch updates and relaunch marketing emails — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
+  "I agree to receive MAANTA launch updates and relaunch marketing messages by email, WhatsApp or SMS — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
 
 /** Node 0. The default node interest, and the mall the form offers first. */
 export const WAITLIST_NODE_INTEREST = "BBS Mall";
