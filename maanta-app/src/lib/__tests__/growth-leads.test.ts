@@ -28,6 +28,10 @@ const lead = (over: Partial<MerchantLead> = {}): MerchantLead => ({
   walletToppedUp: false,
   isTest: false,
   capturedLeadId: null,
+  shopName: null,
+  mall: null,
+  source: "admin",
+  eliteTrialOptIn: false,
   createdAt: "2026-09-01T08:00:00Z", // a Tuesday
   firstContactedAt: null,
   ...over,

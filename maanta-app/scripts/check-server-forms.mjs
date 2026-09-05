@@ -75,16 +75,18 @@ const MUST_PRERENDER_A_FORM = [
     formNeedle: "Your message",
     alsoOnPage: ["What is this about?", "I am a mall operator"],
   },
-  {
-    route: "/merchants/join",
-    file: "merchants/join.html",
-    formNeedle: "Shop name",
-    alsoOnPage: ["Get started"],
-  },
 ];
 
-/** Known-dynamic routes with forms: no build artefact exists, so they are named. */
-const DYNAMIC_WITH_FORMS = ["/waitlist"];
+/**
+ * Known-dynamic routes with forms: no build artefact exists, so they are named.
+ *
+ * `/merchants/join` joined this list on 2026-09-05 (board 2): it reads
+ * `searchParams` for the internal TEST token, which the server verifies before
+ * rendering the TEST treatment — a client-side read would show a "test mode"
+ * banner to anyone who typed `?test=1` while the API filed a real row. Its form
+ * still avoids `useSearchParams` and `Suspense` (`waitlist-funnel.test.ts`).
+ */
+const DYNAMIC_WITH_FORMS = ["/waitlist", "/merchants/join"];
 
 function die(msg) {
   console.error(`check-server-forms: ${msg}`);

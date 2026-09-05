@@ -200,3 +200,47 @@ BEGIN
   DELETE FROM public.users WHERE id = v_user;
   RAISE NOTICE 'Scenario G passed: the growth board links to public.leads without absorbing it';
 END $$;
+
+-- Scenario H: the public interest form (20260905130000_waitlist_funnel_fields.sql).
+-- A form row must carry the consent the merchant ticked; an agent row need not.
+-- The mall defaults to Node 0, counter_staff is a closed list, and a test label
+-- needs the flag — the same rules the waitlist mirror already lives by.
+DO $$
+DECLARE
+  v_id UUID;
+  v_mall TEXT;
+  v_raised BOOLEAN := FALSE;
+BEGIN
+  BEGIN
+    INSERT INTO public.growth_merchant_leads (floor, unit, source)
+      VALUES ('GF', '__t08', 'public_form');
+  EXCEPTION WHEN check_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'H: a public_form row without consent must be rejected';
+
+  INSERT INTO public.growth_merchant_leads
+    (floor, unit, source, shop_name, contact_name, contact_phone, counter_staff, consent_at, consent_text)
+    VALUES ('GF', '__t08', 'public_form', '__t Shop', 'A M', '+254712345678', 'just_me', NOW(), '__t consent')
+    RETURNING id, mall INTO v_id, v_mall;
+  ASSERT v_mall = 'BBS Mall, Eastleigh', 'H: mall must default to Node 0';
+
+  v_raised := FALSE;
+  BEGIN
+    UPDATE public.growth_merchant_leads SET counter_staff = 'lots' WHERE id = v_id;
+  EXCEPTION WHEN check_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'H: counter_staff must come from the closed list';
+
+  v_raised := FALSE;
+  BEGIN
+    UPDATE public.growth_merchant_leads SET test_label = 'smoke' WHERE id = v_id;
+  EXCEPTION WHEN check_violation THEN v_raised := TRUE;
+  END;
+  ASSERT v_raised, 'H: a test label without the flag must be rejected';
+
+  -- An agent row still needs no consent columns and no shop name.
+  DELETE FROM public.growth_merchant_leads WHERE id = v_id;
+  INSERT INTO public.growth_merchant_leads (floor, unit) VALUES ('GF', '__t08') RETURNING id INTO v_id;
+  DELETE FROM public.growth_merchant_leads WHERE id = v_id;
+  RAISE NOTICE 'Scenario H passed: form rows carry consent, agent rows identify by unit alone';
+END $$;

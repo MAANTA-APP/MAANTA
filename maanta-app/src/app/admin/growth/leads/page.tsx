@@ -214,9 +214,15 @@ function LeadCard({ lead }: { lead: MerchantLead }) {
         </span>
       </div>
 
+      {lead.shopName ? (
+        // Their name for the shop, given on the public form — shown under the
+        // unit, never instead of it. The unit is still the identity (D265).
+        <p className="mt-1 text-[13px] font-semibold leading-snug text-ink">{lead.shopName}</p>
+      ) : null}
       <p className="mt-1 text-xs leading-snug text-secondary">
         {lead.category ?? "Category not recorded"}
         {lead.contactName ? ` · ${lead.contactName}` : ""}
+        {lead.source === "public_form" ? " · via the form" : ""}
       </p>
 
       {lead.stage === "visit_booked" && lead.visitAt ? (

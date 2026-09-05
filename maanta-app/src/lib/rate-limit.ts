@@ -17,6 +17,10 @@ export const ONBOARD_RATE_WINDOW_SECONDS = 3600;
 export const WAITLIST_RATE_LIMIT = 5;
 export const WAITLIST_RATE_WINDOW_SECONDS = 3600;
 
+/** `/api/merchants/interest` — same shape as the waitlist: a public form that mints rows. */
+export const MERCHANT_INTEREST_RATE_LIMIT = 5;
+export const MERCHANT_INTEREST_RATE_WINDOW_SECONDS = 3600;
+
 export const W3W_VALIDATE_RATE_LIMIT = 30;
 export const W3W_VALIDATE_RATE_WINDOW_SECONDS = 60;
 

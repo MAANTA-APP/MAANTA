@@ -18,6 +18,8 @@ const submission: WaitlistSubmission = {
   fullName: "A Prober",
   email: "someone-else@example.com",
   phone: "+254712345678",
+  nodeInterest: "BBS Mall",
+  interests: [],
   businessName: null,
   note: null,
   utmSource: null,

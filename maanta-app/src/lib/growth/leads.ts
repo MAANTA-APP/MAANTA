@@ -102,6 +102,13 @@ export type MerchantLead = {
   capturedLeadId: string | null;
   createdAt: string;
   firstContactedAt: string | null;
+  /** What the merchant typed above their door, on the public form. Null on agent rows. */
+  shopName: string | null;
+  /** Node 0 unless the merchant named another mall. */
+  mall: string | null;
+  /** Where the row came from. Agent rows predate the column and read as `admin`. */
+  source: "admin" | "public_form";
+  eliteTrialOptIn: boolean;
 };
 
 /** `GF · Unit 12` — the one way a lead is named, everywhere. */
@@ -230,5 +237,9 @@ export function rowToLead(row: Record<string, unknown>): MerchantLead {
     capturedLeadId: (row.captured_lead_id as string | null) ?? null,
     createdAt: String(row.created_at),
     firstContactedAt: (row.first_contacted_at as string | null) ?? null,
+    shopName: (row.shop_name as string | null) ?? null,
+    mall: (row.mall as string | null) ?? null,
+    source: row.source === "public_form" ? "public_form" : "admin",
+    eliteTrialOptIn: Boolean(row.elite_trial_opt_in),
   };
 }

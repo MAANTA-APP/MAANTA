@@ -137,8 +137,17 @@ export async function POST(request: Request) {
 
   // The signup is captured; a confirmation-email failure is logged but
   // must not make the signup look broken to the user.
-  const email = waitlistConfirmationEmail(result.data.segment, result.data.fullName);
-  const sent = await sendWaitlistEmail(result.data.email, email);
+  //
+  // A TEST signup sends nothing (board 2, M8): consent is recorded for the
+  // shape of the data, and the whole point of a test entry is that no real
+  // message reaches a real inbox. The row still lands in Resend and the mirror
+  // so the console can be tested against it.
+  const sent = result.data.isTest
+    ? true
+    : await sendWaitlistEmail(
+        result.data.email,
+        waitlistConfirmationEmail(result.data.segment, result.data.fullName)
+      );
   if (!sent) {
     // Log the segment, not the address. The failure is already non-fatal to the
     // request, so the address buys nothing a support person cannot get from the

@@ -15,6 +15,9 @@ import { stripComments } from "./helpers/comment-stripping";
 
 const SRC = path.resolve(__dirname, "..", "..");
 const MARKETING = path.join(SRC, "app", "(marketing)");
+// The funnel routes (`/waitlist`, `/merchants/join`) moved to their own shell on
+// 2026-09-05 (board 2). Same rules apply: they are public marketing surfaces.
+const FUNNEL = path.join(SRC, "app", "(funnel)");
 
 function pages(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -28,7 +31,7 @@ function pages(dir: string): string[] {
 }
 
 const rel = (f: string) => path.relative(SRC, f);
-const PAGES = pages(MARKETING);
+const PAGES = [...pages(MARKETING), ...pages(FUNNEL)];
 const read = (f: string) => readFileSync(f, "utf8");
 
 describe("marketing accessibility and metadata", () => {

@@ -1,6 +1,5 @@
 import {
   WAITLIST_CONSENT_TEXT,
-  WAITLIST_NODE_INTEREST,
   type WaitlistSubmission,
 } from "@/lib/waitlist";
 import type { WaitlistEmail } from "@/lib/waitlist-emails";
@@ -102,17 +101,17 @@ export async function addWaitlistContact(
     return FAILED;
   }
 
-  const [first, ...rest] = submission.fullName.split(/\s+/);
+  const [first, ...rest] = (submission.fullName ?? "").split(/\s+/);
   const payload: Record<string, unknown> = {
     email: submission.email,
-    first_name: first,
+    first_name: first || undefined,
     last_name: rest.join(" ") || undefined,
     unsubscribed: false,
     // Field names are canonical per docs/maanta-waitlist-data-schema.md.
     properties: {
       segment_type: submission.segment,
       phone: submission.phone,
-      node_interest: WAITLIST_NODE_INTEREST,
+      node_interest: submission.nodeInterest,
       business_name: submission.businessName ?? undefined,
       note: submission.note ?? undefined,
       source_channel: submission.utmSource ?? undefined,

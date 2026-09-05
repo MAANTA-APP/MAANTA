@@ -107,7 +107,7 @@ describe("marketing analytics wiring", () => {
     // server shell could export `metadata` (drift D52), and the tracked submit
     // handler moved with the form. This guard caught that move, which is the
     // point of it — an untracked merchant lead form is invisible in the funnel.
-    expect(read("app", "(marketing)", "merchants", "join", "join-form.tsx")).toContain(
+    expect(read("app", "(funnel)", "merchants", "join", "join-form.tsx")).toContain(
       "MARKETING_EVENTS.formSubmit"
     );
   });
@@ -153,7 +153,7 @@ describe("marketing analytics wiring", () => {
     }
 
     const joinCall = identifiersOnly(
-      submitCall(read("app", "(marketing)", "merchants", "join", "join-form.tsx"))
+      submitCall(read("app", "(funnel)", "merchants", "join", "join-form.tsx"))
     );
     for (const field of ["shopName", "phone"]) {
       expect(
