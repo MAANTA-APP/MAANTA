@@ -5,7 +5,9 @@ import {
   routeHealth,
   type IndexPolicy,
 } from "@/lib/growth/content-health";
+import Link from "next/link";
 import { NON_INDEXABLE_PREFIXES } from "@/lib/marketing/nav";
+import { SOCIAL_KIT } from "@/lib/marketing/social-kit";
 import {
   CardHeading,
   GrowthBadge,
@@ -167,6 +169,21 @@ export default async function AdminGrowthContentPage() {
               against each other.
             </p>
           </section>
+
+          <GrowthCard>
+            <CardHeading>Social &amp; OG kit</CardHeading>
+            <p className="mb-3 mt-1 text-xs leading-relaxed text-muted">
+              {SOCIAL_KIT.length} assets — profile image, covers, channel art, the OG
+              template and the deal and waitlist cards — rendered on request from the
+              same facts and copy as the site, with each platform&apos;s safe area.
+            </p>
+            <Link
+              href="/admin/growth/content/kit"
+              className="inline-flex h-9 items-center rounded-pill border border-ink bg-white px-4 text-[13px] font-semibold text-ink hover:bg-stone"
+            >
+              Open the kit
+            </Link>
+          </GrowthCard>
 
           <GrowthCard>
             <CardHeading>To fix</CardHeading>
