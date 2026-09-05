@@ -1,6 +1,7 @@
 import { isLeadFloor, LEAD_FLOOR_LABELS, LEAD_FLOORS, type LeadFloor } from "@/lib/growth/leads";
 import { normalizeWaitlistPhone } from "@/lib/waitlist";
-import { FACTS } from "@/lib/marketing/facts";
+
+import { PILOT_LOCATION_OPTIONS, PILOT_LOCATION_OTHER_MAX, isPilotLocationValue, storedPilotLocation } from "@/lib/marketing/pilot-status";
 
 /**
  * `/merchants/join` — merchant interest, as board 2 (M6) draws it.
@@ -48,10 +49,8 @@ export function isCounterStaff(value: unknown): value is CounterStaff {
   return typeof value === "string" && COUNTER_STAFF_OPTIONS.some((o) => o.value === value);
 }
 
-export const MERCHANT_MALL_OPTIONS = [
-  { value: "bbs", label: FACTS.launchMall },
-  { value: "other", label: "Another mall" },
-] as const;
+/** The same central preferred-location list as the waitlist; validated server-side against it. */
+export const MERCHANT_MALL_OPTIONS = PILOT_LOCATION_OPTIONS;
 
 /** Stored verbatim with its timestamp on every form row (Kenya DPA 2019). */
 export const MERCHANT_CONTACT_CONSENT_TEXT =
@@ -109,19 +108,18 @@ export function validateMerchantInterest(
   if (!shopName) return { ok: false, error: "Tell us the name above your door." };
 
   const contactName = optionalText(b.contactName, 120);
-  if (!contactName) return { ok: false, error: "Who should the agent ask for?" };
+  if (!contactName) return { ok: false, error: "Who should we ask for?" };
 
   const phone = normalizeWaitlistPhone(b.phone);
   if (!phone) {
     return { ok: false, error: "Enter a valid phone number (e.g. 0712 345 678)." };
   }
 
-  let mall: string = FACTS.launchMall;
-  if (b.mall === "other") {
-    const other = optionalText(b.mallOther, 120);
-    if (!other) return { ok: false, error: "Tell us which mall your shop is in." };
-    mall = other;
+  if (!isPilotLocationValue(b.mall)) {
+    return { ok: false, error: "Choose your shop's location from the list." };
   }
+  const mall = storedPilotLocation(b.mall, optionalText(b.mallOther, PILOT_LOCATION_OTHER_MAX));
+  if (!mall) return { ok: false, error: "Tell us which Nairobi shopping location your shop is in." };
 
   if (!isLeadFloor(b.floor)) return { ok: false, error: "Pick the floor your shop is on." };
   const unit = optionalText(b.unit, 16);

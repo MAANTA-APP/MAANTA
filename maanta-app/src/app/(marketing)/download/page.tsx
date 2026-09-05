@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
   // both.
   title: "Install the app — MAANTA",
   description:
-    "Add MAANTA to your phone home screen in a few taps. No app store, no download — it runs in your browser and works for shoppers, merchants and agents.",
+    "Add MAANTA to your phone home screen in a few taps. No app store, no download — it runs in your browser and works for shoppers and merchants.",
 });
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 

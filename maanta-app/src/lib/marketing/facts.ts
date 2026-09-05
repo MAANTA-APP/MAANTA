@@ -53,7 +53,15 @@ export const FACTS = {
   graceMinutes: DEAL_GRACE_MINUTES,
   standardActiveDeals: 1,
   eliteActiveDeals: 2,
-  launchMall: "BBS Mall, Eastleigh",
+  /**
+   * The one location under assessment for the first pilot. A **candidate**,
+   * never a launch site: no agreement, permission or date exists (founder
+   * direction 2026-09-05). Any sentence that names it must carry that
+   * qualification — `pilot-status.ts` holds the approved sentences.
+   */
+  candidateMall: "BBS Mall, Eastleigh",
+  /** The same place as it reads inside a sentence. */
+  candidateMallProse: "BBS Mall in Eastleigh",
   city: "Nairobi",
   nodeLabel: "Node 0",
 } as const;
@@ -81,42 +89,48 @@ export const PLAN_AVAILABILITY = {
 
 /**
  * M-Pesa top-up mechanism — STK push via IntaSend (`initiateMpesaStkPush` in
- * `@/lib/intasend`). There is no paybill path. Resolves Phase 0 question 13, and
- * governs the wallet microcopy in `copy/merchants.md` `#wallet`: a merchant gets
- * a prompt on their handset, they do not type a paybill number.
+ * `@/lib/intasend`). There is no paybill path. **Not operational**: no public
+ * page may describe M-Pesa or card top-up as available (founder direction
+ * 2026-09-05); this constant describes the design for internal copy only.
  */
 export const TOPUP_METHOD = "stk-push" as const;
 
 /**
- * Time-bound offers. Rendered conditionally through `isOfferLive`, so an offer
- * whose date has passed — or was never set — disappears instead of going stale
- * on the page. Risk R7 in `website-expansion-plan.md` §5.
+ * The planned pilot opening offer.
  *
- * Both dates were set on 2026-07-31 by founder ruling. The gate stays in place
- * regardless: an offer with no end date is an unbounded promise, and one whose
- * date has passed must vanish rather than sit there stale (risk R7).
+ * Founder-approved commercial model, marked as **planned**: it applies to
+ * eligible shops joining the first confirmed Nairobi pilot, and final
+ * eligibility and dates are confirmed before onboarding. It is not currently
+ * redeemable or contractually available.
+ *
+ * The fixed 31 October 2026 deadline that used to gate these blocks was
+ * removed on 2026-09-05: a date on an offer for a pilot with no confirmed
+ * location was a promise about a calendar nobody controls. Reintroduce a date
+ * only with a founder ruling, as a real future date, and the render gate
+ * `isOfferShown` will need a matching rule.
  */
 export const OFFERS = {
   openingCredit: {
     amountKes: 300,
     cohortShops: 100,
-    // Set 2026-07-31 from the founder's ruling. This is a public commercial
-    // promise: when the date passes the whole block disappears rather than
-    // going stale, and extending it is a one-line change here.
-    expiresOn: "2026-10-31",
+    status: "planned",
   },
   eliteTrial: {
     days: 30,
     postTrialGraceDays: 7,
     cohortShops: 100,
-    expiresOn: "2026-10-31",
+    status: "planned",
   },
 } as const;
 
+/** How the offer is framed wherever it renders. */
+export const OFFER_EYEBROW = "Planned pilot opening offer";
+export const OFFER_HEADING = "For eligible shops joining the first confirmed Nairobi pilot.";
+export const OFFER_CONFIRMATION_LINE = "Final eligibility and dates will be confirmed before onboarding";
+
 /**
- * An offer is live only when its expiry is a real future date. An unfilled
- * `{{TOKEN}}` reads as "not live", which is why the token-scanner never sees
- * these strings in rendered output — they are gated before they reach JSX.
+ * Whether an offer block renders at all. A planned offer is shown, framed as
+ * planned; anything else is withheld rather than rendered stale.
  */
 /**
  * How a node is staffed — the operating model, confirmed by the founder
@@ -130,7 +144,9 @@ export const OFFERS = {
  * with a cap and defined roles tells an operator what they are getting, where a
  * vague plural tells them nothing and invites the wrong follow-up question.
  *
- * Stated as how a node runs, never as a headcount standing in BBS Mall today.
+ * Stated as how a node **would** run, never as a headcount standing in any
+ * mall today. Every rendering of it must use proposed or conditional language
+ * (founder direction 2026-09-05): nobody is deployed anywhere.
  * The distinction matters: the model is true as a design and is what this
  * demonstration site exists to show; a present-tense staffing count would be a
  * measured figure, and measured figures go through `ScenarioStat`.
@@ -165,5 +181,4 @@ export const RESPONSE_TIMES = {
   operator: "2 business days",
 } as const;
 
-export const isOfferLive = (o: { expiresOn: string }) =>
-  !o.expiresOn.startsWith("{{") && new Date(o.expiresOn) > new Date();
+export const isOfferShown = (o: { status: string }) => o.status === "planned";

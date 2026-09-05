@@ -55,7 +55,7 @@ export function DownloadInstallPanel() {
         </div>
       )}
       <PrimaryButtonLink href="/login" size="lg" className="text-center">
-        Sign in with email or phone
+        Sign in
       </PrimaryButtonLink>
       <SecondaryButtonLink href="/help" className="text-center text-sm">
         Having trouble signing in?
@@ -80,8 +80,8 @@ export function DownloadHeroCopy() {
         Install Maanta on your phone to work faster.
       </HeadingLg>
       <Body className="mx-auto mt-4 max-w-md text-muted">
-        One app for shoppers, merchants, agents, and founders. Browse deals,
-        redeem in-store, manage shops, and run operations from your home screen.
+        One app for shoppers, merchants and the pilot team. Explore deals,
+        redeem at the counter, manage a shop, and run operations from your home screen.
       </Body>
     </>
   );

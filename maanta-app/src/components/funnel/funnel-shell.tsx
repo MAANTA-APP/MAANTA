@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/marketing/BrandLockup";
 import { IconArrowLeft } from "@/components/ui/icons";
-import { FACTS } from "@/lib/marketing/facts";
+import { PILOT_EYEBROW } from "@/lib/marketing/pilot-status";
 
 /**
  * The frame every funnel screen sits in (board 2, M4–M8).
@@ -40,7 +40,7 @@ export function FunnelShell({
         <Link
           href={back.href}
           aria-label={back.label}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line bg-white text-ink lg:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-line bg-white text-ink lg:hidden"
         >
           <IconArrowLeft className="h-4 w-4" />
         </Link>
@@ -80,11 +80,11 @@ export function FunnelShell({
   );
 }
 
-/** The Node badge at the top of every dark panel. Amber text is fine on ink. */
+/** The pilot-status badge at the top of every dark panel. Amber text is fine on ink. */
 export function NodeBadge() {
   return (
     <span className="inline-flex items-center rounded-pill border border-white/25 px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-brand">
-      {FACTS.nodeLabel} · {FACTS.launchMall}
+      {PILOT_EYEBROW}
     </span>
   );
 }

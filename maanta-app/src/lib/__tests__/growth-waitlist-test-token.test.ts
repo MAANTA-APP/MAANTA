@@ -73,6 +73,7 @@ describe("waitlist submission — the body can never mark itself as a test", () 
     fullName: "A M",
     email: "a@example.com",
     phone: "0712345678",
+    location: "bbs",
     consent: true,
   };
 

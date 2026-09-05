@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
-import { FACTS } from "@/lib/marketing/facts";
-import { NODE_STATUS_LINE, NODE_PRESENCE_LEAD } from "@/lib/marketing/live-claims";
+
+import { NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
+import { PILOT_SHORT_LINE } from "@/lib/marketing/pilot-status";
 import { SAMPLE_DEALS } from "@/lib/marketing/sample-deals";
 import { OG_SIZE, ogImage } from "@/lib/marketing/og";
 
@@ -301,7 +302,7 @@ function youtubeChannelArt({ origin }: RenderContext) {
           <img src={lockup(origin, true)} height={96} width={392} alt="" />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 14 }}>
             <div style={{ display: "flex", fontSize: 48, fontWeight: 800, color: "#FFFFFF", letterSpacing: -1 }}>
-              {NODE_PRESENCE_LEAD} {FACTS.launchMall}.
+              {PILOT_SHORT_LINE}
             </div>
             <div style={{ display: "flex", fontSize: 28, color: "rgba(255,255,255,0.7)" }}>{NODE_STATUS_LINE}</div>
           </div>
@@ -346,10 +347,10 @@ function waitlistCard(ctx: RenderContext, size: { width: number; height: number 
         <img src={lockup(ctx.origin, true)} height={64} width={261} alt="" />
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <div style={{ display: "flex", fontSize: story ? 84 : 72, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.05, letterSpacing: -2 }}>
-            Be there when Eastleigh&apos;s shops switch on.
+            Be there when Nairobi&apos;s first MAANTA shops switch on.
           </div>
           <div style={{ display: "flex", fontSize: story ? 36 : 32, color: "rgba(255,255,255,0.72)", lineHeight: 1.35 }}>
-            One message when {FACTS.nodeLabel} opens. Nothing else.
+            One message when a pilot location and opening date are confirmed.
           </div>
           <div style={{ display: "flex", alignSelf: "flex-start", background: BRAND, color: "#000000", borderRadius: 999, padding: "22px 40px", fontSize: story ? 36 : 32, fontWeight: 700 }}>
             {ctx.host}/waitlist
@@ -442,7 +443,7 @@ export const SOCIAL_KIT: readonly KitAsset[] = [
       ogImage({
         eyebrow: "MAANTA",
         headline: "Mall deals you claim on your phone and redeem at the counter.",
-        subline: `${NODE_PRESENCE_LEAD} ${FACTS.launchMall}.`,
+        subline: PILOT_SHORT_LINE,
       }),
   },
   {

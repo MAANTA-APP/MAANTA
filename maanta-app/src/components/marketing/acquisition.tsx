@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatKes } from "@/lib/ui";
 import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
+import { DEMO_CODE_LABEL, PILOT_EYEBROW, POTENTIAL_LOCATION_EYEBROW } from "@/lib/marketing/pilot-status";
 import { SAMPLE_CODE, SAMPLE_DEALS } from "@/lib/marketing/sample-deals";
 import { TrackedLink } from "./tracked";
 import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
@@ -29,7 +30,7 @@ export function Eyebrow({ children, tone = "dark" }: { children: React.ReactNode
   );
 }
 
-/** "Node 0 · BBS Mall, Eastleigh" — a bordered mono pill. Ink on white, never amber text. */
+/** "Nairobi pilot · location to be confirmed" — a bordered mono pill. Ink on white, never amber text. */
 export function NodePill({ tone = "dark" }: { tone?: "dark" | "light" }) {
   return (
     <span
@@ -37,7 +38,7 @@ export function NodePill({ tone = "dark" }: { tone?: "dark" | "light" }) {
         tone === "light" ? "border-white/25 text-brand" : "border-line bg-white text-secondary"
       }`}
     >
-      {FACTS.nodeLabel} · {FACTS.launchMall}
+      {PILOT_EYEBROW}
     </span>
   );
 }
@@ -68,14 +69,14 @@ export function CodeTiles({ tone = "dark", size = "md" }: { tone?: "dark" | "lig
   );
 }
 
-/** The hero's right-hand card on Home: "Your code at the counter · Example". */
+/** The hero's right-hand card on Home: "Your code at the counter · Example code · not redeemable". */
 export function CodeExampleCard() {
   return (
     <figure className="rounded-card bg-stone p-5 sm:p-6">
       <figcaption className="flex items-center justify-between gap-3">
         <span className="text-sm font-bold text-ink">Your code at the counter</span>
         <span className="rounded-[5px] border border-line bg-white px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
-          Example
+          {DEMO_CODE_LABEL}
         </span>
       </figcaption>
       <div className="mt-4">
@@ -162,10 +163,10 @@ export function LoopSteps({
 }
 
 /**
- * "Where it opens." The pilot, named as the pilot — and, when `staffing` is
- * on, how a node is staffed by design. The footnote is not optional: two big
- * numerals beside a mall's name read as a headcount unless the page says they
- * are not one.
+ * "Potential first location." The candidate, named as a candidate — and, when
+ * `staffing` is on, how a node would be staffed by design. The footnote is not
+ * optional: two big numerals beside a mall's name read as a headcount unless
+ * the page says they are not one.
  */
 export function NodeBlock({
   lead,
@@ -183,7 +184,7 @@ export function NodeBlock({
         <div className="mt-5 flex flex-wrap items-center gap-2.5">
           <NodePill />
           <span className="rounded-pill bg-stone px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-secondary">
-            Pilot location
+            {POTENTIAL_LOCATION_EYEBROW}
           </span>
         </div>
         <Link
@@ -201,7 +202,7 @@ export function NodeBlock({
                 {NODE_TEAM.managers}
               </dt>
               <dd className="text-[15px] leading-relaxed text-secondary">
-                <strong className="font-bold text-ink">One node manager</strong> {NODE_TEAM.managerRole}.
+                <strong className="font-bold text-ink">One node manager</strong> would {NODE_TEAM.managerRole}.
               </dd>
             </div>
             <div className="flex items-start gap-4">
@@ -209,14 +210,14 @@ export function NodeBlock({
                 {NODE_TEAM.agentsMax}
               </dt>
               <dd className="text-[15px] leading-relaxed text-secondary">
-                <strong className="font-bold text-ink">Up to {NODE_TEAM.agentsMax} agents</strong>{" "}
+                <strong className="font-bold text-ink">Up to {NODE_TEAM.agentsMax} agents</strong> would{" "}
                 {NODE_TEAM.agentRole}.
               </dd>
             </div>
           </dl>
           <p className="mt-4 text-[13px] leading-relaxed text-muted">
-            That is how a node is staffed by design. It is not a count of people standing in{" "}
-            {FACTS.launchMall} today.
+            That is how a node would be staffed by design. It is not a count of people standing in{" "}
+            any mall today; nobody is deployed anywhere yet.
           </p>
         </div>
       ) : null}
@@ -245,7 +246,8 @@ export function StatusBlock() {
         {[
           "No shops have signed up yet, so we show you none.",
           "No deal has been redeemed, so we quote no savings.",
-          "Deals in the feed are demo examples, and they say so.",
+          "Deals in the demo feed are examples, and they say so.",
+          "No pilot location or launch date has been confirmed.",
         ].map((line) => (
           <li key={line} className="flex items-start gap-3 text-[15px] leading-relaxed text-white/85">
             <span aria-hidden="true" className="mt-2.5 block h-1.5 w-1.5 shrink-0 rounded-[2px] bg-white/50" />
@@ -300,7 +302,7 @@ export function DealCardExample() {
       </div>
       <figcaption className="sr-only">
         An illustration of a deal card with an invented shop and price. Real deals, prices and
-        shops appear when {FACTS.nodeLabel} opens.
+        shops appear only once a pilot opens.
       </figcaption>
     </figure>
   );

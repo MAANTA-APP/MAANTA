@@ -5,6 +5,7 @@ import { FACTS } from "@/lib/marketing/facts";
 import { FaqAccordion, Section, SectionHeading } from "@/components/marketing/sections";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { PILOT_STATUS_SENTENCE } from "@/lib/marketing/pilot-status";
 import { faqPageSchema, jsonLdDocument } from "@/lib/marketing/structured-data";
 import { FIRST_RESULTS_ANSWER } from "@/lib/marketing/live-claims";
 
@@ -31,7 +32,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/faq",
   title: "FAQ — MAANTA",
   description:
-    "Answers for shoppers, merchants and mall operators. What MAANTA costs, how a code is verified at the counter, and which mall it opens in first.",
+    "Answers for shoppers, merchants and mall operators. What MAANTA costs, how a code is verified at the counter, and where the first Nairobi pilot stands.",
 });
 
 export default function FaqPage() {
@@ -56,7 +57,7 @@ export default function FaqPage() {
     },
     {
       q: "Do I need to give card or M-Pesa details?",
-      a: "No. There is no payment of any kind inside MAANTA. You pay the shop at the till.",
+      a: "No. MAANTA does not collect card details or process your payment. You pay the shop directly, using a payment method the shop accepts.",
     },
     {
       q: "Do I need to download an app?",
@@ -78,7 +79,7 @@ export default function FaqPage() {
     },
     {
       q: "Do I need an account?",
-      a: `Not to look around. When you claim your first deal you give a phone number, and that is your account — no password, no email. The number exists so a ${FACTS.codeLength}-digit code can be tied to one person and used once.`,
+      a: `Not to look around. To claim a deal you need a MAANTA account, so a ${FACTS.codeLength}-digit one-time code can be tied to one shopper and used once. For the controlled pilot, email is the primary sign-in method.`,
     },
     {
       q: "What if the shop will not honour it?",
@@ -116,8 +117,8 @@ export default function FaqPage() {
       a: "Yes, on any plan. Add the people who work your counter and they verify codes with their own login — not your phone and not your password.",
     },
     {
-      q: "How do I top up my balance?",
-      a: "By M-Pesa — you get a prompt on your phone and enter your PIN. Card also works if you prefer.",
+      q: "How is the fee settled?",
+      a: `The ${fee} success fee is recorded against your account when a code is verified. How fees are settled will be confirmed with pilot merchants before onboarding.`,
     },
     {
       q: "Can I stop?",
@@ -127,8 +128,8 @@ export default function FaqPage() {
 
   const mallOperatorFaqs = [
     {
-      q: "Which malls are live?",
-      a: `${FACTS.launchMall}, ${FACTS.city} is the launch node — ${FACTS.nodeLabel}. More malls are coming.`,
+      q: "Where will the first pilot run?",
+      a: `${PILOT_STATUS_SENTENCE} ${FACTS.candidateMallProse} is a potential location — not a confirmed partner or launch site.`,
     },
     {
       q: "Do we need to change our POS or our systems?",

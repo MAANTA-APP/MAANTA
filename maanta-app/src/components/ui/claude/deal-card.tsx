@@ -13,6 +13,23 @@ import { useShopperClock } from "@/lib/use-shopper-clock";
 
 export type DealRailBadge = "flash" | "boosted" | "standard" | null;
 
+/**
+ * The per-card demonstration label.
+ *
+ * The layout-level `DemoModeBanner` says the screen is showing sample data;
+ * this says it about the individual card, so a screenshot of one deal — or a
+ * card scrolled far below the banner — cannot be mistaken for a real offer
+ * (founder direction 2026-09-05). Rust on white, never amber: it is a warning,
+ * and the one amber element on a shopper screen is the action.
+ */
+export function DemoBadge() {
+  return (
+    <span className="rounded-full border border-rust/40 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-rust">
+      Demo
+    </span>
+  );
+}
+
 function RailBadge({ tag }: { tag: DealRailBadge }) {
   if (!tag) return null;
   const styles =
@@ -50,6 +67,7 @@ export function DealCard({
   wasKes,
   extras,
   tag,
+  demo = false,
   expiresAt,
   merchantId,
   isFavourite = false,
@@ -70,6 +88,8 @@ export function DealCard({
   wasKes?: number | null;
   extras?: number | null;
   tag?: DealRailBadge;
+  /** Synthetic row: the card labels itself "Demo". */
+  demo?: boolean;
   expiresAt?: string | null;
   merchantId: string;
   isFavourite?: boolean;
@@ -181,6 +201,7 @@ export function DealCard({
             {tag === "flash" || tag === "boosted" ? (
               <div className="mb-1">
                 <RailBadge tag={tag} />
+      {demo ? <DemoBadge /> : null}
               </div>
             ) : null}
             <Meta as="p" className="truncate">

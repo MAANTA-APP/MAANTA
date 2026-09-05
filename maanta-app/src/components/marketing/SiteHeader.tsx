@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLockup } from "@/components/marketing/BrandLockup";
-import { HEADER_CTA, HEADER_LINKS, HEADER_SIGN_IN } from "@/lib/marketing/nav";
+import { HEADER_CTA, HEADER_LINKS, HEADER_SIGN_IN, HEADER_WAITLIST } from "@/lib/marketing/nav";
 
 /**
  * Marketing header — audience nav plus a mobile sheet.
@@ -20,9 +20,11 @@ import { HEADER_CTA, HEADER_LINKS, HEADER_SIGN_IN } from "@/lib/marketing/nav";
  *
  * `HEADER_CTA` is the one amber element here — #FDBF2D on CTAs and live-status
  * only. A second amber element in the same bar would spend the accent and leave
- * the actual call to action competing with decoration. Pre-launch it is "Join
- * the waitlist" (board 1, 2026-09-05, amending D259); at launch `DEMO_MODE`
- * flips it back to "Browse deals".
+ * the actual call to action competing with decoration. Pre-launch it is
+ * "Explore demo deals" (founder direction 2026-09-05); "Join waitlist" and
+ * "Sign in" sit beside it as quiet outlines, and all three are rendered in the
+ * desktop bar and the mobile sheet. At launch `DEMO_MODE` flips the primary
+ * back to "Browse deals".
  *
  * `Sign in` sits beside it as a quiet outline (D259). Until 2026-09-03 the
  * public site had no way in at all: a returning merchant, agent or admin on
@@ -111,17 +113,24 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {/* Secondary: outline, ink label. The amber budget is spent on
-              HEADER_CTA, and sign-in is the way in, not the point. */}
+          {/* Secondary pair: outline, ink label. The amber budget is spent on
+              HEADER_CTA; the waitlist and sign-in are ways in, not the point.
+              Every control here is at least 44px tall (WCAG 2.5.5). */}
+          <Link
+            href={HEADER_WAITLIST.href}
+            className="hidden min-h-11 items-center rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink md:inline-flex"
+          >
+            {HEADER_WAITLIST.label}
+          </Link>
           <Link
             href={HEADER_SIGN_IN.href}
-            className="hidden rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink sm:inline-flex"
+            className="hidden min-h-11 items-center rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink sm:inline-flex"
           >
             {HEADER_SIGN_IN.label}
           </Link>
           <Link
             href={HEADER_CTA.href}
-            className="hidden rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink-soft transition hover:brightness-95 sm:inline-flex"
+            className="hidden min-h-11 items-center rounded-full bg-brand px-4 py-2 text-sm font-bold text-ink-soft transition hover:brightness-95 sm:inline-flex"
           >
             {HEADER_CTA.label}
           </Link>
@@ -132,7 +141,7 @@ export function SiteHeader() {
             aria-expanded={open}
             aria-controls="marketing-mobile-nav"
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-ink lg:hidden"
           >
             {/* Plain glyphs: two states, no icon dependency to keep in sync. */}
             <span aria-hidden="true" className="text-lg leading-none">
@@ -152,16 +161,22 @@ export function SiteHeader() {
           <nav aria-label="Primary (mobile)" className="mx-auto max-w-6xl px-5 py-4">
             <Link
               href={HEADER_CTA.href}
-              className="mb-3 block rounded-full bg-brand px-4 py-3 text-center text-sm font-bold text-ink-soft"
+              className="mb-3 block min-h-11 rounded-full bg-brand px-4 py-3 text-center text-sm font-bold text-ink-soft"
             >
               {HEADER_CTA.label}
             </Link>
             {/* Directly under the primary action, above the audience list:
-                the sheet is the whole navigation on a phone, so the way in
+                the sheet is the whole navigation on a phone, so the ways in
                 cannot be at the bottom of it. */}
             <Link
+              href={HEADER_WAITLIST.href}
+              className="mb-3 block min-h-11 rounded-full border border-line px-4 py-3 text-center text-sm font-semibold text-ink"
+            >
+              {HEADER_WAITLIST.label}
+            </Link>
+            <Link
               href={HEADER_SIGN_IN.href}
-              className="mb-3 block rounded-full border border-line px-4 py-3 text-center text-sm font-semibold text-ink"
+              className="mb-3 block min-h-11 rounded-full border border-line px-4 py-3 text-center text-sm font-semibold text-ink"
             >
               {HEADER_SIGN_IN.label}
             </Link>

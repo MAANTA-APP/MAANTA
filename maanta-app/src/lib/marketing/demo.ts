@@ -47,7 +47,14 @@ export const PLACEHOLDER_IDS = {
 /** Entity details, filled in 2026-07-31 (`demo-mode-spec.md` §1). */
 export const ENTITY = {
   name: "MAANTA APP",
-  address: "BBS Mall, Eastleigh",
+  /**
+   * No street or mall address. MAANTA has no premises, no in-mall desk and no
+   * operating presence at any mall (founder direction 2026-09-05); the
+   * registered address is confirmed at incorporation. Naming a mall here put
+   * "BBS Mall, Eastleigh" in every footer and legal document as if it were
+   * where the company sits.
+   */
+  address: null,
   city: "Nairobi",
   country: "Kenya",
   founder: "Mohamed Elmi",
@@ -57,10 +64,10 @@ export const ENTITY = {
 } as const;
 
 /**
- * Full registered line for the footer base bar and legal documents.
- * "MAANTA APP, BBS Mall, Eastleigh, Nairobi, Kenya"
+ * Full entity line for the footer base bar and legal documents.
+ * "MAANTA APP, Nairobi, Kenya" — city and country only until incorporation.
  */
-export const ENTITY_LINE = `${ENTITY.name}, ${ENTITY.address}, ${ENTITY.city}, ${ENTITY.country}`;
+export const ENTITY_LINE = `${ENTITY.name}, ${ENTITY.city}, ${ENTITY.country}`;
 
 /**
  * Regulatory status — rendered in place of any licence identifier.

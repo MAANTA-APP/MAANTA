@@ -4,7 +4,8 @@ import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
 import { collectionAllowed } from "@/lib/marketing/collection-gate";
 import { CollectionClosed } from "@/components/funnel/collection-closed";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { FACTS, OFFERS, RESPONSE_TIMES, isOfferLive } from "@/lib/marketing/facts";
+import { FACTS, OFFERS, OFFER_CONFIRMATION_LINE, RESPONSE_TIMES, isOfferShown } from "@/lib/marketing/facts";
+
 import { FunnelShell, NodeBadge } from "@/components/funnel/funnel-shell";
 import { MerchantJoinForm } from "./join-form";
 
@@ -15,8 +16,9 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
  * `/merchants/join` — merchant interest (board 2, M6 and M7d).
  *
  * Founder ruling 2026-09-05: this page captures INTEREST for the growth board,
- * where it used to hand off into self-serve account onboarding. Before Node 0
- * opens an agent walks the floor unit by unit, so the form asks for the unit.
+ * where it used to hand off into self-serve account onboarding. If a pilot is
+ * agreed, a node team would walk the floor unit by unit, so the form asks for
+ * the unit. Nothing is deployed anywhere yet, and the copy says so.
  * The onboarding path is still one link away for a shop that already has an
  * account.
  *
@@ -29,26 +31,16 @@ export async function generateMetadata({ searchParams }: { searchParams?: Params
   return pageMetadata({
     path: "/merchants/join",
     title: "Register your shop — MAANTA",
-    description: `Tell us where your shop is and an agent will find you before ${FACTS.nodeLabel} opens. No listing fee and no cut of the sale — you pay KES ${SUCCESS_FEE_KES} only when a customer's code is verified at your counter.`,
+    description: `Register your shop's details for the first Nairobi pilot. No listing fee and no cut of the sale — you pay KES ${SUCCESS_FEE_KES} only when a customer's code is verified at your counter. Pilot location to be confirmed.`,
     ...(test ? { robots: { index: false, follow: false } } : {}),
-  });
-}
-
-/** `2026-10-31` → `31 October 2026`, rendered once on the server. */
-function longDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
   });
 }
 
 export default function MerchantJoinPage({ searchParams }: { searchParams?: Params }) {
   const testToken = first(searchParams?.test) ?? "";
   const isTest = isWaitlistTestToken(testToken);
-  const creditLive = isOfferLive(OFFERS.openingCredit);
-  const trialLive = isOfferLive(OFFERS.eliteTrial);
+  const creditLive = isOfferShown(OFFERS.openingCredit);
+  const trialLive = isOfferShown(OFFERS.eliteTrial);
 
   // The collection gate (D274). Same rule as /waitlist: closed means no form;
   // a verified test entry still passes.
@@ -72,7 +64,7 @@ export default function MerchantJoinPage({ searchParams }: { searchParams?: Para
         offer={{
           creditLive,
           trialLive,
-          creditUntil: longDate(OFFERS.openingCredit.expiresOn),
+          creditUntil: OFFER_CONFIRMATION_LINE,
         }}
       />
     </FunnelShell>
@@ -81,8 +73,7 @@ export default function MerchantJoinPage({ searchParams }: { searchParams?: Para
 
 /**
  * "What you are signing up to." Every number reads from `facts.ts`; the two
- * offers render only while `isOfferLive` says so, and vanish rather than going
- * stale the day after they expire.
+ * offers render only while `isOfferShown` says so, framed as planned.
  */
 function MerchantAside({ creditLive, trialLive }: { creditLive: boolean; trialLive: boolean }) {
   const coveredRedemptions = Math.floor(OFFERS.openingCredit.amountKes / SUCCESS_FEE_KES);
@@ -105,18 +96,18 @@ function MerchantAside({ creditLive, trialLive }: { creditLive: boolean; trialLi
           {creditLive ? (
             <li>
               <p className="text-[15px] font-bold text-white">
-                KES {OFFERS.openingCredit.amountKes} opening credit
+                KES {OFFERS.openingCredit.amountKes} MAANTA fee credit · planned pilot offer
               </p>
               <p className="mt-0.5 text-sm leading-snug text-white/60">
-                First {OFFERS.openingCredit.cohortShops} shops, until{" "}
-                {longDate(OFFERS.openingCredit.expiresOn)}. Covers {coveredRedemptions} redemptions.
+                For the first {OFFERS.openingCredit.cohortShops} eligible shops in the first confirmed
+                pilot. Covers {coveredRedemptions} verified redemptions. {OFFER_CONFIRMATION_LINE}.
               </p>
             </li>
           ) : null}
           {trialLive ? (
             <li>
               <p className="text-[15px] font-bold text-white">
-                {OFFERS.eliteTrial.days} days of Elite, free
+                {OFFERS.eliteTrial.days} days of Elite access · planned pilot offer
               </p>
               <p className="mt-0.5 text-sm leading-snug text-white/60">
                 {FACTS.eliteActiveDeals} active deals and boosts, {OFFERS.eliteTrial.postTrialGraceDays}{" "}

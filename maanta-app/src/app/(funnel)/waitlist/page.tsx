@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { isWaitlistTestToken } from "@/lib/growth/waitlist-test-token";
 import { collectionAllowed } from "@/lib/marketing/collection-gate";
 import { CollectionClosed } from "@/components/funnel/collection-closed";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
-import { parseWaitlistSegmentParam, type WaitlistSegment } from "@/lib/waitlist";
+import { parseWaitlistSegmentParam } from "@/lib/waitlist";
 import { AsideChecklist, AsideCopy, CodeTiles, FunnelShell } from "@/components/funnel/funnel-shell";
-import { RoleSelect } from "./role-select";
+import { PILOT_STATUS_SENTENCE } from "@/lib/marketing/pilot-status";
 import { SignupForm } from "./signup-form";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -16,21 +14,22 @@ type Params = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /**
- * The public pre-launch waitlist (board 2, M4–M5, M7, M8).
+ * The Nairobi pilot-interest form (founder direction 2026-09-05).
  *
- * Two steps. Step 1 (`/waitlist`) asks which of the three segments describes
- * the visitor; step 2 (`/waitlist?role=…`) asks how to reach them. A merchant
- * is sent to `/merchants/join`, which asks for the unit rather than an inbox —
- * an agent has to find the shop.
+ * One step. Email, audience, preferred shopping location, consent — the
+ * minimum for one message when a confirmed pilot location and opening date
+ * are ready. `?role=` preselects the audience; every audience files to the
+ * same list with its segment recorded. (`/merchants/join` remains the
+ * unit-level shop registration for once a pilot is confirmed.)
  *
- * ## The internal TEST entry point
+ * ## The collection gate
  *
- * `/waitlist?test=<token>` files a signup the admin Growth console segregates
- * out of every real count. The token is checked HERE, on the server, against
- * `WAITLIST_TEST_TOKEN`, and again in `POST /api/waitlist` — the API never
- * trusts a flag from the body. The test variant is `noindex`: the URL is handed
- * to a person, never linked, and the crawl policy already treats non-content
- * routes this way.
+ * `COLLECTION_GATE` (D274) is closed. Closed means no form and nothing asked
+ * for: `CollectionClosed` says registration is temporarily unavailable while
+ * the data-handling process is verified, and offers demo access. A verified
+ * TEST entry (`?test=<token>`) still passes, so the journey stays testable.
+ * The token is checked here and again in `POST /api/waitlist`; the test
+ * variant is `noindex`.
  *
  * The route is dynamic (it reads `searchParams`), so `generateMetadata` is the
  * right tool and `check-server-forms` lists it under the dynamic routes.
@@ -39,26 +38,18 @@ export async function generateMetadata({ searchParams }: { searchParams?: Params
   const test = Boolean(first(searchParams?.test));
   return pageMetadata({
     path: "/waitlist",
-    title: "Join the MAANTA waitlist",
+    title: "Join the Nairobi pilot list — MAANTA",
     description:
-      "MAANTA is launching at BBS Mall, Eastleigh — in-mall deals claimed on your phone and redeemed in person. Join the waitlist as a shopper or a merchant.",
+      "Join for one message when a confirmed MAANTA pilot location and opening date are ready. No location or launch date has been confirmed. Demo access is available now.",
     ...(test ? { robots: { index: false, follow: false } } : {}),
   });
 }
 
-/** Query keys that travel from step 1 to step 2 untouched. */
-const CARRIED = ["test", "email", "utm_source", "utm_medium", "utm_campaign"] as const;
-
 export default function WaitlistPage({ searchParams }: { searchParams?: Params }) {
-  const segment = parseWaitlistSegmentParam(first(searchParams?.role) ?? first(searchParams?.segment));
+  const segment = parseWaitlistSegmentParam(first(searchParams?.role) ?? first(searchParams?.segment)) ?? "shopper";
   const testToken = first(searchParams?.test) ?? "";
   const isTest = isWaitlistTestToken(testToken);
-
-  const carry: Record<string, string> = {};
-  for (const key of CARRIED) {
-    const v = first(searchParams?.[key]);
-    if (v) carry[key] = v;
-  }
+  const initialEmail = first(searchParams?.email) ?? "";
 
   // The collection gate (D274). Closed: no form, nothing asked for. A verified
   // test entry passes so the journey stays testable while closed.
@@ -70,79 +61,28 @@ export default function WaitlistPage({ searchParams }: { searchParams?: Params }
     );
   }
 
-  if (!segment) {
-    return (
-      <FunnelShell back={{ href: "/", label: "Back to site" }} test={isTest} aside={<RoleAside />}>
-        <RoleSelect carry={carry} isTest={isTest} />
-      </FunnelShell>
-    );
-  }
-
-  if (segment === "merchant") {
-    const qs = new URLSearchParams(carry).toString();
-    redirect(qs ? `/merchants/join?${qs}` : "/merchants/join");
-  }
-
-  const changeHref = `/waitlist${Object.keys(carry).length ? `?${new URLSearchParams(carry)}` : ""}`;
-
   return (
-    <FunnelShell
-      back={{ href: changeHref, label: "Back" }}
-      test={isTest}
-      aside={<SegmentAside segment={segment} />}
-    >
-      <SignupForm
-        segment={segment}
-        initialEmail={carry.email ?? ""}
-        testToken={testToken}
-        isTest={isTest}
-        changeHref={changeHref}
-      />
+    <FunnelShell back={{ href: "/", label: "Back to site" }} test={isTest} aside={<PilotAside />}>
+      <SignupForm initialSegment={segment} initialEmail={initialEmail} testToken={testToken} isTest={isTest} />
     </FunnelShell>
   );
 }
 
-function RoleAside() {
+function PilotAside() {
   return (
     <>
-      <AsideCopy title="One list. Three different messages.">
-        Shoppers hear when there are deals to claim. Shops hear in time to be
-        publishing on day one. Mall operators hear about bringing a node to their
-        floors.
-      </AsideCopy>
-      <CodeTiles />
-    </>
-  );
-}
-
-function SegmentAside({ segment }: { segment: Exclude<WaitlistSegment, "merchant"> }) {
-  if (segment === "mall_operator") {
-    return (
-      <AsideCopy title="Bring a node to your floors.">
-        <p>
-          A node is {FACTS.nodeLabel}&apos;s shape, repeated: one named contact on our side,
-          agents on the floor, and deals that bring people to your shops.
-        </p>
+      <AsideCopy title="One list. One message.">
+        <p>{PILOT_STATUS_SENTENCE}</p>
         <AsideChecklist
           items={[
-            { text: `One message when ${FACTS.nodeLabel} opens, with what it did.` },
-            { text: `A reply within ${RESPONSE_TIMES.operator} if you want a pilot conversation sooner.` },
-            { text: "No footfall figures we cannot yet stand behind.", negative: true },
+            { text: "One email when a pilot location and opening date are confirmed." },
+            { text: "Your preferred location helps decide where the pilot runs." },
+            { text: "No marketing blasts, no daily deal spam.", negative: true },
+            { text: "No card details. MAANTA never takes your payment.", negative: true },
           ]}
         />
       </AsideCopy>
-    );
-  }
-  return (
-    <AsideCopy title="What you get, and what you don't.">
-      <AsideChecklist
-        items={[
-          { text: "One message the day deals go live at your mall." },
-          { text: "A first look before the feed is public." },
-          { text: "No marketing blasts, no daily deal spam.", negative: true },
-          { text: "No card details. We never take your payment.", negative: true },
-        ]}
-      />
-    </AsideCopy>
+      <CodeTiles />
+    </>
   );
 }

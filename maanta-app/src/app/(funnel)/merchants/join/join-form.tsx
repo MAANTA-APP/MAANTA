@@ -6,17 +6,11 @@ import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { PhoneField, SegmentedControl, TextField, inputClass } from "@/components/ui/inputs";
 import { IconCheck } from "@/components/ui/icons";
-import {
-  Callout,
-  ConfirmationPanel,
-  Eyebrow,
-  FactRows,
-  NumberedSteps,
-} from "@/components/funnel/confirmation";
+import { Callout, ConfirmationPanel, Eyebrow, NumberedSteps } from "@/components/funnel/confirmation";
 import { FieldLabel, RoleChip, SelectField, TestChip, TestNotice } from "@/components/funnel/pieces";
 import { cn } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
-import { FACTS, OFFERS, RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { FACTS, OFFERS } from "@/lib/marketing/facts";
 import { MARKETING_EVENTS, trackMarketing } from "@/lib/marketing/analytics";
 import { LEAD_FLOOR_LABELS, type LeadFloor } from "@/lib/growth/leads";
 import {
@@ -31,9 +25,10 @@ import {
 /**
  * The merchant interest form (board 2, M6) → `POST /api/merchants/interest`.
  *
- * Asks for the unit, because an agent has to find the shop. Asks for no email,
- * because the merchant is reached on WhatsApp the same day — this is the one
- * form on the site where "phone first, email never" holds without a caveat.
+ * Asks for the unit, because a node team would have to find the shop if a
+ * pilot is agreed. Asks for no email, because the merchant is reached on
+ * WhatsApp — this is the one form on the site where "phone first, email never"
+ * holds without a caveat.
  *
  * Not a contract: nothing is charged until a deal is published and a shopper
  * redeems it, and the copy says so under the button. The analytics event
@@ -76,7 +71,7 @@ export function MerchantJoinForm({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
 
-  const mallName = mall === "other" ? mallOther.trim() || "your mall" : FACTS.launchMall;
+  const mallName = mall === "other" ? mallOther.trim() || "your location" : FACTS.candidateMall;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -166,8 +161,8 @@ export function MerchantJoinForm({
         lede={`${LEAD_FLOOR_LABELS[done.floor]}, Unit ${done.unit} — ${done.mall}. Someone registered it before, so we have not added it twice.`}
       >
         <p className="text-[15px] leading-relaxed text-secondary">
-          An agent will reach out on WhatsApp {RESPONSE_TIMES.whatsapp} they start on your
-          floor. If the number we hold is wrong, tell us and we will fix it.
+          We will be in touch on WhatsApp if a pilot is confirmed for your location. If the
+          number we hold is wrong, tell us and we will fix it.
         </p>
         <div className="mt-5">
           <Link
@@ -185,16 +180,19 @@ export function MerchantJoinForm({
     return (
       <ConfirmationPanel
         tone="success"
-        title={isTest ? "Test entry recorded." : "Got it. An agent will find you."}
+        title={isTest ? "Test entry recorded." : "Got it. You're on the pilot list."}
         lede={
           isTest
             ? "Tagged TEST, held out of every growth figure, and nobody will be contacted."
             : `${LEAD_FLOOR_LABELS[done.floor]}, Unit ${done.unit} — ${done.mall}.`
         }
       >
-        <FactRows rows={[{ label: "We reply on WhatsApp", value: RESPONSE_TIMES.whatsapp }]} />
+        <p className="text-[15px] leading-relaxed text-secondary">
+          We will email or WhatsApp you when a pilot location and opening date are confirmed.
+          Neither has been confirmed yet.
+        </p>
         <div className="mt-6">
-          <Eyebrow>Before we visit</Eyebrow>
+          <Eyebrow>Before a pilot opens</Eyebrow>
           <NumberedSteps
             items={[
               "Think of one thing you would discount to bring people in.",
@@ -206,7 +204,7 @@ export function MerchantJoinForm({
         {offer.creditLive || offer.trialLive ? (
           <div className="mt-6">
             <Callout>
-              <p className="text-[15px] font-bold text-ink">Your opening offer is held</p>
+              <p className="text-[15px] font-bold text-ink">The planned pilot opening offer</p>
               <p className="mt-1 text-sm leading-relaxed text-secondary">
                 {[
                   offer.creditLive ? `KES ${OFFERS.openingCredit.amountKes} credit` : null,
@@ -214,7 +212,7 @@ export function MerchantJoinForm({
                 ]
                   .filter(Boolean)
                   .join(" and ")}
-                , as long as you join before {offer.creditUntil}.
+                , for eligible shops in the first confirmed pilot. {offer.creditUntil}.
               </p>
             </Callout>
           </div>
@@ -235,7 +233,8 @@ export function MerchantJoinForm({
         Tell us where your shop is.
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-secondary lg:text-[17px]">
-        An agent walks the floor unit by unit. The clearer the address, the faster they reach you.
+        If a pilot is agreed for your location, a node team would walk the floor unit by unit. The
+        clearer the address, the faster they would reach you.
       </p>
 
       <div className="mt-4 flex items-center gap-3 rounded-[14px] bg-stone p-3.5">
@@ -262,7 +261,7 @@ export function MerchantJoinForm({
           label="Your name"
           value={contactName}
           onChange={(e) => setContactName(e.target.value)}
-          placeholder="Who should the agent ask for?"
+          placeholder="Who should we ask for?"
           autoComplete="name"
           maxLength={120}
           required
@@ -270,12 +269,12 @@ export function MerchantJoinForm({
         <div>
           <PhoneField label="Phone number" countryCode={cc} onCountryCode={setCc} value={phone} onChange={setPhone} />
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            We reach out on WhatsApp first — {RESPONSE_TIMES.whatsapp}.
+            We reach out on WhatsApp first, once a pilot is confirmed.
           </p>
         </div>
 
         <div>
-          <FieldLabel htmlFor="mall">Mall</FieldLabel>
+          <FieldLabel htmlFor="mall">Shopping location</FieldLabel>
           <SelectField id="mall" value={mall} onChange={(e) => setMall(e.target.value as "bbs" | "other")}>
             {MERCHANT_MALL_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -376,7 +375,7 @@ export function MerchantJoinForm({
           <Check
             checked={eliteTrial}
             onChange={setEliteTrial}
-            label={`Include me in the ${OFFERS.eliteTrial.days}-day Elite trial for the first ${OFFERS.eliteTrial.cohortShops} shops.`}
+            label={`Include me in the planned ${OFFERS.eliteTrial.days}-day Elite trial for the first ${OFFERS.eliteTrial.cohortShops} eligible pilot shops.`}
           />
         ) : null}
         <Check

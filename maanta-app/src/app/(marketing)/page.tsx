@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
+import { FACTS } from "@/lib/marketing/facts";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { MARKETING_EVENTS } from "@/lib/marketing/analytics-events";
 import { jsonLdDocument, organizationSchema, websiteSchema } from "@/lib/marketing/structured-data";
@@ -16,57 +16,62 @@ import {
   StatusBlock,
 } from "@/components/marketing/acquisition";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { SHOPPER_DOOR_BODY, SHOW_PRELAUNCH_STATUS_BLOCK, SITE_DESCRIPTION, SITE_TITLE } from "@/lib/marketing/live-claims";
 import {
-  NODE_PRESENCE_LEAD,
-  NODE_SHOPS_SENTENCE,
-  SEE_NODE_LINK_LABEL,
-  SHOPPER_DOOR_BODY,
-  SHOW_PRELAUNCH_STATUS_BLOCK,
-} from "@/lib/marketing/live-claims";
+  DEMO_DISCLOSURE,
+  DEMO_FEED_HREF,
+  PILOT_STATUS_SENTENCE,
+  POTENTIAL_LOCATION_BODY,
+  POTENTIAL_LOCATION_EYEBROW,
+  POTENTIAL_LOCATION_HEADING,
+} from "@/lib/marketing/pilot-status";
 
 /**
- * `/` — Home, as design board 1 draws it (founder ruling 2026-09-05: as drawn).
+ * `/` — Home, repositioned around a Nairobi pilot whose location is not
+ * confirmed (founder direction 2026-09-05). Same structure as design board 1:
+ * three doors, the loop, the potential first location, the status block.
  *
- * Three doors, the loop, the pilot, the status block. Home routes; it does not
- * persuade. `#doors` is the load-bearing section and everything below it is
- * reinforcement.
- *
- * **One action.** Every acquisition page has exactly one primary action — join
- * the waitlist — repeated in the header, the hero and the closing band.
- * Repetition of one action, never two competing ones; everything else is a
- * text link.
+ * **One amber action**: "Explore demo deals", into the real feed, which
+ * carries its own disclosure banner and labels every card "Demo". "Join the
+ * Nairobi waitlist" is the secondary, and the disclosure under both says what
+ * the demo feed is.
  *
  * **Nothing invented.** No merchant logos, testimonials, signup counts,
- * savings, ratings, partnerships or traction. Where a SaaS page would put a
- * logo wall, this one puts `StatusBlock` — the honest version. Node 0 is named
- * as the pilot location and the deployment reference, never as evidence of
- * adoption; the staffing tiles say on their face that they are a model, not a
- * headcount.
- *
- * The hero mockup of the feed (`HeroShot`, 2026-08-01) and the inline
- * early-access form are retired by the same ruling: the hero shows the one
- * thing a shopper actually carries to the counter — a code — and the closing
- * band sends people to the real waitlist funnel instead of a second capture.
+ * savings, ratings, partnerships or traction. BBS Mall in Eastleigh is named
+ * once, in the bounded potential-location block, and only as a candidate.
+ * The staffing tiles say on their face that they are a model, not a headcount.
  */
 export const metadata: Metadata = pageMetadata({
   path: "/",
-  title: "MAANTA — The mall, made live.",
-  description: `Mall deals you claim on your phone and redeem at the counter. ${NODE_PRESENCE_LEAD} ${FACTS.launchMall}. Join the waitlist and we will message you when the shops there start publishing deals.`,
-  ogTitle: "Mall deals you claim on your phone and redeem at the counter.",
-  ogDescription: `${NODE_PRESENCE_LEAD} ${FACTS.launchMall}. Join the waitlist for launch.`,
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  ogTitle: "Find real offers from Nairobi shops before you make the trip.",
+  ogDescription: PILOT_STATUS_SENTENCE,
 });
 
 export default function LandingPage() {
   const fee = formatKes(FACTS.successFeeKes);
 
   const doors = [
-    { title: "Shoppers", body: SHOPPER_DOOR_BODY, label: "For shoppers", href: "/shoppers" },
+    {
+      title: "Shoppers",
+      body: (
+        <>
+          <span className="block font-bold text-ink">See what is worth walking to.</span>
+          {SHOPPER_DOOR_BODY}
+        </>
+      ),
+      label: "For shoppers",
+      href: "/shoppers",
+    },
     {
       title: "Shops",
       body: (
         <>
-          Publish a deal from a phone. You pay <strong className="font-bold text-ink">{fee}</strong>{" "}
-          per verified redemption — nothing for a deal nobody uses.
+          <span className="block font-bold text-ink">Turn an offer into a verified visit.</span>
+          Publish a deal from your phone and pay MAANTA only when a shopper&apos;s code is
+          successfully verified at your counter — <strong className="font-bold text-ink">{fee}</strong>{" "}
+          per verified redemption.
         </>
       ),
       label: "For shops",
@@ -74,8 +79,14 @@ export default function LandingPage() {
     },
     {
       title: "Mall operators",
-      body: `A node is run on your floor: ${NODE_TEAM.managers === 1 ? "one node manager" : `${NODE_TEAM.managers} node managers`} and up to ${NODE_TEAM.agentsMax} agents, onboarding tenants unit by unit.`,
-      label: "For operators",
+      body: (
+        <>
+          <span className="block font-bold text-ink">Test measurable tenant promotions.</span>
+          Explore a proposed mall pilot that makes tenant offers visible and records verified
+          redemptions without connecting to the mall&apos;s POS.
+        </>
+      ),
+      label: "For mall operators",
       href: "/mall-operators",
     },
   ] as const;
@@ -91,30 +102,32 @@ export default function LandingPage() {
             <div>
               <NodePill />
               <h1 className="mt-5 max-w-4xl text-balance text-[34px] font-extrabold leading-[1.05] tracking-[-0.034em] text-ink sm:text-5xl lg:text-[56px]">
-                Mall deals you claim on your phone and redeem at the counter.
+                Find real offers from Nairobi shops before you make the trip.
               </h1>
               <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-secondary sm:text-lg">
-                {NODE_PRESENCE_LEAD} {FACTS.launchMall}. Join the waitlist and we&apos;ll message
-                you when the shops there start publishing deals.
+                MAANTA brings time-limited shop deals into one feed. Claim a deal, receive a
+                one-time code, and redeem it with the shop in person. We are preparing our first
+                Nairobi pilot; no location or launch date has been confirmed.
               </p>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
                 <TrackedLink
-                  href="/waitlist"
-                  name="Join the waitlist"
+                  href={DEMO_FEED_HREF}
+                  name="Explore demo deals"
                   location="hero"
                   className="inline-flex h-12 items-center justify-center rounded-pill bg-brand px-7 text-base font-semibold text-black shadow-card transition hover:brightness-95 active:brightness-90"
                 >
-                  Join the waitlist
+                  Explore demo deals
                 </TrackedLink>
                 <TrackedLink
-                  href="/shoppers#how-it-works"
-                  name="How it works"
+                  href="/waitlist"
+                  name="Join the Nairobi waitlist"
                   location="hero"
-                  className="text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+                  className="inline-flex h-12 items-center justify-center rounded-pill border border-ink bg-white px-6 text-base font-semibold text-ink transition hover:bg-stone"
                 >
-                  See how it works →
+                  Join the Nairobi waitlist
                 </TrackedLink>
               </div>
+              <p className="mt-4 max-w-2xl text-[13px] leading-relaxed text-muted">{DEMO_DISCLOSURE}</p>
             </div>
             <div>
               <CodeExampleCard />
@@ -135,43 +148,60 @@ export default function LandingPage() {
       </Section>
 
       <Section id="loop" tone="paper">
-        <Eyebrow>The loop</Eyebrow>
-        <SectionHeading>Four steps, and the last one happens at the till.</SectionHeading>
+        <Eyebrow>How it works</Eyebrow>
+        <SectionHeading>Four steps, and the last one happens at the counter.</SectionHeading>
         <LoopSteps
           steps={[
             { title: "Find a deal", body: "Open the feed in your phone browser. Nothing to install." },
             {
               title: "Claim it",
-              body: `You get a ${FACTS.codeLength}-digit code, held for you with a short grace window.`,
+              body: `You get a ${FACTS.codeLength}-digit one-time code, held for you with a short grace window.`,
             },
             {
-              title: "Walk to the shop",
+              title: "Visit the shop",
               body: "Read the code to the person at the counter. They type it in.",
             },
             {
-              title: "Pay in person",
-              body: "You pay the deal price the way you normally pay. MAANTA never takes your money.",
+              title: "Redeem at the counter",
+              body: "The shop verifies your one-time code. You pay the shop directly using a payment method the shop accepts. MAANTA does not process the purchase.",
             },
           ]}
         />
+        <p className="mt-6 text-sm text-secondary">
+          <TrackedLink
+            href="/shoppers#how-it-works"
+            name="How it works"
+            location="loop"
+            className="font-bold text-ink underline underline-offset-4 hover:text-secondary"
+          >
+            The shopper walkthrough, step by step →
+          </TrackedLink>
+        </p>
       </Section>
 
       <Section id="node">
         <SectionInView name="node">
-          <Eyebrow>Where it opens</Eyebrow>
-          <SectionHeading>
-            {NODE_PRESENCE_LEAD} {FACTS.launchMall}.
-          </SectionHeading>
-          <NodeBlock
-            staffing
-            linkLabel={SEE_NODE_LINK_LABEL}
-            lead={
-              <>
-                {NODE_SHOPS_SENTENCE} We call it {FACTS.nodeLabel} — the pilot location, and the
-                reference for how every later node gets deployed.
-              </>
-            }
-          />
+          <Eyebrow>{POTENTIAL_LOCATION_EYEBROW}</Eyebrow>
+          <SectionHeading>{POTENTIAL_LOCATION_HEADING}</SectionHeading>
+          <NodeBlock staffing linkLabel="About the potential first location" lead={POTENTIAL_LOCATION_BODY} />
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <TrackedLink
+              href="/waitlist"
+              name="Choose your preferred location"
+              location="node"
+              className="inline-flex h-12 items-center justify-center rounded-pill border border-ink bg-white px-6 text-base font-semibold text-ink transition hover:bg-stone"
+            >
+              Choose your preferred location
+            </TrackedLink>
+            <TrackedLink
+              href={DEMO_FEED_HREF}
+              name="Explore demo deals"
+              location="node"
+              className="text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+            >
+              Explore demo deals →
+            </TrackedLink>
+          </div>
         </SectionInView>
       </Section>
 
@@ -184,9 +214,10 @@ export default function LandingPage() {
       ) : null}
 
       <CtaBand
-        title="Be there when Eastleigh's shops switch on."
-        body={`One message when ${FACTS.nodeLabel} opens. No spam, and every message has an unsubscribe link.`}
-        primary={{ label: "Join the waitlist", href: "/waitlist" }}
+        title="Be there when Nairobi's first MAANTA shops switch on."
+        body="One message when a confirmed pilot location and opening date are ready. No spam, and every message has an unsubscribe link."
+        primary={{ label: "Join the Nairobi waitlist", href: "/waitlist" }}
+        secondary={{ label: "Explore demo deals", href: DEMO_FEED_HREF }}
       />
     </>
   );

@@ -1,56 +1,57 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM, OFFERS, RESPONSE_TIMES, isOfferLive } from "@/lib/marketing/facts";
+import {
+  FACTS,
+  NODE_TEAM,
+  OFFERS,
+  OFFER_CONFIRMATION_LINE,
+  OFFER_EYEBROW,
+  OFFER_HEADING,
+  RESPONSE_TIMES,
+  isOfferShown,
+} from "@/lib/marketing/facts";
 import { CtaBand, Section, SectionHeading } from "@/components/marketing/sections";
 import { SectionInView, TrackedLink } from "@/components/marketing/tracked";
 import { Eyebrow, LoopSteps, ReplyTimes } from "@/components/marketing/acquisition";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
-import { MERCHANT_CTA_TITLE } from "@/lib/marketing/live-claims";
+import { DEMO_FEED_HREF, PILOT_STATUS_SENTENCE, pilotBookingAction } from "@/lib/marketing/pilot-status";
 
 /**
- * `/merchants` — the merchant landing, as design board 1 draws it (founder
- * ruling 2026-09-05: as drawn). 301 target for `/for-merchants`.
+ * `/merchants` — the merchant landing, repositioned for the Nairobi pilot
+ * (founder direction 2026-09-05). 301 target for `/for-merchants`.
  *
  * Economics up front: the fee, the two plan limits, the boost price with its
  * Elite qualifier, and "Pricing coming soon" for Elite — the founder's
  * 2026-08-24 ruling holds, and reintroducing a number fails
- * `pricing-copy.test.ts`. Every figure reads from `facts.ts`; this is the page
- * where a pricing inconsistency does the most damage.
+ * `pricing-copy.test.ts`. Every figure reads from `facts.ts`.
  *
- * The one action is "Register your shop's interest" → `/merchants/join`, which
- * since board 2 is interest capture for the growth board (an agent walks the
- * unit), not self-serve onboarding. The illustrated counter walkthrough
- * (2026-08-16) is retired by the same ruling.
+ * One amber action: "Join the merchant waitlist" → the pilot-interest form
+ * with the audience preselected. "Explore demo deals" is secondary and the
+ * pilot conversation is tertiary. `/merchants/join` — the unit-level
+ * registration for once a pilot is confirmed — stays reachable as a text link.
  *
- * "What we are not telling you" is the merchant page's version of the honest
- * status block: no shopper numbers, no neighbour pressure.
+ * Wallet top-up by M-Pesa or card is **not** described as available: it is
+ * not operational. The three merchant steps are publish, verify, review.
+ * The opening offer is framed as planned, with no date.
  */
 export const metadata: Metadata = pageMetadata({
   path: "/merchants",
-  title: "For merchants — MAANTA",
-  description: `Get your shop ready for launch. Publish a deal from your phone and pay KES ${FACTS.successFeeKes} only when a shopper's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
-  ogTitle: "You only pay when a customer walks in.",
-  ogDescription: `Publish a deal from your phone. KES ${FACTS.successFeeKes} when a customer's code is verified at your counter.`,
+  title: "For shops in Nairobi — MAANTA",
+  description: `Publish a time-limited deal from your phone. A fee of KES ${FACTS.successFeeKes} applies only when a shopper's one-time code is successfully verified at your counter. No listing fee, no cut of the sale. Nairobi pilot, location to be confirmed.`,
+  ogTitle: "Turn an offer into a verified visit.",
+  ogDescription: `Publish a deal from your phone. KES ${FACTS.successFeeKes} only when a shopper's code is verified at your counter.`,
 });
 
-const JOIN_HREF = "/merchants/join";
-
-/** `2026-10-31` → `31 October 2026`. */
-function longDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
+const MERCHANT_WAITLIST_HREF = "/waitlist?role=merchant";
+const REGISTER_HREF = "/merchants/join";
 
 export default function MerchantsPage() {
   const fee = formatKes(FACTS.successFeeKes);
   const boost = formatKes(FACTS.boostPer24hKes);
-  const creditLive = isOfferLive(OFFERS.openingCredit);
-  const trialLive = isOfferLive(OFFERS.eliteTrial);
+  const creditShown = isOfferShown(OFFERS.openingCredit);
+  const trialShown = isOfferShown(OFFERS.eliteTrial);
   const coveredRedemptions = Math.floor(OFFERS.openingCredit.amountKes / FACTS.successFeeKes);
+  const booking = pilotBookingAction();
 
   const priceRows = [
     { label: "Active deals — Standard", value: String(FACTS.standardActiveDeals) },
@@ -70,25 +71,42 @@ export default function MerchantsPage() {
     <>
       <section className="bg-stone">
         <div className="mx-auto max-w-5xl px-5 py-12 sm:py-20">
-          <Eyebrow>For shops at {FACTS.launchMall}</Eyebrow>
+          <Eyebrow>For shops in Nairobi</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-balance text-[34px] font-extrabold leading-[1.05] tracking-[-0.034em] text-ink sm:text-5xl lg:text-[52px]">
-            {MERCHANT_CTA_TITLE}
+            Turn an offer into a verified visit.
           </h1>
           <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-secondary sm:text-lg">
-            Publish a deal from your phone. You pay only when a shopper actually walks in and
-            redeems it — verified at your own counter.
+            Publish a time-limited deal from your phone. A fee applies only when a shopper&apos;s
+            one-time code is successfully verified at your counter.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5">
             <TrackedLink
-              href={JOIN_HREF}
-              name="Register your shop's interest"
+              href={MERCHANT_WAITLIST_HREF}
+              name="Join the merchant waitlist"
               location="hero"
               className="inline-flex h-12 items-center justify-center rounded-pill bg-brand px-7 text-base font-semibold text-black shadow-card transition hover:brightness-95 active:brightness-90"
             >
-              Register your shop&apos;s interest
+              Join the merchant waitlist
             </TrackedLink>
-            <span className="text-sm text-muted">Two minutes. No commitment, no card.</span>
+            <TrackedLink
+              href={DEMO_FEED_HREF}
+              name="Explore demo deals"
+              location="hero"
+              className="inline-flex h-12 items-center justify-center rounded-pill border border-ink bg-white px-6 text-base font-semibold text-ink transition hover:bg-stone"
+            >
+              Explore demo deals
+            </TrackedLink>
+            <TrackedLink
+              href={booking.href}
+              name={booking.label}
+              location="hero"
+              external={booking.external}
+              className="text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+            >
+              {booking.label} →
+            </TrackedLink>
           </div>
+          <p className="mt-4 max-w-2xl text-[13px] leading-relaxed text-muted">{PILOT_STATUS_SENTENCE}</p>
         </div>
       </section>
 
@@ -123,44 +141,40 @@ export default function MerchantsPage() {
       </Section>
 
       {/*
-        The opening offer. Time-bound and gated: absent rather than stale once
-        the date passes. The Elite trial sentence carries the cap, the node and
-        the fee caveat, because the offer is all three and the database enforces
-        the cap (pricing-copy.test.ts).
+        The planned pilot opening offer. Framed as planned, with no date: it is
+        not currently redeemable or contractually available, and final
+        eligibility and dates are confirmed before onboarding.
       */}
-      {creditLive || trialLive ? (
+      {creditShown || trialShown ? (
         <Section id="offer" tone="paper">
           <SectionInView name="offer">
-            <Eyebrow>Opening offer · until {longDate(OFFERS.openingCredit.expiresOn)}</Eyebrow>
-            <SectionHeading>
-              For the first {OFFERS.openingCredit.cohortShops} shops that join at {FACTS.launchMall}.
-            </SectionHeading>
+            <Eyebrow>{OFFER_EYEBROW}</Eyebrow>
+            <SectionHeading>{OFFER_HEADING}</SectionHeading>
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {creditLive ? (
+              {creditShown ? (
                 <div className="flex gap-5 rounded-card bg-white p-6 shadow-card">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-ink font-mono text-xl font-bold text-white">
                     {OFFERS.openingCredit.amountKes}
                   </span>
                   <div>
                     <p className="text-lg font-bold text-ink">
-                      {formatKes(OFFERS.openingCredit.amountKes)} opening credit
+                      {formatKes(OFFERS.openingCredit.amountKes)} MAANTA fee credit
                     </p>
                     <p className="mt-1 text-[15px] leading-relaxed text-secondary">
-                      Covers your first {coveredRedemptions} verified redemptions.
+                      Covers the first {coveredRedemptions} verified redemptions at {fee} each.
                     </p>
                   </div>
                 </div>
               ) : null}
-              {trialLive ? (
+              {trialShown ? (
                 <div className="flex gap-5 rounded-card bg-white p-6 shadow-card">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-ink font-mono text-xl font-bold text-white">
                     {OFFERS.eliteTrial.days}
                   </span>
                   <div>
-                    <p className="text-lg font-bold text-ink">
-                      {OFFERS.eliteTrial.days} days of Elite, free
-                    </p>
+                    <p className="text-lg font-bold text-ink">{OFFERS.eliteTrial.days} days of Elite access</p>
                     <p className="mt-1 text-[15px] leading-relaxed text-secondary">
+                      For the first {OFFERS.eliteTrial.cohortShops} eligible shops.{" "}
                       {FACTS.eliteActiveDeals} active deals and boosts, with{" "}
                       {OFFERS.eliteTrial.postTrialGraceDays} days&apos; grace after. The {fee}{" "}
                       success fee still applies during the trial.
@@ -169,6 +183,15 @@ export default function MerchantsPage() {
                 </div>
               ) : null}
             </div>
+            <p className="mt-5 text-[15px] leading-relaxed text-secondary">{OFFER_CONFIRMATION_LINE}.</p>
+            <TrackedLink
+              href={MERCHANT_WAITLIST_HREF}
+              name="Join the merchant waitlist"
+              location="offer"
+              className="mt-4 inline-block text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+            >
+              Join the merchant waitlist →
+            </TrackedLink>
           </SectionInView>
         </Section>
       ) : null}
@@ -183,27 +206,15 @@ export default function MerchantsPage() {
           steps={[
             {
               title: "Publish a deal",
-              body: "Price, photo, how long it runs. It appears in the feed for shoppers in your mall.",
+              body: "Add a price, photo, quantity and expiry from your phone.",
             },
             {
               title: "Verify at the counter",
-              body: `Your staff type the shopper's ${FACTS.codeLength} digits into their own screen. Give each person only the permissions they need — on every plan.`,
-              after: (
-                <ul className="flex flex-wrap gap-1.5" aria-label="Staff permissions">
-                  {["Verify", "Deals", "Top-up", "Purchase"].map((p) => (
-                    <li
-                      key={p}
-                      className="rounded-[6px] border border-line bg-stone px-2 py-1 font-mono text-[11px] font-semibold text-secondary"
-                    >
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              ),
+              body: "Staff enter the shopper's one-time code. A successful verification records the redemption.",
             },
             {
-              title: "Top up your wallet",
-              body: "You get an M-Pesa prompt on your own handset and enter your PIN. No paybill number to remember, no till numbers to type.",
+              title: "Review what moved",
+              body: "See which deals produced verified counter visits.",
             },
           ]}
         />
@@ -216,13 +227,14 @@ export default function MerchantsPage() {
             <ReplyTimes
               rows={[
                 { channel: "WhatsApp", time: RESPONSE_TIMES.whatsapp },
-                { channel: "This form", time: RESPONSE_TIMES.form },
+                { channel: "The contact form", time: RESPONSE_TIMES.form },
               ]}
             />
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-secondary">
-              You do not have to work this out on your own. Every node has a team in the mall —
-              a node manager and up to {NODE_TEAM.agentsMax} agents — who come to your unit, set
-              you up, and stay until a real code has been verified at your counter.
+              If a pilot is agreed, you would not have to work this out on your own. A node is
+              designed to run with a node manager and up to {NODE_TEAM.agentsMax} agents who
+              would come to your unit, set you up, and stay until a real code has been verified
+              at your counter. Nobody is deployed anywhere yet.
             </p>
           </div>
           <div className="rounded-card bg-white p-6 shadow-card sm:p-8">
@@ -232,6 +244,7 @@ export default function MerchantsPage() {
             <ul className="mt-5 flex flex-col gap-3 text-[15px] leading-relaxed text-secondary">
               <li>How many shoppers to expect. Nobody has redeemed a deal yet.</li>
               <li>Which other shops have signed. We will not use your neighbours as pressure.</li>
+              <li>Where or when the pilot opens. Neither has been confirmed.</li>
             </ul>
             <p className="mt-5 border-t border-line pt-5 text-[15px] leading-relaxed text-ink">
               <strong className="font-bold">What we will tell you:</strong> exactly what a redemption
@@ -242,11 +255,25 @@ export default function MerchantsPage() {
       </Section>
 
       <CtaBand
-        title="Be publishing on day one."
-        body={`Register your interest and an agent will walk your unit with you before ${FACTS.nodeLabel} opens.`}
-        primary={{ label: "Register your shop's interest", href: JOIN_HREF }}
+        title="Be publishing on day one of the pilot."
+        body="Join the merchant waitlist for one message when a confirmed pilot location and opening date are ready."
+        primary={{ label: "Join the merchant waitlist", href: MERCHANT_WAITLIST_HREF }}
         secondary={{ label: "See pricing", href: "/pricing" }}
-        reassurance={`Not a contract. Nothing is charged until you publish a deal and a shopper redeems it — ${fee} per verified redemption.`}
+        reassurance={
+          <>
+            Not a contract. Nothing is charged until you publish a deal and a shopper redeems it —{" "}
+            {fee} per verified redemption. Have a specific unit to register?{" "}
+            <TrackedLink
+              href={REGISTER_HREF}
+              name="Register your shop's details"
+              location="cta"
+              className="underline underline-offset-4 hover:text-white"
+            >
+              Register your shop&apos;s details
+            </TrackedLink>
+            .
+          </>
+        }
       />
     </>
   );

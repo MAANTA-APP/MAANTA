@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ENTITY } from "@/lib/marketing/demo";
-import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { RESPONSE_TIMES } from "@/lib/marketing/facts";
+import { FOOTER_PILOT_LINE_1, FOOTER_PILOT_LINE_2, PILOT_EYEBROW, PILOT_STATUS_SENTENCE } from "@/lib/marketing/pilot-status";
 import { EnquiryRouter } from "@/components/marketing/EnquiryRouter";
 import { Section, SectionHeading } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -45,7 +46,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/contact",
   title: "Contact — MAANTA",
   description:
-    "Talk to MAANTA. WhatsApp support for shoppers and merchants, a desk at BBS Mall, Eastleigh, and direct contacts for mall operators, press and privacy requests.",
+    "Talk to MAANTA. WhatsApp support for shoppers and merchants, and direct contacts for mall operators, press and privacy requests. Nairobi pilot, location to be confirmed.",
 });
 
 export default function ContactPage() {
@@ -80,13 +81,11 @@ export default function ContactPage() {
             </div>
 
             <div className="rounded-card bg-white shadow-card p-5">
-              <h3 className="text-base font-bold text-ink">The desk at BBS Mall</h3>
-              <p className="mt-1 text-sm font-semibold text-ink">
-                {ENTITY.address}, {ENTITY.city}
-              </p>
+              <h3 className="text-base font-bold text-ink">In person</h3>
+              <p className="mt-1 text-sm font-semibold text-ink">{PILOT_EYEBROW}</p>
               <p className="mt-2 text-sm leading-relaxed text-secondary">
-                If you run a shop in the mall and would rather do this in person, come and
-                find us. We will set you up at your counter.
+                There is no in-mall desk yet. {PILOT_STATUS_SENTENCE} If you run a shop, the
+                merchant waitlist is the way to be first to hear.
               </p>
             </div>
 
@@ -173,21 +172,16 @@ export default function ContactPage() {
       </Section>
 
       <Section id="location">
-        <SectionHeading>Where to find us</SectionHeading>
+        <SectionHeading>Where MAANTA is</SectionHeading>
         <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
-            MAANTA operates at{" "}
-            <strong className="font-semibold text-ink">
-              {FACTS.launchMall}, {FACTS.city}
-            </strong>
-            . That is where the shops are, and where the node team works.
+            <strong className="font-semibold text-ink">{FOOTER_PILOT_LINE_1}.</strong>{" "}
+            {FOOTER_PILOT_LINE_2}. MAANTA has no office or in-mall desk today; WhatsApp and
+            email are the ways to reach a person.
           </p>
-          <p>There is no other office worth sending you to.</p>
         </div>
         <address className="mt-8 not-italic text-sm leading-relaxed text-ink">
           <strong className="font-bold">{ENTITY.name}</strong>
-          <br />
-          {ENTITY.address}
           <br />
           {ENTITY.city}, {ENTITY.country}
         </address>

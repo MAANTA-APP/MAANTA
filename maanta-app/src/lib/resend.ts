@@ -110,7 +110,7 @@ export async function addWaitlistContact(
     // Field names are canonical per docs/maanta-waitlist-data-schema.md.
     properties: {
       segment_type: submission.segment,
-      phone: submission.phone,
+      phone: submission.phone ?? undefined,
       node_interest: submission.nodeInterest,
       business_name: submission.businessName ?? undefined,
       note: submission.note ?? undefined,

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { SITE_DESCRIPTION } from "@/lib/marketing/live-claims";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/marketing/live-claims";
 import { rasterManifestIcons } from "@/lib/brand/app-icons";
 
 /**
@@ -47,7 +47,7 @@ import { rasterManifestIcons } from "@/lib/brand/app-icons";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Maanta — The mall, made live.",
+    name: SITE_TITLE,
     short_name: "Maanta",
     description: SITE_DESCRIPTION,
     // The post-login fallback for every role, and the first screen an installed

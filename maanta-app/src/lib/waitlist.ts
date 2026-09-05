@@ -3,6 +3,13 @@
  * Canonical field names come from docs/maanta-waitlist-data-schema.md —
  * keep them identical across the form, this API, and the email platform.
  */
+import {
+  PILOT_LOCATION_OPTIONS,
+  PILOT_LOCATION_OTHER_MAX,
+  isPilotLocationValue,
+  storedPilotLocation,
+  type PilotLocationValue,
+} from "@/lib/marketing/pilot-status";
 
 export const WAITLIST_SEGMENTS = ["shopper", "merchant", "mall_operator"] as const;
 export type WaitlistSegment = (typeof WAITLIST_SEGMENTS)[number];
@@ -38,9 +45,18 @@ export const WAITLIST_SEGMENT_OPTIONS: {
   label: string;
 }[] = [
   { value: "shopper", label: "Shopper" },
-  { value: "merchant", label: "Merchant" },
+  { value: "merchant", label: "Shop owner or staff" },
   { value: "mall_operator", label: "Mall operator" },
 ];
+
+/**
+ * "Other" is not offered. `waitlist_signups.segment` is constrained to the
+ * three values above (migration `20260904130000`); adding a fourth needs a
+ * migration, which is a separate founder authorisation (readiness report,
+ * 2026-09-05). Until then a visitor who fits none of the three picks the
+ * closest, and the form says so.
+ */
+export const WAITLIST_AUDIENCE_NOTE = "Not one of these? Pick the closest; the message is the same.";
 
 /**
  * The channels a signup may be reached on, as the consent wording names them.
@@ -81,21 +97,16 @@ export const WAITLIST_ACTIVATED_CHANNELS = ["email"] as const;
  * is never rewritten to the current wording.
  */
 export const WAITLIST_CONSENT_TEXT =
-  "I agree to receive MAANTA launch updates and relaunch marketing messages by email, WhatsApp or SMS — including merchant offers at BBS Mall and deal updates across Nairobi. I can unsubscribe at any time.";
-
-/** Node 0. The default node interest, and the mall the form offers first. */
-export const WAITLIST_NODE_INTEREST = "BBS Mall";
+  "I agree to receive MAANTA pilot updates and marketing messages by email, WhatsApp or SMS — including shop offers and deal updates across Nairobi. I can unsubscribe at any time.";
 
 /**
- * The mall question on the shopper form. `bbs` is Node 0; `other` asks which,
- * and the answer becomes `node_interest` — a shopper naming another mall is a
- * signal for where Node 1 should be, which is why the form bothers to ask.
+ * The preferred-location question. One central list, shared with the merchant
+ * form and validated server-side against the same values
+ * (`lib/marketing/pilot-status.ts`). The answer is a preference, stored in
+ * `node_interest`; it is never evidence of a relationship with a mall.
  */
-export const WAITLIST_MALL_OPTIONS = [
-  { value: "bbs", label: "BBS Mall, Eastleigh" },
-  { value: "other", label: "Another mall" },
-] as const;
-export type WaitlistMallChoice = (typeof WAITLIST_MALL_OPTIONS)[number]["value"];
+export const WAITLIST_LOCATION_OPTIONS = PILOT_LOCATION_OPTIONS;
+export type WaitlistLocationChoice = PilotLocationValue;
 
 /**
  * "What do you usually shop for?" — optional chips, closed list. Stored on the
@@ -129,9 +140,14 @@ export type WaitlistSubmission = {
    */
   fullName: string | null;
   email: string;
-  /** E.164; Kenyan numbers normalized to +254. */
-  phone: string;
-  /** Which mall they shop at. "BBS Mall" for Node 0, else what they typed. */
+  /**
+   * E.164; Kenyan numbers normalized to +254. Optional since the Nairobi pilot
+   * repositioning (2026-09-05): the pilot-interest form collects the minimum —
+   * email, audience, preferred location, consent — and email is the activated
+   * channel. A number, when offered, must still be valid.
+   */
+  phone: string | null;
+  /** Preferred pilot location: a stored value from the central list, or the free-text "another" answer. */
   nodeInterest: string;
   /** Closed list, possibly empty. */
   interests: ShopperInterest[];
@@ -212,13 +228,16 @@ export function validateWaitlistSubmission(
   const fullName = typeof b.fullName === "string" ? b.fullName.trim() : "";
   if (fullName.length > 120) return { ok: false, error: "Name is too long." };
 
-  // The mall. Absent (older callers, the landing form) means Node 0.
-  let nodeInterest: string = WAITLIST_NODE_INTEREST;
-  if (b.mall === "other") {
-    const other = optionalText(b.mallOther, 80);
-    if (!other) return { ok: false, error: "Tell us which mall you shop at." };
-    nodeInterest = other;
+  // The preferred location. Validated against the same list the form renders;
+  // any other value is rejected rather than defaulted, so a caller cannot file
+  // a preference the founder never approved. `mall`/`mallOther` are the
+  // older field names and are still read.
+  const locationValue = b.location ?? b.mall;
+  if (!isPilotLocationValue(locationValue)) {
+    return { ok: false, error: "Choose a preferred shopping location from the list." };
   }
+  const nodeInterest = storedPilotLocation(locationValue, optionalText(b.locationOther ?? b.mallOther, PILOT_LOCATION_OTHER_MAX));
+  if (!nodeInterest) return { ok: false, error: "Tell us which Nairobi shopping location you mean." };
 
   const interests = Array.isArray(b.interests)
     ? Array.from(new Set(b.interests.filter(isShopperInterest)))
@@ -229,13 +248,14 @@ export function validateWaitlistSubmission(
     return { ok: false, error: "Enter a valid email address." };
   }
 
-  const phone = normalizeWaitlistPhone(b.phone);
-  if (!phone) {
-    return { ok: false, error: "Enter a valid phone number (e.g. 0712 345 678)." };
+  const phoneOffered = typeof b.phone === "string" && b.phone.trim() !== "";
+  const phone = phoneOffered ? normalizeWaitlistPhone(b.phone) : null;
+  if (phoneOffered && !phone) {
+    return { ok: false, error: "Enter a valid phone number (e.g. 0712 345 678), or leave it blank." };
   }
 
   if (b.consent !== true) {
-    return { ok: false, error: "Please agree to receive launch updates to join the waitlist." };
+    return { ok: false, error: "Please agree to receive pilot updates to join the list." };
   }
 
   return {

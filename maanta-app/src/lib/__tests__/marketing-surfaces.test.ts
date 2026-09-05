@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
-import { HEADER_CTA, FOOTER_COLUMNS } from "@/lib/marketing/nav";
+import { HEADER_CTA, HEADER_WAITLIST, FOOTER_COLUMNS , HEADER_WAITLIST } from "@/lib/marketing/nav";
 import { DEMO_MODE } from "@/lib/marketing/demo";
 
 /**
@@ -19,14 +19,21 @@ const ACQ = read("components", "marketing", "acquisition.tsx");
 describe("the header carries the pre-launch action", () => {
   // Founder ruling 2026-09-05, amending D259: pre-launch the bar's one amber
   // element is the waitlist, because /feed is demo deals and robots-disallowed.
-  it("points at the waitlist while DEMO_MODE holds, and at the feed after", () => {
+  // Founder direction 2026-09-05 (Nairobi pilot repositioning, superseding the
+  // board-1 ruling): pre-launch the primary action is "Explore demo deals",
+  // into the real feed — which carries its own disclosure before any deal can
+  // be touched and labels every card "Demo". The waitlist keeps a secondary
+  // entry beside sign-in.
+  it("points at the demo feed while DEMO_MODE holds, and at the live feed after", () => {
+    expect(HEADER_CTA.href).toBe("/feed");
     if (DEMO_MODE) {
-      expect(HEADER_CTA.href).toBe("/waitlist");
-      expect(HEADER_CTA.label).toBe("Join the waitlist");
+      expect(HEADER_CTA.label).toBe("Explore demo deals");
+      expect(HEADER_WAITLIST.href).toBe("/waitlist");
       const product = FOOTER_COLUMNS.find((c) => c.title === "Product")!;
-      expect(product.links.map((l) => l.href)).not.toContain("/feed");
+      // Named as what it is, never as a live feed.
+      expect(product.links.find((l) => l.href === "/feed")?.label).toBe("Explore demo deals");
     } else {
-      expect(HEADER_CTA.href).toBe("/feed");
+      expect(HEADER_CTA.label).toBe("Browse deals");
     }
   });
 });

@@ -4,117 +4,88 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { InlineAlert } from "@/components/ui/inline-alert";
-import { PhoneField, TextField, inputClass } from "@/components/ui/inputs";
-import { ChipGroup } from "@/components/funnel/chips";
-import {
-  Callout,
-  ConfirmationPanel,
-  Eyebrow,
-  FactRows,
-  NumberedSteps,
-  maskPhone,
-} from "@/components/funnel/confirmation";
-import { FieldLabel, RoleChip, SelectField, StepProgress, TestChip, TestNotice } from "@/components/funnel/pieces";
+import { TextField, inputClass } from "@/components/ui/inputs";
+import { ConfirmationPanel, Eyebrow, NumberedSteps } from "@/components/funnel/confirmation";
+import { FieldLabel, SelectField, TestChip, TestNotice } from "@/components/funnel/pieces";
 import { IconCheck } from "@/components/ui/icons";
 import { cn } from "@/lib/ui";
-import { FACTS, RESPONSE_TIMES } from "@/lib/marketing/facts";
 import {
-  SHOPPER_INTERESTS,
+  WAITLIST_AUDIENCE_NOTE,
   WAITLIST_CONSENT_TEXT,
-  WAITLIST_MALL_OPTIONS,
+  WAITLIST_LOCATION_OPTIONS,
   WAITLIST_SEGMENT_OPTIONS,
-  type ShopperInterest,
-  type WaitlistMallChoice,
+  type WaitlistLocationChoice,
   type WaitlistSegment,
 } from "@/lib/waitlist";
-
-type Segment = Exclude<WaitlistSegment, "merchant">;
+import { DEMO_FEED_HREF, PILOT_LOCATION_OTHER_MAX, pilotBookingAction } from "@/lib/marketing/pilot-status";
 
 /**
- * Step 2 of 2 — "Where should we message you?" (board 2, M5), for shoppers and
- * mall operators. Merchants go to `/merchants/join`.
+ * The Nairobi pilot-interest form (founder direction 2026-09-05).
  *
- * ## Phone first, email kept — founder ruling 2026-09-05
+ * Collects the minimum: email, audience, preferred shopping location, consent.
+ * No phone, no name, no interests — email is the activated channel and one
+ * message is the promise. The location list is the central founder-approved
+ * one, no more than ten choices, and the server validates against the same
+ * values; the answer is a preference, never evidence of a mall relationship.
  *
- * The board's rule is "phone first, email never". The phone is first, and it is
- * the number the message will reach. The email stays because it is the thing
- * every piece of infrastructure keys on today — the sending platform's contact,
- * the mirror's identity, the consent wording a person actually agrees to — and
- * there is no SMS or WhatsApp sender in this codebase to replace it with.
- * Dropping the field would have meant a form that collects a number nothing
- * can message. The channel is an open founder decision (register D269).
+ * ## States are honest
  *
- * ## The confirmation never quotes a number of people
+ * Success renders only on a 2xx from the API, which answers only after the
+ * contact is persisted. A 5xx or a dropped connection renders the failure
+ * panel and says nothing was saved. No state quotes a number of people, a
+ * call, a visit or a response time.
  *
- * "You're number 147" and "join 2,000 others" are traction, and there is none
- * to show. Every state says what happens next instead.
+ * ## Test mode
  *
- * ## Test mode (M8)
- *
- * Consent is pre-ticked and disabled — it is recorded for the shape of the data
- * — and the button says what it does. The token is posted back for the API to
- * verify itself; a boolean from the page would be a boolean anyone could send.
+ * Consent is pre-ticked and disabled — it is recorded for the shape of the
+ * data — and the button says what it does. The token is posted back for the
+ * API to verify itself; a boolean from the page would be a boolean anyone
+ * could send.
  */
-const COPY: Record<Segment, { chip: string; h1: string; lede: string }> = {
-  shopper: {
-    chip: "Shopper",
-    h1: "Where should we message you?",
-    lede: `One message when ${FACTS.nodeLabel} opens. Nothing else.`,
-  },
-  mall_operator: {
-    chip: "Mall operator",
-    h1: "Where should we reach you?",
-    lede: `One message when ${FACTS.nodeLabel} opens, and how a node would work on your floors.`,
-  },
-};
-
 type Done =
-  | { state: "joined"; phone: string; mall: string }
-  | { state: "already"; phone: string; mall: string }
+  | { state: "joined"; email: string }
+  | { state: "already"; email: string }
   | { state: "failed" };
 
+export const WAITLIST_SUCCESS_MESSAGE =
+  "You're on the Nairobi pilot list. We'll email you when a location and opening date are confirmed.";
+
 export function SignupForm({
-  segment,
+  initialSegment = "shopper",
   initialEmail = "",
   testToken = "",
   isTest = false,
-  changeHref,
 }: {
-  segment: Segment;
+  initialSegment?: WaitlistSegment;
   initialEmail?: string;
   /** Verified by the page; posted back so the API verifies it again. */
   testToken?: string;
   isTest?: boolean;
-  changeHref: string;
 }) {
-  const [countryCode, setCountryCode] = useState("+254");
-  const [phone, setPhone] = useState("");
-  const [firstName, setFirstName] = useState("");
+  const [segment, setSegment] = useState<WaitlistSegment>(initialSegment);
   const [email, setEmail] = useState(initialEmail);
-  const [mall, setMall] = useState<WaitlistMallChoice>("bbs");
-  const [mallOther, setMallOther] = useState("");
-  const [interests, setInterests] = useState<ShopperInterest[]>([]);
-  const [businessName, setBusinessName] = useState("");
+  const [location, setLocation] = useState<WaitlistLocationChoice>("bbs");
+  const [locationOther, setLocationOther] = useState("");
   const [consent, setConsent] = useState(isTest);
   const [testLabel, setTestLabel] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
-
-  const copy = COPY[segment];
-  const segmentLabel = WAITLIST_SEGMENT_OPTIONS.find((o) => o.value === segment)?.label ?? copy.chip;
-  const mallName = mall === "other" ? mallOther.trim() || "another mall" : FACTS.launchMall;
+  const booking = pilotBookingAction();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!consent) {
-      setError("Please agree to receive launch updates to join the waitlist.");
+      setError("Please agree to receive pilot updates to join the list.");
+      return;
+    }
+    if (location === "other" && !locationOther.trim()) {
+      setError("Tell us which Nairobi shopping location you mean.");
       return;
     }
     setSubmitting(true);
-    const fullPhone = `${countryCode}${phone}`;
     try {
       const params = new URLSearchParams(window.location.search);
       const res = await fetch("/api/waitlist", {
@@ -122,13 +93,9 @@ export function SignupForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           segment,
-          fullName: firstName || null,
           email,
-          phone: fullPhone,
-          mall,
-          mallOther: mall === "other" ? mallOther : null,
-          interests,
-          businessName: businessName || null,
+          location,
+          locationOther: location === "other" ? locationOther : null,
           consent,
           hp_url: honeypot,
           utmSource: params.get("utm_source"),
@@ -143,11 +110,11 @@ export function SignupForm({
         setDone({ state: "failed" });
         return;
       }
-      if (!res.ok) {
+      if (!res.ok || body?.ok !== true) {
         setError(body?.error ?? "Something went wrong. Please try again.");
         return;
       }
-      setDone({ state: body?.alreadyJoined ? "already" : "joined", phone: fullPhone, mall: mallName });
+      setDone({ state: body?.alreadyJoined ? "already" : "joined", email });
     } catch {
       setDone({ state: "failed" });
     } finally {
@@ -164,19 +131,13 @@ export function SignupForm({
       >
         <Eyebrow>Why this happens</Eyebrow>
         <NumberedSteps
-          items={[
-            "The connection dropped mid-request. It happens.",
-            "Our side was briefly unavailable.",
-          ]}
+          items={["The connection dropped mid-request. It happens.", "Our side was briefly unavailable."]}
         />
         <div className="mt-6">
           <Button type="button" full onClick={() => setDone(null)}>
-            Start again
+            Try again
           </Button>
         </div>
-        <p className="mt-3.5 text-center text-[13px] text-muted">
-          It takes under a minute. Your number and email are all we need.
-        </p>
       </ConfirmationPanel>
     );
   }
@@ -188,22 +149,13 @@ export function SignupForm({
         title="You're already on the list."
         lede="That address joined us before, so we have not added you twice."
       >
-        <FactRows
-          rows={[
-            { label: "Number", value: <span className="font-mono">{maskPhone(done.phone)}</span> },
-            { label: "Listed as", value: `${segmentLabel} · ${done.mall}` },
-          ]}
-        />
-        <p className="mt-5 text-[15px] leading-relaxed text-secondary">
-          We will message you once, when {FACTS.nodeLabel} opens. Joining again does not
-          move you up — there is no queue to jump.
-        </p>
+        <p className="text-[15px] leading-relaxed text-secondary">{WAITLIST_SUCCESS_MESSAGE}</p>
         <div className="mt-5">
           <Link
-            href={segment === "mall_operator" ? "/mall-operators" : "/shoppers"}
+            href={DEMO_FEED_HREF}
             className="flex h-12 items-center justify-center rounded-pill bg-ink text-base font-semibold text-white hover:bg-ink-soft"
           >
-            See how it will work
+            Explore demo deals
           </Link>
         </div>
         <p className="mt-3.5 text-center text-[13px] text-muted">
@@ -220,53 +172,45 @@ export function SignupForm({
     return (
       <ConfirmationPanel
         tone="success"
-        title={isTest ? "Test entry recorded." : "Karibu — you're on the list."}
+        title={isTest ? "Test entry recorded." : "You're on the Nairobi pilot list."}
         lede={
           isTest
             ? "Tagged TEST, held out of every real count, and no message was sent."
-            : segment === "mall_operator"
-              ? "We have your details, and we know which property you manage."
-              : `We have your number and we know you shop at ${done.mall}.`
+            : "We'll email you when a location and opening date are confirmed."
         }
       >
         <Eyebrow>What happens next</Eyebrow>
         <NumberedSteps
-          items={
-            segment === "mall_operator"
+          items={[
+            "Nothing, for now. We will not message you until a pilot location and opening date are confirmed.",
+            "Until then, the demonstration feed shows how MAANTA works. Nothing in it can be redeemed.",
+            ...(segment === "mall_operator"
               ? [
-                  "Nothing, for now. We will not message you until there is something to show.",
-                  `When ${FACTS.nodeLabel} opens, one message with what a node did at ${FACTS.launchMall}.`,
                   <>
-                    Want a pilot conversation sooner?{" "}
-                    <Link href="/contact?topic=mall-operator" className="underline underline-offset-2">
-                      Book one
-                    </Link>{" "}
-                    — we reply within {RESPONSE_TIMES.operator}.
+                    Want to talk about hosting a pilot?{" "}
+                    {booking.external ? (
+                      <a href={booking.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                        {booking.label}
+                      </a>
+                    ) : (
+                      <Link href={booking.href} className="underline underline-offset-2">
+                        {booking.label}
+                      </Link>
+                    )}
+                    .
                   </>,
                 ]
-              : [
-                  "Nothing, for now. We will not message you until there is something to claim.",
-                  `When ${FACTS.nodeLabel} opens, one message with a link to the feed.`,
-                  `Claim a deal, walk to the shop, read out your ${FACTS.codeLength} digits.`,
-                ]
-          }
+              : []),
+          ]}
         />
-        {segment === "shopper" ? (
-          <div className="mt-6">
-            <Callout>
-              <p className="text-[15px] font-bold text-ink">Know a shop that should be on this?</p>
-              <p className="mt-1 text-sm leading-relaxed text-secondary">
-                The more shops in your mall publish, the more there is to claim.
-              </p>
-              <Link
-                href="/merchants"
-                className="mt-3 inline-flex h-9 items-center rounded-pill border border-ink bg-white px-4 text-[13px] font-semibold text-ink hover:bg-stone"
-              >
-                Send them the shop page
-              </Link>
-            </Callout>
-          </div>
-        ) : null}
+        <div className="mt-6">
+          <Link
+            href={DEMO_FEED_HREF}
+            className="flex h-12 items-center justify-center rounded-pill bg-ink text-base font-semibold text-white hover:bg-ink-soft"
+          >
+            Explore demo deals
+          </Link>
+        </div>
         <p className="mt-5 text-center text-[13px] text-muted">
           Wrong details?{" "}
           <button type="button" onClick={() => setDone(null)} className="underline underline-offset-2 hover:text-ink">
@@ -280,26 +224,19 @@ export function SignupForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <StepProgress step={2} total={2} />
       {isTest ? <TestNotice /> : null}
-      <RoleChip label={copy.chip} changeHref={changeHref} />
 
       <h1 className="text-balance text-[29px] font-extrabold leading-[1.1] tracking-[-0.034em] text-ink lg:text-[36px]">
-        {copy.h1}
+        Be there when Nairobi&apos;s first MAANTA shops switch on.
       </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-secondary lg:text-[17px]">{copy.lede}</p>
+      <p className="mt-2 text-[15px] leading-relaxed text-secondary lg:text-[17px]">
+        Join for one message when a confirmed pilot location and opening date are ready. Demo
+        access is available now.
+      </p>
 
       <div className="mt-5 flex flex-col gap-4">
-        <PhoneField
-          label="Phone number"
-          countryCode={countryCode}
-          onCountryCode={setCountryCode}
-          value={phone}
-          onChange={setPhone}
-        />
-
         <TextField
-          label="Email — for the confirmation"
+          label="Email address"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -308,73 +245,46 @@ export function SignupForm({
         />
 
         <div>
-          <FieldLabel htmlFor="first-name" hint="optional">
-            First name
-          </FieldLabel>
-          <input
-            id="first-name"
-            className={inputClass}
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            autoComplete="given-name"
-            placeholder="So we can greet you properly"
-          />
+          <FieldLabel htmlFor="audience">I am a</FieldLabel>
+          <SelectField id="audience" value={segment} onChange={(e) => setSegment(e.target.value as WaitlistSegment)}>
+            {WAITLIST_SEGMENT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </SelectField>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted">{WAITLIST_AUDIENCE_NOTE}</p>
         </div>
 
-        {segment === "shopper" ? (
-          <>
-            <div>
-              <FieldLabel htmlFor="mall">Which mall do you shop at?</FieldLabel>
-              <SelectField id="mall" value={mall} onChange={(e) => setMall(e.target.value as WaitlistMallChoice)}>
-                {WAITLIST_MALL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </SelectField>
-              {mall === "other" ? (
-                <input
-                  aria-label="Which mall?"
-                  className={cn(inputClass, "mt-2")}
-                  value={mallOther}
-                  onChange={(e) => setMallOther(e.target.value)}
-                  placeholder="Which mall?"
-                  maxLength={80}
-                  required
-                />
-              ) : (
-                <p className="mt-1.5 text-xs leading-relaxed text-muted">
-                  Somewhere else? Pick &ldquo;Another mall&rdquo; and tell us which — it helps us
-                  choose Node 1.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <FieldLabel hint="optional">What do you usually shop for?</FieldLabel>
-              <ChipGroup
-                label="What do you usually shop for?"
-                options={SHOPPER_INTERESTS}
-                value={interests}
-                onChange={setInterests}
-              />
-            </div>
-          </>
-        ) : (
-          <div>
-            <FieldLabel htmlFor="business" hint="optional">
-              Mall or company
-            </FieldLabel>
+        <div>
+          <FieldLabel htmlFor="location">Preferred shopping location</FieldLabel>
+          <SelectField
+            id="location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value as WaitlistLocationChoice)}
+          >
+            {WAITLIST_LOCATION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </SelectField>
+          {location === "other" ? (
             <input
-              id="business"
-              className={inputClass}
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              autoComplete="organization"
-              maxLength={160}
+              aria-label="Which Nairobi shopping location?"
+              className={cn(inputClass, "mt-2")}
+              value={locationOther}
+              onChange={(e) => setLocationOther(e.target.value)}
+              placeholder="Which shopping location?"
+              maxLength={PILOT_LOCATION_OTHER_MAX}
+              required
             />
-          </div>
-        )}
+          ) : (
+            <p className="mt-1.5 text-xs leading-relaxed text-muted">
+              A preference, not a promise: it helps decide where the first pilot runs.
+            </p>
+          )}
+        </div>
 
         {isTest ? (
           <div>
@@ -386,7 +296,7 @@ export function SignupForm({
               className={cn(inputClass, "font-mono")}
               value={testLabel}
               onChange={(e) => setTestLabel(e.target.value)}
-              placeholder="smoke-test · role switching"
+              placeholder="smoke-test · audience switching"
               maxLength={60}
             />
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
@@ -420,11 +330,7 @@ export function SignupForm({
           <span
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2",
-              isTest
-                ? "border-cream-dark bg-cream-dark"
-                : consent
-                  ? "border-ink bg-brand"
-                  : "border-ink/60 bg-white"
+              isTest ? "border-cream-dark bg-cream-dark" : consent ? "border-ink bg-brand" : "border-ink/60 bg-white"
             )}
           >
             {consent ? <IconCheck className={cn("h-3.5 w-3.5", isTest ? "text-faint" : "text-ink")} /> : null}
@@ -450,26 +356,24 @@ export function SignupForm({
               Submit test entry
             </>
           ) : (
-            "Join the waitlist"
+            "Join the Nairobi pilot list"
           )}
         </Button>
 
         <p className="text-center text-[13px] leading-relaxed text-muted">
+          We use your email to tell you when a pilot location and opening date are confirmed.
+          Every message has an unsubscribe link. See our{" "}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
+            privacy policy
+          </Link>
+          .
           {isTest ? (
             <>
+              {" "}
               Leave test mode by removing the <code className="font-mono">test</code> parameter from
               the address.
             </>
-          ) : (
-            <>
-              We use your number and email to tell you when MAANTA opens. Every message has an
-              unsubscribe link. See our{" "}
-              <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
-                privacy policy
-              </Link>
-              .
-            </>
-          )}
+          ) : null}
         </p>
       </div>
     </form>

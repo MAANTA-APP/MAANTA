@@ -178,7 +178,13 @@ describe("marketing shell", () => {
     const problems: string[] = [];
     for (const f of pages) {
       const code = codeText(f);
-      if (!/NODE_TEAM/.test(code)) {
+      // A page that does not describe the staffing model at all is fine — and
+      // `/about` stopped describing it on 2026-09-05, when the founder
+      // biography and the staffing paragraph were removed. The rule is that a
+      // page describing it must single-source it, not that every page must
+      // describe it.
+      const describesTeam = /node manager|\bagents\b/i.test(code);
+      if (describesTeam && !/NODE_TEAM/.test(code)) {
         problems.push(`${rel(f)} describes the team without reading NODE_TEAM`);
       }
       // A typed agent cap is the drift this guards: "up to four agents" written

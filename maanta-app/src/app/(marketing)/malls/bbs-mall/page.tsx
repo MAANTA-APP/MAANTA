@@ -4,38 +4,26 @@ import { ButtonLink } from "@/components/ui/button";
 import { LiveDot } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { NODE_BADGE, NODE_CITY_LINE, NODE_FEED_NOTE, NODE_PAGE_DESCRIPTION, NODE_PAGE_INTRO, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
+import { DEMO_DISCLOSURE, DEMO_FEED_HREF, POTENTIAL_LOCATION_EYEBROW } from "@/lib/marketing/pilot-status";
+import Link from "next/link";
 
 /**
- * 12k Featured node — BBS Mall, Eastleigh.
+ * `/malls/bbs-mall` — the potential first location, as a potential location.
  *
- * **Counts removed, 2026-07-31 (founder ruling; risk R11).** This page used to
- * read live shop and deal counts from Supabase and print them in the hero. That
- * looked safe — the numbers were real queries, not hardcoded — but it had two
- * problems that only became visible once the marketing shell was separated:
+ * Founder direction 2026-09-05: BBS Mall in Eastleigh is one candidate for the
+ * first Nairobi pilot. No agreement, permission, desk, staff presence, launch
+ * date or operating presence may be implied, and no BBS branding or
+ * endorsement is shown. Every sentence here reads from `live-claims.ts`, whose
+ * pre-launch branches carry that qualification.
  *
- *  1. With `app_config.demo_mode_enabled` on, those queries include synthetic
- *     rows, so the page rendered demo counts ("121 shops · 190 live deals") as
- *     though they were traction. That is the figure `website-expansion-plan.md`
- *     R11 names specifically.
- *  2. The demo-data banner is correctly scoped off marketing routes (R1), so
- *     there was no disclosure above those synthetic numbers. Scoping the banner
- *     and querying deal data on the same route is the one combination that had
- *     to be avoided, and this page was doing both.
- *
- * Removing the counts resolves both at once, and it costs the page nothing: a
- * prospective shopper wants to know the mall is live and to reach the feed, and
- * a merchant or operator reading a count they cannot verify is not persuaded by
- * it anyway. The live feed is one tap away and is the honest source.
- *
- * Restore counts only from a production-only query that excludes demo rows
- * unconditionally, and only once the numbers are worth quoting.
+ * Counts were removed on 2026-07-31 (founder ruling; risk R11) and stay
+ * removed: with `demo_mode_enabled` on, a live query would print synthetic
+ * rows as traction.
  */
 
 export const metadata: Metadata = pageMetadata({
   path: "/malls/bbs-mall",
-  title: "BBS Mall, Eastleigh — MAANTA",
-  // Was 99 characters, leaving most of the snippet window unused on the Node 0
-  // page every footer links to.
+  title: `${FACTS.candidateMall} — potential pilot location — MAANTA`,
   description: NODE_PAGE_DESCRIPTION,
 });
 
@@ -50,27 +38,31 @@ export default function BbsMallPage() {
             ) : null}
             {NODE_BADGE}
           </span>
-          <h1 className="mt-4 text-4xl font-black text-brand">{FACTS.launchMall}</h1>
+          <h1 className="mt-4 text-4xl font-black text-brand">{FACTS.candidateMall}</h1>
           <p className="mt-2 text-sm text-white/70">
-            {FACTS.nodeLabel} — MAANTA&apos;s launch mall in {FACTS.city}.
+            {POTENTIAL_LOCATION_EYEBROW} for MAANTA&apos;s first Nairobi pilot. No agreement, permission or
+            launch date has been confirmed.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-4xl px-5 py-12">
-        <p className="max-w-2xl text-base leading-relaxed text-secondary">
-          {NODE_PAGE_INTRO}
-        </p>
+        <p className="max-w-2xl text-base leading-relaxed text-secondary">{NODE_PAGE_INTRO}</p>
         <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <LiveDot />
           {NODE_CITY_LINE}
         </p>
-        <p className="mt-8 max-w-2xl text-base leading-relaxed text-secondary">
-          {NODE_FEED_NOTE}
-        </p>
-        <div className="mt-8">
-          <ButtonLink href="/feed">Browse BBS Mall deals</ButtonLink>
+        <p className="mt-8 max-w-2xl text-base leading-relaxed text-secondary">{NODE_FEED_NOTE}</p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+          <ButtonLink href={DEMO_FEED_HREF}>Explore demo deals</ButtonLink>
+          <Link
+            href="/waitlist"
+            className="text-sm font-bold text-ink underline underline-offset-4 hover:text-secondary"
+          >
+            Choose your preferred location →
+          </Link>
         </div>
+        <p className="mt-4 max-w-2xl text-[13px] leading-relaxed text-muted">{DEMO_DISCLOSURE}</p>
       </section>
     </div>
   );

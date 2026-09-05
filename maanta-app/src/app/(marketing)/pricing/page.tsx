@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
 import { SUCCESS_FEE_KES } from "@/lib/pricing";
-import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferLive } from "@/lib/marketing/facts";
+import { FACTS, OFFERS, PLAN_AVAILABILITY, isOfferShown, OFFER_CONFIRMATION_LINE, OFFER_EYEBROW, OFFER_HEADING } from "@/lib/marketing/facts";
 import { IconCheck } from "@/components/ui/icons";
 import { CtaBand, Section } from "@/components/marketing/sections";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
@@ -46,7 +46,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Pricing — MAANTA",
   description: `Two plans, one fee. Every plan pays KES ${SUCCESS_FEE_KES} when a customer's code is verified at your counter. No listing fee, no cut of the sale, no monthly minimum.`,
   ogTitle: "You pay when a customer walks in, not before.",
-  ogDescription: `Standard and Elite for shops at ${FACTS.launchMall}. The success fee is the same on both plans; the plan decides how many deals you can run.`,
+  ogDescription: `Standard and Elite for shops in the Nairobi pilot. The success fee is the same on both plans; the plan decides how many deals you can run.`,
 });
 
 /**
@@ -92,7 +92,7 @@ export default function PricingPage() {
   const fee = formatKes(SUCCESS_FEE_KES);
   const boost = formatKes(FACTS.boostPer24hKes);
   const trial = OFFERS.eliteTrial;
-  const trialLive = isOfferLive(trial);
+  const trialLive = isOfferShown(trial);
 
   return (
     <>
@@ -131,7 +131,7 @@ export default function PricingPage() {
                 Staff accounts with their own permissions
                 {PLAN_AVAILABILITY.staff === "all" ? " — on every plan" : null}
               </Feature>
-              <Feature>M-Pesa wallet top-ups</Feature>
+              <Feature>Staff verify codes on a phone they already own</Feature>
               <Feature>No listing fee, no percentage of the sale, no monthly minimum</Feature>
             </ul>
           </div>
@@ -181,11 +181,11 @@ export default function PricingPage() {
       */}
       {trialLive ? (
         <Section tone="paper">
-          <h2 className="text-2xl font-black text-ink sm:text-3xl">Launch offer</h2>
+          <h2 className="text-2xl font-black text-ink sm:text-3xl">{OFFER_EYEBROW}</h2>
           <div className="mt-4 max-w-3xl space-y-3 text-base leading-relaxed text-secondary">
             <p>
-              The first {trial.cohortShops} merchants we activate at {FACTS.launchMall} get{" "}
-              {trial.days} days of Elite, at no monthly cost.
+              {OFFER_HEADING} The first {trial.cohortShops} eligible shops would get {trial.days}{" "}
+              days of Elite access, at no monthly cost. {OFFER_CONFIRMATION_LINE}.
             </p>
             <p className="text-ink">
               The {fee} success fee still applies throughout the trial. When the{" "}
@@ -199,7 +199,7 @@ export default function PricingPage() {
       <CtaBand
         title={MERCHANT_CTA_TITLE}
         body="No listing fee to join, and nothing to pay until a shopper's code is verified at your counter."
-        primary={{ label: "List your shop", href: "/merchants/join" }}
+        primary={{ label: "Join the merchant waitlist", href: "/waitlist?role=merchant" }}
         secondary={{ label: "How it works at your counter", href: "/merchants#counter" }}
       />
     </>

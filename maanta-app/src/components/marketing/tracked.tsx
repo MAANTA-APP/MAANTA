@@ -22,6 +22,7 @@ export function TrackedLink({
   location,
   className,
   children,
+  external = false,
 }: {
   href: string;
   event?: (typeof MARKETING_EVENTS)[keyof typeof MARKETING_EVENTS];
@@ -31,7 +32,26 @@ export function TrackedLink({
   location: string;
   className?: string;
   children: React.ReactNode;
+  /**
+   * An off-site destination (the founder-configured booking page). Rendered
+   * as a plain anchor in a new tab with `rel="noopener noreferrer"`; the
+   * click is still tracked.
+   */
+  external?: boolean;
 }) {
+  if (external) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        onClick={() => trackMarketing(event, { name, location, href })}
+      >
+        {children}
+      </a>
+    );
+  }
   return (
     <Link
       href={href}

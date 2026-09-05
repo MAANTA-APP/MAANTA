@@ -10,6 +10,6 @@ export default function Image() {
   return ogImage({
     eyebrow: "Contact",
     headline: "Talk to us.",
-    subline: "WhatsApp, a desk at BBS Mall, and a person who replies.",
+    subline: "WhatsApp, email, and a person who replies.",
   });
 }

@@ -155,6 +155,13 @@ export type DealRow = {
   is_active: boolean;
   /** When true, deal is hidden from shopper feed/browse/map and new claims fail. */
   is_paused: boolean;
+  /**
+   * Synthetic row. Optional at the type level for the same reason as
+   * `category`: a remote that predates the column returns it as `undefined`,
+   * and a card must then fall back to labelling nothing rather than crash.
+   * Rendered as a per-card "Demo" badge (founder direction 2026-09-05).
+   */
+  is_demo?: boolean;
   max_claims: number | null;
   claims_count: number;
   /** D236: claims ISSUED — what `max_claims` caps. Distinct from claims_count. */
@@ -181,10 +188,10 @@ export type DealRow = {
 
 /** Merchants join without GPS — used when `20260726120000_merchant_lat_lng` is not on the remote yet. */
 export const DEAL_SELECT_WITHOUT_LAT_LNG =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, is_demo, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, mall_name, node, is_visible, is_shadow_banned, status)";
 
 export const DEAL_SELECT =
-  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
+  "id, merchant_id, node, title, description, image_url, deal_type, category, flash_duration_hours, is_active, is_paused, is_demo, max_claims, claims_count, claims_reserved, success_fee, boost_active, price_kes, compare_at_kes, charges, starts_at, expires_at, merchants!inner(id, merchant_name, floor, unit_number, what3words_address, lat, lng, mall_name, node, is_visible, is_shadow_banned, status)";
 
 type DealSelectResult = {
   data: unknown;

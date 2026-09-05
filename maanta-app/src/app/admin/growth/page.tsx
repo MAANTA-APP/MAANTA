@@ -94,7 +94,7 @@ export default async function AdminGrowthPage({
     <main className="max-w-6xl">
       <GrowthPageHeader
         title="Growth"
-        subtitle={`Pre-launch. ${FACTS.nodeLabel} · ${FACTS.launchMall}. Collection ${
+        subtitle={`Pre-launch. ${FACTS.nodeLabel} · ${FACTS.candidateMall}. Collection ${
           COLLECTION_OPEN ? "open" : "closed — test entries only"
         }.`}
       >

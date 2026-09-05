@@ -4,10 +4,10 @@ import path from "node:path";
 import { stripComments } from "./helpers/comment-stripping";
 import {
   SHOPPER_INTERESTS,
-  WAITLIST_NODE_INTEREST,
   parseWaitlistSegmentParam,
   validateWaitlistSubmission,
 } from "@/lib/waitlist";
+import { FACTS } from "@/lib/marketing/facts";
 
 const SRC = path.resolve(__dirname, "..", "..");
 const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
@@ -15,7 +15,7 @@ const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
 const valid = {
   segment: "shopper",
   email: "a@example.com",
-  phone: "0712345678",
+  location: "bbs",
   consent: true,
 };
 
@@ -37,19 +37,27 @@ describe("waitlist funnel — the role parameter", () => {
   });
 });
 
-describe("waitlist funnel — the shopper fields", () => {
-  it("defaults the mall to Node 0 when the form does not say", () => {
+describe("waitlist funnel — the preferred location", () => {
+  it("stores the approved label for a listed choice", () => {
     const r = validateWaitlistSubmission(valid);
-    expect(r.ok && r.data.nodeInterest).toBe(WAITLIST_NODE_INTEREST);
+    expect(r.ok && r.data.nodeInterest).toBe(FACTS.candidateMall);
   });
 
-  it("records another mall by name, and refuses 'other' with no name", () => {
-    const named = validateWaitlistSubmission({ ...valid, mall: "other", mallOther: "  Garden City " });
+  it("records another Nairobi location by name, and refuses 'other' with no name", () => {
+    const named = validateWaitlistSubmission({ ...valid, location: "other", locationOther: "  Garden City " });
     expect(named.ok && named.data.nodeInterest).toBe("Garden City");
-    expect(validateWaitlistSubmission({ ...valid, mall: "other", mallOther: " " }).ok).toBe(false);
+    expect(validateWaitlistSubmission({ ...valid, location: "other", locationOther: " " }).ok).toBe(false);
   });
 
-  it("keeps only known interests, once each, and never free text", () => {
+  // The server validates against the same list the form renders: a value the
+  // founder never approved is refused, never silently defaulted.
+  it("refuses a location that is not in the configured list", () => {
+    for (const bad of ["karen-crossroads", "", "BBS", 7, null]) {
+      expect(validateWaitlistSubmission({ ...valid, location: bad }).ok, String(bad)).toBe(false);
+    }
+  });
+
+  it("keeps only known interests, once each, and never free text (validator still accepts them)", () => {
     const r = validateWaitlistSubmission({
       ...valid,
       interests: ["shoes", "shoes", "weapons", 42, "kids"],
@@ -72,12 +80,12 @@ describe("waitlist funnel — source guards", () => {
     expect(src).toMatch(/result\.data\.isTest\s*\?\s*true\s*:\s*await sendWaitlistEmail/);
   });
 
-  // The role cards are the entry point; they must be driven from the shared
-  // option list and never pin a segment (the D-lesson from the landing form).
-  it("drives role selection from the shared segment list", () => {
-    const src = read("app", "(funnel)", "waitlist", "role-select.tsx");
+  // The audience selector must be driven from the shared segment list and
+  // never pin a segment (the D-lesson from the landing form).
+  it("drives audience selection from the shared segment list", () => {
+    const src = read("app", "(funnel)", "waitlist", "signup-form.tsx");
     expect(src).toContain("WAITLIST_SEGMENT_OPTIONS");
-    expect(src).toMatch(/method="get"/);
+    expect(src).toContain("WAITLIST_LOCATION_OPTIONS");
   });
 
   // The funnel shell owns the single main landmark, like the marketing shell.

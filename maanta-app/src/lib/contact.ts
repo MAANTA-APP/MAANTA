@@ -149,7 +149,7 @@ export function autoresponderEmail(s: ContactSubmission): {
     `<hr /><p style="color:#5C5C5C;font-size:13px">Your message:</p>`,
     `<p style="white-space:pre-wrap;color:#5C5C5C;font-size:13px">${escapeHtml(s.message)}</p>`,
     `<hr /><p style="color:#5C5C5C;font-size:12px">${escapeHtml(ENTITY.name)}, `,
-    `${escapeHtml(ENTITY.address)}, ${escapeHtml(ENTITY.city)}</p>`,
+    `${escapeHtml(ENTITY.city)}, ${escapeHtml(ENTITY.country)}</p>`,
   ].join("");
   return { subject, text, html };
 }

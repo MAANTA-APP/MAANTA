@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ShopperTopBar } from "@/components/nav/shopper-top-bar";
+import { DemoFeedNotice } from "@/components/shopper/demo-feed-notice";
 import { Page } from "@/components/ui/claude";
 import { EndingSoonRail } from "@/components/shopper/ending-soon-rail";
 import { LiveDealCollection } from "@/components/shopper/live-deal-collection";
@@ -71,6 +72,7 @@ function cardProps(
     expiresAt: d.expires_at,
     merchantId: d.merchant_id,
     isFavourite: opts.favourites.has(d.merchant_id),
+    demo: d.is_demo === true,
     // Decision KPIs — rendered by the tall variants only (DealKpis).
     claimsReserved: d.claims_reserved,
     maxClaims: d.max_claims,
@@ -202,6 +204,7 @@ export default async function FeedPage({
           </div>
         </Suspense>
       ) : null}
+      <DemoFeedNotice />
       {user ? <NotificationOptIn /> : null}
 
       <FeedBody

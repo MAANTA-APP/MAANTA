@@ -20,6 +20,9 @@ const validBody = {
   fullName: "Amina Yusuf",
   email: "Amina@Example.com",
   phone: "0712 345 678",
+  // A preferred location, from the central founder-approved list. Required
+  // since the Nairobi pilot repositioning (2026-09-05).
+  location: "bbs",
   consent: true,
 };
 
@@ -111,7 +114,9 @@ describe("waitlist segment capture", () => {
   const SRC = path.resolve(__dirname, "..", "..");
   const read = (...p: string[]) => readFileSync(path.join(SRC, ...p), "utf8");
   // Role selection is step 1 of the funnel (board 2); the cards are the entry point.
-  const WAITLIST = ["app", "(funnel)", "waitlist", "role-select.tsx"];
+  // One form since the repositioning: the audience is a select on it, and
+  // `role-select.tsx` (the old step 1) is retired.
+  const WAITLIST = ["app", "(funnel)", "waitlist", "signup-form.tsx"];
 
   it("offers every segment, in canonical order", () => {
     expect(WAITLIST_SEGMENT_OPTIONS.map((o) => o.value)).toEqual([

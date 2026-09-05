@@ -55,7 +55,9 @@ describe("collection gate — enforced before anything is stored", () => {
     }
     const closed = read("components", "funnel", "collection-closed.tsx");
     expect(closed).not.toMatch(/<form|<input|fetch\(|bg-brand/);
-    expect(closed).toContain("Nothing is collected here until then");
+    expect(closed).toMatch(/Nothing is collected here until/);
+    // The panel names the true reason and offers the demo instead (2026-09-05).
+    expect(closed).toMatch(/temporarily unavailable while we verify the data-handling process/i);
   });
 
   it("shows the gate's state on the Growth console", () => {

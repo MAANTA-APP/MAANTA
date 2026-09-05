@@ -27,7 +27,7 @@ describe("validateMerchantInterest", () => {
     if (!r.ok) return;
     expect(r.data.phone).toBe("+254712345678");
     expect(r.data.unit).toBe("12");
-    expect(r.data.mall).toBe(FACTS.launchMall);
+    expect(r.data.mall).toBe(FACTS.candidateMall);
     expect(r.data.floor).toBe("GF");
     expect(r.data.counterStaff).toBe("two_to_four");
     expect(r.data.eliteTrialOptIn).toBe(true);

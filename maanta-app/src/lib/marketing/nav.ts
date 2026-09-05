@@ -23,16 +23,20 @@ export const HEADER_LINKS = [
 /**
  * The one amber element in the header.
  *
- * Founder ruling 2026-09-05 (design board 1, amending D259 of 2026-09-03):
- * pre-launch the bar carries **the real pre-launch action**. `/feed` serves demo
- * deals while `DEMO_MODE` holds and is disallowed to crawlers, so pointing the
- * site's most-linked button at synthetic offers was the exact risk
- * `live-claims.ts` already flags. Flipping `DEMO_MODE` at launch restores
- * "Browse deals" in the same commit that restores every other trading claim.
+ * Founder direction 2026-09-05 (Nairobi pilot repositioning, superseding the
+ * board-1 ruling of the same morning): pre-launch the primary action is
+ * **Explore demo deals**, into the real feed. The feed serves demonstration
+ * rows while `demo_mode_enabled` holds, carries its own disclosure banner
+ * before any deal can be touched, labels every card "Demo", and stays
+ * disallowed to crawlers. Flipping `DEMO_MODE` at launch restores "Browse
+ * deals" in the same commit that restores every other trading claim.
  */
 export const HEADER_CTA = DEMO_MODE
-  ? ({ label: "Join the waitlist", href: "/waitlist" } as const)
+  ? ({ label: "Explore demo deals", href: "/feed" } as const)
   : ({ label: "Browse deals", href: "/feed" } as const);
+
+/** Secondary header action, beside sign-in: the pilot-interest list. */
+export const HEADER_WAITLIST = { label: "Join waitlist", href: "/waitlist" } as const;
 
 /**
  * The shared sign-in entry. One `/login` for every role: after sign-in,
@@ -40,7 +44,7 @@ export const HEADER_CTA = DEMO_MODE
  * own shell (`lib/pwa/app-bootstrap.ts`), so the header needs no
  * "Merchant sign in" / "Admin sign in" variants — and must not grow them,
  * because a role-named link on the public site would advertise a privileged
- * route as navigation. It is a secondary action: `Browse deals` keeps the one
+ * route as navigation. It is a secondary action: `HEADER_CTA` keeps the one
  * amber element in the bar (D259).
  */
 export const HEADER_SIGN_IN = { label: "Sign in", href: "/login" } as const;
@@ -63,9 +67,9 @@ export const FOOTER_COLUMNS = [
       { label: "Merchants", href: "/merchants" },
       { label: "Mall operators", href: "/mall-operators" },
       { label: "Pricing", href: "/pricing" },
-      // The feed is demo deals until launch; the footer does not send people
-      // to it either (same ruling as HEADER_CTA).
-      ...(DEMO_MODE ? [] : [{ label: "Browse deals", href: "/feed" }]),
+      // The feed is demo deals until launch and says so on its face; the
+      // footer names it as what it is (same ruling as HEADER_CTA).
+      ...(DEMO_MODE ? [{ label: "Explore demo deals", href: "/feed" }] : [{ label: "Browse deals", href: "/feed" }]),
       { label: "Install the app", href: "/download" },
     ],
   },
@@ -82,7 +86,7 @@ export const FOOTER_COLUMNS = [
     links: [
       { label: "Help centre", href: "/help" },
       { label: "FAQ", href: "/faq" },
-      { label: "BBS Mall (Node 0)", href: "/malls/bbs-mall" },
+      { label: "Potential first location", href: "/malls/bbs-mall" },
     ],
   },
 ] as const;

@@ -44,9 +44,7 @@ describe("/download landing copy", () => {
   it("renders install headline and supporting sentence", () => {
     const html = renderToStaticMarkup(createElement(DownloadHeroCopy));
     expect(html).toContain("Install Maanta on your phone to work faster.");
-    expect(html).toContain(
-      "One app for shoppers, merchants, agents, and founders."
-    );
+    expect(html).toContain("One app for shoppers, merchants and the pilot team.");
   });
 });
 

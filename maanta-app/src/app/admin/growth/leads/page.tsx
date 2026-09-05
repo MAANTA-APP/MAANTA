@@ -65,7 +65,7 @@ export default async function AdminGrowthLeadsPage({
     <main className="max-w-7xl">
       <GrowthPageHeader
         title="Merchant leads"
-        subtitle={`${FACTS.nodeLabel} · ${FACTS.launchMall} · ${open} open`}
+        subtitle={`${FACTS.nodeLabel} · ${FACTS.candidateMall} · ${open} open`}
       >
         <PopulationChip population={population} />
         <PopulationFilter basePath="/admin/growth/leads" population={population} />

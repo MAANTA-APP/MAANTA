@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BrandLockup } from "@/components/marketing/BrandLockup";
 import { FOOTER_COLUMNS, LEGAL_LINKS } from "@/lib/marketing/nav";
 import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
+import { FOOTER_PILOT_LINE_1, FOOTER_PILOT_LINE_2 } from "@/lib/marketing/pilot-status";
 import { PrelaunchNotice } from "./PrelaunchNotice";
 import { RegulatoryStatus } from "./RegulatoryStatus";
 import { FOOTER_TAGLINE, NODE_STATUS_LINE, SHOW_LIVE_INDICATOR } from "@/lib/marketing/live-claims";
@@ -118,10 +119,12 @@ export function SiteFooter() {
                   WhatsApp support
                 </a>
               </li>
+              {/* No desk, no address: MAANTA has no premises and no operating
+                  presence at any mall (founder direction 2026-09-05). */}
               <li className="leading-relaxed">
-                In-mall desk
+                {FOOTER_PILOT_LINE_1}
                 <br />
-                {ENTITY.address}, {ENTITY.city}
+                {FOOTER_PILOT_LINE_2}
               </li>
             </ul>
           </div>

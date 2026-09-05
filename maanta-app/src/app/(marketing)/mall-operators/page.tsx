@@ -20,6 +20,7 @@ import {
 import { SectionInView } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
 import { FIRST_RESULTS_ANSWER_OPERATOR, NODE_DURATION_LEAD, NODE_FIRST_NODE_LEAD, NODE_REFERENCE_SENTENCE, NODE_STATUS_LINE } from "@/lib/marketing/live-claims";
+import { OPERATOR_POTENTIAL_NODE_COPY, OPERATOR_POTENTIAL_NODE_EYEBROW, PILOT_STATUS_SENTENCE, pilotBookingAction } from "@/lib/marketing/pilot-status";
 
 /**
  * `/mall-operators` — the page with no prior surface, and the one carrying the
@@ -62,29 +63,30 @@ export const metadata: Metadata = pageMetadata({
   path: "/mall-operators",
   title: "Mall operators — MAANTA",
   description:
-    "MAANTA makes every tenant promotion in your mall visible, redeemable and measurable. No POS integration. No cost to the mall.",
-  ogTitle: "Every tenant promotion in your mall, measured.",
+    "MAANTA is designed to make tenant promotions measurable at the counter: participating shop offers in one feed, redemptions verified by tenant staff. A proposed pilot needs no POS integration or mall hardware.",
+  ogTitle: "Make tenant promotions measurable at the counter.",
   ogDescription:
-    "MAANTA makes promotions visible, redeemable and measurable — with no POS integration and no cost to the mall.",
+    "A proposed pilot puts participating shop offers into one feed and records the redemptions their staff verify. No POS integration, no mall hardware.",
 });
 
 export default function MallOperatorsPage() {
   const fee = formatKes(FACTS.successFeeKes);
+  const booking = pilotBookingAction();
 
   return (
     <ScenarioNotice>
       <AudienceHero
         eyebrow="For mall operators"
-        title="Your mall runs hundreds of promotions a month. None of them are measured."
+        title="Make tenant promotions measurable at the counter."
         sub={
           <>
-            MAANTA puts every tenant offer into one live feed, redeems it at the counter with
-            a one-time code, and reports back what actually moved. No POS integration. No
-            hardware. No cost to the mall.
+            MAANTA is designed to put participating shop offers into one feed and record the
+            redemptions their staff verify. A proposed pilot requires no POS integration or
+            mall hardware.
           </>
         }
-        primary={{ label: "Book a pilot conversation", href: "/contact?topic=mall-operator" }}
-        secondary={{ label: "See how Node 0 works", href: "#node" }}
+        primary={{ label: booking.label, href: booking.href }}
+        secondary={{ label: "See the proposed pilot model", href: "#node" }}
         status={
           // Scenario on: the modelled node figures, each badged. Scenario off:
           // the plain live-node line used across the rest of the site. No
@@ -92,7 +94,7 @@ export default function MallOperatorsPage() {
           SCENARIO.isScenario ? (
             <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
               <LiveDot />
-              {FACTS.launchMall} since{" "}
+              Modelled node since{" "}
               <ScenarioStat value={SCENARIO.nodeLiveSince} /> ·{" "}
               <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops ·{" "}
               <ScenarioStat value={SCENARIO.verifiedRedemptions} /> verified redemptions
@@ -120,7 +122,7 @@ export default function MallOperatorsPage() {
         No figures here at all — not even behind a scenario gate. The modelled
         node counts belong to `ScenarioStat` inside the sections that own them,
         and this bar sits above the point where the page has established what
-        Node 0 is. No claim about BBS beyond being the mall MAANTA is live in.
+        a node would be. BBS Mall appears once on this page, as a potential location.
       */}
       <TrustBar
         items={[
@@ -177,13 +179,13 @@ export default function MallOperatorsPage() {
         <SectionHeading
           lead={
             <>
-              MAANTA operates mall by mall. When a mall goes live it becomes a node: every
-              participating tenant can publish offers to one feed that shoppers open on their
-              phone, before and during a visit.
+              MAANTA is designed to operate mall by mall. If a pilot is agreed, the mall
+              becomes a node: every participating tenant can publish offers to one feed that
+              shoppers open on their phone, before and during a visit. {PILOT_STATUS_SENTENCE}
             </>
           }
         >
-          A node is a mall that runs live
+          The proposed pilot model: a node
         </SectionHeading>
         <StepRail
           steps={[
@@ -211,27 +213,26 @@ export default function MallOperatorsPage() {
         </p>
 
         {/*
-          Node 0 callout. Scenario mode shows the modelled counts; production
-          describes what Node 0 is — which is true and needs no figures.
+          The one bounded mention of BBS Mall on this page: a potential Node 0
+          location, with no partnership, permission or launch date implied.
+          Scenario mode shows modelled counts for an unnamed modelled node.
         */}
         <div className="mt-8 rounded-card border border-line bg-paper p-6">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+            {OPERATOR_POTENTIAL_NODE_EYEBROW}
+          </p>
           {SCENARIO.isScenario ? (
-            <p className="text-base leading-relaxed text-ink">
-              <strong className="font-bold">
-                {FACTS.launchMall} — {FACTS.nodeLabel}.
-              </strong>{" "}
-              Live for <ScenarioStat value={SCENARIO.monthsLive} badge={false} /> months.{" "}
+            <p className="mt-3 text-base leading-relaxed text-ink">
+              <strong className="font-bold">A modelled node.</strong> Live for{" "}
+              <ScenarioStat value={SCENARIO.monthsLive} badge={false} /> months.{" "}
               <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops publishing,{" "}
               <ScenarioStat value={SCENARIO.liveDeals} badge={false} /> offers active,{" "}
               <ScenarioStat value={SCENARIO.verifiedRedemptions} /> redemptions verified at
               the counter.
             </p>
           ) : (
-            <p className="text-base leading-relaxed text-ink">
-              <strong className="font-bold">
-                {FACTS.launchMall} — {FACTS.nodeLabel}.
-              </strong>{" "}
-              {NODE_REFERENCE_SENTENCE}
+            <p className="mt-3 text-base leading-relaxed text-ink">
+              {OPERATOR_POTENTIAL_NODE_COPY} {NODE_REFERENCE_SENTENCE}
             </p>
           )}
         </div>
@@ -247,20 +248,20 @@ export default function MallOperatorsPage() {
             },
             {
               title: "Tenant activation, done in person",
-              body: `A node runs with a node manager and up to ${NODE_TEAM.agentsMax} agents on the floor, unit by unit. They onboard shops, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion are the ones they spend the most time with.`,
+              body: `A node is designed to run with a node manager and up to ${NODE_TEAM.agentsMax} agents on the floor, unit by unit. They would onboard shops, set up staff accounts, and stay until the first redemption goes through. Tenants who have never run a digital promotion would be the ones they spend the most time with.`,
             },
             {
               title: "Every offer in one place",
               body: "A shopper deciding where to spend Saturday sees what your mall has before they leave the house. Offers rank by verified redemptions, never by stars or reviews, so the feed reflects what people actually walked in for.",
             },
             {
-              title: "A named team on your floors",
+              title: "A named team on your floors, if a pilot is agreed",
               body: (
                 <>
-                  Each node runs with one node manager and up to {NODE_TEAM.agentsMax}{" "}
-                  agents. The agents {NODE_TEAM.agentRole}. The node manager{" "}
-                  {NODE_TEAM.managerRole} — so you have one person to call, not a support
-                  address.
+                  The proposed activation model includes one node manager and up to{" "}
+                  {NODE_TEAM.agentsMax} agents. The agents would {NODE_TEAM.agentRole}. The
+                  node manager would {NODE_TEAM.managerRole} — so you would have one person
+                  to call, not a support address. Nobody is deployed anywhere yet.
                 </>
               ),
             },
@@ -319,15 +320,15 @@ export default function MallOperatorsPage() {
             },
             {
               title: "Activation",
-              body: "The node team is in the building for this phase. Tenants are onboarded unit by unit, wallets and staff accounts set up, and each shop run through a live redemption before we leave the counter.",
+              body: "The node team would be in the building for this phase. Tenants would be onboarded unit by unit, staff accounts set up, and each shop run through a live redemption before we leave the counter.",
             },
             {
               title: "Go live",
-              body: "The feed opens to shoppers. Signage goes up at the entrances your team approves.",
+              body: "The feed would open to shoppers. Signage would go up at the entrances your team approves.",
             },
             {
               title: "Operate and report",
-              body: "We keep working the floors, onboarding new tenants, and supporting staff. The first operating report lands at the end of the month.",
+              body: "We would keep working the floors, onboarding new tenants, and supporting staff. The first operating report would land at the end of the month.",
             },
           ]}
         />
@@ -387,7 +388,7 @@ export default function MallOperatorsPage() {
           points={[
             {
               title: "We record",
-              body: "Deal claims, verified redemptions, timestamps, and the shop the redemption belongs to. Shoppers create an account with a phone number.",
+              body: "Deal claims, verified redemptions, timestamps, and the shop the redemption belongs to. Shoppers create an account; for the controlled pilot, email is the primary sign-in method.",
             },
             {
               title: "We do not handle payment data",
@@ -406,7 +407,7 @@ export default function MallOperatorsPage() {
           ]}
         />
         <p className="mt-8 max-w-3xl text-base leading-relaxed text-ink">
-          MAANTA operates under the Kenya Data Protection Act 2019. Full detail is in our{" "}
+          MAANTA is subject to the Kenya Data Protection Act 2019. Full detail is in our{" "}
           <Link href="/privacy" className="underline underline-offset-4 hover:text-secondary">
             Privacy Policy
           </Link>
@@ -415,20 +416,20 @@ export default function MallOperatorsPage() {
       </Section>
 
       <Section id="stage">
-        <SectionHeading>One mall. Deliberately.</SectionHeading>
+        <SectionHeading>One location. Deliberately.</SectionHeading>
         <div className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-secondary">
           {SCENARIO.isScenario ? (
             <>
               <p>
                 {NODE_DURATION_LEAD}{" "}
-                <ScenarioStat value={SCENARIO.monthsLive} /> months. We are choosing the next
-                three malls carefully rather than collecting logos.
+                <ScenarioStat value={SCENARIO.monthsLive} /> months. We would choose the next
+                malls carefully rather than collecting logos.
               </p>
               <p>
                 That is a deliberate constraint, and it is worth being direct about what it
-                buys you. A mall that joins now gets a node team on its floors, not a
-                support queue. It gets the product shaped around problems its tenants actually have.
-                And it gets an operating report written by the people who were in the
+                buys you. A mall that hosts a pilot would get a node team on its floors, not a
+                support queue. It would get the product shaped around problems its tenants actually have.
+                And it would get an operating report written by the people who were in the
                 building that month.
               </p>
               <p className="text-ink">
@@ -438,10 +439,10 @@ export default function MallOperatorsPage() {
             </>
           ) : (
             <p>
-              {NODE_FIRST_NODE_LEAD} We are choosing the next
-              malls carefully rather than collecting logos. A mall that joins now gets a
-              node team on its floors, not a support queue, and a product shaped around
-              problems its tenants actually have.
+              {NODE_FIRST_NODE_LEAD} We are choosing that first location carefully rather
+              than collecting logos, and no location has been confirmed. A mall that hosts
+              the pilot would get a node team on its floors, not a support queue, and a
+              product shaped around problems its tenants actually have.
             </p>
           )}
         </div>
@@ -466,7 +467,7 @@ export default function MallOperatorsPage() {
             },
             {
               q: "Who supports our tenants day to day?",
-              a: "We do. WhatsApp support, plus the node team in the mall during activation and on request afterwards. Tenant support does not land on your team.",
+              a: "We would. WhatsApp support, plus the node team in the mall during activation and on request afterwards. Tenant support would not land on your team.",
             },
             {
               q: "What happens to the data if we stop?",
@@ -483,8 +484,8 @@ export default function MallOperatorsPage() {
       <CtaBand
         title="Start with a conversation, not a contract."
         body="Tell us about your mall — floors, tenant mix, and what you have tried before. If it is not a fit, we will say so in the first call."
-        primary={{ label: "Book a pilot conversation", href: "/contact?topic=mall-operator" }}
-        secondary={{ label: "Join as a mall operator", href: "/waitlist?role=mall-operator" }}
+        primary={{ label: booking.label, href: booking.href }}
+        secondary={{ label: "Join as a mall operator", href: "/waitlist?role=mall_operator" }}
         reassurance={
           <>
             Or write directly: {ENTITY.founder},{" "}

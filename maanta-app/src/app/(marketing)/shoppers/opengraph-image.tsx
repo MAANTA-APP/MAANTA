@@ -10,6 +10,6 @@ export default function Image() {
   return ogImage({
     eyebrow: "For shoppers",
     headline: "The deals in your mall, before you get there.",
-    subline: "Free. No card. Nothing to download.",
+    subline: "Free. No card details. Nothing to download.",
   });
 }

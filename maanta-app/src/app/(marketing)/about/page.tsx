@@ -1,98 +1,90 @@
 import type { Metadata } from "next";
 import { formatKes } from "@/lib/ui";
-import { FACTS, NODE_TEAM } from "@/lib/marketing/facts";
-import { SCENARIO } from "@/lib/marketing/scenario";
-import { ENTITY, ENTITY_LINE, LEGAL_LAST_UPDATED } from "@/lib/marketing/demo";
-import { ScenarioNotice } from "@/components/marketing/ScenarioNotice";
-import { ScenarioStat } from "@/components/marketing/ScenarioStat";
+import { FACTS } from "@/lib/marketing/facts";
+import { ENTITY, ENTITY_LINE } from "@/lib/marketing/demo";
 import { CtaBand, Section, SectionHeading } from "@/components/marketing/sections";
-import { NODE_DURATION_LEAD, NODE_ONLY_MALL_SENTENCE } from "@/lib/marketing/live-claims";
+import { TrackedLink } from "@/components/marketing/tracked";
 import { pageMetadata } from "@/lib/marketing/page-metadata";
+import { DEMO_FEED_HREF, PILOT_STATUS_SENTENCE, pilotBookingAction } from "@/lib/marketing/pilot-status";
 
 /**
- * `/about` — set in prose, not cards.
+ * `/about` — product-centred, set in prose (founder direction 2026-09-05).
  *
- * This is the one page where the reader has decided to read, so it uses a long
- * measure and minimal chrome. Breaking it into feature tiles would undercut the
- * seriousness the copy is going for, and `#not` in particular would look
- * decorative with icons on it.
+ * The founder biography that used to sit at `#team` — birthplace, family
+ * migration, education, nationality, ethnicity and a personal claim to
+ * Eastleigh — is removed and not replaced with a larger one. What earns trust
+ * here is the product's own logic and an honest statement of where it stands:
+ * built, not launched, first pilot being prepared for Nairobi, location and
+ * date unconfirmed.
  *
- * **The founder biography was supplied on 2026-07-31** and is written only from
- * facts given: born in Norway, raised in the UK, Politics and Economics at Aston,
- * back in Norway since 2024. Nothing is embellished — the deck's guidance is that
- * what earns trust here is specific and checkable, and that a sentence true of a
- * hundred other founders should be cut.
- *
- * **One sentence is deliberately missing**: why MAANTA, and why Eastleigh. The
- * deck calls that the sentence that does the most work, and it was not supplied.
- * It is not invented here. See the implementation report.
- *
- * **The team paragraph states the node operating model**, confirmed by the founder
- * 2026-07-31: one node manager and up to four agents per node, agents on the
- * floor with shoppers and merchants, the node manager coordinating with mall
- * management. It reads from `NODE_TEAM` in `facts.ts` so `/about`, `/merchants`
- * and `/mall-operators` cannot describe the model differently.
- *
- * Stated as how a node is staffed, not as a headcount standing in BBS Mall on any
- * given day. That distinction is what keeps it honest on a site demonstrating
- * post-launch operation: the model is real and is what an operator is evaluating;
- * a present-tense count would be a measured figure, and measured figures render
- * through `ScenarioStat`. Drift D35.
- *
- * **Two corrections to the deck.** `#money` said "any shop can buy a boost" —
- * boosts are Elite-only and enforced as such, so that is stated correctly here.
- * And the contact address is `admin@maanta.app`, per `demo-mode-spec.md` §1,
- * which supersedes the deck's preference for a named `mohamed@` address; the
- * spec is authoritative, and the deck's point about `admin@` reading as "nobody
- * is home" is recorded as an open issue rather than silently actioned.
+ * No measured figures, no traction, no partner, no mall. The "does not do"
+ * list is retained and tightened; every item is a decision, not a gap.
  */
-
 export const metadata: Metadata = pageMetadata({
   path: "/about",
   title: "About — MAANTA",
-  // Trimmed from 171 characters to fit the snippet window, and the "Live at
-  // BBS Mall" clause is gone under the D87 ruling of 2026-08-10 rather than as
-  // a side effect of the trim. This description and the `ogDescription` below
-  // are two of the twenty-one surfaces that ruling covers; the rest resolve
-  // through `lib/marketing/live-claims.ts`, which is where the gated wording
-  // lives so one flag restores all of them at launch. These two are literals
-  // because a metadata string cannot read a value the page does not render.
   description:
-    "The deals inside a mall, visible before you walk in and verifiable after you walk out. How it works, how MAANTA makes money, and where it opens first.",
-  ogTitle: "What MAANTA is, and how it makes money.",
-  ogDescription:
-    "The deals inside a mall, visible before you walk in and verifiable after you walk out.",
+    "MAANTA makes shop offers visible before a shopper walks past them and measurable when a deal is redeemed at the counter. Built, not yet launched; first Nairobi pilot being prepared.",
+  ogTitle: "What MAANTA is, and what it refuses to be.",
+  ogDescription: PILOT_STATUS_SENTENCE,
 });
 
 export default function AboutPage() {
   const fee = formatKes(FACTS.successFeeKes);
-  const boost = formatKes(FACTS.boostPer24hKes);
+  const booking = pilotBookingAction();
 
   return (
-    <ScenarioNotice>
+    <>
       <Section id="what">
-        <h1 className="max-w-3xl text-3xl font-black leading-tight text-ink sm:text-4xl">
-          About MAANTA
-        </h1>
+        <h1 className="max-w-3xl text-3xl font-black leading-tight text-ink sm:text-4xl">About MAANTA</h1>
         <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary sm:text-lg">
+          <p className="text-ink">
+            MAANTA makes shop offers visible before a shopper walks past them and measurable when
+            a deal is redeemed at the counter.
+          </p>
+        </div>
+      </Section>
+
+      <Section id="began" tone="paper">
+        <SectionHeading>How the idea began</SectionHeading>
+        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
           <p>
-            MAANTA makes the deals inside a shopping mall visible before you walk in, and
-            verifiable after you walk out.
+            MAANTA began with a simple observation: in a busy Nairobi shopping centre, a useful
+            offer can be one floor away and still remain invisible. Shops already know how to
+            sell. Shoppers already want value. The missing layer is a reliable way to make offers
+            visible and confirm that an offer brought someone to the counter.
           </p>
           <p>
-            Shops publish offers from a phone. Shoppers see them in one live feed, claim one,
-            and receive a {FACTS.codeLength}-digit code. Staff verify the code at the
-            counter, the shopper pays the shop in person, and MAANTA charges the shop {fee}{" "}
-            for that verified redemption.
+            MAANTA was designed around that gap. A shop publishes a time-limited deal. A shopper
+            claims it and receives a one-time code. Shop staff verify the code in person. That
+            verified redemption — not an impression, click or review — is the signal MAANTA
+            records.
           </p>
-          <p className="text-ink">That loop is the entire product.</p>
+        </div>
+      </Section>
+
+      <Section id="building">
+        <SectionHeading>What MAANTA is building</SectionHeading>
+        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
+          <p>
+            One shared feed for participating shops, one simple verification step at the counter
+            and one evidence trail showing which offers produced real visits.
+          </p>
+          <p>
+            Shops pay {fee} for each verified redemption and nothing otherwise. Shoppers pay MAANTA
+            nothing, and a pilot is not billed to the mall.
+          </p>
+          <p className="text-ink">
+            The first controlled pilot is being prepared for Nairobi. Its location and launch date
+            have not been confirmed.
+          </p>
         </div>
       </Section>
 
       {/*
-        The strongest section on the page. Six short statements, strong vertical
-        rhythm, deliberately no icons — icons would make an austere list look
-        decorative, and the austerity is the argument.
+        Five short statements, strong vertical rhythm, deliberately no icons —
+        icons would make an austere list look decorative, and the austerity is
+        the argument.
       */}
       <Section id="not" tone="paper">
         <SectionHeading lead="It is quicker to describe MAANTA by what it refuses to be.">
@@ -101,27 +93,23 @@ export default function AboutPage() {
         <ul className="mt-10 max-w-2xl space-y-6">
           {[
             {
-              t: "We do not process payments.",
-              b: "There is no checkout in MAANTA. Money moves at the till, between a shopper and a shop, exactly as it did before we existed.",
+              t: "MAANTA does not process the shopper's purchase.",
+              b: "There is no checkout in MAANTA. The shopper pays the shop directly, using a payment method the shop accepts.",
             },
-            { t: "We do not deliver anything.", b: "The shopper walks in. That is the point." },
+            { t: "MAANTA does not deliver goods.", b: "The shopper walks in. That is the point." },
             {
-              t: "We do not host reviews or star ratings.",
+              t: "MAANTA does not use star ratings.",
               b: "A deal rises because people redeemed it, not because people rated it.",
             },
             {
-              t: "We do not take a percentage of any sale.",
+              t: "MAANTA does not take a percentage of the sale.",
               b: `${fee} is ${fee} whether the basket is ${formatKes(200)} or ${formatKes(20_000)}.`,
             },
             {
               // Worded to match the Privacy Policy sentence exactly. Claims
               // register #2 — same sentence, both pages.
-              t: "We do not sell shopper data.",
+              t: "MAANTA does not sell shopper data.",
               b: "We do not sell personal data. We do not share it with advertisers or data brokers, and we do not share it with other malls.",
-            },
-            {
-              t: "We are not a marketplace.",
-              b: "We do not stand between a shop and its customer, and we do not want to.",
             },
           ].map((p) => (
             <li key={p.t}>
@@ -131,171 +119,31 @@ export default function AboutPage() {
           ))}
         </ul>
         <p className="mt-10 max-w-2xl text-base leading-relaxed text-ink">
-          Every one of those is a decision we intend to keep, not a feature we have not got
-          to yet.
+          Every one of those is a decision we intend to keep, not a feature we have not got to
+          yet.
         </p>
       </Section>
 
-      <Section id="why">
-        <SectionHeading>Why Nairobi malls, and why in person</SectionHeading>
-        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
-          <p>
-            Mall retail in Nairobi already works. Shoppers come, shops sell, money changes
-            hands at a counter. Nothing about that transaction is broken and nothing about it
-            needs disrupting.
-          </p>
-          <p>
-            What fails is information. A shop runs a good offer and tells the forty people in
-            a WhatsApp group and whoever happens to look at the chalkboard. Two floors up,
-            someone who would have bought it never finds out. In a place like Eastleigh —
-            hundreds of shops behind hundreds of similar shutters — that gap is expensive for
-            everyone standing on either side of it.
-          </p>
-          <p className="text-ink">
-            So MAANTA fixes the information problem and leaves the transaction alone. We are
-            not trying to move mall retail online. We are trying to make the mall legible.
-          </p>
-        </div>
-      </Section>
-
-      <Section id="principle" tone="paper">
-        <SectionHeading>Verified redemption is the only signal we trust</SectionHeading>
-        <div className="mt-6 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
-          <p>
-            Everything on MAANTA ranks on one thing: a code that a member of shop staff
-            verified at a counter, with the shopper standing there.
-          </p>
-          <p>
-            Not impressions. Not clicks. Not stars, which can be bought, farmed, or left by
-            someone who never entered the shop.
-          </p>
-          <p className="text-ink">
-            It is a deliberately narrow signal, and narrow is the point. It is the only event
-            in this business that is expensive to fake and equally meaningful to all three
-            sides — a shopper who walked in, a shop that made a sale, and a mall that got
-            footfall it can account for.
-          </p>
-        </div>
-      </Section>
-
-      {/*
-        Given its own surface. A reader scanning an About page for "how do they
-        make money" should find it without reading the rest.
-      */}
-      <Section id="money">
-        <div className="max-w-3xl rounded-card border border-line bg-paper p-6 sm:p-8">
-          <h2 className="text-2xl font-black text-ink sm:text-3xl">How we make money</h2>
-          <div className="mt-5 space-y-4 text-base leading-relaxed text-secondary">
-            <p>
-              Shops pay {fee} when a shopper&apos;s code is verified at their counter. That is
-              the core of the business.
-            </p>
-            <p>
-              A shop that wants more than one live offer can take Elite. Its monthly
-              price is not set yet. Elite shops can also buy a boost — top of the feed
-              for {FACTS.boostHours} hours — at {boost}.
-            </p>
-          </div>
-          <ul className="mt-6 space-y-3 text-base leading-relaxed">
-            <li>
-              <strong className="font-bold text-ink">Shoppers pay nothing.</strong>{" "}
-              <span className="text-secondary">
-                There is no paid tier, no subscription, and nowhere to enter a card.
-              </span>
-            </li>
-            <li>
-              <strong className="font-bold text-ink">Malls pay nothing.</strong>{" "}
-              <span className="text-secondary">Operator partnerships are not billed.</span>
-            </li>
-            <li>
-              <strong className="font-bold text-ink">
-                We take no percentage and sell no data.
-              </strong>{" "}
-              <span className="text-secondary">
-                Our revenue does not rise because a basket was large or because we learned
-                something about a shopper.
-              </span>
-            </li>
-          </ul>
-          <p className="mt-6 text-base font-semibold leading-relaxed text-ink">
-            If nobody walks into a shop, we earn nothing. That is deliberate. It keeps our
-            incentive pointed at the same thing the merchant already cares about.
-          </p>
-        </div>
-      </Section>
-
-      <Section id="today" tone="paper">
-        <SectionHeading>Where we are today</SectionHeading>
-        <p className="mt-4 text-sm italic text-muted">Last updated {LEGAL_LAST_UPDATED}.</p>
-        <div className="mt-4 max-w-2xl space-y-4 text-base leading-relaxed text-secondary">
-          {SCENARIO.isScenario ? (
-            <p>
-              {NODE_DURATION_LEAD}{" "}
-              <ScenarioStat value={SCENARIO.monthsLive} badge={false} /> months.{" "}
-              <ScenarioStat value={SCENARIO.activeShops} badge={false} /> shops publish deals,
-              and <ScenarioStat value={SCENARIO.verifiedRedemptions} /> redemptions have been
-              verified at a counter.
-            </p>
-          ) : (
-            <p>
-              {NODE_ONLY_MALL_SENTENCE}
-            </p>
-          )}
-          <p>
-            We are in one mall. We have not opened a second, and we would rather do the first
-            one properly than announce three.
-          </p>
-          <p>
-            We have no outside investment to point at and no awards to list. What we have
-            is a working loop, shops using it, and people in the mall rather than a support
-            address.
-          </p>
-          <p className="text-ink">If any of that changes, this page changes with it.</p>
-        </div>
-      </Section>
-
-      <Section id="team">
-        <SectionHeading>Who is building it</SectionHeading>
-        <div className="mt-6 max-w-2xl">
-          <p className="text-base font-bold text-ink">{ENTITY.founder} — Founder</p>
-          <p className="mt-3 text-base leading-relaxed text-secondary">
-            Born in Norway in 1997 to Somali parents who arrived as asylum seekers, and
-            raised in the UK from 2003. He read Politics and Economics at Aston University
-            and moved back to Norway in 2024. MAANTA is his first company.
-          </p>
-          <p className="mt-3 text-base leading-relaxed text-secondary">
-            Eastleigh is the commercial centre of the Somali diaspora in East Africa — a
-            market he has a claim on by descent, and one most founders cannot read. Studying
-            politics and economics is what gave the thing he already recognised a shape: the
-            shops work and the prices work, and what is missing is not capital or demand but
-            information. Someone two floors up never learns what is on offer.
-          </p>
-          <p className="mt-2 text-base leading-relaxed text-secondary">
-            <a
-              href={`mailto:${ENTITY.email}`}
-              className="underline underline-offset-4 hover:text-ink"
-            >
-              {ENTITY.email}
-            </a>
-          </p>
-          <p className="mt-6 text-base leading-relaxed text-secondary">
-            Every node MAANTA opens is staffed. A node manager and up to{" "}
-            {NODE_TEAM.agentsMax} agents work the mall: the agents {NODE_TEAM.agentRole},
-            and the node manager {NODE_TEAM.managerRole}. Activation happens in person
-            rather than by email — sitting with a shop owner while they publish their first
-            deal, and staying at the counter until a real code has been verified. Most of
-            what we have learned came from that, not from analytics.
-          </p>
-        </div>
-      </Section>
-
       <CtaBand
-        title="Talk to us"
-        body="Merchants, mall operators, press and anyone doing due diligence — the fastest route is the contact page, and it goes to a person."
-        primary={{ label: "Contact us", href: "/contact" }}
-        secondary={{ label: "See how it works", href: "/shoppers" }}
-        reassurance={ENTITY_LINE}
+        title="Help shape the first Nairobi pilot."
+        body="Explore the demonstration feed, join the waitlist for one message when a location and date are confirmed, or talk to us about hosting a pilot."
+        primary={{ label: "Explore demo deals", href: DEMO_FEED_HREF }}
+        secondary={{ label: "Join the waitlist", href: "/waitlist" }}
+        reassurance={
+          <>
+            <TrackedLink
+              href={booking.href}
+              name={booking.label}
+              location="cta"
+              external={booking.external}
+              className="underline underline-offset-4 hover:text-white"
+            >
+              {booking.label}
+            </TrackedLink>{" "}
+            · {ENTITY.email} · {ENTITY_LINE}
+          </>
+        }
       />
-    </ScenarioNotice>
+    </>
   );
 }

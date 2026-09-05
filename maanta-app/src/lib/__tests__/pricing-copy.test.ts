@@ -166,18 +166,22 @@ describe("public pricing copy matches the frozen commercial rules", () => {
       if (!statesCap) {
         problems.push(`  ${rel(f)}  mentions the Elite trial but not the first-100 cap`);
       }
-      // The node must be *stated*, but — like the cap above — it need not be
-      // typed. A page rendering `FACTS.launchMall` names the node more reliably
-      // than a literal "BBS Mall" does, and cannot satisfy a check that only
-      // looks for the literal, because this scan reads source rather than
-      // rendered output. Requiring the literal would have forced the copy to
-      // hardcode the very value the marketing hard rule single-sources — the
-      // same bind the cap check resolved the same way (drift D51).
-      if (!/BBS/i.test(text) && !/launchMall/.test(text)) {
+      // The SCOPE must be stated, but it need not be typed. Until 2026-09-05
+      // the scope was a named mall; the founder's Nairobi pilot repositioning
+      // makes it "the first confirmed pilot", because no location is
+      // confirmed and naming one would be the very claim the repositioning
+      // removes. A page rendering `OFFER_HEADING` states it more reliably than
+      // a literal does, and this scan reads source rather than rendered output
+      // (drift D51).
+      if (!/pilot/i.test(text) && !/OFFER_HEADING/.test(text)) {
         problems.push(
-          `  ${rel(f)}  mentions the Elite trial but not the node it is scoped to ` +
-            `(render FACTS.launchMall, or name BBS Mall directly)`
+          `  ${rel(f)}  mentions the Elite trial but not the pilot it is scoped to ` +
+            `(render OFFER_HEADING, or say it is for the first confirmed pilot)`
         );
+      }
+      // And it must never be scoped to a confirmed mall again.
+      if (/first \d+ (?:shops|merchants)[^.]{0,40}\bat BBS/i.test(text)) {
+        problems.push(`  ${rel(f)}  scopes the trial to BBS Mall as though it were confirmed`);
       }
       if (!/success fee/i.test(text)) {
         problems.push(
@@ -187,7 +191,8 @@ describe("public pricing copy matches the frozen commercial rules", () => {
     }
     expect(
       problems,
-      `The frozen launch offer is "first 100 BBS Mall merchants get a 30-day Elite trial,\n` +
+      `The planned pilot offer is "the first 100 eligible shops in the first confirmed\n` +
+      `Nairobi pilot get a 30-day Elite trial,\n` +
         `success fee still applies". The cap is enforced in the database, so copy\n` +
         `that drops a qualification promises more than the product delivers:\n${problems.join("\n")}`
     ).toEqual([]);

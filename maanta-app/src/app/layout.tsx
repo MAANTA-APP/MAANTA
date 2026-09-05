@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import { PostHogClientProvider } from "@/components/posthog-provider";
-import { SITE_DESCRIPTION } from "@/lib/marketing/live-claims";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/marketing/live-claims";
 import "./globals.css";
 
 // Claude-calm shopper type: DM Sans for UI hierarchy; Inter kept as fallback
@@ -33,7 +33,7 @@ const SITE_ORIGIN = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.maan
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
   title: {
-    default: "Maanta — The mall, made live.",
+    default: SITE_TITLE,
     // Child pages set their own full title; this only applies to pages that
     // provide a bare string and want the brand appended.
     template: "%s",
