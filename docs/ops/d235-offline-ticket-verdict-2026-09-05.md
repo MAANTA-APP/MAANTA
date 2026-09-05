@@ -2,13 +2,13 @@
 
 **Status:** CURRENT — a verification of the founder's 2026-09-05 verdict on
 offline ticket access, read against `main` at `88bd87e`, PR #317 at `37abee6`,
-PR #318, and the production-facing docs. Register rows: **D276** (closed) and
-**D277** (open).
+PR #318, and the production-facing docs. Register rows: **D276** (closed), **D277** and
+**D278** (open).
 **Audience:** founder, eng.
 **Naming:** the verdict says "D235". On `main`, D235 is Merchant 360 (closed
 2026-09-03). The offline row is PR #317's branch-local D235 and must be
 renumbered when that work is extracted (next free number at the time of
-writing: D278). Two 2026-09-03 ops documents on `main` also use "D235" for the
+writing: D279). Two 2026-09-03 ops documents on `main` also use "D235" for the
 offline row; the register's D223 row records the collision.
 
 ## The governing decision, verified
@@ -42,6 +42,25 @@ against a demo deal).
 | Reported by GitHub as conflicting | Verified: `mergeable_state: dirty`. Ten files conflict: the decisions log, the drift register, `.gitignore`, `package.json`, two marketing pages, `deals/[id]`, `sign-out-button.tsx`, `deal-kpis.tsx`, `data.ts`. Of the offline files only `sign-out-button.tsx`, `package.json` and `.gitignore` are among them; the worker, notice, registrar, purge helper, `/offline` page and all four offline test files merge clean |
 | Branched from `c3b2fd3`; PR #318 landed since | Verified: merge-base is `c3b2fd3`; #318 merged 2026-09-03 and explicitly did **not** land the offline work ("No claim is made that authenticated offline ticket presentation works") |
 | "The practical pilot mitigation remains: screenshot the code" | **Corrected.** It was written only in the 2026-09-03 audit, which said it was "already written down in `docs/ops/node0-known-limitations.md`". It never was, in any revision. Now added there (**D276**) |
+| The screenshot mitigation itself | **Withdrawn — it fights a shipped fraud control (D278).** Raised by the Codex review bot on PR #328 and verified against three surfaces: the ticket screen's counter copy reads "If the timer isn't moving, it's a screenshot."; `claim-ticket-time.ts` calls that moving timer "an anti-fraud device merchants are trained on" and its test holds every band to one visible change per second; `/shoppers` promises the public "no arguing, no screenshots". A shopper following the instruction arrives with the artifact staff are trained to refuse |
+
+## The mitigation had to change too (D278)
+
+The verdict's mitigation and the 2026-09-03 audit's are the same sentence, and
+both are unusable as written. The replacement is **open the ticket before
+walking to the counter and leave that screen open** — not a new rule, a verified
+mechanism: `claimed-code.tsx` takes `expiresAt` as a prop and reads
+`useShopperClock`, which is a client clock seeded at server render and ticked by
+its own one-second interval (`maanta-app/src/lib/use-shopper-clock.tsx`). An
+already-open ticket therefore keeps ticking with the network gone, which is
+precisely the liveness signal staff are trained on. Only a reload, a reopen or a
+cold start needs the network, and that is the real limit.
+
+What is **not** settled here, and is not engineering's to settle: whether the
+screenshot mitigation is withdrawn everywhere it appears, or the anti-screenshot
+control and the public promise are what change. That trades a fraud control
+against counter recovery, and MAANTA has neither a fraud case nor a genuine
+redemption yet to weigh either. **D278**, founder.
 
 ## What I ran
 
@@ -82,7 +101,7 @@ while the page was "offline".
 3. Reword `TicketOfflineNotice` as the verdict proposes and extend the D92
    pattern list so "scanned" / "can still be" phrasing on an offline surface
    fails.
-4. Renumber the row from D278; it cannot be "D235" on `main`.
+4. Renumber the row from D279; it cannot be "D235" on `main`.
 5. The deployed run needs a shopper holding an active claim. The Vercel preview
    shares production's Supabase project, so make that claim **against a demo
    deal**: a claim against a genuine merchant would enter the field counters
@@ -90,6 +109,7 @@ while the page was "offline".
 
 ## Not done here
 
-No product code was changed. PR #317 was neither closed nor rebased — that is
+No product code was changed — including the anti-screenshot control and the
+`/shoppers` promise, which stay exactly as they are pending the D278 ruling. PR #317 was neither closed nor rebased — that is
 the founder's decision, and the verdict's step 3 stands. The scratch worktree
 was removed.

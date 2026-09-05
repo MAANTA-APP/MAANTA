@@ -2,7 +2,8 @@
 
 **Status:** CURRENT — compiled 2026-09-01 from production configuration read the
 same day, the open drift register, and locked founder decisions. Amended
-2026-09-05: the no-offline limit and its operator mitigation added (**D276**).
+2026-09-05: the no-offline limit and its operator mitigation added (**D276**),
+the screenshot instruction withdrawn as fraud-control conflict (**D278**).
 **Audience:** field operator, admin/founder, agents, and anyone about to promise
 something to a merchant or a shopper.
 **Re-verify:** the configuration table is live database state. Re-read it before
@@ -93,17 +94,34 @@ failure presents as a MAANTA fault when it is not one.
 The run works on the KES 300 opening credit. Do not promise M-Pesa top-up unless
 the founder has confirmed the rail is live.
 
-### The claimed code needs a network to load
+### The claimed code needs a network to LOAD, not to stay on screen
 
-`/my-deals` is rendered on the server for every request, and the service worker
-on `main` handles push only — it has no `fetch` handler, so nothing is cached.
-A shopper with no signal at the counter cannot open or reload their ticket. The
-shell says "You're offline. Reconnect to load live deals." rather than
-pretending otherwise (D92). **Operator mitigation:** have the shopper open the
-ticket while connected and screenshot the six-digit code before walking to the
-counter. Offline ticket access exists only in unmerged PR #317 and is unproven
-for a signed-in shopper (**D277**). Do not promise it, and do not gate
-Merchant 01 on it.
+`/my-deals` and `/tickets/[id]` are rendered on the server for every request,
+and the service worker on `main` handles push only — it has no `fetch` handler,
+so nothing is cached. A shopper who has **not yet opened** their ticket, or who
+reloads or reopens the app with no signal, cannot get to their code. The shell
+says "You're offline. Reconnect to load live deals." rather than pretending
+otherwise (D92).
+
+**Operator mitigation: have the shopper open the ticket BEFORE walking to the
+counter, and leave that screen open.** The countdown on the ticket is a client
+clock seeded at render with its own one-second interval
+(`maanta-app/src/lib/use-shopper-clock.tsx`), so an already-open ticket keeps
+ticking with the network gone. Do not close the app, do not reload, do not
+switch away and back.
+
+**Never tell a shopper to screenshot the code.** The counter copy trains staff
+on the opposite — "If the timer isn't moving, it's a screenshot"
+(`maanta-app/src/app/(shopper)/tickets/[id]/page.tsx`) — the moving timer is a
+documented anti-fraud device, and `/shoppers` promises the public "no arguing,
+no screenshots". A screenshot hands staff the exact artifact they are trained to
+refuse. The 2026-09-05 offline verdict and the 2026-09-03 engineering audit both
+name screenshotting as the mitigation; that conflict is **D278**, and it is a
+founder decision, not an operator's to make at the counter.
+
+Offline ticket access exists only in unmerged PR #317 and is unproven for a
+signed-in shopper (**D277**). Do not promise it, and do not gate Merchant 01
+on it.
 
 ---
 
