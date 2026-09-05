@@ -145,6 +145,7 @@ does not pre-authorize acquisition.
 | `docs/skills/role-permissions.md` | eng, admin | eng | KEEP | RLS policies | — | Roles or policies change | INTERNAL |
 | `docs/skills/admin-founder-command-centre-2026-09-03.md` | eng, admin, founder | eng | KEEP | the pure rule modules and their tests | 2026-09-03 | Admin navigation, an Action Queue rule, the visit funnel, the founder verdict readings, or the `max_claims` vocabulary (D233) changes | INTERNAL |
 | `docs/ops/d235-offline-ticket-verdict-2026-09-05.md` | founder, eng | eng | KEEP (new 2026-09-05) | `main`, PR #317 at `37abee6`, and the runs it records | 2026-09-05 | A decision on PR #317; the offline work is extracted; the deployed offline-ticket run happens (D277) | INTERNAL |
+| `docs/ops/pr-queue-triage-2026-09-05.md` | founder, eng | eng | KEEP (new 2026-09-05) | the open PR list and `main` at `18d2a1a` | 2026-09-05 | A kept PR lands or is closed; D279–D284 close; the queue is triaged again | INTERNAL |
 | **Admin runbook** (role boundaries, sanctions, audit trail, prohibited production actions, failure-vs-zero) | admin | founder | **MISSING — P1** | — | — | Admin is the founder today, so the risk is low. Required before a second admin exists | CONFIDENTIAL |
 | **Incident and escalation guide** | admin, operator | founder | **MISSING — P1** | — | — | Escalation ladder exists in the day sheet; a standalone incident procedure does not | INTERNAL |
 | **Support FAQ / macros** | support | founder | **MISSING — P2** | — | — | Needed when support volume exists | INTERNAL |

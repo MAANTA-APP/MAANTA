@@ -7,8 +7,8 @@ PR #318, and the production-facing docs. Register rows: **D276** (closed), **D27
 **Audience:** founder, eng.
 **Naming:** the verdict says "D235". On `main`, D235 is Merchant 360 (closed
 2026-09-03). The offline row is PR #317's branch-local D235 and must be
-renumbered when that work is extracted (next free number at the time of
-writing: D279). Two 2026-09-03 ops documents on `main` also use "D235" for the
+renumbered when that work is extracted (take the next free number in the
+register at that time). Two 2026-09-03 ops documents on `main` also use "D235" for the
 offline row; the register's D223 row records the collision.
 
 ## The governing decision, verified
@@ -101,7 +101,7 @@ while the page was "offline".
 3. Reword `TicketOfflineNotice` as the verdict proposes and extend the D92
    pattern list so "scanned" / "can still be" phrasing on an offline surface
    fails.
-4. Renumber the row from D279; it cannot be "D235" on `main`.
+4. Renumber the row from the next free register number; it cannot be "D235" on `main`.
 5. The deployed run needs a shopper holding an active claim. The Vercel preview
    shares production's Supabase project, so make that claim **against a demo
    deal**: a claim against a genuine merchant would enter the field counters
